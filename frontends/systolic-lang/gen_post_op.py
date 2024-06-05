@@ -25,7 +25,7 @@ def add_systolic_input_params(comp: cb.ComponentBuilder, row_num, addr_width):
     Add ports "r_{row_num}_valid", "r_{row_num}_value", "r_{row_num}_idx" to comp.
     These ports are meant to read from the systolic array output.
     """
-    cb.add_comp_params(
+    cb.add_comp_ports(
         comp,
         input_ports=[
             (NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1),
@@ -64,7 +64,7 @@ def create_immediate_done_condition(
     final_row_idx = this.port(f"r{num_rows-1}_idx")
     max_idx = num_cols - 1
     # delay_reg delays writing to this.computation_done
-    delay_reg = comp.reg("delay_reg", 1)
+    delay_reg = comp.reg(1, "delay_reg")
     final_col_idx_reached = final_row_idx == cb.ExprBuilder(
         py_ast.ConstantPort(idx_width, max_idx)
     )
@@ -115,7 +115,7 @@ def imm_write_mem_groups(comp: cb.ComponentBuilder, row_num: int, perform_relu: 
 
 def imm_write_mem_post_op(
     prog: cb.Builder, config: SystolicConfiguration, perform_relu: bool
-):
+) -> cb.ComponentBuilder:
     """
     This post-op does nothing except immediately write to memory.
     If perform_relu is true, then writes 0 to memory if result < 0, and writes
@@ -137,12 +137,14 @@ def imm_write_mem_post_op(
         + [py_ast.Enable(f"write_r{r}") for r in range(num_rows)]
     )
 
+    return comp
+
 
 def default_post_op(prog: cb.Builder, config: SystolicConfiguration):
     """
     Default post op that immediately writes to output memory.
     """
-    imm_write_mem_post_op(prog=prog, config=config, perform_relu=False)
+    return imm_write_mem_post_op(prog=prog, config=config, perform_relu=False)
 
 
 def relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
@@ -150,7 +152,7 @@ def relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
     Relu post op that (combinationally) performs relu before
     immediately writing the result to memory.
     """
-    imm_write_mem_post_op(prog=prog, config=config, perform_relu=True)
+    return imm_write_mem_post_op(prog=prog, config=config, perform_relu=True)
 
 
 def add_dynamic_op_params(comp: cb.ComponentBuilder, idx_width: int):
@@ -206,7 +208,7 @@ def leaky_relu_comp(prog: cb.Builder, idx_width: int) -> cb.ComponentBuilder:
         this.out_mem_write_data = lt.out @ fp_mult.out
         g.done = this.out_mem_done
 
-    comp.control = py_ast.Enable("do_relu")
+    comp.control += g
 
     return comp
 
@@ -242,7 +244,7 @@ def relu_dynamic_comp(prog: cb.Builder, idx_width: int):
         # It takes one cycle to write to g
         g.done = this.out_mem_done
 
-    comp.control = py_ast.Enable("do_relu")
+    comp.control += g
 
     return comp
 
@@ -285,10 +287,10 @@ def create_dynamic_post_op_groups(
         """
         this = comp.this()
         row_ready_wire = comp.wire(f"r{row}_ready_wire", 1)
-        row_ready_reg = comp.reg(f"r{row}_ready_reg", 1)
+        row_ready_reg = comp.reg(1, f"r{row}_ready_reg")
         for col in range(num_cols):
             wire_value = comp.wire(f"r{row}_c{col}_val_wire", BITWIDTH)
-            reg_value = comp.reg(f"r{row}_c{col}_val_reg", BITWIDTH)
+            reg_value = comp.reg(BITWIDTH, f"r{row}_c{col}_val_reg")
             val_ready = comp.wire(f"r{row}_c{col}_val_ready", 1)
             valid_signal = this.port(f"r{row}_valid")
             idx_signal = this.port(f"r{row}_idx")
@@ -316,13 +318,13 @@ def create_dynamic_post_op_groups(
         comp.continuous.asgn(
             wire.port("in"),
             output_val.out,
-            register.port("out") == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, col)),
+            register.port("out") == cb.const(BITWIDTH, col),
         )
 
     # Current value we are performing relu on.
     cur_val = comp.wire(f"r{row}_cur_val", BITWIDTH)
     # Current idx within the row (i.e., column) for the value we are performing relu on.
-    idx_reg = comp.reg(f"r{row}_cur_idx", addr_width)
+    idx_reg = comp.reg(addr_width, f"r{row}_cur_idx")
     # Handling logic to hold the systolic array's output values so they're available
     # for more than one cycle.
     store_output_vals(comp, row, num_cols, addr_width)
@@ -367,7 +369,7 @@ def create_dynamic_post_op_groups(
 
         op_instance.go = (
             row_ready_wire.out & (~row_finished_wire.out) & (~op_instance.done)
-        ) @ cb.ExprBuilder(py_ast.ConstantPort(1, 1))
+        ) @ cb.HI
         # input ports for relu_instance
         op_instance.value = cur_val.out
         op_instance.idx = idx_reg.out
@@ -401,11 +403,13 @@ def dynamic_post_op(
 
     comp.control = py_ast.StaticParComp(all_groups)
 
+    return comp
+
 
 def leaky_relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
     _, num_cols = config.get_output_dimensions()
     leaky_relu_op_comp = leaky_relu_comp(prog, idx_width=bits_needed(num_cols))
-    dynamic_post_op(
+    return dynamic_post_op(
         prog=prog,
         config=config,
         post_op_component_name=LEAKY_RELU_POST_OP,
@@ -416,7 +420,7 @@ def leaky_relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
 def relu_dynamic_post_op(prog: cb.Builder, config: SystolicConfiguration):
     _, num_cols = config.get_output_dimensions()
     relu_dynamic_op_comp = relu_dynamic_comp(prog, idx_width=bits_needed(num_cols))
-    dynamic_post_op(
+    return dynamic_post_op(
         prog=prog,
         config=config,
         post_op_component_name=RELU_DYNAMIC_POST_OP,

@@ -17,20 +17,30 @@ impl From<(u64, String)> for NamedTag {
         Self(i.0, i.1)
     }
 }
+
+/// GroupContents contains the file path of the group and the line number the
+/// group is on.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupContents {
+    pub path: String,
+    pub line: u64,
+}
+
+/// impl struct with path and number
 #[derive(Debug, Clone)]
 /// NewSourceMap contains the group name as the key and the line it lies on with
 ///  as respect to its corresponding .futil file
-pub struct NewSourceMap(HashMap<String, i64>);
+pub struct NewSourceMap(HashMap<String, GroupContents>);
 
 impl NewSourceMap {
     /// look up group name, if not present, return None
-    pub fn lookup(&self, key: String) -> Option<&i64> {
+    pub fn lookup(&self, key: String) -> Option<&GroupContents> {
         self.0.get(&key)
     }
 }
 
-impl From<HashMap<String, i64>> for NewSourceMap {
-    fn from(i: HashMap<String, i64>) -> Self {
+impl From<HashMap<String, GroupContents>> for NewSourceMap {
+    fn from(i: HashMap<String, GroupContents>) -> Self {
         Self(i)
     }
 }

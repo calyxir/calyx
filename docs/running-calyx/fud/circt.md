@@ -22,7 +22,7 @@ path/to/circt-translate --export-calyx /path/to/file
 
 For example, you can use the expected output of the test `tests/backend/mlir/simple.expect`:
 ```
-{{#include ../../tests/backend/mlir/simple.expect}}
+{{#include ../../../tests/backend/mlir/simple.expect}}
 ```
 
 Using the command:
@@ -35,7 +35,7 @@ path/to/circt-translate --export-calyx tests/backend/mlir/simple.expect
 This should output:
 
 ```
-{{#include ../../tests/backend/mlir/simple.futil}}
+{{#include ../../../tests/backend/mlir/simple.futil}}
 ```
 
 ## Native Representation to MLIR

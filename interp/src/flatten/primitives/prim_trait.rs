@@ -124,6 +124,10 @@ pub trait Primitive {
     fn has_serializable_state(&self) -> bool {
         self.serialize(None).has_state()
     }
+
+    fn dump_memory_state(&self) -> Option<Vec<u8>> {
+        None
+    }
 }
 
 /// An empty primitive implementation used for testing. It does not do anything

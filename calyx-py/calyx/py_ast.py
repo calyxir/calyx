@@ -45,7 +45,7 @@ class Program(Emittable):
 @dataclass
 class Component:
     name: str
-    attributes : list[Attribute]
+    attributes: list[Attribute]
     inputs: list[PortDef]
     outputs: list[PortDef]
     wires: list[Structure]
@@ -91,7 +91,11 @@ class Component:
         latency_annotation = (
             f"static<{self.latency}> " if self.latency is not None else ""
         )
-        attribute_annotation = f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>" if self.attributes else ""
+        attribute_annotation = (
+            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            if self.attributes
+            else ""
+        )
         signature = f"{latency_annotation}component {self.name}{attribute_annotation}({ins}) -> ({outs})"
         cells = block("cells", [c.doc() for c in self.cells])
         wires = block("wires", [w.doc() for w in self.wires])
@@ -99,10 +103,67 @@ class Component:
         return block(signature, [cells, wires, controls])
 
 
-#Attribute
+# CombComponent
+@dataclass
+class CombComponent:
+    """Like a Component, but with no latency and no control."""
+
+    name: str
+    attributes: list[Attribute]
+    inputs: list[PortDef]
+    outputs: list[PortDef]
+    wires: list[Structure]
+    cells: list[Cell]
+
+    def __init__(
+        self,
+        name: str,
+        inputs: list[PortDef],
+        outputs: list[PortDef],
+        structs: list[Structure],
+        attributes: Optional[list[CompAttribute]] = None,
+    ):
+        self.name = name
+        self.attributes = attributes
+        self.inputs = inputs
+        self.outputs = outputs
+
+        # Partition cells and wires.
+        def is_cell(x):
+            return isinstance(x, Cell)
+
+        self.cells = [s for s in structs if is_cell(s)]
+        self.wires = [s for s in structs if not is_cell(s)]
+
+    def get_cell(self, name: str) -> Cell:
+        for cell in self.cells:
+            if cell.id.name == name:
+                return cell
+        raise Exception(
+            f"Cell `{name}' not found in component {self.name}. Currently defined cells: {[c.id.name for c in self.cells]}"
+        )
+
+    def doc(self) -> str:
+        ins = ", ".join([s.doc() for s in self.inputs])
+        outs = ", ".join([s.doc() for s in self.outputs])
+        attribute_annotation = (
+            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            if self.attributes
+            else ""
+        )
+        signature = (
+            f"comb component {self.name}{attribute_annotation}({ins}) -> ({outs})"
+        )
+        cells = block("cells", [c.doc() for c in self.cells])
+        wires = block("wires", [w.doc() for w in self.wires])
+        return block(signature, [cells, wires])
+
+
+# Attribute
 @dataclass
 class Attribute(Emittable):
     pass
+
 
 @dataclass
 class CompAttribute(Attribute):
@@ -110,7 +171,16 @@ class CompAttribute(Attribute):
     value: int
 
     def doc(self) -> str:
-        return f"\"{self.name}\"={self.value}"
+        return f'"{self.name}"={self.value}'
+
+
+@dataclass
+class PortAttribute(Attribute):
+    name: str
+    value: Optional[int] = None
+
+    def doc(self) -> str:
+        return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
 
 
 # Ports
@@ -172,9 +242,15 @@ class CompVar(Emittable):
 class PortDef(Emittable):
     id: CompVar
     width: int
+    attributes: List[PortAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
-        return f"{self.id.doc()}: {self.width}"
+        attributes = (
+            ""
+            if len(self.attributes) == 0
+            else (" ".join([x.doc() for x in self.attributes]) + " ")
+        )
+        return f"{attributes}{self.id.doc()}: {self.width}"
 
 
 # Structure
@@ -532,8 +608,20 @@ class Stdlib:
         return CompInst(f'std_{"s" if signed else ""}{op}', [bitwidth])
 
     @staticmethod
+    def const_mult(bitwidth: int, const: int):
+        return CompInst("std_const_mult", [bitwidth, const])
+
+    @staticmethod
     def slice(in_: int, out: int):
         return CompInst("std_slice", [in_, out])
+
+    @staticmethod
+    def bit_slice(in_: int, start_idx: int, end_idx: int, out: int):
+        return CompInst("std_bit_slice", [in_, start_idx, end_idx, out])
+
+    @staticmethod
+    def cat(left_width: int, right_width: int, out_width: int):
+        return CompInst("std_cat", [left_width, right_width, out_width])
 
     @staticmethod
     def pad(in_: int, out: int):
