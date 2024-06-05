@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{
     exec::{OpRef, SetupRef, StateRef},
     DriverBuilder,
@@ -208,6 +210,7 @@ impl ScriptRunner {
         let files: Vec<_> = self
             .files
             .iter()
+            .sorted_by_key(|&(p, _)| p)
             .map(|(p, a)| (p.clone(), a.clone()))
             .collect();
         for (p, ast) in files {
