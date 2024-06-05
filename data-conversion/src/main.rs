@@ -4,6 +4,8 @@ use std::fs::read_to_string;
 use std::fs::File;
 use std::io::{self, Write};
 
+//cargo run -- --from $PATH1 --to $PATH2 --ftype "binary" --totype "hex"
+
 fn main() {
     #[derive(FromArgs)]
     /// get arguments to convert
@@ -23,6 +25,10 @@ fn main() {
         /// type to convert to
         #[argh(option)]
         totype: String,
+
+        /// optional exponent for fixed_to_binary -> default is -1
+        #[argh(option, default = "String::from(\"-1\")")]
+        exp: String,
     }
 
     let args: Arguments = argh::from_env();
@@ -33,10 +39,15 @@ fn main() {
         "float".to_string(),
         "hex".to_string(),
         "fixed".to_string(),
+        "exp".to_string(),
     ];
     // Array of all possible options to convert to
-    let to_types: Vec<String> =
-        vec!["binary".to_string(), "float".to_string(), "hex".to_string()];
+    let to_types: Vec<String> = vec![
+        "binary".to_string(),
+        "float".to_string(),
+        "hex".to_string(),
+        "fixed".to_string(),
+    ];
 
     if !from_types.contains(&args.ftype) {
         panic!("{} is not a valid type to convert from", args.from);
@@ -45,7 +56,7 @@ fn main() {
         panic!("{} is not a valid type to convert to", args.to);
     }
 
-    convert(&args.from, &args.to, &args.ftype, &args.totype);
+    convert(&args.from, &args.to, &args.ftype, &args.totype, &args.exp);
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
@@ -55,6 +66,7 @@ fn convert(
     filepath_send: &String,
     convert_from: &String,
     convert_to: &String,
+    exponent: &str,
 ) {
     // Create a file called converted.txt
     let mut converted = File::create(filepath_send).expect("creation failed");
@@ -74,7 +86,7 @@ fn convert(
             }
         } else if convert_from == "fixed" {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                fixed_to_binary(line, &mut converted)
+                fixed_to_binary(line, &mut converted, exponent)
                     .expect("Failed to write binary to file");
             }
         }
@@ -91,6 +103,14 @@ fn convert(
         if convert_from == "binary" {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 binary_to_float(line, &mut converted)
+                    .expect("Failed to write float to file");
+            }
+        }
+    } else if convert_to == "fixed" {
+        // Convert from binary to fixed
+        if convert_from == "binary" {
+            for line in read_to_string(filepath_get).unwrap().lines() {
+                binary_to_fixed(line, &mut converted, exponent)
                     .expect("Failed to write float to file");
             }
         }
@@ -206,21 +226,15 @@ fn binary_to_float(
 fn fixed_to_binary(
     fixed_string: &str,
     filepath_send: &mut File,
+    exp_str: &str,
     // scale: usize,
 ) -> io::Result<()> {
-    let fixed_str;
-    let exp_str;
-    let words: Vec<&str>;
+    // Create an array with the elements of fixed_string
+    let words: Vec<&str> = fixed_string.split_whitespace().collect();
+    let fixed_str: &&str =
+        words.first().unwrap_or(&"There is not a fixed number");
+    // exp_str = words.get(1).unwrap_or(&"There is no exponent");
 
-    // Create an array with the elements of fixed_string delinieated by spaces
-    if fixed_string.contains(' ') {
-        // Split the input string into individual words
-        words = fixed_string.split_whitespace().collect();
-        fixed_str = words.first().unwrap_or(&"There is not a fixed number");
-        exp_str = words.get(1).unwrap_or(&"There is no exponent");
-    } else {
-        panic!("Input string does not contain a space.");
-    }
     // Convert fixed value from string to int
     let fixed_value: f32;
     match fixed_str.parse::<f32>() {
@@ -238,6 +252,7 @@ fn fixed_to_binary(
         }
     }
 
+    // Exponent math
     let multiplied_fixed = fixed_value * 2_f32.powf(-exponent);
 
     // Convert to a 32-bit integer
@@ -248,6 +263,46 @@ fn fixed_to_binary(
 
     // Write binary string to the file
     filepath_send.write_all(binary_of_fixed.as_bytes())?;
+    filepath_send.write_all(b"\n")?;
+
+    Ok(())
+}
+
+fn binary_to_fixed(
+    binary_string: &str,
+    filepath_send: &mut File,
+    exp_str: &str,
+) -> io::Result<()> {
+    // Create an array with the elements of fixed_string
+    let words: Vec<&str> = binary_string.split_whitespace().collect();
+    let binary_str: &&str =
+        words.first().unwrap_or(&"There is not a binary number");
+
+    // Convert binary value from string to int
+    let binary_value = match u32::from_str_radix(binary_str, 2) {
+        Ok(parsed_num) => parsed_num,
+        Err(_) => panic!("Bad binary value input"),
+    };
+
+    // Convert exponent from string to float
+    let exponent: f32;
+    match exp_str.parse::<f32>() {
+        Ok(parsed_num) => exponent = parsed_num,
+        Err(_) => {
+            panic!("Bad fixed value input")
+        }
+    }
+
+    // Convert to fixed
+    let int_of_binary = binary_value as f32;
+
+    // Exponent math
+    let divided: f32 = int_of_binary / 2_f32.powf(-exponent);
+
+    let string_of_divided = divided.to_string();
+
+    // filepath_send.write_all(divided)?;
+    filepath_send.write_all(string_of_divided.as_bytes())?;
     filepath_send.write_all(b"\n")?;
 
     Ok(())
