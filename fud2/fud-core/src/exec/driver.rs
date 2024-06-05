@@ -196,11 +196,23 @@ impl Driver {
             .map(|(op, _)| op)
     }
 
-    /// The working directory to use when running a build consists of `".fud2" + <random_suffix>`. NOT guaranteed to be unique.
-    pub fn default_workdir(&self) -> Utf8PathBuf {
-        let rand_suffix =
-            Alphanumeric.sample_string(&mut rand::thread_rng(), 8);
-        format!(".{}{}", &self.name, rand_suffix).into()
+    /// The default working directory name when we want the same directory on every run.
+    pub fn stable_workdir(&self) -> Utf8PathBuf {
+        format!(".{}", &self.name).into()
+    }
+
+    /// A new working directory that does not yet exist on the filesystem, for when we
+    /// want to avoid collisions.
+    pub fn fresh_workdir(&self) -> Utf8PathBuf {
+        loop {
+            let rand_suffix =
+                Alphanumeric.sample_string(&mut rand::thread_rng(), 8);
+            let path: Utf8PathBuf =
+                format!(".{}-{}", &self.name, rand_suffix).into();
+            if !path.exists() {
+                return path;
+            }
+        }
     }
 
     /// Print a list of registered states and operations to stdout.

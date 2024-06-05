@@ -3,7 +3,7 @@ use crate::exec::{Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use std::fmt::Display;
 use std::path::Path;
 use std::str::FromStr;
@@ -165,15 +165,15 @@ fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
 
 fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
-    let mut default_workdir = driver.default_workdir();
-    let workdir = args.dir.as_deref().unwrap_or_else(|| match args.mode {
+    let workdir = args.dir.clone().unwrap_or_else(|| match args.mode {
         Mode::Generate | Mode::Run => {
-            while (Path::new(&default_workdir)).exists() {
-                default_workdir = driver.default_workdir();
+            if args.keep.unwrap_or(false) {
+                driver.stable_workdir()
+            } else {
+                driver.fresh_workdir()
             }
-            default_workdir.as_ref()
         }
-        _ => Utf8Path::new("."),
+        _ => ".".into(),
     });
 
     // Find all the operations to route through.
@@ -193,7 +193,7 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         end_file: args.output.clone(),
         end_state: to_state(driver, args)?,
         through: through?,
-        workdir: workdir.into(),
+        workdir,
     })
 }
 
