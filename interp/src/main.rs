@@ -8,12 +8,15 @@ use interp::{
     debugger::{source::SourceMap, Debugger},
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
+    flatten::structures::environment::{Environment, Simulator},
     interpreter::ComponentInterpreter,
     interpreter_ir as iir,
+    serialization::data_dump::DataDump,
 };
 use rustyline::error::ReadlineError;
 use slog::warn;
 use std::{
+    io::stdout,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -22,7 +25,7 @@ use std::{
 /// The Calyx Interpreter
 pub struct Opts {
     /// input file
-    #[argh(positional, from_str_fn(read_path))]
+    #[argh(positional)]
     pub file: Option<PathBuf>,
 
     /// output file, default is stdout
@@ -40,7 +43,7 @@ pub struct Opts {
 
     /// path to optional datafile used to initialze memories. If it is not
     /// provided memories will be initialzed with zeros
-    #[argh(option, long = "data", short = 'd', from_str_fn(read_path))]
+    #[argh(option, long = "data", short = 'd')]
     pub data_file: Option<PathBuf>,
 
     #[argh(switch, long = "no-verify")]
@@ -71,9 +74,6 @@ pub struct Opts {
     comm: Option<Command>,
 }
 
-fn read_path(path: &str) -> Result<PathBuf, String> {
-    Ok(Path::new(path).into())
-}
 #[derive(FromArgs)]
 #[argh(subcommand)]
 enum Command {
@@ -126,9 +126,7 @@ fn print_res(
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
-    let builder = configuration::ConfigBuilder::new();
-
-    let config = builder
+    let config = configuration::ConfigBuilder::new()
         .quiet(opts.quiet)
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
@@ -149,62 +147,74 @@ fn main() -> InterpreterResult<()> {
     let pm = PassManager::default_passes()?;
 
     if !opts.skip_verification {
-        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], false)?;
+        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], &[], false)?;
     }
 
     let command = opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}));
 
-    // up here temporarily
-    if let Command::Flat(_) = &command {
-        // this is stupid but will work for testing purposes. This should be
-        // fixed later
-        interp::flatten::flat_main(&ctx);
-        todo!("The flat interpreter cannot yet interpret programs")
-    }
+    match &command {
+        comm @ (Command::Interpret(_) | Command::Debug(_)) => {
+            let entry_point = ctx.entrypoint;
+            let metadata = ctx.metadata;
 
-    let entry_point = ctx.entrypoint;
+            let components: iir::ComponentCtx = Rc::new(
+                ctx.components
+                    .into_iter()
+                    .map(|x| Rc::new(x.into()))
+                    .collect(),
+            );
 
-    let metadata = ctx.metadata;
+            let main_component = components
+                .iter()
+                .find(|&cm| cm.name == entry_point)
+                .ok_or(InterpreterError::MissingMainComponent)?;
 
-    let components: iir::ComponentCtx = Rc::new(
-        ctx.components
-            .into_iter()
-            .map(|x| Rc::new(x.into()))
-            .collect(),
-    );
+            let mut mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
-    let main_component = components
-        .iter()
-        .find(|&cm| cm.name == entry_point)
-        .ok_or(InterpreterError::MissingMainComponent)?;
+            let env = InterpreterState::init_top_level(
+                &components,
+                main_component,
+                &mut mems,
+                &config,
+            )?;
 
-    let mut mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
-
-    let env = InterpreterState::init_top_level(
-        &components,
-        main_component,
-        &mut mems,
-        &config,
-    )?;
-
-    let res = match &command {
-        Command::Interpret(_) => {
-            ComponentInterpreter::interpret_program(env, main_component)
-        }
-        Command::Debug(CommandDebug {}) => {
-            let map = metadata.map(SourceMap::from_string);
-            let map = if let Some(map_res) = map {
-                Some(map_res?)
+            let res = if matches!(comm, Command::Interpret(_)) {
+                ComponentInterpreter::interpret_program(env, main_component)
             } else {
-                None
+                let map = if let Some(map_res) =
+                    metadata.map(SourceMap::from_string)
+                {
+                    Some(map_res?)
+                } else {
+                    None
+                };
+
+                let cidb =
+                    Debugger::new(&components, main_component, map, env)?;
+                cidb.main_loop()
             };
-            let cidb = Debugger::new(&components, main_component, map, env)?;
-            cidb.main_loop()
+
+            print_res(res, opts.raw)
         }
         Command::Flat(_) => {
-            todo!("The flat interpreter cannot yet interpret programs")
-        }
-    };
+            let i_ctx = interp::flatten::flat_ir::translate(&ctx);
+            let data_dump = opts
+                .data_file
+                .map(|path| {
+                    let mut file = std::fs::File::open(path)?;
+                    DataDump::deserialize(&mut file)
+                })
+                // flip to a result of an option
+                .map_or(Ok(None), |res| res.map(Some))?;
 
-    print_res(res, opts.raw)
+            let mut sim = Simulator::new(Environment::new(&i_ctx, data_dump));
+
+            sim.run_program()?;
+
+            let output = sim.dump_memories();
+
+            output.serialize(&mut stdout())?;
+            Ok(())
+        }
+    }
 }

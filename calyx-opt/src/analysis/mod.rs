@@ -21,6 +21,7 @@ mod read_write_set;
 mod schedule_conflicts;
 mod share_set;
 mod static_par_timing;
+mod static_schedule;
 mod variable_detection;
 
 pub use compaction_analysis::CompactionAnalysis;
@@ -42,4 +43,5 @@ pub use read_write_set::{AssignmentAnalysis, ReadWriteSet};
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
 pub use static_par_timing::StaticParTiming;
+pub use static_schedule::{StaticFSM, StaticSchedule};
 pub use variable_detection::VariableDetection;

@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     @generated fsm = std_reg(3);
-    @generated ud = undef(1);
     @generated adder = std_add(3);
+    @generated ud = undef(1);
     @generated signal_reg = std_reg(1);
     @generated early_reset_static_seq_go = std_wire(1);
     @generated early_reset_static_seq_done = std_wire(1);
@@ -17,7 +17,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.write_en = early_reset_static_seq_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.reset = reset;
-    fsm.in = fsm.out != 3'd4 & early_reset_static_seq_go.out ? adder.out;
+    fsm.in = !(fsm.out == 3'd4) & early_reset_static_seq_go.out ? adder.out;
     fsm.in = fsm.out == 3'd4 & early_reset_static_seq_go.out ? 3'd0;
     adder.left = early_reset_static_seq_go.out ? fsm.out;
     adder.right = early_reset_static_seq_go.out ? 3'd1;

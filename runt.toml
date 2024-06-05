@@ -231,6 +231,24 @@ fud exec --from calyx --to jq \
 """
 timeout = 120
 
+[[tests]]
+name = "correctness static timing one-hot encoding"
+paths = [
+  "tests/correctness/static-interface/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-x static-fsm-opts:one-hot-cutoff=500' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
 # Variants of the above but for `--nested` (non-ANF Verilog emission) mode.
 [[tests]]
 name = "correctness nested"
@@ -262,6 +280,25 @@ fud exec --from calyx --to jq \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
          -s calyx.flags '-p all -d group2invoke' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         {} -q
+"""
+timeout = 120
+
+# Tests to ensure static compilation maintains guarantees for one-hot encodings
+[[tests]]
+name = "correctness static control, one-hot fsms"
+paths = [
+  "tests/correctness/static-control/*.futil",
+  "tests/correctness/group-static-promotion/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-p all -d group2invoke -x static-fsm-opts:one-hot-cutoff=500' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
@@ -488,12 +525,19 @@ fud e {} -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          --to dat -q
 """
-
+##### Cayx AXI tests #####
 [[tests]]
 name = "calyx-py AXI wrapper generation"
-paths = ["yxi/axi-calyx/axi-generator.py"]
+paths = ["yxi/tests/*.yxi"]
 cmd = """
-python3 {}
+python3 yxi/axi-calyx/axi-generator.py {}
+"""
+
+[[tests]]
+name = "fud2 axi-wrapper invocation"
+paths = ["yxi/tests/fud2/*.futil"]
+cmd = """
+fud2 {} --to calyx --through axi-wrapped
 """
 
 ##### Xilinx Tests ######

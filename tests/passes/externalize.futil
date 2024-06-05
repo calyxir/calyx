@@ -1,4 +1,4 @@
-// -p externalize
+// -p infer-data-path -p externalize
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";

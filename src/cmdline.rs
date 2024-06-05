@@ -91,6 +91,10 @@ pub struct Opts {
     #[argh(option, short = 'x', long = "extra-opt")]
     pub extra_opts: Vec<String>,
 
+    /// establish a relative ordering of passes
+    #[argh(option, short = 'i', long = "insert")]
+    pub insertions: Vec<String>,
+
     /// enable verbose printing
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,

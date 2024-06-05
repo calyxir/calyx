@@ -9,8 +9,11 @@ rule get-rsrc
 # Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
+args = 
 rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
 
 # RTL simulation
 python = python3
@@ -19,7 +22,6 @@ rule hex-data
   command = $python json-dat.py --from-json $in $out
 rule json-data
   command = $python json-dat.py --to-json $out $in
-build tb.sv: get-rsrc
 sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
@@ -27,18 +29,23 @@ rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
 cycle-limit = 500000000
 
+# Standalone Testbench Setup
+build tb.sv: get-rsrc
+
 # Verilator
 verilator = verilator
 cycle-limit = 500000000
-rule verilator-compile
+rule verilator-compile-standalone-tb
   command = $verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+rule verilator-compile-custom-tb
+  command = $verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
 rule cp
   command = cp $in $out
 
 # build targets
 build stdin.sv: calyx stdin
   backend = verilog
-build verilator-out/VTOP: verilator-compile stdin.sv | tb.sv
+build verilator-out/VTOP: verilator-compile-standalone-tb stdin.sv | tb.sv
   out-dir = verilator-out
 build stdin.exe: cp verilator-out/VTOP
 build sim.log stdin.vcd: sim-run stdin.exe $datadir

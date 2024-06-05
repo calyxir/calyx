@@ -19,3 +19,7 @@ camino = "1.1.6"
 anyhow.workspace = true
 log.workspace = true
 env_logger.workspace = true
+rhai = "1.18.0"
+once_cell = "1.19.0"
+ariadne = "0.4.1"
+rand = "0.8.5"

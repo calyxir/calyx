@@ -19,6 +19,6 @@ fn main() -> anyhow::Result<()> {
             .collect()
     });
 
-    let driver = bld.build();
+    let driver = bld.load_plugins().build();
     cli::cli(&driver)
 }

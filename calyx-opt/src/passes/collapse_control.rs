@@ -1,5 +1,5 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, LibrarySignatures};
+use calyx_ir::{self as ir, GetAttributes, LibrarySignatures};
 
 #[derive(Default)]
 /// Collapses and de-nests control constructs.
@@ -133,7 +133,14 @@ impl Visitor for CollapseControl {
             return Ok(Action::static_change(ir::StaticControl::empty()));
         }
         if s.stmts.len() == 1 {
-            return Ok(Action::static_change(s.stmts.pop().unwrap()));
+            // Want to preserve @one_hot attribute.
+            let mut replacement_ctrl = s.stmts.pop().unwrap();
+            let attrs = std::mem::take(&mut s.attributes);
+            replacement_ctrl
+                .get_mut_attributes()
+                .copy_from(attrs, vec![ir::BoolAttr::OneHot]);
+
+            return Ok(Action::static_change(replacement_ctrl));
         }
         let mut pars: Vec<ir::StaticControl> = vec![];
         for con in s.stmts.drain(..) {
@@ -160,7 +167,13 @@ impl Visitor for CollapseControl {
             return Ok(Action::static_change(ir::StaticControl::empty()));
         }
         if s.stmts.len() == 1 {
-            return Ok(Action::static_change(s.stmts.pop().unwrap()));
+            // Want to preserve @one_hot attribute.
+            let mut replacement_ctrl = s.stmts.pop().unwrap();
+            let attrs = std::mem::take(&mut s.attributes);
+            replacement_ctrl
+                .get_mut_attributes()
+                .copy_from(attrs, vec![ir::BoolAttr::OneHot]);
+            return Ok(Action::static_change(replacement_ctrl));
         }
         let mut seqs: Vec<ir::StaticControl> = vec![];
         for con in s.stmts.drain(..) {

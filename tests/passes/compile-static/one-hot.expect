@@ -1,0 +1,76 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    d = std_reg(2);
+    @generated fsm = init_one_reg(10);
+    @generated bw_0_2 = std_wire(1);
+    @generated slicer = std_bit_slice(10, 0, 1, 2);
+    @generated bw_1_2 = std_wire(1);
+    @generated slicer0 = std_bit_slice(10, 1, 1, 1);
+    @generated bw_7_10 = std_wire(1);
+    @generated slicer1 = std_bit_slice(10, 7, 9, 3);
+    @generated bw_6_8 = std_wire(1);
+    @generated slicer2 = std_bit_slice(10, 6, 7, 2);
+    @generated bw_3_7 = std_wire(1);
+    @generated slicer3 = std_bit_slice(10, 3, 6, 4);
+    @generated bw_0_1 = std_wire(1);
+    @generated slicer4 = std_bit_slice(10, 0, 0, 1);
+    @generated lsh = std_lsh(10);
+    @generated bw_9_10 = std_wire(1);
+    @generated slicer5 = std_bit_slice(10, 9, 9, 1);
+    @generated ud = undef(1);
+    @generated signal_reg = std_reg(1);
+  }
+  wires {
+    group early_reset_static_seq<"one_hot"=1> {
+      a.in = bw_0_2.out ? 2'd0;
+      a.write_en = bw_0_2.out ? 1'd1;
+      b.in = bw_1_2.out ? 2'd1;
+      b.write_en = bw_1_2.out ? 1'd1;
+      b.write_en = bw_7_10.out ? 1'd1;
+      b.in = bw_7_10.out ? 2'd1;
+      c.write_en = bw_6_8.out ? 1'd1;
+      c.in = bw_6_8.out ? 2'd1;
+      d.write_en = bw_3_7.out ? 1'd1;
+      d.in = bw_3_7.out ? 2'd1;
+      d.write_en = bw_0_1.out ? 1'd1;
+      d.in = bw_0_1.out ? 2'd1;
+      lsh.left = fsm.out;
+      lsh.right = 10'd1;
+      fsm.write_en = 1'd1;
+      fsm.in = !bw_9_10.out ? lsh.out;
+      fsm.in = bw_9_10.out ? 10'd1;
+      early_reset_static_seq[done] = ud.out;
+    }
+    group wrapper_early_reset_static_seq<"one_hot"=1> {
+      early_reset_static_seq[go] = 1'd1;
+      signal_reg.write_en = bw_0_1.out & !signal_reg.out ? 1'd1;
+      signal_reg.in = bw_0_1.out & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_static_seq[done] = bw_0_1.out & signal_reg.out ? 1'd1;
+    }
+    slicer.in = fsm.out;
+    bw_0_2.in = slicer.out != 2'd0 ? 1'd1;
+    slicer0.in = fsm.out;
+    bw_1_2.in = slicer0.out != 1'd0 ? 1'd1;
+    slicer1.in = fsm.out;
+    bw_7_10.in = slicer1.out != 3'd0 ? 1'd1;
+    slicer2.in = fsm.out;
+    bw_6_8.in = slicer2.out != 2'd0 ? 1'd1;
+    slicer3.in = fsm.out;
+    bw_3_7.in = slicer3.out != 4'd0 ? 1'd1;
+    slicer4.in = fsm.out;
+    bw_0_1.in = slicer4.out != 1'd0 ? 1'd1;
+    slicer5.in = fsm.out;
+    bw_9_10.in = slicer5.out != 1'd0 ? 1'd1;
+    signal_reg.write_en = bw_0_1.out & signal_reg.out ? 1'd1;
+    signal_reg.in = bw_0_1.out & signal_reg.out ? 1'd0;
+  }
+  control {
+    wrapper_early_reset_static_seq;
+  }
+}
