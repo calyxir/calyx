@@ -700,9 +700,9 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
     f = main.comp_instance("f", "fp_pow_full")
 
-    read_base = main.mem_load_d1(b, 0, base_reg, "read_base", is_comb=True)
-    read_exp = main.mem_load_d1(x, 0, exp_reg, "read_exp", is_comb=True)
-    write_to_memory = main.mem_store_d1(ret, 0, f.out, "write_to_memory", is_comb=True)
+    read_base = main.mem_load_d1(b, 0, base_reg, "read_base")
+    read_exp = main.mem_load_d1(x, 0, exp_reg, "read_exp")
+    write_to_memory = main.mem_store_d1(ret, 0, f.out, "write_to_memory")
 
     main.control += [
         read_base,
@@ -741,7 +741,7 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
         t.write_en = 1
         init.done = t.done
 
-    write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory", is_comb=True)
+    write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory")
 
     main.control += [
         init,
