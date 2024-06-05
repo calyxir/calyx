@@ -6,6 +6,7 @@ use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
 use ir::{Assignment, RRC, WRC};
 use itertools::Itertools;
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -54,13 +55,13 @@ fn build_assignments<T>(
 /// Map for storing added ports for each ref cell
 /// level of Hashmap represents:
 /// HashMap<-component name-, Hashmap<(-ref cell name-,-port name-), port>>;
-struct RefPortMap(HashMap<ir::Id, HashMap<ir::Canonical, RRC<ir::Port>>>);
+struct RefPortMap(HashMap<ir::Id, LinkedHashMap<ir::Canonical, RRC<ir::Port>>>);
 
 impl RefPortMap {
     fn insert(
         &mut self,
         comp_name: ir::Id,
-        ports: HashMap<ir::Canonical, RRC<ir::Port>>,
+        ports: LinkedHashMap<ir::Canonical, RRC<ir::Port>>,
     ) {
         self.0.insert(comp_name, ports);
     }
@@ -68,7 +69,7 @@ impl RefPortMap {
     fn get(
         &self,
         comp_name: &ir::Id,
-    ) -> Option<&HashMap<ir::Canonical, RRC<ir::Port>>> {
+    ) -> Option<&LinkedHashMap<ir::Canonical, RRC<ir::Port>>> {
         self.0.get(comp_name)
     }
 
@@ -91,7 +92,7 @@ pub struct CompileInvoke {
     port_names: RefPortMap,
     /// Mapping from the ports of cells that were removed to the new port on the
     /// component signature.
-    removed: HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+    removed: LinkedHashMap<ir::Canonical, ir::RRC<ir::Port>>,
     /// Ref cells in the component. We hold onto these so that our references don't get invalidated
     ref_cells: Vec<ir::RRC<ir::Cell>>,
 }
@@ -103,7 +104,7 @@ impl ConstructVisitor for CompileInvoke {
     {
         Ok(CompileInvoke {
             port_names: RefPortMap::default(),
-            removed: HashMap::new(),
+            removed: LinkedHashMap::new(),
             ref_cells: Vec::new(),
         })
     }
@@ -131,6 +132,7 @@ impl CompileInvoke {
     ///
     /// Since this pass eliminates all ref cells in post order, we expect that
     /// invoked component already had all of its ref cells removed.
+
     fn ref_cells_to_ports<T>(
         &mut self,
         inv_cell: RRC<ir::Cell>,
@@ -138,22 +140,43 @@ impl CompileInvoke {
     ) -> Vec<ir::Assignment<T>> {
         let inv_comp = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
-        for (ref_cell_name, cell) in ref_cells {
+        for (ref_cell_name, in_cell) in ref_cells {
             log::debug!(
                 "Removing ref cell `{}` with {} ports",
                 ref_cell_name,
-                cell.borrow().ports.len()
+                in_cell.borrow().ports.len()
             );
 
             // Mapping from canonical names of the ports of the ref cell to the
-            // new port defined on the signature of the component
+            // new port defined on the signature of the component. This has name of ref cell, not arg cell
             let Some(comp_ports) = self.port_names.get(&inv_comp) else {
                 unreachable!("component `{}` invoked but not already visited by the pass", inv_comp)
             };
 
-            // The type of the cell is the same as the ref cell so we can
-            // iterate over its ports and generate bindings for the ref cell.
-            for pr in &cell.borrow().ports {
+            // We expect each canonical port in `comp_ports` to exactly match with a port in
+            //`in_cell` based on well-formedness subtype checks.
+            for canon in comp_ports.keys() {
+                //only interested in ports attached to the ref cell
+                if canon.cell != ref_cell_name {
+                    continue;
+                }
+                let in_cell_borrowed = in_cell.borrow();
+                // The given port of actual, concrete cell passed in
+                let pr = in_cell_borrowed
+                    .ports
+                    .iter()
+                    .find(|&in_cell_port| {
+                        canon.cell == ref_cell_name
+                            && in_cell_port.borrow().name == canon.port
+                    })
+                    .unwrap_or_else(|| {
+                        unreachable!(
+                            "port `{}` not found in the cell `{}`",
+                            canon,
+                            in_cell.borrow().name()
+                        )
+                    });
+
                 let port = pr.borrow();
                 if port.has_attribute(ir::BoolAttr::Clk)
                     || port.has_attribute(ir::BoolAttr::Reset)
@@ -161,8 +184,7 @@ impl CompileInvoke {
                     continue;
                 }
 
-                let canon = ir::Canonical::new(ref_cell_name, port.name);
-                let Some(comp_port) = comp_ports.get(&canon) else {
+                let Some(comp_port) = comp_ports.get(canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
                         canon,
                         inv_comp,
@@ -287,6 +309,7 @@ impl Visitor for CompileInvoke {
         // Assigns representing the ref cell connections
         invoke_group.borrow_mut().assignments.extend(
             self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+            // ), //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
         );
 
         // comp.go = 1'd1;
@@ -361,7 +384,6 @@ impl Visitor for CompileInvoke {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, ctx);
-
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
         invoke_group.borrow_mut().assignments.extend(
