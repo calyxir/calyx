@@ -2,6 +2,7 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
+use itertools::Itertools;
 use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 #[derive(PartialEq)]
@@ -203,7 +204,9 @@ impl Driver {
     /// Print a list of registered states and operations to stdout.
     pub fn print_info(&self) {
         println!("States:");
-        for (_, state) in self.states.iter() {
+        for (_, state) in
+            self.states.iter().sorted_by_key(|(_, state)| &state.name)
+        {
             print!("  {}:", state.name);
             for ext in &state.extensions {
                 print!(" .{}", ext);
@@ -213,7 +216,7 @@ impl Driver {
 
         println!();
         println!("Operations:");
-        for (_, op) in self.ops.iter() {
+        for (_, op) in self.ops.iter().sorted_by_key(|(_, op)| &op.name) {
             println!(
                 "  {}: {} -> {}",
                 op.name,
