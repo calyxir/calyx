@@ -7,30 +7,47 @@ def remove_size_from_name(name: str) -> str:
     return name.split('[')[0]
 
 class ProfilingInfo:
-    def __init__(self, name, fsm_name=None, fsm_value=None):
+    def __init__(self, name, fsm_name=None, fsm_values=None):
         self.name = name
         self.fsm_name = fsm_name
-        self.fsm_value = fsm_value
+        self.fsm_values = fsm_values
         self.total_cycles = 0
-        self.segments = [] # Segments will be (start_time, end_time)
+        self.closed_segments = [] # Segments will be (start_time, end_time)
+        self.current_segment = None
 
     def __repr__ (self):
-        # Remove any non-closed segments
-        segment_repr = []
-        for segment in self.segments:
-            if segment["end"] != -1:
-                segment_repr.append(segment)
-        return str({"group-name" : self.name, "fsm-name": self.fsm_name, "group-fsm-value": self.fsm_value, "total-cycles": self.total_cycles, "segments": segment_repr})
+        return (f"Group {self.name}:\n" +
+        f"\tFSM name: {self.fsm_name}\n" +
+        f"\tFSM state ids: {self.fsm_values}\n" +
+        f"\tTotal cycles: {self.total_cycles}\n" +   
+        f"\tSegments: {self.closed_segments}\n"
+        )
+    
+    def summary(self):
+        if len(self.closed_segments) == 0:
+            average_cycles = 0
+        else:
+            average_cycles = self.total_cycles / len(self.closed_segments)
+        return (f"Group {self.name} Summary:\n" +
+        f"\tTotal cycles: {self.total_cycles}\n" +
+        f"\t# of times active: {len(self.closed_segments)}\n" +
+        f"\tAvg runtime: {average_cycles}\n"
+        )
 
     def start_new_segment(self, curr_clock_cycle):
-        self.segments.append({"start": curr_clock_cycle, "end": -1})
+        if self.current_segment is None:
+            self.current_segment = {"start": curr_clock_cycle, "end": -1}
+        else:
+            print(f"Error! The group {self.name} is starting a new segment while the current segment is not closed.")
+            print(f"Current segment: {self.current_segment}")
+            sys.exit(1)
 
     def end_current_segment(self, curr_clock_cycle):
-        if len(self.segments) > 0:
-            # Close out previous segment by setting the end time to the current cycle            
-            if (self.segments[-1]["end"] == -1): # ignore cases where done is high forever
-                self.segments[-1]["end"] = curr_clock_cycle
-                self.total_cycles += curr_clock_cycle - self.segments[-1]["start"]
+        if self.current_segment is not None and self.current_segment["end"] == -1: # ignore cases where done is high forever
+            self.current_segment["end"] = curr_clock_cycle
+            self.closed_segments.append(self.current_segment)
+            self.total_cycles += curr_clock_cycle - self.current_segment["start"]
+            self.current_segment = None # Reset current segment
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
@@ -47,8 +64,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.clock_id = None
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
         for group in groups_to_fsms:
-            fsm_name, fsm_value = groups_to_fsms[group]
-            self.profiling_info[group] = ProfilingInfo(group, fsm_name, fsm_value)
+            self.profiling_info[group] = ProfilingInfo(group, groups_to_fsms[group]["fsm"], groups_to_fsms[group]["ids"])
         for single_enable_group in single_enable_names:
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
@@ -142,7 +158,11 @@ def remap_tdcc_json(json_file):
             fsms[fsm_name] = {}
             for state in fsm["states"]:
                 fsms[fsm_name][state["id"]] = state["group"]
-                groups_to_fsms[state["group"]] = (fsm_name, state["id"])
+                group_name = state["group"]
+                if group_name not in groups_to_fsms:                                                                                                     
+                    groups_to_fsms[group_name] = {"fsm": fsm_name, "ids": [state["id"]]}                                                                 
+                else:                                                                                                                                    
+                    groups_to_fsms[group_name]["ids"].append(state["id"])  
         else:
             group_name = profiling_info["SingleEnable"]["group"]
             single_enable_names.add(group_name)
@@ -155,6 +175,12 @@ def main(vcd_filename, json_file):
     converter = VCDConverter(fsms, single_enable_names, groups_to_fsms)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
+    print("=====SUMMARY=====")
+    print()
+    for group_info in converter.profiling_info.values():
+        print(group_info.summary())
+    print("=====DUMP=====")
+    print()
     for group_info in converter.profiling_info.values():
         print(group_info)
 
