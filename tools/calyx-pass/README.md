@@ -5,6 +5,8 @@ You give it an input file and some options, and you can explore how passes trans
 
 ![Example running of the tool](example_v0.0.0.png)
 
+> Above: Running v0.0.0 on [test.futil](test.futil).
+
 ## Features
 
 - Visualize pass transformations with readable diff insertions. By default, it uses `-p all`, but you can provide a different alias.
@@ -15,12 +17,7 @@ You give it an input file and some options, and you can explore how passes trans
 
 ## Usage
 
-Pass `--help` to view invocation information.
-The TUI (terminal user interface, like a GUI but with text) displayed when running the program has instructions for how to use it.
-If you do not pass `-e`/`--calyx-exec` with the path to the `calyx` driver executable, it will infer it as follows:
-
-1. It will try to use `fud`'s configuration to piece together the location.
-2. If that fails, it will assume you are running it from the calyx root directory having already ran `cargo build`.
+Please read the short [user manual](manual.md) to learn how to use the CLI and tool.
 
 ## Author
 
