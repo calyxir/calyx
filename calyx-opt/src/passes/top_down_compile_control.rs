@@ -341,7 +341,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         state: &u64,
         fsm_size: &u64,
     ) -> ir::Guard<Nothing> {
-        match used_slicers.get(&state) {
+        match used_slicers.get(state) {
             None => {
                 // construct slicer for this bit query
                 structure!(
