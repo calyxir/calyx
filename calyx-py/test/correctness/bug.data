@@ -1,0 +1,18 @@
+{
+  "A": {
+    "data": [5],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "B": {
+    "data": [0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
+}

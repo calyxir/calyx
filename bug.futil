@@ -1,0 +1,47 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+component main() -> () {
+  cells {
+    @external A = seq_mem_d1(32, 1, 1);
+    @external B = seq_mem_d1(32, 1, 1);
+    comp = comp();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke comp[A=A, B=B]()();
+    }
+  }
+}
+component comp() -> () {
+  cells {
+    ref A = seq_mem_d1(32, 1, 1);
+    ref B = seq_mem_d1(32, 1, 1);
+    reg_1 = std_reg(32);
+    zero = std_const(1, 0);
+  }
+  wires {
+    group read {
+      A.addr0 = zero.out;
+      A.content_en = 1'd1;
+      reg_1.write_en = A.done ? 1'd1;
+      reg_1.in = A.done ? A.read_data;
+      read[done] = reg_1.done;
+    }
+    group write {
+      B.addr0 = zero.out;
+      B.write_en = 1'd1;
+      B.write_data = reg_1.out;
+      write[done] = B.done;
+      B.content_en = 1'd1;
+    }
+  }
+  control {
+    seq {
+      read;
+      write;
+    }
+  }
+}

@@ -1,0 +1,60 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external A = seq_mem_d1(32, 1, 1);
+    @external B = seq_mem_d1(32, 1, 1);
+    comp = comp();
+  }
+  wires {
+    group invoke0 {
+      A.addr0 = comp.A_addr0;
+      A.content_en = comp.A_content_en;
+      A.write_en = comp.A_write_en;
+      A.write_data = comp.A_write_data;
+      comp.A_read_data = A.read_data;
+      comp.A_done = A.done;
+      B.addr0 = comp.B_addr0;
+      B.content_en = comp.B_content_en;
+      B.write_en = comp.B_write_en;
+      B.write_data = comp.B_write_data;
+      comp.B_read_data = B.read_data;
+      comp.B_done = B.done;
+      comp.go = 1'd1;
+      invoke0[done] = comp.done;
+    }
+  }
+  control {
+    seq {
+      invoke0;
+    }
+  }
+}
+component comp(@go go: 1, @clk clk: 1, @reset reset: 1, A_read_data: 32, A_done: 1, B_read_data: 32, B_done: 1) -> (@done done: 1, A_addr0: 1, A_content_en: 1, A_write_en: 1, A_write_data: 32, B_addr0: 1, B_content_en: 1, B_write_en: 1, B_write_data: 32) {
+  cells {
+    reg_1 = std_reg(32);
+    zero = std_const(1, 0);
+  }
+  wires {
+    group read {
+      A_addr0 = zero.out;
+      A_content_en = 1'd1;
+      reg_1.write_en = A_done ? 1'd1;
+      reg_1.in = A_done ? A_read_data;
+      read[done] = reg_1.done;
+    }
+    group write {
+      B_addr0 = zero.out;
+      B_write_en = 1'd1;
+      B_write_data = reg_1.out;
+      write[done] = B_done;
+      B_content_en = 1'd1;
+    }
+  }
+  control {
+    seq {
+      read;
+      write;
+    }
+  }
+}
