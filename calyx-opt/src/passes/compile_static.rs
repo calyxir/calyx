@@ -524,18 +524,54 @@ impl StaticStruct {
         }
         vec![]
     }
+
+    fn get_final_state(&self) -> ir::Guard<Nothing> {
+        panic!("")
+    }
+
+    fn get_latency(&self) -> u64 {
+        match self {
+            StaticStruct::Tree(tree_struct) => tree_struct.latency,
+            StaticStruct::Par(par_struct) => par_struct.latency,
+        }
+    }
 }
 
 pub struct Tree {
     latency: u64,
-    root: ir::Id,
+    num_repeats: u64,
+    root: Vec<ir::Assignment<Nothing>>,
     children: Vec<(StaticStruct, (u64, u64))>,
+    fsm_cell: Option<StaticFSM>,
+    iter_count_cell: Option<StaticFSM>,
+    incrementer: Option<ir::RRC<ir::Cell>>,
 }
 impl Tree {
-    fn count_to_n(
-        &self,
+    fn get_final_state(
+        &mut self,
         builder: &mut ir::Builder,
-    ) -> Vec<ir::Assignment<Nothing>> {
+    ) -> ir::Guard<StaticTiming> {
+        let fsm_final_state = match &mut self.fsm_cell {
+            None => {
+                assert!(self.latency == 1);
+                Box::new(ir::Guard::True)
+            }
+            Some(static_fsm) => static_fsm
+                .query_between(builder, (self.latency - 1, self.latency)),
+        };
+        let counter_final_state = match &mut self.iter_count_cell {
+            None => {
+                assert!(self.num_repeats == 1);
+                Box::new(ir::Guard::True)
+            }
+            Some(static_fsm) => static_fsm.query_between(
+                builder,
+                (self.num_repeats - 1, self.num_repeats),
+            ),
+        };
+        ir::Guard::And(fsm_final_state, counter_final_state)
+    }
+    fn count_to_n(&mut self, builder: &mut ir::Builder) {
         // offload_states are the fsm_states that last multiple cycles
         // because they offload computations to children.
         let mut offload_states = vec![];
@@ -543,7 +579,7 @@ impl Tree {
         // if there were previous states that were offloaded.
         let mut cur_delay = 0;
         for (_, (beg, end)) in &self.children {
-            offload_states.push(beg - cur_delay);
+            offload_states.push((beg - cur_delay, (end - beg)));
             cur_delay += end - beg;
         }
         let num_states = self.latency - cur_delay;
@@ -556,32 +592,59 @@ impl Tree {
 
         let mut offload_state_guard: ir::Guard<Nothing> =
             ir::Guard::Not(Box::new(ir::Guard::True));
-        for offload_state in offload_states {
+        for (offload_state, _) in &offload_states {
             offload_state_guard.update(|g| {
-                g.or(*parent_fsm
-                    .query_between(builder, (offload_state, offload_state + 1)))
+                g.or(*parent_fsm.query_between(
+                    builder,
+                    (*offload_state, offload_state + 1),
+                ))
             });
         }
 
         let mut not_offload_state = offload_state_guard.not();
 
-        vec![]
+        let mut res_vec: Vec<ir::Assignment<StaticTiming>> = Vec::new();
+
+        let (adder_asssigns, adder) = parent_fsm.build_incrementer(builder);
+        res_vec.extend(adder_asssigns);
+        res_vec.extend(parent_fsm.conditional_increment(
+            not_offload_state,
+            Rc::clone(&adder),
+            builder,
+        ));
+
+        for (i, (child, _)) in self.children.iter().enumerate() {
+            let mut assigns = child.count_to_n();
+            let (child_state, _) = offload_states[i];
+            let in_child_state = parent_fsm
+                .query_between(builder, (child_state, child_state + 1));
+
+            let final_state_guard = child.get_final_state();
+
+            let parent_fsm_incr = parent_fsm.conditional_increment(
+                ir::Guard::And(in_child_state, Box::new(final_state_guard)),
+                Rc::clone(&adder),
+                builder,
+            );
+            res_vec.extend(parent_fsm_incr);
+        }
+
+        self.fsm_cell = Some(parent_fsm);
+        self.root.assignments.extend(res_vec);
     }
 }
 pub struct Par {
     latency: u64,
     threads: Vec<(StaticStruct, (u64, u64))>,
+    num_repeats: u64,
 }
 
 impl CompileStatic {
     fn build_static_struct(
-        name: ir::Id,
-        static_groups: &[ir::StaticGroup],
+        target_group: ir::StaticGroup,
+        static_groups: &mut Vec<ir::StaticGroup>,
+        num_repeats: u64,
     ) -> StaticStruct {
-        let target_group = static_groups
-            .iter()
-            .find(|sgroup| sgroup.name() == name)
-            .unwrap();
         let mut res_vec = vec![];
         for assign in &target_group.assignments {
             match &assign.dst.borrow().parent {
@@ -590,11 +653,27 @@ impl CompileStatic {
                 PortParent::StaticGroup(sgroup) => match &*assign.guard {
                     calyx_ir::Guard::Info(static_timing_interval) => {
                         assert!(assign.src.borrow().is_constant(1, 1));
-                        let sgroup_name = sgroup.upgrade().borrow().name();
+                        let name = sgroup.upgrade().borrow().name();
+                        let pos = static_groups
+                            .iter()
+                            .position(|sgroup| name == sgroup.name())
+                            .unwrap();
+                        let target_child = static_groups.remove(pos);
+
+                        let target_child_latency = 10;
+                        let (beg, end) = static_timing_interval.get_interval();
+                        let child_execution_time = end - beg;
+                        assert!(
+                            child_execution_time % target_child_latency == 0,
+                            ""
+                        );
+                        let child_num_repeats =
+                            child_execution_time / target_child_latency;
                         res_vec.push((
                             Self::build_static_struct(
-                                sgroup_name,
+                                target_child,
                                 static_groups,
+                                child_num_repeats,
                             ),
                             static_timing_interval.get_interval(),
                         ));
@@ -607,16 +686,31 @@ impl CompileStatic {
             StaticStruct::Par(Par {
                 threads: res_vec,
                 latency: target_group.latency,
+                num_repeats: num_repeats,
             })
         } else {
             res_vec.sort_by_key(|(_, interval)| *interval);
             assert!(Self::are_ranges_non_overlapping(&res_vec));
             StaticStruct::Tree(Tree {
                 latency: target_group.latency,
-                root: target_group.name(),
+                fsm_cell: None,
+                iter_count_cell: None,
+                incrementer: None,
+                root: (vec![]),
                 children: res_vec,
+                num_repeats: num_repeats,
             })
         }
+    }
+    fn get_sgroup_latency(
+        name: ir::Id,
+        static_groups: &[ir::StaticGroup],
+    ) -> u64 {
+        static_groups
+            .iter()
+            .find(|sgroup| sgroup.name() == name)
+            .unwrap()
+            .get_latency()
     }
     fn are_ranges_non_overlapping(
         ranges: &Vec<(StaticStruct, (u64, u64))>,
