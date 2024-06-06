@@ -70,7 +70,7 @@ impl ScrollbackBuffer {
 
     /// Scrolls the display down by one row.
     pub fn scroll_down(&mut self) {
-        if self.pos + 1 <= self.max_allowed_position() {
+        if self.pos < self.max_allowed_position() {
             self.pos += 1;
         }
     }
@@ -109,7 +109,7 @@ impl std::io::Write for ScrollbackBuffer {
             if buffer.io_line_completed {
                 buffer.lines.push(acc.clone());
             } else {
-                buffer.lines.last_mut().expect("invariant").push_str(&acc);
+                buffer.lines.last_mut().expect("invariant").push_str(acc);
             }
         }
 
