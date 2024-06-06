@@ -540,7 +540,7 @@ impl StaticStruct {
 pub struct Tree {
     latency: u64,
     num_repeats: u64,
-    root: Vec<ir::Assignment<Nothing>>,
+    root: (ir::Id, Vec<ir::Assignment<Nothing>>),
     children: Vec<(StaticStruct, (u64, u64))>,
     fsm_cell: Option<StaticFSM>,
     iter_count_cell: Option<StaticFSM>,
@@ -550,7 +550,7 @@ impl Tree {
     fn get_final_state(
         &mut self,
         builder: &mut ir::Builder,
-    ) -> ir::Guard<StaticTiming> {
+    ) -> ir::Guard<Nothing> {
         let fsm_final_state = match &mut self.fsm_cell {
             None => {
                 assert!(self.latency == 1);
@@ -603,7 +603,7 @@ impl Tree {
 
         let mut not_offload_state = offload_state_guard.not();
 
-        let mut res_vec: Vec<ir::Assignment<StaticTiming>> = Vec::new();
+        let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
 
         let (adder_asssigns, adder) = parent_fsm.build_incrementer(builder);
         res_vec.extend(adder_asssigns);
@@ -630,7 +630,8 @@ impl Tree {
         }
 
         self.fsm_cell = Some(parent_fsm);
-        self.root.assignments.extend(res_vec);
+        let (_, root_asgns) = &mut self.root;
+        root_asgns.extend(res_vec);
     }
 }
 pub struct Par {
@@ -641,10 +642,14 @@ pub struct Par {
 
 impl CompileStatic {
     fn build_static_struct(
-        target_group: ir::StaticGroup,
-        static_groups: &mut Vec<ir::StaticGroup>,
+        name: ir::Id,
+        static_groups: &Vec<ir::StaticGroup>,
         num_repeats: u64,
     ) -> StaticStruct {
+        let target_group = static_groups
+            .iter()
+            .find(|sgroup| sgroup.name() == name)
+            .unwrap();
         let mut res_vec = vec![];
         for assign in &target_group.assignments {
             match &assign.dst.borrow().parent {
@@ -654,13 +659,8 @@ impl CompileStatic {
                     calyx_ir::Guard::Info(static_timing_interval) => {
                         assert!(assign.src.borrow().is_constant(1, 1));
                         let name = sgroup.upgrade().borrow().name();
-                        let pos = static_groups
-                            .iter()
-                            .position(|sgroup| name == sgroup.name())
-                            .unwrap();
-                        let target_child = static_groups.remove(pos);
-
-                        let target_child_latency = 10;
+                        let target_child_latency =
+                            Self::get_sgroup_latency(name, static_groups);
                         let (beg, end) = static_timing_interval.get_interval();
                         let child_execution_time = end - beg;
                         assert!(
@@ -671,7 +671,7 @@ impl CompileStatic {
                             child_execution_time / target_child_latency;
                         res_vec.push((
                             Self::build_static_struct(
-                                target_child,
+                                name,
                                 static_groups,
                                 child_num_repeats,
                             ),
@@ -696,7 +696,7 @@ impl CompileStatic {
                 fsm_cell: None,
                 iter_count_cell: None,
                 incrementer: None,
-                root: (vec![]),
+                root: (name, vec![]),
                 children: res_vec,
                 num_repeats: num_repeats,
             })
