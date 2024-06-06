@@ -790,7 +790,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
                 .0;
 
             // Get yxi file from main compute program.
-            // TODO(nate): Can this use the `yxi` operation instead of hardcoding the build cmd calyx rule with arguments?
+            // TODO(nate): Eventually (#1952) This will be able to use the `yxi` operation
+            // instead of hardcoding the build cmd calyx rule with arguments
             let tmp_yxi = format!("{}.yxi", file_name);
             e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
             e.arg("backend", "yxi")?;
@@ -834,7 +835,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         // Cocotb is wants files relative to the location of the makefile.
         // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
         e.rule("copy", "cp $in $out")?;
-        e.rule("make", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out")?;
+        e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out")?;
         // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
         e.rule("cleanup-cocotb", r"sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out")?;
         Ok(())
@@ -868,7 +869,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             )?;
             e.build_cmd(
                 &["tmp.dat"],
-                "make",
+                "make-cocotb",
                 &[input],
                 &["Makefile", "axi_test.py", "run_axi_test.py"],
             )?;
