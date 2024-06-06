@@ -24,11 +24,10 @@ impl RhaiReport for rhai::Position {
         len: usize,
         msg: S,
     ) {
-        let source =
-            fs::read_to_string(path.as_ref()).expect("Failed to open file");
+        let source = fs::read_to_string(path.as_ref());
         let name = path.as_ref().to_str().unwrap();
 
-        if let Some(line) = self.line() {
+        if let (Some(line), Ok(source)) = (self.line(), source) {
             let position = self.position().unwrap_or(1);
             // translate a line offset into a char offset
             let line_offset = source
@@ -53,8 +52,51 @@ impl RhaiReport for rhai::Position {
                 .eprint((name, Source::from(source)))
                 .unwrap()
         } else {
-            eprintln!("Failed to load plugin {name}");
-            eprintln!("  {}", msg.as_ref());
+            eprintln!("Failed to load plugin: {name}");
+            let pos_str = if self.is_none() {
+                "".to_string()
+            } else {
+                format!(" @ {self}")
+            };
+            eprintln!("  {}{pos_str}", msg.as_ref());
+        }
+    }
+}
+
+impl RhaiReport for EvalAltResult {
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        _len: usize,
+        _msg: S,
+    ) {
+        match &self {
+            EvalAltResult::ErrorVariableNotFound(variable, pos) => {
+                pos.report_raw(&path, variable.len(), "Undefined variable")
+            }
+            EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
+                let (fn_name, args) = msg.split_once(' ').unwrap_or((msg, ""));
+                pos.report_raw(
+                    &path,
+                    fn_name.len(),
+                    format!("{fn_name} {args}"),
+                )
+            }
+            EvalAltResult::ErrorSystem(msg, err)
+                if err.is::<RhaiSystemError>() =>
+            {
+                let e = err.downcast_ref::<RhaiSystemError>().unwrap();
+                let msg = if msg.is_empty() {
+                    format!("{err}")
+                } else {
+                    format!("{msg}: {err}")
+                };
+                e.position.report_raw(&path, 0, msg)
+            }
+            EvalAltResult::ErrorInModule(path, err, _) => err.report(path),
+            // for errors that we don't have custom processing, just point
+            // to the beginning of the error, and use the error Display as message
+            e => e.position().report_raw(&path, 0, format!("{e}")),
         }
     }
 }
@@ -63,38 +105,11 @@ impl<T> RhaiReport for RhaiResult<T> {
     fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
         &self,
         path: P,
-        _len: usize,
-        _msg: S,
+        len: usize,
+        msg: S,
     ) {
         if let Err(e) = self {
-            match &**e {
-                EvalAltResult::ErrorVariableNotFound(variable, pos) => {
-                    pos.report_raw(&path, variable.len(), "Undefined variable")
-                }
-                EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
-                    let (fn_name, args) =
-                        msg.split_once(' ').unwrap_or((msg, ""));
-                    pos.report_raw(
-                        &path,
-                        fn_name.len(),
-                        format!("{fn_name} {args}"),
-                    )
-                }
-                EvalAltResult::ErrorSystem(msg, err)
-                    if err.is::<RhaiSystemError>() =>
-                {
-                    let e = err.downcast_ref::<RhaiSystemError>().unwrap();
-                    let msg = if msg.is_empty() {
-                        format!("{err}")
-                    } else {
-                        format!("{msg}: {err}")
-                    };
-                    e.position.report_raw(&path, 0, msg)
-                }
-                // for errors that we don't have custom processing, just point
-                // to the beginning of the error, and use the error Display as message
-                e => e.position().report_raw(&path, 0, format!("{e}")),
-            }
+            (**e).report_raw(path, len, msg);
         }
     }
 }
