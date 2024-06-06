@@ -75,6 +75,8 @@ impl PassExplorer {
         })
         .collect();
 
+        assert!(!passes.is_empty(), "Unknown pass alias '{}'", pass_alias);
+
         let mut dest_path = PathBuf::from(work_dir.path());
         dest_path.push(SOURCE_FILE_NAME);
         fs::copy(input_file, dest_path.clone())?;
