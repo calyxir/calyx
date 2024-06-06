@@ -3,6 +3,8 @@
 `calyx-pass` (name TBD) is a work-in-progress pass explorer for calyx.
 This document is a work-in-progress too.
 
+![](image.png)
+
 ## Features
 
 - Real-time visualization of changes that passes make
