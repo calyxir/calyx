@@ -30,7 +30,7 @@ pub fn external_and_ref_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
 pub enum MemoryType {
     Combinational,
     Sequential,
-    Dynamic
+    Dynamic,
 }
 
 /// Parameters for std memories
@@ -53,7 +53,6 @@ pub trait GetMemInfo {
 
 impl GetMemInfo for Vec<RRC<Cell>> {
     fn get_mem_info(&self) -> Vec<MemInfo> {
-
         //Params of dimensions for multi dimensional memories. d1 memories use `"SIZE"`.
         let dimension_params = ["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"];
         self.iter()
@@ -69,10 +68,8 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                     } else {
                         MemoryType::Dynamic
                     };
-                    
-                    
-                    let dimensions = dimension_count(mem_cell_type);
 
+                    let dimensions = dimension_count(mem_cell_type);
                     if dimensions == 1{
                         dimension_sizes.push(mem.get_parameter("SIZE").unwrap());
                         idx_sizes.push(mem.get_parameter("IDX_SIZE").unwrap());
@@ -106,17 +103,16 @@ impl GetMemInfo for Component {
     }
 }
 
-
-fn dimension_count(mem_id : Id) -> u64{ 
+fn dimension_count(mem_id: Id) -> u64 {
     let mem_name = mem_id.as_ref();
 
-    if mem_name.contains("d1"){
+    if mem_name.contains("d1") {
         1
-    } else if mem_name.contains("d2"){
+    } else if mem_name.contains("d2") {
         2
-    } else if mem_name.contains("d3"){
+    } else if mem_name.contains("d3") {
         3
-    } else if mem_name.contains("d4"){
+    } else if mem_name.contains("d4") {
         4
     } else {
         panic!("Cell {} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive.", mem_name);
