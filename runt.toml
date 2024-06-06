@@ -225,7 +225,7 @@ fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x tdcc:one-hot-cutoff=500' \
+         -s calyx.flags '-x tdcc:one-hot-cutoff=500 -d static-promotion' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \

@@ -330,6 +330,44 @@ impl<'b, 'a> Schedule<'b, 'a> {
             });
     }
 
+    /// Queries the FSM by building a new slicer and corresponding assignments if
+    /// the query hasn't yet been made. If this query has been made before, it
+    /// reuses the old query. Returns a new guard representing the query.
+    fn build_one_hot_query(
+        builder: &mut ir::Builder,
+        used_slicers: &mut HashMap<u64, ir::RRC<ir::Cell>>,
+        fsm: &ir::RRC<ir::Cell>,
+        signal_on: &ir::RRC<ir::Cell>,
+        state: &u64,
+        fsm_size: &u64,
+    ) -> ir::Guard<Nothing> {
+        match used_slicers.get(&state) {
+            None => {
+                // construct slicer for this bit query
+                structure!(
+                    builder;
+                    let slicer = prim std_bit_slice(*fsm_size, *state, *state, 1);
+                );
+                // build wire from fsm to slicer
+                let fsm_to_slicer = builder.build_assignment(
+                    slicer.borrow().get("in"),
+                    fsm.borrow().get("out"),
+                    ir::Guard::True,
+                );
+                // add continuous assignments to slicer
+                builder.component.continuous_assignments.push(fsm_to_slicer);
+                // create a guard representing when to allow next-state transition
+                let state_guard = guard!(slicer["out"] == signal_on["out"]);
+                used_slicers.insert(*state, slicer);
+                state_guard
+            }
+            Some(slicer) => {
+                let state_guard = guard!(slicer["out"] == signal_on["out"]);
+                state_guard
+            }
+        }
+    }
+
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
     /// implements it.
     fn realize_schedule(
@@ -410,109 +448,65 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| match encoding {
                     Encoding::Binary => {
-                        let state_const = self.builder.add_constant(state, fsm_size);
-                        let state_guard = guard!(fsm["out"] == state_const["out"]);
-                        assigns
-                            .iter_mut()
-                            .for_each(|asgn| asgn.guard.update(|g| g.and(state_guard.clone())));
+                        let state_const =
+                            self.builder.add_constant(state, fsm_size);
+                        let state_guard =
+                            guard!(fsm["out"] == state_const["out"]);
+                        assigns.iter_mut().for_each(|asgn| {
+                            asgn.guard.update(|g| g.and(state_guard.clone()))
+                        });
                         assigns
                     }
                     Encoding::OneHot => {
-                        let state_guard = match used_slicers.get(&state) {
-                            None => {
-                                // construct slicer for this bit query
-                                structure!(
-                                    self.builder;
-                                    let slicer = prim std_bit_slice(fsm_size, state, state, 1);
-                                );
-                                // build wire from fsm to slicer
-                                let fsm_to_slicer = self.builder.build_assignment(
-                                    slicer.borrow().get("in"),
-                                    fsm.borrow().get("out"),
-                                    ir::Guard::True,
-                                );
-                                // add continuous assignments to slicer
-                                self.builder
-                                    .component
-                                    .continuous_assignments
-                                    .push(fsm_to_slicer);
-
-                                // create a guard representing when to allow next-state transition
-                                let state_guard = guard!(slicer["out"] == signal_on["out"]);
-                                used_slicers.insert(state, slicer);
-
-                                state_guard
-                            }
-
-                            Some(slicer) => {
-                                let state_guard = guard!(slicer["out"] == signal_on["out"]);
-                                state_guard
-                            }
-                        };
-
-                        assigns
-                            .iter_mut()
-                            .for_each(|asgn| asgn.guard.update(|g| g.and(state_guard.clone())));
-
+                        let state_guard = Self::build_one_hot_query(
+                            self.builder,
+                            &mut used_slicers,
+                            &fsm,
+                            &signal_on,
+                            &state,
+                            &fsm_size,
+                        );
+                        assigns.iter_mut().for_each(|asgn| {
+                            asgn.guard.update(|g| g.and(state_guard.clone()))
+                        });
                         assigns
                     }
                 }),
         );
 
         // transition assignments
-        group
-            .borrow_mut()
-            .assignments
-            .extend(self.transitions.into_iter().flat_map(|(s, e, guard)| {
+        group.borrow_mut().assignments.extend(
+            self.transitions.into_iter().flat_map(|(s, e, guard)| {
                 let (end_const, trans_guard) = match encoding {
                     Encoding::Binary => {
                         structure!(self.builder;
                             let end_const = constant(e, fsm_size);
                             let start_const = constant(s, fsm_size);
                         );
-                        let trans_guard = guard!((fsm["out"] == start_const["out"]) & guard);
+                        let trans_guard =
+                            guard!((fsm["out"] == start_const["out"]) & guard);
 
                         (end_const, trans_guard)
                     }
                     Encoding::OneHot => {
-                        let end_constant_value =
-                            u64::pow(2, e.try_into().expect("failed to convert to u32"));
-                        match used_slicers.get(&s) {
-                            None => {
-                                structure!(
-                                    self.builder;
-                                    let end_const = constant(end_constant_value, fsm_size);
-                                    let slicer = prim std_bit_slice(fsm_size, s, s, 1);
-                                );
-                                let trans_guard =
-                                    guard!((slicer["out"] == signal_on["out"]) & guard);
-                                let fsm_to_slicer = self.builder.build_assignment(
-                                    slicer.borrow().get("in"),
-                                    fsm.borrow().get("out"),
-                                    ir::Guard::True,
-                                );
+                        let end_constant_value = u64::pow(
+                            2,
+                            e.try_into().expect("failed to convert to u32"),
+                        );
 
-                                used_slicers.insert(s, slicer);
+                        let trans_guard = Self::build_one_hot_query(
+                            self.builder,
+                            &mut used_slicers,
+                            &fsm,
+                            &signal_on,
+                            &s,
+                            &fsm_size,
+                        );
+                        let end_const = self
+                            .builder
+                            .add_constant(end_constant_value, fsm_size);
 
-                                // add wire from fsm to slicer
-                                self.builder
-                                    .component
-                                    .continuous_assignments
-                                    .push(fsm_to_slicer);
-
-                                (end_const, trans_guard)
-                            }
-                            Some(slicer) => {
-                                structure!(
-                                    self.builder;
-                                    let end_const = constant(end_constant_value, fsm_size);
-                                );
-                                let trans_guard =
-                                    guard!((slicer["out"] == signal_on["out"]) & guard);
-
-                                (end_const, trans_guard)
-                            }
-                        }
+                        (end_const, trans_guard)
                     }
                 };
                 let ec_borrow = end_const.borrow();
@@ -528,7 +522,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
                         trans_guard,
                     ),
                 ]
-            }));
+            }),
+        );
 
         // done condition for group
         let reset_fsm = match last_state_opt {
@@ -553,22 +548,23 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
             // ohe branch does not need last state constant
             None => {
-                // Done condition for group
-                structure!(
-                    self.builder;
-                    let slicer = prim std_bit_slice(fsm_size, final_state, final_state, 1);
+                let last_guard = Self::build_one_hot_query(
+                    self.builder,
+                    &mut used_slicers,
+                    &fsm,
+                    &signal_on,
+                    &final_state,
+                    &fsm_size,
                 );
-
-                let last_guard = guard!(slicer["out"] == signal_on["out"]);
+                let slicer = used_slicers
+                    .get(&final_state)
+                    .expect("msb slicer does not exist");
                 let done_assign = self.builder.build_assignment(
                     group.borrow().get("done"),
                     signal_on.borrow().get("out"),
                     last_guard.clone(),
                 );
-
                 group.borrow_mut().assignments.push(done_assign);
-
-                // Add msb slicer as continuous assignment;
                 // Cleanup: Add a transition from last state to the first state.
                 let reset_fsm = build_assignments!(self.builder;
                     slicer["in"] = ? fsm["out"];
