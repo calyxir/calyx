@@ -95,7 +95,11 @@ struct CommandDebug {}
 #[derive(FromArgs)]
 #[argh(subcommand, name = "flat")]
 /// tests the flattened interpreter
-struct FlatInterp {}
+struct FlatInterp {
+    /// dump registers as memories
+    #[argh(switch, long = "dump-registers")]
+    dump_registers: bool,
+}
 
 #[inline]
 fn print_res(
@@ -196,7 +200,7 @@ fn main() -> InterpreterResult<()> {
 
             print_res(res, opts.raw)
         }
-        Command::Flat(_) => {
+        Command::Flat(configs) => {
             let i_ctx = interp::flatten::flat_ir::translate(&ctx);
             let data_dump = opts
                 .data_file
@@ -211,7 +215,7 @@ fn main() -> InterpreterResult<()> {
 
             sim.run_program()?;
 
-            let output = sim.dump_memories();
+            let output = sim.dump_memories(configs.dump_registers);
 
             output.serialize(&mut stdout())?;
             Ok(())

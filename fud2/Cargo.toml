@@ -12,6 +12,10 @@ readme = "README.md"
 categories = ["build-tool"]
 description = "Compiler driver for the Calyx infrastructure"
 
+[features]
+migrate_to_scripts = []
+default = []
+
 [dependencies]
 fud-core = { path = "fud-core", version = "0.0.2" }
 anyhow.workspace = true
