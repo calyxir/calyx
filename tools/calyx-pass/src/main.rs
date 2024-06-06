@@ -33,7 +33,7 @@ const SAVE_CURSOR: &str = "\x1b8";
 /// Restores the saved cursor position. See source at [`SAVE_SCREEN`].
 const RESTORE_CURSOR: &str = "\x1b9";
 
-fn main() -> std::io::Result<(),> {
+fn main() -> std::io::Result<()> {
     let mut args: ParseArgs = argh::from_env();
 
     // If the user provided no --calyx-exec (or passed in an empty string),
@@ -41,19 +41,19 @@ fn main() -> std::io::Result<(),> {
     // to target/debug/calyx
     if args.calyx_exec.is_empty() {
         args.calyx_exec = "target/debug/calyx".into();
-        if let Ok(global_root,) = util::capture_command_stdout(
+        if let Ok(global_root) = util::capture_command_stdout(
             "fud",
-            &["config", "global.root",],
+            &["config", "global.root"],
             true,
         ) {
-            if let Ok(calyx_exec_rel,) = util::capture_command_stdout(
+            if let Ok(calyx_exec_rel) = util::capture_command_stdout(
                 "fud",
-                &["config", "stages.calyx.exec",],
+                &["config", "stages.calyx.exec"],
                 true,
             ) {
                 let mut path = PathBuf::new();
-                path.push(global_root.trim(),);
-                path.push(calyx_exec_rel.trim(),);
+                path.push(global_root.trim());
+                path.push(calyx_exec_rel.trim());
                 args.calyx_exec = path.to_str().unwrap().into();
             }
         }
@@ -62,13 +62,13 @@ fn main() -> std::io::Result<(),> {
     assert!(!args.calyx_exec.is_empty());
 
     // use . for tmpdir for debugging, eventually just use TempDir::new
-    let temp_dir = TempDir::new_in(".", ".calyx-pass",)?;
+    let temp_dir = TempDir::new_in(".", ".calyx-pass")?;
     let mut pass_explorer = PassExplorer::new(
         temp_dir,
         args.calyx_exec,
         args.breakpoint,
         args.pass_alias,
-        PathBuf::from(args.input_file,),
+        PathBuf::from(args.input_file),
     )?;
 
     /// Quit the program.
@@ -98,7 +98,7 @@ fn main() -> std::io::Result<(),> {
     writeln!(term_stdout, "{}", SWITCH_ALTERNATIVE_BUFFER)?;
     term_stdout.hide_cursor()?;
 
-    let mut scrollback_buffer = ScrollbackBuffer::new(&term_stdout,);
+    let mut scrollback_buffer = ScrollbackBuffer::new(&term_stdout);
     let mut needs_redraw = true;
 
     loop {
@@ -127,24 +127,24 @@ fn main() -> std::io::Result<(),> {
 
             let current_pass_application =
                 pass_explorer.current_pass_application();
-            if let Some(incoming_pos,) =
-                current_pass_application.iter().position(|(_, status,)| {
+            if let Some(incoming_pos) =
+                current_pass_application.iter().position(|(_, status)| {
                     *status == PassApplicationStatus::Incoming
-                },)
+                })
             {
                 write!(scrollback_buffer, "Passes: ")?;
-                let start_index = max(0, (incoming_pos as isize) - 3,) as usize;
+                let start_index = max(0, (incoming_pos as isize) - 3) as usize;
                 if start_index > 0 {
                     write!(scrollback_buffer, "[{} more] ... ", start_index)?;
                 }
 
                 let length =
-                    min(5, current_pass_application.len() - start_index,);
+                    min(5, current_pass_application.len() - start_index);
                 for i in start_index..start_index + length {
                     if i > start_index {
                         write!(scrollback_buffer, ", ")?;
                     }
-                    let (name, status,) = &current_pass_application[i];
+                    let (name, status) = &current_pass_application[i];
                     let colored_name = match status {
                         PassApplicationStatus::Applied => name.green(),
                         PassApplicationStatus::Skipped => name.dimmed(),
@@ -169,8 +169,8 @@ fn main() -> std::io::Result<(),> {
                 writeln!(scrollback_buffer)?;
             }
 
-            if let Some(review,) =
-                pass_explorer.review(args.component.clone(),)?
+            if let Some(review) =
+                pass_explorer.review(args.component.clone())?
             {
                 let rows = term_stdout.size().1;
                 writeln!(
@@ -187,7 +187,7 @@ fn main() -> std::io::Result<(),> {
         scrollback_buffer.display()?;
 
         match term_stdout.read_key()? {
-            Key::Char(c,) => match c {
+            Key::Char(c) => match c {
                 QUIT => break,
                 ACCEPT => {
                     pass_explorer.accept()?;
@@ -230,7 +230,7 @@ fn main() -> std::io::Result<(),> {
     writeln!(term_stdout, "{}", RESTORE_CURSOR)?;
     writeln!(term_stdout, "{}", SWITCH_MAIN_BUFFER)?;
     term_stdout.show_cursor()?;
-    term_stdout.move_cursor_down(1,)?;
+    term_stdout.move_cursor_down(1)?;
 
-    Ok((),)
+    Ok(())
 }
