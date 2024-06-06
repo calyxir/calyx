@@ -592,3 +592,12 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   rm -f results.xml
 
 """
+
+[[tests]]
+name = "Cassandra matrix multiplier tests"
+paths = ["examples/tutorial/matrix-mult.futil"]
+cmd = """
+fud e {}  \
+  -s verilog.data {}.data \
+  --to dat --through icarus-verilog -v -q
+"""
