@@ -90,7 +90,7 @@ pub fn build_primitive(
             width: _,
             int_width: _,
             frac_width: _,
-        } => todo!(),
+        } => todo!("Fixed point implementations not available yet"),
         CellPrototype::Slice {
             in_width: _, // Not actually needed, should probably remove
             out_width,
