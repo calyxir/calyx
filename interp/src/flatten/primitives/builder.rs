@@ -1,6 +1,4 @@
-use super::{
-    combinational::*, prim_trait::DummyPrimitive, stateful::*, Primitive,
-};
+use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
