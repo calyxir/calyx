@@ -1,0 +1,235 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+// primitive comb_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE]
+component main() -> () {
+  cells {
+    @external(1) mem1 = comb_mem_d2(32, 2, 2, 1, 1); //matrix 1, and will store the result
+    @external(1) mem2 = comb_mem_d2(32, 2, 2, 1, 1); //matrix 2
+    @external(1) mem3 = comb_mem_d2(32, 2, 2, 1, 1);
+    val = std_reg(32); // holds one number of the result matrix
+    val1 = std_reg(32);
+    val2 = std_reg(32);
+    val3 = std_reg(32);
+    val4 = std_reg(32);
+    val5 = std_reg(32);
+    val6 = std_reg(32);
+    val7 = std_reg(32);
+    val8 = std_reg(32);
+    temp1 = std_reg(32);
+    temp2 = std_reg(32);
+
+    add = std_add(32);
+    mul = std_mult_pipe(32);
+  }
+
+  wires {
+    group read1 { // read value 00 from matrix 1
+      mem1.addr0 = 1'b0;
+      mem1.addr1 = 1'b0;
+      val1.in = mem1.read_data;
+      val1.write_en = 1'b1;
+      read1[done] = val1.done;
+    }
+
+    group read2 { // read value 00 from matrix 2
+      mem2.addr0 = 1'b0;
+      mem2.addr1 = 1'b0;
+      val2.in = mem2.read_data;
+      val2.write_en = 1'b1;
+      read2[done] = val2.done;
+    }
+
+
+    group read3 { //read value 01 from matrix 1
+      mem1.addr0 = 1'b0;
+      mem1.addr1 = 1'b1;
+      val3.in = mem1.read_data;
+      val3.write_en = 1'b1;
+      read3[done] = val3.done;
+    }
+
+    group read4 { // read value 01 from matrix 2
+      mem2.addr0 = 1'b0;
+      mem2.addr1 = 1'b1;
+      val4.in = mem2.read_data;
+      val4.write_en = 1'b1;
+      read4[done] = val4.done;
+    }
+
+    group read5 { // read value 10 from matrix 1
+      mem1.addr0 = 1'b1;
+      mem1.addr1 = 1'b0;
+      val5.in = mem1.read_data;
+      val5.write_en = 1'b1;
+      read5[done] = val5.done;
+    }
+
+    group read6 { // read value 10 from matrix 2
+      mem2.addr0 = 1'b1;
+      mem2.addr1 = 1'b0;
+      val6.in = mem2.read_data;
+      val6.write_en = 1'b1;
+      read6[done] = val6.done;
+    }
+
+    group read7 { // read value 11 from matrix 1
+      mem1.addr0 = 1'b1;
+      mem1.addr1 = 1'b1;
+      val7.in = mem1.read_data;
+      val7.write_en = 1'b1;
+      read7[done] = val7.done;
+    }
+    group read8 { // read value 11 from matrix 2
+      mem2.addr0 = 1'b1;
+      mem2.addr1 = 1'b1;
+      val8.in = mem2.read_data;
+      val8.write_en = 1'b1;
+      read8[done] = val8.done;
+    }
+
+    group mul_upd { //multiply 00 x 00, store in temp1
+      mul.left = val1.out;
+      mul.right = val2.out;
+      mul.go = !mul.done ? 1'd1;
+      temp1.in = mul.out;
+      temp1.write_en = mul.done;
+      mul_upd[done] = temp1.done;
+    }
+
+    group mul_upd2 { //multiply 01 x 10, store in temp2
+      mul.left = val3.out;
+      mul.right = val6.out;
+      mul.go = !mul.done ? 1'd1;
+      temp2.in = mul.out;
+      temp2.write_en = mul.done;
+      mul_upd2[done] = temp2.done;
+    }
+
+    group upd { // add together and store in val
+      add.left = temp1.out;
+      add.right = temp2.out;
+      val.in = add.out;
+      val.write_en = 1'b1;
+      upd[done] = val.done;
+    }
+
+    group mul_upd3 { // multiply 00 x 01, store in temp1
+      mul.left = val1.out;
+      mul.right = val4.out;
+      mul.go = !mul.done ? 1'd1;
+      temp1.in = mul.out;
+      temp1.write_en = mul.done;
+      mul_upd3[done] = temp1.done;
+    }
+
+    group mul_upd4 { // multiply 01 x 11, store in temp2
+      mul.left = val3.out;
+      mul.right = val8.out;
+      mul.go = !mul.done ? 1'd1;
+      temp2.in = mul.out;
+      temp2.write_en = mul.done;
+      mul_upd4[done] = temp2.done;
+    }
+
+    group mul_upd5 { // multiply 10 x 00, store in temp1
+      mul.left = val5.out;
+      mul.right = val2.out;
+      mul.go = !mul.done ? 1'd1;
+      temp1.in = mul.out;
+      temp1.write_en = mul.done;
+      mul_upd5[done] = temp1.done;
+    }
+
+    group mul_upd6 { // multiply 11 x 10, store in temp2
+      mul.left = val7.out;
+      mul.right = val6.out;
+      mul.go = !mul.done ? 1'd1;
+      temp2.in = mul.out;
+      temp2.write_en = mul.done;
+      mul_upd6[done] = temp2.done;
+    }
+
+    group mul_upd7 { // multiply 10 x 01, store in temp1
+      mul.left = val5.out;
+      mul.right = val4.out;
+      mul.go = !mul.done ? 1'd1;
+      temp1.in = mul.out;
+      temp1.write_en = mul.done;
+      mul_upd7[done] = temp1.done;
+    }
+
+    group mul_upd8 { // multiply 11 x 11, store in temp2
+      mul.left = val7.out;
+      mul.right = val8.out;
+      mul.go = !mul.done ? 1'd1;
+      temp2.in = mul.out;
+      temp2.write_en = mul.done;
+      mul_upd8[done] = temp2.done;
+    }
+
+    group write { //write to position 00 in result matrix, do at very end
+      mem3.addr0 = 1'b0;
+      mem3.addr1 = 1'b0;
+      mem3.write_en = 1'b1;
+      mem3.write_data = val.out;
+      write[done] = mem3.done;
+    }
+
+    group write1 { //write to position 10 in result matrix, do at very end
+      mem3.addr0 = 1'b1;
+      mem3.addr1 = 1'b0;
+      mem3.write_en = 1'b1;
+      mem3.write_data = val.out;
+      write1[done] = mem3.done;
+    }
+    group write2 { //write to position 01 in result matrix, do at very end
+      mem3.addr0 = 1'b0;
+      mem3.addr1 = 1'b1;
+      mem3.write_en = 1'b1;
+      mem3.write_data = val.out;
+      write2[done] = mem3.done;
+    }
+
+    group write3 { //write to position 11 in result matrix, do at very end
+      mem3.addr0 = 1'b1;
+      mem3.addr1 = 1'b1;
+      mem3.write_en = 1'b1;
+      mem3.write_data = val.out;
+      write3[done] = mem3.done;
+    }
+
+  }
+  control {
+    seq {
+      read1;
+      read2;
+      read3;
+      read4;
+      read5;
+      read6;
+      read7;
+      read8;
+      mul_upd;
+      mul_upd2;
+      upd;
+      write;
+      
+      mul_upd3;
+      mul_upd4;
+      upd;
+      write2;
+
+      mul_upd5;
+      mul_upd6;
+      upd;
+      write1;
+
+      mul_upd7;
+      mul_upd8;
+      upd;
+      write3;        
+    }
+  }
+}
