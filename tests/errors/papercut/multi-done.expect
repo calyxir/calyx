@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/errors/papercut/multi-done.futil
 10 |    read_done = mem_0.read_done;
-   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Undefined port name: read_done
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Undefined port name: mem_0.read_done

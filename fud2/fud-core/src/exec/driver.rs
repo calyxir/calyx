@@ -1,8 +1,9 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, utils};
+use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
-use std::collections::HashMap;
+use rand::distributions::{Alphanumeric, DistString};
+use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 #[derive(PartialEq)]
 enum Destination {
@@ -124,7 +125,7 @@ impl Driver {
         }
     }
 
-    /// Concot a plan to carry out the requested build.
+    /// Concoct a plan to carry out the requested build.
     ///
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
@@ -195,9 +196,23 @@ impl Driver {
             .map(|(op, _)| op)
     }
 
-    /// The working directory to use when running a build.
-    pub fn default_workdir(&self) -> Utf8PathBuf {
+    /// The default working directory name when we want the same directory on every run.
+    pub fn stable_workdir(&self) -> Utf8PathBuf {
         format!(".{}", &self.name).into()
+    }
+
+    /// A new working directory that does not yet exist on the filesystem, for when we
+    /// want to avoid collisions.
+    pub fn fresh_workdir(&self) -> Utf8PathBuf {
+        loop {
+            let rand_suffix =
+                Alphanumeric.sample_string(&mut rand::thread_rng(), 8);
+            let path: Utf8PathBuf =
+                format!(".{}-{}", &self.name, rand_suffix).into();
+            if !path.exists() {
+                return path;
+            }
+        }
     }
 
     /// Print a list of registered states and operations to stdout.
@@ -225,13 +240,36 @@ impl Driver {
 }
 
 pub struct DriverBuilder {
-    name: String,
+    pub name: String,
     setups: PrimaryMap<SetupRef, Setup>,
     states: PrimaryMap<StateRef, State>,
     ops: PrimaryMap<OpRef, Operation>,
     rsrc_dir: Option<Utf8PathBuf>,
     rsrc_files: Option<FileData>,
+    scripts_dir: Option<Utf8PathBuf>,
+    script_files: Option<FileData>,
 }
+
+#[derive(Debug)]
+pub enum DriverError {
+    UnknownState(String),
+    UnknownSetup(String),
+}
+
+impl Display for DriverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DriverError::UnknownState(state) => {
+                write!(f, "Unknown state: {state}")
+            }
+            DriverError::UnknownSetup(setup) => {
+                write!(f, "Unknown state: {setup}")
+            }
+        }
+    }
+}
+
+impl Error for DriverError {}
 
 impl DriverBuilder {
     pub fn new(name: &str) -> Self {
@@ -242,6 +280,8 @@ impl DriverBuilder {
             ops: Default::default(),
             rsrc_dir: None,
             rsrc_files: None,
+            scripts_dir: None,
+            script_files: None,
         }
     }
 
@@ -252,21 +292,12 @@ impl DriverBuilder {
         })
     }
 
-    fn add_op<T: run::EmitBuild + 'static>(
-        &mut self,
-        name: &str,
-        setups: &[SetupRef],
-        input: StateRef,
-        output: StateRef,
-        emit: T,
-    ) -> OpRef {
-        self.ops.push(Operation {
-            name: name.into(),
-            setups: setups.into(),
-            input,
-            output,
-            emit: Box::new(emit),
-        })
+    pub fn find_state(&self, needle: &str) -> Result<StateRef, DriverError> {
+        self.states
+            .iter()
+            .find(|(_, State { name, .. })| needle == name)
+            .map(|(state_ref, _)| state_ref)
+            .ok_or_else(|| DriverError::UnknownState(needle.to_string()))
     }
 
     pub fn add_setup<T: run::EmitSetup + 'static>(
@@ -282,6 +313,31 @@ impl DriverBuilder {
 
     pub fn setup(&mut self, name: &str, func: run::EmitSetupFn) -> SetupRef {
         self.add_setup(name, func)
+    }
+
+    pub fn find_setup(&self, needle: &str) -> Result<SetupRef, DriverError> {
+        self.setups
+            .iter()
+            .find(|(_, Setup { name, .. })| needle == name)
+            .map(|(setup_ref, _)| setup_ref)
+            .ok_or_else(|| DriverError::UnknownSetup(needle.to_string()))
+    }
+
+    pub fn add_op<T: run::EmitBuild + 'static>(
+        &mut self,
+        name: &str,
+        setups: &[SetupRef],
+        input: StateRef,
+        output: StateRef,
+        emit: T,
+    ) -> OpRef {
+        self.ops.push(Operation {
+            name: name.into(),
+            setups: setups.into(),
+            input,
+            output,
+            emit: Box::new(emit),
+        })
     }
 
     pub fn op(
@@ -319,6 +375,53 @@ impl DriverBuilder {
 
     pub fn rsrc_files(&mut self, files: FileData) {
         self.rsrc_files = Some(files);
+    }
+
+    pub fn scripts_dir(&mut self, path: &str) {
+        self.scripts_dir = Some(path.into());
+    }
+
+    pub fn script_files(&mut self, files: FileData) {
+        self.script_files = Some(files);
+    }
+
+    /// Load any plugin scripts specified in the configuration file.
+    pub fn load_plugins(mut self) -> Self {
+        // pull out things from self that we need
+        let plugin_dir = self.scripts_dir.take();
+        let plugin_files = self.script_files.take();
+
+        // TODO: Let's try to avoid loading/parsing the configuration file here and
+        // somehow reusing it from wherever we do that elsewhere.
+        let config = config::load_config(&self.name);
+
+        let mut runner = script::ScriptRunner::new(self);
+
+        // add system plugins
+        if let Some(plugin_dir) = plugin_dir {
+            runner.add_files(
+                std::fs::read_dir(plugin_dir)
+                    .unwrap()
+                    // filter out invalid paths
+                    .filter_map(|dir_entry| dir_entry.map(|p| p.path()).ok())
+                    // filter out paths that don't have `.rhai` extension
+                    .filter(|p| p.extension() == Some(OsStr::new("rhai"))),
+            );
+        }
+
+        // add static plugins (where string is included in binary)
+        if let Some(plugin_files) = plugin_files {
+            runner.add_static_files(plugin_files.into_iter());
+        }
+
+        // add user plugins defined in config
+        if let Ok(plugins) =
+            config.extract_inner::<Vec<std::path::PathBuf>>("plugins")
+        {
+            runner.add_files(plugins.into_iter());
+        }
+
+        runner.run()
     }
 
     pub fn build(self) -> Driver {
