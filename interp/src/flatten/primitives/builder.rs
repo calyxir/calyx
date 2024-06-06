@@ -1,6 +1,4 @@
-use super::{
-    combinational::*, prim_trait::DummyPrimitive, stateful::*, Primitive,
-};
+use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
@@ -61,7 +59,7 @@ pub fn build_primitive(
             PrimType1::SignedLe => Box::new(StdSle::new(base_port)),
             PrimType1::SignedLsh => Box::new(StdSlsh::new(base_port)),
             PrimType1::SignedRsh => Box::new(StdSrsh::new(base_port)),
-            PrimType1::MultPipe => Box::new(DummyPrimitive),
+            PrimType1::MultPipe => todo!(),
             PrimType1::SignedMultPipe => todo!(),
             PrimType1::DivPipe => todo!(),
             PrimType1::SignedDivPipe => todo!(),
@@ -90,7 +88,7 @@ pub fn build_primitive(
             width: _,
             int_width: _,
             frac_width: _,
-        } => todo!(),
+        } => todo!("Fixed point implementations not available yet"),
         CellPrototype::Slice {
             in_width: _, // Not actually needed, should probably remove
             out_width,
