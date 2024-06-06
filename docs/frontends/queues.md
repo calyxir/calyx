@@ -38,6 +38,10 @@ Internally, our FIFO queue is implemented as a circular buffer.
 One register marks the next element that would be popped, another marks the next cell into which an element would be pushed, and a third marks the number of elements in the queue.
 The control logic is straightforward, and proceeds in three parallel arms based on the operation requested.
 
+Using a circular buffer usually entails incrementing indices modulo the buffer size.
+We use a trick to avoid this: we require the FIFO's length to be a power of two, say `2^k`, and we use adders of width `k` to increment the indices.
+This means we can just naively increment the indices forever and the wrap-around behavior we want is automatically provided by overflow.
+
 ## PIFO
 
 A more complex instance is the priority queue.
