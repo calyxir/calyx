@@ -5,9 +5,9 @@ import "primitives/binary_operators.futil";
 // primitive comb_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE]
 component main() -> () {
   cells {
-    @external(1) mem1 = comb_mem_d2(32, 2, 2, 1, 1); //matrix 1, and will store the result
+    @external(1) mem1 = comb_mem_d2(32, 2, 2, 1, 1); //matrix 1
     @external(1) mem2 = comb_mem_d2(32, 2, 2, 1, 1); //matrix 2
-    @external(1) mem3 = comb_mem_d2(32, 2, 2, 1, 1);
+    @external(1) mem3 = comb_mem_d2(32, 2, 2, 1, 1); //will store the result
     val = std_reg(32); // holds one number of the result matrix
     val1 = std_reg(32);
     val2 = std_reg(32);
@@ -25,7 +25,7 @@ component main() -> () {
   }
 
   wires {
-    group read1 { // read value 00 from matrix 1
+    group read1 { // val1 := mem1[0][0]
       mem1.addr0 = 1'b0;
       mem1.addr1 = 1'b0;
       val1.in = mem1.read_data;
@@ -33,7 +33,7 @@ component main() -> () {
       read1[done] = val1.done;
     }
 
-    group read2 { // read value 00 from matrix 2
+    group read2 { // val2 := mem2[0][0]
       mem2.addr0 = 1'b0;
       mem2.addr1 = 1'b0;
       val2.in = mem2.read_data;
@@ -42,7 +42,7 @@ component main() -> () {
     }
 
 
-    group read3 { //read value 01 from matrix 1
+    group read3 { // val3 := mem1[0][1]
       mem1.addr0 = 1'b0;
       mem1.addr1 = 1'b1;
       val3.in = mem1.read_data;
@@ -50,7 +50,7 @@ component main() -> () {
       read3[done] = val3.done;
     }
 
-    group read4 { // read value 01 from matrix 2
+    group read4 { // val4 := mem2[0][1]
       mem2.addr0 = 1'b0;
       mem2.addr1 = 1'b1;
       val4.in = mem2.read_data;
@@ -58,7 +58,7 @@ component main() -> () {
       read4[done] = val4.done;
     }
 
-    group read5 { // read value 10 from matrix 1
+    group read5 { // val5 := mem1[1][0]
       mem1.addr0 = 1'b1;
       mem1.addr1 = 1'b0;
       val5.in = mem1.read_data;
@@ -66,7 +66,7 @@ component main() -> () {
       read5[done] = val5.done;
     }
 
-    group read6 { // read value 10 from matrix 2
+    group read6 { // val6 := mem2[1][0]
       mem2.addr0 = 1'b1;
       mem2.addr1 = 1'b0;
       val6.in = mem2.read_data;
@@ -74,14 +74,14 @@ component main() -> () {
       read6[done] = val6.done;
     }
 
-    group read7 { // read value 11 from matrix 1
+    group read7 { // val7 := mem1[1][1]
       mem1.addr0 = 1'b1;
       mem1.addr1 = 1'b1;
       val7.in = mem1.read_data;
       val7.write_en = 1'b1;
       read7[done] = val7.done;
     }
-    group read8 { // read value 11 from matrix 2
+    group read8 { // val8 := mem2[1][1]
       mem2.addr0 = 1'b1;
       mem2.addr1 = 1'b1;
       val8.in = mem2.read_data;
@@ -133,7 +133,7 @@ component main() -> () {
       mul_upd4[done] = temp2.done;
     }
 
-    group mul_upd5 { // multiply 10 x 00, store in temp1
+    group mul_upd5 { // multiply mem1[1][0] x mem2[0][0], store in temp1
       mul.left = val5.out;
       mul.right = val2.out;
       mul.go = !mul.done ? 1'd1;
@@ -142,7 +142,7 @@ component main() -> () {
       mul_upd5[done] = temp1.done;
     }
 
-    group mul_upd6 { // multiply 11 x 10, store in temp2
+    group mul_upd6 { // multiply mem1[1][1] x mem2[1][0], store in temp2
       mul.left = val7.out;
       mul.right = val6.out;
       mul.go = !mul.done ? 1'd1;
@@ -151,7 +151,7 @@ component main() -> () {
       mul_upd6[done] = temp2.done;
     }
 
-    group mul_upd7 { // multiply 10 x 01, store in temp1
+    group mul_upd7 { // multiply mem1[1][0] x mem2[0][1], store in temp1
       mul.left = val5.out;
       mul.right = val4.out;
       mul.go = !mul.done ? 1'd1;
@@ -160,7 +160,7 @@ component main() -> () {
       mul_upd7[done] = temp1.done;
     }
 
-    group mul_upd8 { // multiply 11 x 11, store in temp2
+    group mul_upd8 { // multiply mem1[1][1] x mem2[1][1], store in temp2
       mul.left = val7.out;
       mul.right = val8.out;
       mul.go = !mul.done ? 1'd1;
@@ -169,7 +169,7 @@ component main() -> () {
       mul_upd8[done] = temp2.done;
     }
 
-    group write { //write to position 00 in result matrix, do at very end
+    group write { //write to mem3[0][0]
       mem3.addr0 = 1'b0;
       mem3.addr1 = 1'b0;
       mem3.write_en = 1'b1;
@@ -177,14 +177,14 @@ component main() -> () {
       write[done] = mem3.done;
     }
 
-    group write1 { //write to position 10 in result matrix, do at very end
+    group write1 { //write to mem3[1][0]
       mem3.addr0 = 1'b1;
       mem3.addr1 = 1'b0;
       mem3.write_en = 1'b1;
       mem3.write_data = val.out;
       write1[done] = mem3.done;
     }
-    group write2 { //write to position 01 in result matrix, do at very end
+    group write2 { //write to mem3[0][1]
       mem3.addr0 = 1'b0;
       mem3.addr1 = 1'b1;
       mem3.write_en = 1'b1;
@@ -192,7 +192,7 @@ component main() -> () {
       write2[done] = mem3.done;
     }
 
-    group write3 { //write to position 11 in result matrix, do at very end
+    group write3 { //write to mem3[1][1]
       mem3.addr0 = 1'b1;
       mem3.addr1 = 1'b1;
       mem3.write_en = 1'b1;
@@ -203,14 +203,22 @@ component main() -> () {
   }
   control {
     seq {
-      read1;
-      read2;
-      read3;
-      read4;
-      read5;
-      read6;
-      read7;
-      read8;
+      par {
+        read1;
+        read2;
+      }
+      par {
+        read3;
+        read4;
+      }
+      par {
+        read5;
+        read6;
+      }
+      par {
+        read7;
+        read8;
+      }
       mul_upd;
       mul_upd2;
       upd;
