@@ -506,7 +506,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                             .builder
                             .add_constant(end_constant_value, fsm_size);
 
-                        (end_const, trans_guard)
+                        (end_const, trans_guard.and(guard))
                     }
                 };
                 let ec_borrow = end_const.borrow();
@@ -556,9 +556,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     &final_state,
                     &fsm_size,
                 );
-                let slicer = used_slicers
-                    .get(&final_state)
-                    .expect("msb slicer does not exist");
                 let done_assign = self.builder.build_assignment(
                     group.borrow().get("done"),
                     signal_on.borrow().get("out"),
@@ -567,7 +564,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 group.borrow_mut().assignments.push(done_assign);
                 // Cleanup: Add a transition from last state to the first state.
                 let reset_fsm = build_assignments!(self.builder;
-                    slicer["in"] = ? fsm["out"];
                     fsm["in"] = last_guard ? first_state["out"];
                     fsm["write_en"] = last_guard ? signal_on["out"];
                 );
