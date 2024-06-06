@@ -9,8 +9,7 @@ pub struct ParseArgs {
         option,
         description = "location of calyx executable",
         default = "String::from(\"\")",
-        short = 'e',
-        long = "exec"
+        short = 'e'
     )]
     pub calyx_exec: String,
 
@@ -30,6 +29,14 @@ pub struct ParseArgs {
         long = "pass-alias"
     )]
     pub pass_alias: String,
+
+    #[argh(
+        option,
+        description = "disable pass before -b breakpoint",
+        short = 'd',
+        long = "disable-pass"
+    )]
+    pub disable: Vec<String>,
 
     #[argh(option, description = "focus a component", short = 'c')]
     pub component: Option<String>,

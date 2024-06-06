@@ -23,10 +23,25 @@ pub enum PassApplicationStatus {
     Future,
 }
 
+#[derive(Clone)]
+pub struct Breakpoint {
+    pass: String,
+    skip: HashSet<String>,
+}
+
+impl Breakpoint {
+    pub fn from(pass: String, skip: Vec<String>) -> Self {
+        Self {
+            pass,
+            skip: HashSet::from_iter(skip),
+        }
+    }
+}
+
 pub struct PassExplorer {
     work_dir: TempDir,
     calyx_exec: String,
-    breakpoint: Option<String>,
+    breakpoint: Option<Breakpoint>,
     passes: Vec<String>,
     passes_applied: Vec<usize>,
     index: isize,
@@ -41,7 +56,7 @@ impl PassExplorer {
     pub fn new(
         work_dir: TempDir,
         calyx_exec: String,
-        breakpoint: Option<String>,
+        breakpoint: Option<Breakpoint>,
         pass_alias: String,
         input_file: PathBuf,
     ) -> std::io::Result<Self> {
@@ -75,10 +90,14 @@ impl PassExplorer {
         };
 
         if let Some(breakpoint) = new_self.breakpoint.clone() {
-            assert!(new_self.passes.contains(&breakpoint));
-            while new_self.incoming_pass().expect("There is at least one pass by our prior assertion and we also must encounter the breakpoint").ne(&breakpoint) {
+            assert!(new_self.passes.contains(&breakpoint.pass));
+            while new_self.incoming_pass().expect("There is at least one pass by our prior assertion and we also must encounter the breakpoint").ne(&breakpoint.pass) {
+                if !breakpoint.skip.contains(&new_self.incoming_pass().unwrap()) {
                 new_self.ensure_inc_file_exists()?;
                 new_self.accept()?;
+                } else {
+                    new_self.skip()?;
+                }
             }
         }
 
