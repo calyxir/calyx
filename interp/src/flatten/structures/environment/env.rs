@@ -12,7 +12,7 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
-            cell_prototype::CellPrototype,
+            cell_prototype::{CellPrototype, PrimType1},
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
                 ControlNode, GlobalCellIdx, GlobalPortIdx, GlobalPortRef,
@@ -26,7 +26,7 @@ use crate::{
             environment::program_counter::ControlPoint, index_trait::IndexRef,
         },
     },
-    serialization::data_dump::DataDump,
+    serialization::data_dump::{DataDump, Dimensions},
     values::Value,
 };
 use std::fmt::Debug;
@@ -981,7 +981,7 @@ impl<'a> Simulator<'a> {
     }
 
     /// Dump the current state of the environment as a DataDump
-    pub fn dump_memories(&self) -> DataDump {
+    pub fn dump_memories(&self, dump_registers: bool) -> DataDump {
         let ctx = self.ctx();
         let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
 
@@ -995,10 +995,8 @@ impl<'a> Simulator<'a> {
             let cell_info = &ctx.secondary[*idx];
             let cell_index = &root.index_bases + offset;
             let name = ctx.lookup_string(cell_info.name).clone();
-            if let CellPrototype::Memory { width, dims, .. } =
-                &cell_info.prototype
-            {
-                dump.push_memory(
+            match &cell_info.prototype {
+                CellPrototype::Memory { width, dims, .. } => dump.push_memory(
                     name,
                     *width as usize,
                     dims.size(),
@@ -1007,7 +1005,25 @@ impl<'a> Simulator<'a> {
                         .unwrap_primitive()
                         .dump_memory_state()
                         .unwrap(),
-                )
+                ),
+                CellPrototype::SingleWidth {
+                    op: PrimType1::Reg,
+                    width,
+                } => {
+                    if dump_registers {
+                        dump.push_memory(
+                            name,
+                            *width as usize,
+                            1,
+                            Dimensions::D1(1),
+                            self.env.cells[cell_index]
+                                .unwrap_primitive()
+                                .dump_memory_state()
+                                .unwrap(),
+                        )
+                    }
+                }
+                _ => (),
             }
         }
 
