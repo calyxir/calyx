@@ -1,7 +1,7 @@
 use crate::util::{self, capture_command_stdout};
 use colored::Colorize;
 use similar::{ChangeTag, TextDiff};
-use std::{fs, path::PathBuf};
+use std::{collections::HashSet, fs, path::PathBuf};
 use tempdir::TempDir;
 
 /// The initial file name to copy the input file to.
@@ -30,7 +30,7 @@ pub struct PassExplorer {
     passes: Vec<String>,
     passes_applied: Vec<usize>,
     index: isize,
-    inc_file_exists: bool
+    file_exists: HashSet<PathBuf>
 }
 
 /// A pass explorer can be used to visualize arbitrary pass transformations on
@@ -61,15 +61,25 @@ impl PassExplorer {
         dest_path.push(FIRST_FILE_NAME);
         fs::copy(input_file, dest_path.clone())?;
 
-        Ok(Self {
+        let mut new_self = Self {
             work_dir,
             calyx_exec,
             breakpoint,
             passes,
             passes_applied: vec![],
             index: 0,
-            inc_file_exists: false
-        })
+            file_exists: HashSet::new()
+        };
+
+        if let Some(breakpoint) = new_self.breakpoint.clone() {
+            assert!(new_self.passes.contains(&breakpoint));
+            while new_self.incoming_pass().expect("There is at least one pass by our prior assertion and we also must encounter the breakpoint").ne(&breakpoint) {
+                new_self.ensure_inc_file_exists()?;
+                new_self.accept()?;
+            }
+        }
+
+        Ok(new_self)
     }
 
     /// The pass most recently applied, if one exists.
@@ -149,18 +159,34 @@ impl PassExplorer {
         Ok(Some(output))
     }
 
+    /// Applies the incoming pass.
+    pub fn accept(&mut self) -> std::io::Result<()> {
+        self.advance(true)
+    }
+
+    /// Skips the incoming pass.
+    pub fn skip(&mut self) -> std::io::Result<()> {
+        self.advance(false)
+    }
+
+    /// Undos the last acceptance or skip.
+    pub fn undo(&mut self) -> std::io::Result<()> {
+        if let Some(last_pass_index) = self.passes_applied.pop() {
+            self.index = last_pass_index as isize;
+        } else if self.index > 0 {
+            self.index -= 1;
+        }
+        Ok(())
+    }
+
     /// Advances to the next pass (if one exists). If `apply`, the incoming pass
     /// changes will be made. Otherwise, it will be skipped.
-    pub fn advance(&mut self, apply: bool) -> std::io::Result<()> {
+    fn advance(&mut self, apply: bool) -> std::io::Result<()> {
         if self.incoming_pass().is_some() {
             if apply {
-                fs::remove_file(self.last_file())?;
                 self.passes_applied.push(self.index as usize);
-            } else {
-                fs::remove_file(self.incoming_file().unwrap())?;
             }
             self.index += 1;
-            self.inc_file_exists = false;
         }
         Ok(())
     }
@@ -188,8 +214,8 @@ impl PassExplorer {
 
     /// Produces the incoming file if it does not exist already.
     fn ensure_inc_file_exists(&mut self) -> std::io::Result<()> {
-        if !self.inc_file_exists {
-            if let Some(inc_file) = self.incoming_file() {
+        if let Some(inc_file) = self.incoming_file() {
+            if !self.file_exists.contains(&inc_file) {
                 capture_command_stdout(
                     &self.calyx_exec,
                     &[
@@ -201,8 +227,8 @@ impl PassExplorer {
                     ],
                     true
                 )?;
+                self.file_exists.insert(inc_file);
             }
-            self.inc_file_exists = true;
         }
 
         Ok(())
