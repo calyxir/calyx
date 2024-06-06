@@ -576,7 +576,7 @@ def add_axi_seq_mem(prog, mem):
     # Inputs/Outputs
     seq_mem_inputs =[
         ("addr0", address_width, [("write_together", 1), "data"]),
-        ("content_en", 1, [("write_together", 1), ("interval", 1), ("go", 1)]),
+        ("content_en", 1, [("write_together", 1), ("go", 1)]),
         ("write_en", 1, [("write_together", 2)]),
         ("write_data", data_width, [("write_together", 2), "data"]),
         (f"ARESETn", 1),
