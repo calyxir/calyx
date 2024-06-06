@@ -33,6 +33,8 @@ const SAVE_CURSOR: &str = "\x1b8";
 /// Restores the saved cursor position. See source at [`SAVE_SCREEN`].
 const RESTORE_CURSOR: &str = "\x1b9";
 
+#[allow(clippy::write_literal)]
+#[allow(clippy::needless_range_loop)]
 fn main() -> std::io::Result<()> {
     let mut args: ParseArgs = argh::from_env();
 
@@ -113,7 +115,7 @@ fn main() -> std::io::Result<()> {
                 "Usage:\n  1. Analysis: {} {}, {} {}, {} {}, {} {}\n  2. Movement: {} {}, {} {}, up/down arrows, scroll",
                 ACCEPT.to_string().bright_green(),
                 "accept".green(),
-                SKIP.to_string(),
+                SKIP,
                 "skip",
                 QUIT.to_string().bright_red(),
                 "quit".red(),
