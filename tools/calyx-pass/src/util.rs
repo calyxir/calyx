@@ -4,9 +4,7 @@ use std::process::Command;
 /// arguments `args`. Fails when the command fails or succeeds but with a
 /// nonzero exit code (and `wants_zero`).
 pub fn capture_command_stdout(
-    cmd: &str,
-    args: &[&str],
-    wants_zero: bool,
+    cmd: &str, args: &[&str], wants_zero: bool,
 ) -> std::io::Result<String> {
     let output = Command::new(cmd).args(args).output()?;
     if !output.status.success() && wants_zero {

@@ -5,8 +5,8 @@ use std::{cmp::min, io::Write};
 ///
 /// # Example
 /// ```
-/// fn example(output: &Term,) {
-///     let scrollback_buffer = ScrollbackBuffer::new(output,);
+/// fn example(output: &Term) {
+///     let scrollback_buffer = ScrollbackBuffer::new(output);
 ///     writeln!(scrollback_buffer, "hi");
 ///     scrollback_buffer.display();
 ///     scrollback_buffer.scroll_down();

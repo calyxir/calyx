@@ -39,11 +39,8 @@ impl PassExplorer {
     /// Constructs a new pass explorer for exploring how a given pass alias
     /// `pass_alias` transforms an input file `input_file`.
     pub fn new(
-        work_dir: TempDir,
-        calyx_exec: String,
-        breakpoint: Option<String>,
-        pass_alias: String,
-        input_file: PathBuf,
+        work_dir: TempDir, calyx_exec: String, breakpoint: Option<String>,
+        pass_alias: String, input_file: PathBuf,
     ) -> std::io::Result<Self> {
         // Parse the output of `calyx pass-help {pass_alias}` to determine the
         // passes executed as part of `pass_alias`.
@@ -124,8 +121,7 @@ impl PassExplorer {
     /// Produces a printable diff showing how the
     /// [`PassExplorer::incoming_pass`] will transform the current file state.
     pub fn review(
-        &mut self,
-        component: Option<String>,
+        &mut self, component: Option<String>,
     ) -> std::io::Result<Option<String>> {
         self.ensure_inc_file_exists()?;
         let mut last_file_content = fs::read_to_string(self.last_file())
@@ -241,9 +237,7 @@ impl PassExplorer {
     /// Extracts a component named `component` from a syntactically-correct and
     /// complete calyx program represented in `file_content`.
     fn filter_component_lines(
-        &self,
-        file_content: &str,
-        component: &str,
+        &self, file_content: &str, component: &str,
     ) -> String {
         let mut result = String::new();
         let mut in_component = false;
