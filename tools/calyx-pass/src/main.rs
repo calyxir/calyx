@@ -63,6 +63,17 @@ fn main() -> std::io::Result<()> {
 
     assert!(!args.calyx_exec.is_empty());
 
+    println!("{}", args.calyx_exec);
+
+    util::capture_command_stdout(
+        &args.calyx_exec,
+        &["--version"],
+        true
+    ).map_err(|err| std::io::Error::new(
+        err.kind(),
+        format!("Failed to find or run calyx executable. Please pass `--calyx-exec <path>`. Tried path '{}'.", args.calyx_exec).as_str()
+    ))?;
+
     // use . for tmpdir for debugging, eventually just use TempDir::new
     let temp_dir = TempDir::new_in(".", ".calyx-pass")?;
     let mut pass_explorer = PassExplorer::new(

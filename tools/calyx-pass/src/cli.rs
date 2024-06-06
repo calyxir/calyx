@@ -27,7 +27,7 @@ pub struct ParseArgs {
         description = "pass alias to debug",
         default = "String::from(\"all\")",
         short = 'p',
-        long = "pass"
+        long = "pass-alias"
     )]
     pub pass_alias: String,
 
