@@ -105,9 +105,9 @@ impl std::io::Write for ScrollbackBuffer {
         /// been completed (marked by setting the `buffer.line_completed`
         /// flag), `acc` will be added to a new line. Otherwise,
         /// `acc` will be appended to the end of the final line.
-        fn push_acc(buffer: &mut ScrollbackBuffer, acc: &String) {
+        fn push_acc(buffer: &mut ScrollbackBuffer, acc: &str) {
             if buffer.io_line_completed {
-                buffer.lines.push(acc.clone());
+                buffer.lines.push(acc.to_string());
             } else {
                 buffer.lines.last_mut().expect("invariant").push_str(acc);
             }
