@@ -219,13 +219,26 @@ impl<'a> Environment<'a> {
             ref_ports: RefPortMap::with_capacity(
                 aux.ref_port_offset_map.count(),
             ),
-            pc: ProgramCounter::new(ctx),
+            pc: ProgramCounter::new_empty(),
             ctx,
         };
 
         let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
         env.layout_component(root, data_map);
+
+        // Initialize program counter
+        // TODO griffin: Maybe refactor into a separate function
+        for (idx, ledger) in env.cells.iter() {
+            if let CellLedger::Component(comp) = ledger {
+                if let Some(ctrl) = &env.ctx.primary[comp.comp_id].control {
+                    env.pc.vec_mut().push(ControlPoint {
+                        comp: idx,
+                        control_node_idx: *ctrl,
+                    })
+                }
+            }
+        }
 
         env
     }
@@ -341,6 +354,26 @@ impl<'a> Environment<'a> {
             )
         }
     }
+
+    pub fn get_comp_go(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+        let ledger = self.cells[comp]
+            .as_comp()
+            .expect("Called get_comp_go with a non-component cell.");
+
+        &ledger.index_bases + self.ctx.primary[ledger.comp_id].go
+    }
+
+    pub fn get_comp_done(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+        let ledger = self.cells[comp]
+            .as_comp()
+            .expect("Called get_comp_done with a non-component cell.");
+
+        &ledger.index_bases + self.ctx.primary[ledger.comp_id].done
+    }
+
+    pub fn get_root_done(&self) -> GlobalPortIdx {
+        self.get_comp_done(GlobalCellIdx::new(0))
+    }
 }
 
 // ===================== Environment print implementations =====================
@@ -450,7 +483,9 @@ pub struct Simulator<'a> {
 
 impl<'a> Simulator<'a> {
     pub fn new(env: Environment<'a>) -> Self {
-        Self { env }
+        let mut output = Self { env };
+        output.set_root_go_high();
+        output
     }
 
     pub fn _print_env(&self) {
@@ -497,6 +532,13 @@ impl<'a> Simulator<'a> {
 
     pub(crate) fn get_root_component(&self) -> &ComponentLedger {
         self.env.cells.first().unwrap().as_comp().unwrap()
+    }
+
+    /// Finds the root component of the simulation and sets its go port to high
+    fn set_root_go_high(&mut self) {
+        let ledger = self.get_root_component();
+        let go = &ledger.index_bases + self.env.ctx.primary[ledger.comp_id].go;
+        self.env.ports[go] = PortValue::new_implicit(Value::bit_high());
     }
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
@@ -600,13 +642,23 @@ impl<'a> Simulator<'a> {
         // buffers. Can pick anything from zero to the number of nodes in the
         // program counter as the size
         let mut leaf_nodes = vec![];
+        let mut set_done = vec![];
 
         let mut new_nodes = vec![];
         let (mut vecs, mut par_map, mut with_map) = self.env.pc.take_fields();
 
+        // TODO griffin: This has become an unwieldy mess and should really be
+        // refactored into a handful of internal functions
         vecs.retain_mut(|node| {
+            let comp_go = self.env.get_comp_go(node.comp);
+            let comp_done = self.env.get_comp_done(node.comp);
+            if !self.env.ports[comp_go].as_bool().unwrap_or_default() || self.env.ports[comp_done].as_bool().unwrap_or_default() {
+                // if the go port is low or the done port is high, we skip the node without doing anything
+                return true;
+            }
+
             // just considering a single node case for the moment
-            match &self.env.ctx.primary[node.control_node_idx] {
+            let retain_bool = match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Seq(seq) => {
                     if !seq.is_empty() {
                         let next = seq.stms()[0];
@@ -640,45 +692,44 @@ impl<'a> Simulator<'a> {
                     }
                 }
                 ControlNode::If(i) => {
-                    if i.cond_group().is_some() {
-                        if with_map.contains_key(node) {
-                            with_map.remove(node);
-                            return node.mutate_into_next(self.env.ctx);
-                        } else {
-                            let comb_group = i.cond_group().unwrap();
-                            let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[comb_group].assignments, None);
+                    // this is bad but it works for now, what a headache
+                    let contains_node = with_map.contains_key(node);
 
-                            with_map.insert(node.clone(), comb_group);
+                     if i.cond_group().is_some() && !contains_node {
+                        let comb_group = i.cond_group().unwrap();
+                        let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[comb_group].assignments, None);
 
-                            // TODO griffin: Sort out a way to make this error less terrible
-                            // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
-                            // HAVE NOT BEEN UNDEFINED YET
-                            self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
+                        with_map.insert(node.clone(), comb_group);
 
-                            // now we fall through and proceed as normal
-                        }
+                        // TODO griffin: Sort out a way to make this error less terrible
+                        // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+                        // HAVE NOT BEEN UNDEFINED YET
+                        self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
+
+                        // now we fall through and proceed as normal
                     }
 
-                    let target = GlobalPortRef::from_local(
-                        i.cond_port(),
-                        &self.env.cells[node.comp].unwrap_comp().index_bases,
-                    );
-
-                    let result = match target {
-                        GlobalPortRef::Port(p) => self.env.ports[p]
-                            .as_bool()
-                            .expect("if condition is undefined"),
-                        GlobalPortRef::Ref(r) => {
-                            let index = self.env.ref_ports[r].unwrap();
-                            self.env.ports[index]
+                    if i.cond_group().is_some() && contains_node {
+                        with_map.remove(node);
+                        node.mutate_into_next(self.env.ctx)
+                    } else {
+                        let target = GlobalPortRef::from_local(i.cond_port(), &self.env.cells[node.comp].unwrap_comp().index_bases);
+                        let result = match target {
+                            GlobalPortRef::Port(p) => self.env.ports[p]
                                 .as_bool()
-                                .expect("if condition is undefined")
-                        }
-                    };
+                                .expect("if condition is undefined"),
+                            GlobalPortRef::Ref(r) => {
+                                let index = self.env.ref_ports[r].unwrap();
+                                self.env.ports[index]
+                                    .as_bool()
+                                    .expect("if condition is undefined")
+                            }
+                        };
 
-                    let target = if result { i.tbranch() } else { i.fbranch() };
-                    *node = node.new_retain_comp(target);
-                    true
+                        let target = if result { i.tbranch() } else { i.fbranch() };
+                        *node = node.new_retain_comp(target);
+                        true
+                    }
                 }
                 ControlNode::While(w) => {
                     if w.cond_group().is_some() {
@@ -743,7 +794,20 @@ impl<'a> Simulator<'a> {
                     }
                 }
                 ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
+            };
+
+            if !retain_bool && ControlPoint::get_next(node, self.env.ctx).is_none() &&
+             // either we are not a par node, or we are the last par node
+             (!matches!(&self.env.ctx.primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node)) {
+
+                set_done.push(self.env.get_comp_done(node.comp));
+                let comp_ledger = self.env.cells[node.comp].unwrap_comp();
+                *node = node.new_retain_comp(self.env.ctx.primary[comp_ledger.comp_id].control.unwrap());
+                true
+            } else {
+                retain_bool
             }
+
         });
 
         self.env.pc.restore_fields(vecs, par_map, with_map);
@@ -752,6 +816,10 @@ impl<'a> Simulator<'a> {
         self.env.pc.vec_mut().extend(new_nodes);
 
         self.undef_all_ports();
+        self.set_root_go_high();
+        for port in set_done {
+            self.env.ports[port] = PortValue::new_implicit(Value::bit_high());
+        }
 
         for node in &leaf_nodes {
             match &self.env.ctx.primary[node.control_node_idx] {
@@ -791,17 +859,15 @@ impl<'a> Simulator<'a> {
     }
 
     fn is_done(&self) -> bool {
-        assert!(
-            self.ctx().primary[self.ctx().entry_point].control.is_some(),
-            "flat interpreter doesn't handle a fully structural entrypoint program yet"
-        );
-        // TODO griffin: need to handle structural components
-        self.env.pc.is_done()
+        self.env.ports[self.env.get_root_done()]
+            .as_bool()
+            .unwrap_or_default()
     }
 
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
+            // self.env._print_pc();
             self.step()?
         }
         Ok(())
@@ -897,6 +963,8 @@ impl<'a> Simulator<'a> {
                     .as_ref()
                     .map(|x| &ledger.index_bases + x.done);
 
+                let comp_go = self.env.get_comp_go(*active_cell);
+
                 for assign_idx in assignments {
                     let assign = &self.env.ctx.primary[assign_idx];
 
@@ -909,7 +977,9 @@ impl<'a> Simulator<'a> {
                     // the go for the group is high
                     && go
                         .as_ref()
-                        .map(|g| self.env.ports[*g].as_bool().unwrap_or_default())
+                        // the group must have its go signal high and the go
+                        // signal of the component must also be high
+                        .map(|g| self.env.ports[*g].as_bool().unwrap_or_default() && self.env.ports[comp_go].as_bool().unwrap_or_default())
                         // if there is no go signal, then we want to run the
                         // assignment
                         .unwrap_or(true)

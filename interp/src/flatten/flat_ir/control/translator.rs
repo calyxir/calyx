@@ -1,5 +1,6 @@
 use ahash::{HashMap, HashMapExt};
-use calyx_ir::{self as cir, RRC};
+use calyx_ir::{self as cir, NumAttr, RRC};
+use itertools::Itertools;
 
 use crate::{
     flatten::{
@@ -209,16 +210,36 @@ fn translate_component(
         };
 
     // unwrap all the stuff packed into the argument tuple
-    let (_, _layout, mut taken_ctx, auxillary_component_info) = argument_tuple;
+    let (_, layout, mut taken_ctx, auxillary_component_info) = argument_tuple;
 
     // put stuff back
     taken_ctx.primary.control = taken_control;
     *ctx = taken_ctx;
 
+    let go_ports = comp
+        .signature
+        .borrow()
+        .find_all_with_attr(NumAttr::Go)
+        .collect_vec();
+    let done_ports = comp
+        .signature
+        .borrow()
+        .find_all_with_attr(NumAttr::Done)
+        .collect_vec();
+
+    // Will need to rethink this at some point
+    if go_ports.len() != 1 || done_ports.len() != 1 {
+        todo!("handle multiple go and done ports");
+    }
+    let go_port = &go_ports[0];
+    let done_port = &done_ports[0];
+
     let comp_core = ComponentCore {
         control,
         continuous_assignments,
         is_comb: comp.is_comb,
+        go: *layout.port_map[&go_port.as_raw()].unwrap_local(),
+        done: *layout.port_map[&done_port.as_raw()].unwrap_local(),
     };
 
     let ctrl_ref = ctx.primary.components.push(comp_core);

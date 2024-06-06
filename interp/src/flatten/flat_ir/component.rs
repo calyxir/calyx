@@ -63,6 +63,10 @@ pub struct ComponentCore {
     pub continuous_assignments: IndexRange<AssignmentIdx>,
     /// True iff component is combinational
     pub is_comb: bool,
+    /// The go port for this component
+    pub go: LocalPortOffset,
+    /// The done port for this component
+    pub done: LocalPortOffset,
 }
 
 #[derive(Debug, Clone)]
