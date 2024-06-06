@@ -1,5 +1,4 @@
 # filename is underscored so it doesn't mess with calyx CI
-# please un-underscore it for development and re-underscore it later
 
 brace_style = "PreferSameLine"
 fn_params_layout = "Compressed"
