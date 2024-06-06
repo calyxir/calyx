@@ -357,10 +357,6 @@ impl ProgramCounter {
         self.vec.iter()
     }
 
-    pub fn is_done(&self) -> bool {
-        self.vec.is_empty()
-    }
-
     pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
         self.vec.iter_mut()
     }
