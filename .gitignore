@@ -57,3 +57,5 @@ tools/btor2/btor2i/build/
 # vcd-parsing tmp files ignore
 tools/profiler/tmp/
 tools/profiler/logs
+
+temp/
