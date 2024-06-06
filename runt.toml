@@ -580,7 +580,7 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
 
 [[tests]]
 name = "Cassandra matrix multiplier tests"
-paths = ["examples/tutorial/matrix-mult.futil"]
+paths = ["examples/cassandra/matrix-mult.futil"]
 cmd = """
 fud e {}  \
   -s verilog.data {}.data \
