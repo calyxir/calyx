@@ -552,7 +552,7 @@ fud2 {} --from calyx --to verilog-noverify 2> /dev/null
 name = "fud2 cocotb execution"
 paths = ["yxi/tests/fud2/seq-mem-vec-add-verilog.v"]
 cmd = """
-fud2 {} --from verilog-noverify --to cocotb-axi --set sim.data=yxi/tests/fud2/vectorized-add.data 2> /dev/null
+fud2 {} --from verilog-noverify --to cocotb-axi --set sim.data=yxi/tests/fud2/vectorized-add.data
 """
 
 ##### Xilinx Tests ######
