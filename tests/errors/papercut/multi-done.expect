@@ -1,6 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: tests/errors/papercut/multi-done.futil
-10 |    read_done = mem_0.read_done;
-   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Undefined port name: mem_0.read_done
+Error: [Papercut] Component `mem_0_comp` has an empty control program and does not assign to the done port `write_done`. Without an assignment to the done port, the component cannot return control flow.
