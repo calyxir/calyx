@@ -1,6 +1,6 @@
 use argh::FromArgs;
 
-#[derive(FromArgs,)]
+#[derive(FromArgs)]
 #[argh(
     description = "A tool for visualizing pass transformations.\n\nAuthor: Ethan Uppal"
 )]
@@ -20,7 +20,7 @@ pub struct ParseArgs {
         short = 'b',
         long = "break"
     )]
-    pub breakpoint: Option<String,>,
+    pub breakpoint: Option<String>,
 
     #[argh(
         option,
@@ -32,7 +32,7 @@ pub struct ParseArgs {
     pub pass_alias: String,
 
     #[argh(option, description = "focus a component", short = 'c')]
-    pub component: Option<String,>,
+    pub component: Option<String>,
 
     #[argh(positional, description = "calyx file")]
     pub input_file: String,
