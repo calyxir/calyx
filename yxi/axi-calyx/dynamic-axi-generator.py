@@ -18,11 +18,11 @@ vec_add_main = """
 component main() -> () {                                                                                                                                                                                 
   cells {
       //Modified to 64 width address because XRT expects 64 bit memory addresses
-      ref A0 = seq_mem_d1(32,8,3);
+      ref A0 = dyn_mem_d1(32,8,3);
       A_read0_0 = std_reg(32);
-      ref B0 = seq_mem_d1(32,8,3);
+      ref B0 = dyn_mem_d1(32,8,3);
       B_read0_0 = std_reg(32);
-      ref Sum0 = seq_mem_d1(32,8,3);
+      ref Sum0 = dyn_mem_d1(32,8,3);
       add0 = std_add(32);
       add1 = std_add(4);
       const0 = std_const(4,0);
@@ -115,7 +115,7 @@ def add_address_translator(prog, mem):
     data_width = mem[width_key]
     name = mem[name_key]
     # Inputs/Outputs
-    address_translator = prog.component(f"address_translator_{name}")
+    address_translator = prog.comb_component(f"address_translator_{name}")
     translator_inputs = [("calyx_mem_addr", address_width)]
     translator_output = [("axi_address", 64)]
     add_comp_ports(address_translator, translator_inputs, translator_output)
@@ -520,7 +520,7 @@ def add_write_controller(prog, mem):
         (f"WVALID", 1),
         (f"WLAST", 1),
         (f"WDATA", data_width),
-        (f"BREADY", data_width),
+        (f"BREADY", 1),
     ]
 
     add_comp_ports(write_controller, write_controller_inputs, write_controller_outputs)
@@ -826,7 +826,7 @@ def clog2_or_1(x):
 def build():
     prog = Builder()
     check_mems_welformed(mems)
-    for mem in mems[0:1]:
+    for mem in mems:
         add_arread_channel(prog, mem)
         add_awwrite_channel(prog, mem)
         add_read_channel(prog, mem)
@@ -836,7 +836,7 @@ def build():
         add_read_controller(prog, mem)
         add_write_controller(prog, mem)
         add_axi_seq_mem(prog, mem) #TODO: need one for each mem
-    add_main_comp(prog, mems[0:1])
+    add_main_comp(prog, mems)
     return prog.program
 
 
