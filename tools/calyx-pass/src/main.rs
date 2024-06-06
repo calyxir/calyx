@@ -69,21 +69,13 @@ fn main() -> std::io::Result<()> {
     // to target/debug/calyx
     if args.calyx_exec.is_empty() {
         args.calyx_exec = "target/debug/calyx".into();
-        if let Ok(global_root) = util::capture_command_stdout(
+
+        if let Ok(calyx_exec_rel) = util::capture_command_stdout(
             "fud",
-            &["config", "global.root"],
+            &["config", "stages.calyx.exec"],
             true,
         ) {
-            if let Ok(calyx_exec_rel) = util::capture_command_stdout(
-                "fud",
-                &["config", "stages.calyx.exec"],
-                true,
-            ) {
-                let mut path = PathBuf::new();
-                path.push(global_root.trim());
-                path.push(calyx_exec_rel.trim());
-                args.calyx_exec = path.to_str().unwrap().into();
-            }
+            args.calyx_exec = calyx_exec_rel.trim().into();
         }
     }
 
@@ -100,7 +92,7 @@ fn main() -> std::io::Result<()> {
         Err(_) => {
             fail("Failed to determine or repair calyx executable path automatically.", || {
                 println!("{}", "Here's how to fix it:".bold());
-                println!("Option 1. Setup your fud config so that appending the stages.calyx.exec path to the global.root path yields a valid path to the calyx executable");
+                println!("Option 1. Setup your fud config so that 'stages.calyx.exec' yields a valid path to the calyx executable");
                 println!("Option 2. Determine the path manually and pass it to the `-e` or `--calyx-exec` option");
                 println!("Option 3. Run this tool from the repository directory after calling `cargo build`");
             });
