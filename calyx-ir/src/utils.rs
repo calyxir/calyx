@@ -55,7 +55,7 @@ impl GetMemInfo for Vec<RRC<Cell>> {
     fn get_mem_info(&self) -> Vec<MemInfo> {
 
         //Params of dimensions for multi dimensional memories. d1 memories use `"SIZE"`.
-        let dimension_params = vec!["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"];
+        let dimension_params = ["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"];
         self.iter()
               .map(|cr| {
                   let mem = cr.borrow();
@@ -84,7 +84,7 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                         }
                     }
                     else{
-                            !unreachable!("It is not expected for memory primitives to have more than 4 dimensions.");
+                            unreachable!("It is not expected for memory primitives to have more than 4 dimensions.");
                     };
                   let total_size = dimension_sizes.clone().iter().product();
                   MemInfo {
@@ -111,13 +111,13 @@ fn dimension_count(mem_id : Id) -> u64{
     let mem_name = mem_id.as_ref();
 
     if mem_name.contains("d1"){
-        return 1;
+        1
     } else if mem_name.contains("d2"){
-        return 2;
+        2
     } else if mem_name.contains("d3"){
-        return 3;
+        3
     } else if mem_name.contains("d4"){
-        return 4;
+        4
     } else {
         panic!("Cell {} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive.", mem_name);
     }
