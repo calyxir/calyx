@@ -1,15 +1,17 @@
 # calyx-pass
 
-`calyx-pass` (name TBD) is a work-in-progress pass explorer for calyx.
-This document is a work-in-progress too.
+`calyx-pass` (name TBD) is a work-in-progress *pass transformation* explorer for calyx.
+You give it an input file and some options, and you can explore 
 
-![](image.png)
+![Example running of the tool](example_v0.0.0.png)
 
 ## Features
 
-- Real-time visualization of changes that passes make
-- Option to view changes localized to one specific component (pass `-c <name>`/`--component <name>`).
-- Those in [TODO.md](TODO.md) are coming soon!
+- Visualize pass transformations with readable diff insertions. By default, it uses `-p all`, but you can provide a different alias.
+- Focus on changes localized to one specific component with the `-c` option.
+- Set a breakpoint for pass exploration with the `-b` option. You can then use `u` to undo previous passes and explore the changes before and after the pass.
+- Nearly-arbitrary pass execution with TUI commands. Currently `a`/`s`/`u` (accept/skip/undo) are supported, and `r` (run given pass) is [planned](TODO.md).
+- And all those unchecked in [TODO.md](TODO.md) are coming soon!
 
 ## Usage
 
@@ -36,3 +38,7 @@ Error: Failed to parse `test2.futil`:   --> 83:5
    |
    = Invalid attribute: NODE_ID. All caps attributes are reserved for internal use.
 ```
+
+## Author
+
+This tool was designed and developed by [Ethan Uppal](https://www.ethanuppal.com).
