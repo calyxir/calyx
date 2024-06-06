@@ -5,7 +5,7 @@ use std::{collections::HashSet, fs, path::PathBuf};
 use tempdir::TempDir;
 
 /// The initial file name to copy the input file to.
-const FIRST_FILE_NAME: &str = "SOURCE.futil";
+const SOURCE_FILE_NAME: &str = "SOURCE.futil";
 
 /// The status of a pass in exploration.
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -39,8 +39,11 @@ impl PassExplorer {
     /// Constructs a new pass explorer for exploring how a given pass alias
     /// `pass_alias` transforms an input file `input_file`.
     pub fn new(
-        work_dir: TempDir, calyx_exec: String, breakpoint: Option<String>,
-        pass_alias: String, input_file: PathBuf,
+        work_dir: TempDir,
+        calyx_exec: String,
+        breakpoint: Option<String>,
+        pass_alias: String,
+        input_file: PathBuf,
     ) -> std::io::Result<Self> {
         // Parse the output of `calyx pass-help {pass_alias}` to determine the
         // passes executed as part of `pass_alias`.
@@ -58,7 +61,7 @@ impl PassExplorer {
         .collect();
 
         let mut dest_path = PathBuf::from(work_dir.path());
-        dest_path.push(FIRST_FILE_NAME);
+        dest_path.push(SOURCE_FILE_NAME);
         fs::copy(input_file, dest_path.clone())?;
 
         let mut new_self = Self {
@@ -121,7 +124,8 @@ impl PassExplorer {
     /// Produces a printable diff showing how the
     /// [`PassExplorer::incoming_pass`] will transform the current file state.
     pub fn review(
-        &mut self, component: Option<String>,
+        &mut self,
+        component: Option<String>,
     ) -> std::io::Result<Option<String>> {
         self.ensure_inc_file_exists()?;
         let mut last_file_content = fs::read_to_string(self.last_file())
@@ -199,8 +203,14 @@ impl PassExplorer {
             last_file_path.push(last_pass);
             last_file_path.set_extension("futil");
         } else {
-            last_file_path.push(FIRST_FILE_NAME);
+            last_file_path.push(SOURCE_FILE_NAME);
         }
+        last_file_path
+    }
+
+    fn source_file(&self) -> PathBuf {
+        let mut last_file_path = PathBuf::from(self.work_dir.path());
+        last_file_path.push(SOURCE_FILE_NAME);
         last_file_path
     }
 
@@ -216,18 +226,22 @@ impl PassExplorer {
     fn ensure_inc_file_exists(&mut self) -> std::io::Result<()> {
         if let Some(inc_file) = self.incoming_file() {
             if !self.file_exists.contains(&inc_file) {
-                capture_command_stdout(
-                    &self.calyx_exec,
-                    &[
-                        "--output",
-                        inc_file.to_str().unwrap(),
-                        self.last_file().to_str().unwrap(),
-                        "-p",
-                        &self.incoming_pass().unwrap(),
-                    ],
-                    true,
-                )?;
-                self.file_exists.insert(inc_file);
+                // We reapply passes to the source file because calyx IR is not deserializable
+                let source_file = self.source_file();
+                let mut args = vec![
+                    "-o",
+                    inc_file.to_str().unwrap(),
+                    source_file.to_str().unwrap(),
+                ];
+                for applied_index in &self.passes_applied {
+                    args.push("-p");
+                    args.push(&self.passes[*applied_index]);
+                }
+                let inc_pass = self.incoming_pass().unwrap();
+                args.push("-p");
+                args.push(&inc_pass);
+                capture_command_stdout(&self.calyx_exec, &args, true)?;
+                self.file_exists.insert(inc_file.clone());
             }
         }
 
@@ -237,7 +251,9 @@ impl PassExplorer {
     /// Extracts a component named `component` from a syntactically-correct and
     /// complete calyx program represented in `file_content`.
     fn filter_component_lines(
-        &self, file_content: &str, component: &str,
+        &self,
+        file_content: &str,
+        component: &str,
     ) -> String {
         let mut result = String::new();
         let mut in_component = false;
@@ -254,10 +270,9 @@ impl PassExplorer {
 
                 if brace_count == 0 {
                     in_component = false;
-                } else {
-                    result.push_str(line);
-                    result.push('\n');
                 }
+                result.push_str(line);
+                result.push('\n');
             }
         }
 
