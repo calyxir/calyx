@@ -1,0 +1,115 @@
+use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
+use rhai::EvalAltResult;
+use std::{fs, path::Path};
+
+use super::{error::RhaiSystemError, exec_scripts::RhaiResult};
+
+pub(super) trait RhaiReport {
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        len: usize,
+        msg: S,
+    );
+
+    fn report<P: AsRef<Path>>(&self, path: P) {
+        self.report_raw(path, 0, "")
+    }
+}
+
+impl RhaiReport for rhai::Position {
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        len: usize,
+        msg: S,
+    ) {
+        let source = fs::read_to_string(path.as_ref());
+        let name = path.as_ref().to_str().unwrap();
+
+        if let (Some(line), Ok(source)) = (self.line(), source) {
+            let position = self.position().unwrap_or(1);
+            // translate a line offset into a char offset
+            let line_offset = source
+                .lines()
+                // take all the lines up to pos.line()
+                .take(line - 1)
+                // add one to all the line lengths because `\n` chars are rmeoved with `.lines()`
+                .map(|line| line.len() + 1)
+                .sum::<usize>();
+
+            // add the column offset to get the beginning of the error
+            // we subtract 1, because the positions are 1 indexed
+            let err_offset = line_offset + (position - 1);
+
+            Report::build(ReportKind::Error, name, err_offset)
+                .with_message("Failed to load plugin")
+                .with_label(
+                    Label::new((name, err_offset..err_offset + len))
+                        .with_message(msg.as_ref().fg(Color::Red)),
+                )
+                .finish()
+                .eprint((name, Source::from(source)))
+                .unwrap()
+        } else {
+            eprintln!("Failed to load plugin: {name}");
+            let pos_str = if self.is_none() {
+                "".to_string()
+            } else {
+                format!(" @ {self}")
+            };
+            eprintln!("  {}{pos_str}", msg.as_ref());
+        }
+    }
+}
+
+impl RhaiReport for EvalAltResult {
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        _len: usize,
+        _msg: S,
+    ) {
+        match &self {
+            EvalAltResult::ErrorVariableNotFound(variable, pos) => {
+                pos.report_raw(&path, variable.len(), "Undefined variable")
+            }
+            EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
+                let (fn_name, args) = msg.split_once(' ').unwrap_or((msg, ""));
+                pos.report_raw(
+                    &path,
+                    fn_name.len(),
+                    format!("{fn_name} {args}"),
+                )
+            }
+            EvalAltResult::ErrorSystem(msg, err)
+                if err.is::<RhaiSystemError>() =>
+            {
+                let e = err.downcast_ref::<RhaiSystemError>().unwrap();
+                let msg = if msg.is_empty() {
+                    format!("{err}")
+                } else {
+                    format!("{msg}: {err}")
+                };
+                e.position.report_raw(&path, 0, msg)
+            }
+            EvalAltResult::ErrorInModule(path, err, _) => err.report(path),
+            // for errors that we don't have custom processing, just point
+            // to the beginning of the error, and use the error Display as message
+            e => e.position().report_raw(&path, 0, format!("{e}")),
+        }
+    }
+}
+
+impl<T> RhaiReport for RhaiResult<T> {
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        len: usize,
+        msg: S,
+    ) {
+        if let Err(e) = self {
+            (**e).report_raw(path, len, msg);
+        }
+    }
+}
