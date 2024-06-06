@@ -41,6 +41,9 @@ pub struct ParseArgs {
     #[argh(option, description = "focus a component", short = 'c')]
     pub component: Option<String>,
 
+    #[argh(switch, description = "displays version information")]
+    pub version: bool,
+
     #[argh(positional, description = "calyx file")]
-    pub input_file: String,
+    pub input_file: Option<String>,
 }

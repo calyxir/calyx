@@ -10,6 +10,7 @@ use std::{
     cmp::{max, min},
     io::Write,
     path::PathBuf,
+    process::exit,
 };
 use tempdir::TempDir;
 
@@ -33,10 +34,35 @@ const SAVE_CURSOR: &str = "\x1b8";
 /// Restores the saved cursor position. See source at [`SAVE_SCREEN`].
 const RESTORE_CURSOR: &str = "\x1b9";
 
+fn fail<F>(message: &str, explain: F)
+where
+    F: FnOnce(),
+{
+    println!("{}: {}", "error".bright_red().bold(), message);
+    println!();
+    explain();
+    println!();
+    println!("Run calyx-pass --help for more information.");
+    exit(1);
+}
+
 #[allow(clippy::write_literal)]
 #[allow(clippy::needless_range_loop)]
 fn main() -> std::io::Result<()> {
     let mut args: ParseArgs = argh::from_env();
+
+    if args.version {
+        println!("calyx-pass v{}", env!("CARGO_PKG_VERSION"));
+        println!();
+        println!("Features (v{}):", env!("CARGO_PKG_VERSION"));
+        println!(" - View pass transformations");
+        println!(" - Apply or skip passes");
+        println!(" - Focus a component");
+        println!(" - Set breakpoints");
+        println!();
+        println!("See more at https://github.com/calyxir/calyx/blob/calyx-pass/tools/calyx-pass/README.md");
+        return Ok(());
+    }
 
     // If the user provided no --calyx-exec (or passed in an empty string),
     // then we first try to obtain the location via fud, and otherwise default
@@ -62,21 +88,30 @@ fn main() -> std::io::Result<()> {
     }
 
     if !args.disable.is_empty() && args.breakpoint.is_none() {
-        panic!("Cannot disable passes before breakpoint (with `-d`) without first setting a breakpoint (with `-b`)");
+        fail("Invalid command line flags.", || {
+            println!("Using the disable pass option (`-d`) requires a breakpoint to be set. You can set one with `-b`.");
+        });
     }
 
     assert!(!args.calyx_exec.is_empty());
 
-    println!("{}", args.calyx_exec);
+    match util::capture_command_stdout(&args.calyx_exec, &["--version"], true) {
+        Ok(_) => {}
+        Err(_) => {
+            fail("Failed to determine or repair calyx executable path automatically.", || {
+                println!("{}", "Here's how to fix it:".bold());
+                println!("Option 1. Setup your fud config so that appending the stages.calyx.exec path to the global.root path yields a valid path to the calyx executable");
+                println!("Option 2. Determine the path manually and pass it to the `-e` or `--calyx-exec` option");
+                println!("Option 3. Run this tool from the repository directory after calling `cargo build`");
+            });
+        }
+    }
 
-    util::capture_command_stdout(
-        &args.calyx_exec,
-        &["--version"],
-        true
-    ).map_err(|err| std::io::Error::new(
-        err.kind(),
-        format!("Failed to find or run calyx executable. Please pass `--calyx-exec <path>`. Tried path '{}'.", args.calyx_exec).as_str()
-    ))?;
+    if args.input_file.is_none() {
+        fail("Invalid command line arguments.", || {
+            println!("You must pass a single calyx program as input. However, when the version is requested through `--version`, this input file is not required and will be ignored.");
+        });
+    }
 
     // use . for tmpdir for debugging, eventually just use TempDir::new
     let temp_dir = TempDir::new_in(".", ".calyx-pass")?;
@@ -86,7 +121,9 @@ fn main() -> std::io::Result<()> {
         args.breakpoint
             .map(|pass| Breakpoint::from(pass, args.disable)),
         args.pass_alias,
-        PathBuf::from(args.input_file),
+        PathBuf::from(
+            args.input_file.expect("No input file passed as required"),
+        ),
     )?;
 
     /// Quit the program.
