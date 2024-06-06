@@ -1,6 +1,6 @@
 use calyx_pass::{
     cli::ParseArgs,
-    pass_explorer::{PassApplicationStatus, PassExplorer},
+    pass_explorer::{Breakpoint, PassApplicationStatus, PassExplorer},
     tui::ScrollbackBuffer,
     util,
 };
@@ -61,6 +61,10 @@ fn main() -> std::io::Result<()> {
         }
     }
 
+    if !args.disable.is_empty() && args.breakpoint.is_none() {
+        panic!("Cannot disable passes before breakpoint (with `-d`) without first setting a breakpoint (with `-b`)");
+    }
+
     assert!(!args.calyx_exec.is_empty());
 
     println!("{}", args.calyx_exec);
@@ -79,7 +83,8 @@ fn main() -> std::io::Result<()> {
     let mut pass_explorer = PassExplorer::new(
         temp_dir,
         args.calyx_exec,
-        args.breakpoint,
+        args.breakpoint
+            .map(|pass| Breakpoint::from(pass, args.disable)),
         args.pass_alias,
         PathBuf::from(args.input_file),
     )?;
