@@ -14,7 +14,10 @@ class ProfilingInfo:
         self.total_cycles = 0
         self.closed_segments = [] # Segments will be (start_time, end_time)
         self.current_segment = None
-        self.par_parent = par_parent
+        if par_parent == "":
+            self.par_parent = None
+        else:
+            self.par_parent = par_parent
 
     def __repr__ (self):
         return (f"Group {self.name}:\n" +
@@ -63,16 +66,19 @@ def can_start_new_segment(vcd_converter, group, signal_new_value, signal_prev_va
     par_parent = vcd_converter.profiling_info[group].par_parent
     is_new_signal = signal_new_value != signal_prev_value # Did the value change between the previous cycle?
 
+    if par_parent is not None:
+        # if group == "read":
+        #     print(f"READ detected! curr cycle: {curr_clock_cycle}")
+        #     print(f"par_parent is active? {vcd_converter.profiling_info[par_parent].is_active()}")
+        #     print(f"par_parent start time {vcd_converter.profiling_info[par_parent].start_clock_cycle()}")
+        if not vcd_converter.profiling_info[par_parent].is_active(): # No child segments should start before the parent starts
+            return False
+        if vcd_converter.profiling_info[par_parent].start_clock_cycle() == curr_clock_cycle: # All child segments start when the parent starts
+            return True
+
     if vcd_converter.main_go_on_time == time: # All active segments start when main starts
         return True
-
-    if par_parent is not None:
-        par_parent_start_cycle = vcd_converter.profiling_info[par_parent].start_clock_cycle()
-        if par_parent_start_cycle == curr_clock_cycle: # All child segments start when the parent starts
-            return True
-        if par_parent_start_cycle > curr_clock_cycle: # No child segments should start before the parent starts
-            return False
-
+    
     return is_new_signal
     
 
@@ -91,9 +97,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.clock_id = None
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
         for group in groups_to_fsms:
-            self.profiling_info[group] = ProfilingInfo(group, groups_to_fsms[group]["fsm"], groups_to_fsms[group]["ids"])
-        for single_enable_group in single_enable_names:
-            self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
+            self.profiling_info[group] = ProfilingInfo(group, groups_to_fsms[group]["fsm"], groups_to_fsms[group]["ids"], groups_to_fsms[group]["par_parent"])
+        for (single_enable_group, single_enable_parent) in single_enable_names:
+            self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group, par_parent=single_enable_parent)
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
             self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
         
@@ -193,13 +199,13 @@ def remap_tdcc_json(json_file):
             for state in fsm["states"]:
                 fsms[fsm_name][state["id"]] = state["group"]
                 group_name = state["group"]
-                if group_name not in groups_to_fsms:                                                                                                     
-                    groups_to_fsms[group_name] = {"fsm": fsm_name, "ids": [state["id"]]}                                                                 
-                else:                                                                                                                                    
+                if group_name not in groups_to_fsms:
+                    groups_to_fsms[group_name] = {"fsm": fsm_name, "ids": [state["id"]], "par_parent" : fsm["parent_group"]}
+                else:     
                     groups_to_fsms[group_name]["ids"].append(state["id"])  
         else:
-            group_name = profiling_info["SingleEnable"]["group"]
-            single_enable_names.add(group_name)
+            group_info = (profiling_info["SingleEnable"]["group"], profiling_info["SingleEnable"]["parent_group"])
+            single_enable_names.add(group_info)
 
     return fsms, single_enable_names, groups_to_fsms
 
