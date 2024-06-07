@@ -233,9 +233,7 @@ timeout = 120
 
 [[tests]]
 name = "correctness static timing one-hot encoding"
-paths = [
-  "tests/correctness/static-interface/*.futil",
-]
+paths = ["tests/correctness/static-interface/*.futil"]
 cmd = """
 fud exec --from calyx --to jq \
          --through verilog \
@@ -333,6 +331,25 @@ fud exec --from calyx --to jq \
          -s jq.expr ".memories" \
          {} -q
 """
+
+# todo: need to test that removing @fast (e.g. using sed) causes >= cycles
+#
+# Copilot said:
+#   # Replace 'command1' and 'command2' with your actual commands
+#   [[ $(command1) -le $(command2) ]] && echo "true" || echo "false"
+#
+# [[tests]]
+# name = "correctness: @fast improves speed"
+# paths = ["tests/correctness/fast-attr/at_least_as_fast/*.futil"]
+# cmd = """
+# fud exec --from calyx --to jq \
+#          --through dat \
+#          --through verilog \
+#          -s verilog.data {}.data \
+#          -s calyx.flags "-d static-promotion" \
+#          -s jq.expr ".cycles" \
+#          {} -q
+# """
 
 [[tests]]
 name = "[frontend] tcam testing"
