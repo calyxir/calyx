@@ -25,9 +25,9 @@ As an exception to the previous sentence, if `-d <pass2>` is provided along with
 
 ## App
 
-The explorer interface responds to key commands in two main categories: Analysis and Movement.
+The explorer interface responds to key commands in two categories.
 
-### Analysis
+### Exploration
 
 | Command | Description |
 | --- | ----------- |

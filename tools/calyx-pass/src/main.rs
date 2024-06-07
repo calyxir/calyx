@@ -157,7 +157,7 @@ fn main() -> std::io::Result<()> {
             )?;
             writeln!(
                 scrollback_buffer,
-                "Usage:\n  1. Analysis: {} {}, {} {}, {} {}, {} {}\n  2. Movement: {} {}, {} {}, up/down arrows, scroll",
+                "Usage:\n  1. Explore: {} {}, {} {}, {} {}, {} {}\n  2. Movement: {} {}, {} {}, up/down arrows, scroll",
                 ACCEPT.to_string().bright_green(),
                 "accept".green(),
                 SKIP,
