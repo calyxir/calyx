@@ -4,6 +4,14 @@ Implements a memory with sequential reads and writes.
 - Attempting to read and write at the same time is an error.
 - The out signal is registered to the last value requested by the read_en signal.
 - The out signal is undefined once write_en is asserted.
+
+NOTE(nate): In practice we expect this implementation to be single cycle,
+but should not be relied on as such.
+In particular we probably eventually want to have `dyn_mems` exist as "virtual operators."
+Which have a flexible latency, where the compiler can decide upon actual latency.
+
+See #2111 (PR introducing this: https://github.com/calyxir/calyx/pull/2111)
+and a more in depth discussion #1151 (https://github.com/calyxir/calyx/issues/1151)
 */
 module dyn_mem_d1 #(
     parameter WIDTH = 32,
