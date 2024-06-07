@@ -216,7 +216,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
     def epilogue_group(comp: cb.ComponentBuilder, row):
         input = comp.get_cell("a")
         A = comp.get_cell(f"A{row}")
-        comp.mem_store_d1(input, row, A.out, f"epilogue_{row}", is_comb=True)
+        comp.mem_store_d1(input, row, A.out, f"epilogue_{row}")
 
     def insert_cells(comp: cb.ComponentBuilder):
         # memories

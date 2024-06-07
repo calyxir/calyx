@@ -10,6 +10,14 @@ cmd = """
 timeout = 10
 expect_dir = "unit"
 
+[[tests]]
+name = "multi-comp"
+paths = ["multi-comp/*.futil"]
+cmd = """
+  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+timeout = 10
+
 # [[tests]]
 # name = "errors"
 # paths = ["tests/errors/*.futil"]
@@ -61,6 +69,7 @@ paths = ["../tests/control/invoke/*.futil"]
 cmd = """
 fud2 {} --from calyx --to dat --through interp-flat -s sim.data={}.data | jq --sort-keys
 """
+timeout = 10
 
 # [[tests]]
 # name = "invoke comp"
