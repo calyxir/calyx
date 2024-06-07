@@ -1,4 +1,4 @@
-use calyx_ir::{self as ir};
+use calyx_ir::{self as ir, BoolAttr};
 use std::collections::HashMap;
 use std::rc::Rc;
 

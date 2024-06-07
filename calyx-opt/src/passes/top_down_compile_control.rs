@@ -3,7 +3,9 @@ use crate::passes;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
+use calyx_ir::{
+    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer, RRC,
+};
 use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
@@ -495,7 +497,7 @@ impl Schedule<'_, '_> {
             // NOTE: We explicilty do not add `not_done` to the guard.
             // See explanation in [ir::TopDownCompileControl] to understand
             // why.
-            if early_transitions {
+            if early_transitions || con.has_attribute(BoolAttr::Fast) {
                 for (st, g) in &prev_states {
                     let early_go = build_assignments!(self.builder;
                         group["go"] = g ? signal_on["out"];
@@ -1130,7 +1132,11 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         // Add assignments for the final states
-        sch.calculate_states(&control.borrow(), self.early_transitions)?;
+        sch.calculate_states(
+            &control.borrow(),
+            self.early_transitions
+                || control.borrow().has_attribute(BoolAttr::Fast),
+        )?;
         let comp_group =
             sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
         if let Some(json_out_file) = &self.dump_fsm_json {
