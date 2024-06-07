@@ -151,11 +151,11 @@ impl<'a> Run<'a> {
         let mut ops: HashSet<OpRef> = HashSet::new();
         let first_op = self.plan.steps[0].0;
         states.insert(
-            self.driver.ops[first_op].input,
+            self.driver.ops[first_op].input[0],
             self.plan.start.to_string(),
         );
         for (op, file) in &self.plan.steps {
-            states.insert(self.driver.ops[*op].output, file.to_string());
+            states.insert(self.driver.ops[*op].output[0], file.to_string());
             ops.insert(*op);
         }
 
@@ -175,7 +175,7 @@ impl<'a> Run<'a> {
 
         // Show all operations.
         for (op_ref, op) in self.driver.ops.iter() {
-            print!("  {} -> {} [label=\"{}\"", op.input, op.output, op.name);
+            print!("  {} -> {} [label=\"{}\"", op.input[0], op.output[0], op.name);
             if ops.contains(&op_ref) {
                 print!(" penwidth=3");
             }

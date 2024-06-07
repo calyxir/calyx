@@ -35,8 +35,8 @@ entity_impl!(StateRef, "state");
 /// An Operation transforms files from one State to another.
 pub struct Operation {
     pub name: String,
-    pub input: StateRef,
-    pub output: StateRef,
+    pub input: Vec<StateRef>,
+    pub output: Vec<StateRef>,
     pub setups: Vec<SetupRef>,
     pub emit: Box<dyn run::EmitBuild>,
 }

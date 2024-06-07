@@ -51,10 +51,10 @@ impl Driver {
 
             // Traverse any edge from the current state to an unvisited state.
             for (op_ref, op) in self.ops.iter() {
-                if op.input == cur_state && !visited[op.output] {
-                    state_queue.push(op.output);
-                    visited[op.output] = true;
-                    breadcrumbs[op.output] = Some(op_ref);
+                if op.input[0] == cur_state && !visited[op.output[0]] {
+                    state_queue.push(op.output[0]);
+                    visited[op.output[0]] = true;
+                    breadcrumbs[op.output[0]] = Some(op_ref);
                 }
 
                 // Finish when we reach the goal edge.
@@ -70,14 +70,14 @@ impl Driver {
             Destination::State(state) => state,
             Destination::Op(op) => {
                 op_path.push(op);
-                self.ops[op].input
+                self.ops[op].input[0]
             }
         };
         while cur_state != start {
             match breadcrumbs[cur_state] {
                 Some(op) => {
                     op_path.push(op);
-                    cur_state = self.ops[op].input;
+                    cur_state = self.ops[op].input[0];
                 }
                 None => return None,
             }
@@ -103,7 +103,7 @@ impl Driver {
             let segment =
                 self.find_path_segment(cur_state, Destination::Op(*op))?;
             op_path.extend(segment);
-            cur_state = self.ops[*op].output;
+            cur_state = self.ops[*op].output[0];
         }
 
         // Build the final path segment to the destination state.
@@ -145,7 +145,7 @@ impl Driver {
 
         // Generate filenames for each step.
         steps.extend(path.into_iter().map(|op| {
-            let filename = self.gen_name(stem, self.ops[op].output);
+            let filename = self.gen_name(stem, self.ops[op].output[0]);
             (op, filename)
         }));
 
@@ -232,8 +232,8 @@ impl Driver {
             println!(
                 "  {}: {} -> {}",
                 op.name,
-                self.states[op.input].name,
-                self.states[op.output].name
+                self.states[op.input[0]].name,
+                self.states[op.output[0]].name
             );
         }
     }
@@ -327,15 +327,15 @@ impl DriverBuilder {
         &mut self,
         name: &str,
         setups: &[SetupRef],
-        input: StateRef,
-        output: StateRef,
+        input: &[StateRef],
+        output: &[StateRef],
         emit: T,
     ) -> OpRef {
         self.ops.push(Operation {
             name: name.into(),
             setups: setups.into(),
-            input,
-            output,
+            input: input.into(),
+            output: output.into(),
             emit: Box::new(emit),
         })
     }
@@ -348,7 +348,7 @@ impl DriverBuilder {
         output: StateRef,
         build: run::EmitBuildFn,
     ) -> OpRef {
-        self.add_op(name, setups, input, output, build)
+        self.add_op(name, setups, &[input], &[output], build)
     }
 
     pub fn rule(
@@ -361,8 +361,8 @@ impl DriverBuilder {
         self.add_op(
             rule_name,
             setups,
-            input,
-            output,
+            &[input],
+            &[output],
             run::EmitRuleBuild {
                 rule_name: rule_name.to_string(),
             },
