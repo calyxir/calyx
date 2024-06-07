@@ -577,3 +577,17 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   rm -f results.xml
 
 """
+
+[[tests]]
+name = "Kabir matrix multiplier test"
+paths = ["tests/kabir_practice/matrix_multiplier.futil"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+fud e --from calyx --to jq \
+      --through icarus-verilog \
+      --through dat \
+      -s verilog.data "$dir/$name.data" \
+      -s jq.expr ".memories" \
+      {} -q
+"""
