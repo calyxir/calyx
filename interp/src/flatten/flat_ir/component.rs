@@ -197,6 +197,13 @@ impl AuxillaryComponentInfo {
         self.cell_offset_map.skip(cell);
         self.ref_cell_offset_map.skip(ref_cell);
     }
+
+    pub fn get_cell_info_idx(&self, cell: CellRef) -> CellDefinitionRef {
+        match cell {
+            CellRef::Local(l) => self.cell_offset_map[l].into(),
+            CellRef::Ref(r) => self.ref_cell_offset_map[r].into(),
+        }
+    }
 }
 
 pub struct IdxSkipSizes {

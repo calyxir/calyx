@@ -193,6 +193,8 @@ fn translate_component(
     // and this is not possible when it is inside the context
     let mut taken_control = std::mem::take(&mut taken_ctx.primary.control);
 
+    let ctrl_idx_start = taken_control.peek_next_idx();
+
     let argument_tuple =
         (group_mapper, layout, taken_ctx, auxillary_component_info);
 
@@ -209,12 +211,32 @@ fn translate_component(
             Some(ctrl_node)
         };
 
+    let ctrl_idx_end = taken_control.peek_next_idx();
+
     // unwrap all the stuff packed into the argument tuple
     let (_, layout, mut taken_ctx, auxillary_component_info) = argument_tuple;
 
     // put stuff back
     taken_ctx.primary.control = taken_control;
     *ctx = taken_ctx;
+
+    for node in IndexRange::new(ctrl_idx_start, ctrl_idx_end).iter() {
+        if let ControlNode::Invoke(i) = &mut ctx.primary.control[node] {
+            let assign_start_index = ctx.primary.assignments.peek_next_idx();
+
+            for (dst, src) in i.signature.iter() {
+                ctx.primary.assignments.push(Assignment {
+                    dst: *dst,
+                    src: *src,
+                    guard: ctx.primary.guards.push(Guard::True),
+                });
+            }
+
+            let assign_end_index = ctx.primary.assignments.peek_next_idx();
+            i.assignments =
+                IndexRange::new(assign_start_index, assign_end_index);
+        }
+    }
 
     let go_ports = comp
         .signature
@@ -615,6 +637,24 @@ impl FlattenTree for cir::Control {
                     )
                 });
 
+                let go = inv
+                    .comp
+                    .borrow()
+                    .find_all_with_attr(NumAttr::Go)
+                    .collect_vec();
+                assert!(go.len() == 1, "cannot handle multiple go ports yet or the invoked cell has none");
+                let comp_go = layout.port_map[&go[0].as_raw()];
+                let done = inv
+                    .comp
+                    .borrow()
+                    .find_all_with_attr(NumAttr::Done)
+                    .collect_vec();
+                assert!(
+                    done.len() == 1,
+                    "cannot handle multiple done ports yet or the invoked cell has none"
+                );
+                let comp_done = layout.port_map[&done[0].as_raw()];
+
                 ControlNode::Invoke(Invoke::new(
                     invoked_cell,
                     inv.comb_group
@@ -623,6 +663,8 @@ impl FlattenTree for cir::Control {
                     ref_cells,
                     inputs,
                     outputs,
+                    comp_go,
+                    comp_done,
                 ))
             }
             cir::Control::Enable(e) => ControlNode::Enable(Enable::new(

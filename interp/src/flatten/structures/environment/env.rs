@@ -14,10 +14,11 @@ use crate::{
         flat_ir::{
             cell_prototype::{CellPrototype, PrimType1},
             prelude::{
-                AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
-                ControlNode, GlobalCellIdx, GlobalPortIdx, GlobalPortRef,
-                GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx, PortRef,
-                PortValue,
+                AssignedValue, AssignmentIdx, BaseIndices,
+                CellDefinitionRef::{Local, Ref},
+                CellRef, ComponentIdx, ControlNode, GlobalCellIdx,
+                GlobalCellRef, GlobalPortIdx, GlobalPortRef, GlobalRefCellIdx,
+                GlobalRefPortIdx, GuardIdx, Invoke, PortRef, PortValue,
             },
             wires::guards::Guard,
         },
@@ -113,10 +114,17 @@ pub(crate) struct ComponentLedger {
 impl ComponentLedger {
     /// Convert a relative offset to a global one. Perhaps should take an owned
     /// value rather than a pointer
-    pub fn convert_to_global(&self, port: &PortRef) -> GlobalPortRef {
+    pub fn convert_to_global_port(&self, port: &PortRef) -> GlobalPortRef {
         match port {
             PortRef::Local(l) => (&self.index_bases + l).into(),
             PortRef::Ref(r) => (&self.index_bases + r).into(),
+        }
+    }
+
+    pub fn convert_to_global_cell(&self, cell: &CellRef) -> GlobalCellRef {
+        match cell {
+            CellRef::Local(l) => (&self.index_bases + l).into(),
+            CellRef::Ref(r) => (&self.index_bases + r).into(),
         }
     }
 }
@@ -515,18 +523,38 @@ impl<'a> Simulator<'a> {
     }
 
     #[inline]
-    fn get_global_idx(
+    fn lookup_global_cell_id(&self, cell: GlobalCellRef) -> GlobalCellIdx {
+        match cell {
+            GlobalCellRef::Cell(c) => c,
+            // TODO Griffin: Please make sure this error message is correct with
+            // respect to the compiler
+            GlobalCellRef::Ref(r) => self.env.ref_cells[r].expect("A ref cell is being queried without a supplied ref-cell. This is an error?"),
+        }
+    }
+
+    #[inline]
+    fn get_global_port_idx(
         &self,
         port: &PortRef,
         comp: GlobalCellIdx,
     ) -> GlobalPortIdx {
         let ledger = self.env.cells[comp].unwrap_comp();
-        self.lookup_global_port_id(ledger.convert_to_global(port))
+        self.lookup_global_port_id(ledger.convert_to_global_port(port))
+    }
+
+    #[inline]
+    fn get_global_cell_idx(
+        &self,
+        cell: &CellRef,
+        comp: GlobalCellIdx,
+    ) -> GlobalCellIdx {
+        let ledger = self.env.cells[comp].unwrap_comp();
+        self.lookup_global_cell_id(ledger.convert_to_global_cell(cell))
     }
 
     #[inline]
     fn get_value(&self, port: &PortRef, comp: GlobalCellIdx) -> &PortValue {
-        let port_idx = self.get_global_idx(port, comp);
+        let port_idx = self.get_global_port_idx(port, comp);
         &self.env.ports[port_idx]
     }
 
@@ -602,9 +630,11 @@ impl<'a> Simulator<'a> {
                         )
                     }
 
-                    ControlNode::Invoke(_) => {
-                        todo!("invokes not yet implemented")
-                    }
+                    ControlNode::Invoke(i) => ScheduledAssignments::new(
+                        node.comp,
+                        i.assignments,
+                        None,
+                    ),
 
                     ControlNode::Empty(_) => {
                         unreachable!(
@@ -632,6 +662,111 @@ impl<'a> Simulator<'a> {
                 ScheduledAssignments::new(ctrl_pt.comp, assigns, None)
             }))
             .collect()
+    }
+
+    /// A helper function which inserts indicies for the ref cells and ports
+    /// used in the invoke statement
+    fn intialize_ref_cells(
+        &mut self,
+        parent_comp: GlobalCellIdx,
+        invoke: &Invoke,
+    ) {
+        if invoke.ref_cells.is_empty() {
+            return;
+        }
+
+        let parent_ledger = self.env.cells[parent_comp].unwrap_comp();
+        let parent_info = &self.env.ctx.secondary[parent_ledger.comp_id];
+
+        let child_comp = self.get_global_cell_idx(&invoke.cell, parent_comp);
+        // this unwrap should never fail because ref-cells can only exist on
+        // components, not primitives
+        let child_ledger = self.env.cells[child_comp]
+            .as_comp()
+            .expect("malformed invoke?");
+        let child_info = &self.env.ctx.secondary[child_ledger.comp_id];
+
+        for (offset, cell_ref) in invoke.ref_cells.iter() {
+            // first set the ref cell
+            let global_ref_cell_idx = &child_ledger.index_bases + offset;
+            let global_actual_cell_idx =
+                self.get_global_cell_idx(cell_ref, parent_comp);
+            self.env.ref_cells[global_ref_cell_idx] =
+                Some(global_actual_cell_idx);
+
+            // then set the ports
+            let child_ref_cell_info = &self.env.ctx.secondary
+                [child_info.ref_cell_offset_map[*offset]];
+
+            let cell_info_idx = parent_info.get_cell_info_idx(*cell_ref);
+            match cell_info_idx {
+                Local(l) => {
+                    let info = &self.env.ctx.secondary[l];
+                    assert_eq!(
+                        child_ref_cell_info.ports.size(),
+                        info.ports.size()
+                    );
+
+                    for (dest, source) in
+                        child_ref_cell_info.ports.iter().zip(info.ports.iter())
+                    {
+                        let dest_idx = &child_ledger.index_bases + dest;
+                        let source_idx = &parent_ledger.index_bases + source;
+                        self.env.ref_ports[dest_idx] = Some(source_idx);
+                    }
+                }
+                Ref(r) => {
+                    let info = &self.env.ctx.secondary[r];
+                    assert_eq!(
+                        child_ref_cell_info.ports.size(),
+                        info.ports.size()
+                    );
+
+                    for (dest, source) in
+                        child_ref_cell_info.ports.iter().zip(info.ports.iter())
+                    {
+                        let dest_idx = &child_ledger.index_bases + dest;
+                        let source_ref_idx =
+                            &parent_ledger.index_bases + source;
+                        // TODO griffin: Make this error message actually useful
+                        let source_idx_actual = self.env.ref_ports
+                            [source_ref_idx]
+                            .expect("ref port not instantiated, this is a bug");
+
+                        self.env.ref_ports[dest_idx] = Some(source_idx_actual);
+                    }
+                }
+            }
+        }
+    }
+
+    fn cleanup_ref_cells(
+        &mut self,
+        parent_comp: GlobalCellIdx,
+        invoke: &Invoke,
+    ) {
+        let child_comp = self.get_global_cell_idx(&invoke.cell, parent_comp);
+        // this unwrap should never fail because ref-cells can only exist on
+        // components, not primitives
+        let child_ledger = self.env.cells[child_comp]
+            .as_comp()
+            .expect("malformed invoke?");
+        let child_info = &self.env.ctx.secondary[child_ledger.comp_id];
+
+        for (offset, _) in invoke.ref_cells.iter() {
+            // first unset the ref cell
+            let global_ref_cell_idx = &child_ledger.index_bases + offset;
+            self.env.ref_cells[global_ref_cell_idx] = None;
+
+            // then unset the ports
+            let child_ref_cell_info = &self.env.ctx.secondary
+                [child_info.ref_cell_offset_map[*offset]];
+
+            for port in child_ref_cell_info.ports.iter() {
+                let port_idx = &child_ledger.index_bases + port;
+                self.env.ref_ports[port_idx] = None;
+            }
+        }
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
@@ -793,7 +928,27 @@ impl<'a> Simulator<'a> {
                         node.mutate_into_next(self.env.ctx)
                     }
                 }
-                ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
+                ControlNode::Invoke(i) => {
+                    let done = self.get_global_port_idx(&i.done, node.comp);
+
+                    if i.comb_group.is_some() && !with_map.contains_key(node) {
+                        with_map.insert(node.clone(), i.comb_group.unwrap());
+                    }
+
+
+                    if !self.env.ports[done].as_bool().unwrap_or_default() {
+                        leaf_nodes.push(node.clone());
+                        true
+                    } else {
+                        self.cleanup_ref_cells(node.comp, i);
+
+                        if i.comb_group.is_some() {
+                            with_map.remove(node);
+                        }
+
+                        node.mutate_into_next(self.env.ctx)
+                    }
+                },
             };
 
             if !retain_bool && ControlPoint::get_next(node, self.env.ctx).is_none() &&
@@ -835,7 +990,13 @@ impl<'a> Simulator<'a> {
                     self.env.ports[go_idx] =
                         PortValue::new_implicit(Value::bit_high());
                 }
-                ControlNode::Invoke(_) => todo!(),
+                ControlNode::Invoke(i) => {
+                    let go = self.get_global_port_idx(&i.go, node.comp);
+                    self.env.ports[go] =
+                        PortValue::new_implicit(Value::bit_high());
+
+                    self.intialize_ref_cells(node.comp, i);
+                }
                 non_leaf => {
                     unreachable!("non-leaf node {:?} included in list of leaf nodes. This should never happen, please report it.", non_leaf)
                 }
@@ -867,7 +1028,6 @@ impl<'a> Simulator<'a> {
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
-            // self.env._print_pc();
             self.step()?
         }
         Ok(())
@@ -895,8 +1055,10 @@ impl<'a> Simulator<'a> {
             Guard::Comp(c, a, b) => {
                 let comp_v = self.env.cells[comp].unwrap_comp();
 
-                let a = self.lookup_global_port_id(comp_v.convert_to_global(a));
-                let b = self.lookup_global_port_id(comp_v.convert_to_global(b));
+                let a = self
+                    .lookup_global_port_id(comp_v.convert_to_global_port(a));
+                let b = self
+                    .lookup_global_port_id(comp_v.convert_to_global_port(b));
 
                 let a_val = self.env.ports[a].val()?;
                 let b_val = self.env.ports[b].val()?;
@@ -912,8 +1074,8 @@ impl<'a> Simulator<'a> {
             }
             Guard::Port(p) => {
                 let comp_v = self.env.cells[comp].unwrap_comp();
-                let p_idx =
-                    self.lookup_global_port_id(comp_v.convert_to_global(p));
+                let p_idx = self
+                    .lookup_global_port_id(comp_v.convert_to_global_port(p));
                 self.env.ports[p_idx].as_bool()
             }
         }
@@ -986,7 +1148,7 @@ impl<'a> Simulator<'a> {
                     {
                         let val = self.get_value(&assign.src, *active_cell);
                         let dest =
-                            self.get_global_idx(&assign.dst, *active_cell);
+                            self.get_global_port_idx(&assign.dst, *active_cell);
 
                         if let Some(done) = done {
                             if dest != done {
