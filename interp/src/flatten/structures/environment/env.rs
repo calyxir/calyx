@@ -745,6 +745,10 @@ impl<'a> Simulator<'a> {
         parent_comp: GlobalCellIdx,
         invoke: &Invoke,
     ) {
+        if invoke.ref_cells.is_empty() {
+            return;
+        }
+
         let child_comp = self.get_global_cell_idx(&invoke.cell, parent_comp);
         // this unwrap should never fail because ref-cells can only exist on
         // components, not primitives
@@ -1170,7 +1174,7 @@ impl<'a> Simulator<'a> {
 
                             has_changed |= changed.as_bool();
                         } else if self.env.ports[dest].is_def() {
-                            todo!("Raise an error here since this assignment is undefining things")
+                            todo!("Raise an error here since this assignment is undefining things: {}", self.env.ctx.printer().print_assignment(ledger.comp_id, assign_idx))
                         }
                     }
                 }
