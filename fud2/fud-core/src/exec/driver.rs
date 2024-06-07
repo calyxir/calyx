@@ -26,12 +26,12 @@ pub struct Driver {
 
 impl Driver {
     /// Find a chain of Operations from the `start` state to the `end`, which may be a state or the
-    /// final operation in the chain.
+    /// final operation in the chain. Include with each operation the list of used output states.
     fn find_path_segment(
         &self,
         start: StateRef,
         end: Destination,
-    ) -> Option<Vec<OpRef>> {
+    ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
         // Our start state is the input.
         let mut visited = SecondaryMap::<StateRef, bool>::new();
         visited[start] = true;
@@ -65,18 +65,18 @@ impl Driver {
         }
 
         // Traverse the breadcrumbs backward to build up the path back from output to input.
-        let mut op_path: Vec<OpRef> = vec![];
+        let mut op_path: Vec<(OpRef, Vec<StateRef>)> = vec![];
         let mut cur_state = match end {
             Destination::State(state) => state,
             Destination::Op(op) => {
-                op_path.push(op);
+                op_path.push((op, vec![self.ops[op].output[0]]));
                 self.ops[op].input[0]
             }
         };
         while cur_state != start {
             match breadcrumbs[cur_state] {
                 Some(op) => {
-                    op_path.push(op);
+                    op_path.push((op, vec![self.ops[op].output[0]]));
                     cur_state = self.ops[op].input[0];
                 }
                 None => return None,
@@ -88,15 +88,15 @@ impl Driver {
     }
 
     /// Find a chain of operations from the `start` state to the `end` state, passing through each
-    /// `through` operation in order.
+    /// `through` operation in order. Include with each operation the list of used output states.
     pub fn find_path(
         &self,
         start: StateRef,
         end: StateRef,
         through: &[OpRef],
-    ) -> Option<Vec<OpRef>> {
+    ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
         let mut cur_state = start;
-        let mut op_path: Vec<OpRef> = vec![];
+        let mut op_path: Vec<(OpRef, Vec<StateRef>)> = vec![];
 
         // Build path segments through each through required operation.
         for op in through {
@@ -144,8 +144,8 @@ impl Driver {
         let stem = start_file.file_stem().unwrap();
 
         // Generate filenames for each step.
-        steps.extend(path.into_iter().map(|op| {
-            let filename = self.gen_name(stem, self.ops[op].output[0]);
+        steps.extend(path.into_iter().map(|(op, used_states)| {
+            let filename = self.gen_name(stem, used_states[0]);
             (op, filename)
         }));
 
