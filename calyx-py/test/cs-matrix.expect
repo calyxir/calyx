@@ -1,0 +1,217 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external mem1 = comb_mem_d2(32, 2, 2, 1, 1);
+    @external mem2 = comb_mem_d2(32, 2, 2, 1, 1);
+    @external mem3 = comb_mem_d2(32, 2, 2, 1, 1);
+    reg_1 = std_reg(32);
+    reg_2 = std_reg(32);
+    reg_3 = std_reg(32);
+    reg_4 = std_reg(32);
+    reg_5 = std_reg(32);
+    reg_6 = std_reg(32);
+    reg_7 = std_reg(32);
+    reg_8 = std_reg(32);
+    reg_9 = std_reg(32);
+    reg_10 = std_reg(32);
+    reg_11 = std_reg(32);
+    add_12 = std_add(32);
+    mult_pipe_13 = std_mult_pipe(32);
+    add_14 = std_add(32);
+  }
+  wires {
+    group read1 {
+      mem1.addr0 = 1'd0;
+      mem1.addr1 = 1'd0;
+      reg_2.in = mem1.read_data;
+      reg_2.write_en = 1'd1;
+      read1[done] = reg_2.done;
+    }
+    group read2 {
+      mem2.addr0 = 1'd0;
+      mem2.addr1 = 1'd0;
+      reg_3.in = mem2.read_data;
+      reg_3.write_en = 1'd1;
+      read2[done] = reg_2.done;
+    }
+    group read3 {
+      mem1.addr0 = 1'd0;
+      mem1.addr1 = 1'd1;
+      reg_4.in = mem1.read_data;
+      reg_4.write_en = 1'd1;
+      read3[done] = reg_4.done;
+    }
+    group read4 {
+      mem2.addr0 = 1'd0;
+      mem2.addr1 = 1'd1;
+      reg_5.in = mem2.read_data;
+      reg_5.write_en = 1'd1;
+      read4[done] = reg_5.done;
+    }
+    group read5 {
+      mem1.addr0 = 1'd1;
+      mem1.addr1 = 1'd0;
+      reg_6.in = mem1.read_data;
+      reg_6.write_en = 1'd1;
+      read5[done] = reg_6.done;
+    }
+    group read6 {
+      mem2.addr0 = 1'd1;
+      mem2.addr1 = 1'd0;
+      reg_7.in = mem2.read_data;
+      reg_7.write_en = 1'd1;
+      read6[done] = reg_7.done;
+    }
+    group read7 {
+      mem1.addr0 = 1'd1;
+      mem1.addr1 = 1'd1;
+      reg_8.in = mem1.read_data;
+      reg_8.write_en = 1'd1;
+      read7[done] = reg_8.done;
+    }
+    group read8 {
+      mem2.addr0 = 1'd1;
+      mem2.addr1 = 1'd1;
+      reg_9.in = mem2.read_data;
+      reg_9.write_en = 1'd1;
+      read8[done] = reg_9.done;
+    }
+    group mul_upd {
+      mult_pipe_13.left = reg_2.out;
+      mult_pipe_13.right = reg_3.out;
+      mult_pipe_13.go = 1'd1;
+      reg_10.in = mult_pipe_13.out;
+      reg_10.write_en = mult_pipe_13.done;
+      mul_upd[done] = reg_10.done;
+      mul_upd[done] = reg_11.done;
+    }
+    group mul_upd2 {
+      mult_pipe_13.left = reg_4.out;
+      mult_pipe_13.right = reg_7.out;
+      mult_pipe_13.go = 1'd1;
+      reg_11.in = mult_pipe_13.out;
+      reg_11.write_en = mult_pipe_13.done;
+    }
+    group mul_upd3 {
+      mult_pipe_13.left = reg_2.out;
+      mult_pipe_13.right = reg_5.out;
+      mult_pipe_13.go = 1'd1;
+      reg_10.in = mult_pipe_13.out;
+      reg_10.write_en = mult_pipe_13.done;
+      mul_upd3[done] = reg_10.done;
+    }
+    group mul_upd4 {
+      mult_pipe_13.left = reg_4.out;
+      mult_pipe_13.right = reg_9.out;
+      mult_pipe_13.go = 1'd1;
+      reg_11.in = mult_pipe_13.out;
+      reg_11.write_en = mult_pipe_13.done;
+      mul_upd4[done] = reg_11.done;
+    }
+    group mul_upd5 {
+      mult_pipe_13.left = reg_6.out;
+      mult_pipe_13.right = reg_3.out;
+      mult_pipe_13.go = 1'd1;
+      reg_10.in = mult_pipe_13.out;
+      reg_10.write_en = mult_pipe_13.done;
+      mul_upd5[done] = reg_10.done;
+    }
+    group mul_upd6 {
+      mult_pipe_13.left = reg_8.out;
+      mult_pipe_13.right = reg_7.out;
+      mult_pipe_13.go = 1'd1;
+      reg_11.in = mult_pipe_13.out;
+      reg_11.write_en = mult_pipe_13.done;
+      mul_upd6[done] = reg_11.done;
+    }
+    group mul_upd7 {
+      mult_pipe_13.left = reg_6.out;
+      mult_pipe_13.right = reg_5.out;
+      mult_pipe_13.go = 1'd1;
+      reg_10.in = mult_pipe_13.out;
+      reg_10.write_en = mult_pipe_13.done;
+      mul_upd7[done] = reg_10.done;
+    }
+    group mul_upd8 {
+      mult_pipe_13.left = reg_8.out;
+      mult_pipe_13.right = reg_9.out;
+      mult_pipe_13.go = 1'd1;
+      reg_11.in = mult_pipe_13.out;
+      reg_11.write_en = mult_pipe_13.done;
+      mul_upd8[done] = reg_11.done;
+    }
+    group add_14_group {
+      add_14.left = reg_10.out;
+      add_14.right = reg_11.out;
+      reg_1.write_en = 1'd1;
+      reg_1.in = add_14.out;
+      add_14_group[done] = reg_1.done;
+    }
+    group write {
+      mem3.addr0 = 1'd0;
+      mem3.addr1 = 1'd0;
+      mem3.write_en = 1'd1;
+      mem3.write_data = reg_1.out;
+      write[done] = mem3.done;
+    }
+    group write1 {
+      mem3.addr0 = 1'd1;
+      mem3.addr1 = 1'd0;
+      mem3.write_en = 1'd1;
+      mem3.write_data = reg_1.out;
+      write1[done] = mem3.done;
+    }
+    group write2 {
+      mem3.addr0 = 1'd0;
+      mem3.addr1 = 1'd1;
+      mem3.write_en = 1'd1;
+      mem3.write_data = reg_1.out;
+      write2[done] = mem3.done;
+    }
+    group write3 {
+      mem3.addr0 = 1'd1;
+      mem3.addr1 = 1'd1;
+      mem3.write_en = 1'd1;
+      mem3.write_data = reg_1.out;
+      write3[done] = mem3.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        read1;
+        read2;
+      }
+      par {
+        read3;
+        read4;
+      }
+      par {
+        read5;
+        read6;
+      }
+      par {
+        read7;
+        read8;
+      }
+      mul_upd;
+      mul_upd2;
+      add_14_group;
+      write;
+      mul_upd3;
+      mul_upd4;
+      add_14_group;
+      write2;
+      mul_upd5;
+      mul_upd6;
+      add_14_group;
+      write1;
+      mul_upd7;
+      mul_upd8;
+      add_14_group;
+      write3;
+    }
+  }
+}
