@@ -266,8 +266,10 @@ impl<'a> Printer<'a> {
                     let ref_cells = self.format_invoke_ref_cell_list(i, parent);
                     out += &format!("[{}]", ref_cells);
                 }
-                let inputs = self.format_invoke_port_lists(&i.inputs, parent);
-                let outputs = self.format_invoke_port_lists(&i.outputs, parent);
+                let inputs =
+                    self.format_invoke_port_lists(&i.signature.inputs, parent);
+                let outputs =
+                    self.format_invoke_port_lists(&i.signature.outputs, parent);
 
                 out += &format!("({inputs})({outputs})");
 
