@@ -108,6 +108,7 @@ size_key = "total_size"
 name_key = "name"
 #This returns an array based on dimensions of memory
 address_width_key = "idx_sizes"
+type_key = "memory_type"
 
 #TODO (nathanielnrn): Should we make these comb groups? 
 def add_address_translator(prog, mem):
@@ -128,6 +129,7 @@ def add_address_translator(prog, mem):
 
     #Assignment
     with address_translator.continuous:
+        pad_input_addr.in_ = address_translator.this()["calyx_mem_addr"]
         address_mult.in_ = pad_input_addr.out
         address_translator.this()["axi_address"] = address_mult.out
 
@@ -850,21 +852,22 @@ def check_mems_welformed(mems):
             mem[width_key]
         ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
         assert mem[size_key] > 0, "Memory size must be greater than 0"
+        assert mem[type_key] == "Dynamic", "Only dynamic memories are currently supported for dynamic axi"
 
 
 if __name__ == "__main__":
-    yxifilename = "input.yxi"  # default
+    yxi_filename = "input.yxi"  # default
     if len(sys.argv) > 2:
         raise Exception("axi generator takes 1 yxi file name as argument")
     else:
         try:
-            yxifilename = sys.argv[1]
-            if not yxifilename.endswith(".yxi"):
+            yxi_filename = sys.argv[1]
+            if not yxi_filename.endswith(".yxi"):
                 raise Exception("axi generator requires an yxi file")
         except:
             pass  # no arg passed
-    with open(yxifilename, "r", encoding="utf-8") as yxifile:
-        yxifile = open(yxifilename)
+    with open(yxi_filename, "r", encoding="utf-8") as yxifile:
+        yxifile = open(yxi_filename)
         yxi = json.load(yxifile)
         mems = yxi["memories"]
         build().emit()
