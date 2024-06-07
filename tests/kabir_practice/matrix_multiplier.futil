@@ -1,0 +1,165 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+    cells{
+        //Memory blocks
+        @external m1 = comb_mem_d2(32, 3, 3, 32, 32);
+        @external m2 = comb_mem_d2(32, 3, 3, 32, 32);
+        @external result = comb_mem_d2(32, 3, 3, 32, 32);
+
+        //Constant stores square matrix's dimensions, but can be modified
+        size = std_const(32, 3);
+
+        //ALU Units
+        adder = std_add(32);
+        multiplier = std_mult_pipe(32);
+        lt1 = std_lt(32);
+        lt2 = std_lt(32);
+        lt3 = std_lt(32);
+
+        //For tracking matrix indices
+        row_index = std_reg(32);
+        col_index = std_reg(32);
+        loop_tracker = std_reg(32);
+
+        //For tracking the matrix entries
+        m1_tracker = std_reg(32);
+        m2_tracker = std_reg(32);
+
+        //Tracks the product to go into a cell
+        product_tracker = std_reg(32);
+
+        //Tracks total to be stored in each cell of final matrix
+        cell_total = std_reg(32);
+    }
+
+    wires {
+        comb group loop_guard_1 {   //Combinational guard for the row loop
+            lt1.left = row_index.out;
+            lt1.right = size.out;
+        }
+
+        comb group loop_guard_2 {   //Combinational guard for the col loop
+            lt2.left = col_index.out;
+            lt2.right = size.out;
+        }
+
+        comb group loop_guard_3 {   //Combinational guard for the inner tracker loop
+            lt3.left = loop_tracker.out;
+            lt3.right = size.out;
+        }
+
+        group reset_col {   //Reset column index to 0
+            col_index.in = 32'd0;
+            col_index.write_en = 1'd1;
+            reset_col[done] = col_index.done;
+        }
+
+        group reset_trackers {  //Reset loop tracker and cell total to 0
+            cell_total.in = 32'd0;
+            cell_total.write_en = 1'd1;
+
+            loop_tracker.in = cell_total.done ? 32'd0;
+            loop_tracker.write_en = cell_total.done ? 1'd1;
+
+            reset_trackers[done] = loop_tracker.done;
+        }
+        
+        group incr_col {    //Increment column index
+            adder.left = 32'd1;
+            adder.right = col_index.out;
+            col_index.in = adder.out;
+            col_index.write_en = 1'd1;
+            incr_col[done] = col_index.done;
+        }
+
+        group incr_row {    //Increment row index
+            adder.left = 32'd1;
+            adder.right = row_index.out;
+            row_index.in = adder.out;
+            row_index.write_en = 1'd1;
+            incr_row[done] = row_index.done;
+        }
+
+        group incr_loop_tracker {   //Increment loop tracker index
+            adder.left = 32'd1;
+            adder.right = loop_tracker.out;
+            loop_tracker.in = adder.out;
+            loop_tracker.write_en = 1'd1;
+            incr_loop_tracker[done] = loop_tracker.done;
+        }
+
+        group access_entries {  //From memory, access the latest pair of entries to multiply
+            //Position of left element
+            m1.addr0 = row_index.out;
+            m1.addr1 = loop_tracker.out;
+
+            //Position of right element
+            m2.addr0 = loop_tracker.out;
+            m2.addr1 = col_index.out;
+
+            m1_tracker.in = m1.read_data;
+            m1_tracker.write_en = 1'd1;
+
+            m2_tracker.in = m2.read_data;
+            m2_tracker.write_en = 1'd1;
+
+            access_entries[done] = m2_tracker.done;
+        }
+
+        group compute_cellwise_product { //Perform multiplication of two elements
+            multiplier.left = m1_tracker.out;
+            multiplier.right = m2_tracker.out;
+            multiplier.go = !multiplier.done ? 1'd1;
+
+            product_tracker.in = multiplier.done ? multiplier.out;
+            product_tracker.write_en = multiplier.done ? 1'd1;
+
+            compute_cellwise_product[done] = product_tracker.done;
+        }
+
+        group compute_entry { // Add latest cell product into accumulated total
+            adder.left = product_tracker.out;
+            adder.right = cell_total.out;
+
+            cell_total.in = adder.out;
+            cell_total.write_en = 1'd1;
+
+            compute_entry[done] = cell_total.done;
+        }
+
+        group write { //Write result to memory with specified row/column indices
+            result.addr0 = row_index.out;
+            result.addr1 = col_index.out;
+            result.write_data = cell_total.out;
+            result.write_en = 1'd1;
+
+            write[done] = result.done;
+        }
+    }
+
+    control {
+        while lt1.out with loop_guard_1 { //Outer loop guard (tracks row)
+            seq {
+                while lt2.out with loop_guard_2 { //Second loop guard (tracks column)
+                    seq {
+                        //Iterator tracks current position as we dot a given row and column
+                        while lt3.out with loop_guard_3 {
+                            seq {
+                                access_entries;
+                                compute_cellwise_product;
+                                compute_entry;
+                                incr_loop_tracker;
+                            }
+                        }
+                        write;
+                        par {incr_col; reset_trackers;}
+                    }
+                }
+                par {incr_row; reset_col;}
+            }
+        }
+    }
+}
