@@ -400,6 +400,23 @@ class ComponentBuilder:
             name, ast.Stdlib.comb_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
+    def comb_mem_d2(
+        self,
+        name: str,
+        bitwidth: int,
+        len0: int,
+        len1: int,
+        idx_size0: int,
+        idx_size1: int,
+        is_external: bool = False,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a StdMemD2 cell."""
+        self.prog.import_("primitives/memories/comb.futil")
+        return self.cell(
+            name, ast.Stdlib.comb_mem_d2(bitwidth, len0, len1, idx_size0, idx_size1), is_external, is_ref
+        )
+
     def seq_mem_d1(
         self,
         name: str,
@@ -413,6 +430,23 @@ class ComponentBuilder:
         self.prog.import_("primitives/memories/seq.futil")
         return self.cell(
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
+
+    def seq_mem_d2(
+        self,
+        name: str,
+        bitwidth: int,
+        len0: int,
+        len1: int,
+        idx_size0: int,
+        idx_size1: int,
+        is_external: bool = False,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a SeqMemD2 cell."""
+        self.prog.import_("primitives/memories/seq.futil")
+        return self.cell(
+            name, ast.Stdlib.seq_mem_d2(bitwidth, len0, len1, idx_size0, idx_size1), is_external, is_ref
         )
 
     def binary(
@@ -757,11 +791,12 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_d1(self, mem, i, reg, groupname, is_comb=False):
+    def mem_load_d1(self, mem, i, reg, groupname):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory 
         """
-        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
+        assert mem.is_seq_mem_d1() or mem.is_comb_mem_d1()
+        is_comb = mem.is_comb_mem_d1()
         with self.group(groupname) as load_grp:
             mem.addr0 = i
             if is_comb:
@@ -774,13 +809,49 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
-        """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
+    def mem_load_d2(self, mem, i, j, reg, groupname):
+        """Inserts wiring into `self` to perform `reg := mem[i]`,
+        where `mem` is a seq_d2 memory or a comb_mem_d2 memory 
         """
-        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
+        assert mem.is_seq_mem_d2() or mem.is_comb_mem_d2()
+        is_comb = mem.is_comb_mem_d2()
+        with self.group(groupname) as load_grp:
+            mem.addr0 = i
+            mem.addr1 = j
+            if is_comb:
+                reg.write_en = 1
+                reg.in_ = mem.read_data
+            else:
+                mem.content_en = 1
+                reg.write_en = mem.done @ 1
+                reg.in_ = mem.done @ mem.read_data
+            load_grp.done = reg.done
+        return load_grp
+
+    def mem_store_d1(self, mem, i, val, groupname):
+        """Inserts wiring into `self` to perform `mem[i] := val`,
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory 
+        """
+        assert mem.is_seq_mem_d1() or mem.is_comb_mem_d1()
+        is_comb = mem.is_comb_mem_d1()
         with self.group(groupname) as store_grp:
             mem.addr0 = i
+            mem.write_en = 1
+            mem.write_data = val
+            store_grp.done = mem.done
+            if not is_comb:
+                mem.content_en = 1
+        return store_grp
+
+    def mem_store_d2(self, mem, i, j, val, groupname):
+        """Inserts wiring into `self` to perform `mem[i] := val`,
+        where `mem` is a seq_d2 memory or a comb_mem_d2 memory 
+        """
+        assert mem.is_seq_mem_d2() or mem.is_comb_mem_d2()
+        is_comb = mem.is_comb_mem_d2()
+        with self.group(groupname) as store_grp:
+            mem.addr0 = i
+            mem.addr1 = j
             mem.write_en = 1
             mem.write_data = val
             store_grp.done = mem.done
@@ -1243,9 +1314,17 @@ class CellBuilder(CellLikeBuilder):
         """Check if the cell is a StdMemD1 cell."""
         return self.is_primitive("comb_mem_d1")
 
+    def is_comb_mem_d2(self) -> bool:
+        """Check if the cell is a StdMemD2 cell."""
+        return self.is_primitive("comb_mem_d2")
+
     def is_seq_mem_d1(self) -> bool:
         """Check if the cell is a SeqMemD1 cell."""
         return self.is_primitive("seq_mem_d1")
+
+    def is_seq_mem_d2(self) -> bool:
+        """Check if the cell is a SeqMemD2 cell."""
+        return self.is_primitive("seq_mem_d2")
 
     def infer_width_reg(self) -> int:
         """Infer the width of a register. That is, the width of `reg.in`."""
@@ -1279,14 +1358,18 @@ class CellBuilder(CellLikeBuilder):
         ):
             if port_name in ("left", "right"):
                 return inst.args[0]
-        if prim in ("comb_mem_d1", "seq_mem_d1"):
+        if prim in ("comb_mem_d1", "seq_mem_d1", "comb_mem_d2", "seq_mem_d2"):
             if port_name == "write_en":
                 return 1
+            if "d2" in prim and port_name == "addr0":
+                return inst.args[3]
+            if "d2" in prim and port_name == "addr1":
+                return inst.args[4]
             if port_name == "addr0":
                 return inst.args[2]
             if port_name == "in":
                 return inst.args[0]
-            if prim == "seq_mem_d1" and port_name == "content_en":
+            if "seq_mem" in prim and port_name == "content_en":
                 return 1
         if prim in (
             "std_mult_pipe",

@@ -63,13 +63,21 @@ impl Visitor for WireInliner {
                 let this = Rc::clone(&comp.signature);
                 let mut builder = ir::Builder::new(comp, sigs);
                 let group = &data.group;
+                let this_go_port = this
+                    .borrow()
+                    .find_unique_with_attr(ir::NumAttr::Go)?
+                    .unwrap();
+                let this_done_port = this
+                    .borrow()
+                    .find_unique_with_attr(ir::NumAttr::Done)?
+                    .unwrap();
 
                 structure!(builder;
                     let one = constant(1, 1);
                 );
-                let group_done = guard!(group["done"]);
+                let group_done = guard!(group[this_done_port.borrow().name]);
                 let assigns = build_assignments!(builder;
-                    group["go"] = ? this["go"];
+                    group["go"] = ? this[this_go_port.borrow().name];
                     this["done"] = group_done ? one["out"];
                 );
                 comp.continuous_assignments.extend(assigns);
