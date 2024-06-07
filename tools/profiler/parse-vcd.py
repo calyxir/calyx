@@ -7,13 +7,14 @@ def remove_size_from_name(name: str) -> str:
     return name.split('[')[0]
 
 class ProfilingInfo:
-    def __init__(self, name, fsm_name=None, fsm_values=None):
+    def __init__(self, name, fsm_name=None, fsm_values=None, par_parent=None):
         self.name = name
         self.fsm_name = fsm_name
         self.fsm_values = fsm_values
         self.total_cycles = 0
         self.closed_segments = [] # Segments will be (start_time, end_time)
         self.current_segment = None
+        self.par_parent = par_parent
 
     def __repr__ (self):
         return (f"Group {self.name}:\n" +
@@ -22,6 +23,15 @@ class ProfilingInfo:
         f"\tTotal cycles: {self.total_cycles}\n" +   
         f"\tSegments: {self.closed_segments}\n"
         )
+    
+    def is_active(self):
+        return self.current_segment is not None
+    
+    def start_clock_cycle(self):
+        if self.current_segment is None:
+            return -1
+        else:
+            return self.current_segment["start"]
     
     def summary(self):
         if len(self.closed_segments) == 0:
@@ -48,6 +58,23 @@ class ProfilingInfo:
             self.closed_segments.append(self.current_segment)
             self.total_cycles += curr_clock_cycle - self.current_segment["start"]
             self.current_segment = None # Reset current segment
+
+def can_start_new_segment(vcd_converter, group, signal_new_value, signal_prev_value, time, curr_clock_cycle):
+    par_parent = vcd_converter.profiling_info[group].par_parent
+    is_new_signal = signal_new_value != signal_prev_value # Did the value change between the previous cycle?
+
+    if vcd_converter.main_go_on_time == time: # All active segments start when main starts
+        return True
+
+    if par_parent is not None:
+        par_parent_start_cycle = vcd_converter.profiling_info[par_parent].start_clock_cycle()
+        if par_parent_start_cycle == curr_clock_cycle: # All child segments start when the parent starts
+            return True
+        if par_parent_start_cycle > curr_clock_cycle: # No child segments should start before the parent starts
+            return False
+
+    return is_new_signal
+    
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
@@ -114,37 +141,44 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # detect rising edge on clock
         if identifier_code == self.clock_id and value == "1":
             self.clock_cycle_acc += 1
-            # for each signal that we want to check, we need to sample the values
-            for (signal_name, signal_id) in self.signal_to_signal_id.items():
-                signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
-                fsm_curr_value = self.signal_to_curr_value[signal_name]
-                # skip values that have not changed, except for when main[go] just got activated
-                if not(self.main_go_on_time == time) and signal_new_value == fsm_curr_value:
-                    continue
-                if "_go" in signal_name and signal_new_value == 1:
-                    # start of single enable group
-                    group = "_".join(signal_name.split("_")[0:-1])
-                    self.profiling_info[group].start_new_segment(self.clock_cycle_acc)
-                elif "_done" in signal_name and signal_new_value == 1:
-                    # end of single enable group
-                    group = "_".join(signal_name.split("_")[0:-1])
-                    self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
-                elif "fsm" in signal_name:
-                    # Sample FSM values
-                    if fsm_curr_value != -1:
-                        # end the previous group if there was one
-                        prev_group = self.fsms[signal_name][fsm_curr_value]
-                        self.profiling_info[prev_group].end_current_segment(self.clock_cycle_acc)
-                    if signal_new_value in self.fsms[signal_name]: # END should be ignored
+            # fixpoint - we might analyze the par parent of a group before the group.
+            # TODO: this is getting really messy........
+            started_group_names = set()
+            while True:
+                prev_started_group_names_len = len(started_group_names)
+                # for each signal that we want to check, we need to sample the values
+                for (signal_name, signal_id) in self.signal_to_signal_id.items():
+                    signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
+                    fsm_curr_value = self.signal_to_curr_value[signal_name]
+                    if "_go" in signal_name and signal_new_value == 1:
+                        # start of single enable group
+                        group = "_".join(signal_name.split("_")[0:-1])
+                        curr_group_info = self.profiling_info[group]
+                        # We want to start a segment regardless of whether it changed
+                        if (group not in started_group_names and
+                            can_start_new_segment(self, group, signal_new_value, fsm_curr_value, time, self.clock_cycle_acc)):
+                            curr_group_info.start_new_segment(self.clock_cycle_acc)
+                            started_group_names.add(curr_group_info)
+                    elif "_done" in signal_name and signal_new_value == 1:
+                        # end of single enable group
+                        group = "_".join(signal_name.split("_")[0:-1])
+                        self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
+                    elif "fsm" in signal_name:
                         next_group = self.fsms[signal_name][signal_new_value]
                         # start a new segment for the next group
-                        # FIXME: need to fix this for par blocks
-                        self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
-                    else:
-                        # The state id was not in the JSON entry for this FSM. Most likely the value was the last FSM state.
-                        print(f"FSM value ignored: {signal_new_value}")
-                # Update internal signal value
-                self.signal_to_curr_value[signal_name] = signal_new_value
+                        if (next_group not in started_group_names and
+                            can_start_new_segment(self, next_group, signal_new_value, fsm_curr_value, time, self.clock_cycle_acc)):
+                            if fsm_curr_value != -1:
+                                # end the previous group if there was one
+                                prev_group = self.fsms[signal_name][fsm_curr_value]
+                                self.profiling_info[prev_group].end_current_segment(self.clock_cycle_acc)
+                            self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
+                            started_group_names.add(next_group)
+                    # Update internal signal value
+                    self.signal_to_curr_value[signal_name] = signal_new_value                
+                if len(started_group_names) == prev_started_group_names_len: # Fixpoint: if none of the groups started in this iteration of check
+                    break
+
 
 def remap_tdcc_json(json_file):
     profiling_infos = json.load(open(json_file))
