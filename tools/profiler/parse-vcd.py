@@ -7,17 +7,14 @@ def remove_size_from_name(name: str) -> str:
     return name.split('[')[0]
 
 class ProfilingInfo:
-    def __init__(self, name, fsm_name=None, fsm_values=None, par_parent=None):
+    def __init__(self, name, fsm_name=None, fsm_values=None, tdcc_group_name=None):
         self.name = name
         self.fsm_name = fsm_name
         self.fsm_values = fsm_values
         self.total_cycles = 0
         self.closed_segments = [] # Segments will be (start_time, end_time)
         self.current_segment = None
-        if par_parent == "":
-            self.par_parent = None
-        else:
-            self.par_parent = par_parent
+        self.tdcc_group = tdcc_group_name
 
     def __repr__ (self):
         return (f"Group {self.name}:\n" +
@@ -62,32 +59,42 @@ class ProfilingInfo:
             self.total_cycles += curr_clock_cycle - self.current_segment["start"]
             self.current_segment = None # Reset current segment
 
-def can_start_new_segment(vcd_converter, group, signal_new_value, signal_prev_value, time, curr_clock_cycle):
-    par_parent = vcd_converter.profiling_info[group].par_parent
+def can_start_new_segment(vcd_converter, group, signal_new_value, signal_prev_value, time):
+    # par_parent = vcd_converter.profiling_info[group].par_parent
     is_new_signal = signal_new_value != signal_prev_value # Did the value change between the previous cycle?
 
-    if par_parent is not None:
-        # if group == "read":
-        #     print(f"READ detected! curr cycle: {curr_clock_cycle}")
-        #     print(f"par_parent is active? {vcd_converter.profiling_info[par_parent].is_active()}")
-        #     print(f"par_parent start time {vcd_converter.profiling_info[par_parent].start_clock_cycle()}")
-        if not vcd_converter.profiling_info[par_parent].is_active(): # No child segments should start before the parent starts
-            return False
-        if vcd_converter.profiling_info[par_parent].start_clock_cycle() == curr_clock_cycle: # All child segments start when the parent starts
-            return True
+    # if par_parent is not None:
+    #     # if group == "read":
+    #     #     print(f"READ detected! curr cycle: {curr_clock_cycle}")
+    #     #     print(f"par_parent is active? {vcd_converter.profiling_info[par_parent].is_active()}")
+    #     #     print(f"par_parent start time {vcd_converter.profiling_info[par_parent].start_clock_cycle()}")
+    #     if not vcd_converter.profiling_info[par_parent].is_active(): # No child segments should start before the parent starts
+    #         return False
+    #     if vcd_converter.profiling_info[par_parent].start_clock_cycle() == curr_clock_cycle: # All child segments start when the parent starts
+    #         return True
 
     if vcd_converter.main_go_on_time == time: # All active segments start when main starts
         return True
+    
+    tdcc_group = vcd_converter.profiling_info[group].tdcc_group
+    if tdcc_group is not None: # Need to check whether the TDCC group is active
+        if group == "read":
+            print(f"READ detected! curr cycle: {vcd_converter.clock_cycle_acc}")
+            print(f"TDCC group {tdcc_group}'s current value = {vcd_converter.tdcc_group_to_value[tdcc_group]}")
+        if vcd_converter.tdcc_group_to_value[tdcc_group] != 1: # If the TDCC group isn't active, then we shouldn't proceed
+            return False
     
     return is_new_signal
     
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsms, single_enable_names, groups_to_fsms):
+    def __init__(self, fsms, single_enable_names, tdcc_group_names, groups_to_fsms):
         super().__init__()
         self.fsms = fsms
         self.single_enable_names = single_enable_names
+        self.tdcc_group_to_values = {tdcc_group_name : [] for tdcc_group_name in tdcc_group_names}
+        self.tdcc_group_to_go_id = {tdcc_group_name : None for tdcc_group_name in tdcc_group_names}
         self.profiling_info = {}
         self.signal_to_signal_id = {fsm : None for fsm in fsms}
         self.signal_to_curr_value = {fsm : 0 for fsm in fsms}
@@ -97,9 +104,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.clock_id = None
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
         for group in groups_to_fsms:
-            self.profiling_info[group] = ProfilingInfo(group, groups_to_fsms[group]["fsm"], groups_to_fsms[group]["ids"], groups_to_fsms[group]["par_parent"])
-        for (single_enable_group, single_enable_parent) in single_enable_names:
-            self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group, par_parent=single_enable_parent)
+            self.profiling_info[group] = ProfilingInfo(group, groups_to_fsms[group]["fsm"], groups_to_fsms[group]["ids"], groups_to_fsms[group]["tdcc-group-name"])
+        for single_enable_group in single_enable_names:
+            self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
             self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
         
@@ -121,6 +128,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         for name, id in refs:
             # We may want to optimize these nested for loops
+            for tdcc_group in self.tdcc_group_to_go_id:
+                if f"{tdcc_group}_go.out[" in name:
+                    self.tdcc_group_to_go_id[tdcc_group] = id
             for fsm in self.fsms:
                 if f"{fsm}.out[" in name:
                     self.signal_to_signal_id[fsm] = id
@@ -147,48 +157,44 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # detect rising edge on clock
         if identifier_code == self.clock_id and value == "1":
             self.clock_cycle_acc += 1
-            # fixpoint - we might analyze the par parent of a group before the group.
-            # TODO: this is getting really messy........
-            started_group_names = set()
-            while True:
-                prev_started_group_names_len = len(started_group_names)
-                # for each signal that we want to check, we need to sample the values
-                for (signal_name, signal_id) in self.signal_to_signal_id.items():
-                    signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
-                    fsm_curr_value = self.signal_to_curr_value[signal_name]
-                    if "_go" in signal_name and signal_new_value == 1:
-                        # start of single enable group
-                        group = "_".join(signal_name.split("_")[0:-1])
-                        curr_group_info = self.profiling_info[group]
-                        # We want to start a segment regardless of whether it changed
-                        if (group not in started_group_names and
-                            can_start_new_segment(self, group, signal_new_value, fsm_curr_value, time, self.clock_cycle_acc)):
-                            curr_group_info.start_new_segment(self.clock_cycle_acc)
-                            started_group_names.add(curr_group_info)
-                    elif "_done" in signal_name and signal_new_value == 1:
-                        # end of single enable group
-                        group = "_".join(signal_name.split("_")[0:-1])
-                        self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
-                    elif "fsm" in signal_name:
-                        next_group = self.fsms[signal_name][signal_new_value]
-                        # start a new segment for the next group
-                        if (next_group not in started_group_names and
-                            can_start_new_segment(self, next_group, signal_new_value, fsm_curr_value, time, self.clock_cycle_acc)):
-                            if fsm_curr_value != -1:
-                                # end the previous group if there was one
-                                prev_group = self.fsms[signal_name][fsm_curr_value]
-                                self.profiling_info[prev_group].end_current_segment(self.clock_cycle_acc)
-                            self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
-                            started_group_names.add(next_group)
-                    # Update internal signal value
-                    self.signal_to_curr_value[signal_name] = signal_new_value                
-                if len(started_group_names) == prev_started_group_names_len: # Fixpoint: if none of the groups started in this iteration of check
-                    break
-
+            # Update TDCC group signals first
+            for (tdcc_group_name, tdcc_signal_id) in self.tdcc_group_to_go_id.items():
+                self.tdcc_group_to_values[tdcc_group_name].append(int(cur_sig_vals[tdcc_signal_id], 2))
+            # for each signal that we want to check, we need to sample the values
+            for (signal_name, signal_id) in self.signal_to_signal_id.items():
+                signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
+                fsm_curr_value = self.signal_to_curr_value[signal_name]
+                if "_go" in signal_name and signal_new_value == 1:
+                    # start of single enable group
+                    group = "_".join(signal_name.split("_")[0:-1])
+                    curr_group_info = self.profiling_info[group]
+                    # We want to start a segment regardless of whether it changed
+                    if can_start_new_segment(self, group, signal_new_value, fsm_curr_value, time):
+                        curr_group_info.start_new_segment(self.clock_cycle_acc)
+                elif "_done" in signal_name and signal_new_value == 1:
+                    # end of single enable group
+                    group = "_".join(signal_name.split("_")[0:-1])
+                    self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
+                elif "fsm" in signal_name:
+                    next_group = self.fsms[signal_name][signal_new_value]
+                    tdcc_group_values = self.tdcc_group_to_values[self.profiling_info[next_group].tdcc_group] # FIXME: ???????
+                    # TODO: might want to clean up the FSMs
+                    # if the FSM value changed, then we must end the previous group (regardless of whether we can start the next group)
+                    if signal_new_value != fsm_curr_value and fsm_curr_value != -1:
+                        prev_group = self.fsms[signal_name][fsm_curr_value]
+                        self.profiling_info[prev_group].end_current_segment(self.clock_cycle_acc)
+                    # if the FSM value didn't change but the TDCC group just got enabled, then we must start the next group
+                    if signal_new_value == fsm_curr_value and (tdcc_group_values[-1] == 1 and (len(tdcc_group_values) == 1 or tdcc_group_values[-2] == 0)):
+                        self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
+                    if tdcc_group_values[-1] == 1 and signal_new_value != fsm_curr_value:
+                        self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
+                # Update internal signal value
+                self.signal_to_curr_value[signal_name] = signal_new_value                
 
 def remap_tdcc_json(json_file):
     profiling_infos = json.load(open(json_file))
     single_enable_names = set()
+    tdcc_group_names = set()
     groups_to_fsms = {}
     fsms = {} # Remapping of JSON data for easy access
     for profiling_info in profiling_infos:
@@ -200,28 +206,28 @@ def remap_tdcc_json(json_file):
                 fsms[fsm_name][state["id"]] = state["group"]
                 group_name = state["group"]
                 if group_name not in groups_to_fsms:
-                    groups_to_fsms[group_name] = {"fsm": fsm_name, "ids": [state["id"]], "par_parent" : fsm["parent_group"]}
+                    groups_to_fsms[group_name] = {"fsm": fsm_name, "tdcc-group-name": fsm["group"], "ids": [state["id"]]}
+                    tdcc_group_names.add(fsm["group"]) # Hack: Keep track of the TDCC group for use later
                 else:     
                     groups_to_fsms[group_name]["ids"].append(state["id"])  
         else:
-            group_info = (profiling_info["SingleEnable"]["group"], profiling_info["SingleEnable"]["parent_group"])
-            single_enable_names.add(group_info)
+            single_enable_names.add(profiling_info["SingleEnable"]["group"])
 
-    return fsms, single_enable_names, groups_to_fsms
+    return fsms, single_enable_names, tdcc_group_names, groups_to_fsms
 
 
 def main(vcd_filename, json_file):
-    fsms, single_enable_names, groups_to_fsms = remap_tdcc_json(json_file)
-    converter = VCDConverter(fsms, single_enable_names, groups_to_fsms)
+    fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(json_file)
+    converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
     print("=====SUMMARY=====")
     print()
-    for group_info in converter.profiling_info.values():
+    for group_info in filter(lambda group : not group.name.startswith("tdcc") and not group.name.endswith("END"), converter.profiling_info.values()):
         print(group_info.summary())
     print("=====DUMP=====")
     print()
-    for group_info in converter.profiling_info.values():
+    for group_info in filter(lambda group : not group.name.startswith("tdcc") and not group.name.endswith("END"), converter.profiling_info.values()):
         print(group_info)
 
 if __name__ == "__main__":
