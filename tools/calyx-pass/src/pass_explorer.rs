@@ -23,7 +23,6 @@ pub enum PassApplicationStatus {
     Future,
 }
 
-#[derive(Clone)]
 pub struct Breakpoint {
     pass: String,
     skip: HashSet<String>,
@@ -104,7 +103,8 @@ impl PassExplorer {
             file_exists: HashSet::new(),
         };
 
-        if let Some(breakpoint) = new_self.breakpoint.clone() {
+        if new_self.breakpoint.is_some() {
+            let breakpoint = std::mem::take(&mut new_self.breakpoint).unwrap();
             assert!(new_self.passes.contains(&breakpoint.pass));
             while new_self.incoming_pass().expect("There is at least one pass by our prior assertion and we also must encounter the breakpoint").ne(&breakpoint.pass) {
                 if !breakpoint.skip.contains(&new_self.incoming_pass().unwrap()) {
@@ -114,6 +114,7 @@ impl PassExplorer {
                     new_self.skip()?;
                 }
             }
+            new_self.breakpoint = Some(breakpoint);
         }
 
         Ok(new_self)
