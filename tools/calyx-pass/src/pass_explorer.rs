@@ -208,7 +208,12 @@ impl PassExplorer {
 
     /// Undos the last acceptance or skip.
     pub fn undo(&mut self) -> std::io::Result<()> {
-        if let Some(last_pass_index) = self.passes_applied.pop() {
+        if !self.passes_applied.is_empty() {
+            assert!(self.file_exists.remove(&self.last_file()));
+            let last_pass_index = self
+                .passes_applied
+                .pop()
+                .expect("pop should succeed on non-empty array");
             self.index = last_pass_index as isize;
         } else if self.index > 0 {
             self.index -= 1;
