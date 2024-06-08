@@ -1,5 +1,5 @@
 use crate::util::{self, capture_command_stdout};
-use colored::Colorize;
+use crossterm::style::Stylize;
 use similar::{ChangeTag, TextDiff};
 use std::{collections::HashSet, fs, path::PathBuf};
 use tempdir::TempDir;
@@ -38,18 +38,31 @@ impl Breakpoint {
     }
 }
 
+/// A pass explorer can be used to visualize arbitrary pass transformations on
+/// an original input file.
 pub struct PassExplorer {
+    /// The working directory where pass application files are stored.
     work_dir: TempDir,
+
+    /// A path to the calyx executable.
     calyx_exec: String,
+
+    /// A pass to breakpoint at.
     breakpoint: Option<Breakpoint>,
+
+    /// The passes to explore.
     passes: Vec<String>,
+
+    /// The subset of the indices of passes that have been applied.
     passes_applied: Vec<usize>,
+
+    /// The index of the incomign pass.
     index: isize,
+
+    /// Stores whether a given pass application file exists.
     file_exists: HashSet<PathBuf>,
 }
 
-/// A pass explorer can be used to visualize arbitrary pass transformations on
-/// an original input file.
 impl PassExplorer {
     /// Constructs a new pass explorer for exploring how a given pass alias
     /// `pass_alias` transforms an input file `input_file`.
@@ -149,8 +162,7 @@ impl PassExplorer {
         component: Option<String>,
     ) -> std::io::Result<Option<String>> {
         self.ensure_inc_file_exists()?;
-        let mut last_file_content = fs::read_to_string(self.last_file())
-            .expect("Could not read the last file");
+        let mut last_file_content = fs::read_to_string(self.last_file())?;
 
         let mut incoming_file_content = fs::read_to_string(
         self.incoming_file()

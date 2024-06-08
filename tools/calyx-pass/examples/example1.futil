@@ -1,3 +1,5 @@
+// `cargo run -- -c main examples/example1.futil` from root
+
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 

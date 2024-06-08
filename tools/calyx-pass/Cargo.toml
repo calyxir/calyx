@@ -10,7 +10,6 @@ path = "src/main.rs"
 
 [dependencies]
 argh = "0.1.12"
-colored = "2.1.0"
-console = "0.15.8"
+crossterm = "0.27.0"
 similar = "2.5.0"
 tempdir = "0.3.7"

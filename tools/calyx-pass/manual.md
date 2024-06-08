@@ -41,4 +41,4 @@ Please do not use CTRL-C to exit.
 ### Movement
 
 The arrow keys and scrolling works as normal.
-In addition, `f` and `b` jump forward and backward by 4 lines.
+In addition, `f` and `b` jump forward and backward by `tui::JUMP` lines.

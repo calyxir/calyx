@@ -27,6 +27,12 @@ from the current directory.
 
 Please read the short [user manual](manual.md) to learn how to use the CLI and tool.
 
+## Example
+
+```shell
+cargo run -- -c main examples/example1.futil
+```
+
 ## Author
 
 This tool was designed and developed by [Ethan Uppal](https://www.ethanuppal.com).
