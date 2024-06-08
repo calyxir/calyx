@@ -10,16 +10,16 @@ const SOURCE_FILE_NAME: &str = "SOURCE.futil";
 /// The status of a pass in exploration.
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum PassApplicationStatus {
-    /// The pass has been applied
+    /// The pass has been applied.
     Applied,
 
-    /// The pass has been skipped
+    /// The pass has been skipped.
     Skipped,
 
-    /// The pass is staged to be applied
+    /// The pass is staged to be applied.
     Incoming,
 
-    /// The pass will be staged for application later
+    /// The pass will be staged for application later.
     Future,
 }
 

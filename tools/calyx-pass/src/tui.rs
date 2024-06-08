@@ -31,8 +31,12 @@ const JUMP_BCK: char = 'b';
 /// See [`JUMP_FWD`] and [`JUMP_BCK`].
 const JUMP: usize = 4;
 
+/// A response to an input event in the main loop (for the TUI).
 enum TUIAction {
+    /// Continue the main loop.
     Continue,
+
+    /// Exit the main loop.
     Quit,
 }
 
@@ -44,6 +48,7 @@ pub struct PassExplorerTUI<'a> {
     /// An optional component to focus on.
     component: Option<String>,
 
+    /// The scrollback buffer used for rendering.
     scrollback_buffer: ScrollbackBuffer<'a>,
 
     /// Whether the display should be refreshed, a fast operation. This flag

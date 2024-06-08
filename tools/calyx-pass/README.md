@@ -17,7 +17,13 @@ You give it an input file and some options, and you can explore how passes trans
 
 ## Install
 
-Run
+Navigate to the `calyx-pass` directory (e.g., `cd tools/calyx-pass` from the repository root).
+Check the version with
+```
+cargo run -- --version
+```
+
+Then, run
 ```
 cargo install --path .
 ```

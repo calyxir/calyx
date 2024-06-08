@@ -5,12 +5,17 @@ use std::cmp::min;
 ///
 /// # Example
 /// ```
-/// fn example(output: &Term) {
-///     let scrollback_buffer = ScrollbackBuffer::new(output);
-///     writeln!(scrollback_buffer, "hi");
-///     scrollback_buffer.display();
+/// use calyx_pass::scrollback_buffer::ScrollbackBuffer;
+/// use std::io::Write;
+///
+/// fn example() -> std::io::Result<()> {
+///     let mut stdout = std::io::stdout();
+///     let mut scrollback_buffer = ScrollbackBuffer::new(&mut stdout)?;
+///     writeln!(scrollback_buffer, "hi\nhi\nhi\n...");
+///     scrollback_buffer.display()?;
 ///     scrollback_buffer.scroll_down();
 ///     scrollback_buffer.clear();
+///     Ok(())
 /// }
 /// ```
 pub struct ScrollbackBuffer<'a> {
@@ -41,10 +46,12 @@ impl<'a> ScrollbackBuffer<'a> {
         })
     }
 
+    /// The number of rows that the scrollback buffer will display.
     pub fn rows(&self) -> usize {
         self.rows
     }
 
+    /// The number of columns that the scrollback buffer will display.
     pub fn cols(&self) -> usize {
         self.cols
     }
