@@ -6,7 +6,6 @@ build-tool = fud2
 rule get-rsrc
   command = $build-tool get-rsrc $out
 
-# Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
 args = 
@@ -15,7 +14,6 @@ rule calyx
 rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
 
-# build targets
 build stdin.sv: calyx stdin
   backend = verilog
 

@@ -6,7 +6,6 @@ build-tool = fud2
 rule get-rsrc
   command = $build-tool get-rsrc $out
 
-# Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
 args = 
@@ -15,7 +14,6 @@ rule calyx
 rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
 
-# Custom Testbench Setup
 rule ref-to-external
   command = sed 's/ref /@external /g' $in > $out
 rule external-to-ref
@@ -27,7 +25,6 @@ rule generate-refmem-testbench
 rule dummy
   command = sh -c 'cat $$0' $in > $out
 
-# Firrtl to Verilog compiler
 firrtl-exe = /test/bin/firrtl
 rule firrtl
   command = $firrtl-exe -i $in -o $out -X sverilog
@@ -35,7 +32,6 @@ build primitives-for-firrtl.sv: get-rsrc
 rule add-verilog-primitives
   command = cat primitives-for-firrtl.sv $in > $out
 
-# build targets
 build external.futil: ref-to-external stdin
 build ref.futil: external-to-ref stdin
 build memory-info.json: calyx external.futil

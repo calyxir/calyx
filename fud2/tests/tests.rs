@@ -1,12 +1,19 @@
-use fud2::build_driver;
 use fud_core::{
     config::default_config, exec::Request, run::Run, Driver, DriverBuilder,
 };
 
+#[cfg(not(feature = "migrate_to_scripts"))]
 fn test_driver() -> Driver {
     let mut bld = DriverBuilder::new("fud2");
-    build_driver(&mut bld);
+    fud2::build_driver(&mut bld);
     bld.build()
+}
+
+#[cfg(feature = "migrate_to_scripts")]
+fn test_driver() -> Driver {
+    let mut bld = DriverBuilder::new("fud2-plugins");
+    bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
+    bld.load_plugins().build()
 }
 
 fn request(
@@ -39,7 +46,13 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
     let run = Run::with_config(driver, plan, config);
     let mut buf = vec![];
     run.emit(&mut buf).unwrap();
-    String::from_utf8(buf).unwrap()
+    // turn into string, and remove comments
+    String::from_utf8(buf)
+        .unwrap()
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Get a human-readable description of a request.
