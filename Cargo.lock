@@ -1160,6 +1160,7 @@ dependencies = [
  "cranelift-entity",
  "env_logger",
  "figment",
+ "itertools 0.11.0",
  "log",
  "once_cell",
  "pathdiff",

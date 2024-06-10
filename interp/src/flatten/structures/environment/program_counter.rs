@@ -344,27 +344,9 @@ pub(crate) struct ProgramCounter {
 // we need a few things from the program counter
 
 impl ProgramCounter {
-    pub(crate) fn new(ctx: &Context) -> Self {
-        let root = ctx.entry_point;
-        // this relies on the fact that we construct the root cell-ledger
-        // as the first possible cell in the program. If that changes this will break.
-        let root_cell = GlobalCellIdx::new(0);
-
-        let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
-
-        if let Some(current) = ctx.primary[root].control {
-            vec.push(ControlPoint {
-                comp: root_cell,
-                control_node_idx: current,
-            })
-        } else {
-            todo!(
-                "Flat interpreter does not support control-less components yet"
-            )
-        }
-
+    pub(crate) fn new_empty() -> Self {
         Self {
-            vec,
+            vec: Vec::with_capacity(CONTROL_POINT_PREALLOCATE),
             par_map: HashMap::new(),
             continuous_assigns: Vec::new(),
             with_map: HashMap::new(),
@@ -373,10 +355,6 @@ impl ProgramCounter {
 
     pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
         self.vec.iter()
-    }
-
-    pub fn is_done(&self) -> bool {
-        self.vec.is_empty()
     }
 
     pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {

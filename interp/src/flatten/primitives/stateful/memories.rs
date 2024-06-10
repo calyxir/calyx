@@ -110,6 +110,10 @@ impl Primitive for StdReg {
     fn has_serializable_state(&self) -> bool {
         true
     }
+
+    fn dump_memory_state(&self) -> Option<Vec<u8>> {
+        Some(self.internal_state.clone().to_bytes())
+    }
 }
 
 pub struct MemDx<const SEQ: bool> {
