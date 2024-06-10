@@ -83,23 +83,39 @@ fn req_slug(driver: &Driver, req: &Request) -> String {
     desc
 }
 
-fn test_emit(driver: &Driver, req: Request) {
+fn test_emit(driver: &Driver, req: Request, tag: &str) {
     let desc = req_desc(driver, &req);
     let slug = req_slug(driver, &req);
     let ninja = emit_ninja(driver, req);
     insta::with_settings!({
         description => desc,
         omit_expression => true,
-        snapshot_suffix => slug,
+        snapshot_suffix => format!("{slug}{tag}"),
     }, {
         insta::assert_snapshot!(ninja);
     });
 }
 
 #[test]
+fn all_ops() {
+    let driver = test_driver();
+    for op in driver.ops.values() {
+        let req = fud_core::exec::Request {
+            start_file: None,
+            start_state: op.input,
+            end_file: None,
+            end_state: op.output,
+            through: vec![],
+            workdir: ".".into(),
+        };
+        test_emit(&driver, req, &format!("__op_{}", op.name));
+    }
+}
+
+#[test]
 fn calyx_to_verilog() {
     let driver = test_driver();
-    test_emit(&driver, request(&driver, "calyx", "verilog", &[]));
+    test_emit(&driver, request(&driver, "calyx", "verilog", &[]), "");
 }
 
 #[test]
@@ -108,6 +124,7 @@ fn calyx_via_firrtl() {
     test_emit(
         &driver,
         request(&driver, "calyx", "verilog-refmem", &["firrtl"]),
+        "",
     );
 }
 
@@ -116,7 +133,7 @@ fn sim_tests() {
     let driver = test_driver();
     for dest in &["dat", "vcd"] {
         for sim in &["icarus", "verilator"] {
-            test_emit(&driver, request(&driver, "calyx", dest, &[sim]));
+            test_emit(&driver, request(&driver, "calyx", dest, &[sim]), "");
         }
     }
 }
@@ -124,21 +141,25 @@ fn sim_tests() {
 #[test]
 fn cider_tests() {
     let driver = test_driver();
-    test_emit(&driver, request(&driver, "calyx", "dat", &["interp"]));
-    test_emit(&driver, request(&driver, "calyx", "debug", &[]));
+    test_emit(&driver, request(&driver, "calyx", "dat", &["interp"]), "");
+    test_emit(&driver, request(&driver, "calyx", "debug", &[]), "");
 }
 
 #[test]
 fn xrt_tests() {
     let driver = test_driver();
-    test_emit(&driver, request(&driver, "calyx", "dat", &["xrt"]));
-    test_emit(&driver, request(&driver, "calyx", "vcd", &["xrt-trace"]));
+    test_emit(&driver, request(&driver, "calyx", "dat", &["xrt"]), "");
+    test_emit(
+        &driver,
+        request(&driver, "calyx", "vcd", &["xrt-trace"]),
+        "",
+    );
 }
 
 #[test]
 fn frontend_tests() {
     let driver = test_driver();
     for frontend in &["dahlia", "mrxl"] {
-        test_emit(&driver, request(&driver, frontend, "calyx", &[]));
+        test_emit(&driver, request(&driver, frontend, "calyx", &[]), "");
     }
 }

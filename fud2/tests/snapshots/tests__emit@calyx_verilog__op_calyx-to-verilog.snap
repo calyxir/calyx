@@ -1,0 +1,20 @@
+---
+source: fud2/tests/tests.rs
+description: emit calyx -> verilog
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+
+build stdin.sv: calyx stdin
+  backend = verilog
+
+default stdin.sv

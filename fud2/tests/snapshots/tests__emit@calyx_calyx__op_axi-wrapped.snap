@@ -1,0 +1,10 @@
+---
+source: fud2/tests/tests.rs
+description: emit calyx -> calyx
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+
+default stdin
