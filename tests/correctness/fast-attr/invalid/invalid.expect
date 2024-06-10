@@ -1,7 +1,7 @@
 ---CODE---
 255
 ---STDERR---
-[fud] ERROR: `/Users/ethan/Documents/GitHub/calyx/target/debug/calyx -l /Users/ethan/Documents/GitHub/calyx -b verilog --disable-verify -p validate -p compile -p lower' failed:
+[fud] ERROR: `/home/calyx/target/debug/calyx -l /home/calyx -b verilog --disable-verify -p validate -p compile -p lower' failed:
 =====STDERR=====
 Error: Malformed Control: `seq` marked `@fast` does not contain alternating static-dynamic control children (see #1828)
 
