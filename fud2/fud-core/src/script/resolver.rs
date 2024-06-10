@@ -48,7 +48,6 @@ impl Resolver {
         path: PathBuf,
         ast: rhai::AST,
     ) -> rhai::AST {
-        // let stem = path.file_stem().unwrap().into();
         let functions = ast.clone_functions_only();
         self.files.push((path, ast));
 
