@@ -4,6 +4,7 @@ use crate::{
 };
 use std::{
     cell::RefCell,
+    collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -20,6 +21,7 @@ struct ScriptContext {
     builder: Rc<RefCell<DriverBuilder>>,
     path: Rc<PathBuf>,
     ast: Rc<rhai::AST>,
+    setups: Rc<RefCell<HashMap<String, SetupRef>>>,
 }
 
 impl ScriptContext {
@@ -34,17 +36,7 @@ impl ScriptContext {
         setups
             .into_iter()
             .map(|s| match s.clone().try_cast::<rhai::FnPtr>() {
-                Some(fnptr) => {
-                    let rctx = RhaiSetupCtx {
-                        path: Rc::clone(&self.path),
-                        ast: Rc::new(self.ast.clone_functions_only()),
-                        name: fnptr.fn_name().to_string(),
-                    };
-                    Ok(self.builder.borrow_mut().add_setup(
-                        &format!("{} (plugin)", fnptr.fn_name()),
-                        rctx,
-                    ))
-                }
+                Some(fnptr) => Ok(self.make_or_get_setupref(fnptr)),
                 // if we can't cast as a FnPtr, try casting as a SetupRef directly
                 None => {
                     s.clone().try_cast::<SetupRef>().ok_or_else(move || {
@@ -56,6 +48,30 @@ impl ScriptContext {
             })
             .collect::<RhaiResult<Vec<_>>>()
     }
+
+    /// Construct a SetupRef for a rhai function. If we already have a SetupRef,
+    /// return the previously constructed version, otherwise make a new one, cache it
+    /// and return that.
+    fn make_or_get_setupref(&self, fnptr: rhai::FnPtr) -> SetupRef {
+        // if we haven't seen this fnptr before, make a new setup context
+        // for this function
+        if !self.setups.borrow().contains_key(fnptr.fn_name()) {
+            let rctx = RhaiSetupCtx {
+                path: Rc::clone(&self.path),
+                ast: Rc::new(self.ast.clone_functions_only()),
+                name: fnptr.fn_name().to_string(),
+            };
+            let setup_ref = self
+                .builder
+                .borrow_mut()
+                .add_setup(&format!("{} (plugin)", fnptr.fn_name()), rctx);
+            self.setups
+                .borrow_mut()
+                .insert(fnptr.fn_name().to_string(), setup_ref);
+        }
+
+        *self.setups.borrow().get(fnptr.fn_name()).unwrap()
+    }
 }
 
 pub struct ScriptRunner {
@@ -63,6 +79,7 @@ pub struct ScriptRunner {
     engine: rhai::Engine,
     rhai_functions: rhai::AST,
     resolver: Option<Resolver>,
+    setups: Rc<RefCell<HashMap<String, SetupRef>>>,
 }
 
 impl ScriptRunner {
@@ -72,6 +89,7 @@ impl ScriptRunner {
             engine: rhai::Engine::new(),
             rhai_functions: rhai::AST::empty(),
             resolver: Some(Resolver::default()),
+            setups: Rc::default(),
         };
         this.reg_state();
         this.reg_get_state();
@@ -184,6 +202,7 @@ impl ScriptRunner {
             builder: Rc::clone(&self.builder),
             path: Rc::new(path),
             ast: Rc::new(self.rhai_functions.clone()),
+            setups: Rc::clone(&self.setups),
         }
     }
 

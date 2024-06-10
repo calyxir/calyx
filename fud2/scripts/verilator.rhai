@@ -19,7 +19,7 @@ fn verilator_setup(e) {
 fn verilator_build(e, input, output, standalone_tb) {
    let out_dir = "verilator-out";
    let sim_bin = `${out_dir}/VTOP`;
-   if standalone_testbench {
+   if standalone_tb {
       e.build_cmd(
         [sim_bin],
         "verilator-compile-standalone-tb",
