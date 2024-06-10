@@ -142,7 +142,7 @@ impl rhai::ModuleResolver for Resolver {
     ) -> RhaiResult<Rc<rhai::Module>> {
         let path_buf = self
             .resolve_filename(name)
-            .map(|x| x.clone())
+            .cloned()
             .unwrap_or(PathBuf::from(name));
 
         // if this path has already failed, don't try loading it again
