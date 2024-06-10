@@ -66,6 +66,7 @@ component main() -> () {
       Sum0.addr0 = bit_slice.out;
       Sum0.content_en = 1'd1;
       Sum0.write_en = 1'd1;
+      #Are these A0 and B0 assignments neeeded?
       B0.content_en = 1'b1;
       B0.addr0 = bit_slice.out;
       A0.addr0 = bit_slice.out;
@@ -269,6 +270,7 @@ def add_read_channel(prog, mem):
     # Groups
     with read_channel.continuous:
         read_channel.this()["RREADY"] = rready.out
+        read_channel.this()["read_data"] = read_reg.out
 
     # Wait for handshake. Ensure that when this is done we are ready to write
     # (i.e., read_data_reg.write_en = is_rdy.out)
