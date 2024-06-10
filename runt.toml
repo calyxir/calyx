@@ -389,6 +389,32 @@ fud e --from systolic --to jq \
 expect_dir = "tests/correctness/systolic/mmult-expect"
 
 [[tests]]
+name = "[correctness] `@fast` attribute should not change program behavior"
+paths = ["tests/correctness/fast-attr/valid/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through icarus-verilog \
+         -s calyx.flags "-p validate -p compile -p lower" \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+
+[[tests]]
+name = "[correctness] `@fast` attribute should reject unoptimizable sequences"
+paths = ["tests/correctness/fast-attr/invalid/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through icarus-verilog \
+         -s calyx.flags "-p validate -p compile -p lower" \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+
+[[tests]]
 name = "[frontend] systolic array relu static correctness"
 paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
