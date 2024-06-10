@@ -5,12 +5,6 @@ use cranelift_entity::{PrimaryMap, SecondaryMap};
 use rand::distributions::{Alphanumeric, DistString};
 use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
-#[derive(PartialEq)]
-enum Destination {
-    State(StateRef),
-    Op(OpRef),
-}
-
 type FileData = HashMap<&'static str, &'static [u8]>;
 
 /// A Driver encapsulates a set of States and the Operations that can transform between them. It
@@ -25,93 +19,107 @@ pub struct Driver {
 }
 
 impl Driver {
-    /// Find a chain of Operations from the `start` state to the `end`, which may be a state or the
-    /// final operation in the chain. Include with each operation the list of used output states.
-    fn find_path_segment(
+    /// Return parents ops of a given state
+    fn parent_ops(&self, state: StateRef) -> Vec<OpRef> {
+        self.ops
+            .iter()
+            .filter_map(|(op_ref, op)| {
+                if op.output.contains(&state) {
+                    Some(op_ref)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn find_reversed_path(
         &self,
-        start: StateRef,
-        end: Destination,
+        start: &[StateRef],
+        end: &[StateRef],
+        through: &[OpRef],
+        visited: &mut SecondaryMap<StateRef, bool>,
     ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
-        // Our start state is the input.
-        let mut visited = SecondaryMap::<StateRef, bool>::new();
-        visited[start] = true;
+        let mut path: Vec<(OpRef, Vec<StateRef>)> = vec![];
+        for &output in end.iter().filter(|s| !start.contains(s)) {
+            // visit the state because it can only be decided upon once
+            visited[output] = true;
 
-        // Build the incoming edges for each vertex.
-        let mut breadcrumbs = SecondaryMap::<StateRef, Option<OpRef>>::new();
-
-        // Breadth-first search.
-        let mut state_queue: Vec<StateRef> = vec![start];
-        while !state_queue.is_empty() {
-            let cur_state = state_queue.remove(0);
-
-            // Finish when we reach the goal vertex.
-            if end == Destination::State(cur_state) {
-                break;
+            // select and order ops
+            let ops = self.parent_ops(output);
+            let mut reordered_ops = vec![];
+            for &op in through {
+                if ops.contains(&op) {
+                    reordered_ops.push(op);
+                }
+            }
+            for op in ops {
+                if !reordered_ops.contains(&op) {
+                    reordered_ops.push(op);
+                }
             }
 
-            // Traverse any edge from the current state to an unvisited state.
-            for (op_ref, op) in self.ops.iter() {
-                if op.input[0] == cur_state && !visited[op.output[0]] {
-                    state_queue.push(op.output[0]);
-                    visited[op.output[0]] = true;
-                    breadcrumbs[op.output[0]] = Some(op_ref);
-                }
-
-                // Finish when we reach the goal edge.
-                if end == Destination::Op(op_ref) {
+            // recurse to find path to current point
+            let mut segment = None;
+            for op in reordered_ops {
+                if let Some(p) = self.find_reversed_path(
+                    start,
+                    &self.ops[op].input,
+                    through,
+                    visited,
+                ) {
+                    segment = Some((p, op));
                     break;
                 }
             }
-        }
 
-        // Traverse the breadcrumbs backward to build up the path back from output to input.
-        let mut op_path: Vec<(OpRef, Vec<StateRef>)> = vec![];
-        let mut cur_state = match end {
-            Destination::State(state) => state,
-            Destination::Op(op) => {
-                op_path.push((op, vec![self.ops[op].output[0]]));
-                self.ops[op].input[0]
-            }
-        };
-        while cur_state != start {
-            match breadcrumbs[cur_state] {
-                Some(op) => {
-                    op_path.push((op, vec![self.ops[op].output[0]]));
-                    cur_state = self.ops[op].input[0];
+            match segment {
+                Some((s, o)) => {
+                    let mut in_path = false;
+                    for (op, states) in path.iter_mut() {
+                        if *op == o {
+                            states.push(output);
+                            in_path = true;
+                            break;
+                        }
+                    }
+                    if !in_path {
+                        path.push((o, vec![output]));
+                    }
+                    path.extend(s);
                 }
                 None => return None,
             }
         }
-        op_path.reverse();
-
-        Some(op_path)
+        Some(path)
     }
 
     /// Find a chain of operations from the `start` state to the `end` state, passing through each
     /// `through` operation in order. Include with each operation the list of used output states.
     pub fn find_path(
         &self,
-        start: StateRef,
-        end: StateRef,
+        start: &[StateRef],
+        end: &[StateRef],
         through: &[OpRef],
     ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
-        let mut cur_state = start;
-        let mut op_path: Vec<(OpRef, Vec<StateRef>)> = vec![];
-
-        // Build path segments through each through required operation.
-        for op in through {
-            let segment =
-                self.find_path_segment(cur_state, Destination::Op(*op))?;
-            op_path.extend(segment);
-            cur_state = self.ops[*op].output[0];
-        }
-
-        // Build the final path segment to the destination state.
-        let segment =
-            self.find_path_segment(cur_state, Destination::State(end))?;
-        op_path.extend(segment);
-
-        Some(op_path)
+        let path = self.find_reversed_path(
+            start,
+            end,
+            through,
+            &mut SecondaryMap::new(),
+        );
+        // reverse the path
+        path.map(|mut p| {
+            p.reverse();
+            p
+        })
+        // make sure we actually go through everything we are trying to go through
+        // the algo just does it's best to satisfy the through constraint, but doesn't guarrentee it
+        .filter(|p| {
+            through
+                .iter()
+                .all(|t| p.iter().map(|(o, _)| o).any(|o| o == t))
+        })
     }
 
     /// Generate a filename with an extension appropriate for the given State.
@@ -132,7 +140,7 @@ impl Driver {
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
         let path =
-            self.find_path(req.start_state, req.end_state, &req.through)?;
+            self.find_path(&[req.start_state], &[req.end_state], &req.through)?;
 
         let mut steps: Vec<(OpRef, Utf8PathBuf)> = vec![];
 
