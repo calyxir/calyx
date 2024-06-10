@@ -86,6 +86,40 @@ pub struct WellFormed {
     active_comb: ActiveAssignments,
 }
 
+fn require_subtype(s : &ir::Invoke, self_ref_cells : &HashMap<ir::Id, LinkedHashMap<ir::Id, Cell>>,id : &ir::Id) -> CalyxResult<()> {
+    let cell_map = &self_ref_cells[id];
+    let mut mentioned_cells = HashSet::new();
+    for(outcell, incell) in s.ref_cells.iter() {
+        if let Some(oc) = cell_map.get(outcell) {
+            if !subtype(oc, &incell.borrow()) {
+                return Err(Error::malformed_control(format!(
+                    "The type passed in `{}` is not a subtype of the expected type `{}`.",
+                    incell.borrow().prototype.surface_name().unwrap(),
+                    oc.prototype.surface_name().unwrap()
+                ))
+                .with_pos(&s.attributes));
+            } else {
+                mentioned_cells.insert(outcell);
+            }
+        } else {
+            return Err(Error::malformed_control(format!(
+                "{} does not have ref cell named {}",
+                id, outcell
+            )));
+        }
+    }
+    for id in cell_map.keys() {
+        if !mentioned_cells.contains(id) {
+            return Err(Error::malformed_control(format!(
+                "unmentioned ref cell: {}",
+                id
+            ))
+            .with_pos(&s.attributes));
+        }
+    }
+    Ok(())
+}
+
 impl ConstructVisitor for WellFormed {
     fn from(ctx: &ir::Context) -> CalyxResult<Self>
     where
@@ -568,38 +602,8 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.ref_cells[id];
-            let mut mentioned_cells = HashSet::new();
-            for (outcell, incell) in s.ref_cells.iter() {
-                if let Some(oc) = cellmap.get(outcell) {
-                    if !subtype(oc, &incell.borrow()) {
-                        return Err(Error::malformed_control(format!(
-                            "The type passed in `{}` is not a subtype of the expected type `{}`.",
-                            incell.borrow().prototype.surface_name().unwrap(),
-                            oc.prototype.surface_name().unwrap()
-                        ))
-                        .with_pos(&s.attributes));
-                    } else {
-                        mentioned_cells.insert(outcell);
-                    }
-                } else {
-                    return Err(Error::malformed_control(format!(
-                        "{} does not have ref cell named {}",
-                        id, outcell
-                    )));
-                }
-            }
-            for id in cellmap.keys() {
-                if !mentioned_cells.contains(id) {
-                    return Err(Error::malformed_control(format!(
-                        "unmentioned ref cell: {}",
-                        id
-                    ))
-                    .with_pos(&s.attributes));
-                }
-            }
+          require_subtype(s, &self.ref_cells, id)?;
         }
-
         Ok(Action::Continue)
     }
 
@@ -614,38 +618,9 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.ref_cells[id];
-            let mut mentioned_cells = HashSet::new();
-            for (outcell, incell) in s.ref_cells.iter() {
-                if let Some(oc) = cellmap.get(outcell) {
-                    if !subtype(oc, &incell.borrow()) {
-                        return Err(Error::malformed_control(format!(
-                            "The type passed in `{}` is not a subtype of the expected type `{}`.",
-                            incell.borrow().prototype.surface_name().unwrap(),
-                            oc.prototype.surface_name().unwrap()
-                        ))
-                        .with_pos(&s.attributes));
-                    } else {
-                        mentioned_cells.insert(outcell);
-                    }
-                } else {
-                    return Err(Error::malformed_control(format!(
-                        "{} does not have ref cell named {}",
-                        id, outcell
-                    )));
-                }
-            }
-            for id in cellmap.keys() {
-                if !mentioned_cells.contains(id) {
-                    return Err(Error::malformed_control(format!(
-                        "unmentioned ref cell: {}",
-                        id
-                    ))
-                    .with_pos(&s.attributes));
-                }
-            }
-        }
+            require_subtype(s, &self.ref_cells, id)?;
 
+        }
         Ok(Action::Continue)
     }
 
