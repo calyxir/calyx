@@ -57,35 +57,7 @@ class ProfilingInfo:
             self.current_segment["end"] = curr_clock_cycle
             self.closed_segments.append(self.current_segment)
             self.total_cycles += curr_clock_cycle - self.current_segment["start"]
-            self.current_segment = None # Reset current segment
-
-def can_start_new_segment(vcd_converter, group, signal_new_value, signal_prev_value, time):
-    # par_parent = vcd_converter.profiling_info[group].par_parent
-    is_new_signal = signal_new_value != signal_prev_value # Did the value change between the previous cycle?
-
-    # if par_parent is not None:
-    #     # if group == "read":
-    #     #     print(f"READ detected! curr cycle: {curr_clock_cycle}")
-    #     #     print(f"par_parent is active? {vcd_converter.profiling_info[par_parent].is_active()}")
-    #     #     print(f"par_parent start time {vcd_converter.profiling_info[par_parent].start_clock_cycle()}")
-    #     if not vcd_converter.profiling_info[par_parent].is_active(): # No child segments should start before the parent starts
-    #         return False
-    #     if vcd_converter.profiling_info[par_parent].start_clock_cycle() == curr_clock_cycle: # All child segments start when the parent starts
-    #         return True
-
-    if vcd_converter.main_go_on_time == time: # All active segments start when main starts
-        return True
-    
-    tdcc_group = vcd_converter.profiling_info[group].tdcc_group
-    if tdcc_group is not None: # Need to check whether the TDCC group is active
-        if group == "read":
-            print(f"READ detected! curr cycle: {vcd_converter.clock_cycle_acc}")
-            print(f"TDCC group {tdcc_group}'s current value = {vcd_converter.tdcc_group_to_value[tdcc_group]}")
-        if vcd_converter.tdcc_group_to_value[tdcc_group] != 1: # If the TDCC group isn't active, then we shouldn't proceed
-            return False
-    
-    return is_new_signal
-    
+            self.current_segment = None # Reset current segment    
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
@@ -169,7 +141,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     group = "_".join(signal_name.split("_")[0:-1])
                     curr_group_info = self.profiling_info[group]
                     # We want to start a segment regardless of whether it changed
-                    if can_start_new_segment(self, group, signal_new_value, fsm_curr_value, time):
+                    if self.main_go_on_time == time or signal_new_value != fsm_curr_value:
                         curr_group_info.start_new_segment(self.clock_cycle_acc)
                 elif "_done" in signal_name and signal_new_value == 1:
                     # end of single enable group
@@ -177,8 +149,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
                 elif "fsm" in signal_name:
                     next_group = self.fsms[signal_name][signal_new_value]
-                    tdcc_group_values = self.tdcc_group_to_values[self.profiling_info[next_group].tdcc_group] # FIXME: ???????
-                    # TODO: might want to clean up the FSMs
+                    tdcc_group_values = self.tdcc_group_to_values[self.profiling_info[next_group].tdcc_group]
                     # if the FSM value changed, then we must end the previous group (regardless of whether we can start the next group)
                     if signal_new_value != fsm_curr_value and fsm_curr_value != -1:
                         prev_group = self.fsms[signal_name][fsm_curr_value]
