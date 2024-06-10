@@ -209,9 +209,26 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     }
 }
 
-enum Encoding {
+enum RegisterEncoding {
     Binary,
     OneHot,
+}
+enum RegisterSpread {
+    // Default option: just a single register
+    Single,
+    // Duplicate the register to reduce fanout when querying
+    // (all FSMs in this vec still have all of the states)
+    _Duplicate,
+    // Split the FSM to reduce fanout when querying.
+    // (the FSMs partition the states exactly).
+    // Each FSM has fewer bits but I suspect the logic might be more complicated.
+    _Split,
+}
+
+/// A type that represents how the FSM should be implemented in hardware.
+struct FSMRepresentation {
+    encoding: RegisterEncoding,
+    _spread: RegisterSpread,
 }
 
 /// Represents the dyanmic execution schedule of a control program.
@@ -374,7 +391,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
         self,
         dump_fsm: bool,
         fsm_groups: &mut HashSet<ProfilingInfo>,
-        one_hot_cutoff: u64,
+        fsm_representation: FSMRepresentation,
+        // one_hot_cutoff: u64,
     ) -> RRC<ir::Group> {
         self.validate();
 
@@ -390,38 +408,35 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // calculate fsm size and encoding
         let final_state = self.last_state();
-        let encoding = if final_state <= one_hot_cutoff {
-            Encoding::OneHot
-        } else {
-            Encoding::Binary
-        };
 
         // build necessary primitives dependent on encoding
         let signal_on = self.builder.add_constant(1, 1);
-        let (fsm, first_state, last_state_opt, fsm_size) = match encoding {
-            Encoding::Binary => {
-                let fsm_size = get_bit_width_from(
-                    final_state + 1, /* represent 0..final_state */
-                );
-                structure!(self.builder;
-                    let fsm = prim std_reg(fsm_size);
-                    let last_state = constant(final_state, fsm_size);
-                    let first_state = constant(0, fsm_size);
-                );
-                (fsm, first_state, Some(last_state), fsm_size)
-            }
-            Encoding::OneHot => {
-                let fsm_size = final_state + 1; /* represent 0..final_state */
+        let (fsm, first_state, last_state_opt, fsm_size) =
+            match fsm_representation.encoding {
+                RegisterEncoding::Binary => {
+                    let fsm_size = get_bit_width_from(
+                        final_state + 1, /* represent 0..final_state */
+                    );
+                    structure!(
+                        self.builder;
+                        let fsm = prim std_reg(fsm_size);
+                        let last_state = constant(final_state, fsm_size);
+                        let first_state = constant(0, fsm_size);
+                    );
+                    (fsm, first_state, Some(last_state), fsm_size)
+                }
+                RegisterEncoding::OneHot => {
+                    let fsm_size = final_state + 1; /* represent 0..final_state */
 
-                let fsm = self.builder.add_primitive(
-                    "fsm",
-                    "init_one_reg",
-                    &[fsm_size],
-                );
-                let first_state = self.builder.add_constant(1, fsm_size);
-                (fsm, first_state, None, fsm_size)
-            }
-        };
+                    let fsm = self.builder.add_primitive(
+                        "fsm",
+                        "init_one_reg",
+                        &[fsm_size],
+                    );
+                    let first_state = self.builder.add_constant(1, fsm_size);
+                    (fsm, first_state, None, fsm_size)
+                }
+            };
 
         // Add last state to JSON info
         let mut states = self.groups_to_states.iter().cloned().collect_vec();
@@ -446,30 +461,34 @@ impl<'b, 'a> Schedule<'b, 'a> {
             self.enables
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-                .flat_map(|(state, mut assigns)| match encoding {
-                    Encoding::Binary => {
-                        let state_const =
-                            self.builder.add_constant(state, fsm_size);
-                        let state_guard =
-                            guard!(fsm["out"] == state_const["out"]);
-                        assigns.iter_mut().for_each(|asgn| {
-                            asgn.guard.update(|g| g.and(state_guard.clone()))
-                        });
-                        assigns
-                    }
-                    Encoding::OneHot => {
-                        let state_guard = Self::build_one_hot_query(
-                            self.builder,
-                            &mut used_slicers,
-                            &fsm,
-                            &signal_on,
-                            &state,
-                            &fsm_size,
-                        );
-                        assigns.iter_mut().for_each(|asgn| {
-                            asgn.guard.update(|g| g.and(state_guard.clone()))
-                        });
-                        assigns
+                .flat_map(|(state, mut assigns)| {
+                    match fsm_representation.encoding {
+                        RegisterEncoding::Binary => {
+                            let state_const =
+                                self.builder.add_constant(state, fsm_size);
+                            let state_guard =
+                                guard!(fsm["out"] == state_const["out"]);
+                            assigns.iter_mut().for_each(|asgn| {
+                                asgn.guard
+                                    .update(|g| g.and(state_guard.clone()))
+                            });
+                            assigns
+                        }
+                        RegisterEncoding::OneHot => {
+                            let state_guard = Self::build_one_hot_query(
+                                self.builder,
+                                &mut used_slicers,
+                                &fsm,
+                                &signal_on,
+                                &state,
+                                &fsm_size,
+                            );
+                            assigns.iter_mut().for_each(|asgn| {
+                                asgn.guard
+                                    .update(|g| g.and(state_guard.clone()))
+                            });
+                            assigns
+                        }
                     }
                 }),
         );
@@ -477,8 +496,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // transition assignments
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
-                let (end_const, trans_guard) = match encoding {
-                    Encoding::Binary => {
+                let (end_const, trans_guard) = match fsm_representation.encoding
+                {
+                    RegisterEncoding::Binary => {
                         structure!(self.builder;
                             let end_const = constant(e, fsm_size);
                             let start_const = constant(s, fsm_size);
@@ -488,7 +508,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
                         (end_const, trans_guard)
                     }
-                    Encoding::OneHot => {
+                    RegisterEncoding::OneHot => {
                         let end_constant_value = u64::pow(
                             2,
                             e.try_into().expect("failed to convert to u32"),
@@ -994,9 +1014,24 @@ pub struct TopDownCompileControl {
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<ProfilingInfo>,
+    // representation: FSMRepresentation,
     /// How many states the dynamic FSM must have before we pick binary encoding over
     /// one-hot
     one_hot_cutoff: u64,
+}
+
+impl TopDownCompileControl {
+    fn get_representation(&self, sch: &Schedule) -> FSMRepresentation {
+        let representation = FSMRepresentation {
+            encoding: (if sch.last_state() <= self.one_hot_cutoff {
+                RegisterEncoding::OneHot
+            } else {
+                RegisterEncoding::Binary
+            }),
+            _spread: RegisterSpread::Single,
+        };
+        representation
+    }
 }
 
 impl ConstructVisitor for TopDownCompileControl {
@@ -1116,11 +1151,13 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
+        let representation = self.get_representation(&sch);
+
         // Compile schedule and return the group.
         let seq_group = sch.realize_schedule(
             self.dump_fsm,
             &mut self.fsm_groups,
-            self.one_hot_cutoff,
+            representation,
         );
 
         // Add NODE_ID to compiled group.
@@ -1144,13 +1181,14 @@ impl Visitor for TopDownCompileControl {
         }
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
+        let representation = self.get_representation(&sch);
 
         // Compile schedule and return the group.
         sch.calculate_states_if(i, self.early_transitions)?;
         let if_group = sch.realize_schedule(
             self.dump_fsm,
             &mut self.fsm_groups,
-            self.one_hot_cutoff,
+            representation,
         );
 
         // Add NODE_ID to compiled group.
@@ -1175,12 +1213,13 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_while(w, self.early_transitions)?;
+        let representation = self.get_representation(&sch);
 
         // Compile schedule and return the group.
         let if_group = sch.realize_schedule(
             self.dump_fsm,
             &mut self.fsm_groups,
-            self.one_hot_cutoff,
+            representation,
         );
 
         // Add NODE_ID to compiled group.
@@ -1228,11 +1267,12 @@ impl Visitor for TopDownCompileControl {
                 // Compile complex schedule and return the group.
                 _ => {
                     let mut sch = Schedule::from(&mut builder);
+                    let representation = self.get_representation(&sch);
                     sch.calculate_states(con, self.early_transitions)?;
                     sch.realize_schedule(
                         self.dump_fsm,
                         &mut self.fsm_groups,
-                        self.one_hot_cutoff,
+                        representation,
                     )
                 }
             };
@@ -1302,12 +1342,13 @@ impl Visitor for TopDownCompileControl {
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
+        let representation = self.get_representation(&sch);
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
         let comp_group = sch.realize_schedule(
             self.dump_fsm,
             &mut self.fsm_groups,
-            self.one_hot_cutoff,
+            representation,
         );
         if let Some(json_out_file) = &self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
