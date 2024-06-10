@@ -48,7 +48,7 @@ op(
 
 op(
    "verilator-refmem",
-   [sim::sim_setup, tb::standalone_setup, verilator_setup],
+   [sim::sim_setup, tb::custom_setup, verilator_setup],
    tb::verilog_refmem,
    sim::simulator,
    |e, input, output| { verilator_build(e, input, output, false) }
