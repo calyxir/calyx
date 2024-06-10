@@ -3,7 +3,9 @@ use crate::passes;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
+use calyx_ir::{
+    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer, RRC,
+};
 use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
@@ -213,16 +215,17 @@ enum RegisterEncoding {
     Binary,
     OneHot,
 }
+#[derive(Clone)]
 enum RegisterSpread {
     // Default option: just a single register
     Single,
     // Duplicate the register to reduce fanout when querying
     // (all FSMs in this vec still have all of the states)
-    _Duplicate,
+    Duplicate,
     // Split the FSM to reduce fanout when querying.
     // (the FSMs partition the states exactly).
     // Each FSM has fewer bits but I suspect the logic might be more complicated.
-    _Split,
+    Split,
 }
 
 /// A type that represents how the FSM should be implemented in hardware.
@@ -1014,23 +1017,32 @@ pub struct TopDownCompileControl {
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<ProfilingInfo>,
-    // representation: FSMRepresentation,
-    /// How many states the dynamic FSM must have before we pick binary encoding over
-    /// one-hot
+    /// How many states the dynamic FSM must have before picking binary over one-hot
     one_hot_cutoff: u64,
+    /// Dictates the spread of the FSM across registers
+    spread: RegisterSpread,
 }
 
 impl TopDownCompileControl {
-    fn get_representation(&self, sch: &Schedule) -> FSMRepresentation {
-        let representation = FSMRepresentation {
-            encoding: (if sch.last_state() <= self.one_hot_cutoff {
-                RegisterEncoding::OneHot
-            } else {
-                RegisterEncoding::Binary
-            }),
-            _spread: RegisterSpread::Single,
-        };
-        representation
+    /// Given a dynamic schedule and attributes, selects a representation for
+    /// the finite state machine in hardware.
+    fn get_representation(
+        &self,
+        sch: &Schedule,
+        attrs: &ir::Attributes,
+    ) -> FSMRepresentation {
+        FSMRepresentation {
+            encoding: {
+                match (
+                    attrs.has(BoolAttr::OneHot),
+                    sch.last_state() <= self.one_hot_cutoff,
+                ) {
+                    (true, _) | (false, true) => RegisterEncoding::OneHot,
+                    (false, false) => RegisterEncoding::Binary,
+                }
+            },
+            _spread: self.spread.clone(),
+        }
     }
 }
 
@@ -1049,6 +1061,14 @@ impl ConstructVisitor for TopDownCompileControl {
             one_hot_cutoff: opts[&"one-hot-cutoff"]
                 .pos_num()
                 .expect("requires non-negative OHE cutoff parameter"),
+            spread: {
+                match opts[&"spread"].string().as_str() {
+                    "single" => RegisterSpread::Single,
+                    "duplicate" => RegisterSpread::Duplicate,
+                    "split" => RegisterSpread::Split,
+                    _ => panic!("invalid fsm representation option"),
+                }
+            },
         })
     }
 
@@ -1092,6 +1112,13 @@ impl Named for TopDownCompileControl {
                 ParseVal::Num(0),
                 PassOpt::parse_num,
             ),
+            PassOpt::new(
+                "spread",
+                "'single': FSMs represented by one register; 
+                'duplicate': features several identical FSMs to control the schedule; 
+                'split' can spread the fsm encoding across several registers", 
+                ParseVal::String("single".to_string()), PassOpt::parse_string
+            )
         ]
     }
 }
@@ -1151,14 +1178,11 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
-        let representation = self.get_representation(&sch);
+        let fsm_impl = self.get_representation(&sch, &s.attributes);
 
         // Compile schedule and return the group.
-        let seq_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            representation,
-        );
+        let seq_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
@@ -1181,15 +1205,12 @@ impl Visitor for TopDownCompileControl {
         }
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
-        let representation = self.get_representation(&sch);
 
         // Compile schedule and return the group.
         sch.calculate_states_if(i, self.early_transitions)?;
-        let if_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            representation,
-        );
+        let fsm_impl = self.get_representation(&sch, &i.attributes);
+        let if_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -1213,14 +1234,11 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_while(w, self.early_transitions)?;
-        let representation = self.get_representation(&sch);
+        let fsm_impl = self.get_representation(&sch, &w.attributes);
 
         // Compile schedule and return the group.
-        let if_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            representation,
-        );
+        let if_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -1267,12 +1285,12 @@ impl Visitor for TopDownCompileControl {
                 // Compile complex schedule and return the group.
                 _ => {
                     let mut sch = Schedule::from(&mut builder);
-                    let representation = self.get_representation(&sch);
                     sch.calculate_states(con, self.early_transitions)?;
+                    let fsm_impl = self.get_representation(&sch, &s.attributes);
                     sch.realize_schedule(
                         self.dump_fsm,
                         &mut self.fsm_groups,
-                        representation,
+                        fsm_impl,
                     )
                 }
             };
@@ -1339,17 +1357,17 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         let control = Rc::clone(&comp.control);
-        // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
+        let attrs = comp.attributes.clone();
+
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
-        let representation = self.get_representation(&sch);
+
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        let comp_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            representation,
-        );
+        let fsm_impl = self.get_representation(&sch, &attrs);
+        let comp_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
+
         if let Some(json_out_file) = &self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
