@@ -28,8 +28,8 @@ enum ResolverError {
 impl Display for ResolverError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ResolverError::Failed(m) => write!(f, "Loading `{m}` failed."),
-            ResolverError::Unknown(m) => write!(f, "`{m}` was not found."),
+            ResolverError::Failed(m) => write!(f, "Loading {m} failed."),
+            ResolverError::Unknown(m) => write!(f, "{m} was not found."),
         }
     }
 }
@@ -119,7 +119,7 @@ impl Resolver {
         let name = self.normalize_name(path);
         if self.failed.borrow().contains(&name) {
             Err(Box::new(EvalAltResult::ErrorSystem(
-                "Failed module loading".to_string(),
+                "".to_string(),
                 Box::new(ResolverError::Failed(format!("{path:?}"))),
             )))
         } else {
