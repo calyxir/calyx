@@ -161,7 +161,8 @@ impl CompileInvoke {
                     continue;
                 }
                 // The given port of the actual, concrete cell passed in
-                let concrete_port = Self::get_concrete_port(concrete_cell.clone(), &canon.port);
+                let concrete_port =
+                    Self::get_concrete_port(concrete_cell.clone(), &canon.port);
 
                 if concrete_port.borrow().has_attribute(ir::BoolAttr::Clk)
                     || concrete_port.borrow().has_attribute(ir::BoolAttr::Reset)
@@ -227,18 +228,26 @@ impl CompileInvoke {
     }
 
     //Takes in a concrete cell (aka an in_cell/what is passed in to a ref cell at invocation)
-    //and returns the concrete port based on 
-    fn get_concrete_port(concrete_cell : RRC<ir::Cell>, canonical_port : &ir::Id) -> RRC<ir::Port>{
+    //and returns the concrete port based on
+    fn get_concrete_port(
+        concrete_cell: RRC<ir::Cell>,
+        canonical_port: &ir::Id,
+    ) -> RRC<ir::Port> {
         let concrete_cell = concrete_cell.borrow();
-        concrete_cell.ports.iter().find(|&concrete_cell_port| {
-            concrete_cell_port.borrow().name == canonical_port
-        }).unwrap_or_else(|| {
-            unreachable!(
-                "port `{}` not found in the cell `{}`",
-                canonical_port,
-                concrete_cell.name()
-            )
-        }).clone()
+        concrete_cell
+            .ports
+            .iter()
+            .find(|&concrete_cell_port| {
+                concrete_cell_port.borrow().name == canonical_port
+            })
+            .unwrap_or_else(|| {
+                unreachable!(
+                    "port `{}` not found in the cell `{}`",
+                    canonical_port,
+                    concrete_cell.name()
+                )
+            })
+            .clone()
     }
 }
 
