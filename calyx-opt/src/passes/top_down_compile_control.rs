@@ -237,8 +237,6 @@ struct SingleEnableInfo {
     pub component: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub group: Id,
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    pub parent_group: Id,
 }
 
 /// Information to be serialized for a single FSM
@@ -250,8 +248,6 @@ struct FSMInfo {
     pub group: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub fsm: Id,
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    pub parent_group: Id,
     pub states: Vec<FSMStateInfo>,
 }
 
@@ -335,7 +331,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
         self,
         dump_fsm: bool,
         fsm_groups: &mut HashSet<ProfilingInfo>,
-        parent_group: Id,
     ) -> RRC<ir::Group> {
         self.validate();
 
@@ -371,7 +366,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
             component: self.builder.component.name,
             fsm: fsm.borrow().name(),
             group: group.borrow().name(),
-            parent_group,
             states,
         }));
 
@@ -912,7 +906,6 @@ fn emit_single_enable(
     con: &mut ir::Control,
     component: Id,
     json_out_file: &OutputFile,
-    parent_group: Id,
 ) {
     if let ir::Control::Enable(enable) = con {
         let mut profiling_info_set: HashSet<ProfilingInfo> = HashSet::new();
@@ -920,7 +913,6 @@ fn emit_single_enable(
             SingleEnableInfo {
                 component,
                 group: enable.group.borrow().name(),
-                parent_group,
             },
         ));
         let _ = serde_json::to_writer_pretty(
@@ -940,12 +932,7 @@ impl Visitor for TopDownCompileControl {
         let mut con = comp.control.borrow_mut();
         if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
             if let Some(json_out_file) = &self.dump_fsm_json {
-                emit_single_enable(
-                    &mut con,
-                    comp.name,
-                    json_out_file,
-                    Id::new(""),
-                );
+                emit_single_enable(&mut con, comp.name, json_out_file);
             }
             return Ok(Action::Stop);
         }
@@ -970,11 +957,8 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
         // Compile schedule and return the group.
-        let seq_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            Id::new(""),
-        );
+        let seq_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
@@ -1000,11 +984,8 @@ impl Visitor for TopDownCompileControl {
 
         // Compile schedule and return the group.
         sch.calculate_states_if(i, self.early_transitions)?;
-        let if_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            Id::new(""),
-        );
+        let if_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -1030,11 +1011,8 @@ impl Visitor for TopDownCompileControl {
         sch.calculate_states_while(w, self.early_transitions)?;
 
         // Compile schedule and return the group.
-        let if_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            Id::new(""),
-        );
+        let if_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -1074,7 +1052,6 @@ impl Visitor for TopDownCompileControl {
                         SingleEnableInfo {
                             group: group.borrow().name(),
                             component: builder.component.name,
-                            parent_group: par_group.borrow().name(),
                         },
                     ));
                     Rc::clone(group)
@@ -1083,11 +1060,7 @@ impl Visitor for TopDownCompileControl {
                 _ => {
                     let mut sch = Schedule::from(&mut builder);
                     sch.calculate_states(con, self.early_transitions)?;
-                    sch.realize_schedule(
-                        self.dump_fsm,
-                        &mut self.fsm_groups,
-                        par_group.borrow().name(),
-                    )
+                    sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups)
                 }
             };
 
@@ -1158,11 +1131,8 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        let comp_group = sch.realize_schedule(
-            self.dump_fsm,
-            &mut self.fsm_groups,
-            Id::new(""),
-        );
+        let comp_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
         if let Some(json_out_file) = &self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
