@@ -1,7 +1,7 @@
 //! Helpers used to examine calyx programs. Used in Xilinx and Yxi backends among others.
 use super::{BoolAttr, Cell, Component, RRC};
 use calyx_utils::Id;
-#[cfg(feature = "yxi")]
+#[cfg(feature = "serialize")]
 use serde::Serialize;
 
 // Returns Vec<String> of `@external` or `ref` memory names
@@ -25,7 +25,7 @@ pub fn external_and_ref_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
         .collect()
 }
 
-#[cfg_attr(feature = "yxi", derive(Serialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 #[derive(Clone, Copy)]
 pub enum MemoryType {
     Combinational,
