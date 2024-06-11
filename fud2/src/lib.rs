@@ -25,6 +25,14 @@ fn setup_calyx(
             "calyx-pass",
             "$calyx-exe -l $calyx-base -p $pass $args $in > $out",
         )?;
+
+        e.config_var_or("flags", "calyx.flags", "-p none")?;
+
+        e.rule(
+            "calyx-with-flags",
+            "$calyx-exe -l $calyx-base $flags $args $in > $out",
+        )?;
+
         Ok(())
     });
     bld.op(
@@ -557,6 +565,22 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
     bld.op(
+        "calyx-to-cider",
+        &[sim_setup, calyx_setup],
+        calyx,
+        cider_state,
+        |e, input, _output| {
+            e.build_cmd(
+                &["cider-input.futil"],
+                "calyx-with-flags",
+                &[input],
+                &[],
+            )?;
+            Ok(())
+        },
+    );
+
+    bld.op(
         "interp",
         &[
             sim_setup,
@@ -581,11 +605,16 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     bld.op(
         "cider",
         &[sim_setup, calyx_setup, cider_setup],
-        calyx,
+        cider_state,
         dat,
-        |e, input, output| {
+        |e, _input, output| {
             let out_file = "interp_out.dump";
-            e.build_cmd(&[out_file], "run-cider", &[input], &["data.dump"])?;
+            e.build_cmd(
+                &[out_file],
+                "run-cider",
+                &["cider-input.futil"],
+                &["data.dump"],
+            )?;
             e.build_cmd(
                 &[output],
                 "interp-to-dump",
