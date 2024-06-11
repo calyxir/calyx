@@ -195,11 +195,11 @@ impl FromStr for Attribute {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 /// Inline storage for boolean attributes.
 pub(super) struct InlineAttributes {
     /// Boolean attributes stored in a 16-bit number.
-    pub attrs: u16,
+    attrs: u16,
 }
 
 impl InlineAttributes {

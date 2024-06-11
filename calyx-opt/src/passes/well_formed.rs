@@ -86,6 +86,65 @@ pub struct WellFormed {
     active_comb: ActiveAssignments,
 }
 
+enum Invoke<'a> {
+    StaticInvoke(&'a ir::StaticInvoke),
+    Invoke(&'a ir::Invoke),
+}
+
+impl Invoke<'_> {
+    fn get_ref_cells(&self) -> &Vec<(ir::Id, ir::RRC<Cell>)> {
+        match self {
+            Invoke::StaticInvoke(s) => &s.ref_cells,
+            Invoke::Invoke(s) => &s.ref_cells,
+        }
+    }
+
+    fn get_attributes(&self) -> &ir::Attributes {
+        match self {
+            Invoke::StaticInvoke(s) => s.get_attributes(),
+            Invoke::Invoke(s) => s.get_attributes(),
+        }
+    }
+}
+
+fn require_subtype(
+    invoke: Invoke,
+    self_ref_cells: &HashMap<ir::Id, LinkedHashMap<ir::Id, Cell>>,
+    id: &ir::Id,
+) -> CalyxResult<()> {
+    let cell_map = &self_ref_cells[id];
+    let mut mentioned_cells = HashSet::new();
+    for (outcell, incell) in invoke.get_ref_cells().iter() {
+        if let Some(oc) = cell_map.get(outcell) {
+            if !subtype(oc, &incell.borrow()) {
+                return Err(Error::malformed_control(format!(
+                    "The type passed in `{}` is not a subtype of the expected type `{}`.",
+                    incell.borrow().prototype.surface_name().unwrap(),
+                    oc.prototype.surface_name().unwrap()
+                ))
+                .with_pos(invoke.get_attributes()));
+            } else {
+                mentioned_cells.insert(outcell);
+            }
+        } else {
+            return Err(Error::malformed_control(format!(
+                "{} does not have ref cell named {}",
+                id, outcell
+            )));
+        }
+    }
+    for id in cell_map.keys() {
+        if !mentioned_cells.contains(id) {
+            return Err(Error::malformed_control(format!(
+                "unmentioned ref cell: {}",
+                id
+            ))
+            .with_pos(invoke.get_attributes()));
+        }
+    }
+    Ok(())
+}
+
 impl ConstructVisitor for WellFormed {
     fn from(ctx: &ir::Context) -> CalyxResult<Self>
     where
@@ -191,10 +250,11 @@ where
     Ok(())
 }
 
-/// Returns true if cell_in is a subtype of the output cell.
-// XXX(nathanielnrn): I think this is incomplete, technically we should also
-// be iterating over ref cells of each cell and that they are contravariant?
-// However cells don't have this information so we'd need to extract it from `comps` I guess?
+/// Returns true if `cell_in` is a subtype of `cell_out`.
+/// Currenly this only checks for [`type_equivalence`](#method.calyx_ir::structure::Port::type_equivalent)
+/// between ports. It does not fully examine the cells
+/// for subtype compatability for things like nested ref cells.
+// XXX(nate): Cells don't contain information about their own `ref` cells so we'd need to extract it from `ir:Component` I think?
 fn subtype(cell_out: &Cell, cell_in: &Cell) -> bool {
     for port in cell_out.ports() {
         match cell_in.find(port.borrow().name) {
@@ -568,38 +628,8 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.ref_cells[id];
-            let mut mentioned_cells = HashSet::new();
-            for (outcell, incell) in s.ref_cells.iter() {
-                if let Some(oc) = cellmap.get(outcell) {
-                    if !subtype(oc, &incell.borrow()) {
-                        return Err(Error::malformed_control(format!(
-                            "The type passed in `{}` is not a subtype of the expected type `{}`.",
-                            incell.borrow().prototype.surface_name().unwrap(),
-                            oc.prototype.surface_name().unwrap()
-                        ))
-                        .with_pos(&s.attributes));
-                    } else {
-                        mentioned_cells.insert(outcell);
-                    }
-                } else {
-                    return Err(Error::malformed_control(format!(
-                        "{} does not have ref cell named {}",
-                        id, outcell
-                    )));
-                }
-            }
-            for id in cellmap.keys() {
-                if !mentioned_cells.contains(id) {
-                    return Err(Error::malformed_control(format!(
-                        "unmentioned ref cell: {}",
-                        id
-                    ))
-                    .with_pos(&s.attributes));
-                }
-            }
+            require_subtype(Invoke::Invoke(s), &self.ref_cells, id)?;
         }
-
         Ok(Action::Continue)
     }
 
@@ -614,38 +644,8 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.ref_cells[id];
-            let mut mentioned_cells = HashSet::new();
-            for (outcell, incell) in s.ref_cells.iter() {
-                if let Some(oc) = cellmap.get(outcell) {
-                    if !subtype(oc, &incell.borrow()) {
-                        return Err(Error::malformed_control(format!(
-                            "The type passed in `{}` is not a subtype of the expected type `{}`.",
-                            incell.borrow().prototype.surface_name().unwrap(),
-                            oc.prototype.surface_name().unwrap()
-                        ))
-                        .with_pos(&s.attributes));
-                    } else {
-                        mentioned_cells.insert(outcell);
-                    }
-                } else {
-                    return Err(Error::malformed_control(format!(
-                        "{} does not have ref cell named {}",
-                        id, outcell
-                    )));
-                }
-            }
-            for id in cellmap.keys() {
-                if !mentioned_cells.contains(id) {
-                    return Err(Error::malformed_control(format!(
-                        "unmentioned ref cell: {}",
-                        id
-                    ))
-                    .with_pos(&s.attributes));
-                }
-            }
+            require_subtype(Invoke::StaticInvoke(s), &self.ref_cells, id)?;
         }
-
         Ok(Action::Continue)
     }
 

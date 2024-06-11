@@ -171,7 +171,7 @@ impl Attributes {
 
 impl PartialEq for Attributes {
     fn eq(&self, other: &Self) -> bool {
-        self.inl.attrs == other.inl.attrs
+        self.inl == other.inl
             && self.hinfo.attrs.len() == other.hinfo.attrs.len()
             && self
                 .hinfo

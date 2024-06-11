@@ -140,11 +140,11 @@ impl CompileInvoke {
     ) -> Vec<ir::Assignment<T>> {
         let inv_comp = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
-        for (ref_cell_name, in_cell) in ref_cells {
+        for (ref_cell_name, concrete_cell) in ref_cells {
             log::debug!(
                 "Removing ref cell `{}` with {} ports",
                 ref_cell_name,
-                in_cell.borrow().ports.len()
+                concrete_cell.borrow().ports.len()
             );
 
             // Mapping from canonical names of the ports of the ref cell to the
@@ -154,32 +154,18 @@ impl CompileInvoke {
             };
 
             // We expect each canonical port in `comp_ports` to exactly match with a port in
-            //`in_cell` based on well-formedness subtype checks.
+            //`concrete_cell` based on well-formedness subtype checks.
             for canon in comp_ports.keys() {
                 //only interested in ports attached to the ref cell
                 if canon.cell != ref_cell_name {
                     continue;
                 }
-                let in_cell_borrowed = in_cell.borrow();
-                // The given port of actual, concrete cell passed in
-                let pr = in_cell_borrowed
-                    .ports
-                    .iter()
-                    .find(|&in_cell_port| {
-                        canon.cell == ref_cell_name
-                            && in_cell_port.borrow().name == canon.port
-                    })
-                    .unwrap_or_else(|| {
-                        unreachable!(
-                            "port `{}` not found in the cell `{}`",
-                            canon,
-                            in_cell.borrow().name()
-                        )
-                    });
+                // The given port of the actual, concrete cell passed in
+                let concrete_port =
+                    Self::get_concrete_port(concrete_cell.clone(), &canon.port);
 
-                let port = pr.borrow();
-                if port.has_attribute(ir::BoolAttr::Clk)
-                    || port.has_attribute(ir::BoolAttr::Reset)
+                if concrete_port.borrow().has_attribute(ir::BoolAttr::Clk)
+                    || concrete_port.borrow().has_attribute(ir::BoolAttr::Reset)
                 {
                     continue;
                 }
@@ -195,7 +181,7 @@ impl CompileInvoke {
                 let ref_port = inv_cell.borrow().get(comp_port.borrow().name);
                 log::debug!("Port `{}` -> `{}`", canon, ref_port.borrow().name);
 
-                let old_port = pr.borrow().canonical();
+                let old_port = concrete_port.borrow().canonical();
                 // If the port has been removed already, get the new port from the component's signature
                 let arg_port = if let Some(sig_pr) = self.removed.get(&old_port)
                 {
@@ -206,10 +192,10 @@ impl CompileInvoke {
                     );
                     Rc::clone(sig_pr)
                 } else {
-                    Rc::clone(pr)
+                    Rc::clone(&concrete_port)
                 };
 
-                match port.direction {
+                match concrete_port.borrow().direction {
                     ir::Direction::Output => {
                         log::debug!(
                             "constructing: {} = {}",
@@ -235,10 +221,33 @@ impl CompileInvoke {
                     _ => {
                         unreachable!("Cell should have inout ports");
                     }
-                }
+                };
             }
         }
         assigns
+    }
+
+    /// Takes in a concrete cell (aka an in_cell/what is passed in to a ref cell at invocation)
+    /// and returns the concrete port based on just the port of a canonical id.
+    fn get_concrete_port(
+        concrete_cell: RRC<ir::Cell>,
+        canonical_port: &ir::Id,
+    ) -> RRC<ir::Port> {
+        let concrete_cell = concrete_cell.borrow();
+        concrete_cell
+            .ports
+            .iter()
+            .find(|&concrete_cell_port| {
+                concrete_cell_port.borrow().name == canonical_port
+            })
+            .unwrap_or_else(|| {
+                unreachable!(
+                    "port `{}` not found in the cell `{}`",
+                    canonical_port,
+                    concrete_cell.name()
+                )
+            })
+            .clone()
     }
 }
 
