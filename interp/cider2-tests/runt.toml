@@ -67,7 +67,7 @@ expect_dir = "control"
 name = "invoke"
 paths = ["../tests/control/invoke/*.futil"]
 cmd = """
-fud2 {} --from calyx --to dat --through cider -s sim.data={}.data | jq --sort-keys
+fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
 """
 timeout = 10
 expect_dir = "invoke"
@@ -108,6 +108,7 @@ cmd = """
 fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
+         -s calyx.args="--log off" \
          {} | jq --sort-keys
 """
 

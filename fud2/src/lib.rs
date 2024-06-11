@@ -562,9 +562,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             &["$cider-converter"],
         )?;
 
-        // this is probably not a great way to do it but I think it works for now
-        e.config_var_or("args", "calyx.args", "--log off")?;
-
         Ok(())
     });
     bld.op(
