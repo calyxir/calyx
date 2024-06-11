@@ -19,7 +19,7 @@ pub struct StdMultPipe<const DEPTH: usize> {
 }
 
 impl<const DEPTH: usize> StdMultPipe<DEPTH> {
-    declare_ports![CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT: 5, DONE: 6];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT: 5, DONE: 6];
     pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         Self {
             base_port,

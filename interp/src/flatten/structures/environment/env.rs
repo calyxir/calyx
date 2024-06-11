@@ -500,14 +500,14 @@ impl<'a> Environment<'a> {
         def_info.name
     }
 
-    fn get_name_from_cell(&self, cell: GlobalCellIdx) -> Identifier {
-        let parent = self.get_parent_cell_from_cell(cell);
+    fn _get_name_from_cell(&self, cell: GlobalCellIdx) -> Identifier {
+        let parent = self._get_parent_cell_from_cell(cell);
         self.get_name_from_cell_and_parent(parent.unwrap(), cell)
     }
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
-    fn get_parent_cell_from_port(
+    fn _get_parent_cell_from_port(
         &self,
         port: PortRef,
         comp: GlobalCellIdx,
@@ -591,7 +591,7 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn get_parent_cell_from_cell(
+    fn _get_parent_cell_from_cell(
         &self,
         cell: GlobalCellIdx,
     ) -> Option<GlobalCellIdx> {
@@ -616,12 +616,7 @@ impl<'a> Environment<'a> {
                 let parent_path = self.get_parent_path_from_cell(cell).unwrap();
                 let name = parent_path
                     .iter()
-                    .zip(
-                        parent_path
-                            .iter()
-                            .skip(1)
-                            .chain(once(&cell).into_iter()),
-                    )
+                    .zip(parent_path.iter().skip(1).chain(once(&cell)))
                     .fold(
                         self.ctx.secondary[*root_name].clone(),
                         |acc, (a, b)| {
