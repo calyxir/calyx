@@ -110,12 +110,15 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
     lt_1 = std_lt(32);
   }
   wires {
-    group init {
+    group init_pow {
       pow.in = 32'd65536;
       pow.write_en = 1'd1;
+      init_pow[done] = pow.done;
+    }
+    group init_count {
       count.in = 32'd0;
       count.write_en = 1'd1;
-      init[done] = (pow.done & count.done) ? 1'd1;
+      init_count[done] = count.done;
     }
     group execute_mul {
       mul.left = base;
@@ -140,7 +143,10 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
   }
   control {
     seq {
-      init;
+      par {
+        init_pow;
+        init_count;
+      }
       while lt_1.out with lt_1_group {
         par {
           execute_mul;

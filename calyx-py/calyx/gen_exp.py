@@ -49,14 +49,17 @@ def generate_fp_pow_component(
     )
 
     # groups
-    with comp.group("init") as init:
+    with comp.group("init_pow") as init_pow:
         pow.in_ = FixedPoint(
             "1.0", width, int_width, is_signed=is_signed
         ).unsigned_integer()
         pow.write_en = 1
+        init_pow.done = pow.done
+
+    with comp.group("init_count") as init_count:
         count.in_ = 0
         count.write_en = 1
-        init.done = (pow.done & count.done) @ 1
+        init_count.done = count.done
 
     with comp.group("execute_mul") as execute_mul:
         mul.left = comp.this().base
@@ -73,7 +76,10 @@ def generate_fp_pow_component(
     with comp.continuous:
         comp.this().out = pow.out
 
-    comp.control += [init, while_with(cond, par(execute_mul, incr_count))]
+    comp.control += [
+        par(init_pow, init_count),
+        while_with(cond, par(execute_mul, incr_count)),
+    ]
 
     return comp.component
 
