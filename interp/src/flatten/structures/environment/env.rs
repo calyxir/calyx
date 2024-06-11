@@ -1,15 +1,12 @@
-use itertools::Itertools;
-
 use super::{
+    super::{
+        context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
+    },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
     program_counter::ProgramCounter,
 };
-
-use super::super::{
-    context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
-};
 use crate::{
-    errors::{InterpreterError, InterpreterResult},
+    errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
             cell_prototype::{CellPrototype, PrimType1},
@@ -18,7 +15,8 @@ use crate::{
                 CellDefinitionRef::{Local, Ref},
                 CellRef, ComponentIdx, ControlNode, GlobalCellIdx,
                 GlobalCellRef, GlobalPortIdx, GlobalPortRef, GlobalRefCellIdx,
-                GlobalRefPortIdx, GuardIdx, Invoke, PortRef, PortValue,
+                GlobalRefPortIdx, GuardIdx, Identifier, Invoke, PortRef,
+                PortValue,
             },
             wires::guards::Guard,
         },
@@ -30,7 +28,8 @@ use crate::{
     serialization::data_dump::{DataDump, Dimensions},
     values::Value,
 };
-use std::fmt::Debug;
+use itertools::Itertools;
+use std::{fmt::Debug, iter::once};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -379,8 +378,14 @@ impl<'a> Environment<'a> {
         &ledger.index_bases + self.ctx.primary[ledger.comp_id].done
     }
 
+    #[inline]
     pub fn get_root_done(&self) -> GlobalPortIdx {
-        self.get_comp_done(GlobalCellIdx::new(0))
+        self.get_comp_done(self.get_root())
+    }
+
+    #[inline]
+    pub fn get_root(&self) -> GlobalCellIdx {
+        GlobalCellIdx::new(0)
     }
 }
 
@@ -480,6 +485,158 @@ impl<'a> Environment<'a> {
     pub fn _print_pc(&self) {
         println!("{:?}", self.pc)
     }
+
+    fn get_name_from_cell_and_parent(
+        &self,
+        parent: GlobalCellIdx,
+        cell: GlobalCellIdx,
+    ) -> Identifier {
+        let component = self.cells[parent].unwrap_comp();
+        let local_offset = cell - &component.index_bases;
+
+        let def_idx = &self.ctx.secondary[component.comp_id].cell_offset_map
+            [local_offset];
+        let def_info = &self.ctx.secondary[*def_idx];
+        def_info.name
+    }
+
+    fn get_name_from_cell(&self, cell: GlobalCellIdx) -> Identifier {
+        let parent = self.get_parent_cell_from_cell(cell);
+        self.get_name_from_cell_and_parent(parent.unwrap(), cell)
+    }
+
+    /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
+    /// it is a hole port, then it returns None)
+    fn get_parent_cell_from_port(
+        &self,
+        port: PortRef,
+        comp: GlobalCellIdx,
+    ) -> Option<GlobalCellIdx> {
+        let component = self.cells[comp].unwrap_comp();
+        let comp_info = &self.ctx.secondary[component.comp_id];
+
+        match port {
+            PortRef::Local(l) => {
+                for (cell_offset, cell_def_idx) in
+                    comp_info.cell_offset_map.iter()
+                {
+                    if self.ctx.secondary[*cell_def_idx].ports.contains(l) {
+                        return Some(&component.index_bases + cell_offset);
+                    }
+                }
+            }
+            PortRef::Ref(r) => {
+                for (cell_offset, cell_def_idx) in
+                    comp_info.ref_cell_offset_map.iter()
+                {
+                    if self.ctx.secondary[*cell_def_idx].ports.contains(r) {
+                        let ref_cell_idx = &component.index_bases + cell_offset;
+                        return Some(
+                            self.ref_cells[ref_cell_idx]
+                                .expect("Ref cell has not been instantiated"),
+                        );
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// returns the path from the root to the given cell, not including the cell itself
+    fn get_parent_path_from_cell(
+        &self,
+        target: GlobalCellIdx,
+    ) -> Option<Vec<GlobalCellIdx>> {
+        let root = self.get_root();
+        if target == root {
+            None
+        } else {
+            let mut path = vec![root];
+
+            loop {
+                // unrwap is safe since there is always at least one entry and
+                // the list only grows
+                let current = path.last().unwrap();
+                let current_comp_ledger =
+                    self.cells[*current].as_comp().unwrap();
+                let comp_info =
+                    &self.ctx.secondary[current_comp_ledger.comp_id];
+
+                let possible_relative_offset =
+                    target - &current_comp_ledger.index_bases;
+
+                // the target is a direct child
+                if comp_info.cell_offset_map.contains(possible_relative_offset)
+                {
+                    return Some(path);
+                }
+                // the target is a non-direct descendent
+                else {
+                    let mut highest_found = None;
+                    for offset in comp_info.cell_offset_map.keys() {
+                        let global_offset =
+                            &current_comp_ledger.index_bases + offset;
+                        if self.cells[global_offset].as_comp().is_some()
+                            && global_offset < target
+                        {
+                            highest_found = Some(global_offset);
+                        } else if global_offset > target {
+                            break;
+                        }
+                    }
+
+                    path.push(highest_found.unwrap());
+                }
+            }
+        }
+    }
+
+    fn get_parent_cell_from_cell(
+        &self,
+        cell: GlobalCellIdx,
+    ) -> Option<GlobalCellIdx> {
+        self.get_parent_path_from_cell(cell)
+            .map(|x| *x.last().unwrap())
+    }
+
+    pub fn make_nice_error(
+        &self,
+        cell: GlobalCellIdx,
+        mut err: BoxedInterpreterError,
+    ) -> BoxedInterpreterError {
+        let mut_err = err.into_inner();
+
+        match mut_err {
+            InterpreterError::UndefinedWrite(s)
+            | InterpreterError::UndefinedWriteAddr(s)
+            | InterpreterError::UndefinedReadAddr(s) => {
+                let root_comp = self.cells[self.get_root()].unwrap_comp();
+                let root_name = &self.ctx.secondary[root_comp.comp_id].name;
+
+                let parent_path = self.get_parent_path_from_cell(cell).unwrap();
+                let name = parent_path
+                    .iter()
+                    .zip(
+                        parent_path
+                            .iter()
+                            .skip(1)
+                            .chain(once(&cell).into_iter()),
+                    )
+                    .fold(
+                        self.ctx.secondary[*root_name].clone(),
+                        |acc, (a, b)| {
+                            let id = self.get_name_from_cell_and_parent(*a, *b);
+                            acc + "." + &self.ctx.secondary[id]
+                        },
+                    );
+
+                *s = name;
+            }
+            _ => {}
+        }
+
+        err
+    }
 }
 
 /// A wrapper struct for the environment that provides the functions used to
@@ -559,7 +716,7 @@ impl<'a> Simulator<'a> {
     }
 
     pub(crate) fn get_root_component(&self) -> &ComponentLedger {
-        self.env.cells.first().unwrap().as_comp().unwrap()
+        self.env.cells[self.env.get_root()].as_comp().unwrap()
     }
 
     /// Finds the root component of the simulation and sets its go port to high
@@ -567,44 +724,6 @@ impl<'a> Simulator<'a> {
         let ledger = self.get_root_component();
         let go = &ledger.index_bases + self.env.ctx.primary[ledger.comp_id].go;
         self.env.ports[go] = PortValue::new_implicit(Value::bit_high());
-    }
-
-    /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
-    /// it is a hole port, then it returns None)
-    fn _get_parent_cell(
-        &self,
-        port: PortRef,
-        comp: GlobalCellIdx,
-    ) -> Option<GlobalCellIdx> {
-        let component = self.env.cells[comp].unwrap_comp();
-        let comp_info = &self.env.ctx.secondary[component.comp_id];
-
-        match port {
-            PortRef::Local(l) => {
-                for (cell_offset, cell_def_idx) in
-                    comp_info.cell_offset_map.iter()
-                {
-                    if self.env.ctx.secondary[*cell_def_idx].ports.contains(l) {
-                        return Some(&component.index_bases + cell_offset);
-                    }
-                }
-            }
-            PortRef::Ref(r) => {
-                for (cell_offset, cell_def_idx) in
-                    comp_info.ref_cell_offset_map.iter()
-                {
-                    if self.env.ctx.secondary[*cell_def_idx].ports.contains(r) {
-                        let ref_cell_idx = &component.index_bases + cell_offset;
-                        return Some(
-                            self.env.ref_cells[ref_cell_idx]
-                                .expect("Ref cell has not been instantiated"),
-                        );
-                    }
-                }
-            }
-        }
-
-        None
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -1011,16 +1130,24 @@ impl<'a> Simulator<'a> {
 
         self.simulate_combinational(&assigns_bundle)?;
 
-        for cell in self.env.cells.values_mut() {
-            match cell {
-                CellLedger::Primitive { cell_dyn } => {
-                    cell_dyn.exec_cycle(&mut self.env.ports)?;
+        let out: Result<(), (GlobalCellIdx, BoxedInterpreterError)> = {
+            let mut result = Ok(());
+            for (idx, cell) in self.env.cells.iter_mut() {
+                match cell {
+                    CellLedger::Primitive { cell_dyn } => {
+                        let res = cell_dyn.exec_cycle(&mut self.env.ports);
+                        if res.is_err() {
+                            result = Err((idx, res.unwrap_err()));
+                            break;
+                        }
+                    }
+                    CellLedger::Component(_) => {}
                 }
-                CellLedger::Component(_) => {}
             }
-        }
+            result
+        };
 
-        Ok(())
+        out.map_err(|(idx, err)| self.env.make_nice_error(idx, err))
     }
 
     fn is_done(&self) -> bool {
@@ -1187,13 +1314,18 @@ impl<'a> Simulator<'a> {
                 .range()
                 .iter()
                 .filter_map(|x| match &mut self.env.cells[x] {
-                    CellLedger::Primitive { cell_dyn } => {
-                        Some(cell_dyn.exec_comb(&mut self.env.ports))
-                    }
+                    CellLedger::Primitive { cell_dyn } => Some(
+                        cell_dyn
+                            .exec_comb(&mut self.env.ports)
+                            .map_err(|e| (x, e)),
+                    ),
                     CellLedger::Component(_) => None,
                 })
                 .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
                     has_changed | update
+                })
+                .map_err(|(cell_idx, err)| {
+                    self.env.make_nice_error(cell_idx, err)
                 })?
                 .as_bool();
 
