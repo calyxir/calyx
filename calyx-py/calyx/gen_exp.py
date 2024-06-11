@@ -318,18 +318,20 @@ def generate_groups(
     int_x = comp.get_cell("int_x")
     frac_x = comp.get_cell("frac_x")
     one = comp.get_cell("one")
-    with comp.group("split_bits") as split_bits:
+    with comp.group("split_bits_int_x") as split_bits_int_x:
         and0.left = input.out
         and0.right = const(width, 2**width - 2**frac_width)
         rsh.left = and0.out
         rsh.right = const(width, frac_width)
+        int_x.write_en = 1
+        int_x.in_ = rsh.out
+        split_bits_int_x.done = int_x.done
+    with comp.group("split_bits_frac_x") as split_bits_frac_x:
         and1.left = input.out
         and1.right = const(width, (2**frac_width) - 1)
-        int_x.write_en = 1
         frac_x.write_en = 1
-        int_x.in_ = rsh.out
         frac_x.in_ = and1.out
-        split_bits.done = (int_x.done & frac_x.done) @ 1
+        split_bits_frac_x.done = frac_x.done
 
     if is_signed:
         mult_pipe = comp.get_cell("mult_pipe1")
@@ -417,7 +419,8 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
     if is_signed:
         lt = comp.get_cell("lt")
     init = comp.get_group("init")
-    split_bits = comp.get_group("split_bits")
+    split_bits_int_x = comp.get_group("split_bits_int_x")
+    split_bits_frac_x = comp.get_group("split_bits_frac_x")
 
     # TODO (griffin): This is a hack to avoid inserting empty seqs. Maybe worth
     # moving into the add method of ControlBuilder?
@@ -436,7 +439,7 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
                 if is_signed
                 else []
             ),
-            split_bits,
+            par(split_bits_int_x, split_bits_frac_x),
             pow_invokes,
             consume_pow,
             mult_by_reciprocal,

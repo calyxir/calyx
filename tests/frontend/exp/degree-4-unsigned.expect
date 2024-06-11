@@ -43,18 +43,21 @@ component exp(x: 16) -> (out: 16) {
       exponent_value.in = x;
       init[done] = exponent_value.done;
     }
-    group split_bits {
+    group split_bits_int_x {
       and0.left = exponent_value.out;
       and0.right = 16'd65280;
       rsh.left = and0.out;
       rsh.right = 16'd8;
+      int_x.write_en = 1'd1;
+      int_x.in = rsh.out;
+      split_bits_int_x[done] = int_x.done;
+    }
+    group split_bits_frac_x {
       and1.left = exponent_value.out;
       and1.right = 16'd255;
-      int_x.write_en = 1'd1;
       frac_x.write_en = 1'd1;
-      int_x.in = rsh.out;
       frac_x.in = and1.out;
-      split_bits[done] = (int_x.done & frac_x.done) ? 1'd1;
+      split_bits_frac_x[done] = frac_x.done;
     }
     group consume_pow2<"promotable"=1> {
       p2.write_en = 1'd1;
@@ -136,7 +139,10 @@ component exp(x: 16) -> (out: 16) {
   control {
     seq {
       init;
-      split_bits;
+      par {
+        split_bits_int_x;
+        split_bits_frac_x;
+      }
       par {
         invoke pow1(base=e.out, integer_exp=int_x.out)();
         invoke pow2(base=frac_x.out, integer_exp=c2.out)();
