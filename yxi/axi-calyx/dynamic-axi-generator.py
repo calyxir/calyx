@@ -66,11 +66,11 @@ component main() -> () {
       Sum0.addr0 = bit_slice.out;
       Sum0.content_en = 1'd1;
       Sum0.write_en = 1'd1;
-      #Are these A0 and B0 assignments neeeded?
-      B0.content_en = 1'b1;
-      B0.addr0 = bit_slice.out;
-      A0.addr0 = bit_slice.out;
-      A0.content_en = 1'b1;
+      //Are these A0 and B0 assignments neeeded?
+      //B0.content_en = 1'b1;
+      //B0.addr0 = bit_slice.out;
+      //A0.addr0 = bit_slice.out;
+      //A0.content_en = 1'b1;
       add0.left = B_read0_0.out;
       add0.right = A_read0_0.out;
       Sum0.write_data = 1'd1 ? add0.out;
@@ -474,6 +474,10 @@ def add_read_controller(prog, mem):
 
     # Control
     #   Invokes
+
+    with read_controller.continuous:
+        read_controller.this()["read_data"] = simple_read_channel.read_data
+
     simple_ar_invoke = invoke(
         simple_ar_channel,
         in_axi_address=read_controller.this()["axi_address"],
@@ -493,7 +497,7 @@ def add_read_controller(prog, mem):
         in_RDATA=read_controller.this()["RDATA"],
         in_RRESP=read_controller.this()["RRESP"],
         out_RREADY=read_controller.this()["RREADY"],
-        out_read_data=read_controller.this()["read_data"],
+        # out_read_data=read_controller.this()["read_data"],
     )
     read_controller.control += [
         simple_ar_invoke,
@@ -619,14 +623,15 @@ def add_axi_seq_mem(prog, mem):
 
     # Cells
     address_translator = axi_seq_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
-    axi_seq_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
-    axi_seq_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
+    read_controller = axi_seq_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
+    write_controller = axi_seq_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
 
     # Wires
     this_component = axi_seq_mem.this()
     #  Continuous assignment
     with axi_seq_mem.continuous:
         address_translator.calyx_mem_addr = this_component["addr0"]
+        axi_seq_mem.this()["read_data"] = read_controller.read_data
 
     #Control
     read_controller_invoke = invoke(
