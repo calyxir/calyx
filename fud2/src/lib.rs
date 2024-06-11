@@ -740,10 +740,16 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
 
+    let yxi_setup = bld.setup("YXI setup", |e|{
+        e.config_var_or("yxi", "yxi", "$calyx-base/target/debug/yxi")?;
+        e.rule("yxi", "$yxi -l $calyx-base $in > $out")?;
+        Ok(())});
+
+
     let yxi = bld.state("yxi", &["yxi"]);
     bld.op(
         "calyx-to-yxi",
-        &[calyx_setup],
+        &[calyx_setup, yxi_setup],
         calyx,
         yxi,
         |e, input, output| {
@@ -762,6 +768,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             "$calyx-base/yxi/axi-calyx/axi-generator.py",
         )?;
         e.config_var_or("python", "python", "python3")?;
+
         e.rule("gen-axi", "$python $axi-generator $in > $out")?;
 
         // Define a simple `combine` rule that just concatenates any numer of files.
@@ -775,7 +782,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "axi-wrapped",
-        &[calyx_setup, wrapper_setup],
+        &[calyx_setup, yxi_setup, wrapper_setup],
         calyx,
         calyx,
         |e, input, output| {
@@ -790,11 +797,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
                 .0;
 
             // Get yxi file from main compute program.
-            // TODO(nate): Eventually (#1952) This will be able to use the `yxi` operation
-            // instead of hardcoding the build cmd calyx rule with arguments
             let tmp_yxi = format!("{}.yxi", file_name);
-            e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
-            e.arg("backend", "yxi")?;
+            e.build_cmd(&[&tmp_yxi], "yxi", &[input], &[])?;
 
             // Generate the AXI wrapper.
             let refified_calyx = format!("refified_{}.futil", file_name);
