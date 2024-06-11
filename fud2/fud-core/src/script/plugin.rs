@@ -174,7 +174,13 @@ impl ScriptRunner {
                     ast: Rc::new(sctx.ast.clone_functions_only()),
                     name: build.fn_name().to_string(),
                 };
-                Ok(bld.borrow_mut().add_op(name, &setups, &[input], &[output], rctx))
+                Ok(bld.borrow_mut().add_op(
+                    name,
+                    &setups,
+                    &[input],
+                    &[output],
+                    rctx,
+                ))
             },
         );
     }

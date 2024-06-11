@@ -175,7 +175,10 @@ impl<'a> Run<'a> {
 
         // Show all operations.
         for (op_ref, op) in self.driver.ops.iter() {
-            print!("  {} -> {} [label=\"{}\"", op.input[0], op.output[0], op.name);
+            print!(
+                "  {} -> {} [label=\"{}\"",
+                op.input[0], op.output[0], op.name
+            );
             if ops.contains(&op_ref) {
                 print!(" penwidth=3");
             }
