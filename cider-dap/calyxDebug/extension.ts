@@ -1,6 +1,6 @@
-import * as vscode from "vscode";
-import cp = require("child_process");
-import net = require("net");
+import * as vscode from 'vscode';
+import * as cp from "child_process"
+import * as Net from "net"
 
 // Hold the debug adapter instance
 let debugAdapter = null;
@@ -9,31 +9,31 @@ let programName = null; // Store the program name
 let outputChannel = vscode.window.createOutputChannel("Cider dap");
 
 function logToPanel(message) {
-  console.log("inside logPanel");
+  //console.log("inside logPanel");
   outputChannel.appendLine(message);
 }
 
 // Function to get the program name from the user
-async function getProgramName() {
-  const fileName = await vscode.window.showInputBox({
-    placeHolder:
-      "Please enter the name of a futil file in the workspace folder",
-    value: "default.futil",
-  });
+// async function getProgramName() {
+//   const fileName = await vscode.window.showInputBox({
+//     placeHolder:
+//       "Please enter the name of a futil file in the workspace folder",
+//     value: "default.futil",
+//   });
 
-  if (fileName) {
-    if (!fileName.startsWith("/")) {
-      const path = require("path");
-      return path.join(
-        vscode.workspace.workspaceFolders[0].uri.fsPath,
-        fileName
-      );
-    }
-    return fileName;
-  } else {
-    return null;
-  }
-}
+//   if (fileName) {
+//     if (!fileName.startsWith("/")) {
+//       const path = require("path");
+//       return path.join(
+//         vscode.workspace.workspaceFolders[0].uri.fsPath,
+//         fileName
+//       );
+//     }
+//     return fileName;
+//   } else {
+//     return null;
+//   }
+// }
 
 // Factory for multi-session
 class CiderDebugAdapterDescriptorFactoryServer {
@@ -54,25 +54,26 @@ class CiderDebugAdapterDescriptorFactoryServer {
 
   createDebugAdapterDescriptor(session) {
     // Return a new debug adapter descriptor
-    logToPanel("creating adapter descriptor");
-
-    return new vscode.DebugAdapterServer(this._startDebugServer(session));
-  }
-
-  _startDebugServer(session) {
-    logToPanel("start of startDebugServer");
+    logToPanel("line 57: create_DA_Desc");
     // default port: 8888
     const port = vscode.workspace.getConfiguration("cider-dap").port;
+    // adjust this logic to use promises too
+
     if (!this.adapter.isServerRunning()) {
-      logToPanel("server is not running");
-      this.adapter.start(port);
-      logToPanel("started dap-server");
+      let adapterPromise = this.adapter.start(port)
+      return adapterPromise.then((res) => {
+        logToPanel("line 66: connect to debugger")
+        return new vscode.DebugAdapterServer(res);
+      }, () => { throw "Failed to start debug server" })
+    }
+    else {
+      logToPanel("line 71: connect to debugger")
+      return new vscode.DebugAdapterServer(port)
     }
 
-    logToPanel("exiting startDebugging");
-    return port;
   }
 }
+
 class CiderDebugAdapter {
   adapterPath: string;
   stdPath: string;
@@ -82,43 +83,48 @@ class CiderDebugAdapter {
   isRunning: boolean;
 
   constructor(adapterPath, stdPath, cwd, outputChannel) {
-    logToPanel("inside CiderDebugAdapter");
+    logToPanel("line 83: CDA constructor start");
     this.adapterPath = adapterPath;
     this.stdPath = stdPath;
     this.cwd = cwd;
     this.outputChannel = outputChannel;
     this.adapterProcess = null;
-    logToPanel("at the end of ciderDebugAdapter");
+    logToPanel("line 89: CDA constructor end");
   }
   isServerRunning() {
-    logToPanel("checking if server is running");
+    logToPanel("line 92: checking if server is running");
     return this.adapterProcess != null && this.adapterProcess.exitCode == null;
   }
   // Start the debug adapter process
   start(port) {
-    logToPanel("beginning of start");
+    logToPanel("line 97: CDA start(port)");
 
     // Spawn a new child process for the debug adapter
     // Include the port as a command line argument
-    this.adapterProcess = cp.spawn(
-      this.adapterPath,
-      ["--port", port, "--tcp", "-l", this.stdPath],
-      { cwd: this.cwd }
-    );
+    return new Promise<number>((resolve, reject) => {
+      this.adapterProcess = cp.spawn(
+        this.adapterPath,
+        ["--port", port, "--tcp", "-l", this.stdPath],
+        { cwd: this.cwd }
+      );
+      // Attach event listener to capture standard output of the adapter process and log it to the output channel
+      this.adapterProcess.stdout.on("data", (data) => {
+        logToPanel(data.toString());
+      });
 
-    // Attach event listener to capture standard output of the adapter process and log it to the output channel
-    this.adapterProcess.stdout.on("data", (data) => {
-      logToPanel(data.toString());
-    });
-
-    // Attach event listener to capture standard error of the adapter process and log it to the output channel
-    this.adapterProcess.stderr.on("data", (data) => {
-      logToPanel(data.toString());
-    });
-
-    this.adapterProcess.on("spawn", () => {
-      logToPanel("Debugger started on port " + port + "!");
-    });
+      // Attach event listener to capture standard error of the adapter process and log it to the output channel
+      this.adapterProcess.stderr.on("data", (data) => {
+        logToPanel(data.toString());
+      });
+      this.adapterProcess.on("spawn", () => {
+        logToPanel("Debugger started on port " + port + "!");
+        setTimeout(() => resolve(port), 200)
+      });
+      this.adapterProcess.on("error", () => {
+        logToPanel("Debugger failed to start");
+        reject(-1)
+      });
+    })
   }
 
   stop() {
@@ -192,6 +198,7 @@ function stopDebugging() {
 }
 
 function deactivate() {
+  //kill server
   logToPanel("deactivate");
 }
 
