@@ -207,10 +207,12 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         with main.group(f"preamble_{row}") as preamble:
             input.addr0 = row
             phis.addr0 = row
-            reg.write_en = 1
-            reg.in_ = input.read_data
-            phi.write_en = 1
-            phi.in_ = phis.read_data
+            input.content_en = 1
+            phis.content_en = 1
+            reg.write_en = input.done @ 1
+            reg.in_ = input.done @ input.read_data
+            phi.write_en = input.done @ 1
+            phi.in_ = phis.done @ phis.read_data
             preamble.done = (reg.done & phi.done) @ 1
 
     def epilogue_group(comp: cb.ComponentBuilder, row):
@@ -220,8 +222,8 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
     def insert_cells(comp: cb.ComponentBuilder):
         # memories
-        comp.comb_mem_d1("a", input_bitwidth, n, bitwidth, is_external=True)
-        comp.comb_mem_d1("phis", input_bitwidth, n, bitwidth, is_external=True)
+        comp.seq_mem_d1("a", input_bitwidth, n, bitwidth, is_external=True)
+        comp.seq_mem_d1("phis", input_bitwidth, n, bitwidth, is_external=True)
 
         for r in range(n):
             comp.reg(input_bitwidth, f"r{r}")  # r_regs
