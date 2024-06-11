@@ -460,7 +460,7 @@ def add_read_controller(prog, mem):
         (f"ARLEN", 8),
         (f"ARBURST", 2),
         (f"RREADY", 1),
-        #sent out to axi_seq_mem
+        #sent out to axi_dyn_mem
         (f"read_data", data_width),
     ]
 
@@ -575,12 +575,12 @@ def add_write_controller(prog, mem):
         simple_bresp_invoke,
     ]
 
-def add_axi_seq_mem(prog, mem):
+def add_axi_dyn_mem(prog, mem):
     address_width = mem[address_width_key][0]
     data_width = mem[width_key]
     name = mem[name_key]
 
-    axi_seq_mem = prog.component(f"axi_seq_mem_{name}")
+    axi_dyn_mem = prog.component(f"axi_dyn_mem_{name}")
     # Inputs/Outputs
     seq_mem_inputs =[
         ("addr0", address_width, [("write_together", 1), "data"]),
@@ -619,23 +619,23 @@ def add_axi_seq_mem(prog, mem):
         (f"WDATA", mem[width_key]),
         (f"BREADY", 1),
     ]
-    add_comp_ports(axi_seq_mem, seq_mem_inputs, seq_mem_outputs)
+    add_comp_ports(axi_dyn_mem, seq_mem_inputs, seq_mem_outputs)
 
     # Cells
-    address_translator = axi_seq_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
-    read_controller = axi_seq_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
-    write_controller = axi_seq_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
+    address_translator = axi_dyn_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
+    read_controller = axi_dyn_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
+    write_controller = axi_dyn_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
 
     # Wires
-    this_component = axi_seq_mem.this()
+    this_component = axi_dyn_mem.this()
     #  Continuous assignment
-    with axi_seq_mem.continuous:
+    with axi_dyn_mem.continuous:
         address_translator.calyx_mem_addr = this_component["addr0"]
-        axi_seq_mem.this()["read_data"] = read_controller.read_data
+        axi_dyn_mem.this()["read_data"] = read_controller.read_data
 
     #Control
     read_controller_invoke = invoke(
-            axi_seq_mem.get_cell(f"read_controller_{name}"),
+            axi_dyn_mem.get_cell(f"read_controller_{name}"),
             in_axi_address=address_translator.axi_address,
             in_ARESETn=this_component[f"ARESETn"],
             in_ARREADY=this_component[f"ARREADY"],
@@ -653,7 +653,7 @@ def add_axi_seq_mem(prog, mem):
         )
 
     write_controller_invoke = invoke(
-            axi_seq_mem.get_cell(f"write_controller_{name}"),
+            axi_dyn_mem.get_cell(f"write_controller_{name}"),
             in_axi_address=address_translator.axi_address,
             in_write_data=this_component["write_data"],
             in_ARESETn=this_component["ARESETn"],
@@ -671,8 +671,8 @@ def add_axi_seq_mem(prog, mem):
             out_BREADY=this_component["BREADY"],
     )
     
-    axi_seq_mem.control += [
-      if_(axi_seq_mem.this()["write_en"], write_controller_invoke, read_controller_invoke)
+    axi_dyn_mem.control += [
+      if_(axi_dyn_mem.this()["write_en"], write_controller_invoke, read_controller_invoke)
     ]
 
     
@@ -749,7 +749,7 @@ def add_main_comp(prog, mems):
 
         # TODO: Don't think these need to be marked external, but we
         # we need to raise them at some point form original calyx program
-        axi_mem = wrapper_comp.cell(f"axi_seq_mem_{mem_name}", prog.get_component(f"axi_seq_mem_{mem_name}"))
+        axi_mem = wrapper_comp.cell(f"axi_dyn_mem_{mem_name}", prog.get_component(f"axi_dyn_mem_{mem_name}"))
 
         # Wires
 
@@ -760,7 +760,7 @@ def add_main_comp(prog, mems):
             wrapper_comp.this()[f"{mem_name}_WID"] = 0
             wrapper_comp.this()[f"{mem_name}_BID"] = 0
 
-            # Connect wrapper ports with axi_seq_mem ports
+            # Connect wrapper ports with axi_dyn_mem ports
 
             # Read controller portion inputs
             axi_mem["ARESETn"] = wrapper_comp.this()[f"{mem_name}_ARESETn"] #note that both styles work
@@ -844,7 +844,7 @@ def build():
         add_address_translator(prog, mem)
         add_read_controller(prog, mem)
         add_write_controller(prog, mem)
-        add_axi_seq_mem(prog, mem) #TODO: need one for each mem
+        add_axi_dyn_mem(prog, mem) #TODO: need one for each mem
     add_main_comp(prog, mems)
     return prog.program
 
