@@ -1146,6 +1146,7 @@ dependencies = [
  "fud-core",
  "include_dir",
  "insta",
+ "itertools 0.11.0",
  "manifest-dir-macros",
 ]
 

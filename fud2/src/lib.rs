@@ -155,7 +155,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let verilog_refmem_noverify = bld.state("verilog-refmem-noverify", &["sv"]);
 
     // Icarus Verilog.
-    let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
+    let verilog_noverify = bld.state("verilog-noverify", &["sv", "v"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
         e.rule(
@@ -780,7 +780,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         |e, input, output| {
             // Generate the YXI file.
-            //no extension
+            // no extension
             let file_name = input
                 .rsplit_once('/')
                 .unwrap()
@@ -788,10 +788,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
                 .rsplit_once('.')
                 .unwrap()
                 .0;
-            let tmp_yxi = format!("{}.yxi", file_name);
 
-            //Get yxi file from main compute program.
-            //TODO(nate): Can this use the `yxi` operation instead of hardcoding the build cmd calyx rule with arguments?
+            // Get yxi file from main compute program.
+            // TODO(nate): Eventually (#1952) This will be able to use the `yxi` operation
+            // instead of hardcoding the build cmd calyx rule with arguments
+            let tmp_yxi = format!("{}.yxi", file_name);
             e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
             e.arg("backend", "yxi")?;
 
@@ -819,6 +820,62 @@ pub fn build_driver(bld: &mut DriverBuilder) {
                 &[axi_wrapper, &no_imports_calyx],
                 &[],
             )?;
+            Ok(())
+        },
+    );
+
+    let cocotb_setup = bld.setup("cocotb", |e| {
+        e.config_var_or("cocotb-makefile-dir", "cocotb.makefile-dir", "$calyx-base/yxi/axi-calyx/cocotb")?;
+        // TODO (nate): this is duplicated from the sim_setup above. Can this be shared?
+        // The input data file. `sim.data` is required.
+        let data_name = e.config_val("sim.data")?;
+        let data_path = e.external_path(data_name.as_ref());
+        e.var("sim_data", data_path.as_str())?;
+
+        // Cocotb is wants files relative to the location of the makefile.
+        // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
+        e.rule("copy", "cp $in $out")?;
+        e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out")?;
+        // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
+        e.rule("cleanup-cocotb", r"sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out")?;
+        Ok(())
+    });
+
+    let cocotb_axi = bld.state("cocotb-axi", &["dat"]);
+    // Example invocation: `fud2 <path to axi wrapped verilog> --from verilog-noverify --to cocotb-axi --set sim.data=<path to .data/json file>`
+    bld.op(
+        "calyx-to-cocotb-axi",
+        &[calyx_setup, cocotb_setup],
+        verilog_noverify,
+        cocotb_axi,
+        |e, input, output| {
+            e.build_cmd(
+                &["Makefile"],
+                "copy",
+                &["$cocotb-makefile-dir/Makefile"],
+                &[],
+            )?;
+            e.build_cmd(
+                &["axi_test.py"],
+                "copy",
+                &["$cocotb-makefile-dir/axi_test.py"],
+                &[],
+            )?;
+            e.build_cmd(
+                &["run_axi_test.py"],
+                "copy",
+                &["$cocotb-makefile-dir/run_axi_test.py"],
+                &[],
+            )?;
+            e.build_cmd(
+                &["tmp.dat"],
+                "make-cocotb",
+                &[input],
+                &["Makefile", "axi_test.py", "run_axi_test.py"],
+            )?;
+
+            e.build_cmd(&[output], "cleanup-cocotb", &["tmp.dat"], &[])?;
+
             Ok(())
         },
     );

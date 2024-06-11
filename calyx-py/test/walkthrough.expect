@@ -117,7 +117,7 @@ component map(v: 32) -> () {
     ref mem = comb_mem_d1(32, 10, 32);
     reg_1 = std_reg(8);
     reg_1_incr = std_add(8);
-    add_2 = std_add(32);
+    mult_pipe_2 = std_mult_pipe(32);
     lt_3 = std_lt(8);
   }
   wires {
@@ -132,19 +132,19 @@ component map(v: 32) -> () {
       lt_3.left = reg_1.out;
       lt_3.right = 8'd10;
     }
-    group add_at_position_i {
+    group mul_at_position_i {
       mem.addr0 = reg_1.out;
-      add_2.left = mem.read_data;
-      add_2.right = v;
-      mem.write_en = add_2.done ? 1'd1;
-      mem.write_data = add_2.out;
-      add_at_position_i[done] = mem.done;
+      mult_pipe_2.left = mem.read_data;
+      mult_pipe_2.right = v;
+      mem.write_en = mult_pipe_2.done ? 1'd1;
+      mem.write_data = mult_pipe_2.out;
+      mul_at_position_i[done] = mem.done;
     }
   }
   control {
     while lt_3.out with lt_3_group {
       seq {
-        add_at_position_i;
+        mul_at_position_i;
         reg_1_incr_group;
       }
     }

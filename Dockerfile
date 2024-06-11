@@ -65,7 +65,7 @@ WORKDIR /home
 ADD . calyx
 # Build the compiler
 WORKDIR /home/calyx
-RUN cargo build --all && \
+RUN cargo build --workspace && \
     cargo install vcdump && \
     cargo install runt --version 0.4.1
 

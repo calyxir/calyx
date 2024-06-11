@@ -1,6 +1,7 @@
 use fud_core::{
     config::default_config, exec::Request, run::Run, Driver, DriverBuilder,
 };
+use itertools::Itertools;
 
 #[cfg(not(feature = "migrate_to_scripts"))]
 fn test_driver() -> Driver {
@@ -110,6 +111,44 @@ fn all_ops() {
         };
         test_emit(&driver, req, &format!("__op_{}", op.name));
     }
+}
+
+#[test]
+fn list_states() {
+    let driver = test_driver();
+    let states = driver
+        .states
+        .values()
+        .map(|state| &state.name)
+        .sorted()
+        .collect::<Vec<_>>();
+    insta::with_settings!({
+        omit_expression => true
+    }, {
+        insta::assert_debug_snapshot!(states)
+    });
+}
+
+#[test]
+fn list_ops() {
+    let driver = test_driver();
+    let ops = driver
+        .ops
+        .values()
+        .map(|op| {
+            (
+                &op.name,
+                &driver.states[op.input].name,
+                &driver.states[op.output].name,
+            )
+        })
+        .sorted()
+        .collect::<Vec<_>>();
+    insta::with_settings!({
+        omit_expression => true
+    }, {
+        insta::assert_debug_snapshot!(ops)
+    });
 }
 
 #[test]
