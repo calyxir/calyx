@@ -86,10 +86,35 @@ pub struct WellFormed {
     active_comb: ActiveAssignments,
 }
 
-fn require_subtype(s : &ir::Invoke, self_ref_cells : &HashMap<ir::Id, LinkedHashMap<ir::Id, Cell>>,id : &ir::Id) -> CalyxResult<()> {
+enum Invoke<'a> {
+    StaticInvoke(&'a ir::StaticInvoke),
+    Invoke(&'a ir::Invoke),
+}
+
+impl Invoke<'_> {
+    fn get_ref_cells(&self) -> &Vec<(ir::Id, ir::RRC<Cell>)> {
+        match self {
+            Invoke::StaticInvoke(s) => &s.ref_cells,
+            Invoke::Invoke(s) => &s.ref_cells,
+        }
+    }
+
+    fn get_attributes(&self) -> &ir::Attributes {
+        match self {
+            Invoke::StaticInvoke(s) => s.get_attributes(),
+            Invoke::Invoke(s) => s.get_attributes(),
+        }
+    }
+}
+
+fn require_subtype(
+    invoke: Invoke,
+    self_ref_cells: &HashMap<ir::Id, LinkedHashMap<ir::Id, Cell>>,
+    id: &ir::Id,
+) -> CalyxResult<()> {
     let cell_map = &self_ref_cells[id];
     let mut mentioned_cells = HashSet::new();
-    for(outcell, incell) in s.ref_cells.iter() {
+    for (outcell, incell) in invoke.get_ref_cells().iter() {
         if let Some(oc) = cell_map.get(outcell) {
             if !subtype(oc, &incell.borrow()) {
                 return Err(Error::malformed_control(format!(
@@ -97,7 +122,7 @@ fn require_subtype(s : &ir::Invoke, self_ref_cells : &HashMap<ir::Id, LinkedHash
                     incell.borrow().prototype.surface_name().unwrap(),
                     oc.prototype.surface_name().unwrap()
                 ))
-                .with_pos(&s.attributes));
+                .with_pos(invoke.get_attributes()));
             } else {
                 mentioned_cells.insert(outcell);
             }
@@ -114,7 +139,7 @@ fn require_subtype(s : &ir::Invoke, self_ref_cells : &HashMap<ir::Id, LinkedHash
                 "unmentioned ref cell: {}",
                 id
             ))
-            .with_pos(&s.attributes));
+            .with_pos(invoke.get_attributes()));
         }
     }
     Ok(())
@@ -602,7 +627,7 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-          require_subtype(s, &self.ref_cells, id)?;
+            require_subtype(Invoke::Invoke(s), &self.ref_cells, id)?;
         }
         Ok(Action::Continue)
     }
@@ -618,8 +643,7 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-            require_subtype(s, &self.ref_cells, id)?;
-
+            require_subtype(Invoke::StaticInvoke(s), &self.ref_cells, id)?;
         }
         Ok(Action::Continue)
     }
