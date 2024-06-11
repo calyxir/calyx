@@ -211,27 +211,26 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     }
 }
 
+#[derive(Clone, Copy)]
 enum RegisterEncoding {
     Binary,
     OneHot,
 }
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 enum RegisterSpread {
     // Default option: just a single register
     Single,
     // Duplicate the register to reduce fanout when querying
     // (all FSMs in this vec still have all of the states)
     Duplicate,
-    // Split the FSM to reduce fanout when querying.
-    // (the FSMs partition the states exactly).
-    // Each FSM has fewer bits but I suspect the logic might be more complicated.
-    Split,
 }
 
+#[derive(Clone, Copy)]
 /// A type that represents how the FSM should be implemented in hardware.
 struct FSMRepresentation {
     encoding: RegisterEncoding,
-    _spread: RegisterSpread,
+    spread: RegisterSpread,
+    last_state: u64,
 }
 
 /// Represents the dyanmic execution schedule of a control program.
@@ -350,40 +349,123 @@ impl<'b, 'a> Schedule<'b, 'a> {
             });
     }
 
-    /// Queries the FSM by building a new slicer and corresponding assignments if
+    // Queries the FSM by building a new slicer and corresponding assignments if
     /// the query hasn't yet been made. If this query has been made before, it
     /// reuses the old query. Returns a new guard representing the query.
-    fn build_one_hot_query(
+    fn build_query(
         builder: &mut ir::Builder,
-        used_slicers: &mut HashMap<u64, ir::RRC<ir::Cell>>,
-        fsm: &ir::RRC<ir::Cell>,
+        used_slicers: &mut (
+            HashMap<u64, ir::RRC<ir::Cell>>,
+            HashMap<u64, ir::RRC<ir::Cell>>,
+        ),
+        fsm_rep: &FSMRepresentation,
+        fsms: (&ir::RRC<ir::Cell>, &Option<ir::RRC<ir::Cell>>),
         signal_on: &ir::RRC<ir::Cell>,
         state: &u64,
         fsm_size: &u64,
     ) -> ir::Guard<Nothing> {
-        match used_slicers.get(state) {
-            None => {
-                // construct slicer for this bit query
-                structure!(
-                    builder;
-                    let slicer = prim std_bit_slice(*fsm_size, *state, *state, 1);
-                );
-                // build wire from fsm to slicer
-                let fsm_to_slicer = builder.build_assignment(
-                    slicer.borrow().get("in"),
-                    fsm.borrow().get("out"),
-                    ir::Guard::True,
-                );
-                // add continuous assignments to slicer
-                builder.component.continuous_assignments.push(fsm_to_slicer);
-                // create a guard representing when to allow next-state transition
-                let state_guard = guard!(slicer["out"] == signal_on["out"]);
-                used_slicers.insert(*state, slicer);
+        let (fsm, fsm_used_slicers) =
+            match (*state <= fsm_rep.last_state / 2, fsm_rep.spread) {
+                // return first register if only one register or querying state 0..n/2
+                (true, _) | (_, RegisterSpread::Single) => {
+                    (fsms.0, &mut used_slicers.0)
+                }
+                // else return the second; alter code here if adding support for > 2 duplicates
+                (false, RegisterSpread::Duplicate) => (
+                    fsms.1.as_ref().expect("there is no second fsm register"),
+                    &mut used_slicers.1,
+                ),
+            };
+
+        match fsm_rep.encoding {
+            RegisterEncoding::Binary => {
+                let state_const = builder.add_constant(*state, *fsm_size);
+                let state_guard = guard!(fsm["out"] == state_const["out"]);
                 state_guard
             }
-            Some(slicer) => {
-                let state_guard = guard!(slicer["out"] == signal_on["out"]);
-                state_guard
+            RegisterEncoding::OneHot => {
+                match fsm_used_slicers.get(state) {
+                    None => {
+                        // construct slicer for this bit query
+                        structure!(
+                            builder;
+                            let slicer = prim std_bit_slice(*fsm_size, *state, *state, 1);
+                        );
+                        // build wire from fsm to slicer
+                        let fsm_to_slicer = builder.build_assignment(
+                            slicer.borrow().get("in"),
+                            fsm.borrow().get("out"),
+                            ir::Guard::True,
+                        );
+                        // add continuous assignments to slicer
+                        builder
+                            .component
+                            .continuous_assignments
+                            .push(fsm_to_slicer);
+                        // create a guard representing when to allow next-state transition
+                        let state_guard =
+                            guard!(slicer["out"] == signal_on["out"]);
+                        fsm_used_slicers.insert(*state, slicer);
+                        state_guard
+                    }
+                    Some(slicer) => {
+                        let state_guard =
+                            guard!(slicer["out"] == signal_on["out"]);
+                        state_guard
+                    }
+                }
+            }
+        }
+    }
+
+    /// builds the register(s) needed for a given encoding and spread
+    fn build_fsm_infrastructure(
+        builder: &mut ir::Builder,
+        fsm_rep: &FSMRepresentation,
+    ) -> (
+        // registers from which to query schedule
+        (ir::RRC<ir::Cell>, Option<ir::RRC<ir::Cell>>),
+        // constant describing the first state
+        ir::RRC<ir::Cell>,
+        // size of each register
+        u64,
+    ) {
+        match fsm_rep.encoding {
+            RegisterEncoding::Binary => {
+                let fsm_size = get_bit_width_from(
+                    fsm_rep.last_state + 1, /* represent 0..final_state */
+                );
+                structure!(
+                    builder;
+                    let fsm = prim std_reg(fsm_size);
+                    let first_state = constant(0, fsm_size);
+                );
+                (
+                    if let RegisterSpread::Single = fsm_rep.spread {
+                        (fsm, None)
+                    } else {
+                        let fsm2 = fsm.clone();
+                        (fsm, Some(fsm2))
+                    },
+                    first_state,
+                    fsm_size,
+                )
+            }
+            RegisterEncoding::OneHot => {
+                let fsm_size = fsm_rep.last_state + 1; /* represent 0..final_state */
+                let fsm =
+                    builder.add_primitive("fsm", "init_one_reg", &[fsm_size]);
+                let first_state = builder.add_constant(1, fsm_size);
+                (
+                    if let RegisterSpread::Single = fsm_rep.spread {
+                        (fsm, None)
+                    } else {
+                        let fsm2 = fsm.clone();
+                        (fsm, Some(fsm2))
+                    },
+                    first_state,
+                    fsm_size,
+                )
             }
         }
     }
@@ -394,9 +476,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
         self,
         dump_fsm: bool,
         fsm_groups: &mut HashSet<ProfilingInfo>,
-        fsm_representation: FSMRepresentation,
-        // one_hot_cutoff: u64,
+        fsm_rep: FSMRepresentation,
     ) -> RRC<ir::Group> {
+        // confirm all states are reachable
         self.validate();
 
         // build tdcc group
@@ -409,55 +491,28 @@ impl<'b, 'a> Schedule<'b, 'a> {
             ));
         }
 
-        // calculate fsm size and encoding
-        let final_state = self.last_state();
-
-        // build necessary primitives dependent on encoding
+        // build necessary primitives dependent on encoding and spread
         let signal_on = self.builder.add_constant(1, 1);
-        let (fsm, first_state, last_state_opt, fsm_size) =
-            match fsm_representation.encoding {
-                RegisterEncoding::Binary => {
-                    let fsm_size = get_bit_width_from(
-                        final_state + 1, /* represent 0..final_state */
-                    );
-                    structure!(
-                        self.builder;
-                        let fsm = prim std_reg(fsm_size);
-                        let last_state = constant(final_state, fsm_size);
-                        let first_state = constant(0, fsm_size);
-                    );
-                    (fsm, first_state, Some(last_state), fsm_size)
-                }
-                RegisterEncoding::OneHot => {
-                    let fsm_size = final_state + 1; /* represent 0..final_state */
-
-                    let fsm = self.builder.add_primitive(
-                        "fsm",
-                        "init_one_reg",
-                        &[fsm_size],
-                    );
-                    let first_state = self.builder.add_constant(1, fsm_size);
-                    (fsm, first_state, None, fsm_size)
-                }
-            };
+        let (fsms, first_state, fsm_size) =
+            Self::build_fsm_infrastructure(self.builder, &fsm_rep);
 
         // Add last state to JSON info
         let mut states = self.groups_to_states.iter().cloned().collect_vec();
         states.push(FSMStateInfo {
-            id: final_state,
-            group: Id::new(format!("{}_END", fsm.borrow().name())),
+            id: fsm_rep.last_state, // check that this register (fsm.0) is the correct one to use
+            group: Id::new(format!("{}_END", fsms.0.borrow().name())),
         });
 
         // Keep track of groups to FSM state id information for dumping to json
         fsm_groups.insert(ProfilingInfo::Fsm(FSMInfo {
             component: self.builder.component.name,
-            fsm: fsm.borrow().name(),
+            fsm: fsms.0.borrow().name(),
             group: group.borrow().name(),
             states,
         }));
 
-        // keep track of used slicers if using one hot encoding
-        let mut used_slicers = HashMap::new();
+        // keep track of used slicers if using one hot encoding. one for each register
+        let mut used_slicers = (HashMap::new(), HashMap::new());
 
         // enable assignments
         group.borrow_mut().assignments.extend(
@@ -465,82 +520,76 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
-                    match fsm_representation.encoding {
-                        RegisterEncoding::Binary => {
-                            let state_const =
-                                self.builder.add_constant(state, fsm_size);
-                            let state_guard =
-                                guard!(fsm["out"] == state_const["out"]);
-                            assigns.iter_mut().for_each(|asgn| {
-                                asgn.guard
-                                    .update(|g| g.and(state_guard.clone()))
-                            });
-                            assigns
-                        }
-                        RegisterEncoding::OneHot => {
-                            let state_guard = Self::build_one_hot_query(
-                                self.builder,
-                                &mut used_slicers,
-                                &fsm,
-                                &signal_on,
-                                &state,
-                                &fsm_size,
-                            );
-                            assigns.iter_mut().for_each(|asgn| {
-                                asgn.guard
-                                    .update(|g| g.and(state_guard.clone()))
-                            });
-                            assigns
-                        }
-                    }
+                    let state_guard = Self::build_query(
+                        self.builder,
+                        &mut used_slicers,
+                        &fsm_rep,
+                        (&fsms.0, &fsms.1),
+                        &signal_on,
+                        &state,
+                        &fsm_size,
+                    );
+                    assigns.iter_mut().for_each(|asgn| {
+                        asgn.guard.update(|g| g.and(state_guard.clone()))
+                    });
+                    assigns
                 }),
         );
 
         // transition assignments
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
-                let (end_const, trans_guard) = match fsm_representation.encoding
-                {
-                    RegisterEncoding::Binary => {
-                        structure!(self.builder;
-                            let end_const = constant(e, fsm_size);
-                            let start_const = constant(s, fsm_size);
-                        );
-                        let trans_guard =
-                            guard!((fsm["out"] == start_const["out"]) & guard);
+                let state_guard = Self::build_query(
+                    self.builder,
+                    &mut used_slicers,
+                    &fsm_rep,
+                    (&fsms.0, &fsms.1),
+                    &signal_on,
+                    &s,
+                    &fsm_size,
+                );
 
-                        (end_const, trans_guard)
+                let trans_guard = state_guard.and(guard);
+                let end_const = match fsm_rep.encoding {
+                    RegisterEncoding::Binary => {
+                        let end_const = self.builder.add_constant(e, fsm_size);
+                        end_const
                     }
                     RegisterEncoding::OneHot => {
-                        let end_constant_value = u64::pow(
-                            2,
-                            e.try_into().expect("failed to convert to u32"),
+                        let end_const = self.builder.add_constant(
+                            u64::pow(
+                                2,
+                                e.try_into().expect("failed to convert to u32"),
+                            ),
+                            fsm_size,
                         );
-
-                        let trans_guard = Self::build_one_hot_query(
-                            self.builder,
-                            &mut used_slicers,
-                            &fsm,
-                            &signal_on,
-                            &s,
-                            &fsm_size,
-                        );
-                        let end_const = self
-                            .builder
-                            .add_constant(end_constant_value, fsm_size);
-
-                        (end_const, trans_guard.and(guard))
+                        end_const
                     }
                 };
+
                 let ec_borrow = end_const.borrow();
+                let fsm_to_assign = match fsm_rep.spread {
+                    RegisterSpread::Single => fsms.0.borrow(),
+                    RegisterSpread::Duplicate => {
+                        if s <= fsm_rep.last_state / 2 {
+                            fsms.0.borrow()
+                        } else {
+                            fsms.1
+                                .as_ref()
+                                .expect("there is no second fsm register")
+                                .borrow()
+                        }
+                    }
+                };
+
                 vec![
                     self.builder.build_assignment(
-                        fsm.borrow().get("in"),
+                        fsm_to_assign.get("in"),
                         ec_borrow.get("out"),
                         trans_guard.clone(),
                     ),
                     self.builder.build_assignment(
-                        fsm.borrow().get("write_en"),
+                        fsm_to_assign.get("write_en"),
                         signal_on.borrow().get("out"),
                         trans_guard,
                     ),
@@ -549,51 +598,35 @@ impl<'b, 'a> Schedule<'b, 'a> {
         );
 
         // done condition for group
-        let reset_fsm = match last_state_opt {
-            // binary branch; only binary needs last state constant
-            Some(last_state) => {
-                let last_guard = guard!(fsm["out"] == last_state["out"]);
-                let done_assign = self.builder.build_assignment(
-                    group.borrow().get("done"),
-                    signal_on.borrow().get("out"),
-                    last_guard.clone(),
-                );
-                group.borrow_mut().assignments.push(done_assign);
+        let last_guard = Self::build_query(
+            self.builder,
+            &mut used_slicers,
+            &fsm_rep,
+            (&fsms.0, &fsms.1),
+            &signal_on,
+            &fsm_rep.last_state,
+            &fsm_size,
+        );
 
-                // Cleanup: Add a transition from last state to the first state.
-                let reset_fsm = build_assignments!(self.builder;
-                    fsm["in"] = last_guard ? first_state["out"];
-                    fsm["write_en"] = last_guard ? signal_on["out"];
-                );
-
-                reset_fsm.to_vec()
-            }
-
-            // ohe branch does not need last state constant
-            None => {
-                let last_guard = Self::build_one_hot_query(
-                    self.builder,
-                    &mut used_slicers,
-                    &fsm,
-                    &signal_on,
-                    &final_state,
-                    &fsm_size,
-                );
-                let done_assign = self.builder.build_assignment(
-                    group.borrow().get("done"),
-                    signal_on.borrow().get("out"),
-                    last_guard.clone(),
-                );
-                group.borrow_mut().assignments.push(done_assign);
-                // Cleanup: Add a transition from last state to the first state.
-                let reset_fsm = build_assignments!(self.builder;
-                    fsm["in"] = last_guard ? first_state["out"];
-                    fsm["write_en"] = last_guard ? signal_on["out"];
-                );
-
-                reset_fsm.to_vec()
+        let done_assign = self.builder.build_assignment(
+            group.borrow().get("done"),
+            signal_on.borrow().get("out"),
+            last_guard.clone(),
+        );
+        let done_cond_fsm = match fsm_rep.spread {
+            RegisterSpread::Single => fsms.0,
+            RegisterSpread::Duplicate => {
+                fsms.1.expect("there is no second fsm register")
             }
         };
+
+        group.borrow_mut().assignments.push(done_assign);
+
+        // Cleanup: Add a transition from last state to the first state.
+        let reset_fsm = build_assignments!(self.builder;
+            done_cond_fsm["in"] = last_guard ? first_state["out"];
+            done_cond_fsm["write_en"] = last_guard ? signal_on["out"];
+        );
 
         // extend with conditions to set fsm to initial state
         self.builder
@@ -1031,17 +1064,19 @@ impl TopDownCompileControl {
         sch: &Schedule,
         attrs: &ir::Attributes,
     ) -> FSMRepresentation {
+        let last_state = sch.last_state();
         FSMRepresentation {
             encoding: {
                 match (
                     attrs.has(BoolAttr::OneHot),
-                    sch.last_state() <= self.one_hot_cutoff,
+                    last_state <= self.one_hot_cutoff,
                 ) {
                     (true, _) | (false, true) => RegisterEncoding::OneHot,
                     (false, false) => RegisterEncoding::Binary,
                 }
             },
-            _spread: self.spread.clone(),
+            spread: self.spread.clone(),
+            last_state: last_state,
         }
     }
 }
@@ -1065,7 +1100,6 @@ impl ConstructVisitor for TopDownCompileControl {
                 match opts[&"spread"].string().as_str() {
                     "single" => RegisterSpread::Single,
                     "duplicate" => RegisterSpread::Duplicate,
-                    "split" => RegisterSpread::Split,
                     _ => panic!("invalid fsm representation option"),
                 }
             },
