@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
 component exp(x: 16) -> (out: 16) {
   cells {
     exponent_value = std_reg(16);
@@ -217,15 +217,16 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
 component main() -> () {
   cells {
     t = std_reg(16);
-    @external x = comb_mem_d1(16, 1, 1);
-    @external ret = comb_mem_d1(16, 1, 1);
+    @external x = seq_mem_d1(16, 1, 1);
+    @external ret = seq_mem_d1(16, 1, 1);
     e = exp();
   }
   wires {
     group init {
       x.addr0 = 1'd0;
-      t.in = x.read_data;
-      t.write_en = 1'd1;
+      x.content_en = 1'd1;
+      t.in = x.done ? x.read_data;
+      t.write_en = x.done ? 1'd1;
       init[done] = t.done;
     }
     group write_to_memory {
@@ -233,6 +234,7 @@ component main() -> () {
       ret.write_en = 1'd1;
       ret.write_data = e.out;
       write_to_memory[done] = ret.done;
+      ret.content_en = 1'd1;
     }
   }
   control {
