@@ -250,10 +250,11 @@ where
     Ok(())
 }
 
-/// Returns true if cell_in is a subtype of the output cell.
-// XXX(nathanielnrn): I think this is incomplete, technically we should also
-// be iterating over ref cells of each cell and that they are contravariant?
-// However cells don't have this information so we'd need to extract it from `comps` I guess?
+/// Returns true if `cell_in` is a subtype of `cell_out`.
+/// Currenly this only checks for [`type_equivalence`](#method.calyx_ir::structure::Port::type_equivalent)
+/// between ports. It does not fully examine the cells
+/// for subtype compatability for things like nested ref cells.
+// XXX(nate): Cells don't contain information about their own `ref` cells so we'd need to extract it from `ir:Component` I think?
 fn subtype(cell_out: &Cell, cell_in: &Cell) -> bool {
     for port in cell_out.ports() {
         match cell_in.find(port.borrow().name) {
