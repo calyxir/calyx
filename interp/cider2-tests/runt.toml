@@ -70,6 +70,7 @@ cmd = """
 fud2 {} --from calyx --to dat --through interp-flat -s sim.data={}.data | jq --sort-keys
 """
 timeout = 10
+expect_dir = "invoke"
 
 # [[tests]]
 # name = "invoke comp"

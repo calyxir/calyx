@@ -17,6 +17,7 @@ members = [
     "data-conversion",
     "tools/btor2/btor2i",
     "tools/cider-data-converter",
+    "tools/yxi",
 ]
 exclude = ["site"]
 
@@ -92,7 +93,6 @@ path = "src/main.rs"
 [features]
 default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
-yxi = ["serialize", "calyx-backend/yxi", "calyx-ir/yxi"]
 
 [build-dependencies]
 calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
