@@ -282,8 +282,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.build_cmd(&[only_refs_calyx], "external-to-ref", &[input], &[])?;
 
         // Get YXI to generate JSON for testbench generation
-        e.build_cmd(&[memories_json], "calyx", &[only_externals_calyx], &[])?;
-        e.arg("backend", "yxi")?;
+        e.build_cmd(&[memories_json], "yxi", &[only_externals_calyx], &[])?;
         // generate custom testbench
         e.build_cmd(
             &[testbench],
@@ -740,11 +739,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
 
-    let yxi_setup = bld.setup("YXI setup", |e|{
+    let yxi_setup = bld.setup("YXI setup", |e| {
         e.config_var_or("yxi", "yxi", "$calyx-base/target/debug/yxi")?;
         e.rule("yxi", "$yxi -l $calyx-base $in > $out")?;
-        Ok(())});
-
+        Ok(())
+    });
 
     let yxi = bld.state("yxi", &["yxi"]);
     bld.op(
@@ -753,8 +752,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         yxi,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
-            e.arg("backend", "yxi")?;
+            e.build_cmd(&[output], "yxi", &[input], &[])?;
             Ok(())
         },
     );
