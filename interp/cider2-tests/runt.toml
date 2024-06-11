@@ -67,7 +67,7 @@ expect_dir = "control"
 name = "invoke"
 paths = ["../tests/control/invoke/*.futil"]
 cmd = """
-fud2 {} --from calyx --to dat --through interp-flat -s sim.data={}.data | jq --sort-keys
+fud2 {} --from calyx --to dat --through cider -s sim.data={}.data | jq --sort-keys
 """
 timeout = 10
 expect_dir = "invoke"
@@ -106,7 +106,7 @@ name = "correctness dynamic"
 paths = ["../../tests/correctness/*.futil"]
 cmd = """
 fud2 --from calyx --to dat \
-         --through interp-flat \
+         --through cider \
          -s sim.data={}.data \
          {} | jq --sort-keys
 """
