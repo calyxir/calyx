@@ -1,10 +1,11 @@
 use argh::FromArgs;
 use calyx_frontend as frontend;
 use calyx_ir as ir;
-use calyx_ir::utils::{GetMemInfo, MemoryType};
+use calyx_ir::utils::GetMemInfo;
 use calyx_utils::CalyxResult;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use yxi::*;
 
 #[derive(FromArgs)]
 /// Path for library and path for file to read from
@@ -22,29 +23,6 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(Path::new(path).into())
 }
 
-/// Backend that generates the YXI Interface Definition Language.
-/// YXI aims to be a description of toplevel hardware modules that we can then consume
-/// to create things like AXI wrappers on arbitrary programs
-#[derive(Default)]
-pub struct YxiBackend;
-
-#[derive(Serialize)]
-struct ProgramInterface<'a> {
-    toplevel: &'a str,
-    memories: Vec<Memory<'a>>,
-}
-
-#[derive(Serialize)]
-struct Memory<'a> {
-    name: &'a str,
-    memory_type: MemoryType,
-    data_width: u64,
-    dimensions: u64,
-    dimension_sizes: Vec<u64>,
-    total_size: u64, //number of cells in memory
-    idx_sizes: Vec<u64>,
-}
-
 fn main() -> CalyxResult<()> {
     let p: Args = argh::from_env();
 
@@ -60,7 +38,7 @@ fn main() -> CalyxResult<()> {
         .iter()
         .zip(mem_infos.iter())
         .map(|(memory_name, mem_info)| Memory {
-            name: memory_name,
+            name: memory_name.clone(),
             memory_type: mem_info.memory_type,
             data_width: mem_info.data_width,
             dimensions: mem_info.dimensions,
@@ -71,7 +49,7 @@ fn main() -> CalyxResult<()> {
         .collect();
 
     let program_interface = ProgramInterface {
-        toplevel: toplevel.name.as_ref(),
+        toplevel: toplevel.name.to_string(),
         memories,
     };
 

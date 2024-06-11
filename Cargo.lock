@@ -216,6 +216,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "axi-calyx"
+version = "0.7.1"
+dependencies = [
+ "argh",
+ "bad-calyx-builder",
+ "colored",
+ "serde",
+ "serde_json",
+ "yxi",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -228,6 +240,16 @@ dependencies = [
  "miniz_oxide",
  "object",
  "rustc-demangle",
+]
+
+[[package]]
+name = "bad-calyx-builder"
+version = "0.0.0"
+source = "git+https://github.com/ethanuppal/pulsar.git?branch=relicense#5b7e2a9cebf8e11d3901ce7a5535ca4e63bd87e6"
+dependencies = [
+ "calyx-frontend 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "calyx-ir 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "calyx-utils 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -370,11 +392,11 @@ dependencies = [
  "argh",
  "atty",
  "calyx-backend",
- "calyx-frontend",
- "calyx-ir",
+ "calyx-frontend 0.7.1",
+ "calyx-ir 0.7.1",
  "calyx-opt",
  "calyx-stdlib",
- "calyx-utils",
+ "calyx-utils 0.7.1",
  "criterion",
  "env_logger",
  "itertools 0.11.0",
@@ -386,9 +408,9 @@ dependencies = [
 name = "calyx-backend"
 version = "0.7.1"
 dependencies = [
- "calyx-frontend",
- "calyx-ir",
- "calyx-utils",
+ "calyx-frontend 0.7.1",
+ "calyx-ir 0.7.1",
+ "calyx-utils 0.7.1",
  "csv",
  "itertools 0.11.0",
  "linked-hash-map",
@@ -409,7 +431,7 @@ name = "calyx-frontend"
 version = "0.7.1"
 dependencies = [
  "atty",
- "calyx-utils",
+ "calyx-utils 0.7.1",
  "itertools 0.11.0",
  "lazy_static",
  "linked-hash-map",
@@ -425,11 +447,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "calyx-frontend"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1a704c13111b701f4fb4bc33b9bd638f5cd5c2f9ef389cdbcf016a1e9c0a9d1"
+dependencies = [
+ "atty",
+ "calyx-utils 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.11.0",
+ "lazy_static",
+ "linked-hash-map",
+ "log",
+ "pest",
+ "pest_consume",
+ "pest_derive",
+ "smallvec",
+ "strum",
+ "strum_macros",
+]
+
+[[package]]
 name = "calyx-ir"
 version = "0.7.1"
 dependencies = [
- "calyx-frontend",
- "calyx-utils",
+ "calyx-frontend 0.7.1",
+ "calyx-utils 0.7.1",
  "itertools 0.11.0",
  "linked-hash-map",
  "log",
@@ -441,12 +483,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "calyx-ir"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac71d552c6f8abc2073bd9d1cfd3723a60a21be9783051193d490e18329833f2"
+dependencies = [
+ "calyx-frontend 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "calyx-utils 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.11.0",
+ "linked-hash-map",
+ "log",
+ "petgraph",
+ "smallvec",
+ "string-interner",
+]
+
+[[package]]
 name = "calyx-lsp"
 version = "0.7.1"
 dependencies = [
- "calyx-frontend",
- "calyx-ir",
- "calyx-utils",
+ "calyx-frontend 0.7.1",
+ "calyx-ir 0.7.1",
+ "calyx-utils 0.7.1",
  "cc",
  "chrono",
  "itertools 0.11.0",
@@ -465,8 +523,8 @@ dependencies = [
 name = "calyx-opt"
 version = "0.7.1"
 dependencies = [
- "calyx-ir",
- "calyx-utils",
+ "calyx-ir 0.7.1",
+ "calyx-utils 0.7.1",
  "itertools 0.11.0",
  "lazy_static",
  "linked-hash-map",
@@ -495,13 +553,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "calyx-utils"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36b682a77c69b68fe1554c484316324705614246365e3342ea28d708f93805be"
+dependencies = [
+ "atty",
+ "itertools 0.11.0",
+ "petgraph",
+ "serde_json",
+ "string-interner",
+ "symbol_table",
+]
+
+[[package]]
 name = "calyx-web"
 version = "0.1.0"
 dependencies = [
- "calyx-frontend",
- "calyx-ir",
+ "calyx-frontend 0.7.1",
+ "calyx-ir 0.7.1",
  "calyx-opt",
- "calyx-utils",
+ "calyx-utils 0.7.1",
  "console_error_panic_hook",
  "serde",
  "serde_derive",
@@ -664,6 +736,16 @@ name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
+
+[[package]]
+name = "colored"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbf2150cce219b664a8a70df7a1f933836724b503f8a413af9365b4dcc4d90b8"
+dependencies = [
+ "lazy_static",
+ "windows-sys 0.48.0",
+]
 
 [[package]]
 name = "console"
@@ -949,10 +1031,10 @@ name = "data_gen"
 version = "0.1.0"
 dependencies = [
  "argh",
- "calyx-frontend",
- "calyx-ir",
+ "calyx-frontend 0.7.1",
+ "calyx-ir 0.7.1",
  "calyx-opt",
- "calyx-utils",
+ "calyx-utils 0.7.1",
  "lazy_static",
  "rand",
  "serde",
@@ -1481,10 +1563,10 @@ dependencies = [
  "base64 0.13.1",
  "bitvec",
  "btor2i",
- "calyx-frontend",
- "calyx-ir",
+ "calyx-frontend 0.7.1",
+ "calyx-ir 0.7.1",
  "calyx-opt",
- "calyx-utils",
+ "calyx-utils 0.7.1",
  "fraction",
  "ibig",
  "itertools 0.11.0",
@@ -3454,10 +3536,10 @@ name = "yxi"
 version = "0.7.1"
 dependencies = [
  "argh",
- "calyx-frontend",
- "calyx-ir",
+ "calyx-frontend 0.7.1",
+ "calyx-ir 0.7.1",
  "calyx-opt",
- "calyx-utils",
+ "calyx-utils 0.7.1",
  "serde",
  "serde_json",
 ]

@@ -18,6 +18,7 @@ members = [
     "tools/btor2/btor2i",
     "tools/cider-data-converter",
     "tools/yxi",
+    "yxi/axi-calyx/axi-calyx",
 ]
 exclude = ["site"]
 
@@ -51,6 +52,7 @@ pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
 anyhow = "1"
+colored = "2.1.0"
 calyx-utils = { path = "calyx-utils", version = "0.7.1" }
 calyx-ir = { path = "calyx-ir", version = "0.7.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
