@@ -227,8 +227,8 @@ impl CompileInvoke {
         assigns
     }
 
-    //Takes in a concrete cell (aka an in_cell/what is passed in to a ref cell at invocation)
-    //and returns the concrete port based on
+    /// Takes in a concrete cell (aka an in_cell/what is passed in to a ref cell at invocation)
+    /// and returns the concrete port based on just the port of a canonical id.
     fn get_concrete_port(
         concrete_cell: RRC<ir::Cell>,
         canonical_port: &ir::Id,
