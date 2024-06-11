@@ -7,12 +7,12 @@
 // | 3 | a[1] - a[3] * phis[1] | a[2] - a[3] * phis[3] |
 // +---+-----------------------+-----------------------+
 import "primitives/core.futil";
-import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external a = comb_mem_d1(32, 4, 3);
-    @external phis = comb_mem_d1(32, 4, 3);
+    @external a = seq_mem_d1(32, 4, 3);
+    @external phis = seq_mem_d1(32, 4, 3);
     r0 = std_reg(32);
     A0 = std_reg(32);
     phi0 = std_reg(32);
@@ -42,37 +42,45 @@ component main() -> () {
     group preamble_0 {
       a.addr0 = 3'd0;
       phis.addr0 = 3'd0;
-      r0.write_en = 1'd1;
-      r0.in = a.read_data;
-      phi0.write_en = 1'd1;
-      phi0.in = phis.read_data;
+      a.content_en = 1'd1;
+      phis.content_en = 1'd1;
+      r0.write_en = a.done ? 1'd1;
+      r0.in = a.done ? a.read_data;
+      phi0.write_en = a.done ? 1'd1;
+      phi0.in = phis.done ? phis.read_data;
       preamble_0[done] = (r0.done & phi0.done) ? 1'd1;
     }
     group preamble_1 {
       a.addr0 = 3'd1;
       phis.addr0 = 3'd1;
-      r1.write_en = 1'd1;
-      r1.in = a.read_data;
-      phi1.write_en = 1'd1;
-      phi1.in = phis.read_data;
+      a.content_en = 1'd1;
+      phis.content_en = 1'd1;
+      r1.write_en = a.done ? 1'd1;
+      r1.in = a.done ? a.read_data;
+      phi1.write_en = a.done ? 1'd1;
+      phi1.in = phis.done ? phis.read_data;
       preamble_1[done] = (r1.done & phi1.done) ? 1'd1;
     }
     group preamble_2 {
       a.addr0 = 3'd2;
       phis.addr0 = 3'd2;
-      r2.write_en = 1'd1;
-      r2.in = a.read_data;
-      phi2.write_en = 1'd1;
-      phi2.in = phis.read_data;
+      a.content_en = 1'd1;
+      phis.content_en = 1'd1;
+      r2.write_en = a.done ? 1'd1;
+      r2.in = a.done ? a.read_data;
+      phi2.write_en = a.done ? 1'd1;
+      phi2.in = phis.done ? phis.read_data;
       preamble_2[done] = (r2.done & phi2.done) ? 1'd1;
     }
     group preamble_3 {
       a.addr0 = 3'd3;
       phis.addr0 = 3'd3;
-      r3.write_en = 1'd1;
-      r3.in = a.read_data;
-      phi3.write_en = 1'd1;
-      phi3.in = phis.read_data;
+      a.content_en = 1'd1;
+      phis.content_en = 1'd1;
+      r3.write_en = a.done ? 1'd1;
+      r3.in = a.done ? a.read_data;
+      phi3.write_en = a.done ? 1'd1;
+      phi3.in = phis.done ? phis.read_data;
       preamble_3[done] = (r3.done & phi3.done) ? 1'd1;
     }
     group precursor_0 {
@@ -204,24 +212,28 @@ component main() -> () {
       a.write_en = 1'd1;
       a.write_data = A0.out;
       epilogue_0[done] = a.done;
+      a.content_en = 1'd1;
     }
     group epilogue_1 {
       a.addr0 = 3'd1;
       a.write_en = 1'd1;
       a.write_data = A1.out;
       epilogue_1[done] = a.done;
+      a.content_en = 1'd1;
     }
     group epilogue_2 {
       a.addr0 = 3'd2;
       a.write_en = 1'd1;
       a.write_data = A2.out;
       epilogue_2[done] = a.done;
+      a.content_en = 1'd1;
     }
     group epilogue_3 {
       a.addr0 = 3'd3;
       a.write_en = 1'd1;
       a.write_data = A3.out;
       epilogue_3[done] = a.done;
+      a.content_en = 1'd1;
     }
   }
   control {
