@@ -2,8 +2,6 @@
 use argh::FromArgs;
 #[cfg(feature = "serialize")]
 use calyx_backend::SexpBackend;
-#[cfg(feature = "yxi")]
-use calyx_backend::YxiBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
     Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
@@ -171,11 +169,6 @@ impl Opts {
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend;
-                backend.run(context, self.output)
-            }
-            #[cfg(feature = "yxi")]
-            BackendOpt::Yxi => {
-                let backend = YxiBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Firrtl => {
