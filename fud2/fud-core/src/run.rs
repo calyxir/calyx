@@ -2,6 +2,7 @@ use crate::config;
 use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
 use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::process::{Command, ExitStatus};
@@ -46,8 +47,10 @@ impl std::fmt::Display for RunError {
             } => {
                 write!(
                     f,
-                    "invalid value '{}' for key '{}'. Valid values are {:?}",
-                    value, key, valid_values
+                    "invalid value '{}' for key '{}'. Valid values are [{}]",
+                    value,
+                    key,
+                    valid_values.iter().join(", ")
                 )
             }
             RunError::NinjaFailed(c) => {
