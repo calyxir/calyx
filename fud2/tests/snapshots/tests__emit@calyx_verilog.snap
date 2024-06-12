@@ -14,6 +14,9 @@ rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
 # build targets
 build stdin.sv: calyx stdin

@@ -1296,7 +1296,7 @@ impl<'a> Simulator<'a> {
 
                             has_changed |= changed.as_bool();
                         } else if self.env.ports[dest].is_def() {
-                            todo!("Raise an error here since this assignment is undefining things: {}", self.env.ctx.printer().print_assignment(ledger.comp_id, assign_idx))
+                            todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
                         }
                     }
                 }
