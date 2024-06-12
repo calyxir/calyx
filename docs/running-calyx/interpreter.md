@@ -22,7 +22,11 @@ The interpreter is available as a stage in [fud][], which lets you provide stand
 
 You'll want to build the interpreter first:
 
-    cd interp && cargo build
+    cd interp && cargo build && cd ..
+
+Now register the interpreter as a fud stage:
+
+    fud config stages.interpreter.exec <full path to Calyx repository>/target/debug/cider
 
 Here's how to run a Calyx program:
 
@@ -42,4 +46,8 @@ For example, to fully lower the Calyx program before interpreting it:
         -s calyx.flags '-p all' \
         interp/tests/control/if.futil
 
+In particular, the interpreter does not currently support [`ref` cells][ref-cells].
+To run the interpreter on a program that uses these, you must first compile them away by running the `compile-invoke` pass.
+
 [fud]: fud/index.md
+[ref-cells]: ../lang/memories-by-reference.md#the-easy-way-ref-cells
