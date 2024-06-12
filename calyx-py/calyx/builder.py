@@ -1097,7 +1097,7 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
         width = cell.infer_width(x)
         if not width:
             raise WidthInferenceError(
-                "Cannot infer width. "
+                f"Could not infer width of input '{x}' when invoking component '{cell.name}'. "
                 "Consider providing width as an argument."
             )
         return width
