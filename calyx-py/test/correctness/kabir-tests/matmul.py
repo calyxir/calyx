@@ -64,5 +64,5 @@ def matmul_component(prog, dim):
 
 if __name__ == "__main__":
     prog = cb.Builder()
-    matmul_component(prog, 4)
+    matmul_component(prog, 3)
     prog.program.emit()
