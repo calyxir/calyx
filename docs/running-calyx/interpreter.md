@@ -47,7 +47,7 @@ For example, to fully lower the Calyx program before interpreting it:
         interp/tests/control/if.futil
 
 In particular, the interpreter does not currently support the [invoke][] command.
-To run the interpreter on a program that uses `invoke`s, you must first run the `compile-invoke` pass before interpreting the program.
+To run the interpreter on a program that uses `invoke`, you must first run the `compile-invoke` pass before interpreting the program.
 
 [fud]: fud/index.md
 [invoke]: ../lang/ref.md#invoke

@@ -8,7 +8,7 @@ debugging Calyx programs.
 
 If you are using [`fud`][fud], getting started with the debugger is easy.
 
-First, follow the instructions in the [interpreter section][interp-fud] to build the interpreter and register it as a `fud` stage.
+First, follow [these instructions][interp-fud] to build the interpreter and register it as a `fud` stage.
 
 Assuming you are trying to debug a program called `my_program.futil` with data
 file `my_program.futil.data`, invoke the debugger with the following command:
@@ -18,6 +18,13 @@ fud e --to debugger -q my_program.futil -s verilog.data my_program.futil.data
 ```
 
 This will open the target program in the interactive debugger. Note that we use `fud`'s *quiet* flag, `-q`, here. This avoids clashes between `fud`'s outputs and the debugger's outputs, since both tools interact with `stdout`.
+
+The interpreter does not currently support the [invoke][] command.
+To run the debugger on a program that uses `invoke`, you must first run the `compile-invoke` pass before interpreting the program:
+
+```
+fud e --to debugger -s calyx.flags '-p compile-invoke' -q my_program.futil -s verilog.data my_program.futil.data
+```
 
 ## Advancing Program execution
 
@@ -282,3 +289,4 @@ Use `help` to see all commands. Use `exit` to exit the debugger.
 [gdb]: https://sourceware.org/gdb/
 [interp]: ../running-calyx/interpreter.md
 [interp-fud]: ../running-calyx/interpreter.md#interpreting-via-fud
+[invoke]: ../lang/ref.md#invoke
