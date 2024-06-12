@@ -16,7 +16,7 @@ pub enum RunError {
     MissingConfig(String),
 
     /// An invalid value was found for a configuration key the configuration.
-    InvalidValue(String, String, Vec<String>),
+    InvalidValue{key : String, value : String, valid_values: Vec<String>},
 
     /// The Ninja process exited with nonzero status.
     NinjaFailed(ExitStatus),
@@ -35,11 +35,11 @@ impl std::fmt::Display for RunError {
             RunError::MissingConfig(s) => {
                 write!(f, "missing required config key: {}", s)
             }
-            RunError::InvalidValue(key, value, values) => {
+            RunError::InvalidValue{key, value, valid_values} => {
                 write!(
                     f,
                     "invalid value '{}' for key '{}'. Valid values are {:?}",
-                    key, value, values
+                    value, key, valid_values
                 )
             }
             RunError::NinjaFailed(c) => {
@@ -362,17 +362,17 @@ impl<W: Write> Emitter<W> {
     pub fn config_constrained_val(
         &self,
         key: &str,
-        values: Vec<&str>,
+        valid_values: Vec<&str>,
     ) -> Result<String, RunError> {
         let value = self.config_val(key)?;
-        if values.contains(&value.as_str()) {
+        if valid_values.contains(&value.as_str()) {
             Ok(value)
         } else {
-            Err(RunError::InvalidValue(
-                key.to_string(),
-                value,
-                values.iter().map(|s| s.to_string()).collect(),
-            ))
+            Err(RunError::InvalidValue{
+                key : key.to_string(),
+                value : value,
+                valid_values : valid_values.iter().map(|s| s.to_string()).collect(),
+        })
         }
     }
 
@@ -388,14 +388,14 @@ impl<W: Write> Emitter<W> {
     pub fn config_constrained_or(
         &self,
         key: &str,
-        values: Vec<&str>,
+        valid_values: Vec<&str>,
         default: &str,
     ) -> Result<String, RunError> {
         let value = self.config_or(key, default);
         if value.as_str() == default {
             Ok(value)
         } else {
-            self.config_constrained_val(key, values)
+            self.config_constrained_val(key, valid_values)
         }
     }
 
