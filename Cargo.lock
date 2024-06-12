@@ -478,7 +478,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "calyx-pass"
+name = "calyx-pass-explorer"
 version = "0.2.1"
 dependencies = [
  "argh",

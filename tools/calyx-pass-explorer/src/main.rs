@@ -1,4 +1,4 @@
-use calyx_pass::{
+use calyx_pass_explorer::{
     cli::ParseArgs,
     pass_explorer::{Breakpoint, PassExplorer},
     tui::PassExplorerTUI,
