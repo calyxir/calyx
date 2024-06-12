@@ -46,8 +46,8 @@ For example, to fully lower the Calyx program before interpreting it:
         -s calyx.flags '-p all' \
         interp/tests/control/if.futil
 
-In particular, the interpreter does not currently support the [invoke][] command.
-To run the interpreter on a program that uses `invoke`, you must first run the `compile-invoke` pass before interpreting the program.
+In particular, the interpreter does not currently support [`ref` cells][ref-cells].
+To run the interpreter on a program that uses these, you must first compile them away by running the `compile-invoke` pass.
 
 [fud]: fud/index.md
-[invoke]: ../lang/ref.md#invoke
+[ref-cells]: ../lang/memories-by-reference.md#the-easy-way-ref-cells

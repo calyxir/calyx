@@ -19,8 +19,8 @@ fud e --to debugger -q my_program.futil -s verilog.data my_program.futil.data
 
 This will open the target program in the interactive debugger. Note that we use `fud`'s *quiet* flag, `-q`, here. This avoids clashes between `fud`'s outputs and the debugger's outputs, since both tools interact with `stdout`.
 
-The interpreter does not currently support the [invoke][] command.
-To run the debugger on a program that uses `invoke`, you must first run the `compile-invoke` pass before interpreting the program:
+The interpreter does not currently support [`ref` cells][ref-cells].
+To run the debugger on a program that uses these, you must first compile them away by running the `compile-invoke` pass:
 
 ```
 fud e --to debugger -s calyx.flags '-p compile-invoke' -q my_program.futil -s verilog.data my_program.futil.data
@@ -289,4 +289,4 @@ Use `help` to see all commands. Use `exit` to exit the debugger.
 [gdb]: https://sourceware.org/gdb/
 [interp]: ../running-calyx/interpreter.md
 [interp-fud]: ../running-calyx/interpreter.md#interpreting-via-fud
-[invoke]: ../lang/ref.md#invoke
+[ref-cells]: ../lang/memories-by-reference.md#the-easy-way-ref-cells
