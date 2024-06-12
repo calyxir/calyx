@@ -980,7 +980,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := left * right`."""
         width = width or self.try_infer_width(width, left, right)
         cell = self.mult_pipe(width, cellname, signed)
-        return self.pipe_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+        return self.pipe_store_in_reg(cell, left, right, cell.name, width, ans_reg)
     
     def div_store_in_reg(
         self,
@@ -994,7 +994,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := left / right`."""
         width = width or self.try_infer_width(width, left, right)
         cell = self.div_pipe(width, cellname, signed)
-        return self.pipe_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+        return self.pipe_store_in_reg(cell, left, right, cell.name, width, ans_reg)
     
     
     def infer_width(self, expr) -> int:
