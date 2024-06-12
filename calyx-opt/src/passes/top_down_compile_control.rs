@@ -433,7 +433,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 (RegisterEncoding::OneHot, RegisterSpread::Duplicate) => {
                     let num_registers = 2;
                     (0..num_registers)
-                        .into_iter()
                         .map(|n| {
                             let fsm_name = format!("fsm{}", n);
                             builder.add_primitive(
@@ -447,7 +446,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 (RegisterEncoding::Binary, RegisterSpread::Duplicate) => {
                     let num_registers = 2;
                     (0..num_registers)
-                        .into_iter()
                         .map(|n| {
                             let fsm_name = format!("fsm{}", n);
                             builder.add_primitive(
