@@ -8,13 +8,15 @@ import calyx.queue_call as qc
 QUEUE_LEN_FACTOR = 4
 
 
-def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
+def invoke_subqueue(pifo, sub_fifo, num, cmd, value, ans, err) -> cb.invoke:
     """Invokes the cell {queue_cell} with:
     {cmd} passed by value
     {value} passed by value
     {ans} passed by reference
     {err} passed by reference
     """
+    name = "queue_" + str(num)
+    queue_cell = pifo.cell(name, sub_fifo)
     return cb.invoke(
         queue_cell,
         in_cmd=cmd,
@@ -27,6 +29,7 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
 def insert_pifo(
     prog,
     name,
+    fifos,
     boundary,
     n_flows, # the number of flows
     queue_len_factor=QUEUE_LEN_FACTOR,
@@ -80,10 +83,6 @@ def insert_pifo(
     # If it is 2, we push `value` to the queue.
     value = pifo.input("value", 32)  # The value to push to the queue
 
-    # Declare the two sub-queues as cells of this component.
-    queue_l = pifo.cell("queue_l", queue_l)
-    queue_r = pifo.cell("queue_r", queue_r)
-
     # If a stats component was provided, declare it as a cell of this component.
     if stats:
         stats = pifo.cell("stats", stats, is_ref=True)
@@ -92,8 +91,6 @@ def insert_pifo(
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
     
-    #infer_flow = insert_flow_inference(pifo, value, flow, "infer_flow", n_flows)
-
     ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
 
@@ -101,7 +98,6 @@ def insert_pifo(
     # We'll raise this as a general error flag for overflow and underflow.
 
     len = pifo.reg(32)  # The active length of the PIFO.
-    i = pifo.reg(32) # register to hold n, the number of flows
 
     # A register that marks the next sub-queue to `pop` from.
     hot = pifo.reg(32)
@@ -120,12 +116,14 @@ def insert_pifo(
     """
     adder = pifo.add(32)
     i = pifo.reg(32) # keeps track of how many times we loop
+    hot = pifo.reg(32)
 
     # (boundary * 2) / n_flows will evenly divide "it" into n equal pieces
     divider = pifo.reg(32) # divide + (n*divide), where n is the number of times we've looped
-    divide = pifo.reg(32) # will always store the boundary value
-
-    divide = (boundary * 2) / n_flows
+    divide = (boundary * 2) // n_flows
+    bound_val = pifo.reg(32)
+    store_bound_val = pifo.reg_store(bound_val, divide, "bound_val") # will always store the boundary value
+    
     i_lt_n = pifo.lt_use(divider.out, value)
     with pifo.group("infer_flow_grp") as infer_flow_grp:
         adder.left = i.out # checking if the value is < the smallest boundary (divide), if so we 
@@ -135,10 +133,10 @@ def insert_pifo(
         flow.in_ = adder.out
         infer_flow_grp.done = flow.done
 
-    upd_divider, _ = pifo.add_store_in_reg(divider.out, divide.out, divider)
+    upd_divider, _ = pifo.add_store_in_reg(divider.out, bound_val.out, divider)
 
     # Some equality checks.
-    hot_eq_0 = pifo.eq_use(hot.out, 0)
+    hot_eq_n = pifo.eq_use(hot.out, n_flows-1) #bc 0-based indexing
     len_eq_0 = pifo.eq_use(len.out, 0)
     len_eq_max_queue_len = pifo.eq_use(len.out, max_queue_len)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
@@ -147,10 +145,11 @@ def insert_pifo(
     err_eq_0 = pifo.eq_use(err.out, 0)
     err_neq_0 = pifo.neq_use(err.out, 0)
 
-    flip_hot = pifo.bitwise_flip_reg(hot)
+    flip_hot = pifo.incr(hot) # TODO want to make it increment until it
+    # reaches n_flows, then loop back around to 0, or could check hot using mod %
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
-    # flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
+    reset_hot = pifo.reg_store(hot, 0, "reset_hot") # hot := 0
 
     len_incr = pifo.incr(len)  # len++
     len_decr = pifo.decr(len)  # len--
@@ -158,8 +157,7 @@ def insert_pifo(
     i_lt_n = pifo.lt_use(i.out, n_flows)
 
     # The main logic.
-    pifo.control += cb.while_with(i_lt_n, 
-    cb.par(
+    pifo.control += store_bound_val, cb.par(
         # Was it a pop, peek, or a push? We can do all cases in parallel.
         cb.if_with(
             # Did the user call pop?
@@ -169,43 +167,30 @@ def insert_pifo(
                 len_eq_0,
                 raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
-                    # We must check if `hot` is 0 or 1.
                     lower_err,
-                    cb.if_with(
-                        # Check if `hot` is 0.
-                        hot_eq_0,
-                        [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
-                            invoke_subqueue(queue_l, cmd, value, ans, err),
-                            # Our next step depends on whether `queue_l`
-                            # raised the error flag.
-                            # We can check these cases in parallel.
-                            cb.if_with(
-                                err_neq_0,
-                                [  # `queue_l` raised an error.
-                                    # We'll try to pop from `queue_r`.
-                                    # We'll pass it a lowered err
-                                    lower_err,
-                                    invoke_subqueue(queue_r, cmd, value, ans, err),
-                                ],
-                                # `queue_l` succeeded.
-                                # Its answer is our answer.
-                                flip_hot,
-                                # We'll just make `hot` point
-                                # to the other sub-queue.
-                            ),
-                        ],
-                        [  # Else: `hot` is 1. Proceed symmetrically.
-                            invoke_subqueue(queue_r, cmd, value, ans, err),
-                            cb.if_with(
-                                err_neq_0,
-                                [
-                                    lower_err,
-                                    invoke_subqueue(queue_l, cmd, value, ans, err),
-                                ],
-                                flip_hot,
-                            ),
-                        ],
-                    ),
+                    [
+                        for n in range(n_flows):
+                            cb.if_with(pifo.eq_use(hot.out, n), 
+                            invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                        # Our next step depends on whether `fifos[hot]`
+                        # raised the error flag.
+                        # We can check these cases in parallel.
+                        cb.while_with(
+                            err_neq_0,
+                            [  # `queue[hot]` raised an error.
+                                # We'll try to pop from `queue[hot+1]`.
+                                # We'll pass it a lowered err
+                                lower_err,
+                                cb.if_(hot_eq_n, flip_hot, reset_hot), # increment hot and invoke_subqueue on the next one
+                                for n in range(n_flows):
+                                    cb.if_with(pifo.eq_use(hot.out, n), 
+                                    invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                            ],
+                            # `queue[hot+n]` succeeded.
+                            # Its answer is our answer.
+                            cb.if_(hot_eq_n, flip_hot, reset_hot),
+                        ),
+                    ],
                     len_decr,  # Decrement the active length.
                     # It is possible that an irrecoverable error was raised above,
                     # in which case the active length should _not_ in fact be decremented.
@@ -224,36 +209,25 @@ def insert_pifo(
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
-                    cb.if_with(
-                        # Check if `hot` is 0.
-                        hot_eq_0,
-                        [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
-                            invoke_subqueue(queue_l, cmd, value, ans, err),
-                            # Our next step depends on whether `queue_l`
-                            # raised the error flag.
-                            cb.if_with(
-                                err_neq_0,
-                                [  # `queue_l` raised an error.
-                                    # We'll try to peek from `queue_r`.
-                                    # We'll pass it a lowered `err`.
-                                    lower_err,
-                                    invoke_subqueue(queue_r, cmd, value, ans, err),
-                                ],
-                            ),
-                            # Peeking does not affect `hot`.
-                            # Peeking does not affect the length.
-                        ],
-                        [
-                            invoke_subqueue(queue_r, cmd, value, ans, err),
-                            cb.if_with(
-                                err_neq_0,
-                                [
-                                    lower_err,
-                                    invoke_subqueue(queue_l, cmd, value, ans, err),
-                                ],
-                            ),
-                        ],
-                    ),
+                    [
+                        for n in range(n_flows):
+                            cb.if_with(pifo.eq_use(hot.out, n), 
+                            invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                        cb.if_with(
+                            err_neq_0,
+                            [  # `fifos[hot]` raised an error.
+                                # We'll try to peek from `fifos[hot+1]`.
+                                # We'll pass it a lowered `err`.
+                                lower_err,
+                                cb.if_(hot_eq_n, flip_hot, reset_hot), # increment hot and invoke_subqueue on the next one
+                                for n in range(n_flows):
+                                    cb.if_with(pifo.eq_use(hot.out, n), 
+                                    invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                            ],
+                        ),
+                        # Peeking does not affect `hot`.
+                        # Peeking does not affect the length.
+                    ],                  
                 ],
             ),
         ),
@@ -268,13 +242,9 @@ def insert_pifo(
                     lower_err,
                     # We need to check which flow this value should be pushed to.
                     cb.while_with(i_lt_n, [infer_flow_grp, upd_divider]),  # Infer the flow and write it to `flow`.
-                    cb.if_(
-                        flow.out,
-                        # If flow = 1, value should be pushed to queue_r.
-                        invoke_subqueue(queue_r, cmd, value, ans, err),
-                        # If flow = 0, value should be pushed to queue_l.
-                        invoke_subqueue(queue_l, cmd, value, ans, err),
-                    ),
+                    for n in range(n_flows):
+                        cb.if_with(pifo.eq_use(hot.out, n), 
+                        invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
                     cb.if_with(
                         err_eq_0,
                         # If no stats component is provided,
@@ -298,17 +268,21 @@ def insert_pifo(
                 ],
             ),
         ),
-    ) )
+    ) 
 
     return pifo
-
 
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo_l = fifo.insert_fifo(prog, "fifo_l", QUEUE_LEN_FACTOR)
-    fifo_r = fifo.insert_fifo(prog, "fifo_r", QUEUE_LEN_FACTOR)
-    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
+    n_flows = 3
+    sub_fifos = []
+    for n in range(n_flows):
+        name = "fifo" + str(n)
+        sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
+        sub_fifos.append(sub_fifo)
+
+    pifo = insert_pifo(prog, "pifo", sub_fifos, 200, n_flows)
     qc.insert_main(prog, pifo)
     return prog.program
 
