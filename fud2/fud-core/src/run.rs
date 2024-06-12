@@ -15,6 +15,9 @@ pub enum RunError {
     /// A required configuration key was missing.
     MissingConfig(String),
 
+    /// An invalid value was found for a configuration key the configuration.
+    InvalidValue(String, String, Vec<String>),
+
     /// The Ninja process exited with nonzero status.
     NinjaFailed(ExitStatus),
 }
@@ -31,6 +34,13 @@ impl std::fmt::Display for RunError {
             RunError::Io(e) => write!(f, "{}", e),
             RunError::MissingConfig(s) => {
                 write!(f, "missing required config key: {}", s)
+            }
+            RunError::InvalidValue(key, value, values) => {
+                write!(
+                    f,
+                    "invalid value '{}' for key '{}'. Valid values are {:?}",
+                    key, value, values
+                )
             }
             RunError::NinjaFailed(c) => {
                 write!(f, "ninja exited with {}", c)
@@ -348,11 +358,45 @@ impl<W: Write> Emitter<W> {
             .map_err(|_| RunError::MissingConfig(key.to_string()))
     }
 
+    /// Fetch a configuration value that is one of the elements in `values`, or panic if it's missing.
+    pub fn config_constrained_val(
+        &self,
+        key: &str,
+        values: Vec<&str>,
+    ) -> Result<String, RunError> {
+        let value = self.config_val(key)?;
+        if values.contains(&value.as_str()) {
+            Ok(value)
+        } else {
+            Err(RunError::InvalidValue(
+                key.to_string(),
+                value,
+                values.iter().map(|s| s.to_string()).collect(),
+            ))
+        }
+    }
+
     /// Fetch a configuration value, using a default if it's missing.
     pub fn config_or(&self, key: &str, default: &str) -> String {
         self.config_data
             .extract_inner::<String>(key)
             .unwrap_or_else(|_| default.into())
+    }
+
+    /// Fetch a configuration value that is one of the elements in `values`, or return a default if missing.
+    /// If an invalid value is explicitly passed, panics.
+    pub fn config_constrained_or(
+        &self,
+        key: &str,
+        values: Vec<&str>,
+        default: &str,
+    ) -> Result<String, RunError> {
+        let value = self.config_or(key, default);
+        if value.as_str() == default {
+            Ok(value)
+        } else {
+            self.config_constrained_val(key, values)
+        }
     }
 
     /// Emit a Ninja variable declaration for `name` based on the configured value for `key`.
