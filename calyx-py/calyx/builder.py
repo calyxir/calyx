@@ -942,6 +942,61 @@ class ComponentBuilder:
         width = width or self.try_infer_width(width, left, right)
         cell = self.neq(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+    
+    def pipe_store_in_reg(
+        self,
+        op_cell,
+        left,
+        right,
+        cellname,
+        width,
+        ans_reg=None
+    ):
+        """Inserts wiring into `self` to perform `reg := left op right`.
+        Designed for operators `op` that require multiple cycles.
+        """
+        
+        ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
+        with self.group(f"{cellname}_group") as op_group:
+            op_cell.left = left
+            op_cell.right = right
+            op_cell.go = 1
+
+            ans_reg.write_en = op_cell.done @ 1
+            ans_reg.in_ = op_cell.done @ op_cell.out
+            op_group.done = ans_reg.done
+
+        return op_group, ans_reg
+    
+    def mult_store_in_reg(
+        self,
+        left,
+        right,
+        ans_reg=None,
+        cellname=None,
+        width=None,
+        signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left * right`."""
+        """Note that this cannot be parameterized with `op_store_in_reg`."""
+        width = width or self.try_infer_width(width, left, right)
+        cell = self.mult_pipe(width, cellname, signed)
+        return self.pipe_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+    
+    def div_store_in_reg(
+        self,
+        left,
+        right,
+        ans_reg=None,
+        cellname=None,
+        width=None,
+        signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left * right`."""
+        """Note that this cannot be parameterized with `op_store_in_reg`."""
+        width = width or self.try_infer_width(width, left, right)
+        cell = self.div_pipe(width, cellname, signed)
+        return self.pipe_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
 
     def pipe_store_in_reg(
         self,
