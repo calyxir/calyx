@@ -59,7 +59,7 @@ fn main() -> std::io::Result<()> {
         });
     }
 
-    assert!(!args.calyx_exec.is_empty());
+    assert!(!args.calyx_exec.is_empty(), "We just assigned it a non-empty value if it was empty (unless fud somehow set the calyx executable as empty...");
 
     if util::capture_command_stdout(&args.calyx_exec, &["--version"], true)
         .is_err()
