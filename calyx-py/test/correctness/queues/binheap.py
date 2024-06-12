@@ -119,7 +119,8 @@ def insert_binheap(prog, name, factor):
         parent_idx.write_en = cb.HI
         find_parent_idx.done = parent_idx.done
 
-    add = comp.add(factor)
+    add_1 = comp.add(factor)
+    add_2 = comp.add(factor)
     lsh = comp.lsh(factor)
     with comp.group("find_child_idx") as find_child_idx:
         # Find the children of `current_idx`th element and store it in child_l_idx and child_r_idx.
@@ -127,14 +128,14 @@ def insert_binheap(prog, name, factor):
         # child_r_idx := (2 * current_idx) + 2
         lsh.left = current_idx.out
         lsh.right = cb.const(factor, 1)
-        add.left = 1
-        add.right = lsh.out
+        add_1.left = 1
+        add_1.right = lsh.out
         child_l_idx.write_en = cb.HI
-        child_l_idx.in_ = add.out
-        add.left = child_l_idx.done @ 1
-        add.right = child_l_idx.done @ child_l_idx.out
+        child_l_idx.in_ = add_1.out
+        add_2.left = child_l_idx.done @ 1
+        add_2.right = child_l_idx.done @ child_l_idx.out
         child_r_idx.write_en = child_l_idx.done @ cb.HI
-        child_r_idx.in_ = child_l_idx.done @ add.out
+        child_r_idx.in_ = child_l_idx.done @ add_2.out
         find_child_idx.done = child_r_idx.done
 
     # mem[current_idx] := (rank, value)
@@ -244,6 +245,7 @@ def insert_binheap(prog, name, factor):
         peak,
         comp.decr(size),
         cb.invoke(swap, in_a=cb.const(factor, 0), in_b=size.out, ref_mem=mem),
+        comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
         set_idx_zero,
         extract_current_rank,
         find_child_idx,
@@ -298,51 +300,6 @@ def insert_binheap(prog, name, factor):
 
     return comp
 
-def insert_split(prog, name, factor):
-    comp = prog.component(name)
-
-    n = (2**factor) - 1
-    
-    untup = comp.cell("untup", insert_untuplify(prog, "untup", 32, 32))
-
-    pairs = comp.comb_mem_d1("pairs", 64, n, factor, is_ref=True)
-    ranks = comp.comb_mem_d1("ranks", 32, n, factor, is_ref=True)
-    values = comp.comb_mem_d1("values", 32, n, factor, is_ref=True)
-
-    i = comp.reg(factor)
-    rank = comp.reg(32)
-    value = comp.reg(32)
-    
-    cond_i = comp.lt_use(i.out, n)
-
-    with comp.group("read_pair") as read_pair:
-        pairs.addr0 = i.out
-        untup.tup = pairs.read_data
-
-        rank.write_en = cb.HI
-        rank.in_ = untup.fst
-
-        value.write_en = cb.HI
-        value.in_ = untup.snd
-
-        read_pair.done = value.done @ rank.done
-
-
-    store_rank = comp.mem_store_d1(ranks, i.out, rank.out, "store_rank")  
-    store_value = comp.mem_store_d1(values, i.out, value.out, "store_value")  
-
-    comp.control += [cb.while_with(cond_i, 
-                                   [ 
-                                       read_pair, 
-                                       store_rank, 
-                                       store_value, 
-                                       comp.incr(i)
-                                   ])
-                    ]
-
-    return comp
-
-
 def insert_main(prog):
     """Inserts the main component into the program.
     Invokes the `binheap` component with 32-bit values 4 and 5,
@@ -353,28 +310,40 @@ def insert_main(prog):
     factor = 4
 
     binheap = insert_binheap(prog, "binheap", factor)
-    split = insert_split(prog, "split", factor)
-
     binheap = comp.cell("binheap", binheap)
-    split = comp.cell("split", split)
 
-    mem = comp.comb_mem_d1("mem", 64, 15, factor, is_external=True)
-    ranks = comp.comb_mem_d1("ranks", 32, 15, factor, is_external=True)
+    mem = comp.comb_mem_d1("mem", 64, 15, factor)
     values = comp.comb_mem_d1("values", 32, 15, factor, is_external=True)
 
     ans = comp.reg(32) 
     err = comp.reg(1) 
+    
+    index = 0
+
+    def push(value, rank):
+        return cb.invoke(binheap, in_value=cb.const(32, value), in_rank=cb.const(32, rank), 
+                                  in_cmd=cb.const(2, 2), ref_mem=mem, ref_ans=ans, ref_err=err)
+
+    def pop_and_store(): 
+        nonlocal index
+        index += 1
+
+        return [
+            cb.invoke(binheap, 
+                      in_value=cb.const(32, 50), in_rank=cb.const(32, 50), in_cmd=cb.const(2,0),
+                      ref_mem=mem, ref_ans=ans, ref_err=err),
+            comp.mem_store_d1(values, index - 1, ans.out, f"store_ans_{index}")
+        ]
 
     comp.control += [
-        cb.invoke(binheap, in_value=cb.const(32, 9), in_rank=cb.const(32, 9), in_cmd=cb.const(2, 2),
-                  ref_mem=mem, ref_ans=ans, ref_err=err),
-        cb.invoke(binheap, in_value=cb.const(32, 12), in_rank=cb.const(32, 12), in_cmd=cb.const(2,2),
-                  ref_mem=mem, ref_ans=ans, ref_err=err),
-        cb.invoke(binheap, in_value=cb.const(32, 6), in_rank=cb.const(32, 6), in_cmd=cb.const(2,2),
-                  ref_mem=mem, ref_ans=ans, ref_err=err),
-        cb.invoke(binheap, in_value=cb.const(32, 3), in_rank=cb.const(32, 3), in_cmd=cb.const(2,2),
-                  ref_mem=mem, ref_ans=ans, ref_err=err),
-        cb.invoke(split, ref_pairs=mem, ref_ranks=ranks, ref_values=values)
+        push(9, 9),
+        push(12, 12),
+        push(6, 6),
+        push(3, 3),
+        pop_and_store(),
+        pop_and_store(),
+        pop_and_store(),
+        pop_and_store()
     ]
 
 
