@@ -571,14 +571,15 @@ python3 yxi/axi-calyx/dynamic-axi-generator.py {}
 #Ignore fud2 stderr for now due to ninja nondeterminism
 [[tests]]
 name = "fud2 AXI wrapper invocation"
-paths = ["yxi/tests/axi/seq-mem-vec-add.futil"]
+paths = ["yxi/tests/axi/*/*-mem-vec-add.futil"]
 cmd = """
-fud2 {} --to calyx --through axi-wrapped 2> /dev/null
+dynamic=$(head -n 2 {} | tail -n 1 | cut -c 4-)
+fud2 {} --to calyx --through axi-wrapped --set $dynamic 2> /dev/null
 """
 
 [[tests]]
 name = "fud2 AXI-wrapped to verilog"
-paths = ["yxi/tests/axi/seq-mem-vec-add-axi-wrapped.futil"]
+paths = ["yxi/tests/axi/*/*-mem-vec-add-axi-wrapped.futil"]
 cmd = """
 fud2 {} --from calyx --to verilog-noverify 2> /dev/null
 """

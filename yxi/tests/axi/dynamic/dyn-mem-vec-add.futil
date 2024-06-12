@@ -1,5 +1,5 @@
-// Path to generator (used for runt tests):
-// yxi/axi-calyx/dynamic-axi-generator.py
+// Use dynamic axi generator? As opposed to read-write-compute (used for runt tests):
+// dynamic=true
 import "primitives/core.futil";
 import "primitives/memories/dyn.futil";
 component main() -> () {                                                                                                                                                                                 

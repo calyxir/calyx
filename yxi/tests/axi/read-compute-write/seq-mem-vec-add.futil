@@ -1,3 +1,5 @@
+// Use dynamic axi generator? As opposed to read-write-compute (used for runt tests):
+// dynamic=false
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 component main() -> () {                                                                                                                                                                                 
