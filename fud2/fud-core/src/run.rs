@@ -48,7 +48,9 @@ impl std::fmt::Display for RunError {
                 write!(
                     f,
                     "invalid value '{}' for key '{}'. Valid values are [{}]",
-                    value, key, valid_values.iter().join(", ")
+                    value,
+                    key,
+                    valid_values.iter().join(", ")
                 )
             }
             RunError::NinjaFailed(c) => {
