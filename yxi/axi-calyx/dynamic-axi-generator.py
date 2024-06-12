@@ -490,6 +490,7 @@ def add_axi_dyn_mem(prog, mem):
     data_width = mem[width_key]
     name = mem[name_key]
 
+    prog.import_("primitives/memories/dyn.futil")
     axi_dyn_mem = prog.component(f"axi_dyn_mem_{name}")
     # Inputs/Outputs
     seq_mem_inputs =[
@@ -598,10 +599,6 @@ def add_main_comp(prog, mems):
     # aw_channel = prog.get_component("m_aw_channel")
     # bresp_channel = prog.get_component("m_bresp_channel")
 
-    curr_addr_axi_par = []
-    curr_addr_internal_par = []
-    reads_par = []
-    writes_par = []
     ref_mem_kwargs = {}
 
     # Create single main cell
