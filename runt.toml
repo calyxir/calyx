@@ -66,7 +66,7 @@ cmd = """
 """
 
 [[tests]]
-name = "fud2 yxi"
+name = "fud2 yxi invocation"
 paths = ["yxi/tests/ref-mems-vec-add.futil"]
 cmd = """
 fud2 {} --from calyx --to yxi
@@ -552,12 +552,20 @@ fud e {} -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          --to dat -q
 """
+
 ##### Calyx AXI tests #####
 [[tests]]
-name = "calyx-py AXI wrapper generation"
-paths = ["yxi/tests/axi/*.yxi"]
+name = "calyx-py read-write-compute AXI wrapper generation"
+paths = ["yxi/tests/axi/read-compute-write/*.yxi"]
 cmd = """
 python3 yxi/axi-calyx/axi-generator.py {}
+"""
+
+[[tests]]
+name = "calyx-py dynamic AXI wrapper generation"
+paths = ["yxi/tests/axi/dynamic/*.yxi"]
+cmd = """
+python3 yxi/axi-calyx/dynamic-axi-generator.py {}
 """
 
 #Ignore fud2 stderr for now due to ninja nondeterminism
