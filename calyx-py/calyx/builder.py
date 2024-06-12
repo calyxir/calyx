@@ -1092,6 +1092,16 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
     `*` is the name of an input port, output port, or ref cell on the invoked cell.
     """
+
+    def try_infer_width(x):
+        width = cell.infer_width(x[3:])
+        if not width:
+            raise WidthInferenceError(
+                "Cannot infer width. "
+                "Consider providing width as an argument."
+            )
+        return width
+
     return ast.Invoke(
         cell._cell.id,
         [
@@ -1099,7 +1109,7 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
                 k[3:],
                 (
                     (
-                        const(cell.infer_width(k[3:]), v).expr
+                        const(try_infer_width(k[3:]), v).expr
                         if isinstance(v, int)
                         else ExprBuilder.unwrap(v)
                     )
