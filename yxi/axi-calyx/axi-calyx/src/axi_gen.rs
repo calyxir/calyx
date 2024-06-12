@@ -1,6 +1,13 @@
-use std::fmt::Display;
-
+use bad_calyx_builder::CalyxBuilder;
+use std::{fmt::Display, path::PathBuf};
 use yxi::ProgramInterface;
+
+const WRAPPER_COMPONENT_NAME: &str = "wrapper";
+
+mod axi_prefix {
+    const ADDRESS_WRITE: &str = "AW";
+    const ADDRESS_READ: &str = "AR";
+}
 
 pub enum YXIParseError {
     WidthNotMultipleOf8,
@@ -39,5 +46,22 @@ impl AXIGenerator {
             }
         }
         Ok(AXIGenerator { yxi })
+    }
+
+    pub fn yxi(&self) -> &ProgramInterface {
+        &self.yxi
+    }
+
+    pub fn build(
+        self,
+        lib_path: PathBuf,
+    ) -> calyx_utils::CalyxResult<calyx_ir::Context> {
+        let mut builder = CalyxBuilder::new(
+            None,
+            lib_path,
+            Some(WRAPPER_COMPONENT_NAME.into()),
+            "_".into(),
+        );
+        Ok(builder.finalize())
     }
 }

@@ -3,7 +3,6 @@ use calyx_frontend as frontend;
 use calyx_ir as ir;
 use calyx_ir::utils::GetMemInfo;
 use calyx_utils::CalyxResult;
-use serde::Serialize;
 use std::path::{Path, PathBuf};
 use yxi::*;
 

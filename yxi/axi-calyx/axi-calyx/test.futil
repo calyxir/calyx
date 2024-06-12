@@ -1,0 +1,9 @@
+import "memories/seq.futil";
+
+component main() -> () {                                                                                                                                                                                 
+    cells {
+        ref A0 = seq_mem_d1(32, 8, 3);
+    }
+    wires {}
+    control {}
+}

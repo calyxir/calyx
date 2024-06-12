@@ -217,11 +217,15 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "axi-calyx"
-version = "0.7.1"
+version = "0.0.0"
 dependencies = [
  "argh",
  "bad-calyx-builder",
+ "calyx-ir 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "calyx-utils 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "colored",
+ "env_logger",
+ "log",
  "serde",
  "serde_json",
  "yxi",
@@ -245,7 +249,7 @@ dependencies = [
 [[package]]
 name = "bad-calyx-builder"
 version = "0.0.0"
-source = "git+https://github.com/ethanuppal/pulsar.git?branch=relicense#5b7e2a9cebf8e11d3901ce7a5535ca4e63bd87e6"
+source = "git+https://github.com/ethanuppal/pulsar.git?branch=relicense#dee68635ef3909154213ecabfb8084c2067b94d4"
 dependencies = [
  "calyx-frontend 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "calyx-ir 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
