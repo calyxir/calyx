@@ -19,7 +19,6 @@ use std::rc::Rc;
 
 const NODE_ID: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
-
 const DUPLICATE_NUM_REG: u64 = 2;
 
 /// Computes the exit edges of a given [ir::Control] program.
