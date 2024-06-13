@@ -204,14 +204,16 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         phi = comp.get_cell(f"phi{row}")
         input = comp.get_cell("a")
         phis = comp.get_cell("phis")
-        with main.group(f"preamble_{row}") as preamble:
+        with main.group(f"preamble_{row}_reg") as preamble_reg:
             input.addr0 = row
-            phis.addr0 = row
             reg.write_en = 1
             reg.in_ = input.read_data
+            preamble_reg.done = reg.done
+        with main.group(f"preamble_{row}_phi") as preamble_phi:
+            phis.addr0 = row
             phi.write_en = 1
             phi.in_ = phis.read_data
-            preamble.done = (reg.done & phi.done) @ 1
+            preamble_phi.done = phi.done
 
     def epilogue_group(comp: cb.ComponentBuilder, row):
         input = comp.get_cell("a")
@@ -250,7 +252,19 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             epilogue_group(main, r)
 
     def control():
-        preambles = [ast.SeqComp([ast.Enable(f"preamble_{r}") for r in range(n)])]
+        preambles = [
+            ast.SeqComp(
+                [
+                    ast.ParComp(
+                        [
+                            ast.Enable(f"preamble_{r}_reg"),
+                            ast.Enable(f"preamble_{r}_phi"),
+                        ]
+                    )
+                    for r in range(n)
+                ]
+            )
+        ]
         epilogues = [ast.SeqComp([ast.Enable(f"epilogue_{r}") for r in range(n)])]
 
         ntt_stages = []
