@@ -8,10 +8,11 @@ def insert_swap(prog, name, width, len, idx_w):
 
     It takes two `idx_w`-bit inputs `a` and `b` and accepts a memory by reference.
     The memory is a `len`-element memory of `width`-bit elements.
-    It swaps the values in the memory at addresses `a` and `b`.
+    It swaps the out in the memory at addresses `a` and `b`.
     """
 
     comp = prog.component(name)
+
     a = comp.input("a", idx_w)
     b = comp.input("b", idx_w)
     mem = comp.comb_mem_d1("mem", width, len, idx_w, is_ref=True)
@@ -38,7 +39,7 @@ def insert_binheap(prog, name, factor):
     The heap just supports the `push` operation.
     Its only inputs are `value` and `rank`, the value and rank to push to the queue.
     """
-    comp: cb.ComponentBuilder = prog.component(name)
+    comp = prog.component(name)
     
     n = (2**factor) - 1
 
@@ -147,25 +148,25 @@ def insert_binheap(prog, name, factor):
         mem.write_data = tuplify.tup 
         store_rank_and_value.done = mem.done
 
-    # (output, _) := mem[idx]
-    def extract_fst(name, idx, output):
+    # (out, _) := mem[idx]
+    def extract_fst(name, idx, out):
         with comp.group(name) as extract_fst:
             mem.addr0 = idx
             untuplify.tup = mem.read_data
-            output.write_en = cb.HI
-            output.in_ = untuplify.fst
-            extract_fst.done = output.done
+            out.write_en = cb.HI
+            out.in_ = untuplify.fst
+            extract_fst.done = out.done
 
         return extract_fst
 
-    # (_, output) := mem[indx]
-    def extract_snd(name, idx, output):
+    # (_, out) := mem[indx]
+    def extract_snd(name, idx, out):
         with comp.group(name) as extract_snd:
             mem.addr0 = idx
             untuplify.tup = mem.read_data
-            output.write_en = cb.HI
-            output.in_ = untuplify.snd
-            extract_snd.done = output.done
+            out.write_en = cb.HI
+            out.in_ = untuplify.snd
+            extract_snd.done = out.done
 
         return extract_snd
 
@@ -185,46 +186,46 @@ def insert_binheap(prog, name, factor):
     # current_rank < parent_rank
     current_lt_parent = comp.lt_use(current_rank.out, parent_rank.out)
     
+    le_1 = comp.le(factor)
+    le_2 = comp.le(32)
+    if_or = comp.or_(1)
+
+    # size <= child_r_idx OR child_l_rank <= child_r_rank
+    with comp.comb_group("child_l_swap") as child_l_swap:
+        # size <= child_r_idx 
+        le_1.left = size.out
+        le_1.right = child_r_idx.out
+
+        # child_l_rank <= child_r_rank
+        le_2.left = child_l_rank.out
+        le_2.right = child_r_rank.out
+
+        if_or.left = le_1.out
+        if_or.right = le_2.out
+
     lt_1 = comp.lt(factor)
     lt_2 = comp.lt(32)
     lt_3 = comp.lt(factor)
     lt_4 = comp.lt(32)
     and_1 = comp.and_(1)
     and_2 = comp.and_(1)
-    or_ = comp.or_(1)
-
-    lt_5 = comp.lt(factor)
-    lt_6 = comp.lt(32)
-    and_3 = comp.and_(1)
+    while_or = comp.or_(1)
 
     # child_l_idx < size AND child_l_rank < current_rank
-    with comp.comb_group("current_gt_child_l") as current_gt_child_l:
-        # child_l_idx < size 
-        lt_5.left = child_l_idx.out
-        lt_5.right = size.out
-
-        # child_l_rank < current_rank
-        lt_6.left = child_l_rank.out
-        lt_6.right = current_rank.out
-
-        and_3.left = lt_5.out
-        and_3.right = lt_6.out
-
-    # child_l_idx < size && child_l_rank < current_rank
     # OR
-    # child_r_idx < size && child_r_rank < current_rank
+    # child_r_idx < size AND child_r_rank < current_rank
     with comp.comb_group("current_gt_children") as current_gt_children:
         # child_l_idx < size 
         lt_1.left = child_l_idx.out
         lt_1.right = size.out
 
-        # child_r_idx < size 
-        lt_3.left = child_r_idx.out
-        lt_3.right = size.out
-
         # child_l_rank < current_rank
         lt_2.left = child_l_rank.out
         lt_2.right = current_rank.out
+
+        # child_r_idx < size 
+        lt_3.left = child_r_idx.out
+        lt_3.right = size.out
 
         # child_r_rank < current_rank
         lt_4.left = child_r_rank.out
@@ -236,24 +237,25 @@ def insert_binheap(prog, name, factor):
         and_2.left = lt_3.out
         and_2.right = lt_4.out
 
-        or_.left = and_1.out
-        or_.right = and_2.out
+        while_or.left = and_1.out
+        while_or.right = and_2.out
 
     peak = extract_snd("peak", 0, ans)
 
     pop = [
         peak,
         comp.decr(size),
-        cb.invoke(swap, in_a=cb.const(factor, 0), in_b=size.out, ref_mem=mem),
-        comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
         set_idx_zero,
+        cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
+        comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
         extract_current_rank,
         find_child_idx,
         extract_child_l_rank,
         extract_child_r_rank,
-        cb.while_with(cb.CellAndGroup(or_, current_gt_children), 
+        # Bubble Down
+        cb.while_with(cb.CellAndGroup(while_or, current_gt_children), 
                 [
-                    cb.if_with(cb.CellAndGroup(and_3, current_gt_child_l), 
+                    cb.if_with(cb.CellAndGroup(if_or, child_l_swap), 
                             [
                                 cb.invoke(swap, in_a=child_l_idx.out, in_b=current_idx.out, ref_mem=mem), 
                                 set_idx_child_l
@@ -275,6 +277,7 @@ def insert_binheap(prog, name, factor):
         find_parent_idx,
         extract_parent_rank,
         extract_current_rank,
+        # Bubble Up
         cb.while_with(current_lt_parent,
                 [
                     cb.invoke(swap, in_a=parent_idx.out, in_b=current_idx.out, ref_mem=mem),
@@ -301,9 +304,23 @@ def insert_binheap(prog, name, factor):
     return comp
 
 def insert_main(prog):
-    """Inserts the main component into the program.
-    Invokes the `binheap` component with 32-bit values 4 and 5,
-    and a 64-bit memory of length 15.
+    """Inserts the `main` component into the program.
+
+    Invokes the `binheap` component with the following workload:
+        push(9, 9)
+        push(12, 12)
+        push(6,6)
+        push(3,3)
+        pop()
+        peak()
+        push(8, 8)
+        push(10, 10)
+        pop()
+        pop()
+        peak()
+        pop()
+        pop()
+        pop()
     """
     comp = prog.component("main")
 
@@ -313,7 +330,7 @@ def insert_main(prog):
     binheap = comp.cell("binheap", binheap)
 
     mem = comp.comb_mem_d1("mem", 64, 15, factor)
-    values = comp.comb_mem_d1("values", 32, 15, factor, is_external=True)
+    out = comp.comb_mem_d1("out", 32, 15, factor, is_external=True)
 
     ans = comp.reg(32) 
     err = comp.reg(1) 
@@ -332,15 +349,32 @@ def insert_main(prog):
             cb.invoke(binheap, 
                       in_value=cb.const(32, 50), in_rank=cb.const(32, 50), in_cmd=cb.const(2,0),
                       ref_mem=mem, ref_ans=ans, ref_err=err),
-            comp.mem_store_d1(values, index - 1, ans.out, f"store_ans_{index}")
+            comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}")
+        ]
+
+    def peak_and_store(): 
+        nonlocal index
+        index += 1
+
+        return [
+            cb.invoke(binheap, 
+                      in_value=cb.const(32, 50), in_rank=cb.const(32, 50), in_cmd=cb.const(2,1),
+                      ref_mem=mem, ref_ans=ans, ref_err=err),
+            comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}")
         ]
 
     comp.control += [
         push(9, 9),
         push(12, 12),
-        push(6, 6),
-        push(3, 3),
+        push(6,6),
+        push(3,3),
         pop_and_store(),
+        peak_and_store(),
+        push(8, 8),
+        push(10, 10),
+        pop_and_store(),
+        pop_and_store(),
+        peak_and_store(),
         pop_and_store(),
         pop_and_store(),
         pop_and_store()
