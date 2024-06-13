@@ -873,18 +873,25 @@ class ComponentBuilder:
         right,
         cellname,
         width,
-        ans_reg=None,
+        ans_reg=None
     ):
         """Inserts wiring into `self` to perform `reg := left op right`,
         where `op_cell`, a Cell that performs some `op`, is provided.
         """
+
+        is_comb = op_cell.is_comb()
         ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
             op_cell.right = right
-            ans_reg.write_en = 1
-            ans_reg.in_ = op_cell.out
+            
+            if not is_comb:
+                op_cell.go = 1
+
+            ans_reg.write_en = 1 if is_comb else op_cell.done @ 1
+            ans_reg.in_ = op_cell.out if is_comb else op_cell.done @ op_cell.out
             op_group.done = ans_reg.done
+
         return op_group, ans_reg
 
     def add_store_in_reg(
@@ -942,31 +949,6 @@ class ComponentBuilder:
         width = width or self.try_infer_width(width, left, right)
         cell = self.neq(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
-
-    def pipe_store_in_reg(
-        self,
-        op_cell,
-        left,
-        right,
-        cellname,
-        width,
-        ans_reg=None
-    ):
-        """Inserts wiring into `self` to perform `reg := left op right`.
-        Designed for operators `op` that require multiple cycles.
-        """
-        
-        ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
-        with self.group(f"{cellname}_group") as op_group:
-            op_cell.left = left
-            op_cell.right = right
-            op_cell.go = 1
-
-            ans_reg.write_en = op_cell.done @ 1
-            ans_reg.in_ = op_cell.done @ op_cell.out
-            op_group.done = ans_reg.done
-
-        return op_group, ans_reg
     
     def mult_store_in_reg(
         self,
@@ -980,7 +962,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := left * right`."""
         width = width or self.try_infer_width(width, left, right)
         cell = self.mult_pipe(width, cellname, signed)
-        return self.pipe_store_in_reg(cell, left, right, cell.name, width, ans_reg)
+        return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
     
     def div_store_in_reg(
         self,
@@ -994,7 +976,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := left / right`."""
         width = width or self.try_infer_width(width, left, right)
         cell = self.div_pipe(width, cellname, signed)
-        return self.pipe_store_in_reg(cell, left, right, cell.name, width, ans_reg)
+        return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
     
     
     def infer_width(self, expr) -> int:
@@ -1357,6 +1339,13 @@ class CellBuilder(CellLikeBuilder):
             isinstance(self._cell.comp, ast.CompInst)
             and self._cell.comp.id == prim_name
         )
+    
+    def is_comb(self) -> bool:
+        try:
+            _ = self.go, self.done
+            return False
+        except AttributeError:
+            return True
 
     def is_comb_mem_d1(self) -> bool:
         """Check if the cell is a StdMemD1 cell."""
