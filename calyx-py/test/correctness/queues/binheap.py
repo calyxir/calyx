@@ -39,6 +39,7 @@ def insert_binheap(prog, name, factor):
     The heap just supports the `push` operation.
     Its only inputs are `value` and `rank`, the value and rank to push to the queue.
     """
+
     comp = prog.component(name)
     
     n = (2**factor) - 1
@@ -115,7 +116,7 @@ def insert_binheap(prog, name, factor):
         sub.left = current_idx.out
         sub.right = 1
         rsh.left = sub.out
-        rsh.right = cb.const(factor, 1) # can this just be one?
+        rsh.right = cb.const(factor, 1)
         parent_idx.in_ = rsh.out
         parent_idx.write_en = cb.HI
         find_parent_idx.done = parent_idx.done
@@ -190,7 +191,7 @@ def insert_binheap(prog, name, factor):
     le_2 = comp.le(32)
     if_or = comp.or_(1)
     with comp.comb_group("child_l_swap") as child_l_swap:
-        # Check if the `current_idx`th element should be swapped with its left child
+        # Check if the `current_idx`th element should be swapped with its left child.
         # size <= child_r_idx OR child_l_rank <= child_r_rank
         le_1.left = size.out
         le_1.right = child_r_idx.out
@@ -209,7 +210,7 @@ def insert_binheap(prog, name, factor):
     and_2 = comp.and_(1)
     while_or = comp.or_(1)
     with comp.comb_group("current_gt_children") as current_gt_children:
-        # Check if the `current_idx`th element should be swapped with its left OR right
+        # Check if the `current_idx`th element should be swapped with its left OR right.
         # child_l_idx < size AND child_l_rank < current_rank
         # OR
         # child_r_idx < size AND child_r_rank < current_rank
@@ -281,7 +282,6 @@ def insert_binheap(prog, name, factor):
                 ])
     ]
 
-
     comp.control += [
             cb.if_with(cmd_eq_0, 
                 cb.if_with(size_eq_0, raise_err, pop), 
@@ -322,6 +322,7 @@ def insert_main(prog):
         push(10, 10),
         pop()
     """
+
     comp = prog.component("main")
 
     factor = 4
@@ -388,6 +389,7 @@ def insert_main(prog):
 
 def build():
     """Top-level function to build the program."""
+
     prog = cb.Builder()
     insert_main(prog)
     return prog.program
