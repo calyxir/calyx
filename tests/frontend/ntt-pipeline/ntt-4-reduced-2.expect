@@ -49,7 +49,7 @@ component main() -> () {
     group preamble_0_phi {
       phis.addr0 = 3'd0;
       phis.content_en = 1'd1;
-      phi0.write_en = a.done ? 1'd1;
+      phi0.write_en = phis.done ? 1'd1;
       phi0.in = phis.done ? phis.read_data;
       preamble_0_phi[done] = phi0.done;
     }
@@ -63,7 +63,7 @@ component main() -> () {
     group preamble_1_phi {
       phis.addr0 = 3'd1;
       phis.content_en = 1'd1;
-      phi1.write_en = a.done ? 1'd1;
+      phi1.write_en = phis.done ? 1'd1;
       phi1.in = phis.done ? phis.read_data;
       preamble_1_phi[done] = phi1.done;
     }
@@ -77,7 +77,7 @@ component main() -> () {
     group preamble_2_phi {
       phis.addr0 = 3'd2;
       phis.content_en = 1'd1;
-      phi2.write_en = a.done ? 1'd1;
+      phi2.write_en = phis.done ? 1'd1;
       phi2.in = phis.done ? phis.read_data;
       preamble_2_phi[done] = phi2.done;
     }
@@ -91,7 +91,7 @@ component main() -> () {
     group preamble_3_phi {
       phis.addr0 = 3'd3;
       phis.content_en = 1'd1;
-      phi3.write_en = a.done ? 1'd1;
+      phi3.write_en = phis.done ? 1'd1;
       phi3.in = phis.done ? phis.read_data;
       preamble_3_phi[done] = phi3.done;
     }
