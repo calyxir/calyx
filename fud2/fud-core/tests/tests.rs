@@ -11,7 +11,7 @@ fn find_path_simple_graph_test() {
         Some(vec![(t1, vec![s2])]),
         driver.find_path(&[s1], &[s2], &[])
     );
-    assert_eq!(Some(vec![]), driver.find_path(&[s1], &[s1], &[]));
+    assert_eq!(None, driver.find_path(&[s1], &[s1], &[]));
 }
 
 #[test]
@@ -63,7 +63,19 @@ fn find_path_only_state_graph() {
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let driver = bld.build();
-    assert_eq!(Some(vec![]), driver.find_path(&[s1], &[s1], &[]));
+    assert_eq!(None, driver.find_path(&[s1], &[s1], &[]));
+}
+
+#[test]
+fn find_path_self_loop() {
+    let mut bld = DriverBuilder::new("fud2");
+    let s1 = bld.state("s1", &[]);
+    let t1 = bld.op("t1", &[], s1, s1, |_, _, _| Ok(()));
+    let driver = bld.build();
+    assert_eq!(
+        Some(vec![((t1, vec![s1]))]),
+        driver.find_path(&[s1], &[s1], &[t1])
+    );
 }
 
 #[test]
@@ -74,7 +86,10 @@ fn find_path_cycle_graph() {
     let t1 = bld.op("t1", &[], s1, s2, |_, _, _| Ok(()));
     let t2 = bld.op("t2", &[], s2, s1, |_, _, _| Ok(()));
     let driver = bld.build();
-    assert_eq!(Some(vec![]), driver.find_path(&[s1], &[s1], &[]));
+    assert_eq!(
+        Some(vec![(t1, vec![s2]), (t2, vec![s1])]),
+        driver.find_path(&[s1], &[s1], &[])
+    );
     assert_eq!(
         Some(vec![(t1, vec![s2])]),
         driver.find_path(&[s1], &[s2], &[])
@@ -82,5 +97,21 @@ fn find_path_cycle_graph() {
     assert_eq!(
         Some(vec![(t2, vec![s1])]),
         driver.find_path(&[s2], &[s1], &[])
+    );
+}
+
+#[test]
+fn find_path_nontrivial_cycle() {
+    let mut bld = DriverBuilder::new("fud2");
+    let s1 = bld.state("s1", &[]);
+    let s2 = bld.state("s2", &[]);
+    let s3 = bld.state("s3", &[]);
+    let t1 = bld.op("t1", &[], s2, s2, |_, _, _| Ok(()));
+    let _t2 = bld.op("t2", &[], s1, s2, |_, _, _| Ok(()));
+    let t3 = bld.op("t3", &[], s2, s3, |_, _, _| Ok(()));
+    let driver = bld.build();
+    assert_eq!(
+        Some(vec![(t1, vec![s2]), (t3, vec![s3])]),
+        driver.find_path(&[s1], &[s3], &[])
     );
 }

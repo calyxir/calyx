@@ -7,6 +7,12 @@ use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
+#[derive(Hash, Eq, PartialEq)]
+enum Node {
+    State(StateRef),
+    Op(OpRef),
+}
+
 /// A Driver encapsulates a set of States and the Operations that can transform between them. It
 /// contains all the machinery to perform builds in a given ecosystem.
 pub struct Driver {
@@ -16,6 +22,7 @@ pub struct Driver {
     pub ops: PrimaryMap<OpRef, Operation>,
     pub rsrc_dir: Option<Utf8PathBuf>,
     pub rsrc_files: Option<FileData>,
+    op_graph: HashMap<Node, Vec<Node>>,
 }
 
 impl Driver {
@@ -38,12 +45,15 @@ impl Driver {
         start: &[StateRef],
         end: &[StateRef],
         through: &[OpRef],
-        visited: &mut SecondaryMap<StateRef, bool>,
+        visited: &mut SecondaryMap<StateRef, u32>,
     ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
         let mut path: Vec<(OpRef, Vec<StateRef>)> = vec![];
         for &output in end.iter().filter(|s| !start.contains(s)) {
-            // visit the state because it can only be decided upon once
-            visited[output] = true;
+            // visit the state at most twice
+            if visited[output] > 1 {
+                continue;
+            }
+            visited[output] += 1;
 
             // select and order ops
             let ops = self.parent_ops(output);
@@ -433,6 +443,27 @@ impl DriverBuilder {
     }
 
     pub fn build(self) -> Driver {
+        let mut op_graph = HashMap::new();
+        for (state_ref, _) in &self.states {
+            op_graph.insert(Node::State(state_ref), Vec::new());
+        }
+        for (op_ref, op) in &self.ops {
+            op_graph.insert(
+                Node::Op(op_ref),
+                op.input
+                    .iter()
+                    .map(|&state_ref| Node::State(state_ref))
+                    .collect(),
+            );
+            for &state_ref in &op.output {
+                op_graph
+                    .get_mut(&Node::State(state_ref))
+                    .map(|v| v.push(Node::Op(op_ref)));
+            }
+        }
+
+        //TODO: validate the built graph
+
         Driver {
             name: self.name,
             setups: self.setups,
@@ -440,6 +471,7 @@ impl DriverBuilder {
             ops: self.ops,
             rsrc_dir: self.rsrc_dir,
             rsrc_files: self.rsrc_files,
+            op_graph,
         }
     }
 }
