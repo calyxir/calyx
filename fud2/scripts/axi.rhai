@@ -2,14 +2,18 @@ import "calyx" as c;
 
 export const yxi = state("yxi", ["yxi"]);
 
+fn yxi_setup(e) {
+   e.config_var_or("yxi", "yxi", "$calyx-base/target/debug/yxi");
+   e.rule("yxi", "$yxi -l $calyx-base $in > $out");
+}
+
 op(
     "calyx-to-yxi",
-    [c::calyx_setup],
+    [c::calyx_setup, yxi_setup],
     c::calyx_state,
     yxi,
     |e, input, output| {
-        e.build_cmd([output], "calyx", [input], []);
-        e.arg("backend", "yxi");
+        e.build_cmd([output], "yxi", [input], []);
     },
 );
 
@@ -37,8 +41,7 @@ fn axi_wrapped_op(e, input, output) {
    let file_name = input.split("/")[-1];
    let tmp_yxi = replace_ext(file_name, "yxi");
 
-   e.build_cmd([tmp_yxi], "calyx", [input], []);
-   e.arg("backend", "yxi");
+   e.build_cmd([tmp_yxi], "yxi", [input], []);
 
    let refified_calyx = replace_ext(`refified_${file_name}`, "futil");
    e.build_cmd([refified_calyx], "calyx-pass", [input], []);
@@ -55,7 +58,7 @@ fn axi_wrapped_op(e, input, output) {
 
 op(
   "axi-wrapped",
-  [c::calyx_setup, wrapper_setup],
+  [c::calyx_setup, yxi_setup, wrapper_setup],
   c::calyx_state,
   c::calyx_state,
   axi_wrapped_op
