@@ -102,6 +102,23 @@ impl StaticFSM {
         assigns
     }
 
+    pub fn conditional_reset(
+        &self,
+        guard: ir::Guard<Nothing>,
+        builder: &mut ir::Builder,
+    ) -> Vec<ir::Assignment<Nothing>> {
+        let fsm_cell = Rc::clone(&self.fsm_cell);
+        let signal_on = builder.add_constant(1, 1);
+        let const_0 = builder.add_constant(0, self.bitwidth);
+        let assigns = build_assignments!(
+          builder;
+          fsm_cell["in"] = guard ? const_0["out"];
+          fsm_cell["write_en"] = guard ? signal_on["out"];
+        )
+        .to_vec();
+        assigns
+    }
+
     // Returns assignments that make the current fsm count to n
     // and then reset back to 0.
     // `incr_condition`` is an optional guard: if it is none, then the fsm will
@@ -392,10 +409,13 @@ impl StaticSchedule {
         &mut self,
         builder: &mut ir::Builder,
         static_component_interface: bool,
-    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, StaticFSM) {
+    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, ir::RRC<StaticFSM>) {
         // First build the fsm we will use to realize the schedule.
-        let mut fsm_object =
-            StaticFSM::from_basic_info(self.num_states, self.encoding, builder);
+        let mut fsm_object = ir::rrc(StaticFSM::from_basic_info(
+            self.num_states,
+            self.encoding,
+            builder,
+        ));
 
         // Instantiate the vecdeque.
         let mut res = VecDeque::new();
@@ -427,7 +447,7 @@ impl StaticSchedule {
                 .map(|static_assign| {
                     Self::make_assign_dyn(
                         static_assign,
-                        &mut fsm_object,
+                        Rc::clone(&fsm_object),
                         builder,
                     )
                 })
@@ -442,7 +462,7 @@ impl StaticSchedule {
                 None
             };
             // We need to add assignments that makes the FSM count to n.
-            assigns.extend(fsm_object.count_to_n(
+            assigns.extend(fsm_object.borrow_mut().count_to_n(
                 builder,
                 static_group_ref.get_latency() - 1,
                 fsm_incr_condition,
@@ -459,17 +479,17 @@ impl StaticSchedule {
     // E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out < 3
     fn make_guard_dyn(
         guard: ir::Guard<ir::StaticTiming>,
-        fsm_object: &mut StaticFSM,
+        fsm_object: ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-                Self::make_guard_dyn(*l, fsm_object, builder),
-                Self::make_guard_dyn(*r, fsm_object, builder),
+                Self::make_guard_dyn(*l, Rc::clone(&fsm_object), builder),
+                Self::make_guard_dyn(*r, Rc::clone(&fsm_object), builder),
             )),
             ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-                Self::make_guard_dyn(*l, fsm_object, builder),
-                Self::make_guard_dyn(*r, fsm_object, builder),
+                Self::make_guard_dyn(*l, Rc::clone(&fsm_object), builder),
+                Self::make_guard_dyn(*r, Rc::clone(&fsm_object), builder),
             )),
             ir::Guard::Not(g) => Box::new(ir::Guard::Not(
                 Self::make_guard_dyn(*g, fsm_object, builder),
@@ -479,17 +499,17 @@ impl StaticSchedule {
             }
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
-            ir::Guard::Info(static_timing) => {
-                fsm_object.query_between(builder, static_timing.get_interval())
-            }
+            ir::Guard::Info(static_timing) => fsm_object
+                .borrow_mut()
+                .query_between(builder, static_timing.get_interval()),
         }
     }
 
     // Takes in static assignment `assign` and returns a dynamic assignments
     // Mainly transforms the guards from %[2:3] -> fsm.out >= 2 & fsm.out <= 3
-    fn make_assign_dyn(
+    pub fn make_assign_dyn(
         assign: ir::Assignment<ir::StaticTiming>,
-        fsm_object: &mut StaticFSM,
+        fsm_object: ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {

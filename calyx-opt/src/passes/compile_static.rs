@@ -500,13 +500,19 @@ impl CompileStatic {
     ) -> HashMap<ir::Id, ir::Id> {
         // `sgroup_uses_map` builds a mapping of static groups -> groups that
         // it (even indirectly) triggers the `go` port of.
-        let sgroup_uses_map = Self::build_sgroup_uses_map(sgroups);
+        // let sgroup_uses_map = Self::build_sgroup_uses_map(sgroups);
         // Build conflict graph and get coloring.
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
-        Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
-        Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
-        Self::add_encoding_conflicts(sgroups, &mut conflict_graph);
+        // Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
+        // Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
+        // Self::add_encoding_conflicts(sgroups, &mut conflict_graph);
+        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
+            conflict_graph.insert_conflict(
+                &sgroup1.borrow().name(),
+                &sgroup2.borrow().name(),
+            );
+        }
         conflict_graph.color_greedy(None, true)
     }
 }
@@ -517,17 +523,60 @@ pub enum StaticStruct {
 }
 
 impl StaticStruct {
-    fn count_to_n(&self) {
+    fn count_to_n(&mut self, builder: &mut ir::Builder) {
         match self {
-            StaticStruct::Tree(tree_struct) => panic!(""),
+            StaticStruct::Tree(tree_struct) => tree_struct.count_to_n(builder),
             StaticStruct::Par(par_struct) => panic!(""),
         }
     }
 
-    fn get_final_state(&self) -> ir::Guard<Nothing> {
-        panic!("")
+    fn realize(
+        &mut self,
+        static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
+        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
+        fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) {
+        match self {
+            StaticStruct::Tree(tree_struct) => tree_struct.realize(
+                static_groups,
+                reset_early_map,
+                fsm_info_map,
+                group_rewrites,
+                builder,
+            ),
+            StaticStruct::Par(par_struct) => panic!(""),
+        }
     }
 
+    fn get_final_state(
+        &mut self,
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        match self {
+            StaticStruct::Tree(tree_struct) => {
+                tree_struct.get_final_state(builder)
+            }
+            StaticStruct::Par(_) => panic!(""),
+        }
+    }
+
+    fn get_group_name(&self) -> ir::Id {
+        match self {
+            StaticStruct::Tree(tree_struct) => {
+                let (id, _) = tree_struct.root;
+                id
+            }
+            StaticStruct::Par(par_struct) => panic!(""),
+        }
+    }
+    // fn get_fsm_cell(self) -> StaticFSM {
+    //     match self {
+    //         StaticStruct::Tree(tree_struct) => tree_struct.fsm_cell.unwrap(),
+    //         StaticStruct::Par(par_struct) => panic!(""),
+    //     }
+    // }
     fn get_latency(&self) -> u64 {
         match self {
             StaticStruct::Tree(tree_struct) => tree_struct.latency,
@@ -536,18 +585,13 @@ impl StaticStruct {
     }
 }
 
-pub enum StateType {
-    Offload(u64),
-    Increment((u64, u64)),
-}
-
 pub struct Tree {
     latency: u64,
     num_repeats: u64,
     root: (ir::Id, Vec<ir::Assignment<Nothing>>),
     children: Vec<(StaticStruct, (u64, u64))>,
-    fsm_cell: Option<StaticFSM>,
-    iter_count_cell: Option<StaticFSM>,
+    fsm_cell: Option<ir::RRC<StaticFSM>>,
+    iter_count_cell: Option<ir::RRC<StaticFSM>>,
     incrementer: Option<ir::RRC<ir::Cell>>,
 }
 impl Tree {
@@ -560,61 +604,57 @@ impl Tree {
                 assert!(self.latency == 1);
                 Box::new(ir::Guard::True)
             }
-            Some(static_fsm) => static_fsm
-                .query_between(builder, (self.latency - 1, self.latency)),
+            Some(static_fsm) => {
+                if let Some((child, (_, end_interval))) =
+                    self.children.last_mut()
+                {
+                    if *end_interval == self.latency {
+                        Box::new(child.get_final_state(builder))
+                    } else {
+                        static_fsm.borrow_mut().query_between(
+                            builder,
+                            (self.latency - 1, self.latency),
+                        )
+                    }
+                } else {
+                    static_fsm.borrow_mut().query_between(
+                        builder,
+                        (self.latency - 1, self.latency),
+                    )
+                }
+            }
         };
         let counter_final_state = match &mut self.iter_count_cell {
             None => {
                 assert!(self.num_repeats == 1);
                 Box::new(ir::Guard::True)
             }
-            Some(static_fsm) => static_fsm.query_between(
+            Some(static_fsm) => static_fsm.borrow_mut().query_between(
                 builder,
                 (self.num_repeats - 1, self.num_repeats),
             ),
         };
         ir::Guard::And(fsm_final_state, counter_final_state)
     }
+
+    fn extract_fsm_cell(&mut self) -> ir::RRC<StaticFSM> {
+        let x = self.fsm_cell.as_ref().expect("field was None");
+        Rc::clone(x)
+    }
+
     fn count_to_n(&mut self, builder: &mut ir::Builder) {
         // offload_states are the fsm_states that last multiple cycles
         // because they offload computations to children.
-        let mut state_mapping = vec![];
+        let mut offload_states = vec![];
         // Need to calculate offload_states. %[500:600] might not be at fsm=500
         // if there were previous states that were offloaded.
-        let mut cur_fsm_state = 0;
-        let mut cur_latency = 0;
+        let mut cur_delay = 0;
         for (_, (beg, end)) in &self.children {
-            let increment_interval = (cur_latency, *beg);
-            let offload_interval = (*beg, *end);
-            state_mapping.push((
-                increment_interval,
-                StateType::Increment((
-                    cur_fsm_state,
-                    cur_fsm_state + (beg - cur_latency),
-                )),
-            ));
-            cur_fsm_state += beg - cur_latency;
-            cur_latency += beg - cur_latency;
-
-            state_mapping
-                .push((offload_interval, StateType::Offload(cur_fsm_state)));
-            cur_fsm_state += 1;
-            cur_latency += end + beg;
+            offload_states.push((beg - cur_delay, (end - beg)));
+            cur_delay += end - beg;
         }
-        if cur_latency != self.latency {
-            let increment_interval = (cur_latency, self.latency);
-            state_mapping.push((
-                increment_interval,
-                StateType::Increment((
-                    cur_fsm_state,
-                    cur_fsm_state + (self.latency - cur_latency),
-                )),
-            ));
-            cur_fsm_state += self.latency - cur_latency;
-            cur_latency += self.latency - cur_latency;
-        }
+        let num_states = self.latency - cur_delay;
 
-        let num_states = cur_fsm_state;
         // Parent FSM for the "root" of the tree.
         let mut parent_fsm = StaticFSM::from_basic_info(
             num_states,
@@ -625,20 +665,15 @@ impl Tree {
         // offload_state_guard initialized to false.
         let mut offload_state_guard: ir::Guard<Nothing> =
             ir::Guard::Not(Box::new(ir::Guard::True));
-        for (_, fsm_incr_type) in state_mapping {
-            match fsm_incr_type {
-                StateType::Increment(_) => (),
-                StateType::Offload(offload_state) => {
-                    // Creating a guard that checks whether the parent fsm is
-                    // in an offload state.
-                    offload_state_guard.update(|g| {
-                        g.or(*parent_fsm.query_between(
-                            builder,
-                            (offload_state, offload_state + 1),
-                        ))
-                    });
-                }
-            }
+        for (offload_state, _) in &offload_states {
+            // Creating a guard that checks whether the parent fsm is
+            // in an offload state.
+            offload_state_guard.update(|g| {
+                g.or(*parent_fsm.query_between(
+                    builder,
+                    (*offload_state, offload_state + 1),
+                ))
+            });
         }
 
         // Increment when fsm is not in an offload state.
@@ -653,16 +688,17 @@ impl Tree {
         ));
 
         // Now handle the children, i.e., offload states.
-        for (i, (child, _)) in self.children.iter().enumerate() {
+        for (i, (child, _)) in self.children.iter_mut().enumerate() {
             // Let the child count to n.
-            child.count_to_n();
+            child.count_to_n(builder);
+
+            // Increment parent when child is in final state.
+            // e.g., fsm.in = fsm == 4 && child_fsm_in_final_state ? fsm + 1;
+            // fsm.write_en = ... // same assignments
             let (child_state, _) = offload_states[i];
             let in_child_state = parent_fsm
                 .query_between(builder, (child_state, child_state + 1));
-            let final_state_guard = child.get_final_state();
-
-            // fsm.in = fsm == 4 && child_fsm_in_final_state ? fsm + 1;
-            // fsm.write_en = ... // same assignments
+            let final_state_guard = child.get_final_state(builder);
             let parent_fsm_incr = parent_fsm.conditional_increment(
                 ir::Guard::And(in_child_state, Box::new(final_state_guard)),
                 Rc::clone(&adder),
@@ -671,9 +707,116 @@ impl Tree {
             res_vec.extend(parent_fsm_incr);
         }
 
-        self.fsm_cell = Some(parent_fsm);
+        // Getting final state for the fsm.
+        let final_state_guard = if let Some((child, (_, end_interval))) =
+            self.children.last_mut()
+        {
+            if *end_interval == self.latency {
+                child.get_final_state(builder)
+            } else {
+                *parent_fsm
+                    .query_between(builder, (self.latency - 1, self.latency))
+            }
+        } else {
+            *parent_fsm.query_between(builder, (self.latency - 1, self.latency))
+        };
+        res_vec.extend(
+            parent_fsm.conditional_reset(final_state_guard.clone(), builder),
+        );
+
+        // Handle num_repeats.
+        if self.num_repeats != 1 {
+            let mut repeat_fsm = StaticFSM::from_basic_info(
+                self.num_repeats,
+                FSMEncoding::Binary, // XXX(Caleb): change this
+                builder,
+            );
+            let (adder_asssigns, adder) = repeat_fsm.build_incrementer(builder);
+            res_vec.extend(adder_asssigns);
+            res_vec.extend(repeat_fsm.conditional_increment(
+                final_state_guard,
+                adder,
+                builder,
+            ));
+            let final_repeat_state = *repeat_fsm.query_between(
+                builder,
+                (self.num_repeats - 1, self.num_repeats),
+            );
+            res_vec.extend(
+                repeat_fsm.conditional_reset(final_repeat_state, builder),
+            );
+            self.iter_count_cell = Some(ir::rrc(repeat_fsm));
+        }
+
+        self.fsm_cell = Some(ir::rrc(parent_fsm));
         let (_, root_asgns) = &mut self.root;
         root_asgns.extend(res_vec);
+    }
+
+    fn realize(
+        &mut self,
+        static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
+        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
+        fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) {
+        let static_group = static_groups
+            .iter_mut()
+            .find(|sgroup| sgroup.borrow().name() == self.root.0)
+            .unwrap();
+        let mut static_group_ref = static_group.borrow_mut();
+        // Create the dynamic "early reset group" that will replace the static group.
+        let static_group_name = static_group.borrow().name();
+        let mut early_reset_name = static_group_name.to_string();
+        early_reset_name.insert_str(0, "early_reset_");
+        let early_reset_group = builder.add_group(early_reset_name);
+        let fsm_ref = self.extract_fsm_cell();
+        let mut assigns = std::mem::take(&mut static_group_ref.assignments)
+            .into_iter()
+            .map(|assign| {
+                StaticSchedule::make_assign_dyn(
+                    assign,
+                    Rc::clone(&fsm_ref),
+                    builder,
+                )
+            })
+            .collect_vec();
+
+        // Add assignment `group[done] = ud.out`` to the new group.
+        structure!( builder; let ud = prim undef(1););
+        let early_reset_done_assign = build_assignments!(
+          builder;
+          early_reset_group["done"] = ? ud["out"];
+        );
+        assigns.extend(early_reset_done_assign);
+        assigns.extend(std::mem::take(&mut self.root.1));
+
+        early_reset_group.borrow_mut().assignments = assigns;
+        early_reset_group.borrow_mut().attributes =
+            static_group.borrow().attributes.clone();
+
+        // Now we have to update the fields with a bunch of information.
+        // This makes it easier when we have to build wrappers, rewrite ports, etc.
+
+        // Map the static group name -> early reset group name.
+        // This is helpful for rewriting control
+        reset_early_map
+            .insert(static_group_name, early_reset_group.borrow().name());
+        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
+        // Technically we could do this w/ early_reset_map but is easier w/
+        // group_rewrite, which is explicitly of type `PortRewriterMap`
+        group_rewrites.insert(
+            ir::Canonical::new(static_group_name, ir::Id::from("go")),
+            early_reset_group.borrow().find("go").unwrap_or_else(|| {
+                unreachable!(
+                    "group {} has no go port",
+                    early_reset_group.borrow().name()
+                )
+            }),
+        );
+        fsm_info_map
+            .insert(early_reset_group.borrow().name(), Rc::clone(&fsm_ref));
     }
 }
 pub struct Par {
@@ -685,15 +828,16 @@ pub struct Par {
 impl CompileStatic {
     fn build_static_struct(
         name: ir::Id,
-        static_groups: &Vec<ir::StaticGroup>,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         num_repeats: u64,
     ) -> StaticStruct {
         let target_group = static_groups
             .iter()
-            .find(|sgroup| sgroup.name() == name)
+            .find(|sgroup| sgroup.borrow().name() == name)
             .unwrap();
         let mut res_vec = vec![];
-        for assign in &target_group.assignments {
+        let target_group_ref = target_group.borrow();
+        for assign in &target_group_ref.assignments {
             match &assign.dst.borrow().parent {
                 PortParent::Cell(_) => (),
                 PortParent::Group(_) => panic!(""),
@@ -724,17 +868,17 @@ impl CompileStatic {
                 },
             }
         }
-        if target_group.attributes.has(ir::BoolAttr::ParCtrl) {
+        if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
             StaticStruct::Par(Par {
                 threads: res_vec,
-                latency: target_group.latency,
+                latency: target_group_ref.latency,
                 num_repeats: num_repeats,
             })
         } else {
             res_vec.sort_by_key(|(_, interval)| *interval);
             assert!(Self::are_ranges_non_overlapping(&res_vec));
             StaticStruct::Tree(Tree {
-                latency: target_group.latency,
+                latency: target_group_ref.latency,
                 fsm_cell: None,
                 iter_count_cell: None,
                 incrementer: None,
@@ -746,12 +890,13 @@ impl CompileStatic {
     }
     fn get_sgroup_latency(
         name: ir::Id,
-        static_groups: &[ir::StaticGroup],
+        static_groups: &[ir::RRC<ir::StaticGroup>],
     ) -> u64 {
         static_groups
             .iter()
-            .find(|sgroup| sgroup.name() == name)
+            .find(|sgroup| sgroup.borrow().name() == name)
             .unwrap()
+            .borrow()
             .get_latency()
     }
     fn are_ranges_non_overlapping(
@@ -766,6 +911,35 @@ impl CompileStatic {
             }
         }
         true
+    }
+
+    fn get_static_enables(ctrl: &ir::Control) -> Vec<ir::Id> {
+        match ctrl {
+            ir::Control::Seq(ir::Seq { stmts, .. })
+            | ir::Control::Par(ir::Par { stmts, .. }) => stmts
+                .iter()
+                .flat_map(|stmt| Self::get_static_enables(stmt))
+                .collect_vec(),
+            ir::Control::Empty(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Invoke(_) => vec![],
+            ir::Control::If(c) => {
+                let mut tbranch_res = Self::get_static_enables(&*c.tbranch);
+                let fbranch_res = Self::get_static_enables(&*c.fbranch);
+                tbranch_res.extend(fbranch_res);
+                tbranch_res
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. })
+            | ir::Control::While(ir::While { body, .. }) => {
+                Self::get_static_enables(&*body)
+            }
+            ir::Control::Static(sc) => {
+                let ir::StaticControl::Enable(s) = sc else {
+                    panic!("")
+                };
+                vec![s.group.borrow().name()]
+            }
+        }
     }
 }
 
@@ -886,59 +1060,59 @@ impl CompileStatic {
     // Compiles `sgroup` according to the static component interface.
     // The assignments are removed from `sgroup` and placed into
     // `builder.component`'s continuous assignments.
-    fn compile_static_interface(
-        &self,
-        sgroup: ir::RRC<ir::StaticGroup>,
-        builder: &mut ir::Builder,
-    ) {
-        if sgroup.borrow().get_latency() > 1 {
-            // Build a StaticSchedule object, realize it and add assignments
-            // as continuous assignments.
-            let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-            let (mut assigns, mut fsm) = sch.realize_schedule(builder, true);
-            builder
-                .component
-                .continuous_assignments
-                .extend(assigns.pop_front().unwrap());
-            let comp_sig = Rc::clone(&builder.component.signature);
-            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
-                // If necessary, add the logic to produce a done signal.
-                let done_assigns =
-                    Self::make_done_signal_for_promoted_component(
-                        &mut fsm, builder, comp_sig,
-                    );
-                builder
-                    .component
-                    .continuous_assignments
-                    .extend(done_assigns);
-            }
-        } else {
-            // Handle components with latency == 1.
-            // In this case, we don't need an FSM; we just guard the assignments
-            // with comp.go.
-            let assignments =
-                std::mem::take(&mut sgroup.borrow_mut().assignments);
-            for assign in assignments {
-                let comp_sig = Rc::clone(&builder.component.signature);
-                builder.component.continuous_assignments.push(
-                    Self::make_assign_dyn_one_cycle_static_comp(
-                        assign, comp_sig,
-                    ),
-                );
-            }
-            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
-                let comp_sig = Rc::clone(&builder.component.signature);
-                let done_assigns =
-                    Self::make_done_signal_for_promoted_component_one_cycle(
-                        builder, comp_sig,
-                    );
-                builder
-                    .component
-                    .continuous_assignments
-                    .extend(done_assigns);
-            }
-        }
-    }
+    // fn compile_static_interface(
+    //     &self,
+    //     sgroup: ir::RRC<ir::StaticGroup>,
+    //     builder: &mut ir::Builder,
+    // ) {
+    //     if sgroup.borrow().get_latency() > 1 {
+    //         // Build a StaticSchedule object, realize it and add assignments
+    //         // as continuous assignments.
+    //         let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
+    //         let (mut assigns, mut fsm) = sch.realize_schedule(builder, true);
+    //         builder
+    //             .component
+    //             .continuous_assignments
+    //             .extend(assigns.pop_front().unwrap());
+    //         let comp_sig = Rc::clone(&builder.component.signature);
+    //         if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+    //             // If necessary, add the logic to produce a done signal.
+    //             let done_assigns =
+    //                 Self::make_done_signal_for_promoted_component(
+    //                     &mut fsm, builder, comp_sig,
+    //                 );
+    //             builder
+    //                 .component
+    //                 .continuous_assignments
+    //                 .extend(done_assigns);
+    //         }
+    //     } else {
+    //         // Handle components with latency == 1.
+    //         // In this case, we don't need an FSM; we just guard the assignments
+    //         // with comp.go.
+    //         let assignments =
+    //             std::mem::take(&mut sgroup.borrow_mut().assignments);
+    //         for assign in assignments {
+    //             let comp_sig = Rc::clone(&builder.component.signature);
+    //             builder.component.continuous_assignments.push(
+    //                 Self::make_assign_dyn_one_cycle_static_comp(
+    //                     assign, comp_sig,
+    //                 ),
+    //             );
+    //         }
+    //         if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+    //             let comp_sig = Rc::clone(&builder.component.signature);
+    //             let done_assigns =
+    //                 Self::make_done_signal_for_promoted_component_one_cycle(
+    //                     builder, comp_sig,
+    //                 );
+    //             builder
+    //                 .component
+    //                 .continuous_assignments
+    //                 .extend(done_assigns);
+    //         }
+    //     }
+    // }
 }
 
 impl Visitor for CompileStatic {
@@ -948,6 +1122,8 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let static_enable_ids =
+            Self::get_static_enables(&*comp.control.borrow());
         // Static components have a different interface than static groups.
         // If we have a static component, we have to compile the top-level
         // island (this island should be a group by now and corresponds
@@ -967,7 +1143,7 @@ impl Visitor for CompileStatic {
         };
 
         // Drain static groups of component
-        let sgroups: Vec<ir::RRC<ir::StaticGroup>> =
+        let mut sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
 
         // The first thing is to assign FSMs -> static islands.
@@ -977,90 +1153,48 @@ impl Visitor for CompileStatic {
 
         let mut builder = ir::Builder::new(comp, sigs);
         // Build one StaticSchedule object per color
-        let mut schedule_objects =
-            Self::build_schedule_objects(coloring, sgroups, &mut builder);
+        let mut tree_objects = static_enable_ids
+            .iter()
+            .map(|id| Self::build_static_struct(*id, &sgroups, 1))
+            .collect_vec();
 
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
 
         // Realize an fsm for each StaticSchedule object.
-        for sch in &mut schedule_objects {
+        for tree in &mut tree_objects {
             // Check whether we are compiling the top level static island.
             let static_component_interface = match top_level_sgroup {
                 None => false,
                 // For the top level group, sch.static_groups should really only
                 // have one group--the top level group.
-                Some(top_level_group) => sch
-                    .static_groups
-                    .iter()
-                    .any(|g| g.borrow().name() == top_level_group),
+                Some(top_level_group) => {
+                    tree.get_group_name() == top_level_group
+                }
             };
             // Static component/groups have different interfaces
             if static_component_interface {
+                panic!("")
                 // Compile top level static group differently.
                 // We know that the top level static island has its own
                 // unique FSM so we can do `.pop().unwrap()`
-                self.compile_static_interface(
-                    sch.static_groups.pop().unwrap(),
-                    &mut builder,
-                )
+                // self.compile_static_interface(
+                //     sch.static_groups.pop().unwrap(),
+                //     &mut builder,
+                // )
             } else {
-                let (mut static_group_assigns, fsm) = sch
-                    .realize_schedule(&mut builder, static_component_interface);
-                let fsm_ref = ir::rrc(fsm);
-                for static_group in sch.static_groups.iter() {
-                    // Create the dynamic "early reset group" that will replace the static group.
-                    let static_group_name = static_group.borrow().name();
-                    let mut early_reset_name = static_group_name.to_string();
-                    early_reset_name.insert_str(0, "early_reset_");
-                    let early_reset_group = builder.add_group(early_reset_name);
-                    let mut assigns = static_group_assigns.pop_front().unwrap();
-
-                    // Add assignment `group[done] = ud.out`` to the new group.
-                    structure!( builder; let ud = prim undef(1););
-                    let early_reset_done_assign = build_assignments!(
-                      builder;
-                      early_reset_group["done"] = ? ud["out"];
-                    );
-                    assigns.extend(early_reset_done_assign);
-
-                    early_reset_group.borrow_mut().assignments = assigns;
-                    early_reset_group.borrow_mut().attributes =
-                        static_group.borrow().attributes.clone();
-
-                    // Now we have to update the fields with a bunch of information.
-                    // This makes it easier when we have to build wrappers, rewrite ports, etc.
-
-                    // Map the static group name -> early reset group name.
-                    // This is helpful for rewriting control
-                    self.reset_early_map.insert(
-                        static_group_name,
-                        early_reset_group.borrow().name(),
-                    );
-                    // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
-                    // Technically we could do this w/ early_reset_map but is easier w/
-                    // group_rewrite, which is explicitly of type `PortRewriterMap`
-                    group_rewrites.insert(
-                        ir::Canonical::new(
-                            static_group_name,
-                            ir::Id::from("go"),
-                        ),
-                        early_reset_group.borrow().find("go").unwrap_or_else(
-                            || {
-                                unreachable!(
-                                    "group {} has no go port",
-                                    early_reset_group.borrow().name()
-                                )
-                            },
-                        ),
-                    );
-
-                    self.fsm_info_map.insert(
-                        early_reset_group.borrow().name(),
-                        Rc::clone(&fsm_ref),
-                    );
-                }
+                tree.count_to_n(&mut builder);
             }
+        }
+
+        for mut tree in tree_objects {
+            tree.realize(
+                &mut sgroups,
+                &mut self.reset_early_map,
+                &mut self.fsm_info_map,
+                &mut group_rewrites,
+                &mut builder,
+            );
         }
 
         // Rewrite static_group[go] to early_reset_group[go]
@@ -1075,10 +1209,7 @@ impl Visitor for CompileStatic {
         });
 
         // Add the static groups back to the component.
-        for schedule in schedule_objects {
-            comp.get_static_groups_mut()
-                .append(schedule.static_groups.into_iter());
-        }
+        comp.get_static_groups_mut().append(sgroups.into_iter());
 
         Ok(Action::Continue)
     }
