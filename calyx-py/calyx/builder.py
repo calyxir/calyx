@@ -625,7 +625,7 @@ class ComponentBuilder:
         with self.comb_group(groupname) as comb_group:
             cell.left = left
             cell.right = right
-            if cell.is_comb():
+            if not cell.is_comb():
                 cell.go = HI
         return CellAndGroup(cell, comb_group)
 
