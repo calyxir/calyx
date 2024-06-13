@@ -603,7 +603,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // done condition for group
         // arbitrarily look at first fsm register, since all are identical
-        let last_guard = Self::build_query(
+        let first_fsm_last_guard = Self::build_query(
             self.builder,
             used_slicers_vec
                 .get_mut(0)
@@ -618,22 +618,40 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let done_assign = self.builder.build_assignment(
             group.borrow().get("done"),
             signal_on.borrow().get("out"),
-            last_guard.clone(),
+            first_fsm_last_guard.clone(),
         );
 
         group.borrow_mut().assignments.push(done_assign);
 
         // Cleanup: Add a transition from last state to the first state for each register
-        let reset_fsm = build_assignments!(self.builder;
-            fsm1["in"] = last_guard ? first_state["out"];
-            fsm1["write_en"] = last_guard ? signal_on["out"];
-        );
+        let reset_fsms = fsms
+            .iter()
+            .enumerate()
+            .flat_map(|(i, fsm)| {
+                let fsm_last_guard = Self::build_query(
+                    self.builder,
+                    used_slicers_vec.get_mut(i).expect(
+                        "the used slicer map at this index does not exist",
+                    ),
+                    &fsm_rep,
+                    fsm,
+                    &signal_on,
+                    &fsm_rep.last_state,
+                    &fsm_size,
+                );
+                let reset_fsm = build_assignments!(self.builder;
+                    fsm["in"] = fsm_last_guard ? first_state["out"];
+                    fsm["write_en"] = fsm_last_guard ? signal_on["out"];
+                );
+                reset_fsm.to_vec()
+            })
+            .collect_vec();
 
-        // extend with conditions to set fsm to initial state
+        // extend with conditions to set all fsms to initial state
         self.builder
             .component
             .continuous_assignments
-            .extend(reset_fsm);
+            .extend(reset_fsms);
 
         group
     }
