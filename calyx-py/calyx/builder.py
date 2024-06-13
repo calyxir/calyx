@@ -625,6 +625,8 @@ class ComponentBuilder:
         with self.comb_group(groupname) as comb_group:
             cell.left = left
             cell.right = right
+            if cell.is_comb():
+                cell.go = HI
         return CellAndGroup(cell, comb_group)
 
     def binary_use_names(self, cellname, leftname, rightname, groupname=None):
@@ -705,6 +707,16 @@ class ComponentBuilder:
         """Inserts wiring into `self` to compute `not input`."""
         width = self.try_infer_width(width, input, input)
         return self.unary_use(input, self.not_(width, cellname))
+    
+    def mult_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `left` * `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.mult_pipe(width, cellname, signed))
+    
+    def div_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `left` * `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.div_pipe(width, cellname, signed))
 
     def bitwise_flip_reg(self, reg, cellname=None):
         """Inserts wiring into `self` to bitwise-flip the contents of `reg`
@@ -880,13 +892,14 @@ class ComponentBuilder:
         """
 
         is_comb = op_cell.is_comb()
+        print("HELLO " + str(is_comb))
         ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
             op_cell.right = right
             
             if not is_comb:
-                op_cell.go = 1
+                op_cell.go = HI
 
             ans_reg.write_en = 1 if is_comb else op_cell.done @ 1
             ans_reg.in_ = op_cell.out if is_comb else op_cell.done @ op_cell.out
@@ -1342,7 +1355,7 @@ class CellBuilder(CellLikeBuilder):
     
     def is_comb(self) -> bool:
         try:
-            _ = self.go, self.done
+            _, _ = self.go, self.done
             return False
         except AttributeError:
             return True
