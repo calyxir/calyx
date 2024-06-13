@@ -20,7 +20,7 @@ fn wrapper_setup(e) {
 
    // Define a simple `combine` rule that just concats any number of files.
    e.rule("combine", "cat $in > $out");
-   e.rule("remove-imports", "sed '1,/component main/{/component main/!d; }' $in > $out");
+   e.rule("remove-imports", "sed '1,/component main/{/component main/!d}' $in > $out");
 }
 
 /// Replace the extension in `path` with `new_ext`
@@ -40,7 +40,7 @@ fn axi_wrapped_op(e, input, output) {
    e.build_cmd([tmp_yxi], "calyx", [input], []);
    e.arg("backend", "yxi");
 
-   let refified_calyx = `refified_${file_name}.futil`;
+   let refified_calyx = replace_ext(`refified_${file_name}`, "futil");
    e.build_cmd([refified_calyx], "calyx-pass", [input], []);
    e.arg("pass", "external-to-ref");
 
