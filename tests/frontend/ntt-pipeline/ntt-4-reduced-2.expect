@@ -39,41 +39,53 @@ component main() -> () {
     sub1 = std_ssub(32);
   }
   wires {
-    group preamble_0 {
+    group preamble_0_reg {
       a.addr0 = 3'd0;
-      phis.addr0 = 3'd0;
       r0.write_en = 1'd1;
       r0.in = a.read_data;
+      preamble_0_reg[done] = r0.done;
+    }
+    group preamble_0_phi {
+      phis.addr0 = 3'd0;
       phi0.write_en = 1'd1;
       phi0.in = phis.read_data;
-      preamble_0[done] = (r0.done & phi0.done) ? 1'd1;
+      preamble_0_phi[done] = phi0.done;
     }
-    group preamble_1 {
+    group preamble_1_reg {
       a.addr0 = 3'd1;
-      phis.addr0 = 3'd1;
       r1.write_en = 1'd1;
       r1.in = a.read_data;
+      preamble_1_reg[done] = r1.done;
+    }
+    group preamble_1_phi {
+      phis.addr0 = 3'd1;
       phi1.write_en = 1'd1;
       phi1.in = phis.read_data;
-      preamble_1[done] = (r1.done & phi1.done) ? 1'd1;
+      preamble_1_phi[done] = phi1.done;
     }
-    group preamble_2 {
+    group preamble_2_reg {
       a.addr0 = 3'd2;
-      phis.addr0 = 3'd2;
       r2.write_en = 1'd1;
       r2.in = a.read_data;
+      preamble_2_reg[done] = r2.done;
+    }
+    group preamble_2_phi {
+      phis.addr0 = 3'd2;
       phi2.write_en = 1'd1;
       phi2.in = phis.read_data;
-      preamble_2[done] = (r2.done & phi2.done) ? 1'd1;
+      preamble_2_phi[done] = phi2.done;
     }
-    group preamble_3 {
+    group preamble_3_reg {
       a.addr0 = 3'd3;
-      phis.addr0 = 3'd3;
       r3.write_en = 1'd1;
       r3.in = a.read_data;
+      preamble_3_reg[done] = r3.done;
+    }
+    group preamble_3_phi {
+      phis.addr0 = 3'd3;
       phi3.write_en = 1'd1;
       phi3.in = phis.read_data;
-      preamble_3[done] = (r3.done & phi3.done) ? 1'd1;
+      preamble_3_phi[done] = phi3.done;
     }
     group precursor_0 {
       r0.in = A0.out;
@@ -227,10 +239,22 @@ component main() -> () {
   control {
     seq {
       seq {
-        preamble_0;
-        preamble_1;
-        preamble_2;
-        preamble_3;
+        par {
+          preamble_0_reg;
+          preamble_0_phi;
+        }
+        par {
+          preamble_1_reg;
+          preamble_1_phi;
+        }
+        par {
+          preamble_2_reg;
+          preamble_2_phi;
+        }
+        par {
+          preamble_3_reg;
+          preamble_3_phi;
+        }
       }
       par {
         s0_mul0;

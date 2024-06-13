@@ -137,10 +137,32 @@ impl ScriptRunner {
         let bld = Rc::clone(&self.builder);
         self.engine.register_fn(
             "state",
-            move |name: &str, extensions: rhai::Array| {
+            move |ctx: rhai::NativeCallContext,
+                  name: &str,
+                  extensions: rhai::Array| {
                 let v = to_str_slice(&extensions);
                 let v = v.iter().map(|x| &**x).collect::<Vec<_>>();
-                bld.borrow_mut().state(name, &v)
+                let state = bld.borrow_mut().state(name, &v);
+
+                #[cfg(not(debug_assertions))]
+                // use ctx when we build in release mode
+                // so that we don't get a warning
+                {
+                    _ = ctx;
+                }
+
+                // try to set state source
+                #[cfg(debug_assertions)]
+                if let Some(src) =
+                    ctx.global_runtime_state().source().and_then(|p| {
+                        PathBuf::from(p)
+                            .file_name()
+                            .map(|s| s.to_string_lossy().to_string())
+                    })
+                {
+                    bld.borrow_mut().state_source(state, src);
+                }
+                state
             },
         );
     }
@@ -171,7 +193,15 @@ impl ScriptRunner {
                   output: StateRef,
                   rule_name: &str| {
                 let setups = sctx.setups_array(&ctx, setups)?;
-                Ok(bld.borrow_mut().rule(&setups, input, output, rule_name))
+                let op =
+                    bld.borrow_mut().rule(&setups, input, output, rule_name);
+
+                // try to set op source
+                #[cfg(debug_assertions)]
+                if let Some(name) = sctx.path.file_name() {
+                    bld.borrow_mut().op_source(op, name.to_string_lossy());
+                }
+                Ok(op)
             },
         );
     }
@@ -192,7 +222,15 @@ impl ScriptRunner {
                     ast: Rc::new(sctx.ast.clone_functions_only()),
                     name: build.fn_name().to_string(),
                 };
-                Ok(bld.borrow_mut().add_op(name, &setups, input, output, rctx))
+                let op =
+                    bld.borrow_mut().add_op(name, &setups, input, output, rctx);
+
+                // try to set op source
+                #[cfg(debug_assertions)]
+                if let Some(name) = sctx.path.file_name() {
+                    bld.borrow_mut().op_source(op, name.to_string_lossy());
+                }
+                Ok(op)
             },
         );
     }
