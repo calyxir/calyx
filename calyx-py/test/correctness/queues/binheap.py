@@ -189,14 +189,12 @@ def insert_binheap(prog, name, factor):
     le_1 = comp.le(factor)
     le_2 = comp.le(32)
     if_or = comp.or_(1)
-
-    # size <= child_r_idx OR child_l_rank <= child_r_rank
     with comp.comb_group("child_l_swap") as child_l_swap:
-        # size <= child_r_idx 
+        # Check if the `current_idx`th element should be swapped with its left child
+        # size <= child_r_idx OR child_l_rank <= child_r_rank
         le_1.left = size.out
         le_1.right = child_r_idx.out
 
-        # child_l_rank <= child_r_rank
         le_2.left = child_l_rank.out
         le_2.right = child_r_rank.out
 
@@ -210,24 +208,20 @@ def insert_binheap(prog, name, factor):
     and_1 = comp.and_(1)
     and_2 = comp.and_(1)
     while_or = comp.or_(1)
-
-    # child_l_idx < size AND child_l_rank < current_rank
-    # OR
-    # child_r_idx < size AND child_r_rank < current_rank
     with comp.comb_group("current_gt_children") as current_gt_children:
-        # child_l_idx < size 
+        # Check if the `current_idx`th element should be swapped with its left OR right
+        # child_l_idx < size AND child_l_rank < current_rank
+        # OR
+        # child_r_idx < size AND child_r_rank < current_rank
         lt_1.left = child_l_idx.out
         lt_1.right = size.out
 
-        # child_l_rank < current_rank
         lt_2.left = child_l_rank.out
         lt_2.right = current_rank.out
 
-        # child_r_idx < size 
         lt_3.left = child_r_idx.out
         lt_3.right = size.out
 
-        # child_r_rank < current_rank
         lt_4.left = child_r_rank.out
         lt_4.right = current_rank.out
 
@@ -247,7 +241,7 @@ def insert_binheap(prog, name, factor):
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
-        comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
+        #comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
         extract_current_rank,
         find_child_idx,
         extract_child_l_rank,
@@ -307,19 +301,25 @@ def insert_main(prog):
     """Inserts the `main` component into the program.
 
     Invokes the `binheap` component with the following workload:
-        push(9, 9)
-        push(12, 12)
-        push(6,6)
-        push(3,3)
-        pop()
-        peak()
-        push(8, 8)
-        push(10, 10)
-        pop()
-        pop()
-        peak()
-        pop()
-        pop()
+        push(9, 9),
+        push(12, 12),
+        push(6, 6),
+        push(3, 3),
+        pop(),
+        peak(),
+        push(8, 8),
+        push(10, 10),
+        pop(),
+        pop(),
+        peak(),
+        pop(),
+        pop(),
+        pop(),
+        push(3, 3),
+        push(4, 4),
+        push(5, 5),
+        push(6, 6),
+        push(10, 10),
         pop()
     """
     comp = prog.component("main")
@@ -366,8 +366,8 @@ def insert_main(prog):
     comp.control += [
         push(9, 9),
         push(12, 12),
-        push(6,6),
-        push(3,3),
+        push(6, 6),
+        push(3, 3),
         pop_and_store(),
         peak_and_store(),
         push(8, 8),
@@ -377,16 +377,20 @@ def insert_main(prog):
         peak_and_store(),
         pop_and_store(),
         pop_and_store(),
+        pop_and_store(),
+        push(3, 3),
+        push(4, 4),
+        push(5, 5),
+        push(6, 6),
+        push(10, 10),
         pop_and_store()
     ]
-
 
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
     insert_main(prog)
     return prog.program
-
 
 if __name__ == "__main__":
     build().emit()
