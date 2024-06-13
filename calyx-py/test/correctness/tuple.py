@@ -78,19 +78,23 @@ def insert_main(prog):
         mem1.content_en = cb.HI
         run_tuplify.done = mem1.done
 
-    with comp.group("run_untuplify") as run_untuplify:
+    with comp.group("run_untuplify_fst") as run_untuplify_fst:
         untuplify.tup = cb.const(64, 17179869186)
         mem2.addr0 = cb.const(1, 0)
         mem2.write_en = cb.HI
         mem2.write_data = untuplify.fst
         mem2.content_en = cb.HI
+        run_untuplify_fst.done = mem2.done
+
+    with comp.group("run_untuplify_snd") as run_untuplify_snd:
+        untuplify.tup = cb.const(64, 17179869186)
         mem3.addr0 = cb.const(1, 0)
         mem3.write_en = cb.HI
         mem3.write_data = untuplify.snd
         mem3.content_en = cb.HI
-        run_untuplify.done = (mem2.done & mem3.done) @ cb.HI
+        run_untuplify_snd.done = mem3.done
 
-    comp.control += cb.par(run_tuplify, run_untuplify)
+    comp.control += cb.par(run_tuplify, run_untuplify_fst, run_untuplify_snd)
 
     return comp
 

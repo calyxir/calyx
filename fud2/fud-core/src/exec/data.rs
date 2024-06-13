@@ -13,6 +13,9 @@ pub struct State {
     /// Pseudo-states can only be final outputs; they are appropraite for representing actions that
     /// interact directly with the user, for example.
     pub extensions: Vec<String>,
+
+    /// Describes where this operation was defined.
+    pub source: Option<String>,
 }
 
 impl State {
@@ -39,6 +42,8 @@ pub struct Operation {
     pub output: StateRef,
     pub setups: Vec<SetupRef>,
     pub emit: Box<dyn run::EmitBuild>,
+    /// Describes where this operation was defined.
+    pub source: Option<String>,
 }
 
 /// A reference to an Operation.
