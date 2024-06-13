@@ -2,6 +2,7 @@ import "rtl_sim" as sim;
 import "testbench" as tb;
 import "calyx" as c;
 
+export const verilator_setup = verilator_setup;
 fn verilator_setup(e) {
    e.config_var_or("verilator", "verilator.exe", "verilator");
    e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000");
@@ -16,6 +17,7 @@ fn verilator_setup(e) {
    e.rule("cp", "cp $in $out");
 }
 
+export const verilator_build = verilator_build;
 fn verilator_build(e, input, output, standalone_tb) {
    let out_dir = "verilator-out";
    let sim_bin = `${out_dir}/VTOP`;
