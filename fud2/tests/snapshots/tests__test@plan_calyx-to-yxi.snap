@@ -13,8 +13,14 @@ rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
-build /output.ext: calyx /input.ext
-  backend = yxi
+yxi = $calyx-base/target/debug/yxi
+rule yxi
+  command = $yxi -l $calyx-base $in > $out
+
+build /output.ext: yxi /input.ext
 
 default /output.ext

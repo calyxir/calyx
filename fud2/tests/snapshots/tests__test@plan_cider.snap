@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: debug"
+description: "emit plan: cider"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -18,8 +18,6 @@ build $datadir: hex-data $sim_data | json-dat.py
 rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
 cycle-limit = 500000000
-
-build tb.sv: get-rsrc
 
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
@@ -54,6 +52,7 @@ rule interp-to-dump
   command = $cider-converter --to json $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
-build /output.ext: cider-debug /input.ext | data.json
+build interp_out.dump: run-cider cider-input.futil | data.dump
+build /output.ext: interp-to-dump interp_out.dump | $sim_data $cider-converter
 
 default /output.ext

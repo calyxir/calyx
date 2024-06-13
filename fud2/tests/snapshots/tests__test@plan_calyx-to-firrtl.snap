@@ -13,6 +13,9 @@ rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
 rule ref-to-external
   command = sed 's/ref /@external /g' $in > $out
@@ -27,8 +30,7 @@ rule dummy
 
 build external.futil: ref-to-external /input.ext
 build ref.futil: external-to-ref /input.ext
-build memory-info.json: calyx external.futil
-  backend = yxi
+build memory-info.json: yxi external.futil
 build tb.sv: generate-refmem-testbench memory-info.json
 build tmp-out.fir: calyx ref.futil
   backend = firrtl

@@ -13,6 +13,11 @@ source: fud2/tests/tests.rs
         "verilog-noverify",
     ),
     (
+        "calyx-to-cider",
+        "calyx",
+        "cider",
+    ),
+    (
         "calyx-to-cocotb-axi",
         "verilog-noverify",
         "cocotb-axi",
@@ -31,6 +36,11 @@ source: fud2/tests/tests.rs
         "calyx-to-yxi",
         "calyx",
         "yxi",
+    ),
+    (
+        "cider",
+        "cider",
+        "dat",
     ),
     (
         "dahlia-to-calyx",
@@ -79,11 +89,6 @@ source: fud2/tests/tests.rs
     ),
     (
         "interp",
-        "calyx",
-        "dat",
-    ),
-    (
-        "interp-flat",
         "calyx",
         "dat",
     ),

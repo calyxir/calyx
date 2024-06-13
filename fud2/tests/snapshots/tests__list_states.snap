@@ -3,6 +3,7 @@ source: fud2/tests/tests.rs
 ---
 [
     "calyx",
+    "cider",
     "cocotb-axi",
     "dahlia",
     "dat",

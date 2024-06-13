@@ -28,6 +28,9 @@ rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
 cider-exe = $calyx-base/target/debug/cider
 cider-converter = $calyx-base/target/debug/cider-data-converter
@@ -43,7 +46,7 @@ rule dat-to-interp
 rule interp-to-dat
   command = $python interp-dat.py --from-interp $in $sim_data > $out
 build data.json: dat-to-interp $sim_data | interp-dat.py
-rule cider2
+rule run-cider
   command = $cider-exe -l $calyx-base --data data.dump $in flat > $out
 rule dump-to-interp
   command = $cider-converter --to cider $in > $out
