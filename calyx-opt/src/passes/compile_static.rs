@@ -517,12 +517,11 @@ pub enum StaticStruct {
 }
 
 impl StaticStruct {
-    fn count_to_n(&self) -> Vec<ir::Assignment<Nothing>> {
+    fn count_to_n(&self) {
         match self {
             StaticStruct::Tree(tree_struct) => panic!(""),
             StaticStruct::Par(par_struct) => panic!(""),
         }
-        vec![]
     }
 
     fn get_final_state(&self) -> ir::Guard<Nothing> {
@@ -535,6 +534,11 @@ impl StaticStruct {
             StaticStruct::Par(par_struct) => par_struct.latency,
         }
     }
+}
+
+pub enum StateType {
+    Offload(u64),
+    Increment((u64, u64)),
 }
 
 pub struct Tree {
@@ -574,37 +578,72 @@ impl Tree {
     fn count_to_n(&mut self, builder: &mut ir::Builder) {
         // offload_states are the fsm_states that last multiple cycles
         // because they offload computations to children.
-        let mut offload_states = vec![];
+        let mut state_mapping = vec![];
         // Need to calculate offload_states. %[500:600] might not be at fsm=500
         // if there were previous states that were offloaded.
-        let mut cur_delay = 0;
+        let mut cur_fsm_state = 0;
+        let mut cur_latency = 0;
         for (_, (beg, end)) in &self.children {
-            offload_states.push((beg - cur_delay, (end - beg)));
-            cur_delay += end - beg;
-        }
-        let num_states = self.latency - cur_delay;
+            let increment_interval = (cur_latency, *beg);
+            let offload_interval = (*beg, *end);
+            state_mapping.push((
+                increment_interval,
+                StateType::Increment((
+                    cur_fsm_state,
+                    cur_fsm_state + (beg - cur_latency),
+                )),
+            ));
+            cur_fsm_state += beg - cur_latency;
+            cur_latency += beg - cur_latency;
 
+            state_mapping
+                .push((offload_interval, StateType::Offload(cur_fsm_state)));
+            cur_fsm_state += 1;
+            cur_latency += end + beg;
+        }
+        if cur_latency != self.latency {
+            let increment_interval = (cur_latency, self.latency);
+            state_mapping.push((
+                increment_interval,
+                StateType::Increment((
+                    cur_fsm_state,
+                    cur_fsm_state + (self.latency - cur_latency),
+                )),
+            ));
+            cur_fsm_state += self.latency - cur_latency;
+            cur_latency += self.latency - cur_latency;
+        }
+
+        let num_states = cur_fsm_state;
+        // Parent FSM for the "root" of the tree.
         let mut parent_fsm = StaticFSM::from_basic_info(
             num_states,
             FSMEncoding::Binary, // XXX(Caleb): change this
             builder,
         );
 
+        // offload_state_guard initialized to false.
         let mut offload_state_guard: ir::Guard<Nothing> =
             ir::Guard::Not(Box::new(ir::Guard::True));
-        for (offload_state, _) in &offload_states {
-            offload_state_guard.update(|g| {
-                g.or(*parent_fsm.query_between(
-                    builder,
-                    (*offload_state, offload_state + 1),
-                ))
-            });
+        for (_, fsm_incr_type) in state_mapping {
+            match fsm_incr_type {
+                StateType::Increment(_) => (),
+                StateType::Offload(offload_state) => {
+                    // Creating a guard that checks whether the parent fsm is
+                    // in an offload state.
+                    offload_state_guard.update(|g| {
+                        g.or(*parent_fsm.query_between(
+                            builder,
+                            (offload_state, offload_state + 1),
+                        ))
+                    });
+                }
+            }
         }
 
-        let mut not_offload_state = offload_state_guard.not();
-
+        // Increment when fsm is not in an offload state.
+        let not_offload_state = offload_state_guard.not();
         let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
-
         let (adder_asssigns, adder) = parent_fsm.build_incrementer(builder);
         res_vec.extend(adder_asssigns);
         res_vec.extend(parent_fsm.conditional_increment(
@@ -613,14 +652,17 @@ impl Tree {
             builder,
         ));
 
+        // Now handle the children, i.e., offload states.
         for (i, (child, _)) in self.children.iter().enumerate() {
-            let mut assigns = child.count_to_n();
+            // Let the child count to n.
+            child.count_to_n();
             let (child_state, _) = offload_states[i];
             let in_child_state = parent_fsm
                 .query_between(builder, (child_state, child_state + 1));
-
             let final_state_guard = child.get_final_state();
 
+            // fsm.in = fsm == 4 && child_fsm_in_final_state ? fsm + 1;
+            // fsm.write_en = ... // same assignments
             let parent_fsm_incr = parent_fsm.conditional_increment(
                 ir::Guard::And(in_child_state, Box::new(final_state_guard)),
                 Rc::clone(&adder),
