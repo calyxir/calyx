@@ -408,7 +408,10 @@ class ComponentBuilder:
         """Generate a StdMemD2 cell."""
         self.prog.import_("primitives/memories/comb.futil")
         return self.cell(
-            name, ast.Stdlib.comb_mem_d2(bitwidth, len0, len1, idx_size0, idx_size1), is_external, is_ref
+            name,
+            ast.Stdlib.comb_mem_d2(bitwidth, len0, len1, idx_size0, idx_size1),
+            is_external,
+            is_ref,
         )
 
     def seq_mem_d1(
@@ -440,7 +443,10 @@ class ComponentBuilder:
         """Generate a SeqMemD2 cell."""
         self.prog.import_("primitives/memories/seq.futil")
         return self.cell(
-            name, ast.Stdlib.seq_mem_d2(bitwidth, len0, len1, idx_size0, idx_size1), is_external, is_ref
+            name,
+            ast.Stdlib.seq_mem_d2(bitwidth, len0, len1, idx_size0, idx_size1),
+            is_external,
+            is_ref,
         )
 
     def binary(
@@ -799,7 +805,7 @@ class ComponentBuilder:
 
     def mem_load_d1(self, mem, i, reg, groupname):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a seq_d1 memory or a comb_mem_d1 memory 
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory
         """
         assert mem.is_seq_mem_d1() or mem.is_comb_mem_d1()
         is_comb = mem.is_comb_mem_d1()
@@ -817,7 +823,7 @@ class ComponentBuilder:
 
     def mem_load_d2(self, mem, i, j, reg, groupname):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a seq_d2 memory or a comb_mem_d2 memory 
+        where `mem` is a seq_d2 memory or a comb_mem_d2 memory
         """
         assert mem.is_seq_mem_d2() or mem.is_comb_mem_d2()
         is_comb = mem.is_comb_mem_d2()
@@ -836,7 +842,7 @@ class ComponentBuilder:
 
     def mem_store_d1(self, mem, i, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d1 memory or a comb_mem_d1 memory 
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory
         """
         assert mem.is_seq_mem_d1() or mem.is_comb_mem_d1()
         is_comb = mem.is_comb_mem_d1()
@@ -851,7 +857,7 @@ class ComponentBuilder:
 
     def mem_store_d2(self, mem, i, j, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d2 memory or a comb_mem_d2 memory 
+        where `mem` is a seq_d2 memory or a comb_mem_d2 memory
         """
         assert mem.is_seq_mem_d2() or mem.is_comb_mem_d2()
         is_comb = mem.is_comb_mem_d2()
@@ -1140,6 +1146,16 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
     `*` is the name of an input port, output port, or ref cell on the invoked cell.
     """
+
+    def try_infer_width(x):
+        width = cell.infer_width(x)
+        if not width:
+            raise WidthInferenceError(
+                f"Could not infer width of input '{x}' when invoking cell '{cell.name}'. "
+                "Consider using `const(width, value)` instead of `value`."
+            )
+        return width
+
     return ast.Invoke(
         cell._cell.id,
         [
@@ -1147,7 +1163,7 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
                 k[3:],
                 (
                     (
-                        const(cell.infer_width(k[3:]), v).expr
+                        const(try_infer_width(k[3:]), v).expr
                         if isinstance(v, int)
                         else ExprBuilder.unwrap(v)
                     )
@@ -1266,6 +1282,22 @@ class ExprBuilder:
     def __ne__(self, other: ExprBuilder):
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
+
+    def __lt__(self, other: ExprBuilder):
+        """Construct a less-than comparison with <."""
+        return ExprBuilder(ast.Lt(self.expr, other.expr))
+
+    def __le__(self, other: ExprBuilder):
+        """Construct a less-than-or-equal comparison with <."""
+        return ExprBuilder(ast.Lte(self.expr, other.expr))
+
+    def __gt__(self, other: ExprBuilder):
+        """Construct a greater-than comparison with <."""
+        return ExprBuilder(ast.Gt(self.expr, other.expr))
+
+    def __ge__(self, other: ExprBuilder):
+        """Construct a greater-than-or-equal comparison with <."""
+        return ExprBuilder(ast.Gte(self.expr, other.expr))
 
     @property
     def name(self):
