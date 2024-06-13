@@ -213,7 +213,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         with main.group(f"preamble_{row}_phi") as preamble_phi:
             phis.addr0 = row
             phis.content_en = 1
-            phi.write_en = input.done @ 1
+            phi.write_en = phis.done @ 1
             phi.in_ = phis.done @ phis.read_data
             preamble_phi.done = phi.done
 
