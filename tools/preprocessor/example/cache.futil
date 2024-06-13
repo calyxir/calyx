@@ -1,0 +1,28 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+$define ADDRESS_BITS 16
+$define VALID_BITS 1
+$define DIRTY_BITS 1
+$define TAG_BITS 10
+$define INDEX_BITS 3
+$define OFFSET_BITS 3
+$define ENTRY_BITS TAG_BITS + INDEX_BITS + OFFSET_BITS 
+$define NUM_ENTRIES 24
+
+component cache(@go(1) read_go: 1, @go(2) write_go: 1) -> (
+  @done(1) read_done: 1,
+  @done(2) write_done: 1
+) {
+  cells {
+    entries = seq_mem_d1($(VALID_BITS + DIRTY_BITS + ENTRY_BITS), $NUM_ENTRIES, $ADDRESS_BITS);
+  }
+  wires {}
+  control {} 
+}
+
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}

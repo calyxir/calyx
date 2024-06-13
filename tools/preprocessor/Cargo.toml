@@ -1,0 +1,17 @@
+[package]
+name = "preprocessor"
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+readme.workspace = true
+description.workspace = true
+categories.workspace = true
+homepage.workspace = true
+edition.workspace = true
+version = "0.0.0"
+rust-version.workspace = true
+
+[dependencies]
+colored = "2.1.0"
+evalexpr = "11.3.0"
