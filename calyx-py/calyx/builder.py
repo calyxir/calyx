@@ -892,7 +892,6 @@ class ComponentBuilder:
         """
 
         is_comb = op_cell.is_comb()
-        print("HELLO " + str(is_comb))
         ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
