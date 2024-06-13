@@ -1235,6 +1235,22 @@ class ExprBuilder:
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
 
+    def __lt__(self, other: ExprBuilder):
+        """Construct a less-than comparison with <."""
+        return ExprBuilder(ast.Lt(self.expr, other.expr))
+
+    def __le__(self, other: ExprBuilder):
+        """Construct a less-than-or-equal comparison with <."""
+        return ExprBuilder(ast.Lte(self.expr, other.expr))
+
+    def __gt__(self, other: ExprBuilder):
+        """Construct a greater-than comparison with <."""
+        return ExprBuilder(ast.Gt(self.expr, other.expr))
+
+    def __ge__(self, other: ExprBuilder):
+        """Construct a greater-than-or-equal comparison with <."""
+        return ExprBuilder(ast.Gte(self.expr, other.expr))
+
     @property
     def name(self):
         """Get the name of the expression."""
