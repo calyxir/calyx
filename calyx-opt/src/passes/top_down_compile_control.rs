@@ -20,6 +20,8 @@ use std::rc::Rc;
 const NODE_ID: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
 
+const DUPLICATE_NUM_REG: u64 = 2;
+
 /// Computes the exit edges of a given [ir::Control] program.
 ///
 /// ## Example
@@ -228,8 +230,11 @@ enum RegisterSpread {
 #[derive(Clone, Copy)]
 /// A type that represents how the FSM should be implemented in hardware.
 struct FSMRepresentation {
+    // the representation of a state within a register (one-hot, binary, etc.)
     encoding: RegisterEncoding,
+    // the number of registers representing the dynamic finite state machine
     spread: RegisterSpread,
+    // the index of the last state in the fsm (total # states = last_state + 1)
     last_state: u64,
 }
 
@@ -349,8 +354,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
             });
     }
     // Queries the FSM by building a new slicer and corresponding assignments if
-    /// the query hasn't yet been made. If this query has been made before, it
-    /// reuses the old query. Returns a new guard representing the query.
+    /// the query hasn't yet been made. If this query has been made before with one-hot
+    /// encoding, it reuses the old query, but always returns a new guard representing the query.
     fn build_query(
         builder: &mut ir::Builder,
         used_slicers: &mut HashMap<u64, RRC<Cell>>,
@@ -418,45 +423,36 @@ impl<'b, 'a> Schedule<'b, 'a> {
             }
         };
 
-        let fsms: Vec<Rc<std::cell::RefCell<Cell>>> =
-            match (fsm_rep.encoding, fsm_rep.spread) {
-                (RegisterEncoding::Binary, RegisterSpread::Single) => {
-                    vec![builder.add_primitive("fsm", "std_reg", &[fsm_size])]
-                }
-                (RegisterEncoding::OneHot, RegisterSpread::Single) => {
-                    vec![builder.add_primitive(
-                        "fsm",
+        let fsms = match (fsm_rep.encoding, fsm_rep.spread) {
+            (RegisterEncoding::Binary, RegisterSpread::Single) => {
+                vec![builder.add_primitive("fsm", "std_reg", &[fsm_size])]
+            }
+            (RegisterEncoding::OneHot, RegisterSpread::Single) => {
+                vec![builder.add_primitive("fsm", "init_one_reg", &[fsm_size])]
+            }
+            (RegisterEncoding::OneHot, RegisterSpread::Duplicate) => (0
+                ..DUPLICATE_NUM_REG)
+                .map(|n| {
+                    let fsm_name = format!("fsm{}", n);
+                    builder.add_primitive(
+                        fsm_name.as_str(),
                         "init_one_reg",
                         &[fsm_size],
-                    )]
-                }
-                (RegisterEncoding::OneHot, RegisterSpread::Duplicate) => {
-                    let num_registers = 2;
-                    (0..num_registers)
-                        .map(|n| {
-                            let fsm_name = format!("fsm{}", n);
-                            builder.add_primitive(
-                                fsm_name.as_str(),
-                                "init_one_reg",
-                                &[fsm_size],
-                            )
-                        })
-                        .collect()
-                }
-                (RegisterEncoding::Binary, RegisterSpread::Duplicate) => {
-                    let num_registers = 2;
-                    (0..num_registers)
-                        .map(|n| {
-                            let fsm_name = format!("fsm{}", n);
-                            builder.add_primitive(
-                                fsm_name.as_str(),
-                                "std_reg",
-                                &[fsm_size],
-                            )
-                        })
-                        .collect()
-                }
-            };
+                    )
+                })
+                .collect(),
+            (RegisterEncoding::Binary, RegisterSpread::Duplicate) => (0
+                ..DUPLICATE_NUM_REG)
+                .map(|n| {
+                    let fsm_name = format!("fsm{}", n);
+                    builder.add_primitive(
+                        fsm_name.as_str(),
+                        "std_reg",
+                        &[fsm_size],
+                    )
+                })
+                .collect(),
+        };
 
         (fsms, first_state, fsm_size)
     }
@@ -506,7 +502,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         }));
 
         // keep track of used slicers if using one hot encoding. one for each register
-        let mut used_slicers_vec: Vec<HashMap<u64, RRC<Cell>>> =
+        let mut used_slicers_vec =
             fsms.iter().map(|_| HashMap::new()).collect_vec();
 
         // enable assignments
