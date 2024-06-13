@@ -1353,11 +1353,20 @@ class CellBuilder(CellLikeBuilder):
         )
     
     def is_comb(self) -> bool:
-        try:
-            _, _ = self.go, self.done
-            return False
-        except AttributeError:
-            return True
+        return self._cell.comp.id in (
+            "std_add",
+            "std_sub",
+            "std_lt",
+            "std_le",
+            "std_ge",
+            "std_gt",
+            "std_eq",
+            "std_neq",
+            "std_sgt",
+            "std_slt",
+            "std_fp_sgt",
+            "std_fp_slt",
+        )
 
     def is_comb_mem_d1(self) -> bool:
         """Check if the cell is a StdMemD1 cell."""
