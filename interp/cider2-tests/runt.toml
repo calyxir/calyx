@@ -76,8 +76,9 @@ expect_dir = "invoke"
 name = "invoke comp"
 paths = ["../tests/control/invoke/*.futil"]
 cmd = """
-fud2 {} --from calyx --to dat --through cider -s calyx.flags=" -p compile-invoke" -s sim.data={}.data | jq --sort-keys
+fud2 {} --from calyx --to dat --through cider -s calyx.flags=" -p compile-invoke" -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
 """
+expect_dir = "invoke"
 
 # [[tests]]
 # name = "fully structural"
