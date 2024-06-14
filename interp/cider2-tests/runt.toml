@@ -80,18 +80,18 @@ fud2 {} --from calyx --to dat --through cider -s calyx.flags=" -p compile-invoke
 """
 expect_dir = "invoke"
 
-# [[tests]]
-# name = "fully structural"
-# paths = [
-#   "tests/control/*.futil",
-#   # Disabled iteration tests due to bug
-#   #    "tests/control/iteration/*.futil"
-# ]
-# cmd = """
-# ../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../ | ../target/debug/cider | jq .memories --sort-keys
-# """
-# expect_dir = "tests/lowered/"
-# # timeout = 10
+[[tests]]
+name = "fully structural"
+paths = [
+  "../tests/control/*.futil",
+  # Disabled iteration tests due to bug
+  "../tests/control/iteration/*.futil",
+]
+cmd = """
+../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+expect_dir = "control"
+# timeout = 10
 
 [[tests]]
 name = "fully structural static"
@@ -113,19 +113,28 @@ fud2 --from calyx --to dat \
          {} | jq --sort-keys
 """
 
-# [[tests]]
-# name = "correctness ref cells"
-# paths = ["../tests/correctness/ref-cells/*.futil"]
-# cmd = """
-# fud exec --from calyx --to jq \
-#          --through interpreter-out \
-#          -s calyx.flags "-p compile-invoke" \
-#          -s verilog.data {}.data \
-#          -s interpreter.flags " --raw" \
-#          -s jq.expr ".main" \
-#          -s jq.flags "--sort-keys " \
-#          {} -q
-# """
+[[tests]]
+name = "correctness ref cells"
+paths = ["../../tests/correctness/ref-cells/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
+
+[[tests]]
+name = "correctness ref cells compiled"
+paths = ["../../tests/correctness/ref-cells/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         -s calyx.flags=" -p compile-invoke" \
+         {} | jq --sort-keys
+"""
 
 # [[tests]]
 # name = "numeric types correctness and parsing"
