@@ -1,8 +1,8 @@
 use crate::analysis::{
-    FSMEncoding, FSMTree, GraphColoring, ParTree, StaticFSM, Tree,
+    FSMTree, GraphColoring, ParTree, StateType, StaticFSM, Tree,
 };
 use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
-use calyx_ir::{self as ir, Nothing, PortParent, StaticTiming};
+use calyx_ir::{self as ir, PortParent};
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
 use core::panic;
@@ -485,18 +485,20 @@ impl CompileStatic {
 }
 
 impl CompileStatic {
-    fn build_static_struct(
+    fn build_tree_object(
         name: ir::Id,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         num_repeats: u64,
     ) -> FSMTree {
+        // Find the group that will serve as the root of the tree.
         let target_group = static_groups
             .iter()
             .find(|sgroup| sgroup.borrow().name() == name)
             .unwrap();
-        let mut res_vec = vec![];
+        let mut children_vec = vec![];
         let target_group_ref = target_group.borrow();
         for assign in &target_group_ref.assignments {
+            // Looking for static_group[go] = %[i:j] ? 1'd1; assignments to build children.
             match &assign.dst.borrow().parent {
                 PortParent::Cell(_) => (),
                 PortParent::Group(_) => panic!(""),
@@ -514,8 +516,8 @@ impl CompileStatic {
                         );
                         let child_num_repeats =
                             child_execution_time / target_child_latency;
-                        res_vec.push((
-                            Self::build_static_struct(
+                        children_vec.push((
+                            Self::build_tree_object(
                                 name,
                                 static_groups,
                                 child_num_repeats,
@@ -527,22 +529,40 @@ impl CompileStatic {
                 },
             }
         }
+
         if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
             FSMTree::Par(ParTree {
-                threads: res_vec,
+                threads: children_vec,
                 latency: target_group_ref.latency,
                 num_repeats: num_repeats,
             })
         } else {
-            res_vec.sort_by_key(|(_, interval)| *interval);
-            assert!(Self::are_ranges_non_overlapping(&res_vec));
+            children_vec.sort_by_key(|(_, interval)| *interval);
+            assert!(Self::are_ranges_non_overlapping(&children_vec));
+            let mut cur_delay = 0;
+            let mut cur_lat = 0;
+            let mut delay_map = BTreeMap::new();
+            for (_, (beg, end)) in &children_vec {
+                delay_map.insert((cur_lat, *beg), StateType::Delay(cur_delay));
+                delay_map
+                    .insert((*beg, *end), StateType::Offload(beg - cur_delay));
+                cur_lat = *end;
+                cur_delay += end - beg;
+            }
+            if cur_lat != target_group_ref.latency {
+                delay_map.insert(
+                    (cur_lat, target_group_ref.latency),
+                    StateType::Delay(cur_delay),
+                );
+            }
             FSMTree::Tree(Tree {
                 latency: target_group_ref.latency,
                 fsm_cell: None,
                 iter_count_cell: None,
                 incrementer: None,
                 root: (name, vec![]),
-                children: res_vec,
+                delay_map: delay_map,
+                children: children_vec,
                 num_repeats: num_repeats,
             })
         }
@@ -812,10 +832,10 @@ impl Visitor for CompileStatic {
         let coloring = Self::get_coloring(&sgroups, &comp.control.borrow());
 
         let mut builder = ir::Builder::new(comp, sigs);
-        // Build one StaticSchedule object per color
+        // Build one tree object per color
         let mut tree_objects = static_enable_ids
             .iter()
-            .map(|id| Self::build_static_struct(*id, &sgroups, 1))
+            .map(|id| Self::build_tree_object(*id, &sgroups, 1))
             .collect_vec();
 
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`

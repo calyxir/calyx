@@ -3,9 +3,8 @@ use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
 use core::panic;
-use ir::Guard;
 use itertools::Itertools;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Not;
 use std::rc::Rc;
 
@@ -58,6 +57,11 @@ impl StaticFSM {
         }
     }
 
+    // Builds an incrementer, and returns the assignments and incrementer cell itself.
+    // assignments are:
+    // incrementer.left = fsm.out; incrementer.right = 1;
+    // cell is:
+    // incrementer
     pub fn build_incrementer(
         &self,
         builder: &mut ir::Builder,
@@ -85,6 +89,8 @@ impl StaticFSM {
         (incr_assigns, adder)
     }
 
+    // Returns the assignments that conditionally increment the fsm,
+    // but only if guard is true.
     pub fn conditional_increment(
         &self,
         guard: ir::Guard<Nothing>,
@@ -103,6 +109,8 @@ impl StaticFSM {
         assigns
     }
 
+    // Returns the assignments that conditionally resets the fsm to 0,
+    // but only if guard is true.
     pub fn conditional_reset(
         &self,
         guard: ir::Guard<Nothing>,
@@ -118,119 +126,6 @@ impl StaticFSM {
         )
         .to_vec();
         assigns
-    }
-
-    // Returns assignments that make the current fsm count to n
-    // and then reset back to 0.
-    // `incr_condition`` is an optional guard: if it is none, then the fsm will
-    // unconditionally increment.
-    // If it actually holds a `guard`, then we will only start counting once
-    // the condition holds.
-    // (NOTE: if the guard is true while we are counting up we will just
-    // ignore that guard and keep on counting-- we don't reset or anything.
-    // The guard is just there to make sure we only go from 0->1 when appropriate.)
-    // (IMPORTANT WEIRD PRECONDITION): if `incr_cond` is Some(_), we assume n > 0.
-    pub fn count_to_n(
-        &mut self,
-        builder: &mut ir::Builder,
-        n: u64,
-        incr_condition: Option<Guard<Nothing>>,
-    ) -> Vec<ir::Assignment<Nothing>> {
-        {
-            let fsm_cell = Rc::clone(&self.fsm_cell);
-            // For OHE, the "adder" can just be a shifter.
-            // For OHE the first_state = 1 rather than 0.
-            // Final state is encoded differently for OHE vs. Binary
-            let (adder, first_state, final_state_guard) = match self.encoding {
-                FSMEncoding::Binary => (
-                    builder.add_primitive("adder", "std_add", &[self.bitwidth]),
-                    builder.add_constant(0, self.bitwidth),
-                    {
-                        let const_n = builder.add_constant(n, self.bitwidth);
-                        let g = guard!(fsm_cell["out"] == const_n["out"]);
-                        g
-                    },
-                ),
-                FSMEncoding::OneHot => (
-                    builder.add_primitive("lsh", "std_lsh", &[self.bitwidth]),
-                    builder.add_constant(1, self.bitwidth),
-                    self.get_one_hot_query(
-                        Rc::clone(&fsm_cell),
-                        (n, n + 1),
-                        builder,
-                    ),
-                ),
-            };
-            structure!( builder;
-                let signal_on = constant(1,1);
-                let const_one = constant(1, self.bitwidth);
-            );
-            let not_final_state_guard =
-                ir::Guard::Not(Box::new(final_state_guard.clone()));
-            match incr_condition {
-                None => {
-                    // Unconditionally increment FSM.
-                    build_assignments!(
-                      builder;
-                      // increments the fsm
-                      adder["left"] = ? fsm_cell["out"];
-                      adder["right"] = ? const_one["out"];
-                      fsm_cell["write_en"] = ? signal_on["out"];
-                      fsm_cell["in"] =  not_final_state_guard ? adder["out"];
-                       // resets the fsm early
-                       fsm_cell["in"] = final_state_guard ? first_state["out"];
-                    )
-                    .to_vec()
-                }
-                Some(condition_guard) => {
-                    // Only start incrementing when FSM == first_state and
-                    // conditiona_guard is true.
-                    // After that, we can unconditionally increment.
-                    let first_state_guard = match self.encoding {
-                        FSMEncoding::Binary => {
-                            let g =
-                                guard!(fsm_cell["out"] == first_state["out"]);
-                            g
-                        }
-                        // This is better than checking if FSM == first_state
-                        // be this is only checking a single bit.
-                        FSMEncoding::OneHot => self.get_one_hot_query(
-                            Rc::clone(&fsm_cell),
-                            (0, 1),
-                            builder,
-                        ),
-                    };
-                    let not_first_state: ir::Guard<Nothing> =
-                        ir::Guard::Not(Box::new(first_state_guard.clone()));
-                    let cond_and_first_state = ir::Guard::and(
-                        condition_guard.clone(),
-                        first_state_guard.clone(),
-                    );
-                    let not_cond_and_first_state =
-                        ir::Guard::not(condition_guard.clone())
-                            .and(first_state_guard);
-                    let in_between_guard =
-                        ir::Guard::and(not_first_state, not_final_state_guard);
-                    let my_assigns = build_assignments!(
-                      builder;
-                      // Incrementsthe fsm
-                      adder["left"] = ? fsm_cell["out"];
-                      adder["right"] = ? const_one["out"];
-                      // Always write into fsm.
-                      fsm_cell["write_en"] = ? signal_on["out"];
-                      // If fsm == first_state and cond is high, then we start an execution.
-                      fsm_cell["in"] = cond_and_first_state ? adder["out"];
-                      // If first_state < fsm < n, then we unconditionally increment the fsm.
-                      fsm_cell["in"] = in_between_guard ? adder["out"];
-                      // If fsm == n, then we reset the FSM.
-                      fsm_cell["in"] = final_state_guard ? first_state["out"];
-                      // Otherwise we set the FSM equal to first_state.
-                      fsm_cell["in"] = not_cond_and_first_state ? first_state["out"];
-                    );
-                    my_assigns.to_vec()
-                }
-            }
-        }
     }
 
     // Returns a guard that takes a (beg, end) `query`, and returns the equivalent
@@ -358,7 +253,7 @@ impl FSMTree {
     pub fn count_to_n(&mut self, builder: &mut ir::Builder) {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.count_to_n(builder),
-            FSMTree::Par(par_struct) => panic!(""),
+            FSMTree::Par(_) => panic!(""),
         }
     }
 
@@ -378,7 +273,7 @@ impl FSMTree {
                 group_rewrites,
                 builder,
             ),
-            FSMTree::Par(par_struct) => panic!(""),
+            FSMTree::Par(_) => panic!(""),
         }
     }
 
@@ -394,19 +289,11 @@ impl FSMTree {
 
     pub fn get_group_name(&self) -> ir::Id {
         match self {
-            FSMTree::Tree(tree_struct) => {
-                let (id, _) = tree_struct.root;
-                id
-            }
+            FSMTree::Tree(tree_struct) => tree_struct.root.0,
             FSMTree::Par(par_struct) => panic!(""),
         }
     }
-    // fn get_fsm_cell(self) -> StaticFSM {
-    //     match self {
-    //         StaticStruct::Tree(tree_struct) => tree_struct.fsm_cell.unwrap(),
-    //         StaticStruct::Par(par_struct) => panic!(""),
-    //     }
-    // }
+
     fn get_latency(&self) -> u64 {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.latency,
@@ -415,50 +302,69 @@ impl FSMTree {
     }
 }
 
+/// Helpful for translating queries, e.g., %[2:20].
+/// Because of the tree structure,
+/// this no longer is always equivalent to 2 <= fsm < 20;
+#[derive(Debug)]
+pub enum StateType {
+    Delay(u64),
+    Offload(u64),
+}
 pub struct Tree {
     pub latency: u64,
     pub num_repeats: u64,
     pub root: (ir::Id, Vec<ir::Assignment<Nothing>>),
+    pub delay_map: BTreeMap<(u64, u64), StateType>,
     pub children: Vec<(FSMTree, (u64, u64))>,
     pub fsm_cell: Option<ir::RRC<StaticFSM>>,
     pub iter_count_cell: Option<ir::RRC<StaticFSM>>,
     pub incrementer: Option<ir::RRC<ir::Cell>>,
 }
 
-#[derive(Debug)]
-pub enum StateType {
-    Delay(u64),
-    State(u64),
-}
-
 impl Tree {
+    // Get the tree's final state (i.e., the state of the tree during its final cycle).
     fn get_final_state(
         &mut self,
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
         let fsm_final_state = match &mut self.fsm_cell {
             None => {
+                // If there is no FSM, then we know latency has to be 1.
                 assert!(self.latency == 1);
                 Box::new(ir::Guard::True)
             }
-            Some(static_fsm) => {
-                if let Some((child, (_, end_interval))) =
+            Some(static_fsm_cell) => {
+                // If there is an FSM, we check whether during its final state,
+                // it is offloading or incrementing.
+                let static_fsm = Rc::clone(&static_fsm_cell);
+
+                if let Some((child, (beg_interval, end_interval))) =
                     self.children.last_mut()
                 {
+                    // You have to clone these earlier to avoid borrow checker nonsense.
+                    // XXX(Caleb): think of better solution.
+                    let beg_interval_clone = *beg_interval;
+                    let end_interval_clone = *end_interval;
                     if *end_interval == self.latency {
-                        Box::new(child.get_final_state(builder))
-                    } else {
-                        static_fsm.borrow_mut().query_between(
-                            builder,
-                            (self.latency - 1, self.latency),
-                        )
+                        let final_child_state =
+                            Box::new(child.get_final_state(builder));
+                        let final_parent_state =
+                            static_fsm.borrow_mut().query_between(
+                                builder,
+                                self.translate_query((
+                                    beg_interval_clone,
+                                    end_interval_clone,
+                                )),
+                            );
+                        return final_child_state.and(*final_parent_state);
                     }
-                } else {
-                    static_fsm.borrow_mut().query_between(
-                        builder,
-                        (self.latency - 1, self.latency),
-                    )
                 }
+                // Otherwise, can just do a normal query.
+                let x = static_fsm.borrow_mut().query_between(
+                    builder,
+                    self.translate_query((self.latency - 1, self.latency)),
+                );
+                x
             }
         };
         let counter_final_state = match &mut self.iter_count_cell {
@@ -607,20 +513,22 @@ impl Tree {
         root_asgns.extend(res_vec);
     }
 
-    fn build_delay_map(&self) -> BTreeMap<(u64, u64), StateType> {
-        let mut res = BTreeMap::new();
-        let mut cur_delay = 0;
-        let mut cur_lat = 0;
-        for (_, (beg, end)) in &self.children {
-            res.insert((cur_lat, *beg), StateType::Delay(cur_delay));
-            res.insert((*beg, *end), StateType::State(beg - cur_delay));
-            cur_lat = *end;
-            cur_delay += end - beg;
+    fn translate_query(&self, query: (u64, u64)) -> (u64, u64) {
+        let (beg_query, end_query) = query;
+        for ((beg, end), state_type) in &self.delay_map {
+            if (beg_query >= *beg) && (end_query <= *end) {
+                match state_type {
+                    StateType::Delay(delay) => {
+                        return (beg_query - delay, end_query - delay);
+                    }
+                    StateType::Offload(state) => {
+                        assert!((*beg == beg_query) && *end == end_query);
+                        return (*state, state + 1);
+                    }
+                }
+            }
         }
-        if cur_lat != self.latency {
-            res.insert((cur_lat, self.latency), StateType::Delay(cur_delay));
-        }
-        res
+        panic!("")
     }
 
     fn realize(
@@ -647,11 +555,11 @@ impl Tree {
             std::mem::take(&mut static_group.borrow().assignments.clone())
                 .into_iter()
                 .map(|assign| {
-                    StaticSchedule::make_assign_dyn(
+                    FSMTree::make_assign_dyn(
                         assign,
                         Rc::clone(&fsm_ref),
                         builder,
-                        &self.build_delay_map(),
+                        &self.delay_map,
                     )
                 })
                 .collect_vec();
@@ -708,50 +616,7 @@ pub struct ParTree {
     pub num_repeats: u64,
 }
 
-/// Represents a static schedule.
-#[derive(Debug, Default)]
-pub struct StaticSchedule {
-    /// Number of states for the FSM
-    /// (this is just the latency of the static island-- or that of the largest
-    /// static island, if there are multiple islands)
-    num_states: u64,
-    /// Encoding type for the FSM
-    encoding: FSMEncoding,
-    /// The static groups the FSM will schedule. It is a vec because sometimes
-    /// the same FSM will handle two different static islands.
-    pub static_groups: Vec<ir::RRC<ir::StaticGroup>>,
-}
-
-impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
-    /// Builds a StaticSchedule object from a vec of static groups.
-    fn from(static_groups: Vec<ir::RRC<ir::StaticGroup>>) -> Self {
-        let mut schedule = StaticSchedule {
-            static_groups,
-            ..Default::default()
-        };
-        schedule.num_states = 0;
-        // iter().any() or iter().all() should both work, since our coloring
-        // algorithm inserts conflicts if the @one_hot attribute doesn't match.
-        schedule.encoding =
-            if schedule.static_groups.iter().any(|sgroup| {
-                sgroup.borrow().attributes.has(ir::BoolAttr::OneHot)
-            }) {
-                FSMEncoding::OneHot
-            } else {
-                FSMEncoding::Binary
-            };
-        for static_group in &schedule.static_groups {
-            // Getting self.num_states
-            schedule.num_states = std::cmp::max(
-                schedule.num_states,
-                static_group.borrow().get_latency(),
-            );
-        }
-        schedule
-    }
-}
-
-impl StaticSchedule {
+impl FSMTree {
     // Takes in a static guard `guard`, and returns equivalent dynamic guard
     // The only thing that actually changes is the Guard::Info case
     // We need to turn static_timing to dynamic guards using `fsm`.
@@ -810,7 +675,7 @@ impl StaticSchedule {
                                     (beg_target - delay, end_target - delay),
                                 );
                             }
-                            StateType::State(state) => {
+                            StateType::Offload(state) => {
                                 assert!(
                                     (*beg == beg_target) && *end == end_target
                                 );
@@ -822,7 +687,6 @@ impl StaticSchedule {
                         }
                     }
                 }
-                dbg!(delay_map);
                 panic!("");
             }
         }

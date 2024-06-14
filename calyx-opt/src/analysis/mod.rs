@@ -43,5 +43,7 @@ pub use read_write_set::{AssignmentAnalysis, ReadWriteSet};
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
 pub use static_par_timing::StaticParTiming;
-pub use static_schedule::{FSMEncoding, FSMTree, ParTree, StaticFSM, Tree};
+pub use static_schedule::{
+    FSMEncoding, FSMTree, ParTree, StateType, StaticFSM, Tree,
+};
 pub use variable_detection::VariableDetection;
