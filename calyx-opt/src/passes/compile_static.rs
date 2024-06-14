@@ -1,5 +1,5 @@
 use crate::analysis::{
-    FSMEncoding, GraphColoring, ParTree, StaticFSM, StaticStruct, Tree,
+    FSMEncoding, FSMTree, GraphColoring, ParTree, StaticFSM, Tree,
 };
 use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
 use calyx_ir::{self as ir, Nothing, PortParent, StaticTiming};
@@ -489,7 +489,7 @@ impl CompileStatic {
         name: ir::Id,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         num_repeats: u64,
-    ) -> StaticStruct {
+    ) -> FSMTree {
         let target_group = static_groups
             .iter()
             .find(|sgroup| sgroup.borrow().name() == name)
@@ -528,7 +528,7 @@ impl CompileStatic {
             }
         }
         if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
-            StaticStruct::Par(ParTree {
+            FSMTree::Par(ParTree {
                 threads: res_vec,
                 latency: target_group_ref.latency,
                 num_repeats: num_repeats,
@@ -536,7 +536,7 @@ impl CompileStatic {
         } else {
             res_vec.sort_by_key(|(_, interval)| *interval);
             assert!(Self::are_ranges_non_overlapping(&res_vec));
-            StaticStruct::Tree(Tree {
+            FSMTree::Tree(Tree {
                 latency: target_group_ref.latency,
                 fsm_cell: None,
                 iter_count_cell: None,
@@ -558,9 +558,7 @@ impl CompileStatic {
             .borrow()
             .get_latency()
     }
-    fn are_ranges_non_overlapping(
-        ranges: &Vec<(StaticStruct, (u64, u64))>,
-    ) -> bool {
+    fn are_ranges_non_overlapping(ranges: &Vec<(FSMTree, (u64, u64))>) -> bool {
         if ranges.len() == 0 {
             return true;
         }

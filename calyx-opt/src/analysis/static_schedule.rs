@@ -349,16 +349,16 @@ impl StaticFSM {
     }
 }
 
-pub enum StaticStruct {
+pub enum FSMTree {
     Tree(Tree),
     Par(ParTree),
 }
 
-impl StaticStruct {
+impl FSMTree {
     pub fn count_to_n(&mut self, builder: &mut ir::Builder) {
         match self {
-            StaticStruct::Tree(tree_struct) => tree_struct.count_to_n(builder),
-            StaticStruct::Par(par_struct) => panic!(""),
+            FSMTree::Tree(tree_struct) => tree_struct.count_to_n(builder),
+            FSMTree::Par(par_struct) => panic!(""),
         }
     }
 
@@ -371,14 +371,14 @@ impl StaticStruct {
         builder: &mut ir::Builder,
     ) {
         match self {
-            StaticStruct::Tree(tree_struct) => tree_struct.realize(
+            FSMTree::Tree(tree_struct) => tree_struct.realize(
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
                 group_rewrites,
                 builder,
             ),
-            StaticStruct::Par(par_struct) => panic!(""),
+            FSMTree::Par(par_struct) => panic!(""),
         }
     }
 
@@ -387,20 +387,18 @@ impl StaticStruct {
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
         match self {
-            StaticStruct::Tree(tree_struct) => {
-                tree_struct.get_final_state(builder)
-            }
-            StaticStruct::Par(_) => panic!(""),
+            FSMTree::Tree(tree_struct) => tree_struct.get_final_state(builder),
+            FSMTree::Par(_) => panic!(""),
         }
     }
 
     pub fn get_group_name(&self) -> ir::Id {
         match self {
-            StaticStruct::Tree(tree_struct) => {
+            FSMTree::Tree(tree_struct) => {
                 let (id, _) = tree_struct.root;
                 id
             }
-            StaticStruct::Par(par_struct) => panic!(""),
+            FSMTree::Par(par_struct) => panic!(""),
         }
     }
     // fn get_fsm_cell(self) -> StaticFSM {
@@ -411,8 +409,8 @@ impl StaticStruct {
     // }
     fn get_latency(&self) -> u64 {
         match self {
-            StaticStruct::Tree(tree_struct) => tree_struct.latency,
-            StaticStruct::Par(par_struct) => par_struct.latency,
+            FSMTree::Tree(tree_struct) => tree_struct.latency,
+            FSMTree::Par(par_struct) => par_struct.latency,
         }
     }
 }
@@ -421,7 +419,7 @@ pub struct Tree {
     pub latency: u64,
     pub num_repeats: u64,
     pub root: (ir::Id, Vec<ir::Assignment<Nothing>>),
-    pub children: Vec<(StaticStruct, (u64, u64))>,
+    pub children: Vec<(FSMTree, (u64, u64))>,
     pub fsm_cell: Option<ir::RRC<StaticFSM>>,
     pub iter_count_cell: Option<ir::RRC<StaticFSM>>,
     pub incrementer: Option<ir::RRC<ir::Cell>>,
@@ -706,7 +704,7 @@ impl Tree {
 }
 pub struct ParTree {
     pub latency: u64,
-    pub threads: Vec<(StaticStruct, (u64, u64))>,
+    pub threads: Vec<(FSMTree, (u64, u64))>,
     pub num_repeats: u64,
 }
 
