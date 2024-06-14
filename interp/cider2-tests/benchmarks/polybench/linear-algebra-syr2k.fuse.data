@@ -1,5 +1,5 @@
 {
-  "alpha_int0": {
+  "alpha_int": {
     "data": [
       75
     ],
@@ -9,7 +9,7 @@
       "width": 32
     }
   },
-  "beta_int0": {
+  "beta_int": {
     "data": [
       21
     ],
@@ -19,7 +19,7 @@
       "width": 32
     }
   },
-  "C_int0_0": {
+  "C_int": {
     "data": [
       [
         44,
@@ -196,7 +196,7 @@
       "width": 32
     }
   },
-  "A_int0_0": {
+  "A_int": {
     "data": [
       [
         96,
@@ -325,7 +325,7 @@
       "width": 32
     }
   },
-  "B_int0_0": {
+  "B_int": {
     "data": [
       [
         50,
