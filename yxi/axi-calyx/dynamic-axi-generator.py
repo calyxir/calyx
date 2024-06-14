@@ -369,6 +369,7 @@ def add_read_controller(prog, mem):
         (f"ARSIZE", 3),
         (f"ARLEN", 8),
         (f"ARBURST", 2),
+        (f"ARPROT", 3),
         (f"RREADY", 1),
         #sent out to axi_dyn_mem
         (f"read_data", data_width),
@@ -398,6 +399,7 @@ def add_read_controller(prog, mem):
         out_ARSIZE=read_controller.this()["ARSIZE"],
         out_ARLEN=read_controller.this()["ARLEN"],
         out_ARBURST=read_controller.this()["ARBURST"],
+        out_ARPROT=read_controller.this()["ARPROT"],
     )
     simple_read_invoke = invoke(
         simple_read_channel,
