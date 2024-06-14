@@ -473,8 +473,8 @@ fn create_cell_prototype(
 ) -> CellPrototype {
     let borrow = cell.borrow();
     match &borrow.prototype {
-        prim @ cir::CellType::Primitive { .. } => {
-            CellPrototype::construct_primitive(prim)
+        cir::CellType::Primitive { .. } => {
+            CellPrototype::construct_primitive(&borrow)
         }
         cir::CellType::Component { name } => {
             CellPrototype::Component(comp_id_map[name])

@@ -110,6 +110,7 @@ pub fn build_primitive(
             mem_type,
             width,
             dims,
+            is_external: _,
         } => {
             let data = dump.as_ref().and_then(|data| {
                 let string = ctx.lookup_string(prim.name);

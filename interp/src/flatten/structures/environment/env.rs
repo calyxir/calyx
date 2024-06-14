@@ -1428,7 +1428,11 @@ impl<'a> Simulator<'a> {
     }
 
     /// Dump the current state of the environment as a DataDump
-    pub fn dump_memories(&self, dump_registers: bool) -> DataDump {
+    pub fn dump_memories(
+        &self,
+        dump_registers: bool,
+        all_mems: bool,
+    ) -> DataDump {
         let ctx = self.ctx();
         let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
 
@@ -1443,7 +1447,12 @@ impl<'a> Simulator<'a> {
             let cell_index = &root.index_bases + offset;
             let name = ctx.lookup_string(cell_info.name).clone();
             match &cell_info.prototype {
-                CellPrototype::Memory { width, dims, .. } => dump.push_memory(
+                CellPrototype::Memory {
+                    width,
+                    dims,
+                    is_external,
+                    ..
+                } if *is_external | all_mems => dump.push_memory(
                     name,
                     *width as usize,
                     dims.size(),
