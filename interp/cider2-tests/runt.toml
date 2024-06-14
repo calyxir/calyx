@@ -163,6 +163,17 @@ fud2 --from calyx --to dat \
       {} | jq --sort-keys
 """
 
+[[tests]]
+name = "benchmark misc"
+paths = ["benchmarks/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
+
 # [[tests]]
 # name = "[frontend] systolic array correctness"
 # paths = ["../tests/correctness/systolic/*.systolic"]
