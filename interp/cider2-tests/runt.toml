@@ -72,12 +72,12 @@ fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args=
 timeout = 10
 expect_dir = "invoke"
 
-# [[tests]]
-# name = "invoke comp"
-# paths = ["../tests/control/invoke/*.futil"]
-# cmd = """
-# fud2 {} --from calyx --to dat --through interp-flat -s calyx.flags=" -p compile-invoke" -s sim.data={}.data | jq --sort-keys
-# """
+[[tests]]
+name = "invoke comp"
+paths = ["../tests/control/invoke/*.futil"]
+cmd = """
+fud2 {} --from calyx --to dat --through cider -s calyx.flags=" -p compile-invoke" -s sim.data={}.data | jq --sort-keys
+"""
 
 # [[tests]]
 # name = "fully structural"
