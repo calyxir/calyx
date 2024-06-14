@@ -27,14 +27,15 @@ timeout = 10
 # """
 # timeout = 10
 
-# [[tests]]
-# name = "complex"
-# paths = ["tests/complex/*.futil"]
+[[tests]]
+name = "complex"
+paths = ["../tests/complex/*.futil"]
 
-# cmd = """
-# ../target/debug/cider {} | jq . --sort-keys
-# """
-# timeout = 10
+cmd = """
+  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+timeout = 10
+expect_dir = "complex"
 
 [[tests]]
 name = "primitives"
@@ -136,22 +137,20 @@ fud2 --from calyx --to dat \
          {} | jq --sort-keys
 """
 
-# [[tests]]
-# name = "numeric types correctness and parsing"
-# paths = [
-#       "../tests/correctness/numeric-types/parsing/*.futil",
-#       "../tests/correctness/numeric-types/bitnum/*.futil",
-#       "../tests/correctness/numeric-types/fixed-point/*.futil",
-# ]
-# cmd = """
-# fud exec --from calyx --to jq \
-#          --through interpreter-out \
-#          -s interpreter.flags "--raw " \
-#          -s verilog.data {}.data \
-#          -s jq.expr ".main" \
-#          -s jq.flags "--sort-keys " \
-#          {} -q
-# """
+[[tests]]
+name = "numeric types correctness and parsing"
+paths = [
+  "../../tests/correctness/numeric-types/parsing/*.futil",
+  "../../tests/correctness/numeric-types/bitnum/*.futil",
+  "../../tests/correctness/numeric-types/fixed-point/*.futil",
+]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
 
 [[tests]]
 name = "[frontend] tcam testing"
