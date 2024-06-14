@@ -15,8 +15,10 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Upgrade pip
+RUN python3 -m pip install --upgrade pip
 # Install python dependencies
-RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
+RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
