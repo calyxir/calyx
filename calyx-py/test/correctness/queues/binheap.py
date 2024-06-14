@@ -57,7 +57,7 @@ def insert_binheap(prog, name, factor):
     tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", 32, 32))
     untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", 32, 32))
 
-    mem = comp.comb_mem_d1("mem", 64, n, factor, is_ref=True)
+    mem = comp.comb_mem_d1("mem", 64, n, factor)
     # The memory to store the heap, represented as an array.
     # Each cell of the memory is 64 bits wide: 32 for both rank and value.
 
@@ -297,6 +297,7 @@ def insert_binheap(prog, name, factor):
 
     return comp
 
+
 def insert_main(prog):
     """Inserts the `main` component into the program.
 
@@ -330,7 +331,6 @@ def insert_main(prog):
     binheap = insert_binheap(prog, "binheap", factor)
     binheap = comp.cell("binheap", binheap)
 
-    mem = comp.comb_mem_d1("mem", 64, 15, factor)
     out = comp.comb_mem_d1("out", 32, 15, factor, is_external=True)
 
     ans = comp.reg(32) 
@@ -339,8 +339,9 @@ def insert_main(prog):
     index = 0
 
     def push(value, rank):
-        return cb.invoke(binheap, in_value=cb.const(32, value), in_rank=cb.const(32, rank), 
-                                  in_cmd=cb.const(2, 2), ref_mem=mem, ref_ans=ans, ref_err=err)
+        return cb.invoke(binheap, 
+                         in_value=cb.const(32, value), in_rank=cb.const(32, rank), in_cmd=cb.const(2, 2), 
+                         ref_ans=ans, ref_err=err)
 
     def pop_and_store(): 
         nonlocal index
@@ -349,7 +350,7 @@ def insert_main(prog):
         return [
             cb.invoke(binheap, 
                       in_value=cb.const(32, 50), in_rank=cb.const(32, 50), in_cmd=cb.const(2,0),
-                      ref_mem=mem, ref_ans=ans, ref_err=err),
+                      ref_ans=ans, ref_err=err),
             comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}")
         ]
 
@@ -360,7 +361,7 @@ def insert_main(prog):
         return [
             cb.invoke(binheap, 
                       in_value=cb.const(32, 50), in_rank=cb.const(32, 50), in_cmd=cb.const(2,1),
-                      ref_mem=mem, ref_ans=ans, ref_err=err),
+                      ref_ans=ans, ref_err=err),
             comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}")
         ]
 
@@ -387,12 +388,14 @@ def insert_main(prog):
         pop_and_store()
     ]
 
+
 def build():
     """Top-level function to build the program."""
 
     prog = cb.Builder()
     insert_main(prog)
     return prog.program
+
 
 if __name__ == "__main__":
     build().emit()
