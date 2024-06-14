@@ -674,8 +674,9 @@ impl FlattenTree for cir::Control {
             cir::Control::Static(_) => {
                 todo!("The interpreter does not support static control yet")
             }
-            cir::Control::Repeat(_) => {
-                todo!("The interpreter does not support repeat yet")
+            cir::Control::Repeat(repeat) => {
+                let body = handle.enqueue(&repeat.body);
+                ControlNode::Repeat(Repeat::new(body, repeat.num_repeats))
             }
         }
     }
