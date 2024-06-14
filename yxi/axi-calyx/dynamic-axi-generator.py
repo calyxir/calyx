@@ -435,6 +435,7 @@ def add_write_controller(prog, mem):
         (f"AWSIZE", 3),
         (f"AWLEN", 8),
         (f"AWBURST", 2),
+        (f"AWPROT", 3),
         (f"WVALID", 1),
         (f"WLAST", 1),
         (f"WDATA", data_width),
@@ -462,6 +463,7 @@ def add_write_controller(prog, mem):
         out_AWSIZE=write_controller.this()["AWSIZE"],
         out_AWLEN=write_controller.this()["AWLEN"],
         out_AWBURST=write_controller.this()["AWBURST"],
+        out_AWPROT=write_controller.this()["AWPROT"],
     )
     simple_write_invoke = invoke(
         simple_write_channel,
@@ -493,7 +495,7 @@ def add_axi_dyn_mem(prog, mem):
     prog.import_("primitives/memories/dyn.futil")
     axi_dyn_mem = prog.component(f"axi_dyn_mem_{name}")
     # Inputs/Outputs
-    seq_mem_inputs =[
+    dyn_mem_inputs =[
         ("addr0", address_width, [("write_together", 1), "data"]),
         ("content_en", 1, [("write_together", 1), ("go", 1)]),
         ("write_en", 1, [("write_together", 2)]),
@@ -505,19 +507,19 @@ def add_axi_dyn_mem(prog, mem):
         (f"RDATA", mem[width_key]),
         (f"RRESP", 2),
         (f"AWREADY", 1),
-        (f"WRESP", 2),
         (f"WREADY", 1),
         (f"BVALID", 1),
         # Only used for waveform tracing, not sent anywhere
         (f"BRESP", 2),
     ]
-    seq_mem_outputs = [
+    dyn_mem_outputs = [
         ("read_data", data_width, ["stable"]),
         (f"ARVALID", 1),
         (f"ARADDR", 64),
         (f"ARSIZE", 3),
         (f"ARLEN", 8),
         (f"ARBURST", 2),
+        (f"ARPROT", 3),
         (f"RREADY", 1),
         (f"AWVALID", 1),
         (f"AWADDR", 64),
@@ -530,7 +532,7 @@ def add_axi_dyn_mem(prog, mem):
         (f"WDATA", mem[width_key]),
         (f"BREADY", 1),
     ]
-    add_comp_ports(axi_dyn_mem, seq_mem_inputs, seq_mem_outputs)
+    add_comp_ports(axi_dyn_mem, dyn_mem_inputs, dyn_mem_outputs)
 
     # Cells
     address_translator = axi_dyn_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
@@ -559,6 +561,7 @@ def add_axi_dyn_mem(prog, mem):
             out_ARSIZE=this_component[f"ARSIZE"],
             out_ARLEN=this_component[f"ARLEN"],
             out_ARBURST=this_component[f"ARBURST"],
+            out_ARPROT=this_component[f"ARPROT"],
             out_RREADY=this_component[f"RREADY"],
             out_read_data=this_component[f"read_data"],
         )
@@ -576,6 +579,7 @@ def add_axi_dyn_mem(prog, mem):
             out_AWSIZE=this_component["AWSIZE"],
             out_AWLEN=this_component["AWLEN"],
             out_AWBURST=this_component["AWBURST"],
+            out_AWPROT=this_component[f"AWPROT"],
             out_WVALID=this_component["WVALID"],
             out_WLAST=this_component["WLAST"],
             out_WDATA=this_component["WDATA"],
@@ -617,7 +621,6 @@ def add_main_comp(prog, mems):
             (f"{mem_name}_RDATA", mem[width_key]),
             (f"{mem_name}_RRESP", 2),
             (f"{mem_name}_AWREADY", 1),
-            (f"{mem_name}_WRESP", 2),
             (f"{mem_name}_WREADY", 1),
             (f"{mem_name}_BVALID", 1),
             # Only used for waveform tracing, not sent anywhere
