@@ -153,18 +153,16 @@ fud2 --from calyx --to dat \
 #          {} -q
 # """
 
-# [[tests]]
-# name = "[frontend] tcam testing"
-# paths = ["../tests/correctness/tcam/*.futil"]
-# cmd = """
-# fud exec --from calyx --to jq \
-#       --through interpreter-out \
-#       -s interpreter.flags "--raw " \
-#       -s verilog.data {}.data \
-#       -s jq.expr ".main" \
-#       -s jq.flags "--sort-keys " \
-#       {} -q
-# """
+[[tests]]
+name = "[frontend] tcam testing"
+paths = ["../../tests/correctness/tcam/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+      --through cider \
+      -s calyx.args="--log off" \
+      -s sim.data={}.data \
+      {} | jq --sort-keys
+"""
 
 # [[tests]]
 # name = "[frontend] systolic array correctness"
@@ -193,16 +191,17 @@ fud2 --from calyx --to dat \
 # expect_dir = "tests/ntt-results/"
 
 
+# The MRXL tests cannot run because their data is in a different format than the
+# others and there is no tool to convert it
 # [[tests]]
 # name = "[frontend] mrxl correctness"
-# paths = ["../frontends/mrxl/test/*.mrxl"]
+# paths = ["../../frontends/mrxl/test/*.mrxl"]
 # cmd = """
-# fud e -q {} --from mrxl --to jq \
-#             --through interpreter-out \
-#             -s interpreter.flags "--raw " \
-#             -s verilog.data {}.data \
-#             -s jq.flags "--sort-keys " \
-#             -s jq.expr ".main"
+# fud2 {} --from mrxl --to dat \
+#             --through cider \
+#             -s sim.data={}.data \
+#             -s calyx.args="--log off" \
+#        | jq --sort-keys
 # """
 
 # [[tests]]
