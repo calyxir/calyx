@@ -48,8 +48,12 @@ component main() -> () {
   control {
     static seq {
       let1;
-      let2;
-      let3;
+      static repeat 10 {
+        static seq {
+          let2;
+          let3;
+        }
+      }
     }
   }
 }

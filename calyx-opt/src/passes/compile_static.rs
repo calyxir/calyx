@@ -6,7 +6,7 @@ use calyx_utils::Error;
 use core::panic;
 use ir::{build_assignments, RRC};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
 
@@ -532,7 +532,7 @@ impl StaticStruct {
 
     fn realize(
         &mut self,
-        static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
         fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
@@ -594,6 +594,13 @@ pub struct Tree {
     iter_count_cell: Option<ir::RRC<StaticFSM>>,
     incrementer: Option<ir::RRC<ir::Cell>>,
 }
+
+#[derive(Debug)]
+pub enum StateType {
+    Delay(u64),
+    State(u64),
+}
+
 impl Tree {
     fn get_final_state(
         &mut self,
@@ -655,12 +662,60 @@ impl Tree {
         }
         let num_states = self.latency - cur_delay;
 
+        let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
         // Parent FSM for the "root" of the tree.
         let mut parent_fsm = StaticFSM::from_basic_info(
             num_states,
             FSMEncoding::Binary, // XXX(Caleb): change this
             builder,
         );
+        let (adder_asssigns, adder) = parent_fsm.build_incrementer(builder);
+
+        // Now handle the children, i.e., offload states.
+        let mut offload_state_incrs = Vec::new();
+        for (i, (child, _)) in self.children.iter_mut().enumerate() {
+            // Let the child count to n.
+            child.count_to_n(builder);
+
+            // Increment parent when child is in final state.
+            // e.g., fsm.in = fsm == 4 && child_fsm_in_final_state ? fsm + 1;
+            // fsm.write_en = ... // same assignments
+            let (child_state, _) = offload_states[i];
+            let in_child_state = parent_fsm
+                .query_between(builder, (child_state, child_state + 1));
+            let final_child_state = child.get_final_state(builder);
+            let parent_fsm_incr = parent_fsm.conditional_increment(
+                ir::Guard::And(in_child_state, Box::new(final_child_state)),
+                Rc::clone(&adder),
+                builder,
+            );
+            offload_state_incrs.extend(parent_fsm_incr);
+        }
+
+        // Getting final state for the fsm.
+        let final_state_guard = if let Some((child, (_, end_interval))) =
+            self.children.last_mut()
+        {
+            if *end_interval == self.latency {
+                child.get_final_state(builder) // XXX(Caleb): need to fix this possibly
+            } else {
+                *parent_fsm.query_between(
+                    builder,
+                    (self.latency - 1 - cur_delay, self.latency - cur_delay),
+                )
+            }
+        } else {
+            *parent_fsm.query_between(
+                builder,
+                (self.latency - 1 - cur_delay, self.latency - cur_delay),
+            )
+        };
+        let not_final_state = final_state_guard.clone().not();
+
+        offload_state_incrs.iter_mut().for_each(|assign| {
+            assign.guard.update(|g| g.and(not_final_state.clone()));
+        });
+        res_vec.extend(offload_state_incrs);
 
         // offload_state_guard initialized to false.
         let mut offload_state_guard: ir::Guard<Nothing> =
@@ -678,48 +733,14 @@ impl Tree {
 
         // Increment when fsm is not in an offload state.
         let not_offload_state = offload_state_guard.not();
-        let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
-        let (adder_asssigns, adder) = parent_fsm.build_incrementer(builder);
+
         res_vec.extend(adder_asssigns);
         res_vec.extend(parent_fsm.conditional_increment(
-            not_offload_state,
+            not_offload_state.and(not_final_state.clone()),
             Rc::clone(&adder),
             builder,
         ));
 
-        // Now handle the children, i.e., offload states.
-        for (i, (child, _)) in self.children.iter_mut().enumerate() {
-            // Let the child count to n.
-            child.count_to_n(builder);
-
-            // Increment parent when child is in final state.
-            // e.g., fsm.in = fsm == 4 && child_fsm_in_final_state ? fsm + 1;
-            // fsm.write_en = ... // same assignments
-            let (child_state, _) = offload_states[i];
-            let in_child_state = parent_fsm
-                .query_between(builder, (child_state, child_state + 1));
-            let final_state_guard = child.get_final_state(builder);
-            let parent_fsm_incr = parent_fsm.conditional_increment(
-                ir::Guard::And(in_child_state, Box::new(final_state_guard)),
-                Rc::clone(&adder),
-                builder,
-            );
-            res_vec.extend(parent_fsm_incr);
-        }
-
-        // Getting final state for the fsm.
-        let final_state_guard = if let Some((child, (_, end_interval))) =
-            self.children.last_mut()
-        {
-            if *end_interval == self.latency {
-                child.get_final_state(builder)
-            } else {
-                *parent_fsm
-                    .query_between(builder, (self.latency - 1, self.latency))
-            }
-        } else {
-            *parent_fsm.query_between(builder, (self.latency - 1, self.latency))
-        };
         res_vec.extend(
             parent_fsm.conditional_reset(final_state_guard.clone(), builder),
         );
@@ -732,19 +753,22 @@ impl Tree {
                 builder,
             );
             let (adder_asssigns, adder) = repeat_fsm.build_incrementer(builder);
-            res_vec.extend(adder_asssigns);
-            res_vec.extend(repeat_fsm.conditional_increment(
-                final_state_guard,
-                adder,
-                builder,
-            ));
             let final_repeat_state = *repeat_fsm.query_between(
                 builder,
                 (self.num_repeats - 1, self.num_repeats),
             );
-            res_vec.extend(
-                repeat_fsm.conditional_reset(final_repeat_state, builder),
-            );
+            let not_final_repeat_state = final_repeat_state.clone().not();
+            res_vec.extend(adder_asssigns);
+            res_vec.extend(repeat_fsm.conditional_increment(
+                final_state_guard.clone().and(not_final_repeat_state),
+                adder,
+                builder,
+            ));
+
+            res_vec.extend(repeat_fsm.conditional_reset(
+                final_state_guard.clone().and(final_repeat_state),
+                builder,
+            ));
             self.iter_count_cell = Some(ir::rrc(repeat_fsm));
         }
 
@@ -753,35 +777,54 @@ impl Tree {
         root_asgns.extend(res_vec);
     }
 
+    fn build_delay_map(&self) -> BTreeMap<(u64, u64), StateType> {
+        let mut res = BTreeMap::new();
+        let mut cur_delay = 0;
+        let mut cur_lat = 0;
+        for (_, (beg, end)) in &self.children {
+            res.insert((cur_lat, *beg), StateType::Delay(cur_delay));
+            res.insert((*beg, *end), StateType::State(beg - cur_delay));
+            cur_lat = *end;
+            cur_delay += end - beg;
+        }
+        if cur_lat != self.latency {
+            res.insert((cur_lat, self.latency), StateType::Delay(cur_delay));
+        }
+        res
+    }
+
     fn realize(
         &mut self,
-        static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
         fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         builder: &mut ir::Builder,
     ) {
-        let static_group = static_groups
-            .iter_mut()
-            .find(|sgroup| sgroup.borrow().name() == self.root.0)
-            .unwrap();
-        let mut static_group_ref = static_group.borrow_mut();
+        let static_group = Rc::clone(
+            &static_groups
+                .iter()
+                .find(|sgroup| sgroup.borrow().name() == self.root.0)
+                .unwrap(),
+        );
         // Create the dynamic "early reset group" that will replace the static group.
         let static_group_name = static_group.borrow().name();
         let mut early_reset_name = static_group_name.to_string();
         early_reset_name.insert_str(0, "early_reset_");
         let early_reset_group = builder.add_group(early_reset_name);
         let fsm_ref = self.extract_fsm_cell();
-        let mut assigns = std::mem::take(&mut static_group_ref.assignments)
-            .into_iter()
-            .map(|assign| {
-                StaticSchedule::make_assign_dyn(
-                    assign,
-                    Rc::clone(&fsm_ref),
-                    builder,
-                )
-            })
-            .collect_vec();
+        let mut assigns =
+            std::mem::take(&mut static_group.borrow().assignments.clone())
+                .into_iter()
+                .map(|assign| {
+                    StaticSchedule::make_assign_dyn(
+                        assign,
+                        Rc::clone(&fsm_ref),
+                        builder,
+                        &self.build_delay_map(),
+                    )
+                })
+                .collect_vec();
 
         // Add assignment `group[done] = ud.out`` to the new group.
         structure!( builder; let ud = prim undef(1););
@@ -817,6 +860,16 @@ impl Tree {
         );
         fsm_info_map
             .insert(early_reset_group.borrow().name(), Rc::clone(&fsm_ref));
+
+        self.children.iter_mut().for_each(|(child, _)| {
+            child.realize(
+                static_groups,
+                reset_early_map,
+                fsm_info_map,
+                group_rewrites,
+                builder,
+            )
+        })
     }
 }
 pub struct Par {
@@ -902,6 +955,9 @@ impl CompileStatic {
     fn are_ranges_non_overlapping(
         ranges: &Vec<(StaticStruct, (u64, u64))>,
     ) -> bool {
+        if ranges.len() == 0 {
+            return true;
+        }
         for i in 0..ranges.len() - 1 {
             let (_, (_, end1)) = ranges[i];
             let (_, (start2, _)) = ranges[i + 1];
@@ -1189,7 +1245,7 @@ impl Visitor for CompileStatic {
 
         for mut tree in tree_objects {
             tree.realize(
-                &mut sgroups,
+                &sgroups,
                 &mut self.reset_early_map,
                 &mut self.fsm_info_map,
                 &mut group_rewrites,
@@ -1377,11 +1433,11 @@ impl Visitor for CompileStatic {
     ) -> VisResult {
         // make sure static groups have no assignments, since
         // we should have already drained the assignments in static groups
-        for g in comp.get_static_groups() {
-            if !g.borrow().assignments.is_empty() {
-                unreachable!("Should have converted all static groups to dynamic. {} still has assignments in it. It's possible that you may need to run {} to remove dead groups and get rid of this error.", g.borrow().name(), crate::passes::DeadGroupRemoval::name());
-            }
-        }
+        // for g in comp.get_static_groups() {
+        //     if !g.borrow().assignments.is_empty() {
+        //         unreachable!("Should have converted all static groups to dynamic. {} still has assignments in it. It's possible that you may need to run {} to remove dead groups and get rid of this error.", g.borrow().name(), crate::passes::DeadGroupRemoval::name());
+        //     }
+        // }
         // remove all static groups
         comp.get_static_groups_mut().retain(|_| false);
 

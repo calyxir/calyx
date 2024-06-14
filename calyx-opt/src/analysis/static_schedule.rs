@@ -1,10 +1,12 @@
 use crate::passes::math_utilities::get_bit_width_from;
+use crate::passes::StateType;
 use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
+use core::panic;
 use ir::Guard;
 use itertools::Itertools;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::ops::Not;
 use std::rc::Rc;
 
@@ -442,33 +444,34 @@ impl StaticSchedule {
             } else {
                 group_assigns
             };
-            let mut assigns: Vec<ir::Assignment<Nothing>> = static_assigns
-                .into_iter()
-                .map(|static_assign| {
-                    Self::make_assign_dyn(
-                        static_assign,
-                        Rc::clone(&fsm_object),
-                        builder,
-                    )
-                })
-                .collect();
+            panic!("");
+            // let mut assigns: Vec<ir::Assignment<Nothing>> = static_assigns
+            //     .into_iter()
+            //     .map(|static_assign| {
+            //         Self::make_assign_dyn(
+            //             static_assign,
+            //             Rc::clone(&fsm_object),
+            //             builder,
+            //         )
+            //     })
+            //     .collect();
             // For static components, we don't unconditionally start counting.
             // We must only start counting when `comp.go` is high.
-            let fsm_incr_condition = if static_component_interface {
-                let comp_sig = Rc::clone(&builder.component.signature);
-                let g = guard!(comp_sig["go"]);
-                Some(g)
-            } else {
-                None
-            };
-            // We need to add assignments that makes the FSM count to n.
-            assigns.extend(fsm_object.borrow_mut().count_to_n(
-                builder,
-                static_group_ref.get_latency() - 1,
-                fsm_incr_condition,
-            ));
+            // let fsm_incr_condition = if static_component_interface {
+            //     let comp_sig = Rc::clone(&builder.component.signature);
+            //     let g = guard!(comp_sig["go"]);
+            //     Some(g)
+            // } else {
+            //     None
+            // };
+            // // We need to add assignments that makes the FSM count to n.
+            // assigns.extend(fsm_object.borrow_mut().count_to_n(
+            //     builder,
+            //     static_group_ref.get_latency() - 1,
+            //     fsm_incr_condition,
+            // ));
 
-            res.push_back(assigns);
+            // res.push_back(assigns);
         }
         (res, fsm_object)
     }
@@ -481,27 +484,71 @@ impl StaticSchedule {
         guard: ir::Guard<ir::StaticTiming>,
         fsm_object: ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
+        delay_map: &BTreeMap<(u64, u64), crate::passes::StateType>,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-                Self::make_guard_dyn(*l, Rc::clone(&fsm_object), builder),
-                Self::make_guard_dyn(*r, Rc::clone(&fsm_object), builder),
+                Self::make_guard_dyn(
+                    *l,
+                    Rc::clone(&fsm_object),
+                    builder,
+                    delay_map,
+                ),
+                Self::make_guard_dyn(
+                    *r,
+                    Rc::clone(&fsm_object),
+                    builder,
+                    delay_map,
+                ),
             )),
             ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-                Self::make_guard_dyn(*l, Rc::clone(&fsm_object), builder),
-                Self::make_guard_dyn(*r, Rc::clone(&fsm_object), builder),
+                Self::make_guard_dyn(
+                    *l,
+                    Rc::clone(&fsm_object),
+                    builder,
+                    delay_map,
+                ),
+                Self::make_guard_dyn(
+                    *r,
+                    Rc::clone(&fsm_object),
+                    builder,
+                    delay_map,
+                ),
             )),
             ir::Guard::Not(g) => Box::new(ir::Guard::Not(
-                Self::make_guard_dyn(*g, fsm_object, builder),
+                Self::make_guard_dyn(*g, fsm_object, builder, delay_map),
             )),
             ir::Guard::CompOp(op, l, r) => {
                 Box::new(ir::Guard::CompOp(op, l, r))
             }
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
-            ir::Guard::Info(static_timing) => fsm_object
-                .borrow_mut()
-                .query_between(builder, static_timing.get_interval()),
+            ir::Guard::Info(static_timing) => {
+                let (beg_target, end_target) = static_timing.get_interval();
+                for ((beg, end), state_type) in delay_map {
+                    if (beg_target >= *beg) && (end_target <= *end) {
+                        match state_type {
+                            StateType::Delay(delay) => {
+                                return fsm_object.borrow_mut().query_between(
+                                    builder,
+                                    (beg_target - delay, end_target - delay),
+                                );
+                            }
+                            StateType::State(state) => {
+                                assert!(
+                                    (*beg == beg_target) && *end == end_target
+                                );
+                                return fsm_object.borrow_mut().query_between(
+                                    builder,
+                                    (*state, state + 1),
+                                );
+                            }
+                        }
+                    }
+                }
+                dbg!(delay_map);
+                panic!("");
+            }
         }
     }
 
@@ -511,12 +558,18 @@ impl StaticSchedule {
         assign: ir::Assignment<ir::StaticTiming>,
         fsm_object: ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
+        delay_map: &BTreeMap<(u64, u64), crate::passes::StateType>,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
             src: assign.src,
             dst: assign.dst,
             attributes: assign.attributes,
-            guard: Self::make_guard_dyn(*assign.guard, fsm_object, builder),
+            guard: Self::make_guard_dyn(
+                *assign.guard,
+                fsm_object,
+                builder,
+                &delay_map,
+            ),
         }
     }
 
