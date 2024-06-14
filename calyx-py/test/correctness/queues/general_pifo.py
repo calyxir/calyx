@@ -115,7 +115,8 @@ def insert_pifo(
     ends up in {flow}.
     """
     adder = pifo.add(32)
-    i = pifo.reg(32) # keeps track of how many times we loop
+    i = pifo.reg(32)
+    n = pifo.reg(32)
     hot = pifo.reg(32)
 
     # (boundary * 2) / n_flows will evenly divide "it" into n equal pieces
@@ -154,10 +155,18 @@ def insert_pifo(
     len_incr = pifo.incr(len)  # len++
     len_decr = pifo.decr(len)  # len--
 
-    i_lt_n = pifo.lt_use(i.out, n_flows)
+    n_int = 0
+    loop_lt_n = pifo.lt_use(n.out, n_flows)
+    incr_n = pifo.incr(n)
+
+    handles = []
+    for n in range(n_flows):
+        handle = cb.if_with(pifo.eq_use(hot.out, n), # const(n, 32)
+        invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+        handles.append(handle)
 
     # The main logic.
-    pifo.control += store_bound_val, cb.par(
+    pifo.control += [store_bound_val, cb.par(
         # Was it a pop, peek, or a push? We can do all cases in parallel.
         cb.if_with(
             # Did the user call pop?
@@ -169,9 +178,7 @@ def insert_pifo(
                 [  # The queue is not empty. Proceed.
                     lower_err,
                     [
-                        for n in range(n_flows):
-                            cb.if_with(pifo.eq_use(hot.out, n), 
-                            invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                        handles,
                         # Our next step depends on whether `fifos[hot]`
                         # raised the error flag.
                         # We can check these cases in parallel.
@@ -181,15 +188,13 @@ def insert_pifo(
                                 # We'll try to pop from `queue[hot+1]`.
                                 # We'll pass it a lowered err
                                 lower_err,
-                                cb.if_(hot_eq_n, flip_hot, reset_hot), # increment hot and invoke_subqueue on the next one
-                                for n in range(n_flows):
-                                    cb.if_with(pifo.eq_use(hot.out, n), 
-                                    invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                                cb.if_with(hot_eq_n, flip_hot, reset_hot), # increment hot and invoke_subqueue on the next one
+                                handles,
                             ],
                             # `queue[hot+n]` succeeded.
                             # Its answer is our answer.
-                            cb.if_(hot_eq_n, flip_hot, reset_hot),
                         ),
+                        cb.if_with(hot_eq_n, flip_hot, reset_hot),
                     ],
                     len_decr,  # Decrement the active length.
                     # It is possible that an irrecoverable error was raised above,
@@ -210,19 +215,15 @@ def insert_pifo(
                     # We must check if `hot` is 0 or 1.
                     lower_err,
                     [
-                        for n in range(n_flows):
-                            cb.if_with(pifo.eq_use(hot.out, n), 
-                            invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                        handles,
                         cb.if_with(
                             err_neq_0,
                             [  # `fifos[hot]` raised an error.
                                 # We'll try to peek from `fifos[hot+1]`.
                                 # We'll pass it a lowered `err`.
                                 lower_err,
-                                cb.if_(hot_eq_n, flip_hot, reset_hot), # increment hot and invoke_subqueue on the next one
-                                for n in range(n_flows):
-                                    cb.if_with(pifo.eq_use(hot.out, n), 
-                                    invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                                cb.if_with(hot_eq_n, flip_hot, reset_hot), # increment hot and invoke_subqueue on the next one
+                                handles
                             ],
                         ),
                         # Peeking does not affect `hot`.
@@ -230,7 +231,7 @@ def insert_pifo(
                     ],                  
                 ],
             ),
-        ),
+        ), 
         cb.if_with(
             # Did the user call push?
             cmd_eq_2,
@@ -242,9 +243,7 @@ def insert_pifo(
                     lower_err,
                     # We need to check which flow this value should be pushed to.
                     cb.while_with(i_lt_n, [infer_flow_grp, upd_divider]),  # Infer the flow and write it to `flow`.
-                    for n in range(n_flows):
-                        cb.if_with(pifo.eq_use(hot.out, n), 
-                        invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+                    handles,
                     cb.if_with(
                         err_eq_0,
                         # If no stats component is provided,
@@ -268,7 +267,7 @@ def insert_pifo(
                 ],
             ),
         ),
-    ) 
+    ) ]
 
     return pifo
 
