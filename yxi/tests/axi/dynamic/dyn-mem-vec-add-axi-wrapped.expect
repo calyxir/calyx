@@ -3050,6 +3050,7 @@ module read_controller_A0(
   output logic [2:0] ARSIZE,
   output logic [7:0] ARLEN,
   output logic [1:0] ARBURST,
+  output logic [2:0] ARPROT,
   output logic RREADY,
   output logic [31:0] read_data,
   input logic go,
@@ -3177,121 +3178,125 @@ std_wire # (
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
 wire _guard2 = invoke0_go_out;
-wire _guard3 = invoke1_go_out;
-wire _guard4 = invoke0_go_out;
+wire _guard3 = invoke0_go_out;
+wire _guard4 = invoke1_go_out;
 wire _guard5 = invoke0_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
-wire _guard8 = fsm_out == 2'd2;
-wire _guard9 = fsm_out == 2'd0;
-wire _guard10 = invoke0_done_out;
-wire _guard11 = _guard9 & _guard10;
-wire _guard12 = tdcc_go_out;
-wire _guard13 = _guard11 & _guard12;
-wire _guard14 = _guard8 | _guard13;
-wire _guard15 = fsm_out == 2'd1;
-wire _guard16 = invoke1_done_out;
-wire _guard17 = _guard15 & _guard16;
-wire _guard18 = tdcc_go_out;
-wire _guard19 = _guard17 & _guard18;
-wire _guard20 = _guard14 | _guard19;
-wire _guard21 = fsm_out == 2'd0;
-wire _guard22 = invoke0_done_out;
-wire _guard23 = _guard21 & _guard22;
-wire _guard24 = tdcc_go_out;
-wire _guard25 = _guard23 & _guard24;
-wire _guard26 = fsm_out == 2'd2;
-wire _guard27 = fsm_out == 2'd1;
-wire _guard28 = invoke1_done_out;
-wire _guard29 = _guard27 & _guard28;
-wire _guard30 = tdcc_go_out;
-wire _guard31 = _guard29 & _guard30;
-wire _guard32 = invoke1_go_out;
+wire _guard8 = invoke0_go_out;
+wire _guard9 = fsm_out == 2'd2;
+wire _guard10 = fsm_out == 2'd0;
+wire _guard11 = invoke0_done_out;
+wire _guard12 = _guard10 & _guard11;
+wire _guard13 = tdcc_go_out;
+wire _guard14 = _guard12 & _guard13;
+wire _guard15 = _guard9 | _guard14;
+wire _guard16 = fsm_out == 2'd1;
+wire _guard17 = invoke1_done_out;
+wire _guard18 = _guard16 & _guard17;
+wire _guard19 = tdcc_go_out;
+wire _guard20 = _guard18 & _guard19;
+wire _guard21 = _guard15 | _guard20;
+wire _guard22 = fsm_out == 2'd0;
+wire _guard23 = invoke0_done_out;
+wire _guard24 = _guard22 & _guard23;
+wire _guard25 = tdcc_go_out;
+wire _guard26 = _guard24 & _guard25;
+wire _guard27 = fsm_out == 2'd2;
+wire _guard28 = fsm_out == 2'd1;
+wire _guard29 = invoke1_done_out;
+wire _guard30 = _guard28 & _guard29;
+wire _guard31 = tdcc_go_out;
+wire _guard32 = _guard30 & _guard31;
 wire _guard33 = invoke1_go_out;
 wire _guard34 = invoke1_go_out;
 wire _guard35 = invoke1_go_out;
 wire _guard36 = invoke1_go_out;
 wire _guard37 = invoke1_go_out;
-wire _guard38 = invoke0_done_out;
-wire _guard39 = ~_guard38;
-wire _guard40 = fsm_out == 2'd0;
-wire _guard41 = _guard39 & _guard40;
-wire _guard42 = tdcc_go_out;
-wire _guard43 = _guard41 & _guard42;
-wire _guard44 = invoke0_go_out;
+wire _guard38 = invoke1_go_out;
+wire _guard39 = invoke0_done_out;
+wire _guard40 = ~_guard39;
+wire _guard41 = fsm_out == 2'd0;
+wire _guard42 = _guard40 & _guard41;
+wire _guard43 = tdcc_go_out;
+wire _guard44 = _guard42 & _guard43;
 wire _guard45 = invoke0_go_out;
 wire _guard46 = invoke0_go_out;
 wire _guard47 = invoke0_go_out;
-wire _guard48 = invoke1_done_out;
-wire _guard49 = ~_guard48;
-wire _guard50 = fsm_out == 2'd1;
-wire _guard51 = _guard49 & _guard50;
-wire _guard52 = tdcc_go_out;
-wire _guard53 = _guard51 & _guard52;
-wire _guard54 = fsm_out == 2'd2;
+wire _guard48 = invoke0_go_out;
+wire _guard49 = invoke1_done_out;
+wire _guard50 = ~_guard49;
+wire _guard51 = fsm_out == 2'd1;
+wire _guard52 = _guard50 & _guard51;
+wire _guard53 = tdcc_go_out;
+wire _guard54 = _guard52 & _guard53;
+wire _guard55 = fsm_out == 2'd2;
 assign done = _guard1;
+assign ARPROT =
+  _guard2 ? ar_channel_A0_ARPROT :
+  3'd0;
 assign ARSIZE =
-  _guard2 ? ar_channel_A0_ARSIZE :
+  _guard3 ? ar_channel_A0_ARSIZE :
   3'd0;
 assign RREADY =
-  _guard3 ? read_channel_A0_RREADY :
+  _guard4 ? read_channel_A0_RREADY :
   1'd0;
 assign read_data = read_channel_A0_read_data;
 assign ARLEN =
-  _guard4 ? ar_channel_A0_ARLEN :
+  _guard5 ? ar_channel_A0_ARLEN :
   8'd0;
 assign ARADDR =
-  _guard5 ? ar_channel_A0_ARADDR :
+  _guard6 ? ar_channel_A0_ARADDR :
   64'd0;
 assign ARBURST =
-  _guard6 ? ar_channel_A0_ARBURST :
+  _guard7 ? ar_channel_A0_ARBURST :
   2'd0;
 assign ARVALID =
-  _guard7 ? ar_channel_A0_ARVALID :
+  _guard8 ? ar_channel_A0_ARVALID :
   1'd0;
-assign fsm_write_en = _guard20;
+assign fsm_write_en = _guard21;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard25 ? 2'd1 :
-  _guard26 ? 2'd0 :
-  _guard31 ? 2'd2 :
+  _guard26 ? 2'd1 :
+  _guard27 ? 2'd0 :
+  _guard32 ? 2'd2 :
   2'd0;
 assign read_channel_A0_RVALID =
-  _guard32 ? RVALID :
+  _guard33 ? RVALID :
   1'd0;
 assign read_channel_A0_RLAST =
-  _guard33 ? RLAST :
+  _guard34 ? RLAST :
   1'd0;
 assign read_channel_A0_RDATA =
-  _guard34 ? RDATA :
+  _guard35 ? RDATA :
   32'd0;
 assign read_channel_A0_clk = clk;
-assign read_channel_A0_go = _guard35;
+assign read_channel_A0_go = _guard36;
 assign read_channel_A0_reset = reset;
 assign read_channel_A0_RRESP =
-  _guard36 ? RRESP :
+  _guard37 ? RRESP :
   2'd0;
 assign read_channel_A0_ARESETn =
-  _guard37 ? ARESETn :
+  _guard38 ? ARESETn :
   1'd0;
 assign tdcc_go_in = go;
-assign invoke0_go_in = _guard43;
+assign invoke0_go_in = _guard44;
 assign ar_channel_A0_clk = clk;
 assign ar_channel_A0_axi_address =
-  _guard44 ? axi_address :
+  _guard45 ? axi_address :
   64'd0;
-assign ar_channel_A0_go = _guard45;
+assign ar_channel_A0_go = _guard46;
 assign ar_channel_A0_reset = reset;
 assign ar_channel_A0_ARREADY =
-  _guard46 ? ARREADY :
+  _guard47 ? ARREADY :
   1'd0;
 assign ar_channel_A0_ARESETn =
-  _guard47 ? ARESETn :
+  _guard48 ? ARESETn :
   1'd0;
 assign invoke0_done_in = ar_channel_A0_done;
-assign invoke1_go_in = _guard53;
-assign tdcc_done_in = _guard54;
+assign invoke1_go_in = _guard54;
+assign tdcc_done_in = _guard55;
 assign invoke1_done_in = read_channel_A0_done;
 // COMPONENT END: read_controller_A0
 endmodule
@@ -3307,6 +3312,7 @@ module write_controller_A0(
   output logic [2:0] AWSIZE,
   output logic [7:0] AWLEN,
   output logic [1:0] AWBURST,
+  output logic [2:0] AWPROT,
   output logic WVALID,
   output logic WLAST,
   output logic [31:0] WDATA,
@@ -3466,152 +3472,156 @@ std_wire # (
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
 wire _guard2 = invoke0_go_out;
-wire _guard3 = invoke1_go_out;
+wire _guard3 = invoke0_go_out;
 wire _guard4 = invoke1_go_out;
-wire _guard5 = invoke0_go_out;
+wire _guard5 = invoke1_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
-wire _guard8 = invoke1_go_out;
-wire _guard9 = invoke2_go_out;
-wire _guard10 = invoke0_go_out;
-wire _guard11 = fsm_out == 2'd3;
-wire _guard12 = fsm_out == 2'd0;
-wire _guard13 = invoke0_done_out;
-wire _guard14 = _guard12 & _guard13;
-wire _guard15 = tdcc_go_out;
-wire _guard16 = _guard14 & _guard15;
-wire _guard17 = _guard11 | _guard16;
-wire _guard18 = fsm_out == 2'd1;
-wire _guard19 = invoke1_done_out;
-wire _guard20 = _guard18 & _guard19;
-wire _guard21 = tdcc_go_out;
-wire _guard22 = _guard20 & _guard21;
-wire _guard23 = _guard17 | _guard22;
-wire _guard24 = fsm_out == 2'd2;
-wire _guard25 = invoke2_done_out;
-wire _guard26 = _guard24 & _guard25;
-wire _guard27 = tdcc_go_out;
-wire _guard28 = _guard26 & _guard27;
-wire _guard29 = _guard23 | _guard28;
-wire _guard30 = fsm_out == 2'd0;
-wire _guard31 = invoke0_done_out;
-wire _guard32 = _guard30 & _guard31;
-wire _guard33 = tdcc_go_out;
-wire _guard34 = _guard32 & _guard33;
-wire _guard35 = fsm_out == 2'd3;
-wire _guard36 = fsm_out == 2'd2;
-wire _guard37 = invoke2_done_out;
-wire _guard38 = _guard36 & _guard37;
-wire _guard39 = tdcc_go_out;
-wire _guard40 = _guard38 & _guard39;
-wire _guard41 = fsm_out == 2'd1;
-wire _guard42 = invoke1_done_out;
-wire _guard43 = _guard41 & _guard42;
-wire _guard44 = tdcc_go_out;
-wire _guard45 = _guard43 & _guard44;
-wire _guard46 = invoke2_done_out;
-wire _guard47 = ~_guard46;
-wire _guard48 = fsm_out == 2'd2;
-wire _guard49 = _guard47 & _guard48;
-wire _guard50 = tdcc_go_out;
-wire _guard51 = _guard49 & _guard50;
-wire _guard52 = invoke0_done_out;
-wire _guard53 = ~_guard52;
-wire _guard54 = fsm_out == 2'd0;
-wire _guard55 = _guard53 & _guard54;
-wire _guard56 = tdcc_go_out;
-wire _guard57 = _guard55 & _guard56;
-wire _guard58 = invoke0_go_out;
+wire _guard8 = invoke0_go_out;
+wire _guard9 = invoke1_go_out;
+wire _guard10 = invoke2_go_out;
+wire _guard11 = invoke0_go_out;
+wire _guard12 = fsm_out == 2'd3;
+wire _guard13 = fsm_out == 2'd0;
+wire _guard14 = invoke0_done_out;
+wire _guard15 = _guard13 & _guard14;
+wire _guard16 = tdcc_go_out;
+wire _guard17 = _guard15 & _guard16;
+wire _guard18 = _guard12 | _guard17;
+wire _guard19 = fsm_out == 2'd1;
+wire _guard20 = invoke1_done_out;
+wire _guard21 = _guard19 & _guard20;
+wire _guard22 = tdcc_go_out;
+wire _guard23 = _guard21 & _guard22;
+wire _guard24 = _guard18 | _guard23;
+wire _guard25 = fsm_out == 2'd2;
+wire _guard26 = invoke2_done_out;
+wire _guard27 = _guard25 & _guard26;
+wire _guard28 = tdcc_go_out;
+wire _guard29 = _guard27 & _guard28;
+wire _guard30 = _guard24 | _guard29;
+wire _guard31 = fsm_out == 2'd0;
+wire _guard32 = invoke0_done_out;
+wire _guard33 = _guard31 & _guard32;
+wire _guard34 = tdcc_go_out;
+wire _guard35 = _guard33 & _guard34;
+wire _guard36 = fsm_out == 2'd3;
+wire _guard37 = fsm_out == 2'd2;
+wire _guard38 = invoke2_done_out;
+wire _guard39 = _guard37 & _guard38;
+wire _guard40 = tdcc_go_out;
+wire _guard41 = _guard39 & _guard40;
+wire _guard42 = fsm_out == 2'd1;
+wire _guard43 = invoke1_done_out;
+wire _guard44 = _guard42 & _guard43;
+wire _guard45 = tdcc_go_out;
+wire _guard46 = _guard44 & _guard45;
+wire _guard47 = invoke2_done_out;
+wire _guard48 = ~_guard47;
+wire _guard49 = fsm_out == 2'd2;
+wire _guard50 = _guard48 & _guard49;
+wire _guard51 = tdcc_go_out;
+wire _guard52 = _guard50 & _guard51;
+wire _guard53 = invoke0_done_out;
+wire _guard54 = ~_guard53;
+wire _guard55 = fsm_out == 2'd0;
+wire _guard56 = _guard54 & _guard55;
+wire _guard57 = tdcc_go_out;
+wire _guard58 = _guard56 & _guard57;
 wire _guard59 = invoke0_go_out;
 wire _guard60 = invoke0_go_out;
 wire _guard61 = invoke0_go_out;
-wire _guard62 = invoke1_done_out;
-wire _guard63 = ~_guard62;
-wire _guard64 = fsm_out == 2'd1;
-wire _guard65 = _guard63 & _guard64;
-wire _guard66 = tdcc_go_out;
-wire _guard67 = _guard65 & _guard66;
-wire _guard68 = invoke1_go_out;
+wire _guard62 = invoke0_go_out;
+wire _guard63 = invoke1_done_out;
+wire _guard64 = ~_guard63;
+wire _guard65 = fsm_out == 2'd1;
+wire _guard66 = _guard64 & _guard65;
+wire _guard67 = tdcc_go_out;
+wire _guard68 = _guard66 & _guard67;
 wire _guard69 = invoke1_go_out;
 wire _guard70 = invoke1_go_out;
 wire _guard71 = invoke1_go_out;
-wire _guard72 = invoke2_go_out;
+wire _guard72 = invoke1_go_out;
 wire _guard73 = invoke2_go_out;
-wire _guard74 = fsm_out == 2'd3;
+wire _guard74 = invoke2_go_out;
+wire _guard75 = fsm_out == 2'd3;
 assign done = _guard1;
 assign AWADDR =
   _guard2 ? aw_channel_A0_AWADDR :
   64'd0;
+assign AWPROT =
+  _guard3 ? aw_channel_A0_AWPROT :
+  3'd0;
 assign WVALID =
-  _guard3 ? write_channel_A0_WVALID :
+  _guard4 ? write_channel_A0_WVALID :
   1'd0;
 assign WDATA =
-  _guard4 ? write_channel_A0_WDATA :
+  _guard5 ? write_channel_A0_WDATA :
   32'd0;
 assign AWSIZE =
-  _guard5 ? aw_channel_A0_AWSIZE :
+  _guard6 ? aw_channel_A0_AWSIZE :
   3'd0;
 assign AWVALID =
-  _guard6 ? aw_channel_A0_AWVALID :
+  _guard7 ? aw_channel_A0_AWVALID :
   1'd0;
 assign AWBURST =
-  _guard7 ? aw_channel_A0_AWBURST :
+  _guard8 ? aw_channel_A0_AWBURST :
   2'd0;
 assign WLAST =
-  _guard8 ? write_channel_A0_WLAST :
+  _guard9 ? write_channel_A0_WLAST :
   1'd0;
 assign BREADY =
-  _guard9 ? bresp_channel_A0_BREADY :
+  _guard10 ? bresp_channel_A0_BREADY :
   1'd0;
 assign AWLEN =
-  _guard10 ? aw_channel_A0_AWLEN :
+  _guard11 ? aw_channel_A0_AWLEN :
   8'd0;
-assign fsm_write_en = _guard29;
+assign fsm_write_en = _guard30;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard34 ? 2'd1 :
-  _guard35 ? 2'd0 :
-  _guard40 ? 2'd3 :
-  _guard45 ? 2'd2 :
+  _guard35 ? 2'd1 :
+  _guard36 ? 2'd0 :
+  _guard41 ? 2'd3 :
+  _guard46 ? 2'd2 :
   2'd0;
-assign invoke2_go_in = _guard51;
+assign invoke2_go_in = _guard52;
 assign tdcc_go_in = go;
-assign invoke0_go_in = _guard57;
+assign invoke0_go_in = _guard58;
 assign aw_channel_A0_clk = clk;
 assign aw_channel_A0_axi_address =
-  _guard58 ? axi_address :
+  _guard59 ? axi_address :
   64'd0;
 assign aw_channel_A0_AWREADY =
-  _guard59 ? AWREADY :
+  _guard60 ? AWREADY :
   1'd0;
-assign aw_channel_A0_go = _guard60;
+assign aw_channel_A0_go = _guard61;
 assign aw_channel_A0_reset = reset;
 assign aw_channel_A0_ARESETn =
-  _guard61 ? ARESETn :
+  _guard62 ? ARESETn :
   1'd0;
 assign invoke0_done_in = aw_channel_A0_done;
-assign invoke1_go_in = _guard67;
+assign invoke1_go_in = _guard68;
 assign write_channel_A0_WREADY =
-  _guard68 ? WREADY :
+  _guard69 ? WREADY :
   1'd0;
 assign write_channel_A0_clk = clk;
-assign write_channel_A0_go = _guard69;
+assign write_channel_A0_go = _guard70;
 assign write_channel_A0_reset = reset;
 assign write_channel_A0_write_data =
-  _guard70 ? write_data :
+  _guard71 ? write_data :
   32'd0;
 assign write_channel_A0_ARESETn =
-  _guard71 ? ARESETn :
+  _guard72 ? ARESETn :
   1'd0;
 assign invoke2_done_in = bresp_channel_A0_done;
 assign bresp_channel_A0_clk = clk;
-assign bresp_channel_A0_go = _guard72;
+assign bresp_channel_A0_go = _guard73;
 assign bresp_channel_A0_reset = reset;
 assign bresp_channel_A0_BVALID =
-  _guard73 ? BVALID :
+  _guard74 ? BVALID :
   1'd0;
-assign tdcc_done_in = _guard74;
+assign tdcc_done_in = _guard75;
 assign invoke1_done_in = write_channel_A0_done;
 // COMPONENT END: write_controller_A0
 endmodule
@@ -3627,7 +3637,6 @@ module axi_dyn_mem_A0(
   input logic [31:0] RDATA,
   input logic [1:0] RRESP,
   input logic AWREADY,
-  input logic [1:0] WRESP,
   input logic WREADY,
   input logic BVALID,
   input logic [1:0] BRESP,
@@ -3637,6 +3646,7 @@ module axi_dyn_mem_A0(
   output logic [2:0] ARSIZE,
   output logic [7:0] ARLEN,
   output logic [1:0] ARBURST,
+  output logic [2:0] ARPROT,
   output logic RREADY,
   output logic AWVALID,
   output logic [63:0] AWADDR,
@@ -3667,6 +3677,7 @@ logic [63:0] read_controller_A0_ARADDR;
 logic [2:0] read_controller_A0_ARSIZE;
 logic [7:0] read_controller_A0_ARLEN;
 logic [1:0] read_controller_A0_ARBURST;
+logic [2:0] read_controller_A0_ARPROT;
 logic read_controller_A0_RREADY;
 logic [31:0] read_controller_A0_read_data;
 logic read_controller_A0_go;
@@ -3684,6 +3695,7 @@ logic [63:0] write_controller_A0_AWADDR;
 logic [2:0] write_controller_A0_AWSIZE;
 logic [7:0] write_controller_A0_AWLEN;
 logic [1:0] write_controller_A0_AWBURST;
+logic [2:0] write_controller_A0_AWPROT;
 logic write_controller_A0_WVALID;
 logic write_controller_A0_WLAST;
 logic [31:0] write_controller_A0_WDATA;
@@ -3719,6 +3731,7 @@ read_controller_A0 read_controller_A0 (
     .ARBURST(read_controller_A0_ARBURST),
     .ARESETn(read_controller_A0_ARESETn),
     .ARLEN(read_controller_A0_ARLEN),
+    .ARPROT(read_controller_A0_ARPROT),
     .ARREADY(read_controller_A0_ARREADY),
     .ARSIZE(read_controller_A0_ARSIZE),
     .ARVALID(read_controller_A0_ARVALID),
@@ -3739,6 +3752,7 @@ write_controller_A0 write_controller_A0 (
     .AWADDR(write_controller_A0_AWADDR),
     .AWBURST(write_controller_A0_AWBURST),
     .AWLEN(write_controller_A0_AWLEN),
+    .AWPROT(write_controller_A0_AWPROT),
     .AWREADY(write_controller_A0_AWREADY),
     .AWSIZE(write_controller_A0_AWSIZE),
     .AWVALID(write_controller_A0_AWVALID),
@@ -3803,205 +3817,213 @@ std_wire # (
 );
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
-wire _guard2 = invoke0_go_out;
+wire _guard2 = invoke1_go_out;
 wire _guard3 = invoke0_go_out;
 wire _guard4 = invoke0_go_out;
-wire _guard5 = invoke1_go_out;
-wire _guard6 = invoke1_go_out;
+wire _guard5 = invoke0_go_out;
+wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke1_go_out;
-wire _guard8 = invoke0_go_out;
-wire _guard9 = invoke0_go_out;
-wire _guard10 = invoke1_go_out;
+wire _guard8 = invoke1_go_out;
+wire _guard9 = invoke1_go_out;
+wire _guard10 = invoke0_go_out;
 wire _guard11 = invoke0_go_out;
-wire _guard12 = invoke0_go_out;
+wire _guard12 = invoke1_go_out;
 wire _guard13 = invoke0_go_out;
 wire _guard14 = invoke0_go_out;
-wire _guard15 = invoke1_go_out;
-wire _guard16 = invoke1_go_out;
-wire _guard17 = fsm_out == 2'd3;
-wire _guard18 = fsm_out == 2'd0;
-wire _guard19 = write_en;
-wire _guard20 = _guard18 & _guard19;
-wire _guard21 = tdcc_go_out;
+wire _guard15 = invoke0_go_out;
+wire _guard16 = invoke0_go_out;
+wire _guard17 = invoke1_go_out;
+wire _guard18 = invoke1_go_out;
+wire _guard19 = fsm_out == 2'd3;
+wire _guard20 = fsm_out == 2'd0;
+wire _guard21 = write_en;
 wire _guard22 = _guard20 & _guard21;
-wire _guard23 = _guard17 | _guard22;
-wire _guard24 = fsm_out == 2'd0;
-wire _guard25 = write_en;
-wire _guard26 = ~_guard25;
-wire _guard27 = _guard24 & _guard26;
-wire _guard28 = tdcc_go_out;
-wire _guard29 = _guard27 & _guard28;
-wire _guard30 = _guard23 | _guard29;
-wire _guard31 = fsm_out == 2'd1;
-wire _guard32 = invoke0_done_out;
-wire _guard33 = _guard31 & _guard32;
-wire _guard34 = tdcc_go_out;
+wire _guard23 = tdcc_go_out;
+wire _guard24 = _guard22 & _guard23;
+wire _guard25 = _guard19 | _guard24;
+wire _guard26 = fsm_out == 2'd0;
+wire _guard27 = write_en;
+wire _guard28 = ~_guard27;
+wire _guard29 = _guard26 & _guard28;
+wire _guard30 = tdcc_go_out;
+wire _guard31 = _guard29 & _guard30;
+wire _guard32 = _guard25 | _guard31;
+wire _guard33 = fsm_out == 2'd1;
+wire _guard34 = invoke0_done_out;
 wire _guard35 = _guard33 & _guard34;
-wire _guard36 = _guard30 | _guard35;
-wire _guard37 = fsm_out == 2'd2;
-wire _guard38 = invoke1_done_out;
-wire _guard39 = _guard37 & _guard38;
-wire _guard40 = tdcc_go_out;
+wire _guard36 = tdcc_go_out;
+wire _guard37 = _guard35 & _guard36;
+wire _guard38 = _guard32 | _guard37;
+wire _guard39 = fsm_out == 2'd2;
+wire _guard40 = invoke1_done_out;
 wire _guard41 = _guard39 & _guard40;
-wire _guard42 = _guard36 | _guard41;
-wire _guard43 = fsm_out == 2'd0;
-wire _guard44 = write_en;
-wire _guard45 = _guard43 & _guard44;
-wire _guard46 = tdcc_go_out;
+wire _guard42 = tdcc_go_out;
+wire _guard43 = _guard41 & _guard42;
+wire _guard44 = _guard38 | _guard43;
+wire _guard45 = fsm_out == 2'd0;
+wire _guard46 = write_en;
 wire _guard47 = _guard45 & _guard46;
-wire _guard48 = fsm_out == 2'd3;
-wire _guard49 = fsm_out == 2'd1;
-wire _guard50 = invoke0_done_out;
-wire _guard51 = _guard49 & _guard50;
-wire _guard52 = tdcc_go_out;
+wire _guard48 = tdcc_go_out;
+wire _guard49 = _guard47 & _guard48;
+wire _guard50 = fsm_out == 2'd3;
+wire _guard51 = fsm_out == 2'd1;
+wire _guard52 = invoke0_done_out;
 wire _guard53 = _guard51 & _guard52;
-wire _guard54 = fsm_out == 2'd2;
-wire _guard55 = invoke1_done_out;
-wire _guard56 = _guard54 & _guard55;
-wire _guard57 = tdcc_go_out;
+wire _guard54 = tdcc_go_out;
+wire _guard55 = _guard53 & _guard54;
+wire _guard56 = fsm_out == 2'd2;
+wire _guard57 = invoke1_done_out;
 wire _guard58 = _guard56 & _guard57;
-wire _guard59 = _guard53 | _guard58;
-wire _guard60 = fsm_out == 2'd0;
-wire _guard61 = write_en;
-wire _guard62 = ~_guard61;
-wire _guard63 = _guard60 & _guard62;
-wire _guard64 = tdcc_go_out;
-wire _guard65 = _guard63 & _guard64;
-wire _guard66 = invoke1_go_out;
-wire _guard67 = invoke1_go_out;
+wire _guard59 = tdcc_go_out;
+wire _guard60 = _guard58 & _guard59;
+wire _guard61 = _guard55 | _guard60;
+wire _guard62 = fsm_out == 2'd0;
+wire _guard63 = write_en;
+wire _guard64 = ~_guard63;
+wire _guard65 = _guard62 & _guard64;
+wire _guard66 = tdcc_go_out;
+wire _guard67 = _guard65 & _guard66;
 wire _guard68 = invoke1_go_out;
 wire _guard69 = invoke1_go_out;
 wire _guard70 = invoke1_go_out;
 wire _guard71 = invoke1_go_out;
 wire _guard72 = invoke1_go_out;
 wire _guard73 = invoke1_go_out;
-wire _guard74 = invoke0_done_out;
-wire _guard75 = ~_guard74;
-wire _guard76 = fsm_out == 2'd1;
-wire _guard77 = _guard75 & _guard76;
-wire _guard78 = tdcc_go_out;
+wire _guard74 = invoke1_go_out;
+wire _guard75 = invoke1_go_out;
+wire _guard76 = invoke0_done_out;
+wire _guard77 = ~_guard76;
+wire _guard78 = fsm_out == 2'd1;
 wire _guard79 = _guard77 & _guard78;
-wire _guard80 = invoke1_done_out;
-wire _guard81 = ~_guard80;
-wire _guard82 = fsm_out == 2'd2;
-wire _guard83 = _guard81 & _guard82;
-wire _guard84 = tdcc_go_out;
+wire _guard80 = tdcc_go_out;
+wire _guard81 = _guard79 & _guard80;
+wire _guard82 = invoke1_done_out;
+wire _guard83 = ~_guard82;
+wire _guard84 = fsm_out == 2'd2;
 wire _guard85 = _guard83 & _guard84;
-wire _guard86 = invoke0_go_out;
-wire _guard87 = invoke0_go_out;
+wire _guard86 = tdcc_go_out;
+wire _guard87 = _guard85 & _guard86;
 wire _guard88 = invoke0_go_out;
 wire _guard89 = invoke0_go_out;
 wire _guard90 = invoke0_go_out;
 wire _guard91 = invoke0_go_out;
 wire _guard92 = invoke0_go_out;
-wire _guard93 = fsm_out == 2'd3;
+wire _guard93 = invoke0_go_out;
+wire _guard94 = invoke0_go_out;
+wire _guard95 = fsm_out == 2'd3;
 assign done = _guard1;
+assign ARPROT =
+  _guard2 ? read_controller_A0_ARPROT :
+  3'd0;
 assign AWADDR =
-  _guard2 ? write_controller_A0_AWADDR :
+  _guard3 ? write_controller_A0_AWADDR :
   64'd0;
+assign AWPROT =
+  _guard4 ? write_controller_A0_AWPROT :
+  3'd0;
 assign WVALID =
-  _guard3 ? write_controller_A0_WVALID :
+  _guard5 ? write_controller_A0_WVALID :
   1'd0;
 assign WDATA =
-  _guard4 ? write_controller_A0_WDATA :
+  _guard6 ? write_controller_A0_WDATA :
   32'd0;
 assign ARSIZE =
-  _guard5 ? read_controller_A0_ARSIZE :
+  _guard7 ? read_controller_A0_ARSIZE :
   3'd0;
 assign RREADY =
-  _guard6 ? read_controller_A0_RREADY :
+  _guard8 ? read_controller_A0_RREADY :
   1'd0;
 assign read_data = read_controller_A0_read_data;
 assign ARLEN =
-  _guard7 ? read_controller_A0_ARLEN :
+  _guard9 ? read_controller_A0_ARLEN :
   8'd0;
 assign AWSIZE =
-  _guard8 ? write_controller_A0_AWSIZE :
+  _guard10 ? write_controller_A0_AWSIZE :
   3'd0;
 assign AWVALID =
-  _guard9 ? write_controller_A0_AWVALID :
+  _guard11 ? write_controller_A0_AWVALID :
   1'd0;
 assign ARADDR =
-  _guard10 ? read_controller_A0_ARADDR :
+  _guard12 ? read_controller_A0_ARADDR :
   64'd0;
 assign AWBURST =
-  _guard11 ? write_controller_A0_AWBURST :
+  _guard13 ? write_controller_A0_AWBURST :
   2'd0;
 assign WLAST =
-  _guard12 ? write_controller_A0_WLAST :
+  _guard14 ? write_controller_A0_WLAST :
   1'd0;
 assign BREADY =
-  _guard13 ? write_controller_A0_BREADY :
+  _guard15 ? write_controller_A0_BREADY :
   1'd0;
 assign AWLEN =
-  _guard14 ? write_controller_A0_AWLEN :
+  _guard16 ? write_controller_A0_AWLEN :
   8'd0;
 assign ARBURST =
-  _guard15 ? read_controller_A0_ARBURST :
+  _guard17 ? read_controller_A0_ARBURST :
   2'd0;
 assign ARVALID =
-  _guard16 ? read_controller_A0_ARVALID :
+  _guard18 ? read_controller_A0_ARVALID :
   1'd0;
-assign fsm_write_en = _guard42;
+assign fsm_write_en = _guard44;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard47 ? 2'd1 :
-  _guard48 ? 2'd0 :
-  _guard59 ? 2'd3 :
-  _guard65 ? 2'd2 :
+  _guard49 ? 2'd1 :
+  _guard50 ? 2'd0 :
+  _guard61 ? 2'd3 :
+  _guard67 ? 2'd2 :
   2'd0;
 assign read_controller_A0_RVALID =
-  _guard66 ? RVALID :
+  _guard68 ? RVALID :
   1'd0;
 assign read_controller_A0_RLAST =
-  _guard67 ? RLAST :
+  _guard69 ? RLAST :
   1'd0;
 assign read_controller_A0_RDATA =
-  _guard68 ? RDATA :
+  _guard70 ? RDATA :
   32'd0;
 assign read_controller_A0_clk = clk;
 assign read_controller_A0_axi_address =
-  _guard69 ? address_translator_A0_axi_address :
+  _guard71 ? address_translator_A0_axi_address :
   64'd0;
-assign read_controller_A0_go = _guard70;
+assign read_controller_A0_go = _guard72;
 assign read_controller_A0_reset = reset;
 assign read_controller_A0_RRESP =
-  _guard71 ? RRESP :
+  _guard73 ? RRESP :
   2'd0;
 assign read_controller_A0_ARREADY =
-  _guard72 ? ARREADY :
+  _guard74 ? ARREADY :
   1'd0;
 assign read_controller_A0_ARESETn =
-  _guard73 ? ARESETn :
+  _guard75 ? ARESETn :
   1'd0;
 assign tdcc_go_in = content_en;
-assign invoke0_go_in = _guard79;
+assign invoke0_go_in = _guard81;
 assign invoke0_done_in = write_controller_A0_done;
-assign invoke1_go_in = _guard85;
+assign invoke1_go_in = _guard87;
 assign write_controller_A0_WREADY =
-  _guard86 ? WREADY :
+  _guard88 ? WREADY :
   1'd0;
 assign write_controller_A0_clk = clk;
 assign write_controller_A0_axi_address =
-  _guard87 ? address_translator_A0_axi_address :
+  _guard89 ? address_translator_A0_axi_address :
   64'd0;
 assign write_controller_A0_AWREADY =
-  _guard88 ? AWREADY :
+  _guard90 ? AWREADY :
   1'd0;
-assign write_controller_A0_go = _guard89;
+assign write_controller_A0_go = _guard91;
 assign write_controller_A0_reset = reset;
 assign write_controller_A0_write_data =
-  _guard90 ? write_data :
+  _guard92 ? write_data :
   32'd0;
 assign write_controller_A0_BVALID =
-  _guard91 ? BVALID :
+  _guard93 ? BVALID :
   1'd0;
 assign write_controller_A0_ARESETn =
-  _guard92 ? ARESETn :
+  _guard94 ? ARESETn :
   1'd0;
 assign address_translator_A0_calyx_mem_addr = addr0;
-assign tdcc_done_in = _guard93;
+assign tdcc_done_in = _guard95;
 assign invoke1_done_in = read_controller_A0_done;
 // COMPONENT END: axi_dyn_mem_A0
 endmodule
@@ -5771,6 +5793,7 @@ module read_controller_B0(
   output logic [2:0] ARSIZE,
   output logic [7:0] ARLEN,
   output logic [1:0] ARBURST,
+  output logic [2:0] ARPROT,
   output logic RREADY,
   output logic [31:0] read_data,
   input logic go,
@@ -5898,121 +5921,125 @@ std_wire # (
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
 wire _guard2 = invoke0_go_out;
-wire _guard3 = invoke1_go_out;
-wire _guard4 = invoke0_go_out;
+wire _guard3 = invoke0_go_out;
+wire _guard4 = invoke1_go_out;
 wire _guard5 = invoke0_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
-wire _guard8 = fsm_out == 2'd2;
-wire _guard9 = fsm_out == 2'd0;
-wire _guard10 = invoke0_done_out;
-wire _guard11 = _guard9 & _guard10;
-wire _guard12 = tdcc_go_out;
-wire _guard13 = _guard11 & _guard12;
-wire _guard14 = _guard8 | _guard13;
-wire _guard15 = fsm_out == 2'd1;
-wire _guard16 = invoke1_done_out;
-wire _guard17 = _guard15 & _guard16;
-wire _guard18 = tdcc_go_out;
-wire _guard19 = _guard17 & _guard18;
-wire _guard20 = _guard14 | _guard19;
-wire _guard21 = fsm_out == 2'd0;
-wire _guard22 = invoke0_done_out;
-wire _guard23 = _guard21 & _guard22;
-wire _guard24 = tdcc_go_out;
-wire _guard25 = _guard23 & _guard24;
-wire _guard26 = fsm_out == 2'd2;
-wire _guard27 = fsm_out == 2'd1;
-wire _guard28 = invoke1_done_out;
-wire _guard29 = _guard27 & _guard28;
-wire _guard30 = tdcc_go_out;
-wire _guard31 = _guard29 & _guard30;
-wire _guard32 = invoke1_go_out;
+wire _guard8 = invoke0_go_out;
+wire _guard9 = fsm_out == 2'd2;
+wire _guard10 = fsm_out == 2'd0;
+wire _guard11 = invoke0_done_out;
+wire _guard12 = _guard10 & _guard11;
+wire _guard13 = tdcc_go_out;
+wire _guard14 = _guard12 & _guard13;
+wire _guard15 = _guard9 | _guard14;
+wire _guard16 = fsm_out == 2'd1;
+wire _guard17 = invoke1_done_out;
+wire _guard18 = _guard16 & _guard17;
+wire _guard19 = tdcc_go_out;
+wire _guard20 = _guard18 & _guard19;
+wire _guard21 = _guard15 | _guard20;
+wire _guard22 = fsm_out == 2'd0;
+wire _guard23 = invoke0_done_out;
+wire _guard24 = _guard22 & _guard23;
+wire _guard25 = tdcc_go_out;
+wire _guard26 = _guard24 & _guard25;
+wire _guard27 = fsm_out == 2'd2;
+wire _guard28 = fsm_out == 2'd1;
+wire _guard29 = invoke1_done_out;
+wire _guard30 = _guard28 & _guard29;
+wire _guard31 = tdcc_go_out;
+wire _guard32 = _guard30 & _guard31;
 wire _guard33 = invoke1_go_out;
 wire _guard34 = invoke1_go_out;
 wire _guard35 = invoke1_go_out;
 wire _guard36 = invoke1_go_out;
 wire _guard37 = invoke1_go_out;
-wire _guard38 = invoke0_done_out;
-wire _guard39 = ~_guard38;
-wire _guard40 = fsm_out == 2'd0;
-wire _guard41 = _guard39 & _guard40;
-wire _guard42 = tdcc_go_out;
-wire _guard43 = _guard41 & _guard42;
-wire _guard44 = invoke1_done_out;
-wire _guard45 = ~_guard44;
-wire _guard46 = fsm_out == 2'd1;
-wire _guard47 = _guard45 & _guard46;
-wire _guard48 = tdcc_go_out;
-wire _guard49 = _guard47 & _guard48;
-wire _guard50 = invoke0_go_out;
+wire _guard38 = invoke1_go_out;
+wire _guard39 = invoke0_done_out;
+wire _guard40 = ~_guard39;
+wire _guard41 = fsm_out == 2'd0;
+wire _guard42 = _guard40 & _guard41;
+wire _guard43 = tdcc_go_out;
+wire _guard44 = _guard42 & _guard43;
+wire _guard45 = invoke1_done_out;
+wire _guard46 = ~_guard45;
+wire _guard47 = fsm_out == 2'd1;
+wire _guard48 = _guard46 & _guard47;
+wire _guard49 = tdcc_go_out;
+wire _guard50 = _guard48 & _guard49;
 wire _guard51 = invoke0_go_out;
 wire _guard52 = invoke0_go_out;
 wire _guard53 = invoke0_go_out;
-wire _guard54 = fsm_out == 2'd2;
+wire _guard54 = invoke0_go_out;
+wire _guard55 = fsm_out == 2'd2;
 assign done = _guard1;
+assign ARPROT =
+  _guard2 ? ar_channel_B0_ARPROT :
+  3'd0;
 assign ARSIZE =
-  _guard2 ? ar_channel_B0_ARSIZE :
+  _guard3 ? ar_channel_B0_ARSIZE :
   3'd0;
 assign RREADY =
-  _guard3 ? read_channel_B0_RREADY :
+  _guard4 ? read_channel_B0_RREADY :
   1'd0;
 assign read_data = read_channel_B0_read_data;
 assign ARLEN =
-  _guard4 ? ar_channel_B0_ARLEN :
+  _guard5 ? ar_channel_B0_ARLEN :
   8'd0;
 assign ARADDR =
-  _guard5 ? ar_channel_B0_ARADDR :
+  _guard6 ? ar_channel_B0_ARADDR :
   64'd0;
 assign ARBURST =
-  _guard6 ? ar_channel_B0_ARBURST :
+  _guard7 ? ar_channel_B0_ARBURST :
   2'd0;
 assign ARVALID =
-  _guard7 ? ar_channel_B0_ARVALID :
+  _guard8 ? ar_channel_B0_ARVALID :
   1'd0;
-assign fsm_write_en = _guard20;
+assign fsm_write_en = _guard21;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard25 ? 2'd1 :
-  _guard26 ? 2'd0 :
-  _guard31 ? 2'd2 :
+  _guard26 ? 2'd1 :
+  _guard27 ? 2'd0 :
+  _guard32 ? 2'd2 :
   2'd0;
 assign read_channel_B0_RVALID =
-  _guard32 ? RVALID :
+  _guard33 ? RVALID :
   1'd0;
 assign read_channel_B0_RLAST =
-  _guard33 ? RLAST :
+  _guard34 ? RLAST :
   1'd0;
 assign read_channel_B0_RDATA =
-  _guard34 ? RDATA :
+  _guard35 ? RDATA :
   32'd0;
 assign read_channel_B0_clk = clk;
-assign read_channel_B0_go = _guard35;
+assign read_channel_B0_go = _guard36;
 assign read_channel_B0_reset = reset;
 assign read_channel_B0_RRESP =
-  _guard36 ? RRESP :
+  _guard37 ? RRESP :
   2'd0;
 assign read_channel_B0_ARESETn =
-  _guard37 ? ARESETn :
+  _guard38 ? ARESETn :
   1'd0;
 assign tdcc_go_in = go;
-assign invoke0_go_in = _guard43;
+assign invoke0_go_in = _guard44;
 assign invoke0_done_in = ar_channel_B0_done;
-assign invoke1_go_in = _guard49;
+assign invoke1_go_in = _guard50;
 assign ar_channel_B0_clk = clk;
 assign ar_channel_B0_axi_address =
-  _guard50 ? axi_address :
+  _guard51 ? axi_address :
   64'd0;
-assign ar_channel_B0_go = _guard51;
+assign ar_channel_B0_go = _guard52;
 assign ar_channel_B0_reset = reset;
 assign ar_channel_B0_ARREADY =
-  _guard52 ? ARREADY :
+  _guard53 ? ARREADY :
   1'd0;
 assign ar_channel_B0_ARESETn =
-  _guard53 ? ARESETn :
+  _guard54 ? ARESETn :
   1'd0;
-assign tdcc_done_in = _guard54;
+assign tdcc_done_in = _guard55;
 assign invoke1_done_in = read_channel_B0_done;
 // COMPONENT END: read_controller_B0
 endmodule
@@ -6028,6 +6055,7 @@ module write_controller_B0(
   output logic [2:0] AWSIZE,
   output logic [7:0] AWLEN,
   output logic [1:0] AWBURST,
+  output logic [2:0] AWPROT,
   output logic WVALID,
   output logic WLAST,
   output logic [31:0] WDATA,
@@ -6187,152 +6215,156 @@ std_wire # (
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
 wire _guard2 = invoke0_go_out;
-wire _guard3 = invoke1_go_out;
+wire _guard3 = invoke0_go_out;
 wire _guard4 = invoke1_go_out;
-wire _guard5 = invoke0_go_out;
+wire _guard5 = invoke1_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
-wire _guard8 = invoke1_go_out;
-wire _guard9 = invoke2_go_out;
-wire _guard10 = invoke0_go_out;
-wire _guard11 = fsm_out == 2'd3;
-wire _guard12 = fsm_out == 2'd0;
-wire _guard13 = invoke0_done_out;
-wire _guard14 = _guard12 & _guard13;
-wire _guard15 = tdcc_go_out;
-wire _guard16 = _guard14 & _guard15;
-wire _guard17 = _guard11 | _guard16;
-wire _guard18 = fsm_out == 2'd1;
-wire _guard19 = invoke1_done_out;
-wire _guard20 = _guard18 & _guard19;
-wire _guard21 = tdcc_go_out;
-wire _guard22 = _guard20 & _guard21;
-wire _guard23 = _guard17 | _guard22;
-wire _guard24 = fsm_out == 2'd2;
-wire _guard25 = invoke2_done_out;
-wire _guard26 = _guard24 & _guard25;
-wire _guard27 = tdcc_go_out;
-wire _guard28 = _guard26 & _guard27;
-wire _guard29 = _guard23 | _guard28;
-wire _guard30 = fsm_out == 2'd0;
-wire _guard31 = invoke0_done_out;
-wire _guard32 = _guard30 & _guard31;
-wire _guard33 = tdcc_go_out;
-wire _guard34 = _guard32 & _guard33;
-wire _guard35 = fsm_out == 2'd3;
-wire _guard36 = fsm_out == 2'd2;
-wire _guard37 = invoke2_done_out;
-wire _guard38 = _guard36 & _guard37;
-wire _guard39 = tdcc_go_out;
-wire _guard40 = _guard38 & _guard39;
-wire _guard41 = fsm_out == 2'd1;
-wire _guard42 = invoke1_done_out;
-wire _guard43 = _guard41 & _guard42;
-wire _guard44 = tdcc_go_out;
-wire _guard45 = _guard43 & _guard44;
-wire _guard46 = invoke2_done_out;
-wire _guard47 = ~_guard46;
-wire _guard48 = fsm_out == 2'd2;
-wire _guard49 = _guard47 & _guard48;
-wire _guard50 = tdcc_go_out;
-wire _guard51 = _guard49 & _guard50;
-wire _guard52 = invoke1_go_out;
+wire _guard8 = invoke0_go_out;
+wire _guard9 = invoke1_go_out;
+wire _guard10 = invoke2_go_out;
+wire _guard11 = invoke0_go_out;
+wire _guard12 = fsm_out == 2'd3;
+wire _guard13 = fsm_out == 2'd0;
+wire _guard14 = invoke0_done_out;
+wire _guard15 = _guard13 & _guard14;
+wire _guard16 = tdcc_go_out;
+wire _guard17 = _guard15 & _guard16;
+wire _guard18 = _guard12 | _guard17;
+wire _guard19 = fsm_out == 2'd1;
+wire _guard20 = invoke1_done_out;
+wire _guard21 = _guard19 & _guard20;
+wire _guard22 = tdcc_go_out;
+wire _guard23 = _guard21 & _guard22;
+wire _guard24 = _guard18 | _guard23;
+wire _guard25 = fsm_out == 2'd2;
+wire _guard26 = invoke2_done_out;
+wire _guard27 = _guard25 & _guard26;
+wire _guard28 = tdcc_go_out;
+wire _guard29 = _guard27 & _guard28;
+wire _guard30 = _guard24 | _guard29;
+wire _guard31 = fsm_out == 2'd0;
+wire _guard32 = invoke0_done_out;
+wire _guard33 = _guard31 & _guard32;
+wire _guard34 = tdcc_go_out;
+wire _guard35 = _guard33 & _guard34;
+wire _guard36 = fsm_out == 2'd3;
+wire _guard37 = fsm_out == 2'd2;
+wire _guard38 = invoke2_done_out;
+wire _guard39 = _guard37 & _guard38;
+wire _guard40 = tdcc_go_out;
+wire _guard41 = _guard39 & _guard40;
+wire _guard42 = fsm_out == 2'd1;
+wire _guard43 = invoke1_done_out;
+wire _guard44 = _guard42 & _guard43;
+wire _guard45 = tdcc_go_out;
+wire _guard46 = _guard44 & _guard45;
+wire _guard47 = invoke2_done_out;
+wire _guard48 = ~_guard47;
+wire _guard49 = fsm_out == 2'd2;
+wire _guard50 = _guard48 & _guard49;
+wire _guard51 = tdcc_go_out;
+wire _guard52 = _guard50 & _guard51;
 wire _guard53 = invoke1_go_out;
 wire _guard54 = invoke1_go_out;
 wire _guard55 = invoke1_go_out;
-wire _guard56 = invoke0_done_out;
-wire _guard57 = ~_guard56;
-wire _guard58 = fsm_out == 2'd0;
-wire _guard59 = _guard57 & _guard58;
-wire _guard60 = tdcc_go_out;
-wire _guard61 = _guard59 & _guard60;
-wire _guard62 = invoke0_go_out;
+wire _guard56 = invoke1_go_out;
+wire _guard57 = invoke0_done_out;
+wire _guard58 = ~_guard57;
+wire _guard59 = fsm_out == 2'd0;
+wire _guard60 = _guard58 & _guard59;
+wire _guard61 = tdcc_go_out;
+wire _guard62 = _guard60 & _guard61;
 wire _guard63 = invoke0_go_out;
 wire _guard64 = invoke0_go_out;
 wire _guard65 = invoke0_go_out;
-wire _guard66 = invoke1_done_out;
-wire _guard67 = ~_guard66;
-wire _guard68 = fsm_out == 2'd1;
-wire _guard69 = _guard67 & _guard68;
-wire _guard70 = tdcc_go_out;
-wire _guard71 = _guard69 & _guard70;
-wire _guard72 = invoke2_go_out;
+wire _guard66 = invoke0_go_out;
+wire _guard67 = invoke1_done_out;
+wire _guard68 = ~_guard67;
+wire _guard69 = fsm_out == 2'd1;
+wire _guard70 = _guard68 & _guard69;
+wire _guard71 = tdcc_go_out;
+wire _guard72 = _guard70 & _guard71;
 wire _guard73 = invoke2_go_out;
-wire _guard74 = fsm_out == 2'd3;
+wire _guard74 = invoke2_go_out;
+wire _guard75 = fsm_out == 2'd3;
 assign done = _guard1;
 assign AWADDR =
   _guard2 ? aw_channel_B0_AWADDR :
   64'd0;
+assign AWPROT =
+  _guard3 ? aw_channel_B0_AWPROT :
+  3'd0;
 assign WVALID =
-  _guard3 ? write_channel_B0_WVALID :
+  _guard4 ? write_channel_B0_WVALID :
   1'd0;
 assign WDATA =
-  _guard4 ? write_channel_B0_WDATA :
+  _guard5 ? write_channel_B0_WDATA :
   32'd0;
 assign AWSIZE =
-  _guard5 ? aw_channel_B0_AWSIZE :
+  _guard6 ? aw_channel_B0_AWSIZE :
   3'd0;
 assign AWVALID =
-  _guard6 ? aw_channel_B0_AWVALID :
+  _guard7 ? aw_channel_B0_AWVALID :
   1'd0;
 assign AWBURST =
-  _guard7 ? aw_channel_B0_AWBURST :
+  _guard8 ? aw_channel_B0_AWBURST :
   2'd0;
 assign WLAST =
-  _guard8 ? write_channel_B0_WLAST :
+  _guard9 ? write_channel_B0_WLAST :
   1'd0;
 assign BREADY =
-  _guard9 ? bresp_channel_B0_BREADY :
+  _guard10 ? bresp_channel_B0_BREADY :
   1'd0;
 assign AWLEN =
-  _guard10 ? aw_channel_B0_AWLEN :
+  _guard11 ? aw_channel_B0_AWLEN :
   8'd0;
-assign fsm_write_en = _guard29;
+assign fsm_write_en = _guard30;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard34 ? 2'd1 :
-  _guard35 ? 2'd0 :
-  _guard40 ? 2'd3 :
-  _guard45 ? 2'd2 :
+  _guard35 ? 2'd1 :
+  _guard36 ? 2'd0 :
+  _guard41 ? 2'd3 :
+  _guard46 ? 2'd2 :
   2'd0;
-assign invoke2_go_in = _guard51;
+assign invoke2_go_in = _guard52;
 assign write_channel_B0_WREADY =
-  _guard52 ? WREADY :
+  _guard53 ? WREADY :
   1'd0;
 assign write_channel_B0_clk = clk;
-assign write_channel_B0_go = _guard53;
+assign write_channel_B0_go = _guard54;
 assign write_channel_B0_reset = reset;
 assign write_channel_B0_write_data =
-  _guard54 ? write_data :
+  _guard55 ? write_data :
   32'd0;
 assign write_channel_B0_ARESETn =
-  _guard55 ? ARESETn :
+  _guard56 ? ARESETn :
   1'd0;
 assign tdcc_go_in = go;
-assign invoke0_go_in = _guard61;
+assign invoke0_go_in = _guard62;
 assign aw_channel_B0_clk = clk;
 assign aw_channel_B0_axi_address =
-  _guard62 ? axi_address :
+  _guard63 ? axi_address :
   64'd0;
 assign aw_channel_B0_AWREADY =
-  _guard63 ? AWREADY :
+  _guard64 ? AWREADY :
   1'd0;
-assign aw_channel_B0_go = _guard64;
+assign aw_channel_B0_go = _guard65;
 assign aw_channel_B0_reset = reset;
 assign aw_channel_B0_ARESETn =
-  _guard65 ? ARESETn :
+  _guard66 ? ARESETn :
   1'd0;
 assign invoke0_done_in = aw_channel_B0_done;
-assign invoke1_go_in = _guard71;
+assign invoke1_go_in = _guard72;
 assign invoke2_done_in = bresp_channel_B0_done;
 assign bresp_channel_B0_clk = clk;
-assign bresp_channel_B0_go = _guard72;
+assign bresp_channel_B0_go = _guard73;
 assign bresp_channel_B0_reset = reset;
 assign bresp_channel_B0_BVALID =
-  _guard73 ? BVALID :
+  _guard74 ? BVALID :
   1'd0;
-assign tdcc_done_in = _guard74;
+assign tdcc_done_in = _guard75;
 assign invoke1_done_in = write_channel_B0_done;
 // COMPONENT END: write_controller_B0
 endmodule
@@ -6348,7 +6380,6 @@ module axi_dyn_mem_B0(
   input logic [31:0] RDATA,
   input logic [1:0] RRESP,
   input logic AWREADY,
-  input logic [1:0] WRESP,
   input logic WREADY,
   input logic BVALID,
   input logic [1:0] BRESP,
@@ -6358,6 +6389,7 @@ module axi_dyn_mem_B0(
   output logic [2:0] ARSIZE,
   output logic [7:0] ARLEN,
   output logic [1:0] ARBURST,
+  output logic [2:0] ARPROT,
   output logic RREADY,
   output logic AWVALID,
   output logic [63:0] AWADDR,
@@ -6388,6 +6420,7 @@ logic [63:0] read_controller_B0_ARADDR;
 logic [2:0] read_controller_B0_ARSIZE;
 logic [7:0] read_controller_B0_ARLEN;
 logic [1:0] read_controller_B0_ARBURST;
+logic [2:0] read_controller_B0_ARPROT;
 logic read_controller_B0_RREADY;
 logic [31:0] read_controller_B0_read_data;
 logic read_controller_B0_go;
@@ -6405,6 +6438,7 @@ logic [63:0] write_controller_B0_AWADDR;
 logic [2:0] write_controller_B0_AWSIZE;
 logic [7:0] write_controller_B0_AWLEN;
 logic [1:0] write_controller_B0_AWBURST;
+logic [2:0] write_controller_B0_AWPROT;
 logic write_controller_B0_WVALID;
 logic write_controller_B0_WLAST;
 logic [31:0] write_controller_B0_WDATA;
@@ -6440,6 +6474,7 @@ read_controller_B0 read_controller_B0 (
     .ARBURST(read_controller_B0_ARBURST),
     .ARESETn(read_controller_B0_ARESETn),
     .ARLEN(read_controller_B0_ARLEN),
+    .ARPROT(read_controller_B0_ARPROT),
     .ARREADY(read_controller_B0_ARREADY),
     .ARSIZE(read_controller_B0_ARSIZE),
     .ARVALID(read_controller_B0_ARVALID),
@@ -6460,6 +6495,7 @@ write_controller_B0 write_controller_B0 (
     .AWADDR(write_controller_B0_AWADDR),
     .AWBURST(write_controller_B0_AWBURST),
     .AWLEN(write_controller_B0_AWLEN),
+    .AWPROT(write_controller_B0_AWPROT),
     .AWREADY(write_controller_B0_AWREADY),
     .AWSIZE(write_controller_B0_AWSIZE),
     .AWVALID(write_controller_B0_AWVALID),
@@ -6531,91 +6567,93 @@ wire _guard5 = invoke0_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
 wire _guard8 = tdcc_done_out;
-wire _guard9 = invoke0_go_out;
+wire _guard9 = invoke1_go_out;
 wire _guard10 = invoke0_go_out;
 wire _guard11 = invoke0_go_out;
-wire _guard12 = invoke1_go_out;
-wire _guard13 = invoke1_go_out;
+wire _guard12 = invoke0_go_out;
+wire _guard13 = invoke0_go_out;
 wire _guard14 = invoke1_go_out;
-wire _guard15 = invoke0_go_out;
-wire _guard16 = invoke0_go_out;
-wire _guard17 = invoke1_go_out;
+wire _guard15 = invoke1_go_out;
+wire _guard16 = invoke1_go_out;
+wire _guard17 = invoke0_go_out;
 wire _guard18 = invoke0_go_out;
-wire _guard19 = invoke0_go_out;
+wire _guard19 = invoke1_go_out;
 wire _guard20 = invoke0_go_out;
 wire _guard21 = invoke0_go_out;
-wire _guard22 = invoke1_go_out;
-wire _guard23 = invoke1_go_out;
-wire _guard24 = fsm_out == 2'd3;
-wire _guard25 = fsm_out == 2'd0;
-wire _guard26 = write_en;
-wire _guard27 = _guard25 & _guard26;
-wire _guard28 = tdcc_go_out;
+wire _guard22 = invoke0_go_out;
+wire _guard23 = invoke0_go_out;
+wire _guard24 = invoke1_go_out;
+wire _guard25 = invoke1_go_out;
+wire _guard26 = fsm_out == 2'd3;
+wire _guard27 = fsm_out == 2'd0;
+wire _guard28 = write_en;
 wire _guard29 = _guard27 & _guard28;
-wire _guard30 = _guard24 | _guard29;
-wire _guard31 = fsm_out == 2'd0;
-wire _guard32 = write_en;
-wire _guard33 = ~_guard32;
-wire _guard34 = _guard31 & _guard33;
-wire _guard35 = tdcc_go_out;
-wire _guard36 = _guard34 & _guard35;
-wire _guard37 = _guard30 | _guard36;
-wire _guard38 = fsm_out == 2'd1;
-wire _guard39 = invoke0_done_out;
-wire _guard40 = _guard38 & _guard39;
-wire _guard41 = tdcc_go_out;
+wire _guard30 = tdcc_go_out;
+wire _guard31 = _guard29 & _guard30;
+wire _guard32 = _guard26 | _guard31;
+wire _guard33 = fsm_out == 2'd0;
+wire _guard34 = write_en;
+wire _guard35 = ~_guard34;
+wire _guard36 = _guard33 & _guard35;
+wire _guard37 = tdcc_go_out;
+wire _guard38 = _guard36 & _guard37;
+wire _guard39 = _guard32 | _guard38;
+wire _guard40 = fsm_out == 2'd1;
+wire _guard41 = invoke0_done_out;
 wire _guard42 = _guard40 & _guard41;
-wire _guard43 = _guard37 | _guard42;
-wire _guard44 = fsm_out == 2'd2;
-wire _guard45 = invoke1_done_out;
-wire _guard46 = _guard44 & _guard45;
-wire _guard47 = tdcc_go_out;
+wire _guard43 = tdcc_go_out;
+wire _guard44 = _guard42 & _guard43;
+wire _guard45 = _guard39 | _guard44;
+wire _guard46 = fsm_out == 2'd2;
+wire _guard47 = invoke1_done_out;
 wire _guard48 = _guard46 & _guard47;
-wire _guard49 = _guard43 | _guard48;
-wire _guard50 = fsm_out == 2'd0;
-wire _guard51 = write_en;
-wire _guard52 = _guard50 & _guard51;
-wire _guard53 = tdcc_go_out;
+wire _guard49 = tdcc_go_out;
+wire _guard50 = _guard48 & _guard49;
+wire _guard51 = _guard45 | _guard50;
+wire _guard52 = fsm_out == 2'd0;
+wire _guard53 = write_en;
 wire _guard54 = _guard52 & _guard53;
-wire _guard55 = fsm_out == 2'd3;
-wire _guard56 = fsm_out == 2'd1;
-wire _guard57 = invoke0_done_out;
-wire _guard58 = _guard56 & _guard57;
-wire _guard59 = tdcc_go_out;
+wire _guard55 = tdcc_go_out;
+wire _guard56 = _guard54 & _guard55;
+wire _guard57 = fsm_out == 2'd3;
+wire _guard58 = fsm_out == 2'd1;
+wire _guard59 = invoke0_done_out;
 wire _guard60 = _guard58 & _guard59;
-wire _guard61 = fsm_out == 2'd2;
-wire _guard62 = invoke1_done_out;
-wire _guard63 = _guard61 & _guard62;
-wire _guard64 = tdcc_go_out;
+wire _guard61 = tdcc_go_out;
+wire _guard62 = _guard60 & _guard61;
+wire _guard63 = fsm_out == 2'd2;
+wire _guard64 = invoke1_done_out;
 wire _guard65 = _guard63 & _guard64;
-wire _guard66 = _guard60 | _guard65;
-wire _guard67 = fsm_out == 2'd0;
-wire _guard68 = write_en;
-wire _guard69 = ~_guard68;
-wire _guard70 = _guard67 & _guard69;
-wire _guard71 = tdcc_go_out;
-wire _guard72 = _guard70 & _guard71;
-wire _guard73 = invoke0_done_out;
-wire _guard74 = ~_guard73;
-wire _guard75 = fsm_out == 2'd1;
-wire _guard76 = _guard74 & _guard75;
-wire _guard77 = tdcc_go_out;
+wire _guard66 = tdcc_go_out;
+wire _guard67 = _guard65 & _guard66;
+wire _guard68 = _guard62 | _guard67;
+wire _guard69 = fsm_out == 2'd0;
+wire _guard70 = write_en;
+wire _guard71 = ~_guard70;
+wire _guard72 = _guard69 & _guard71;
+wire _guard73 = tdcc_go_out;
+wire _guard74 = _guard72 & _guard73;
+wire _guard75 = invoke0_done_out;
+wire _guard76 = ~_guard75;
+wire _guard77 = fsm_out == 2'd1;
 wire _guard78 = _guard76 & _guard77;
-wire _guard79 = invoke1_go_out;
-wire _guard80 = invoke1_go_out;
+wire _guard79 = tdcc_go_out;
+wire _guard80 = _guard78 & _guard79;
 wire _guard81 = invoke1_go_out;
 wire _guard82 = invoke1_go_out;
 wire _guard83 = invoke1_go_out;
 wire _guard84 = invoke1_go_out;
 wire _guard85 = invoke1_go_out;
 wire _guard86 = invoke1_go_out;
-wire _guard87 = invoke1_done_out;
-wire _guard88 = ~_guard87;
-wire _guard89 = fsm_out == 2'd2;
-wire _guard90 = _guard88 & _guard89;
-wire _guard91 = tdcc_go_out;
+wire _guard87 = invoke1_go_out;
+wire _guard88 = invoke1_go_out;
+wire _guard89 = invoke1_done_out;
+wire _guard90 = ~_guard89;
+wire _guard91 = fsm_out == 2'd2;
 wire _guard92 = _guard90 & _guard91;
-wire _guard93 = fsm_out == 2'd3;
+wire _guard93 = tdcc_go_out;
+wire _guard94 = _guard92 & _guard93;
+wire _guard95 = fsm_out == 2'd3;
 assign write_controller_B0_WREADY =
   _guard1 ? WREADY :
   1'd0;
@@ -6638,91 +6676,97 @@ assign write_controller_B0_ARESETn =
   _guard7 ? ARESETn :
   1'd0;
 assign done = _guard8;
+assign ARPROT =
+  _guard9 ? read_controller_B0_ARPROT :
+  3'd0;
 assign AWADDR =
-  _guard9 ? write_controller_B0_AWADDR :
+  _guard10 ? write_controller_B0_AWADDR :
   64'd0;
+assign AWPROT =
+  _guard11 ? write_controller_B0_AWPROT :
+  3'd0;
 assign WVALID =
-  _guard10 ? write_controller_B0_WVALID :
+  _guard12 ? write_controller_B0_WVALID :
   1'd0;
 assign WDATA =
-  _guard11 ? write_controller_B0_WDATA :
+  _guard13 ? write_controller_B0_WDATA :
   32'd0;
 assign ARSIZE =
-  _guard12 ? read_controller_B0_ARSIZE :
+  _guard14 ? read_controller_B0_ARSIZE :
   3'd0;
 assign RREADY =
-  _guard13 ? read_controller_B0_RREADY :
+  _guard15 ? read_controller_B0_RREADY :
   1'd0;
 assign read_data = read_controller_B0_read_data;
 assign ARLEN =
-  _guard14 ? read_controller_B0_ARLEN :
+  _guard16 ? read_controller_B0_ARLEN :
   8'd0;
 assign AWSIZE =
-  _guard15 ? write_controller_B0_AWSIZE :
+  _guard17 ? write_controller_B0_AWSIZE :
   3'd0;
 assign AWVALID =
-  _guard16 ? write_controller_B0_AWVALID :
+  _guard18 ? write_controller_B0_AWVALID :
   1'd0;
 assign ARADDR =
-  _guard17 ? read_controller_B0_ARADDR :
+  _guard19 ? read_controller_B0_ARADDR :
   64'd0;
 assign AWBURST =
-  _guard18 ? write_controller_B0_AWBURST :
+  _guard20 ? write_controller_B0_AWBURST :
   2'd0;
 assign WLAST =
-  _guard19 ? write_controller_B0_WLAST :
+  _guard21 ? write_controller_B0_WLAST :
   1'd0;
 assign BREADY =
-  _guard20 ? write_controller_B0_BREADY :
+  _guard22 ? write_controller_B0_BREADY :
   1'd0;
 assign AWLEN =
-  _guard21 ? write_controller_B0_AWLEN :
+  _guard23 ? write_controller_B0_AWLEN :
   8'd0;
 assign ARBURST =
-  _guard22 ? read_controller_B0_ARBURST :
+  _guard24 ? read_controller_B0_ARBURST :
   2'd0;
 assign ARVALID =
-  _guard23 ? read_controller_B0_ARVALID :
+  _guard25 ? read_controller_B0_ARVALID :
   1'd0;
-assign fsm_write_en = _guard49;
+assign fsm_write_en = _guard51;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard54 ? 2'd1 :
-  _guard55 ? 2'd0 :
-  _guard66 ? 2'd3 :
-  _guard72 ? 2'd2 :
+  _guard56 ? 2'd1 :
+  _guard57 ? 2'd0 :
+  _guard68 ? 2'd3 :
+  _guard74 ? 2'd2 :
   2'd0;
 assign address_translator_B0_calyx_mem_addr = addr0;
 assign tdcc_go_in = content_en;
-assign invoke0_go_in = _guard78;
+assign invoke0_go_in = _guard80;
 assign read_controller_B0_RVALID =
-  _guard79 ? RVALID :
+  _guard81 ? RVALID :
   1'd0;
 assign read_controller_B0_RLAST =
-  _guard80 ? RLAST :
+  _guard82 ? RLAST :
   1'd0;
 assign read_controller_B0_RDATA =
-  _guard81 ? RDATA :
+  _guard83 ? RDATA :
   32'd0;
 assign read_controller_B0_clk = clk;
 assign read_controller_B0_axi_address =
-  _guard82 ? address_translator_B0_axi_address :
+  _guard84 ? address_translator_B0_axi_address :
   64'd0;
-assign read_controller_B0_go = _guard83;
+assign read_controller_B0_go = _guard85;
 assign read_controller_B0_reset = reset;
 assign read_controller_B0_RRESP =
-  _guard84 ? RRESP :
+  _guard86 ? RRESP :
   2'd0;
 assign read_controller_B0_ARREADY =
-  _guard85 ? ARREADY :
+  _guard87 ? ARREADY :
   1'd0;
 assign read_controller_B0_ARESETn =
-  _guard86 ? ARESETn :
+  _guard88 ? ARESETn :
   1'd0;
 assign invoke0_done_in = write_controller_B0_done;
-assign invoke1_go_in = _guard92;
-assign tdcc_done_in = _guard93;
+assign invoke1_go_in = _guard94;
+assign tdcc_done_in = _guard95;
 assign invoke1_done_in = read_controller_B0_done;
 // COMPONENT END: axi_dyn_mem_B0
 endmodule
@@ -8492,6 +8536,7 @@ module read_controller_Sum0(
   output logic [2:0] ARSIZE,
   output logic [7:0] ARLEN,
   output logic [1:0] ARBURST,
+  output logic [2:0] ARPROT,
   output logic RREADY,
   output logic [31:0] read_data,
   input logic go,
@@ -8625,52 +8670,53 @@ wire _guard5 = invoke1_go_out;
 wire _guard6 = invoke1_go_out;
 wire _guard7 = tdcc_done_out;
 wire _guard8 = invoke0_go_out;
-wire _guard9 = invoke1_go_out;
-wire _guard10 = invoke0_go_out;
+wire _guard9 = invoke0_go_out;
+wire _guard10 = invoke1_go_out;
 wire _guard11 = invoke0_go_out;
 wire _guard12 = invoke0_go_out;
 wire _guard13 = invoke0_go_out;
-wire _guard14 = fsm_out == 2'd2;
-wire _guard15 = fsm_out == 2'd0;
-wire _guard16 = invoke0_done_out;
-wire _guard17 = _guard15 & _guard16;
-wire _guard18 = tdcc_go_out;
-wire _guard19 = _guard17 & _guard18;
-wire _guard20 = _guard14 | _guard19;
-wire _guard21 = fsm_out == 2'd1;
-wire _guard22 = invoke1_done_out;
-wire _guard23 = _guard21 & _guard22;
-wire _guard24 = tdcc_go_out;
-wire _guard25 = _guard23 & _guard24;
-wire _guard26 = _guard20 | _guard25;
-wire _guard27 = fsm_out == 2'd0;
-wire _guard28 = invoke0_done_out;
-wire _guard29 = _guard27 & _guard28;
-wire _guard30 = tdcc_go_out;
-wire _guard31 = _guard29 & _guard30;
-wire _guard32 = fsm_out == 2'd2;
-wire _guard33 = fsm_out == 2'd1;
-wire _guard34 = invoke1_done_out;
-wire _guard35 = _guard33 & _guard34;
-wire _guard36 = tdcc_go_out;
-wire _guard37 = _guard35 & _guard36;
-wire _guard38 = invoke0_go_out;
+wire _guard14 = invoke0_go_out;
+wire _guard15 = fsm_out == 2'd2;
+wire _guard16 = fsm_out == 2'd0;
+wire _guard17 = invoke0_done_out;
+wire _guard18 = _guard16 & _guard17;
+wire _guard19 = tdcc_go_out;
+wire _guard20 = _guard18 & _guard19;
+wire _guard21 = _guard15 | _guard20;
+wire _guard22 = fsm_out == 2'd1;
+wire _guard23 = invoke1_done_out;
+wire _guard24 = _guard22 & _guard23;
+wire _guard25 = tdcc_go_out;
+wire _guard26 = _guard24 & _guard25;
+wire _guard27 = _guard21 | _guard26;
+wire _guard28 = fsm_out == 2'd0;
+wire _guard29 = invoke0_done_out;
+wire _guard30 = _guard28 & _guard29;
+wire _guard31 = tdcc_go_out;
+wire _guard32 = _guard30 & _guard31;
+wire _guard33 = fsm_out == 2'd2;
+wire _guard34 = fsm_out == 2'd1;
+wire _guard35 = invoke1_done_out;
+wire _guard36 = _guard34 & _guard35;
+wire _guard37 = tdcc_go_out;
+wire _guard38 = _guard36 & _guard37;
 wire _guard39 = invoke0_go_out;
 wire _guard40 = invoke0_go_out;
 wire _guard41 = invoke0_go_out;
-wire _guard42 = invoke0_done_out;
-wire _guard43 = ~_guard42;
-wire _guard44 = fsm_out == 2'd0;
-wire _guard45 = _guard43 & _guard44;
-wire _guard46 = tdcc_go_out;
-wire _guard47 = _guard45 & _guard46;
-wire _guard48 = invoke1_done_out;
-wire _guard49 = ~_guard48;
-wire _guard50 = fsm_out == 2'd1;
-wire _guard51 = _guard49 & _guard50;
-wire _guard52 = tdcc_go_out;
-wire _guard53 = _guard51 & _guard52;
-wire _guard54 = fsm_out == 2'd2;
+wire _guard42 = invoke0_go_out;
+wire _guard43 = invoke0_done_out;
+wire _guard44 = ~_guard43;
+wire _guard45 = fsm_out == 2'd0;
+wire _guard46 = _guard44 & _guard45;
+wire _guard47 = tdcc_go_out;
+wire _guard48 = _guard46 & _guard47;
+wire _guard49 = invoke1_done_out;
+wire _guard50 = ~_guard49;
+wire _guard51 = fsm_out == 2'd1;
+wire _guard52 = _guard50 & _guard51;
+wire _guard53 = tdcc_go_out;
+wire _guard54 = _guard52 & _guard53;
+wire _guard55 = fsm_out == 2'd2;
 assign read_channel_Sum0_RVALID =
   _guard1 ? RVALID :
   1'd0;
@@ -8690,50 +8736,53 @@ assign read_channel_Sum0_ARESETn =
   _guard6 ? ARESETn :
   1'd0;
 assign done = _guard7;
+assign ARPROT =
+  _guard8 ? ar_channel_Sum0_ARPROT :
+  3'd0;
 assign ARSIZE =
-  _guard8 ? ar_channel_Sum0_ARSIZE :
+  _guard9 ? ar_channel_Sum0_ARSIZE :
   3'd0;
 assign RREADY =
-  _guard9 ? read_channel_Sum0_RREADY :
+  _guard10 ? read_channel_Sum0_RREADY :
   1'd0;
 assign read_data = read_channel_Sum0_read_data;
 assign ARLEN =
-  _guard10 ? ar_channel_Sum0_ARLEN :
+  _guard11 ? ar_channel_Sum0_ARLEN :
   8'd0;
 assign ARADDR =
-  _guard11 ? ar_channel_Sum0_ARADDR :
+  _guard12 ? ar_channel_Sum0_ARADDR :
   64'd0;
 assign ARBURST =
-  _guard12 ? ar_channel_Sum0_ARBURST :
+  _guard13 ? ar_channel_Sum0_ARBURST :
   2'd0;
 assign ARVALID =
-  _guard13 ? ar_channel_Sum0_ARVALID :
+  _guard14 ? ar_channel_Sum0_ARVALID :
   1'd0;
-assign fsm_write_en = _guard26;
+assign fsm_write_en = _guard27;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard31 ? 2'd1 :
-  _guard32 ? 2'd0 :
-  _guard37 ? 2'd2 :
+  _guard32 ? 2'd1 :
+  _guard33 ? 2'd0 :
+  _guard38 ? 2'd2 :
   2'd0;
 assign ar_channel_Sum0_clk = clk;
 assign ar_channel_Sum0_axi_address =
-  _guard38 ? axi_address :
+  _guard39 ? axi_address :
   64'd0;
-assign ar_channel_Sum0_go = _guard39;
+assign ar_channel_Sum0_go = _guard40;
 assign ar_channel_Sum0_reset = reset;
 assign ar_channel_Sum0_ARREADY =
-  _guard40 ? ARREADY :
+  _guard41 ? ARREADY :
   1'd0;
 assign ar_channel_Sum0_ARESETn =
-  _guard41 ? ARESETn :
+  _guard42 ? ARESETn :
   1'd0;
 assign tdcc_go_in = go;
-assign invoke0_go_in = _guard47;
+assign invoke0_go_in = _guard48;
 assign invoke0_done_in = ar_channel_Sum0_done;
-assign invoke1_go_in = _guard53;
-assign tdcc_done_in = _guard54;
+assign invoke1_go_in = _guard54;
+assign tdcc_done_in = _guard55;
 assign invoke1_done_in = read_channel_Sum0_done;
 // COMPONENT END: read_controller_Sum0
 endmodule
@@ -8749,6 +8798,7 @@ module write_controller_Sum0(
   output logic [2:0] AWSIZE,
   output logic [7:0] AWLEN,
   output logic [1:0] AWBURST,
+  output logic [2:0] AWPROT,
   output logic WVALID,
   output logic WLAST,
   output logic [31:0] WDATA,
@@ -8908,151 +8958,155 @@ std_wire # (
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
 wire _guard2 = invoke0_go_out;
-wire _guard3 = invoke1_go_out;
+wire _guard3 = invoke0_go_out;
 wire _guard4 = invoke1_go_out;
-wire _guard5 = invoke0_go_out;
+wire _guard5 = invoke1_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
-wire _guard8 = invoke1_go_out;
-wire _guard9 = invoke2_go_out;
-wire _guard10 = invoke0_go_out;
-wire _guard11 = fsm_out == 2'd3;
-wire _guard12 = fsm_out == 2'd0;
-wire _guard13 = invoke0_done_out;
-wire _guard14 = _guard12 & _guard13;
-wire _guard15 = tdcc_go_out;
-wire _guard16 = _guard14 & _guard15;
-wire _guard17 = _guard11 | _guard16;
-wire _guard18 = fsm_out == 2'd1;
-wire _guard19 = invoke1_done_out;
-wire _guard20 = _guard18 & _guard19;
-wire _guard21 = tdcc_go_out;
-wire _guard22 = _guard20 & _guard21;
-wire _guard23 = _guard17 | _guard22;
-wire _guard24 = fsm_out == 2'd2;
-wire _guard25 = invoke2_done_out;
-wire _guard26 = _guard24 & _guard25;
-wire _guard27 = tdcc_go_out;
-wire _guard28 = _guard26 & _guard27;
-wire _guard29 = _guard23 | _guard28;
-wire _guard30 = fsm_out == 2'd0;
-wire _guard31 = invoke0_done_out;
-wire _guard32 = _guard30 & _guard31;
-wire _guard33 = tdcc_go_out;
-wire _guard34 = _guard32 & _guard33;
-wire _guard35 = fsm_out == 2'd3;
-wire _guard36 = fsm_out == 2'd2;
-wire _guard37 = invoke2_done_out;
-wire _guard38 = _guard36 & _guard37;
-wire _guard39 = tdcc_go_out;
-wire _guard40 = _guard38 & _guard39;
-wire _guard41 = fsm_out == 2'd1;
-wire _guard42 = invoke1_done_out;
-wire _guard43 = _guard41 & _guard42;
-wire _guard44 = tdcc_go_out;
-wire _guard45 = _guard43 & _guard44;
-wire _guard46 = invoke2_go_out;
+wire _guard8 = invoke0_go_out;
+wire _guard9 = invoke1_go_out;
+wire _guard10 = invoke2_go_out;
+wire _guard11 = invoke0_go_out;
+wire _guard12 = fsm_out == 2'd3;
+wire _guard13 = fsm_out == 2'd0;
+wire _guard14 = invoke0_done_out;
+wire _guard15 = _guard13 & _guard14;
+wire _guard16 = tdcc_go_out;
+wire _guard17 = _guard15 & _guard16;
+wire _guard18 = _guard12 | _guard17;
+wire _guard19 = fsm_out == 2'd1;
+wire _guard20 = invoke1_done_out;
+wire _guard21 = _guard19 & _guard20;
+wire _guard22 = tdcc_go_out;
+wire _guard23 = _guard21 & _guard22;
+wire _guard24 = _guard18 | _guard23;
+wire _guard25 = fsm_out == 2'd2;
+wire _guard26 = invoke2_done_out;
+wire _guard27 = _guard25 & _guard26;
+wire _guard28 = tdcc_go_out;
+wire _guard29 = _guard27 & _guard28;
+wire _guard30 = _guard24 | _guard29;
+wire _guard31 = fsm_out == 2'd0;
+wire _guard32 = invoke0_done_out;
+wire _guard33 = _guard31 & _guard32;
+wire _guard34 = tdcc_go_out;
+wire _guard35 = _guard33 & _guard34;
+wire _guard36 = fsm_out == 2'd3;
+wire _guard37 = fsm_out == 2'd2;
+wire _guard38 = invoke2_done_out;
+wire _guard39 = _guard37 & _guard38;
+wire _guard40 = tdcc_go_out;
+wire _guard41 = _guard39 & _guard40;
+wire _guard42 = fsm_out == 2'd1;
+wire _guard43 = invoke1_done_out;
+wire _guard44 = _guard42 & _guard43;
+wire _guard45 = tdcc_go_out;
+wire _guard46 = _guard44 & _guard45;
 wire _guard47 = invoke2_go_out;
-wire _guard48 = invoke2_done_out;
-wire _guard49 = ~_guard48;
-wire _guard50 = fsm_out == 2'd2;
-wire _guard51 = _guard49 & _guard50;
-wire _guard52 = tdcc_go_out;
-wire _guard53 = _guard51 & _guard52;
-wire _guard54 = invoke0_done_out;
-wire _guard55 = ~_guard54;
-wire _guard56 = fsm_out == 2'd0;
-wire _guard57 = _guard55 & _guard56;
-wire _guard58 = tdcc_go_out;
-wire _guard59 = _guard57 & _guard58;
-wire _guard60 = invoke1_done_out;
-wire _guard61 = ~_guard60;
-wire _guard62 = fsm_out == 2'd1;
-wire _guard63 = _guard61 & _guard62;
-wire _guard64 = tdcc_go_out;
-wire _guard65 = _guard63 & _guard64;
-wire _guard66 = fsm_out == 2'd3;
-wire _guard67 = invoke0_go_out;
+wire _guard48 = invoke2_go_out;
+wire _guard49 = invoke2_done_out;
+wire _guard50 = ~_guard49;
+wire _guard51 = fsm_out == 2'd2;
+wire _guard52 = _guard50 & _guard51;
+wire _guard53 = tdcc_go_out;
+wire _guard54 = _guard52 & _guard53;
+wire _guard55 = invoke0_done_out;
+wire _guard56 = ~_guard55;
+wire _guard57 = fsm_out == 2'd0;
+wire _guard58 = _guard56 & _guard57;
+wire _guard59 = tdcc_go_out;
+wire _guard60 = _guard58 & _guard59;
+wire _guard61 = invoke1_done_out;
+wire _guard62 = ~_guard61;
+wire _guard63 = fsm_out == 2'd1;
+wire _guard64 = _guard62 & _guard63;
+wire _guard65 = tdcc_go_out;
+wire _guard66 = _guard64 & _guard65;
+wire _guard67 = fsm_out == 2'd3;
 wire _guard68 = invoke0_go_out;
 wire _guard69 = invoke0_go_out;
 wire _guard70 = invoke0_go_out;
-wire _guard71 = invoke1_go_out;
+wire _guard71 = invoke0_go_out;
 wire _guard72 = invoke1_go_out;
 wire _guard73 = invoke1_go_out;
 wire _guard74 = invoke1_go_out;
+wire _guard75 = invoke1_go_out;
 assign done = _guard1;
 assign AWADDR =
   _guard2 ? aw_channel_Sum0_AWADDR :
   64'd0;
+assign AWPROT =
+  _guard3 ? aw_channel_Sum0_AWPROT :
+  3'd0;
 assign WVALID =
-  _guard3 ? write_channel_Sum0_WVALID :
+  _guard4 ? write_channel_Sum0_WVALID :
   1'd0;
 assign WDATA =
-  _guard4 ? write_channel_Sum0_WDATA :
+  _guard5 ? write_channel_Sum0_WDATA :
   32'd0;
 assign AWSIZE =
-  _guard5 ? aw_channel_Sum0_AWSIZE :
+  _guard6 ? aw_channel_Sum0_AWSIZE :
   3'd0;
 assign AWVALID =
-  _guard6 ? aw_channel_Sum0_AWVALID :
+  _guard7 ? aw_channel_Sum0_AWVALID :
   1'd0;
 assign AWBURST =
-  _guard7 ? aw_channel_Sum0_AWBURST :
+  _guard8 ? aw_channel_Sum0_AWBURST :
   2'd0;
 assign WLAST =
-  _guard8 ? write_channel_Sum0_WLAST :
+  _guard9 ? write_channel_Sum0_WLAST :
   1'd0;
 assign BREADY =
-  _guard9 ? bresp_channel_Sum0_BREADY :
+  _guard10 ? bresp_channel_Sum0_BREADY :
   1'd0;
 assign AWLEN =
-  _guard10 ? aw_channel_Sum0_AWLEN :
+  _guard11 ? aw_channel_Sum0_AWLEN :
   8'd0;
-assign fsm_write_en = _guard29;
+assign fsm_write_en = _guard30;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard34 ? 2'd1 :
-  _guard35 ? 2'd0 :
-  _guard40 ? 2'd3 :
-  _guard45 ? 2'd2 :
+  _guard35 ? 2'd1 :
+  _guard36 ? 2'd0 :
+  _guard41 ? 2'd3 :
+  _guard46 ? 2'd2 :
   2'd0;
 assign bresp_channel_Sum0_clk = clk;
-assign bresp_channel_Sum0_go = _guard46;
+assign bresp_channel_Sum0_go = _guard47;
 assign bresp_channel_Sum0_reset = reset;
 assign bresp_channel_Sum0_BVALID =
-  _guard47 ? BVALID :
+  _guard48 ? BVALID :
   1'd0;
-assign invoke2_go_in = _guard53;
+assign invoke2_go_in = _guard54;
 assign tdcc_go_in = go;
-assign invoke0_go_in = _guard59;
+assign invoke0_go_in = _guard60;
 assign invoke0_done_in = aw_channel_Sum0_done;
-assign invoke1_go_in = _guard65;
+assign invoke1_go_in = _guard66;
 assign invoke2_done_in = bresp_channel_Sum0_done;
-assign tdcc_done_in = _guard66;
+assign tdcc_done_in = _guard67;
 assign aw_channel_Sum0_clk = clk;
 assign aw_channel_Sum0_axi_address =
-  _guard67 ? axi_address :
+  _guard68 ? axi_address :
   64'd0;
 assign aw_channel_Sum0_AWREADY =
-  _guard68 ? AWREADY :
+  _guard69 ? AWREADY :
   1'd0;
-assign aw_channel_Sum0_go = _guard69;
+assign aw_channel_Sum0_go = _guard70;
 assign aw_channel_Sum0_reset = reset;
 assign aw_channel_Sum0_ARESETn =
-  _guard70 ? ARESETn :
+  _guard71 ? ARESETn :
   1'd0;
 assign write_channel_Sum0_WREADY =
-  _guard71 ? WREADY :
+  _guard72 ? WREADY :
   1'd0;
 assign write_channel_Sum0_clk = clk;
-assign write_channel_Sum0_go = _guard72;
+assign write_channel_Sum0_go = _guard73;
 assign write_channel_Sum0_reset = reset;
 assign write_channel_Sum0_write_data =
-  _guard73 ? write_data :
+  _guard74 ? write_data :
   32'd0;
 assign write_channel_Sum0_ARESETn =
-  _guard74 ? ARESETn :
+  _guard75 ? ARESETn :
   1'd0;
 assign invoke1_done_in = write_channel_Sum0_done;
 // COMPONENT END: write_controller_Sum0
@@ -9069,7 +9123,6 @@ module axi_dyn_mem_Sum0(
   input logic [31:0] RDATA,
   input logic [1:0] RRESP,
   input logic AWREADY,
-  input logic [1:0] WRESP,
   input logic WREADY,
   input logic BVALID,
   input logic [1:0] BRESP,
@@ -9079,6 +9132,7 @@ module axi_dyn_mem_Sum0(
   output logic [2:0] ARSIZE,
   output logic [7:0] ARLEN,
   output logic [1:0] ARBURST,
+  output logic [2:0] ARPROT,
   output logic RREADY,
   output logic AWVALID,
   output logic [63:0] AWADDR,
@@ -9109,6 +9163,7 @@ logic [63:0] read_controller_Sum0_ARADDR;
 logic [2:0] read_controller_Sum0_ARSIZE;
 logic [7:0] read_controller_Sum0_ARLEN;
 logic [1:0] read_controller_Sum0_ARBURST;
+logic [2:0] read_controller_Sum0_ARPROT;
 logic read_controller_Sum0_RREADY;
 logic [31:0] read_controller_Sum0_read_data;
 logic read_controller_Sum0_go;
@@ -9126,6 +9181,7 @@ logic [63:0] write_controller_Sum0_AWADDR;
 logic [2:0] write_controller_Sum0_AWSIZE;
 logic [7:0] write_controller_Sum0_AWLEN;
 logic [1:0] write_controller_Sum0_AWBURST;
+logic [2:0] write_controller_Sum0_AWPROT;
 logic write_controller_Sum0_WVALID;
 logic write_controller_Sum0_WLAST;
 logic [31:0] write_controller_Sum0_WDATA;
@@ -9161,6 +9217,7 @@ read_controller_Sum0 read_controller_Sum0 (
     .ARBURST(read_controller_Sum0_ARBURST),
     .ARESETn(read_controller_Sum0_ARESETn),
     .ARLEN(read_controller_Sum0_ARLEN),
+    .ARPROT(read_controller_Sum0_ARPROT),
     .ARREADY(read_controller_Sum0_ARREADY),
     .ARSIZE(read_controller_Sum0_ARSIZE),
     .ARVALID(read_controller_Sum0_ARVALID),
@@ -9181,6 +9238,7 @@ write_controller_Sum0 write_controller_Sum0 (
     .AWADDR(write_controller_Sum0_AWADDR),
     .AWBURST(write_controller_Sum0_AWBURST),
     .AWLEN(write_controller_Sum0_AWLEN),
+    .AWPROT(write_controller_Sum0_AWPROT),
     .AWREADY(write_controller_Sum0_AWREADY),
     .AWSIZE(write_controller_Sum0_AWSIZE),
     .AWVALID(write_controller_Sum0_AWVALID),
@@ -9245,205 +9303,213 @@ std_wire # (
 );
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
-wire _guard2 = invoke0_go_out;
+wire _guard2 = invoke1_go_out;
 wire _guard3 = invoke0_go_out;
 wire _guard4 = invoke0_go_out;
-wire _guard5 = invoke1_go_out;
-wire _guard6 = invoke1_go_out;
+wire _guard5 = invoke0_go_out;
+wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke1_go_out;
-wire _guard8 = invoke0_go_out;
-wire _guard9 = invoke0_go_out;
-wire _guard10 = invoke1_go_out;
+wire _guard8 = invoke1_go_out;
+wire _guard9 = invoke1_go_out;
+wire _guard10 = invoke0_go_out;
 wire _guard11 = invoke0_go_out;
-wire _guard12 = invoke0_go_out;
+wire _guard12 = invoke1_go_out;
 wire _guard13 = invoke0_go_out;
 wire _guard14 = invoke0_go_out;
-wire _guard15 = invoke1_go_out;
-wire _guard16 = invoke1_go_out;
-wire _guard17 = fsm_out == 2'd3;
-wire _guard18 = fsm_out == 2'd0;
-wire _guard19 = write_en;
-wire _guard20 = _guard18 & _guard19;
-wire _guard21 = tdcc_go_out;
+wire _guard15 = invoke0_go_out;
+wire _guard16 = invoke0_go_out;
+wire _guard17 = invoke1_go_out;
+wire _guard18 = invoke1_go_out;
+wire _guard19 = fsm_out == 2'd3;
+wire _guard20 = fsm_out == 2'd0;
+wire _guard21 = write_en;
 wire _guard22 = _guard20 & _guard21;
-wire _guard23 = _guard17 | _guard22;
-wire _guard24 = fsm_out == 2'd0;
-wire _guard25 = write_en;
-wire _guard26 = ~_guard25;
-wire _guard27 = _guard24 & _guard26;
-wire _guard28 = tdcc_go_out;
-wire _guard29 = _guard27 & _guard28;
-wire _guard30 = _guard23 | _guard29;
-wire _guard31 = fsm_out == 2'd1;
-wire _guard32 = invoke0_done_out;
-wire _guard33 = _guard31 & _guard32;
-wire _guard34 = tdcc_go_out;
+wire _guard23 = tdcc_go_out;
+wire _guard24 = _guard22 & _guard23;
+wire _guard25 = _guard19 | _guard24;
+wire _guard26 = fsm_out == 2'd0;
+wire _guard27 = write_en;
+wire _guard28 = ~_guard27;
+wire _guard29 = _guard26 & _guard28;
+wire _guard30 = tdcc_go_out;
+wire _guard31 = _guard29 & _guard30;
+wire _guard32 = _guard25 | _guard31;
+wire _guard33 = fsm_out == 2'd1;
+wire _guard34 = invoke0_done_out;
 wire _guard35 = _guard33 & _guard34;
-wire _guard36 = _guard30 | _guard35;
-wire _guard37 = fsm_out == 2'd2;
-wire _guard38 = invoke1_done_out;
-wire _guard39 = _guard37 & _guard38;
-wire _guard40 = tdcc_go_out;
+wire _guard36 = tdcc_go_out;
+wire _guard37 = _guard35 & _guard36;
+wire _guard38 = _guard32 | _guard37;
+wire _guard39 = fsm_out == 2'd2;
+wire _guard40 = invoke1_done_out;
 wire _guard41 = _guard39 & _guard40;
-wire _guard42 = _guard36 | _guard41;
-wire _guard43 = fsm_out == 2'd0;
-wire _guard44 = write_en;
-wire _guard45 = _guard43 & _guard44;
-wire _guard46 = tdcc_go_out;
+wire _guard42 = tdcc_go_out;
+wire _guard43 = _guard41 & _guard42;
+wire _guard44 = _guard38 | _guard43;
+wire _guard45 = fsm_out == 2'd0;
+wire _guard46 = write_en;
 wire _guard47 = _guard45 & _guard46;
-wire _guard48 = fsm_out == 2'd3;
-wire _guard49 = fsm_out == 2'd1;
-wire _guard50 = invoke0_done_out;
-wire _guard51 = _guard49 & _guard50;
-wire _guard52 = tdcc_go_out;
+wire _guard48 = tdcc_go_out;
+wire _guard49 = _guard47 & _guard48;
+wire _guard50 = fsm_out == 2'd3;
+wire _guard51 = fsm_out == 2'd1;
+wire _guard52 = invoke0_done_out;
 wire _guard53 = _guard51 & _guard52;
-wire _guard54 = fsm_out == 2'd2;
-wire _guard55 = invoke1_done_out;
-wire _guard56 = _guard54 & _guard55;
-wire _guard57 = tdcc_go_out;
+wire _guard54 = tdcc_go_out;
+wire _guard55 = _guard53 & _guard54;
+wire _guard56 = fsm_out == 2'd2;
+wire _guard57 = invoke1_done_out;
 wire _guard58 = _guard56 & _guard57;
-wire _guard59 = _guard53 | _guard58;
-wire _guard60 = fsm_out == 2'd0;
-wire _guard61 = write_en;
-wire _guard62 = ~_guard61;
-wire _guard63 = _guard60 & _guard62;
-wire _guard64 = tdcc_go_out;
-wire _guard65 = _guard63 & _guard64;
-wire _guard66 = invoke0_done_out;
-wire _guard67 = ~_guard66;
-wire _guard68 = fsm_out == 2'd1;
-wire _guard69 = _guard67 & _guard68;
-wire _guard70 = tdcc_go_out;
+wire _guard59 = tdcc_go_out;
+wire _guard60 = _guard58 & _guard59;
+wire _guard61 = _guard55 | _guard60;
+wire _guard62 = fsm_out == 2'd0;
+wire _guard63 = write_en;
+wire _guard64 = ~_guard63;
+wire _guard65 = _guard62 & _guard64;
+wire _guard66 = tdcc_go_out;
+wire _guard67 = _guard65 & _guard66;
+wire _guard68 = invoke0_done_out;
+wire _guard69 = ~_guard68;
+wire _guard70 = fsm_out == 2'd1;
 wire _guard71 = _guard69 & _guard70;
-wire _guard72 = invoke0_go_out;
-wire _guard73 = invoke0_go_out;
+wire _guard72 = tdcc_go_out;
+wire _guard73 = _guard71 & _guard72;
 wire _guard74 = invoke0_go_out;
 wire _guard75 = invoke0_go_out;
 wire _guard76 = invoke0_go_out;
 wire _guard77 = invoke0_go_out;
 wire _guard78 = invoke0_go_out;
-wire _guard79 = invoke1_go_out;
-wire _guard80 = invoke1_go_out;
+wire _guard79 = invoke0_go_out;
+wire _guard80 = invoke0_go_out;
 wire _guard81 = invoke1_go_out;
 wire _guard82 = invoke1_go_out;
 wire _guard83 = invoke1_go_out;
 wire _guard84 = invoke1_go_out;
 wire _guard85 = invoke1_go_out;
 wire _guard86 = invoke1_go_out;
-wire _guard87 = invoke1_done_out;
-wire _guard88 = ~_guard87;
-wire _guard89 = fsm_out == 2'd2;
-wire _guard90 = _guard88 & _guard89;
-wire _guard91 = tdcc_go_out;
+wire _guard87 = invoke1_go_out;
+wire _guard88 = invoke1_go_out;
+wire _guard89 = invoke1_done_out;
+wire _guard90 = ~_guard89;
+wire _guard91 = fsm_out == 2'd2;
 wire _guard92 = _guard90 & _guard91;
-wire _guard93 = fsm_out == 2'd3;
+wire _guard93 = tdcc_go_out;
+wire _guard94 = _guard92 & _guard93;
+wire _guard95 = fsm_out == 2'd3;
 assign done = _guard1;
+assign ARPROT =
+  _guard2 ? read_controller_Sum0_ARPROT :
+  3'd0;
 assign AWADDR =
-  _guard2 ? write_controller_Sum0_AWADDR :
+  _guard3 ? write_controller_Sum0_AWADDR :
   64'd0;
+assign AWPROT =
+  _guard4 ? write_controller_Sum0_AWPROT :
+  3'd0;
 assign WVALID =
-  _guard3 ? write_controller_Sum0_WVALID :
+  _guard5 ? write_controller_Sum0_WVALID :
   1'd0;
 assign WDATA =
-  _guard4 ? write_controller_Sum0_WDATA :
+  _guard6 ? write_controller_Sum0_WDATA :
   32'd0;
 assign ARSIZE =
-  _guard5 ? read_controller_Sum0_ARSIZE :
+  _guard7 ? read_controller_Sum0_ARSIZE :
   3'd0;
 assign RREADY =
-  _guard6 ? read_controller_Sum0_RREADY :
+  _guard8 ? read_controller_Sum0_RREADY :
   1'd0;
 assign read_data = read_controller_Sum0_read_data;
 assign ARLEN =
-  _guard7 ? read_controller_Sum0_ARLEN :
+  _guard9 ? read_controller_Sum0_ARLEN :
   8'd0;
 assign AWSIZE =
-  _guard8 ? write_controller_Sum0_AWSIZE :
+  _guard10 ? write_controller_Sum0_AWSIZE :
   3'd0;
 assign AWVALID =
-  _guard9 ? write_controller_Sum0_AWVALID :
+  _guard11 ? write_controller_Sum0_AWVALID :
   1'd0;
 assign ARADDR =
-  _guard10 ? read_controller_Sum0_ARADDR :
+  _guard12 ? read_controller_Sum0_ARADDR :
   64'd0;
 assign AWBURST =
-  _guard11 ? write_controller_Sum0_AWBURST :
+  _guard13 ? write_controller_Sum0_AWBURST :
   2'd0;
 assign WLAST =
-  _guard12 ? write_controller_Sum0_WLAST :
+  _guard14 ? write_controller_Sum0_WLAST :
   1'd0;
 assign BREADY =
-  _guard13 ? write_controller_Sum0_BREADY :
+  _guard15 ? write_controller_Sum0_BREADY :
   1'd0;
 assign AWLEN =
-  _guard14 ? write_controller_Sum0_AWLEN :
+  _guard16 ? write_controller_Sum0_AWLEN :
   8'd0;
 assign ARBURST =
-  _guard15 ? read_controller_Sum0_ARBURST :
+  _guard17 ? read_controller_Sum0_ARBURST :
   2'd0;
 assign ARVALID =
-  _guard16 ? read_controller_Sum0_ARVALID :
+  _guard18 ? read_controller_Sum0_ARVALID :
   1'd0;
-assign fsm_write_en = _guard42;
+assign fsm_write_en = _guard44;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard47 ? 2'd1 :
-  _guard48 ? 2'd0 :
-  _guard59 ? 2'd3 :
-  _guard65 ? 2'd2 :
+  _guard49 ? 2'd1 :
+  _guard50 ? 2'd0 :
+  _guard61 ? 2'd3 :
+  _guard67 ? 2'd2 :
   2'd0;
 assign tdcc_go_in = content_en;
-assign invoke0_go_in = _guard71;
+assign invoke0_go_in = _guard73;
 assign write_controller_Sum0_WREADY =
-  _guard72 ? WREADY :
+  _guard74 ? WREADY :
   1'd0;
 assign write_controller_Sum0_clk = clk;
 assign write_controller_Sum0_axi_address =
-  _guard73 ? address_translator_Sum0_axi_address :
+  _guard75 ? address_translator_Sum0_axi_address :
   64'd0;
 assign write_controller_Sum0_AWREADY =
-  _guard74 ? AWREADY :
+  _guard76 ? AWREADY :
   1'd0;
-assign write_controller_Sum0_go = _guard75;
+assign write_controller_Sum0_go = _guard77;
 assign write_controller_Sum0_reset = reset;
 assign write_controller_Sum0_write_data =
-  _guard76 ? write_data :
+  _guard78 ? write_data :
   32'd0;
 assign write_controller_Sum0_BVALID =
-  _guard77 ? BVALID :
+  _guard79 ? BVALID :
   1'd0;
 assign write_controller_Sum0_ARESETn =
-  _guard78 ? ARESETn :
+  _guard80 ? ARESETn :
   1'd0;
 assign read_controller_Sum0_RVALID =
-  _guard79 ? RVALID :
+  _guard81 ? RVALID :
   1'd0;
 assign read_controller_Sum0_RLAST =
-  _guard80 ? RLAST :
+  _guard82 ? RLAST :
   1'd0;
 assign read_controller_Sum0_RDATA =
-  _guard81 ? RDATA :
+  _guard83 ? RDATA :
   32'd0;
 assign read_controller_Sum0_clk = clk;
 assign read_controller_Sum0_axi_address =
-  _guard82 ? address_translator_Sum0_axi_address :
+  _guard84 ? address_translator_Sum0_axi_address :
   64'd0;
-assign read_controller_Sum0_go = _guard83;
+assign read_controller_Sum0_go = _guard85;
 assign read_controller_Sum0_reset = reset;
 assign read_controller_Sum0_RRESP =
-  _guard84 ? RRESP :
+  _guard86 ? RRESP :
   2'd0;
 assign read_controller_Sum0_ARREADY =
-  _guard85 ? ARREADY :
+  _guard87 ? ARREADY :
   1'd0;
 assign read_controller_Sum0_ARESETn =
-  _guard86 ? ARESETn :
+  _guard88 ? ARESETn :
   1'd0;
 assign invoke0_done_in = write_controller_Sum0_done;
-assign invoke1_go_in = _guard92;
+assign invoke1_go_in = _guard94;
 assign address_translator_Sum0_calyx_mem_addr = addr0;
-assign tdcc_done_in = _guard93;
+assign tdcc_done_in = _guard95;
 assign invoke1_done_in = read_controller_Sum0_done;
 // COMPONENT END: axi_dyn_mem_Sum0
 endmodule
@@ -9455,7 +9521,6 @@ module wrapper(
   input logic [31:0] A0_RDATA,
   input logic [1:0] A0_RRESP,
   input logic A0_AWREADY,
-  input logic [1:0] A0_WRESP,
   input logic A0_WREADY,
   input logic A0_BVALID,
   input logic [1:0] A0_BRESP,
@@ -9467,7 +9532,6 @@ module wrapper(
   input logic [31:0] B0_RDATA,
   input logic [1:0] B0_RRESP,
   input logic B0_AWREADY,
-  input logic [1:0] B0_WRESP,
   input logic B0_WREADY,
   input logic B0_BVALID,
   input logic [1:0] B0_BRESP,
@@ -9479,7 +9543,6 @@ module wrapper(
   input logic [31:0] Sum0_RDATA,
   input logic [1:0] Sum0_RRESP,
   input logic Sum0_AWREADY,
-  input logic [1:0] Sum0_WRESP,
   input logic Sum0_WREADY,
   input logic Sum0_BVALID,
   input logic [1:0] Sum0_BRESP,
@@ -9583,7 +9646,6 @@ logic axi_dyn_mem_A0_RLAST;
 logic [31:0] axi_dyn_mem_A0_RDATA;
 logic [1:0] axi_dyn_mem_A0_RRESP;
 logic axi_dyn_mem_A0_AWREADY;
-logic [1:0] axi_dyn_mem_A0_WRESP;
 logic axi_dyn_mem_A0_WREADY;
 logic axi_dyn_mem_A0_BVALID;
 logic [1:0] axi_dyn_mem_A0_BRESP;
@@ -9593,6 +9655,7 @@ logic [63:0] axi_dyn_mem_A0_ARADDR;
 logic [2:0] axi_dyn_mem_A0_ARSIZE;
 logic [7:0] axi_dyn_mem_A0_ARLEN;
 logic [1:0] axi_dyn_mem_A0_ARBURST;
+logic [2:0] axi_dyn_mem_A0_ARPROT;
 logic axi_dyn_mem_A0_RREADY;
 logic axi_dyn_mem_A0_AWVALID;
 logic [63:0] axi_dyn_mem_A0_AWADDR;
@@ -9618,7 +9681,6 @@ logic axi_dyn_mem_B0_RLAST;
 logic [31:0] axi_dyn_mem_B0_RDATA;
 logic [1:0] axi_dyn_mem_B0_RRESP;
 logic axi_dyn_mem_B0_AWREADY;
-logic [1:0] axi_dyn_mem_B0_WRESP;
 logic axi_dyn_mem_B0_WREADY;
 logic axi_dyn_mem_B0_BVALID;
 logic [1:0] axi_dyn_mem_B0_BRESP;
@@ -9628,6 +9690,7 @@ logic [63:0] axi_dyn_mem_B0_ARADDR;
 logic [2:0] axi_dyn_mem_B0_ARSIZE;
 logic [7:0] axi_dyn_mem_B0_ARLEN;
 logic [1:0] axi_dyn_mem_B0_ARBURST;
+logic [2:0] axi_dyn_mem_B0_ARPROT;
 logic axi_dyn_mem_B0_RREADY;
 logic axi_dyn_mem_B0_AWVALID;
 logic [63:0] axi_dyn_mem_B0_AWADDR;
@@ -9653,7 +9716,6 @@ logic axi_dyn_mem_Sum0_RLAST;
 logic [31:0] axi_dyn_mem_Sum0_RDATA;
 logic [1:0] axi_dyn_mem_Sum0_RRESP;
 logic axi_dyn_mem_Sum0_AWREADY;
-logic [1:0] axi_dyn_mem_Sum0_WRESP;
 logic axi_dyn_mem_Sum0_WREADY;
 logic axi_dyn_mem_Sum0_BVALID;
 logic [1:0] axi_dyn_mem_Sum0_BRESP;
@@ -9663,6 +9725,7 @@ logic [63:0] axi_dyn_mem_Sum0_ARADDR;
 logic [2:0] axi_dyn_mem_Sum0_ARSIZE;
 logic [7:0] axi_dyn_mem_Sum0_ARLEN;
 logic [1:0] axi_dyn_mem_Sum0_ARBURST;
+logic [2:0] axi_dyn_mem_Sum0_ARPROT;
 logic axi_dyn_mem_Sum0_RREADY;
 logic axi_dyn_mem_Sum0_AWVALID;
 logic [63:0] axi_dyn_mem_Sum0_AWADDR;
@@ -9710,6 +9773,7 @@ axi_dyn_mem_A0 axi_dyn_mem_A0 (
     .ARBURST(axi_dyn_mem_A0_ARBURST),
     .ARESETn(axi_dyn_mem_A0_ARESETn),
     .ARLEN(axi_dyn_mem_A0_ARLEN),
+    .ARPROT(axi_dyn_mem_A0_ARPROT),
     .ARREADY(axi_dyn_mem_A0_ARREADY),
     .ARSIZE(axi_dyn_mem_A0_ARSIZE),
     .ARVALID(axi_dyn_mem_A0_ARVALID),
@@ -9731,7 +9795,6 @@ axi_dyn_mem_A0 axi_dyn_mem_A0 (
     .WDATA(axi_dyn_mem_A0_WDATA),
     .WLAST(axi_dyn_mem_A0_WLAST),
     .WREADY(axi_dyn_mem_A0_WREADY),
-    .WRESP(axi_dyn_mem_A0_WRESP),
     .WVALID(axi_dyn_mem_A0_WVALID),
     .addr0(axi_dyn_mem_A0_addr0),
     .clk(axi_dyn_mem_A0_clk),
@@ -9747,6 +9810,7 @@ axi_dyn_mem_B0 axi_dyn_mem_B0 (
     .ARBURST(axi_dyn_mem_B0_ARBURST),
     .ARESETn(axi_dyn_mem_B0_ARESETn),
     .ARLEN(axi_dyn_mem_B0_ARLEN),
+    .ARPROT(axi_dyn_mem_B0_ARPROT),
     .ARREADY(axi_dyn_mem_B0_ARREADY),
     .ARSIZE(axi_dyn_mem_B0_ARSIZE),
     .ARVALID(axi_dyn_mem_B0_ARVALID),
@@ -9768,7 +9832,6 @@ axi_dyn_mem_B0 axi_dyn_mem_B0 (
     .WDATA(axi_dyn_mem_B0_WDATA),
     .WLAST(axi_dyn_mem_B0_WLAST),
     .WREADY(axi_dyn_mem_B0_WREADY),
-    .WRESP(axi_dyn_mem_B0_WRESP),
     .WVALID(axi_dyn_mem_B0_WVALID),
     .addr0(axi_dyn_mem_B0_addr0),
     .clk(axi_dyn_mem_B0_clk),
@@ -9784,6 +9847,7 @@ axi_dyn_mem_Sum0 axi_dyn_mem_Sum0 (
     .ARBURST(axi_dyn_mem_Sum0_ARBURST),
     .ARESETn(axi_dyn_mem_Sum0_ARESETn),
     .ARLEN(axi_dyn_mem_Sum0_ARLEN),
+    .ARPROT(axi_dyn_mem_Sum0_ARPROT),
     .ARREADY(axi_dyn_mem_Sum0_ARREADY),
     .ARSIZE(axi_dyn_mem_Sum0_ARSIZE),
     .ARVALID(axi_dyn_mem_Sum0_ARVALID),
@@ -9805,7 +9869,6 @@ axi_dyn_mem_Sum0 axi_dyn_mem_Sum0 (
     .WDATA(axi_dyn_mem_Sum0_WDATA),
     .WLAST(axi_dyn_mem_Sum0_WLAST),
     .WREADY(axi_dyn_mem_Sum0_WREADY),
-    .WRESP(axi_dyn_mem_Sum0_WRESP),
     .WVALID(axi_dyn_mem_Sum0_WVALID),
     .addr0(axi_dyn_mem_Sum0_addr0),
     .clk(axi_dyn_mem_Sum0_clk),

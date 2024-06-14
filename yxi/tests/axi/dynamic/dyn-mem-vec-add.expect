@@ -172,7 +172,7 @@ comb component address_translator_A0(calyx_mem_addr: 3) -> (axi_address: 64) {
     axi_address = mul_A0.out;
   }
 }
-component read_controller_A0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -> (ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, RREADY: 1, read_data: 32) {
+component read_controller_A0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -> (ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, read_data: 32) {
   cells {
     ar_channel_A0 = m_ar_channel_A0();
     read_channel_A0 = m_read_channel_A0();
@@ -182,12 +182,12 @@ component read_controller_A0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1,
   }
   control {
     seq {
-      invoke ar_channel_A0(axi_address=axi_address, ARESETn=ARESETn, ARREADY=ARREADY)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST);
+      invoke ar_channel_A0(axi_address=axi_address, ARESETn=ARESETn, ARREADY=ARREADY)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, ARPROT=ARPROT);
       invoke read_channel_A0(ARESETn=ARESETn, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(RREADY=RREADY);
     }
   }
 }
-component write_controller_A0(axi_address: 64, write_data: 32, ARESETn: 1, AWREADY: 1, WREADY: 1, BVALID: 1) -> (AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component write_controller_A0(axi_address: 64, write_data: 32, ARESETn: 1, AWREADY: 1, WREADY: 1, BVALID: 1) -> (AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     aw_channel_A0 = m_aw_channel_A0();
     write_channel_A0 = m_write_channel_A0();
@@ -198,13 +198,13 @@ component write_controller_A0(axi_address: 64, write_data: 32, ARESETn: 1, AWREA
   }
   control {
     seq {
-      invoke aw_channel_A0(axi_address=axi_address, ARESETn=ARESETn, AWREADY=AWREADY)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST);
+      invoke aw_channel_A0(axi_address=axi_address, ARESETn=ARESETn, AWREADY=AWREADY)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, AWPROT=AWPROT);
       invoke write_channel_A0(write_data=write_data, ARESETn=ARESETn, WREADY=WREADY)(WVALID=WVALID, WLAST=WLAST, WDATA=WDATA);
       invoke bresp_channel_A0(BVALID=BVALID)(BREADY=BREADY);
     }
   }
 }
-component axi_dyn_mem_A0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WRESP: 2, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component axi_dyn_mem_A0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     address_translator_A0 = address_translator_A0();
     read_controller_A0 = read_controller_A0();
@@ -217,9 +217,9 @@ component axi_dyn_mem_A0(@write_together(1) @data addr0: 3, @write_together(1) @
   control {
     seq {
       if write_en {
-        invoke write_controller_A0(axi_address=address_translator_A0.axi_address, write_data=write_data, ARESETn=ARESETn, AWREADY=AWREADY, WREADY=WREADY, BVALID=BVALID)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, WVALID=WVALID, WLAST=WLAST, WDATA=WDATA, BREADY=BREADY);
+        invoke write_controller_A0(axi_address=address_translator_A0.axi_address, write_data=write_data, ARESETn=ARESETn, AWREADY=AWREADY, WREADY=WREADY, BVALID=BVALID)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, AWPROT=AWPROT, WVALID=WVALID, WLAST=WLAST, WDATA=WDATA, BREADY=BREADY);
       } else {
-        invoke read_controller_A0(axi_address=address_translator_A0.axi_address, ARESETn=ARESETn, ARREADY=ARREADY, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, RREADY=RREADY, read_data=read_data);
+        invoke read_controller_A0(axi_address=address_translator_A0.axi_address, ARESETn=ARESETn, ARREADY=ARREADY, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, ARPROT=ARPROT, RREADY=RREADY, read_data=read_data);
       }
     }
   }
@@ -395,7 +395,7 @@ comb component address_translator_B0(calyx_mem_addr: 3) -> (axi_address: 64) {
     axi_address = mul_B0.out;
   }
 }
-component read_controller_B0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -> (ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, RREADY: 1, read_data: 32) {
+component read_controller_B0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -> (ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, read_data: 32) {
   cells {
     ar_channel_B0 = m_ar_channel_B0();
     read_channel_B0 = m_read_channel_B0();
@@ -405,12 +405,12 @@ component read_controller_B0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1,
   }
   control {
     seq {
-      invoke ar_channel_B0(axi_address=axi_address, ARESETn=ARESETn, ARREADY=ARREADY)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST);
+      invoke ar_channel_B0(axi_address=axi_address, ARESETn=ARESETn, ARREADY=ARREADY)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, ARPROT=ARPROT);
       invoke read_channel_B0(ARESETn=ARESETn, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(RREADY=RREADY);
     }
   }
 }
-component write_controller_B0(axi_address: 64, write_data: 32, ARESETn: 1, AWREADY: 1, WREADY: 1, BVALID: 1) -> (AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component write_controller_B0(axi_address: 64, write_data: 32, ARESETn: 1, AWREADY: 1, WREADY: 1, BVALID: 1) -> (AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     aw_channel_B0 = m_aw_channel_B0();
     write_channel_B0 = m_write_channel_B0();
@@ -421,13 +421,13 @@ component write_controller_B0(axi_address: 64, write_data: 32, ARESETn: 1, AWREA
   }
   control {
     seq {
-      invoke aw_channel_B0(axi_address=axi_address, ARESETn=ARESETn, AWREADY=AWREADY)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST);
+      invoke aw_channel_B0(axi_address=axi_address, ARESETn=ARESETn, AWREADY=AWREADY)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, AWPROT=AWPROT);
       invoke write_channel_B0(write_data=write_data, ARESETn=ARESETn, WREADY=WREADY)(WVALID=WVALID, WLAST=WLAST, WDATA=WDATA);
       invoke bresp_channel_B0(BVALID=BVALID)(BREADY=BREADY);
     }
   }
 }
-component axi_dyn_mem_B0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WRESP: 2, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component axi_dyn_mem_B0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     address_translator_B0 = address_translator_B0();
     read_controller_B0 = read_controller_B0();
@@ -440,9 +440,9 @@ component axi_dyn_mem_B0(@write_together(1) @data addr0: 3, @write_together(1) @
   control {
     seq {
       if write_en {
-        invoke write_controller_B0(axi_address=address_translator_B0.axi_address, write_data=write_data, ARESETn=ARESETn, AWREADY=AWREADY, WREADY=WREADY, BVALID=BVALID)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, WVALID=WVALID, WLAST=WLAST, WDATA=WDATA, BREADY=BREADY);
+        invoke write_controller_B0(axi_address=address_translator_B0.axi_address, write_data=write_data, ARESETn=ARESETn, AWREADY=AWREADY, WREADY=WREADY, BVALID=BVALID)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, AWPROT=AWPROT, WVALID=WVALID, WLAST=WLAST, WDATA=WDATA, BREADY=BREADY);
       } else {
-        invoke read_controller_B0(axi_address=address_translator_B0.axi_address, ARESETn=ARESETn, ARREADY=ARREADY, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, RREADY=RREADY, read_data=read_data);
+        invoke read_controller_B0(axi_address=address_translator_B0.axi_address, ARESETn=ARESETn, ARREADY=ARREADY, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, ARPROT=ARPROT, RREADY=RREADY, read_data=read_data);
       }
     }
   }
@@ -618,7 +618,7 @@ comb component address_translator_Sum0(calyx_mem_addr: 3) -> (axi_address: 64) {
     axi_address = mul_Sum0.out;
   }
 }
-component read_controller_Sum0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -> (ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, RREADY: 1, read_data: 32) {
+component read_controller_Sum0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -> (ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, read_data: 32) {
   cells {
     ar_channel_Sum0 = m_ar_channel_Sum0();
     read_channel_Sum0 = m_read_channel_Sum0();
@@ -628,12 +628,12 @@ component read_controller_Sum0(axi_address: 64, ARESETn: 1, ARREADY: 1, RVALID: 
   }
   control {
     seq {
-      invoke ar_channel_Sum0(axi_address=axi_address, ARESETn=ARESETn, ARREADY=ARREADY)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST);
+      invoke ar_channel_Sum0(axi_address=axi_address, ARESETn=ARESETn, ARREADY=ARREADY)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, ARPROT=ARPROT);
       invoke read_channel_Sum0(ARESETn=ARESETn, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(RREADY=RREADY);
     }
   }
 }
-component write_controller_Sum0(axi_address: 64, write_data: 32, ARESETn: 1, AWREADY: 1, WREADY: 1, BVALID: 1) -> (AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component write_controller_Sum0(axi_address: 64, write_data: 32, ARESETn: 1, AWREADY: 1, WREADY: 1, BVALID: 1) -> (AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     aw_channel_Sum0 = m_aw_channel_Sum0();
     write_channel_Sum0 = m_write_channel_Sum0();
@@ -644,13 +644,13 @@ component write_controller_Sum0(axi_address: 64, write_data: 32, ARESETn: 1, AWR
   }
   control {
     seq {
-      invoke aw_channel_Sum0(axi_address=axi_address, ARESETn=ARESETn, AWREADY=AWREADY)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST);
+      invoke aw_channel_Sum0(axi_address=axi_address, ARESETn=ARESETn, AWREADY=AWREADY)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, AWPROT=AWPROT);
       invoke write_channel_Sum0(write_data=write_data, ARESETn=ARESETn, WREADY=WREADY)(WVALID=WVALID, WLAST=WLAST, WDATA=WDATA);
       invoke bresp_channel_Sum0(BVALID=BVALID)(BREADY=BREADY);
     }
   }
 }
-component axi_dyn_mem_Sum0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WRESP: 2, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component axi_dyn_mem_Sum0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     address_translator_Sum0 = address_translator_Sum0();
     read_controller_Sum0 = read_controller_Sum0();
@@ -663,14 +663,14 @@ component axi_dyn_mem_Sum0(@write_together(1) @data addr0: 3, @write_together(1)
   control {
     seq {
       if write_en {
-        invoke write_controller_Sum0(axi_address=address_translator_Sum0.axi_address, write_data=write_data, ARESETn=ARESETn, AWREADY=AWREADY, WREADY=WREADY, BVALID=BVALID)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, WVALID=WVALID, WLAST=WLAST, WDATA=WDATA, BREADY=BREADY);
+        invoke write_controller_Sum0(axi_address=address_translator_Sum0.axi_address, write_data=write_data, ARESETn=ARESETn, AWREADY=AWREADY, WREADY=WREADY, BVALID=BVALID)(AWVALID=AWVALID, AWADDR=AWADDR, AWSIZE=AWSIZE, AWLEN=AWLEN, AWBURST=AWBURST, AWPROT=AWPROT, WVALID=WVALID, WLAST=WLAST, WDATA=WDATA, BREADY=BREADY);
       } else {
-        invoke read_controller_Sum0(axi_address=address_translator_Sum0.axi_address, ARESETn=ARESETn, ARREADY=ARREADY, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, RREADY=RREADY, read_data=read_data);
+        invoke read_controller_Sum0(axi_address=address_translator_Sum0.axi_address, ARESETn=ARESETn, ARREADY=ARREADY, RVALID=RVALID, RLAST=RLAST, RDATA=RDATA, RRESP=RRESP)(ARVALID=ARVALID, ARADDR=ARADDR, ARSIZE=ARSIZE, ARLEN=ARLEN, ARBURST=ARBURST, ARPROT=ARPROT, RREADY=RREADY, read_data=read_data);
       }
     }
   }
 }
-component wrapper<"toplevel"=1>(A0_ARESETn: 1, A0_ARREADY: 1, A0_RVALID: 1, A0_RLAST: 1, A0_RDATA: 32, A0_RRESP: 2, A0_AWREADY: 1, A0_WRESP: 2, A0_WREADY: 1, A0_BVALID: 1, A0_BRESP: 2, A0_RID: 1, B0_ARESETn: 1, B0_ARREADY: 1, B0_RVALID: 1, B0_RLAST: 1, B0_RDATA: 32, B0_RRESP: 2, B0_AWREADY: 1, B0_WRESP: 2, B0_WREADY: 1, B0_BVALID: 1, B0_BRESP: 2, B0_RID: 1, Sum0_ARESETn: 1, Sum0_ARREADY: 1, Sum0_RVALID: 1, Sum0_RLAST: 1, Sum0_RDATA: 32, Sum0_RRESP: 2, Sum0_AWREADY: 1, Sum0_WRESP: 2, Sum0_WREADY: 1, Sum0_BVALID: 1, Sum0_BRESP: 2, Sum0_RID: 1) -> (A0_ARVALID: 1, A0_ARADDR: 64, A0_ARSIZE: 3, A0_ARLEN: 8, A0_ARBURST: 2, A0_RREADY: 1, A0_AWVALID: 1, A0_AWADDR: 64, A0_AWSIZE: 3, A0_AWLEN: 8, A0_AWBURST: 2, A0_AWPROT: 3, A0_WVALID: 1, A0_WLAST: 1, A0_WDATA: 32, A0_BREADY: 1, A0_ARID: 1, A0_AWID: 1, A0_WID: 1, A0_BID: 1, B0_ARVALID: 1, B0_ARADDR: 64, B0_ARSIZE: 3, B0_ARLEN: 8, B0_ARBURST: 2, B0_RREADY: 1, B0_AWVALID: 1, B0_AWADDR: 64, B0_AWSIZE: 3, B0_AWLEN: 8, B0_AWBURST: 2, B0_AWPROT: 3, B0_WVALID: 1, B0_WLAST: 1, B0_WDATA: 32, B0_BREADY: 1, B0_ARID: 1, B0_AWID: 1, B0_WID: 1, B0_BID: 1, Sum0_ARVALID: 1, Sum0_ARADDR: 64, Sum0_ARSIZE: 3, Sum0_ARLEN: 8, Sum0_ARBURST: 2, Sum0_RREADY: 1, Sum0_AWVALID: 1, Sum0_AWADDR: 64, Sum0_AWSIZE: 3, Sum0_AWLEN: 8, Sum0_AWBURST: 2, Sum0_AWPROT: 3, Sum0_WVALID: 1, Sum0_WLAST: 1, Sum0_WDATA: 32, Sum0_BREADY: 1, Sum0_ARID: 1, Sum0_AWID: 1, Sum0_WID: 1, Sum0_BID: 1) {
+component wrapper<"toplevel"=1>(A0_ARESETn: 1, A0_ARREADY: 1, A0_RVALID: 1, A0_RLAST: 1, A0_RDATA: 32, A0_RRESP: 2, A0_AWREADY: 1, A0_WREADY: 1, A0_BVALID: 1, A0_BRESP: 2, A0_RID: 1, B0_ARESETn: 1, B0_ARREADY: 1, B0_RVALID: 1, B0_RLAST: 1, B0_RDATA: 32, B0_RRESP: 2, B0_AWREADY: 1, B0_WREADY: 1, B0_BVALID: 1, B0_BRESP: 2, B0_RID: 1, Sum0_ARESETn: 1, Sum0_ARREADY: 1, Sum0_RVALID: 1, Sum0_RLAST: 1, Sum0_RDATA: 32, Sum0_RRESP: 2, Sum0_AWREADY: 1, Sum0_WREADY: 1, Sum0_BVALID: 1, Sum0_BRESP: 2, Sum0_RID: 1) -> (A0_ARVALID: 1, A0_ARADDR: 64, A0_ARSIZE: 3, A0_ARLEN: 8, A0_ARBURST: 2, A0_RREADY: 1, A0_AWVALID: 1, A0_AWADDR: 64, A0_AWSIZE: 3, A0_AWLEN: 8, A0_AWBURST: 2, A0_AWPROT: 3, A0_WVALID: 1, A0_WLAST: 1, A0_WDATA: 32, A0_BREADY: 1, A0_ARID: 1, A0_AWID: 1, A0_WID: 1, A0_BID: 1, B0_ARVALID: 1, B0_ARADDR: 64, B0_ARSIZE: 3, B0_ARLEN: 8, B0_ARBURST: 2, B0_RREADY: 1, B0_AWVALID: 1, B0_AWADDR: 64, B0_AWSIZE: 3, B0_AWLEN: 8, B0_AWBURST: 2, B0_AWPROT: 3, B0_WVALID: 1, B0_WLAST: 1, B0_WDATA: 32, B0_BREADY: 1, B0_ARID: 1, B0_AWID: 1, B0_WID: 1, B0_BID: 1, Sum0_ARVALID: 1, Sum0_ARADDR: 64, Sum0_ARSIZE: 3, Sum0_ARLEN: 8, Sum0_ARBURST: 2, Sum0_RREADY: 1, Sum0_AWVALID: 1, Sum0_AWADDR: 64, Sum0_AWSIZE: 3, Sum0_AWLEN: 8, Sum0_AWBURST: 2, Sum0_AWPROT: 3, Sum0_WVALID: 1, Sum0_WLAST: 1, Sum0_WDATA: 32, Sum0_BREADY: 1, Sum0_ARID: 1, Sum0_AWID: 1, Sum0_WID: 1, Sum0_BID: 1) {
   cells {
     main_compute = main();
     axi_dyn_mem_A0 = axi_dyn_mem_A0();
