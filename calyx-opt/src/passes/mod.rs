@@ -53,7 +53,7 @@ pub use collapse_control::CollapseControl;
 pub use comb_prop::CombProp;
 pub use compile_invoke::CompileInvoke;
 pub use compile_repeat::CompileRepeat;
-pub use compile_static::{CompileStatic, StateType};
+pub use compile_static::CompileStatic;
 pub use component_iniliner::ComponentInliner;
 pub use data_path_infer::DataPathInfer;
 pub use dead_assignment_removal::DeadAssignmentRemoval;
