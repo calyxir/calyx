@@ -27,6 +27,14 @@ fn setup_calyx(
             "calyx-pass",
             "$calyx-exe -l $calyx-base -p $pass $args $in > $out",
         )?;
+
+        e.config_var_or("flags", "calyx.flags", "-p none")?;
+
+        e.rule(
+            "calyx-with-flags",
+            "$calyx-exe -l $calyx-base $flags $args $in > $out",
+        )?;
+
         Ok(())
     });
     bld.op(
@@ -502,6 +510,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
     // Interpreter.
     let debug = bld.state("debug", &[]); // A pseudo-state.
+                                         // A pseudo-state for cider input
+    let cider_state = bld.state("cider", &[]);
+
     let cider_setup = bld.setup("Cider interpreter", |e| {
         e.config_var_or(
             "cider-exe",
@@ -539,7 +550,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
 
         e.rule(
-            "cider2",
+            "run-cider",
             "$cider-exe -l $calyx-base --data data.dump $in flat > $out",
         )?;
 
@@ -554,6 +565,22 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
         Ok(())
     });
+    bld.op(
+        "calyx-to-cider",
+        &[sim_setup, calyx_setup],
+        calyx,
+        cider_state,
+        |e, input, _output| {
+            e.build_cmd(
+                &["cider-input.futil"],
+                "calyx-with-flags",
+                &[input],
+                &[],
+            )?;
+            Ok(())
+        },
+    );
+
     bld.op(
         "interp",
         &[
@@ -577,13 +604,18 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
     bld.op(
-        "interp-flat",
+        "cider",
         &[sim_setup, calyx_setup, cider_setup],
-        calyx,
+        cider_state,
         dat,
-        |e, input, output| {
+        |e, _input, output| {
             let out_file = "interp_out.dump";
-            e.build_cmd(&[out_file], "cider2", &[input], &["data.dump"])?;
+            e.build_cmd(
+                &[out_file],
+                "run-cider",
+                &["cider-input.futil"],
+                &["data.dump"],
+            )?;
             e.build_cmd(
                 &[output],
                 "interp-to-dump",
