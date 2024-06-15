@@ -498,9 +498,13 @@ impl CompileStatic {
         let mut children_vec = vec![];
         let target_group_ref = target_group.borrow();
         for assign in &target_group_ref.assignments {
-            // Looking for static_group[go] = %[i:j] ? 1'd1; assignments to build children.
+            // Looking for static_group[go] = %[i:j] ? 1'd1; to build children.
             match &assign.dst.borrow().parent {
-                PortParent::Cell(_) => (),
+                PortParent::Cell(_) => {
+                    if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
+                        panic!("")
+                    }
+                }
                 PortParent::Group(_) => panic!(""),
                 PortParent::StaticGroup(sgroup) => match &*assign.guard {
                     calyx_ir::Guard::Info(static_timing_interval) => {
@@ -532,6 +536,7 @@ impl CompileStatic {
 
         if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
             FSMTree::Par(ParTree {
+                group_name: name,
                 threads: children_vec,
                 latency: target_group_ref.latency,
                 num_repeats: num_repeats,
@@ -802,6 +807,7 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Get a vec of all groups that are enabled in comp's control.
         let static_enable_ids =
             Self::get_static_enables(&*comp.control.borrow());
         // Static components have a different interface than static groups.
@@ -829,10 +835,10 @@ impl Visitor for CompileStatic {
         // The first thing is to assign FSMs -> static islands.
         // We sometimes assign the same FSM to different static islands
         // to reduce register usage. We do this by getting greedy coloring.
-        let coloring = Self::get_coloring(&sgroups, &comp.control.borrow());
+        // let coloring: HashMap<calyx_ir::Id, calyx_ir::Id> = Self::get_coloring(&sgroups, &comp.control.borrow());
 
         let mut builder = ir::Builder::new(comp, sigs);
-        // Build one tree object per color
+        // Build one tree object per static enable.
         let mut tree_objects = static_enable_ids
             .iter()
             .map(|id| Self::build_tree_object(*id, &sgroups, 1))
@@ -841,7 +847,7 @@ impl Visitor for CompileStatic {
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
 
-        // Realize an fsm for each StaticSchedule object.
+        // Make each tree count to n.
         for tree in &mut tree_objects {
             // Check whether we are compiling the top level static island.
             let static_component_interface = match top_level_sgroup {
@@ -864,17 +870,14 @@ impl Visitor for CompileStatic {
                 // )
             } else {
                 tree.count_to_n(&mut builder);
+                tree.realize(
+                    &sgroups,
+                    &mut self.reset_early_map,
+                    &mut self.fsm_info_map,
+                    &mut group_rewrites,
+                    &mut builder,
+                );
             }
-        }
-
-        for mut tree in tree_objects {
-            tree.realize(
-                &sgroups,
-                &mut self.reset_early_map,
-                &mut self.fsm_info_map,
-                &mut group_rewrites,
-                &mut builder,
-            );
         }
 
         // Rewrite static_group[go] to early_reset_group[go]

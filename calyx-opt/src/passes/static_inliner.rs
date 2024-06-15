@@ -1,5 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
+use calyx_ir::guard;
 use calyx_ir::structure;
 use calyx_ir::LibrarySignatures;
 use ir::build_assignments;
@@ -194,13 +195,17 @@ impl StaticInliner {
                         stmt_group.borrow().get_latency() == stmt_latency,
                         "static group latency doesn't match static stmt latency"
                     );
+                    // Assign par_group[go] = %[0:par_latency] ? 1'd1;
                     structure!( builder;
                         let signal_on = constant(1,1);
                     );
+                    let stmt_guard = ir::Guard::Info(ir::StaticTiming::new((
+                        0,
+                        stmt_latency,
+                    )));
                     let trigger_body = build_assignments!(builder;
-                        stmt_group["go"] = ? signal_on["out"];
+                        stmt_group["go"] = stmt_guard ? signal_on["out"];
                     );
-                    // add g_assigns to par_group_assigns
                     par_group_assigns.extend(trigger_body);
                 }
                 par_group.borrow_mut().assignments = par_group_assigns;

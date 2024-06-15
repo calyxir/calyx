@@ -322,75 +322,12 @@ pub struct Tree {
 }
 
 impl Tree {
-    // Get the tree's final state (i.e., the state of the tree during its final cycle).
-    fn get_final_state(
-        &mut self,
-        builder: &mut ir::Builder,
-    ) -> ir::Guard<Nothing> {
-        let fsm_final_state = match &mut self.fsm_cell {
-            None => {
-                // If there is no FSM, then we know latency has to be 1.
-                assert!(self.latency == 1);
-                Box::new(ir::Guard::True)
-            }
-            Some(static_fsm_cell) => {
-                // If there is an FSM, we check whether during its final state,
-                // it is offloading or incrementing.
-                let static_fsm = Rc::clone(&static_fsm_cell);
-
-                if let Some((child, (beg_interval, end_interval))) =
-                    self.children.last_mut()
-                {
-                    // You have to clone these earlier to avoid borrow checker nonsense.
-                    // XXX(Caleb): think of better solution.
-                    let beg_interval_clone = *beg_interval;
-                    let end_interval_clone = *end_interval;
-                    if *end_interval == self.latency {
-                        let final_child_state =
-                            Box::new(child.get_final_state(builder));
-                        let final_parent_state =
-                            static_fsm.borrow_mut().query_between(
-                                builder,
-                                self.translate_query((
-                                    beg_interval_clone,
-                                    end_interval_clone,
-                                )),
-                            );
-                        return final_child_state.and(*final_parent_state);
-                    }
-                }
-                // Otherwise, can just do a normal query.
-                let x = static_fsm.borrow_mut().query_between(
-                    builder,
-                    self.translate_query((self.latency - 1, self.latency)),
-                );
-                x
-            }
-        };
-        let counter_final_state = match &mut self.iter_count_cell {
-            None => {
-                assert!(self.num_repeats == 1);
-                Box::new(ir::Guard::True)
-            }
-            Some(static_fsm) => static_fsm.borrow_mut().query_between(
-                builder,
-                (self.num_repeats - 1, self.num_repeats),
-            ),
-        };
-        ir::Guard::And(fsm_final_state, counter_final_state)
-    }
-
-    fn extract_fsm_cell(&mut self) -> ir::RRC<StaticFSM> {
-        let x = self.fsm_cell.as_ref().expect("field was None");
-        Rc::clone(x)
-    }
-
     fn count_to_n(&mut self, builder: &mut ir::Builder) {
-        // offload_states are the fsm_states that last multiple cycles
-        // because they offload computations to children.
+        // offload_states are the fsm_states that last >1 cycles
+        // because they offload to children.
         let mut offload_states = vec![];
-        // Need to calculate offload_states. %[500:600] might not be at fsm=500
-        // if there were previous states that were offloaded.
+        // Need to calculate offload_states, which are tuples of
+        // (fsm state, fsm state length).
         let mut cur_delay = 0;
         for (_, (beg, end)) in &self.children {
             offload_states.push((beg - cur_delay, (end - beg)));
@@ -398,137 +335,110 @@ impl Tree {
         }
         let num_states = self.latency - cur_delay;
 
+        // res_vec will contain the assignments that count to n.
         let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
-        // Parent FSM for the "root" of the tree.
-        let mut parent_fsm = StaticFSM::from_basic_info(
+        // Build parent FSM for the "root" of the tree.
+        let fsm_cell = StaticFSM::from_basic_info(
             num_states,
             FSMEncoding::Binary, // XXX(Caleb): change this
             builder,
         );
-        let (adder_asssigns, adder) = parent_fsm.build_incrementer(builder);
+        self.fsm_cell = Some(ir::rrc(fsm_cell));
+        let parent_fsm =
+            Rc::clone(&self.fsm_cell.as_mut().expect("should have set fsm"));
+        let (adder_asssigns, adder) =
+            parent_fsm.borrow_mut().build_incrementer(builder);
+        res_vec.extend(adder_asssigns);
 
         // Now handle the children, i.e., offload states.
-        let mut offload_state_incrs = Vec::new();
-        for (i, (child, _)) in self.children.iter_mut().enumerate() {
-            // Let the child count to n.
+        for (i, (child, (_, end))) in self.children.iter_mut().enumerate() {
+            // Recursive call that makes the child count to n.
             child.count_to_n(builder);
 
             // Increment parent when child is in final state.
-            // e.g., fsm.in = fsm == 4 && child_fsm_in_final_state ? fsm + 1;
+            // e.g., fsm.in = fsm == offload_state && child_fsm_in_final_state ? fsm + 1;
             // fsm.write_en = ... // same assignments
-            let (child_state, _) = offload_states[i];
-            let in_child_state = parent_fsm
-                .query_between(builder, (child_state, child_state + 1));
-            let final_child_state = child.get_final_state(builder);
-            let parent_fsm_incr = parent_fsm.conditional_increment(
-                ir::Guard::And(in_child_state, Box::new(final_child_state)),
-                Rc::clone(&adder),
-                builder,
-            );
-            offload_state_incrs.extend(parent_fsm_incr);
+            // If the offload state is the last state (end == self.latency) then we don't
+            // increment, we need to reset to 0: we will handle that case separately.
+            if *end != self.latency {
+                let (child_state, _) = offload_states[i];
+                let in_child_state = parent_fsm
+                    .borrow_mut()
+                    .query_between(builder, (child_state, child_state + 1));
+                let final_child_state = child.get_final_state(builder);
+                let parent_fsm_incr =
+                    parent_fsm.borrow_mut().conditional_increment(
+                        ir::Guard::And(
+                            in_child_state,
+                            Box::new(final_child_state),
+                        ),
+                        Rc::clone(&adder),
+                        builder,
+                    );
+                res_vec.extend(parent_fsm_incr);
+            }
         }
 
-        // Getting final state for the fsm.
-        let final_state_guard = if let Some((child, (_, end_interval))) =
-            self.children.last_mut()
-        {
-            if *end_interval == self.latency {
-                child.get_final_state(builder) // XXX(Caleb): need to fix this possibly
-            } else {
-                *parent_fsm.query_between(
-                    builder,
-                    (self.latency - 1 - cur_delay, self.latency - cur_delay),
-                )
-            }
-        } else {
-            *parent_fsm.query_between(
-                builder,
-                (self.latency - 1 - cur_delay, self.latency - cur_delay),
-            )
-        };
-        let not_final_state = final_state_guard.clone().not();
-
-        offload_state_incrs.iter_mut().for_each(|assign| {
-            assign.guard.update(|g| g.and(not_final_state.clone()));
-        });
-        res_vec.extend(offload_state_incrs);
-
-        // offload_state_guard initialized to false.
+        // Increment when fsm is not in an offload state and not in final fsm state.
         let mut offload_state_guard: ir::Guard<Nothing> =
             ir::Guard::Not(Box::new(ir::Guard::True));
         for (offload_state, _) in &offload_states {
             // Creating a guard that checks whether the parent fsm is
             // in an offload state.
             offload_state_guard.update(|g| {
-                g.or(*parent_fsm.query_between(
+                g.or(*parent_fsm.borrow_mut().query_between(
                     builder,
                     (*offload_state, offload_state + 1),
                 ))
             });
         }
-
-        // Increment when fsm is not in an offload state.
         let not_offload_state = offload_state_guard.not();
-
-        res_vec.extend(adder_asssigns);
-        res_vec.extend(parent_fsm.conditional_increment(
+        // Getting final state for the parent fsm.
+        let final_fsm_state = self.get_final_fsm_state(builder);
+        let not_final_state = final_fsm_state.clone().not();
+        res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
             not_offload_state.and(not_final_state.clone()),
             Rc::clone(&adder),
             builder,
         ));
-
+        // reset at final fsm_state.
         res_vec.extend(
-            parent_fsm.conditional_reset(final_state_guard.clone(), builder),
+            parent_fsm
+                .borrow_mut()
+                .conditional_reset(final_fsm_state.clone(), builder),
         );
 
-        // Handle num_repeats.
+        // Handle repeats.
         if self.num_repeats != 1 {
             let mut repeat_fsm = StaticFSM::from_basic_info(
                 self.num_repeats,
                 FSMEncoding::Binary, // XXX(Caleb): change this
                 builder,
             );
-            let (adder_asssigns, adder) = repeat_fsm.build_incrementer(builder);
+            let (repeat_adder_assigns, repeat_adder) =
+                repeat_fsm.build_incrementer(builder);
             let final_repeat_state = *repeat_fsm.query_between(
                 builder,
                 (self.num_repeats - 1, self.num_repeats),
             );
             let not_final_repeat_state = final_repeat_state.clone().not();
-            res_vec.extend(adder_asssigns);
+            res_vec.extend(repeat_adder_assigns);
+            // repeat_fsm = fsm_in_final_state and not_final_repeat_state? repeat_fsm + 1
             res_vec.extend(repeat_fsm.conditional_increment(
-                final_state_guard.clone().and(not_final_repeat_state),
-                adder,
+                final_fsm_state.clone().and(not_final_repeat_state),
+                repeat_adder,
                 builder,
             ));
-
+            // repeat_fsm = fsm_in_final_state and final_repeat_state? 0
             res_vec.extend(repeat_fsm.conditional_reset(
-                final_state_guard.clone().and(final_repeat_state),
+                final_fsm_state.clone().and(final_repeat_state),
                 builder,
             ));
             self.iter_count_cell = Some(ir::rrc(repeat_fsm));
         }
 
-        self.fsm_cell = Some(ir::rrc(parent_fsm));
         let (_, root_asgns) = &mut self.root;
         root_asgns.extend(res_vec);
-    }
-
-    fn translate_query(&self, query: (u64, u64)) -> (u64, u64) {
-        let (beg_query, end_query) = query;
-        for ((beg, end), state_type) in &self.delay_map {
-            if (beg_query >= *beg) && (end_query <= *end) {
-                match state_type {
-                    StateType::Delay(delay) => {
-                        return (beg_query - delay, end_query - delay);
-                    }
-                    StateType::Offload(state) => {
-                        assert!((*beg == beg_query) && *end == end_query);
-                        return (*state, state + 1);
-                    }
-                }
-            }
-        }
-        panic!("")
     }
 
     fn realize(
@@ -539,6 +449,7 @@ impl Tree {
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         builder: &mut ir::Builder,
     ) {
+        // Get static grouo we are "realizing".
         let static_group = Rc::clone(
             &static_groups
                 .iter()
@@ -554,14 +465,7 @@ impl Tree {
         let mut assigns =
             std::mem::take(&mut static_group.borrow().assignments.clone())
                 .into_iter()
-                .map(|assign| {
-                    FSMTree::make_assign_dyn(
-                        assign,
-                        Rc::clone(&fsm_ref),
-                        builder,
-                        &self.delay_map,
-                    )
-                })
+                .map(|assign| self.make_assign_dyn(assign, builder))
                 .collect_vec();
 
         // Add assignment `group[done] = ud.out`` to the new group.
@@ -571,6 +475,7 @@ impl Tree {
           early_reset_group["done"] = ? ud["out"];
         );
         assigns.extend(early_reset_done_assign);
+        // Adding the count_to_n assigns;
         assigns.extend(std::mem::take(&mut self.root.1));
 
         early_reset_group.borrow_mut().assignments = assigns;
@@ -599,6 +504,7 @@ impl Tree {
         fsm_info_map
             .insert(early_reset_group.borrow().name(), Rc::clone(&fsm_ref));
 
+        // Recursively realize each child.
         self.children.iter_mut().for_each(|(child, _)| {
             child.realize(
                 static_groups,
@@ -609,64 +515,122 @@ impl Tree {
             )
         })
     }
-}
-pub struct ParTree {
-    pub latency: u64,
-    pub threads: Vec<(FSMTree, (u64, u64))>,
-    pub num_repeats: u64,
-}
 
-impl FSMTree {
+    fn get_final_fsm_state(
+        &mut self,
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        match &mut self.fsm_cell {
+            None => {
+                // If there is no FSM, then we know latency has to be 1.
+                assert!(self.latency == 1);
+                ir::Guard::True
+            }
+            Some(static_fsm_cell) => {
+                // If there is an FSM, we check whether during its final state,
+                // it is offloading or incrementing.
+                let static_fsm = Rc::clone(&static_fsm_cell);
+
+                if let Some((child, (beg_interval, end_interval))) =
+                    self.children.last_mut()
+                {
+                    // You have to clone these earlier to avoid borrow checker nonsense.
+                    // XXX(Caleb): think of better solution.
+                    let beg_interval_clone = *beg_interval;
+                    let end_interval_clone = *end_interval;
+                    if *end_interval == self.latency {
+                        let final_child_state =
+                            Box::new(child.get_final_state(builder));
+                        let final_parent_state =
+                            static_fsm.borrow_mut().query_between(
+                                builder,
+                                self.translate_query((
+                                    beg_interval_clone,
+                                    end_interval_clone,
+                                )),
+                            );
+                        return final_parent_state.and(*final_child_state);
+                    }
+                }
+                // Otherwise, can just do a normal query.
+                let g = static_fsm.borrow_mut().query_between(
+                    builder,
+                    self.translate_query((self.latency - 1, self.latency)),
+                );
+                *g
+            }
+        }
+    }
+    // Get the tree's final state (i.e., the state of the tree during its final cycle).
+    fn get_final_state(
+        &mut self,
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        let fsm_final_state = Box::new(self.get_final_fsm_state(builder));
+        let counter_final_state = match &mut self.iter_count_cell {
+            None => {
+                assert!(self.num_repeats == 1);
+                Box::new(ir::Guard::True)
+            }
+            Some(static_fsm) => static_fsm.borrow_mut().query_between(
+                builder,
+                (self.num_repeats - 1, self.num_repeats),
+            ),
+        };
+        ir::Guard::And(fsm_final_state, counter_final_state)
+    }
+
+    fn extract_fsm_cell(&mut self) -> ir::RRC<StaticFSM> {
+        Rc::clone(self.fsm_cell.as_ref().expect("field was None"))
+    }
+
+    fn translate_query(&self, query: (u64, u64)) -> (u64, u64) {
+        let (beg_query, end_query) = query;
+        for ((beg, end), state_type) in &self.delay_map {
+            if (beg_query >= *beg) && (end_query <= *end) {
+                match state_type {
+                    StateType::Delay(delay) => {
+                        return (beg_query - delay, end_query - delay);
+                    }
+                    StateType::Offload(state) => {
+                        assert!((*beg == beg_query) && *end == end_query);
+                        return (*state, state + 1);
+                    }
+                }
+            }
+        }
+        panic!("")
+    }
+
     // Takes in a static guard `guard`, and returns equivalent dynamic guard
     // The only thing that actually changes is the Guard::Info case
     // We need to turn static_timing to dynamic guards using `fsm`.
-    // E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out < 3
     fn make_guard_dyn(
+        &mut self,
         guard: ir::Guard<ir::StaticTiming>,
-        fsm_object: ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
-        delay_map: &BTreeMap<(u64, u64), StateType>,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-                Self::make_guard_dyn(
-                    *l,
-                    Rc::clone(&fsm_object),
-                    builder,
-                    delay_map,
-                ),
-                Self::make_guard_dyn(
-                    *r,
-                    Rc::clone(&fsm_object),
-                    builder,
-                    delay_map,
-                ),
+                self.make_guard_dyn(*l, builder),
+                self.make_guard_dyn(*r, builder),
             )),
             ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-                Self::make_guard_dyn(
-                    *l,
-                    Rc::clone(&fsm_object),
-                    builder,
-                    delay_map,
-                ),
-                Self::make_guard_dyn(
-                    *r,
-                    Rc::clone(&fsm_object),
-                    builder,
-                    delay_map,
-                ),
+                self.make_guard_dyn(*l, builder),
+                self.make_guard_dyn(*r, builder),
             )),
-            ir::Guard::Not(g) => Box::new(ir::Guard::Not(
-                Self::make_guard_dyn(*g, fsm_object, builder, delay_map),
-            )),
+            ir::Guard::Not(g) => {
+                Box::new(ir::Guard::Not(self.make_guard_dyn(*g, builder)))
+            }
             ir::Guard::CompOp(op, l, r) => {
                 Box::new(ir::Guard::CompOp(op, l, r))
             }
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
             ir::Guard::Info(static_timing) => {
+                let fsm_object = self.extract_fsm_cell();
                 let (beg_target, end_target) = static_timing.get_interval();
-                for ((beg, end), state_type) in delay_map {
+                for ((beg, end), state_type) in &self.delay_map {
                     if (beg_target >= *beg) && (end_target <= *end) {
                         match state_type {
                             StateType::Delay(delay) => {
@@ -695,24 +659,135 @@ impl FSMTree {
     // Takes in static assignment `assign` and returns a dynamic assignments
     // Mainly transforms the guards from %[2:3] -> fsm.out >= 2 & fsm.out <= 3
     pub fn make_assign_dyn(
+        &mut self,
         assign: ir::Assignment<ir::StaticTiming>,
-        fsm_object: ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
-        delay_map: &BTreeMap<(u64, u64), StateType>,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
             src: assign.src,
             dst: assign.dst,
             attributes: assign.attributes,
-            guard: Self::make_guard_dyn(
-                *assign.guard,
-                fsm_object,
-                builder,
-                &delay_map,
-            ),
+            guard: self.make_guard_dyn(*assign.guard, builder),
         }
     }
+}
+pub struct ParTree {
+    pub group_name: ir::Id,
+    pub latency: u64,
+    pub threads: Vec<(FSMTree, (u64, u64))>,
+    pub num_repeats: u64,
+}
 
+impl ParTree {
+    pub fn count_to_n(&mut self, builder: &mut ir::Builder) {
+        for (child, _) in &mut self.threads {
+            child.count_to_n(builder);
+        }
+        // Sort in descending order
+        // self.threads
+        //     .sort_by_key(|(child, _)| -1 * child.get_latency() as i64);
+
+        // let (first_child, rest_children) =
+        //     self.threads.split_first().expect("par thread is empty");
+
+        // let (first_child_tree, (first_child_beg, first_child_end)) =
+        //     first_child;
+        // assert!(*first_child_end == self.latency);
+    }
+    pub fn get_longest_tree(&mut self) -> &mut Tree {
+        let mut max = self
+            .threads
+            .iter_mut()
+            .max_by_key(|(child, _)| child.get_latency() as i64);
+        if let Some((max_child, _)) = max {
+            match max_child {
+                FSMTree::Par(par_tree) => par_tree.get_longest_tree(),
+                FSMTree::Tree(tree) => tree,
+            }
+        } else {
+            panic!("Field is empty or no maximum value found");
+        }
+    }
+    pub fn realize(
+        &mut self,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
+        fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) {
+        // Get static grouo we are "realizing".
+        let static_group = Rc::clone(
+            &static_groups
+                .iter()
+                .find(|sgroup| sgroup.borrow().name() == self.group_name)
+                .unwrap(),
+        );
+        // Create the dynamic "early reset group" that will replace the static group.
+        let static_group_name = static_group.borrow().name();
+        let mut early_reset_name = static_group_name.to_string();
+        early_reset_name.insert_str(0, "early_reset_");
+        let early_reset_group = builder.add_group(early_reset_name);
+
+        let longest_tree = self.get_longest_tree();
+        let fsm_ref = longest_tree.extract_fsm_cell();
+
+        let mut assigns = static_group
+            .borrow()
+            .assignments
+            .clone()
+            .into_iter()
+            .map(|assign| longest_tree.make_assign_dyn(assign, builder))
+            .collect_vec();
+
+        // Add assignment `group[done] = ud.out`` to the new group.
+        structure!( builder; let ud = prim undef(1););
+        let early_reset_done_assign = build_assignments!(
+          builder;
+          early_reset_group["done"] = ? ud["out"];
+        );
+        assigns.extend(early_reset_done_assign);
+
+        early_reset_group.borrow_mut().assignments = assigns;
+        early_reset_group.borrow_mut().attributes =
+            static_group.borrow().attributes.clone();
+
+        // Now we have to update the fields with a bunch of information.
+        // This makes it easier when we have to build wrappers, rewrite ports, etc.
+
+        // Map the static group name -> early reset group name.
+        // This is helpful for rewriting control
+        reset_early_map
+            .insert(static_group_name, early_reset_group.borrow().name());
+        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
+        // Technically we could do this w/ early_reset_map but is easier w/
+        // group_rewrite, which is explicitly of type `PortRewriterMap`
+        group_rewrites.insert(
+            ir::Canonical::new(static_group_name, ir::Id::from("go")),
+            early_reset_group.borrow().find("go").unwrap_or_else(|| {
+                unreachable!(
+                    "group {} has no go port",
+                    early_reset_group.borrow().name()
+                )
+            }),
+        );
+        fsm_info_map
+            .insert(early_reset_group.borrow().name(), Rc::clone(&fsm_ref));
+
+        // Recursively realize each child.
+        self.threads.iter_mut().for_each(|(child, _)| {
+            child.realize(
+                static_groups,
+                reset_early_map,
+                fsm_info_map,
+                group_rewrites,
+                builder,
+            )
+        })
+    }
+}
+
+impl Tree {
     // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
     fn handle_static_interface_guard(
         guard: ir::Guard<ir::StaticTiming>,
