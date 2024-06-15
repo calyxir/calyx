@@ -2,7 +2,6 @@ from calyx.builder import (
     Builder,
     add_comp_ports,
     invoke,
-    while_with,
     par,
     while_,
     if_
@@ -12,95 +11,6 @@ from math import log2, ceil
 import json
 import sys
 
-
-#fixed vec_add main
-vec_add_main = """
-component main() -> () {                                                                                                                                                                                 
-  cells {
-      //Modified to 64 width address because XRT expects 64 bit memory addresses
-      ref A0 = dyn_mem_d1(32,8,3);
-      A_read0_0 = std_reg(32);
-      ref B0 = dyn_mem_d1(32,8,3);
-      B_read0_0 = std_reg(32);
-      ref Sum0 = dyn_mem_d1(32,8,3);
-      add0 = std_add(32);
-      add1 = std_add(4);
-      const0 = std_const(4,0);
-      const1 = std_const(4,7);
-      const2 = std_const(4,1);
-      i0 = std_reg(4);
-      le0 = std_le(4);
-      bit_slice = std_bit_slice(4,0,2,3);
-  }
-  wires {
-    A0.write_en = 1'b0;
-    B0.write_en = 1'b0;
-    
-    bit_slice.in = i0.out;
-    comb group cond0 {
-      le0.left = i0.out;
-      le0.right = const1.out;
-    }
-    group let0 {
-      i0.in = const0.out;
-      i0.write_en = 1'd1;
-      let0[done] = i0.done;
-    }
-    //modified upd0 and upd1 to use seq_mem correctly
-    group upd0 {
-      A_read0_0.write_en = A0.done;
-      A0.addr0 = bit_slice.out;
-      A0.content_en = 1'b1;
-      A_read0_0.in = 1'd1 ? A0.read_data;
-      upd0[done] = A_read0_0.done ? 1'd1;
-    }
-    //see comment for upd0
-    group upd1 {
-      B_read0_0.write_en = B0.done;
-      B0.addr0 = bit_slice.out;
-      B0.content_en = 1'b1;
-      B_read0_0.in = 1'd1 ? B0.read_data;
-      upd1[done] = B_read0_0.done ? 1'd1;
-    }
-    group upd2 {
-      Sum0.addr0 = bit_slice.out;
-      Sum0.content_en = 1'd1;
-      Sum0.write_en = 1'd1;
-      //Are these A0 and B0 assignments neeeded?
-      //B0.content_en = 1'b1;
-      //B0.addr0 = bit_slice.out;
-      //A0.addr0 = bit_slice.out;
-      //A0.content_en = 1'b1;
-      add0.left = B_read0_0.out;
-      add0.right = A_read0_0.out;
-      Sum0.write_data = 1'd1 ? add0.out;
-      upd2[done] = Sum0.done ? 1'd1;
-    }
-    group upd3 {
-      i0.write_en = 1'd1;
-      add1.left = i0.out;
-      add1.right = const2.out;
-      i0.in = 1'd1 ? add1.out;
-      upd3[done] = i0.done ? 1'd1;
-    }
-  }
-  control {
-    seq {
-      let0;
-      while le0.out with cond0 {
-        seq {
-          par {
-            upd0;
-            upd1;
-          }
-          upd2;
-          upd3;
-        }
-      }                                  
-    }
-  }
-}
-"""
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
 
 # Since yxi is still young, keys and formatting change often.
@@ -459,6 +369,7 @@ def add_read_controller(prog, mem):
         (f"ARSIZE", 3),
         (f"ARLEN", 8),
         (f"ARBURST", 2),
+        (f"ARPROT", 3),
         (f"RREADY", 1),
         #sent out to axi_dyn_mem
         (f"read_data", data_width),
@@ -488,6 +399,7 @@ def add_read_controller(prog, mem):
         out_ARSIZE=read_controller.this()["ARSIZE"],
         out_ARLEN=read_controller.this()["ARLEN"],
         out_ARBURST=read_controller.this()["ARBURST"],
+        out_ARPROT=read_controller.this()["ARPROT"],
     )
     simple_read_invoke = invoke(
         simple_read_channel,
@@ -525,6 +437,7 @@ def add_write_controller(prog, mem):
         (f"AWSIZE", 3),
         (f"AWLEN", 8),
         (f"AWBURST", 2),
+        (f"AWPROT", 3),
         (f"WVALID", 1),
         (f"WLAST", 1),
         (f"WDATA", data_width),
@@ -552,6 +465,7 @@ def add_write_controller(prog, mem):
         out_AWSIZE=write_controller.this()["AWSIZE"],
         out_AWLEN=write_controller.this()["AWLEN"],
         out_AWBURST=write_controller.this()["AWBURST"],
+        out_AWPROT=write_controller.this()["AWPROT"],
     )
     simple_write_invoke = invoke(
         simple_write_channel,
@@ -580,9 +494,10 @@ def add_axi_dyn_mem(prog, mem):
     data_width = mem[width_key]
     name = mem[name_key]
 
+    prog.import_("primitives/memories/dyn.futil")
     axi_dyn_mem = prog.component(f"axi_dyn_mem_{name}")
     # Inputs/Outputs
-    seq_mem_inputs =[
+    dyn_mem_inputs =[
         ("addr0", address_width, [("write_together", 1), "data"]),
         ("content_en", 1, [("write_together", 1), ("go", 1)]),
         ("write_en", 1, [("write_together", 2)]),
@@ -594,19 +509,19 @@ def add_axi_dyn_mem(prog, mem):
         (f"RDATA", mem[width_key]),
         (f"RRESP", 2),
         (f"AWREADY", 1),
-        (f"WRESP", 2),
         (f"WREADY", 1),
         (f"BVALID", 1),
         # Only used for waveform tracing, not sent anywhere
         (f"BRESP", 2),
     ]
-    seq_mem_outputs = [
+    dyn_mem_outputs = [
         ("read_data", data_width, ["stable"]),
         (f"ARVALID", 1),
         (f"ARADDR", 64),
         (f"ARSIZE", 3),
         (f"ARLEN", 8),
         (f"ARBURST", 2),
+        (f"ARPROT", 3),
         (f"RREADY", 1),
         (f"AWVALID", 1),
         (f"AWADDR", 64),
@@ -619,7 +534,7 @@ def add_axi_dyn_mem(prog, mem):
         (f"WDATA", mem[width_key]),
         (f"BREADY", 1),
     ]
-    add_comp_ports(axi_dyn_mem, seq_mem_inputs, seq_mem_outputs)
+    add_comp_ports(axi_dyn_mem, dyn_mem_inputs, dyn_mem_outputs)
 
     # Cells
     address_translator = axi_dyn_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
@@ -648,6 +563,7 @@ def add_axi_dyn_mem(prog, mem):
             out_ARSIZE=this_component[f"ARSIZE"],
             out_ARLEN=this_component[f"ARLEN"],
             out_ARBURST=this_component[f"ARBURST"],
+            out_ARPROT=this_component[f"ARPROT"],
             out_RREADY=this_component[f"RREADY"],
             out_read_data=this_component[f"read_data"],
         )
@@ -665,6 +581,7 @@ def add_axi_dyn_mem(prog, mem):
             out_AWSIZE=this_component["AWSIZE"],
             out_AWLEN=this_component["AWLEN"],
             out_AWBURST=this_component["AWBURST"],
+            out_AWPROT=this_component[f"AWPROT"],
             out_WVALID=this_component["WVALID"],
             out_WLAST=this_component["WLAST"],
             out_WDATA=this_component["WDATA"],
@@ -688,10 +605,6 @@ def add_main_comp(prog, mems):
     # aw_channel = prog.get_component("m_aw_channel")
     # bresp_channel = prog.get_component("m_bresp_channel")
 
-    curr_addr_axi_par = []
-    curr_addr_internal_par = []
-    reads_par = []
-    writes_par = []
     ref_mem_kwargs = {}
 
     # Create single main cell
@@ -710,7 +623,6 @@ def add_main_comp(prog, mems):
             (f"{mem_name}_RDATA", mem[width_key]),
             (f"{mem_name}_RRESP", 2),
             (f"{mem_name}_AWREADY", 1),
-            (f"{mem_name}_WRESP", 2),
             (f"{mem_name}_WREADY", 1),
             (f"{mem_name}_BVALID", 1),
             # Only used for waveform tracing, not sent anywhere
@@ -878,5 +790,3 @@ if __name__ == "__main__":
         yxi = json.load(yxifile)
         mems = yxi["memories"]
         build().emit()
-
-    print(vec_add_main)
