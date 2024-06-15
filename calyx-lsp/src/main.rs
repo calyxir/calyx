@@ -6,6 +6,7 @@ mod goto_definition;
 mod log;
 mod query_result;
 mod ts_utils;
+mod utils;
 
 use std::collections::HashMap;
 use std::fs;

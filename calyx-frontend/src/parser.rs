@@ -47,7 +47,10 @@ pub struct CalyxParser;
 
 impl CalyxParser {
     /// Parse a Calyx program into an AST representation.
-    pub fn parse_file(path: &Path) -> CalyxResult<ast::NamespaceDef> {
+    pub fn parse_file<F: Fn(&str) -> CalyxResult<String>>(
+        path: &Path,
+        preprocess: &F,
+    ) -> CalyxResult<ast::NamespaceDef> {
         let time = std::time::Instant::now();
         let content = &fs::read(path).map_err(|err| {
             calyx_utils::Error::invalid_file(format!(
@@ -56,7 +59,7 @@ impl CalyxParser {
             ))
         })?;
         // Add a new file to the position table
-        let string_content = std::str::from_utf8(content)?.to_string();
+        let string_content = preprocess(std::str::from_utf8(content)?)?;
         let file = GlobalPositionTable::as_mut()
             .add_file(path.to_string_lossy().to_string(), string_content);
         let user_data = UserData { file };
@@ -94,13 +97,17 @@ impl CalyxParser {
         Ok(out)
     }
 
-    pub fn parse<R: Read>(mut r: R) -> CalyxResult<ast::NamespaceDef> {
+    pub fn parse<R: Read, F: Fn(&str) -> CalyxResult<String>>(
+        mut r: R,
+        preprocess: &F,
+    ) -> CalyxResult<ast::NamespaceDef> {
         let mut buf = String::new();
         r.read_to_string(&mut buf).map_err(|err| {
             calyx_utils::Error::invalid_file(format!(
                 "Failed to parse buffer: {err}",
             ))
         })?;
+        buf = preprocess(&buf)?;
         // Save the input string to the position table
         let file =
             GlobalPositionTable::as_mut().add_file("<stdin>".to_string(), buf);
@@ -1328,4 +1335,8 @@ impl CalyxParser {
 
         ))
     }
+}
+
+pub fn default_preprocessor(text: &str) -> CalyxResult<String> {
+    Ok(text.into())
 }

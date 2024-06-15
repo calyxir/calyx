@@ -140,9 +140,22 @@ impl Workspace {
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        Self::construct_with_all_deps::<false>(
+        Self::construct_with_all_deps::<false, _>(
             file.iter().cloned().collect(),
             lib_path,
+            parser::default_preprocessor,
+        )
+    }
+
+    pub fn construct_with_preprocessor<F: Fn(&str) -> CalyxResult<String>>(
+        file: &Option<PathBuf>,
+        lib_path: &Path,
+        preprocess: F,
+    ) -> CalyxResult<Self> {
+        Self::construct_with_all_deps::<false, _>(
+            file.iter().cloned().collect(),
+            lib_path,
+            preprocess,
         )
     }
 
@@ -152,9 +165,10 @@ impl Workspace {
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        Self::construct_with_all_deps::<true>(
+        Self::construct_with_all_deps::<true, _>(
             file.iter().cloned().collect(),
             lib_path,
+            parser::default_preprocessor,
         )
     }
 
@@ -236,13 +250,17 @@ impl Workspace {
     /// Construct the Workspace using the given files and all their dependencies.
     /// If SHALLOW is true, then parse imported components as declarations and not added to the workspace components.
     /// If in doubt, set SHALLOW to false.
-    pub fn construct_with_all_deps<const SHALLOW: bool>(
+    pub fn construct_with_all_deps<
+        const SHALLOW: bool,
+        F: Fn(&str) -> CalyxResult<String>,
+    >(
         mut files: Vec<PathBuf>,
         lib_path: &Path,
+        preprocess: F,
     ) -> CalyxResult<Self> {
         // Construct initial namespace. If `files` is empty, then we're reading from the standard input.
         let first = files.pop();
-        let ns = NamespaceDef::construct(&first)?;
+        let ns = NamespaceDef::construct(&first, &preprocess)?;
         let parent_path = first
             .as_ref()
             .map(|p| Self::get_parent(p))
@@ -291,7 +309,7 @@ impl Workspace {
             if already_imported.contains(&p) {
                 continue;
             }
-            let ns = parser::CalyxParser::parse_file(&p)?;
+            let ns = parser::CalyxParser::parse_file(&p, &preprocess)?;
             let parent = Self::get_parent(&p);
 
             let mut deps = ws.merge_namespace(

@@ -2,6 +2,8 @@ use std::path::Path;
 
 use resolve_path::PathResolveExt;
 
+use crate::utils;
+
 pub struct Diagnostic;
 
 /// A Calyx error message
@@ -17,9 +19,10 @@ pub struct CalyxError {
 impl Diagnostic {
     /// Run the `calyx` compiler on `path` with libraries at `lib_path`
     pub fn did_save(path: &Path, lib_path: &Path) -> Vec<CalyxError> {
-        calyx_frontend::Workspace::construct(
+        calyx_frontend::Workspace::construct_with_preprocessor(
             &Some(path.to_path_buf()),
             lib_path.resolve().as_ref(),
+            utils::apply_preprocessor,
         )
         .and_then(calyx_ir::from_ast::ast_to_ir)
         // TODO: call well-formed pass

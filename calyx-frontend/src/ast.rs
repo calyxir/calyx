@@ -21,12 +21,15 @@ pub struct NamespaceDef {
 impl NamespaceDef {
     /// Construct a namespace from a file or the input stream.
     /// If no file is provided, the input stream must be a TTY.
-    pub fn construct(file: &Option<PathBuf>) -> CalyxResult<Self> {
+    pub fn construct<F: Fn(&str) -> CalyxResult<String>>(
+        file: &Option<PathBuf>,
+        preprocess: &F,
+    ) -> CalyxResult<Self> {
         match file {
-            Some(file) => parser::CalyxParser::parse_file(file),
+            Some(file) => parser::CalyxParser::parse_file(file, preprocess),
             None => {
                 if atty::isnt(Stream::Stdin) {
-                    parser::CalyxParser::parse(std::io::stdin())
+                    parser::CalyxParser::parse(std::io::stdin(), preprocess)
                 } else {
                     Err(Error::invalid_file(
                         "No file provided and terminal not a TTY".to_string(),
@@ -38,7 +41,10 @@ impl NamespaceDef {
 
     /// Construct a namespace from a definition using a string.
     pub fn construct_from_str(inp: &str) -> CalyxResult<Self> {
-        parser::CalyxParser::parse(inp.as_bytes())
+        parser::CalyxParser::parse(
+            inp.as_bytes(),
+            &parser::default_preprocessor,
+        )
     }
 }
 

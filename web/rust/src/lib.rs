@@ -1,7 +1,7 @@
 #![allow(clippy::unused_unit)]
 use std::path::PathBuf;
 
-use calyx_frontend as frontend;
+use calyx_frontend::{self as frontend, parser};
 use calyx_ir as ir;
 use calyx_opt::pass_manager::PassManager;
 use calyx_utils::{CalyxResult, Error};
@@ -34,6 +34,7 @@ fn compile(
 
     let ns = frontend::parser::CalyxParser::parse(
         (library.to_string() + "\n" + namespace).as_bytes(),
+        &parser::default_preprocessor,
     )?;
     let ws = ws_from_ns(ns)?;
 

@@ -12,6 +12,7 @@ use tree_sitter as ts;
 use crate::convert::{Contains, Point, Range};
 use crate::log;
 use crate::ts_utils::ParentUntil;
+use crate::utils;
 use crate::{tree_sitter_calyx, Config};
 
 pub struct Document {
@@ -96,7 +97,8 @@ impl Document {
 
     /// Update the document with a with entirely new text.
     pub fn parse_whole_text(&mut self, text: &str) {
-        self.text = text.to_string();
+        let text = utils::apply_preprocessor(text).unwrap_or(text.to_string());
+        self.text = text.clone();
         self.tree = self.parser.parse(text, None);
         self.update_component_map();
         log::Debug::update(

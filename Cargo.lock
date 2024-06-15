@@ -450,6 +450,7 @@ dependencies = [
  "cc",
  "chrono",
  "itertools 0.11.0",
+ "preprocessor",
  "regex",
  "resolve-path",
  "serde",
