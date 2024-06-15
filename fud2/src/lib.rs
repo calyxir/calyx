@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use fud_core::{
     exec::{SetupRef, StateRef},
     run::{EmitResult, StreamEmitter},
@@ -792,11 +794,16 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let wrapper_setup = bld.setup("YXI and AXI generation", |e| {
         // Define a `gen-axi` rule that invokes our Python code generator program.
         // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
-        e.config_var_or(
-            "axi-generator",
-            "axi.generator",
-            "$calyx-base/yxi/axi-calyx/axi-generator.py",
-        )?;
+        let dynamic =
+            e.config_constrained_or("dynamic", vec!["true", "false"], "false")?;
+        let generator_path = if FromStr::from_str(&dynamic)
+            .expect("The dynamic flag should be either 'true' or 'false'.")
+        {
+            "$calyx-base/yxi/axi-calyx/dynamic-axi-generator.py"
+        } else {
+            "$calyx-base/yxi/axi-calyx/axi-generator.py"
+        };
+        e.config_var_or("axi-generator", "axi.generator", generator_path)?;
         e.config_var_or("python", "python", "python3")?;
 
         e.rule("gen-axi", "$python $axi-generator $in > $out")?;
