@@ -395,9 +395,9 @@ cmd = """
 fud exec --from calyx --to jq \
          --through dat \
          --through icarus-verilog \
-         -s calyx.flags "-p validate -p compile -p lower" \
+         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
          -s verilog.data {}.data \
-         -s jq.expr ".memories" \
+         -s jq.expr "." \
          {} -q
 """
 
@@ -408,9 +408,9 @@ cmd = """
 fud exec --from calyx --to jq \
          --through dat \
          --through icarus-verilog \
-         -s calyx.flags "-p validate -p compile -p lower" \
+         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
          -s verilog.data {}.data \
-         -s jq.expr ".memories" \
+         -s jq.expr "." \
          {} -q
 """
 
