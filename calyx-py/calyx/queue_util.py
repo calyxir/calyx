@@ -1,7 +1,7 @@
 import json
 import sys
 
-MAX_CMDS = 20000
+MAX_CMDS = 8
 QUEUE_SIZE = 16
 
 

@@ -87,7 +87,7 @@ def insert_pifo(
     if stats:
         stats = pifo.cell("stats", stats, is_ref=True)
 
-    flow = pifo.reg(32)  # The flow to push to: 0 to n.
+    flow = pifo.reg(32, "flow")  # The flow to push to: 0 to n.
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
     
@@ -97,10 +97,10 @@ def insert_pifo(
     err = pifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = pifo.reg(32)  # The active length of the PIFO.
+    len = pifo.reg(32, "length")  # The active length of the PIFO.
 
     # A register that marks the next sub-queue to `pop` from.
-    hot = pifo.reg(32)
+    hot = pifo.reg(32, "hot")
 
     max_queue_len = 2**queue_len_factor
 
@@ -114,37 +114,35 @@ def insert_pifo(
     the group infer_flow_grp that increments i each time. The final answer, i, 
     ends up in {flow}.
     """
-    adder = pifo.add(32)
-    i = pifo.reg(32)
-    n = pifo.reg(32)
-    hot = pifo.reg(32)
+    adder = pifo.add(32, "adder_reg")
+    i = pifo.reg(32, "i")
 
     # (boundary * 2) / n_flows will evenly divide "it" into n equal pieces
-    divider = pifo.reg(32) # divide + (n*divide), where n is the number of times we've looped
+    divider = pifo.reg(32, "divider") # divide + (n*divide), where n is the number of times we've looped
     divide = (boundary * 2) // n_flows
-    bound_val = pifo.reg(32)
-    store_bound_val = pifo.reg_store(bound_val, divide, "bound_val") # will always store the boundary value
+    bound_val = pifo.reg(32, "bound_val")
+    store_bound_val = pifo.reg_store(bound_val, cb.const(32, divide)) # will always store the boundary value
     
-    i_lt_n = pifo.lt_use(divider.out, value)
+    i_lt_n = pifo.lt_use(divider.out, value, "i_lt_n")
     with pifo.group("infer_flow_grp") as infer_flow_grp:
         adder.left = i.out # checking if the value is < the smallest boundary (divide), if so we 
         #automatically know that the packet belongs in the first flow
-        adder.right = cb.HI
-        flow.write_en = 1
+        adder.right = divider.out
+        flow.write_en = cb.HI
         flow.in_ = adder.out
         infer_flow_grp.done = flow.done
 
-    upd_divider, _ = pifo.add_store_in_reg(divider.out, bound_val.out, divider)
+    upd_divider, _ = pifo.add_store_in_reg(divider.out, bound_val.out, divider, "upd_divider")
 
     # Some equality checks.
-    hot_eq_n = pifo.eq_use(hot.out, n_flows-1) #bc 0-based indexing
-    len_eq_0 = pifo.eq_use(len.out, 0)
-    len_eq_max_queue_len = pifo.eq_use(len.out, max_queue_len)
-    cmd_eq_0 = pifo.eq_use(cmd, 0)
-    cmd_eq_1 = pifo.eq_use(cmd, 1)
-    cmd_eq_2 = pifo.eq_use(cmd, 2)
-    err_eq_0 = pifo.eq_use(err.out, 0)
-    err_neq_0 = pifo.neq_use(err.out, 0)
+    hot_eq_n = pifo.eq_use(hot.out, n_flows-1, cellname="hot_eq_n") #bc 0-based indexing
+    len_eq_0 = pifo.eq_use(len.out, 0, cellname="len_eq_0")
+    len_eq_max_queue_len = pifo.eq_use(len.out, max_queue_len, cellname="len_eq_maxq")
+    cmd_eq_0 = pifo.eq_use(cmd, 0, cellname="cmd_eq_0")
+    cmd_eq_1 = pifo.eq_use(cmd, 1, cellname="cmd_eq_1")
+    cmd_eq_2 = pifo.eq_use(cmd, 2, cellname="cmd_eq_2")
+    err_eq_0 = pifo.eq_use(err.out, 0, cellname="err_eq_0")
+    err_neq_0 = pifo.neq_use(err.out, 0, cellname="err_neq_0")
 
     flip_hot = pifo.incr(hot) # TODO want to make it increment until it
     # reaches n_flows, then loop back around to 0, or could check hot using mod %
@@ -155,13 +153,13 @@ def insert_pifo(
     len_incr = pifo.incr(len)  # len++
     len_decr = pifo.decr(len)  # len--
 
-    n_int = 0
-    loop_lt_n = pifo.lt_use(n.out, n_flows)
-    incr_n = pifo.incr(n)
+    #n_int = 0
+    #loop_lt_n = pifo.lt_use(n.out, cb.const(32, n_flows), "loop_lt_n")
+    # incr_n = pifo.incr(n)
 
     handles = []
     for n in range(n_flows):
-        handle = cb.if_with(pifo.eq_use(hot.out, n), # const(n, 32)
+        handle = cb.if_with(pifo.eq_use(hot.out, cb.const(32, n)), # const(n, 32)
         invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
         handles.append(handle)
 
@@ -242,7 +240,7 @@ def insert_pifo(
                 [  # The queue is not full. Proceed.
                     lower_err,
                     # We need to check which flow this value should be pushed to.
-                    cb.while_with(i_lt_n, [infer_flow_grp, upd_divider]),  # Infer the flow and write it to `flow`.
+                    cb.while_with(i_lt_n, [infer_flow_grp, upd_divider]),  # pt the flow and write it to `flow`.
                     handles,
                     cb.if_with(
                         err_eq_0,
@@ -274,7 +272,7 @@ def insert_pifo(
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    n_flows = 3
+    n_flows = 2
     sub_fifos = []
     for n in range(n_flows):
         name = "fifo" + str(n)
