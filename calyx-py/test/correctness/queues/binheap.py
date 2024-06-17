@@ -1,6 +1,6 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from calyx.tuple import insert_tuplify, insert_untuplify 
+from calyx.tuple import insert_tuplify, insert_untuplify
 
 
 def insert_swap(prog, name, width, len, idx_w):
@@ -41,7 +41,7 @@ def insert_binheap(prog, name, factor):
     """
 
     comp = prog.component(name)
-    
+
     n = (2**factor) - 1
 
     cmd = comp.input("cmd", 2)
@@ -67,7 +67,7 @@ def insert_binheap(prog, name, factor):
     err = comp.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    size = comp.reg(factor) # The active length of the heap.
+    size = comp.reg(factor)  # The active length of the heap.
 
     # Cells and groups to check which command we got.
     cmd_eq_0 = comp.eq_use(cmd, 0)
@@ -95,19 +95,19 @@ def insert_binheap(prog, name, factor):
 
     # current_idx := size
     set_idx_size = comp.reg_store(current_idx, size.out, "set_idx_size")
-    
+
     # current_idx := child_l_idx
     set_idx_child_l = comp.reg_store(current_idx, child_l_idx.out, "set_idx_child_l")
 
     # current_idx := child_r_idx
     set_idx_child_r = comp.reg_store(current_idx, child_r_idx.out, "set_idx_child_r")
-    
+
     # current_idx := parent_idx
     set_idx_parent = comp.reg_store(current_idx, parent_idx.out, "set_idx_parent")
 
     # err := 1
-    raise_err = comp.reg_store(err, 1, "raise_err") 
-    
+    raise_err = comp.reg_store(err, 1, "raise_err")
+
     sub = comp.sub(factor)
     rsh = comp.rsh(factor)
     with comp.group("find_parent_idx") as find_parent_idx:
@@ -125,7 +125,8 @@ def insert_binheap(prog, name, factor):
     add_2 = comp.add(factor)
     lsh = comp.lsh(factor)
     with comp.group("find_child_idx") as find_child_idx:
-        # Find the children of `current_idx`th element and store it in child_l_idx and child_r_idx.
+        # Find the children of `current_idx`th element and store
+        # them in child_l_idx and child_r_idx.
         # child_l_idx := (2 * current_idx) + 1
         # child_r_idx := (2 * current_idx) + 2
         lsh.left = current_idx.out
@@ -146,7 +147,7 @@ def insert_binheap(prog, name, factor):
         tuplify.snd = value
         mem.addr0 = current_idx.out
         mem.write_en = cb.HI
-        mem.write_data = tuplify.tup 
+        mem.write_data = tuplify.tup
         store_rank_and_value.done = mem.done
 
     # (out, _) := mem[idx]
@@ -171,22 +172,30 @@ def insert_binheap(prog, name, factor):
 
         return extract_snd
 
-    extract_current_rank = extract_fst("extract_current_rank", 
-                                       current_idx.out, 
-                                       current_rank)
-    extract_parent_rank = extract_fst("extract_parent_rank", 
-                                      parent_idx.out, 
-                                      parent_rank)
-    extract_child_l_rank = extract_fst("extract_child_l_rank", 
-                                       child_l_idx.out, 
-                                       child_l_rank)
-    extract_child_r_rank = extract_fst("extract_child_r_rank", 
-                                      child_r_idx.out, 
-                                      child_r_rank)
-    
+    extract_current_rank = extract_fst(
+        "extract_current_rank",
+        current_idx.out,
+        current_rank,
+    )
+    extract_parent_rank = extract_fst(
+        "extract_parent_rank",
+        parent_idx.out,
+        parent_rank,
+    )
+    extract_child_l_rank = extract_fst(
+        "extract_child_l_rank",
+        child_l_idx.out,
+        child_l_rank,
+    )
+    extract_child_r_rank = extract_fst(
+        "extract_child_r_rank",
+        child_r_idx.out,
+        child_r_rank,
+    )
+
     # current_rank < parent_rank
     current_lt_parent = comp.lt_use(current_rank.out, parent_rank.out)
-    
+
     le_1 = comp.le(factor)
     le_2 = comp.le(32)
     if_or = comp.or_(1)
@@ -242,28 +251,42 @@ def insert_binheap(prog, name, factor):
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
-        #comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
+        # comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
         extract_current_rank,
         find_child_idx,
         extract_child_l_rank,
         extract_child_r_rank,
         # Bubble Down
-        cb.while_with(cb.CellAndGroup(while_or, current_gt_children), 
-                [
-                    cb.if_with(cb.CellAndGroup(if_or, child_l_swap), 
-                            [
-                                cb.invoke(swap, in_a=child_l_idx.out, in_b=current_idx.out, ref_mem=mem), 
-                                set_idx_child_l
-                            ],
-                            [
-                                cb.invoke(swap, in_a=child_r_idx.out, in_b=current_idx.out, ref_mem=mem), 
-                                set_idx_child_r
-                            ]),
-                    find_child_idx,
-                    extract_child_l_rank,
-                    extract_child_r_rank
-                ])
-    ] 
+        cb.while_with(
+            cb.CellAndGroup(while_or, current_gt_children),
+            [
+                cb.if_with(
+                    cb.CellAndGroup(if_or, child_l_swap),
+                    [
+                        cb.invoke(
+                            swap,
+                            in_a=child_l_idx.out,
+                            in_b=current_idx.out,
+                            ref_mem=mem,
+                        ),
+                        set_idx_child_l,
+                    ],
+                    [
+                        cb.invoke(
+                            swap,
+                            in_a=child_r_idx.out,
+                            in_b=current_idx.out,
+                            ref_mem=mem,
+                        ),
+                        set_idx_child_r,
+                    ],
+                ),
+                find_child_idx,
+                extract_child_l_rank,
+                extract_child_r_rank,
+            ],
+        ),
+    ]
 
     push = [
         set_idx_size,
@@ -273,26 +296,29 @@ def insert_binheap(prog, name, factor):
         extract_parent_rank,
         extract_current_rank,
         # Bubble Up
-        cb.while_with(current_lt_parent,
-                [
-                    cb.invoke(swap, in_a=parent_idx.out, in_b=current_idx.out, ref_mem=mem),
-                    set_idx_parent,
-                    find_parent_idx,
-                    extract_parent_rank
-                ])
+        cb.while_with(
+            current_lt_parent,
+            [
+                cb.invoke(swap, in_a=parent_idx.out, in_b=current_idx.out, ref_mem=mem),
+                set_idx_parent,
+                find_parent_idx,
+                extract_parent_rank,
+            ],
+        ),
     ]
 
     comp.control += [
-            cb.if_with(cmd_eq_0, 
-                cb.if_with(size_eq_0, raise_err, pop), 
-                cb.if_with(cmd_eq_1, 
-                    cb.if_with(size_eq_0, raise_err, peak),
-                    cb.if_with(cmd_eq_2, 
-                        cb.if_with(size_eq_max, raise_err, push), 
-                        raise_err
-                    )
-                )
-            )
+        cb.if_with(
+            cmd_eq_0,
+            cb.if_with(size_eq_0, raise_err, pop),
+            cb.if_with(
+                cmd_eq_1,
+                cb.if_with(size_eq_0, raise_err, peak),
+                cb.if_with(
+                    cmd_eq_2, cb.if_with(size_eq_max, raise_err, push), raise_err
+                ),
+            ),
+        )
     ]
 
     return comp
@@ -333,36 +359,51 @@ def insert_main(prog):
 
     out = comp.comb_mem_d1("out", 32, 15, factor, is_external=True)
 
-    ans = comp.reg(32) 
-    err = comp.reg(1) 
-    
+    ans = comp.reg(32)
+    err = comp.reg(1)
+
     index = 0
 
     def push(value, rank):
-        return cb.invoke(binheap, 
-                         in_value=cb.const(32, value), in_rank=cb.const(32, rank), in_cmd=cb.const(2, 2), 
-                         ref_ans=ans, ref_err=err)
+        return cb.invoke(
+            binheap,
+            in_value=cb.const(32, value),
+            in_rank=cb.const(32, rank),
+            in_cmd=cb.const(2, 2),
+            ref_ans=ans,
+            ref_err=err,
+        )
 
-    def pop_and_store(): 
+    def pop_and_store():
         nonlocal index
         index += 1
 
         return [
-            cb.invoke(binheap, 
-                      in_value=cb.const(32, 50), in_rank=cb.const(32, 50), in_cmd=cb.const(2,0),
-                      ref_ans=ans, ref_err=err),
-            comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}")
+            cb.invoke(
+                binheap,
+                in_value=cb.const(32, 50),
+                in_rank=cb.const(32, 50),
+                in_cmd=cb.const(2, 0),
+                ref_ans=ans,
+                ref_err=err,
+            ),
+            comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}"),
         ]
 
-    def peak_and_store(): 
+    def peak_and_store():
         nonlocal index
         index += 1
 
         return [
-            cb.invoke(binheap, 
-                      in_value=cb.const(32, 50), in_rank=cb.const(32, 50), in_cmd=cb.const(2,1),
-                      ref_ans=ans, ref_err=err),
-            comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}")
+            cb.invoke(
+                binheap,
+                in_value=cb.const(32, 50),
+                in_rank=cb.const(32, 50),
+                in_cmd=cb.const(2, 1),
+                ref_ans=ans,
+                ref_err=err,
+            ),
+            comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}"),
         ]
 
     comp.control += [
@@ -385,7 +426,7 @@ def insert_main(prog):
         push(5, 5),
         push(6, 6),
         push(10, 10),
-        pop_and_store()
+        pop_and_store(),
     ]
 
 
