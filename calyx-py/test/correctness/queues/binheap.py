@@ -244,10 +244,10 @@ def insert_binheap(prog, name, factor):
         while_or.left = and_1.out
         while_or.right = and_2.out
 
-    peak = extract_snd("peak", 0, ans)
+    peek = extract_snd("peek", 0, ans)
 
     pop = [
-        peak,
+        peek,
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
@@ -313,7 +313,7 @@ def insert_binheap(prog, name, factor):
             cb.if_with(size_eq_0, raise_err, pop),
             cb.if_with(
                 cmd_eq_1,
-                cb.if_with(size_eq_0, raise_err, peak),
+                cb.if_with(size_eq_0, raise_err, peek),
                 cb.if_with(
                     cmd_eq_2, cb.if_with(size_eq_max, raise_err, push), raise_err
                 ),
@@ -333,12 +333,12 @@ def insert_main(prog):
         push(6, 6),
         push(3, 3),
         pop(),
-        peak(),
+        peek(),
         push(8, 8),
         push(10, 10),
         pop(),
         pop(),
-        peak(),
+        peek(),
         pop(),
         pop(),
         pop(),
@@ -390,7 +390,7 @@ def insert_main(prog):
             comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}"),
         ]
 
-    def peak_and_store():
+    def peek_and_store():
         nonlocal index
         index += 1
 
@@ -412,12 +412,12 @@ def insert_main(prog):
         push(6, 6),
         push(3, 3),
         pop_and_store(),
-        peak_and_store(),
+        peek_and_store(),
         push(8, 8),
         push(10, 10),
         pop_and_store(),
         pop_and_store(),
-        peak_and_store(),
+        peek_and_store(),
         pop_and_store(),
         pop_and_store(),
         pop_and_store(),
