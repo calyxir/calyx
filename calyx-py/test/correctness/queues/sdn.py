@@ -79,15 +79,18 @@ def insert_controller(prog, name, stats_component):
     count_0 = controller.reg(32)
     count_1 = controller.reg(32)
 
-    with controller.group("get_data_locally") as get_data_locally:
+    with controller.group("get_data_locally_count0") as get_data_locally_count0:
         count_0.in_ = stats.count_0
         count_0.write_en = 1
+        get_data_locally_count0.done = count_0.done
+
+    with controller.group("get_data_locally_count1") as get_data_locally_count1:
         count_1.in_ = stats.count_1
         count_1.write_en = 1
-        get_data_locally.done = (count_0.done & count_1.done) @ 1
+        get_data_locally_count1.done = count_1.done
 
     # The main logic.
-    controller.control += get_data_locally
+    controller.control += cb.par(get_data_locally_count0, get_data_locally_count1)
     # Great, now I have the data around locally.
 
     return controller

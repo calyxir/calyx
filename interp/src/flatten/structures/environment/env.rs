@@ -28,6 +28,8 @@ use crate::{
     serialization::data_dump::{DataDump, Dimensions},
     values::Value,
 };
+use ahash::HashSet;
+use ahash::HashSetExt;
 use itertools::Itertools;
 use std::{fmt::Debug, iter::once};
 
@@ -895,7 +897,8 @@ impl<'a> Simulator<'a> {
         // buffers. Can pick anything from zero to the number of nodes in the
         // program counter as the size
         let mut leaf_nodes = vec![];
-        let mut set_done = vec![];
+        let mut set_done_high = vec![];
+        let mut set_done_low: HashSet<GlobalPortIdx> = HashSet::new();
 
         let mut new_nodes = vec![];
         let (mut vecs, mut par_map, mut with_map) = self.env.pc.take_fields();
@@ -905,8 +908,15 @@ impl<'a> Simulator<'a> {
         vecs.retain_mut(|node| {
             let comp_go = self.env.get_comp_go(node.comp);
             let comp_done = self.env.get_comp_done(node.comp);
+
+            // if the done is not high & defined, we need to set it to low
+            if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
+                    set_done_low.insert(comp_done);
+            }
+
             if !self.env.ports[comp_go].as_bool().unwrap_or_default() || self.env.ports[comp_done].as_bool().unwrap_or_default() {
-                // if the go port is low or the done port is high, we skip the node without doing anything
+                // if the go port is low or the done port is high, we skip the
+                // node without doing anything
                 return true;
             }
 
@@ -1073,7 +1083,10 @@ impl<'a> Simulator<'a> {
              // either we are not a par node, or we are the last par node
              (!matches!(&self.env.ctx.primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node)) {
 
-                set_done.push(self.env.get_comp_done(node.comp));
+                let done_port = self.env.get_comp_done(node.comp);
+                set_done_high.push(done_port);
+                // make sure we don't set this port low
+                set_done_low.remove(&done_port);
                 let comp_ledger = self.env.cells[node.comp].unwrap_comp();
                 *node = node.new_retain_comp(self.env.ctx.primary[comp_ledger.comp_id].control.unwrap());
                 true
@@ -1090,8 +1103,12 @@ impl<'a> Simulator<'a> {
 
         self.undef_all_ports();
         self.set_root_go_high();
-        for port in set_done {
+        for port in set_done_high {
             self.env.ports[port] = PortValue::new_implicit(Value::bit_high());
+        }
+
+        for port in set_done_low {
+            self.env.ports[port] = PortValue::new_implicit(Value::bit_low());
         }
 
         for node in &leaf_nodes {
@@ -1154,6 +1171,7 @@ impl<'a> Simulator<'a> {
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
+            // self._print_env();
             self.step()?
         }
         Ok(())
@@ -1296,7 +1314,7 @@ impl<'a> Simulator<'a> {
 
                             has_changed |= changed.as_bool();
                         } else if self.env.ports[dest].is_def() {
-                            todo!("Raise an error here since this assignment is undefining things: {}", self.env.ctx.printer().print_assignment(ledger.comp_id, assign_idx))
+                            todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
                         }
                     }
                 }
