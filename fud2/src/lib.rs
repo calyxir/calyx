@@ -875,9 +875,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         let waves = e.config_constrained_or("waves", vec!["true", "false"], "false")?;
         let waves = FromStr::from_str(&waves).expect("The 'waves' flag should be either 'true' or 'false'.");
         if waves{
-            //adds lines based on what is needed for icarus vcd output.
-            e.rule("iverilog-vcd-sed",
-            r#"sed '/\/\/ COMPONENT END: wrapper/c\`ifdef COCOTB_SIM\n  initial begin\n    \$$dumpfile ("$vcd_file_name");\n    \$$dumpvars (0, wrapper);\n    #1;\n  end\n`endif\n\/\/ COMPONENT END: wrapper' $in > $out"#)?;
+            //adds lines based on what is needed for icarus fst output.
+            e.rule("iverilog-fst-sed",
+            r#"sed '/\/\/ COMPONENT END: wrapper/c\`ifdef COCOTB_SIM\n  initial begin\n    \$$dumpfile ("$fst_file_name");\n    \$$dumpvars (0, wrapper);\n    #1;\n  end\n`endif\n\/\/ COMPONENT END: wrapper' $in > $out"#)?;
         }
 
 e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
@@ -917,12 +917,12 @@ e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
             let waves = e.config_constrained_or("waves", vec!["true", "false"], "false")?;
             let waves = FromStr::from_str(&waves).expect("The 'waves' flag should be either 'true' or 'false'.");
 
-            let vcd_file_name = format!("{}.vcd", basename(input));
+            let vcd_file_name = format!("{}.fst", basename(input));
             let mut make_in = input;
             if waves{
                 make_in = "dumpvars.v";
-                e.build_cmd(&[make_in], "iverilog-vcd-sed", &[input], &[])?;
-                e.arg("vcd_file_name", &vcd_file_name)?;
+                e.build_cmd(&[make_in], "iverilog-fst-sed", &[input], &[])?;
+                e.arg("fst_file_name", &vcd_file_name)?;
             }
             e.build_cmd(
                 &["tmp.dat"],
