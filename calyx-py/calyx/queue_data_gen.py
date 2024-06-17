@@ -8,24 +8,22 @@ from typing import Dict, Union, Optional
 
 FormatType = Dict[str, Union[bool, str, int]]
 
-MAX_CMDS = 20000
-
 
 def format_gen(width: int) -> FormatType:
     """Generates a format object for a bitvector of length `width`."""
     return {"is_signed": False, "numeric_type": "bitnum", "width": width}
 
 
-def no_err_cmds_list(queue_size):
+def no_err_cmds_list(queue_size, num_cmds):
     """A special data-gen helper that creates a commands list while
     ensuring that there are:
     - No overflows.
     - No underflows.
-    - MAX_CMDS/2 pushes and MAX_CMDS/2 pops.
+    - `num_cmds`/2 pushes and `num_cmds`/2 pops.
     A combination of the above means that no packet is left unpopped.
     """
     running_count = 0  # The current size of the queue.
-    push_goal = int(MAX_CMDS / 2)  # How many pushes we want overall.
+    push_goal = int(num_cmds / 2)  # How many pushes we want overall.
     total_push_count = 0
     total_pop_count = 0
     commands = []
@@ -54,47 +52,47 @@ def no_err_cmds_list(queue_size):
             commands += (push_goal - total_pop_count) * [0]
             break
 
-    assert len(commands) == MAX_CMDS
+    assert len(commands) == num_cmds
     return commands
 
 
-def dump_json(no_err: bool, queue_size: Optional[int] = None):
+def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
-    - The `commands` memory has MAX_CMDS items, which are 0, 1, or 2.
+    - The `commands` memory has `num_cmds` items, which are 0, 1, or 2.
       0: pop, 1: peek, 2: push
       If the `no_err` flag is set, then items are chosen from 0 and 2 using a helper.
-    - The `values` memory has MAX_CMDS items:
+    - The `values` memory has `num_cmds` items:
     random values between 0 and 400.
-    - The `ans_mem` memory has MAX_CMDS items, all zeroes.
+    - The `ans_mem` memory has `num_cmds` items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
     commands = {
         "commands": {
             "data": (
-                # The `commands` memory has MAX_CMDS items, which are all 0, 1, or 2
-                no_err_cmds_list(queue_size)
+                # The `commands` memory has `num_cmds` items, which are all 0, 1, or 2
+                no_err_cmds_list(queue_size, num_cmds)
                 # If the `no_err` flag is set, then we use the special helper
                 # that ensures no overflow or overflow will occur.
                 if no_err
-                else [random.randint(0, 2) for _ in range(MAX_CMDS)]
+                else [random.randint(0, 2) for _ in range(num_cmds)]
             ),
             "format": format_gen(2),
         }
     }
     values = {
         "values": {
-            "data": [random.randint(1, 400) for _ in range(MAX_CMDS)],
-            # The `values` memory has MAX_CMDS items, whihc are all
+            "data": [random.randint(1, 400) for _ in range(num_cmds)],
+            # The `values` memory has `num_cmds` items, whihc are all
             # random values between 0 and 400.
             "format": format_gen(32),
         }
     }
     ans_mem = {
         "ans_mem": {
-            "data": [0] * MAX_CMDS,
-            # The `ans_mem` memory has MAX_CMDS items, all zeroes.
+            "data": [0] * num_cmds,
+            # The `ans_mem` memory has `num_cmds` items, all zeroes.
             "format": format_gen(32),
         }
     }
@@ -106,7 +104,8 @@ if __name__ == "__main__":
     # Accept a flag that we pass to dump_json.
     # This says whether we should use the special no_err helper.
     random.seed(5)
-    no_err = len(sys.argv) > 1 and sys.argv[1] == "--no-err"
+    num_cmds = int(sys.argv[1])
+    no_err = len(sys.argv) > 2 and sys.argv[2] == "--no-err"
     if no_err:
-        queue_size = int(sys.argv[2])
-    dump_json(no_err, queue_size if no_err else None)
+        queue_size = int(sys.argv[3])
+    dump_json(num_cmds, no_err, queue_size if no_err else None)
