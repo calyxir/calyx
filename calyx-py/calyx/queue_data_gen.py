@@ -106,8 +106,7 @@ if __name__ == "__main__":
     # Accept a flag that we pass to dump_json.
     # This says whether we should use the special no_err helper.
     random.seed(5)
-    if len(sys.argv) > 1 and sys.argv[1] == "--no-err":
+    no_err = len(sys.argv) > 1 and sys.argv[1] == "--no-err"
+    if no_err:
         queue_size = int(sys.argv[2])
-        dump_json(True, queue_size)
-    else:
-        dump_json(False)
+    dump_json(no_err, queue_size if no_err else None)
