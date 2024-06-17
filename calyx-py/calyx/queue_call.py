@@ -4,7 +4,7 @@ from calyx import queue_util
 import calyx.builder as cb
 
 
-def insert_runner(prog, queue, name, stats_component=None):
+def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it one command.
     This component is designed to be invoked by some other component, and does not
@@ -55,8 +55,8 @@ def insert_runner(prog, queue, name, stats_component=None):
     # - ref register `err`, which is raised if an error occurs.
 
     # Our memories and registers, all of which are passed to us by reference.
-    commands = runner.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_ref=True)
-    values = runner.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_ref=True)
+    commands = runner.seq_mem_d1("commands", 2, num_cmds, 32, is_ref=True)
+    values = runner.seq_mem_d1("values", 32, num_cmds, 32, is_ref=True)
     has_ans = runner.reg(1, "has_ans", is_ref=True)
     ans = runner.reg(32, "component_ans", is_ref=True)
     err = runner.reg(1, "component_err", is_ref=True)
@@ -78,7 +78,7 @@ def insert_runner(prog, queue, name, stats_component=None):
     not_err = runner.not_use(err.out)
 
     # Wiring that raises `err` iff `i = MAX_CMDS`.
-    check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, queue_util.MAX_CMDS, err)
+    check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, num_cmds, err)
 
     runner.control += [
         write_cmd_to_reg,  # `cmd := commands[i]`
@@ -119,7 +119,7 @@ def insert_runner(prog, queue, name, stats_component=None):
     return runner
 
 
-def insert_main(prog, queue, controller=None, stats_component=None):
+def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components.
     """
@@ -128,16 +128,16 @@ def insert_main(prog, queue, controller=None, stats_component=None):
 
     stats = main.cell("stats_main", stats_component) if stats_component else None
     controller = main.cell("controller", controller) if controller else None
-    dataplane = insert_runner(prog, queue, "dataplane", stats_component)
+    dataplane = insert_runner(prog, queue, "dataplane", num_cmds, stats_component)
     dataplane = main.cell("dataplane", dataplane)
 
     has_ans = main.reg(1)
     dataplane_ans = main.reg(32)
     dataplane_err = main.reg(1)
 
-    commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
-    values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, queue_util.MAX_CMDS, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 2, num_cmds, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
 
     ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
 
