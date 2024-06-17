@@ -713,12 +713,12 @@ class ComponentBuilder:
         """Inserts wiring into `self` to compute `not input`."""
         width = self.try_infer_width(width, input, input)
         return self.unary_use(input, self.not_(width, cellname))
-    
+
     def mult_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to compute `left` * `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.mult_pipe(width, cellname, signed))
-    
+
     def div_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to compute `left` * `right`."""
         width = self.try_infer_width(width, left, right)
@@ -902,7 +902,7 @@ class ComponentBuilder:
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
             op_cell.right = right
-            
+
             if not is_comb:
                 op_cell.go = HI
 
@@ -967,7 +967,7 @@ class ComponentBuilder:
         width = width or self.try_infer_width(width, left, right)
         cell = self.neq(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
-    
+
     def mult_store_in_reg(
         self,
         left,
@@ -981,7 +981,7 @@ class ComponentBuilder:
         width = width or self.try_infer_width(width, left, right)
         cell = self.mult_pipe(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
-    
+
     def div_store_in_reg(
         self,
         left,
@@ -995,8 +995,8 @@ class ComponentBuilder:
         width = width or self.try_infer_width(width, left, right)
         cell = self.div_pipe(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
-    
-    
+
+
     def infer_width(self, expr) -> int:
         """Infer the width of an expression."""
         if isinstance(expr, int):  # We can't infer the width of an integer.
@@ -1383,7 +1383,7 @@ class CellBuilder(CellLikeBuilder):
             isinstance(self._cell.comp, ast.CompInst)
             and self._cell.comp.id == prim_name
         )
-    
+
     def is_comb(self) -> bool:
         return self._cell.comp.id in (
             "std_add",
