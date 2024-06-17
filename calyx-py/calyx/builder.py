@@ -734,7 +734,7 @@ class ComponentBuilder:
 
     def incr(self, reg, val=1, signed=False, cellname=None, static=False):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
-        cellname = cellname or f"{reg.name}_incr_{val}"
+        cellname = cellname or self.generate_name(f"{reg.name}_incr_{val}")
         width = reg.infer_width_reg()
         add_cell = self.add(width, cellname, signed)
         group = (
@@ -753,7 +753,7 @@ class ComponentBuilder:
 
     def decr(self, reg, val=1, signed=False, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
-        cellname = cellname or f"{reg.name}_decr_{val}"
+        cellname = cellname or self.generate_name(f"{reg.name}_decr_{val}")
         width = reg.infer_width_reg()
         sub_cell = self.sub(width, cellname, signed)
         with self.group(f"{cellname}_group") as decr_group:

@@ -205,8 +205,8 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
     pow = std_reg(16);
     count = std_reg(16);
     mul = std_fp_smult_pipe(16, 8, 8);
-    count_incr_1 = std_sadd(16);
-    lt_1 = std_slt(16);
+    count_incr_1_1 = std_sadd(16);
+    lt_2 = std_slt(16);
   }
   wires {
     group init_pow {
@@ -227,16 +227,16 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
       pow.in = mul.out;
       execute_mul[done] = pow.done;
     }
-    group count_incr_1_group {
-      count_incr_1.left = count.out;
-      count_incr_1.right = 16'd1;
+    group count_incr_1_1_group {
+      count_incr_1_1.left = count.out;
+      count_incr_1_1.right = 16'd1;
       count.write_en = 1'd1;
-      count.in = count_incr_1.out;
-      count_incr_1_group[done] = count.done;
+      count.in = count_incr_1_1.out;
+      count_incr_1_1_group[done] = count.done;
     }
-    comb group lt_1_group {
-      lt_1.left = count.out;
-      lt_1.right = integer_exp;
+    comb group lt_2_group {
+      lt_2.left = count.out;
+      lt_2.right = integer_exp;
     }
     out = pow.out;
   }
@@ -246,10 +246,10 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
         init_pow;
         init_count;
       }
-      while lt_1.out with lt_1_group {
+      while lt_2.out with lt_2_group {
         par {
           execute_mul;
-          count_incr_1_group;
+          count_incr_1_1_group;
         }
       }
     }

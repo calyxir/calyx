@@ -133,8 +133,8 @@ component m_read_channel(ARESETn: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -
     n_RLAST = std_reg(1);
     read_data_reg = std_reg(32);
     bt_reg = std_reg(1);
-    curr_addr_internal_mem_incr_1 = std_add(3);
-    curr_addr_axi_incr_4 = std_add(64);
+    curr_addr_internal_mem_incr_1_1 = std_add(3);
+    curr_addr_axi_incr_4_2 = std_add(64);
   }
   wires {
     RREADY = rready.out;
@@ -162,19 +162,19 @@ component m_read_channel(ARESETn: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -
       mem_ref.content_en = 1'd1;
       service_read_transfer[done] = mem_ref.done;
     }
-    group curr_addr_internal_mem_incr_1_group {
-      curr_addr_internal_mem_incr_1.left = curr_addr_internal_mem.out;
-      curr_addr_internal_mem_incr_1.right = 3'd1;
+    group curr_addr_internal_mem_incr_1_1_group {
+      curr_addr_internal_mem_incr_1_1.left = curr_addr_internal_mem.out;
+      curr_addr_internal_mem_incr_1_1.right = 3'd1;
       curr_addr_internal_mem.write_en = 1'd1;
-      curr_addr_internal_mem.in = curr_addr_internal_mem_incr_1.out;
-      curr_addr_internal_mem_incr_1_group[done] = curr_addr_internal_mem.done;
+      curr_addr_internal_mem.in = curr_addr_internal_mem_incr_1_1.out;
+      curr_addr_internal_mem_incr_1_1_group[done] = curr_addr_internal_mem.done;
     }
-    group curr_addr_axi_incr_4_group {
-      curr_addr_axi_incr_4.left = curr_addr_axi.out;
-      curr_addr_axi_incr_4.right = 64'd4;
+    group curr_addr_axi_incr_4_2_group {
+      curr_addr_axi_incr_4_2.left = curr_addr_axi.out;
+      curr_addr_axi_incr_4_2.right = 64'd4;
       curr_addr_axi.write_en = 1'd1;
-      curr_addr_axi.in = curr_addr_axi_incr_4.out;
-      curr_addr_axi_incr_4_group[done] = curr_addr_axi.done;
+      curr_addr_axi.in = curr_addr_axi_incr_4_2.out;
+      curr_addr_axi_incr_4_2_group[done] = curr_addr_axi.done;
     }
   }
   control {
@@ -186,8 +186,8 @@ component m_read_channel(ARESETn: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -
           block_transfer;
           service_read_transfer;
           par {
-            curr_addr_internal_mem_incr_1_group;
-            curr_addr_axi_incr_4_group;
+            curr_addr_internal_mem_incr_1_1_group;
+            curr_addr_axi_incr_4_2_group;
           }
         }
       }
@@ -205,9 +205,9 @@ component m_write_channel(ARESETn: 1, WREADY: 1) -> (WVALID: 1, WLAST: 1, WDATA:
     ref max_transfers = std_reg(8);
     n_finished_last_transfer = std_reg(1);
     bt_reg = std_reg(1);
-    curr_addr_internal_mem_incr_1 = std_add(3);
-    curr_addr_axi_incr_4 = std_add(64);
-    curr_transfer_count_incr_1 = std_add(8);
+    curr_addr_internal_mem_incr_1_1 = std_add(3);
+    curr_addr_axi_incr_4_2 = std_add(64);
+    curr_transfer_count_incr_1_3 = std_add(8);
   }
   wires {
     WVALID = wvalid.out;
@@ -231,26 +231,26 @@ component m_write_channel(ARESETn: 1, WREADY: 1) -> (WVALID: 1, WLAST: 1, WDATA:
       bt_reg.write_en = 1'd1;
       service_write_transfer[done] = bt_reg.out;
     }
-    group curr_addr_internal_mem_incr_1_group {
-      curr_addr_internal_mem_incr_1.left = curr_addr_internal_mem.out;
-      curr_addr_internal_mem_incr_1.right = 3'd1;
+    group curr_addr_internal_mem_incr_1_1_group {
+      curr_addr_internal_mem_incr_1_1.left = curr_addr_internal_mem.out;
+      curr_addr_internal_mem_incr_1_1.right = 3'd1;
       curr_addr_internal_mem.write_en = 1'd1;
-      curr_addr_internal_mem.in = curr_addr_internal_mem_incr_1.out;
-      curr_addr_internal_mem_incr_1_group[done] = curr_addr_internal_mem.done;
+      curr_addr_internal_mem.in = curr_addr_internal_mem_incr_1_1.out;
+      curr_addr_internal_mem_incr_1_1_group[done] = curr_addr_internal_mem.done;
     }
-    group curr_addr_axi_incr_4_group {
-      curr_addr_axi_incr_4.left = curr_addr_axi.out;
-      curr_addr_axi_incr_4.right = 64'd4;
+    group curr_addr_axi_incr_4_2_group {
+      curr_addr_axi_incr_4_2.left = curr_addr_axi.out;
+      curr_addr_axi_incr_4_2.right = 64'd4;
       curr_addr_axi.write_en = 1'd1;
-      curr_addr_axi.in = curr_addr_axi_incr_4.out;
-      curr_addr_axi_incr_4_group[done] = curr_addr_axi.done;
+      curr_addr_axi.in = curr_addr_axi_incr_4_2.out;
+      curr_addr_axi_incr_4_2_group[done] = curr_addr_axi.done;
     }
-    group curr_transfer_count_incr_1_group {
-      curr_transfer_count_incr_1.left = curr_transfer_count.out;
-      curr_transfer_count_incr_1.right = 8'd1;
+    group curr_transfer_count_incr_1_3_group {
+      curr_transfer_count_incr_1_3.left = curr_transfer_count.out;
+      curr_transfer_count_incr_1_3.right = 8'd1;
       curr_transfer_count.write_en = 1'd1;
-      curr_transfer_count.in = curr_transfer_count_incr_1.out;
-      curr_transfer_count_incr_1_group[done] = curr_transfer_count.done;
+      curr_transfer_count.in = curr_transfer_count_incr_1_3.out;
+      curr_transfer_count_incr_1_3_group[done] = curr_transfer_count.done;
     }
   }
   control {
@@ -262,9 +262,9 @@ component m_write_channel(ARESETn: 1, WREADY: 1) -> (WVALID: 1, WLAST: 1, WDATA:
           invoke bt_reg(in=1'd0)();
           service_write_transfer;
           par {
-            curr_addr_internal_mem_incr_1_group;
-            curr_transfer_count_incr_1_group;
-            curr_addr_axi_incr_4_group;
+            curr_addr_internal_mem_incr_1_1_group;
+            curr_transfer_count_incr_1_3_group;
+            curr_addr_axi_incr_4_2_group;
             invoke w_handshake_occurred(in=1'd0)();
           }
         }
