@@ -75,7 +75,10 @@ def dump_json(piezo: bool):
     commands = {
         "commands": {
             "data": (
+                # The `commands` memory has MAX_CMDS items, which are all 0, 1, or 2
                 piezo_special()
+                # If the `piezo` flag is set, then we use the special helper
+                # that ensures no overflow or overflow will occur.
                 if piezo
                 else [random.randint(0, 2) for _ in range(MAX_CMDS)]
             ),
@@ -85,14 +88,14 @@ def dump_json(piezo: bool):
     values = {
         "values": {
             "data": [random.randint(1, 400) for _ in range(MAX_CMDS)],
-            # The `values` memory has MAX_CMDS items: random values
-            # between 0 and 400.
+            # The `values` memory has MAX_CMDS items, whihc are all
+            # random values between 0 and 400.
             "format": format_gen(32),
         }
     }
     ans_mem = {
         "ans_mem": {
-            "data": [0 for _ in range(MAX_CMDS)],
+            "data": [0] * MAX_CMDS,
             # The `ans_mem` memory has MAX_CMDS items, all zeroes.
             "format": format_gen(32),
         }
@@ -103,7 +106,7 @@ def dump_json(piezo: bool):
 
 if __name__ == "__main__":
     # Accept a flag that we pass to dump_json.
-    # This says whether we should have any 1s in the `commands` memory.
+    # This says whether we should use the special piezo helper.
 
     piezo = len(sys.argv) > 1 and sys.argv[1] == "--piezo"
     random.seed(5)
