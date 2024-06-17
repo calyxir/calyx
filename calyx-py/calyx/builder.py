@@ -753,7 +753,7 @@ class ComponentBuilder:
 
     def decr(self, reg, val=1, signed=False, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
-        cellname = cellname or f"{reg.name}_decr"
+        cellname = cellname or f"{reg.name}_decr_{val}"
         width = reg.infer_width_reg()
         sub_cell = self.sub(width, cellname, signed)
         with self.group(f"{cellname}_group") as decr_group:
