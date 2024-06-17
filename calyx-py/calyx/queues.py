@@ -3,7 +3,6 @@ from typing import List
 from typing import Optional
 
 MAX_CMDS = 20000
-QUEUE_SIZE = 16
 
 
 class QueueError(Exception):
@@ -22,9 +21,9 @@ class Fifo:
     Otherwise, it allows those commands to fail silently but continues the simulation.
     """
 
-    def __init__(self, error_mode=True, max_len: int = None):
+    def __init__(self, max_len: int, error_mode=True):
         self.data = []
-        self.max_len = max_len or QUEUE_SIZE
+        self.max_len = max_len
         self.error_mode = error_mode
 
     def push(self, val: int) -> None:
@@ -98,12 +97,19 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary, error_mode=True, max_len=None):
+    def __init__(
+        self,
+        queue_1,
+        queue_2,
+        boundary,
+        max_len: int,
+        error_mode=True,
+    ):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
-        self.max_len = max_len or QUEUE_SIZE
+        self.max_len = max_len
         self.error_mode = error_mode
         assert (
             self.pifo_len <= self.max_len
