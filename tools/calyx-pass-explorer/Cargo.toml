@@ -1,0 +1,15 @@
+[package]
+name = "calyx-pass-explorer"
+default-run = "calyx-pass-explorer"
+version = "0.2.1"
+edition.workspace = true
+
+[[bin]]
+name = "calyx-pass-explorer"
+path = "src/main.rs"
+
+[dependencies]
+argh.workspace = true
+crossterm = "0.27.0"
+similar = "2.5.0"
+tempdir = "0.3.7"

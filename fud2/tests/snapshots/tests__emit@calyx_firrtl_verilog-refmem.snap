@@ -14,6 +14,9 @@ rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
 # Custom Testbench Setup
 rule ref-to-external
@@ -38,8 +41,7 @@ rule add-verilog-primitives
 # build targets
 build external.futil: ref-to-external stdin
 build ref.futil: external-to-ref stdin
-build memory-info.json: calyx external.futil
-  backend = yxi
+build memory-info.json: yxi external.futil
 build tb.sv: generate-refmem-testbench memory-info.json
 build tmp-out.fir: calyx ref.futil
   backend = firrtl
