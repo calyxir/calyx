@@ -62,9 +62,16 @@ pub fn build_primitive(
             PrimType1::MultPipe => {
                 Box::new(StdMultPipe::<2>::new(base_port, *width))
             }
-            PrimType1::SignedMultPipe => todo!(),
-            PrimType1::DivPipe => todo!(),
-            PrimType1::SignedDivPipe => todo!(),
+            PrimType1::SignedMultPipe => {
+                // todo: Check if this is actually okay
+                Box::new(StdMultPipe::<2>::new(base_port, *width))
+            }
+            PrimType1::DivPipe => {
+                Box::new(StdDivPipe::<2, false>::new(base_port, *width))
+            }
+            PrimType1::SignedDivPipe => {
+                Box::new(StdDivPipe::<2, true>::new(base_port, *width))
+            }
             PrimType1::Sqrt => todo!(),
             PrimType1::UnsynMult => {
                 Box::new(StdUnsynMult::new(base_port, *width))
