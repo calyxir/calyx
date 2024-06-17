@@ -8,14 +8,14 @@ def insert_swap(prog, name, width, len, idx_w):
 
     It takes two `idx_w`-bit inputs `a` and `b` and accepts a memory by reference.
     The memory is a `len`-element memory of `width`-bit elements.
-    It swaps the out in the memory at addresses `a` and `b`.
+    It swaps the values in the memory at addresses `a` and `b`.
     """
 
     comp = prog.component(name)
 
     a = comp.input("a", idx_w)
     b = comp.input("b", idx_w)
-    mem = comp.comb_mem_d1("mem", width, len, idx_w, is_ref=True)
+    mem = comp.seq_mem_d1("mem", width, len, idx_w, is_ref=True)
 
     val_a = comp.reg(width)
     val_b = comp.reg(width)
@@ -31,35 +31,39 @@ def insert_swap(prog, name, width, len, idx_w):
     return comp
 
 
-def insert_binheap(prog, name, factor):
+def insert_binheap(prog, name, queue_len_factor):
     """Inserts the component `binheap` into the program.
 
     It is a minimum binary heap, represented as an array.
 
-    The heap just supports the `push` operation.
-    Its only inputs are `value` and `rank`, the value and rank to push to the queue.
+    It has:
+    - three inputs, `cmd`, `value`, and `rank`.
+    - one memory, `mem`, of size `(2**queue_len_factor) - 1`.
+    - two ref registers, `ans` and `err`.
     """
 
     comp = prog.component(name)
 
-    n = (2**factor) - 1
+    max_queue_len = (2**queue_len_factor) - 1
 
     cmd = comp.input("cmd", 2)
     # If it is 0, we pop.
     # If it is 1, we peek.
     # If it is 2, we push `(rank, value)` to the queue.
 
-    # The rank and value to push to the heap.
+    # The value and associated rank to push to the heap.
     rank = comp.input("rank", 32)
     value = comp.input("value", 32)
 
-    swap = comp.cell("swap", insert_swap(prog, "swap", 64, n, factor))
+    swap = comp.cell(
+        "swap", insert_swap(prog, "swap", 64, max_queue_len, queue_len_factor)
+    )
     tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", 32, 32))
     untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", 32, 32))
 
-    mem = comp.comb_mem_d1("mem", 64, n, factor)
+    mem = comp.seq_mem_d1("mem", 64, max_queue_len, queue_len_factor)
     # The memory to store the heap, represented as an array.
-    # Each cell of the memory is 64 bits wide: 32 for both rank and value.
+    # Each cell of the memory is 64 bits wide: a 32-bit rank and a 32-bit value.
 
     ans = comp.reg(32, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
@@ -67,7 +71,7 @@ def insert_binheap(prog, name, factor):
     err = comp.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    size = comp.reg(factor)  # The active length of the heap.
+    size = comp.reg(queue_len_factor)  # The active length of the heap.
 
     # Cells and groups to check which command we got.
     cmd_eq_0 = comp.eq_use(cmd, 0)
@@ -76,18 +80,18 @@ def insert_binheap(prog, name, factor):
 
     # Cells and groups to check for overflow and underflow.
     size_eq_0 = comp.eq_use(size.out, 0)
-    size_eq_max = comp.eq_use(size.out, n)
+    size_eq_max = comp.eq_use(size.out, max_queue_len)
 
-    current_idx = comp.reg(factor)
+    current_idx = comp.reg(queue_len_factor)
     current_rank = comp.reg(32)
 
-    parent_idx = comp.reg(factor)
+    parent_idx = comp.reg(queue_len_factor)
     parent_rank = comp.reg(32)
 
-    child_l_idx = comp.reg(factor)
+    child_l_idx = comp.reg(queue_len_factor)
     child_l_rank = comp.reg(32)
 
-    child_r_idx = comp.reg(factor)
+    child_r_idx = comp.reg(queue_len_factor)
     child_r_rank = comp.reg(32)
 
     # current_idx := 0
@@ -108,29 +112,32 @@ def insert_binheap(prog, name, factor):
     # err := 1
     raise_err = comp.reg_store(err, 1, "raise_err")
 
-    sub = comp.sub(factor)
-    rsh = comp.rsh(factor)
+    # err := 0
+    lower_err = comp.reg_store(err, 0, "lower_err")
+
+    sub = comp.sub(queue_len_factor)
+    rsh = comp.rsh(queue_len_factor)
     with comp.group("find_parent_idx") as find_parent_idx:
         # Find the parent of the `current_idx`th element and store it in `parent_idx`.
         # parent_idx := floor((current_idx − 1) / 2)
         sub.left = current_idx.out
         sub.right = 1
         rsh.left = sub.out
-        rsh.right = cb.const(factor, 1)
+        rsh.right = cb.const(queue_len_factor, 1)
         parent_idx.in_ = rsh.out
         parent_idx.write_en = cb.HI
         find_parent_idx.done = parent_idx.done
 
-    add_1 = comp.add(factor)
-    add_2 = comp.add(factor)
-    lsh = comp.lsh(factor)
+    add_1 = comp.add(queue_len_factor)
+    add_2 = comp.add(queue_len_factor)
+    lsh = comp.lsh(queue_len_factor)
     with comp.group("find_child_idx") as find_child_idx:
         # Find the children of `current_idx`th element and store
         # them in child_l_idx and child_r_idx.
         # child_l_idx := (2 * current_idx) + 1
         # child_r_idx := (2 * current_idx) + 2
         lsh.left = current_idx.out
-        lsh.right = cb.const(factor, 1)
+        lsh.right = cb.const(queue_len_factor, 1)
         add_1.left = 1
         add_1.right = lsh.out
         child_l_idx.write_en = cb.HI
@@ -147,6 +154,7 @@ def insert_binheap(prog, name, factor):
         tuplify.snd = value
         mem.addr0 = current_idx.out
         mem.write_en = cb.HI
+        mem.content_en = cb.HI
         mem.write_data = tuplify.tup
         store_rank_and_value.done = mem.done
 
@@ -154,9 +162,10 @@ def insert_binheap(prog, name, factor):
     def extract_fst(name, idx, out):
         with comp.group(name) as extract_fst:
             mem.addr0 = idx
-            untuplify.tup = mem.read_data
-            out.write_en = cb.HI
-            out.in_ = untuplify.fst
+            mem.content_en = cb.HI
+            untuplify.tup = mem.done @ mem.read_data
+            out.write_en = mem.done @ cb.HI
+            out.in_ = mem.done @ untuplify.fst
             extract_fst.done = out.done
 
         return extract_fst
@@ -165,9 +174,10 @@ def insert_binheap(prog, name, factor):
     def extract_snd(name, idx, out):
         with comp.group(name) as extract_snd:
             mem.addr0 = idx
-            untuplify.tup = mem.read_data
-            out.write_en = cb.HI
-            out.in_ = untuplify.snd
+            mem.content_en = cb.HI
+            untuplify.tup = mem.done @ mem.read_data
+            out.write_en = mem.done @ cb.HI
+            out.in_ = mem.done @ untuplify.snd
             extract_snd.done = out.done
 
         return extract_snd
@@ -196,7 +206,7 @@ def insert_binheap(prog, name, factor):
     # current_rank < parent_rank
     current_lt_parent = comp.lt_use(current_rank.out, parent_rank.out)
 
-    le_1 = comp.le(factor)
+    le_1 = comp.le(queue_len_factor)
     le_2 = comp.le(32)
     if_or = comp.or_(1)
     with comp.comb_group("child_l_swap") as child_l_swap:
@@ -211,9 +221,9 @@ def insert_binheap(prog, name, factor):
         if_or.left = le_1.out
         if_or.right = le_2.out
 
-    lt_1 = comp.lt(factor)
+    lt_1 = comp.lt(queue_len_factor)
     lt_2 = comp.lt(32)
-    lt_3 = comp.lt(factor)
+    lt_3 = comp.lt(queue_len_factor)
     lt_4 = comp.lt(32)
     and_1 = comp.and_(1)
     and_2 = comp.and_(1)
@@ -251,7 +261,6 @@ def insert_binheap(prog, name, factor):
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
-        # comp.mem_store_d1(mem, size.out, cb.const(64, 0), "zero_leaf"),
         extract_current_rank,
         find_child_idx,
         extract_child_l_rank,
@@ -308,6 +317,7 @@ def insert_binheap(prog, name, factor):
     ]
 
     comp.control += [
+        lower_err,
         cb.if_with(
             cmd_eq_0,
             cb.if_with(size_eq_0, raise_err, pop),
@@ -318,7 +328,7 @@ def insert_binheap(prog, name, factor):
                     cmd_eq_2, cb.if_with(size_eq_max, raise_err, push), raise_err
                 ),
             ),
-        )
+        ),
     ]
 
     return comp
@@ -352,12 +362,12 @@ def insert_main(prog):
 
     comp = prog.component("main")
 
-    factor = 4
+    queue_len_factor = 4
 
-    binheap = insert_binheap(prog, "binheap", factor)
+    binheap = insert_binheap(prog, "binheap", queue_len_factor)
     binheap = comp.cell("binheap", binheap)
 
-    out = comp.comb_mem_d1("out", 32, 15, factor, is_external=True)
+    out = comp.seq_mem_d1("out", 32, 15, queue_len_factor, is_external=True)
 
     ans = comp.reg(32)
     err = comp.reg(1)
