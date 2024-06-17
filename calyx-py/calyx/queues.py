@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from typing import List
 from typing import Optional
 
-MAX_CMDS = 20000
-
 
 class QueueError(Exception):
     """An error that occurs when we try to pop/peek from an empty queue,"""
@@ -170,7 +168,7 @@ class Pifo:
         return self.pifo_len
 
 
-def operate_queue(commands, values, queue):
+def operate_queue(commands, values, queue, max_cmds):
     """Given the two lists, one of commands and one of values.
     Feed these into our queue, and return the answer memory.
     """
@@ -199,6 +197,6 @@ def operate_queue(commands, values, queue):
             except QueueError:
                 break
 
-    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (MAX_CMDS - len(ans))
+    # Pad the answer memory with zeroes until it is of length `max_cmds`.
+    ans += [0] * (max_cmds - len(ans))
     return ans
