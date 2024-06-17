@@ -253,7 +253,7 @@ impl FSMTree {
     pub fn count_to_n(&mut self, builder: &mut ir::Builder) {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.count_to_n(builder),
-            FSMTree::Par(_) => panic!(""),
+            FSMTree::Par(par_struct) => par_struct.count_to_n(builder),
         }
     }
 
@@ -273,7 +273,13 @@ impl FSMTree {
                 group_rewrites,
                 builder,
             ),
-            FSMTree::Par(_) => panic!(""),
+            FSMTree::Par(par_struct) => par_struct.realize(
+                static_groups,
+                reset_early_map,
+                fsm_info_map,
+                group_rewrites,
+                builder,
+            ),
         }
     }
 
@@ -283,7 +289,7 @@ impl FSMTree {
     ) -> ir::Guard<Nothing> {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.get_final_state(builder),
-            FSMTree::Par(_) => panic!(""),
+            FSMTree::Par(par_struct) => par_struct.get_final_state(builder),
         }
     }
 
@@ -732,6 +738,7 @@ impl ParTree {
         let longest_tree = self.get_longest_tree();
         let fsm_ref = longest_tree.extract_fsm_cell();
 
+        // Use the longest tree to dictate the assignments of the others.
         let mut assigns = static_group
             .borrow()
             .assignments
@@ -784,6 +791,13 @@ impl ParTree {
                 builder,
             )
         })
+    }
+    pub fn get_final_state(
+        &mut self,
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        let longest_tree = self.get_longest_tree();
+        longest_tree.get_final_state(builder)
     }
 }
 
