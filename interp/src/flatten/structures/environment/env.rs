@@ -99,6 +99,21 @@ impl PortMap {
             }
         }
     }
+
+    pub fn set_done(
+        &mut self,
+        target: GlobalPortIdx,
+        done_bool: bool,
+    ) -> InterpreterResult<UpdateStatus> {
+        self.insert_val(
+            target,
+            AssignedValue::cell_value(if done_bool {
+                Value::bit_high()
+            } else {
+                Value::bit_low()
+            }),
+        )
+    }
 }
 
 pub(crate) type CellMap = IndexedMap<GlobalCellIdx, CellLedger>;
