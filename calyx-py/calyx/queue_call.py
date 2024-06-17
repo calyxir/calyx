@@ -77,7 +77,7 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
     not_err = runner.not_use(err.out)
 
-    # Wiring that raises `err` iff `i = MAX_CMDS`.
+    # Wiring that raises `err` iff `i = num_cmds`.
     check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, num_cmds, err)
 
     runner.control += [
