@@ -17,13 +17,12 @@ def format_gen(width: int) -> FormatType:
     return {"is_signed": False, "numeric_type": "bitnum", "width": width}
 
 
-def piezo_special():
+def no_err_cmds_list():
     """A special data-gen helper that creates a commands list while
     ensuring that there are:
     - No overflows.
     - No underflows.
-    - (MAX_CMDS/2) pushes.
-    - As many pops as there are pushes.
+    - MAX_CMDS/2 pushes and MAX_CMDS/2 pops.
     A combination of the above means that no packet is left unpopped.
     """
     running_count = 0  # The current size of the queue.
@@ -60,13 +59,13 @@ def piezo_special():
     return commands
 
 
-def dump_json(piezo: bool):
+def dump_json(no_err: bool):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - The `commands` memory has MAX_CMDS items, which are 0, 1, or 2.
       0: pop, 1: peek, 2: push
-      If the `piezo` flag is set, then items are chosen from 0 and 2 using a helper.
+      If the `no_err` flag is set, then items are chosen from 0 and 2 using a helper.
     - The `values` memory has MAX_CMDS items:
     random values between 0 and 400.
     - The `ans_mem` memory has MAX_CMDS items, all zeroes.
@@ -76,10 +75,10 @@ def dump_json(piezo: bool):
         "commands": {
             "data": (
                 # The `commands` memory has MAX_CMDS items, which are all 0, 1, or 2
-                piezo_special()
-                # If the `piezo` flag is set, then we use the special helper
+                no_err_cmds_list()
+                # If the `no_err` flag is set, then we use the special helper
                 # that ensures no overflow or overflow will occur.
-                if piezo
+                if no_err
                 else [random.randint(0, 2) for _ in range(MAX_CMDS)]
             ),
             "format": format_gen(2),
@@ -106,8 +105,8 @@ def dump_json(piezo: bool):
 
 if __name__ == "__main__":
     # Accept a flag that we pass to dump_json.
-    # This says whether we should use the special piezo helper.
+    # This says whether we should use the special no_err helper.
 
-    piezo = len(sys.argv) > 1 and sys.argv[1] == "--piezo"
+    no_err = len(sys.argv) > 1 and sys.argv[1] == "--no-err"
     random.seed(5)
-    dump_json(piezo)
+    dump_json(no_err)
