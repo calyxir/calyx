@@ -22,8 +22,8 @@ class Fifo:
     Otherwise, it allows those commands to fail silently but continues the simulation.
     """
 
-    def __init__(self, data: List[int], error_mode=True, max_len: int = None):
-        self.data = data
+    def __init__(self, error_mode=True, max_len: int = None):
+        self.data = []
         self.max_len = max_len or QUEUE_SIZE
         self.error_mode = error_mode
 
