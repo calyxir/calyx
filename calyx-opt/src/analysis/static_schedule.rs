@@ -261,7 +261,10 @@ impl FSMTree {
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
-        fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
+        fsm_info_map: &mut HashMap<
+            ir::Id,
+            (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>),
+        >,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         builder: &mut ir::Builder,
     ) {
@@ -451,7 +454,10 @@ impl Tree {
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
-        fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
+        fsm_info_map: &mut HashMap<
+            ir::Id,
+            (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>),
+        >,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         builder: &mut ir::Builder,
     ) {
@@ -492,7 +498,6 @@ impl Tree {
         // This makes it easier when we have to build wrappers, rewrite ports, etc.
 
         // Map the static group name -> early reset group name.
-        // This is helpful for rewriting control
         reset_early_map
             .insert(static_group_name, early_reset_group.borrow().name());
         // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
@@ -507,8 +512,18 @@ impl Tree {
                 )
             }),
         );
-        fsm_info_map
-            .insert(early_reset_group.borrow().name(), Rc::clone(&fsm_ref));
+
+        let const_0 = builder.add_constant(0, fsm_ref.borrow().bitwidth);
+        let fsm_cell = Rc::clone(&fsm_ref.borrow().fsm_cell);
+        let fsm_eq_0 = guard!(fsm_cell["out"] == const_0["out"]);
+        fsm_info_map.insert(
+            early_reset_group.borrow().name(),
+            (
+                fsm_cell.borrow().name(),
+                fsm_eq_0,
+                self.get_final_state(builder),
+            ),
+        );
 
         // Recursively realize each child.
         self.children.iter_mut().for_each(|(child, _)| {
@@ -718,7 +733,10 @@ impl ParTree {
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
-        fsm_info_map: &mut HashMap<ir::Id, ir::RRC<StaticFSM>>,
+        fsm_info_map: &mut HashMap<
+            ir::Id,
+            (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>),
+        >,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         builder: &mut ir::Builder,
     ) {
@@ -778,8 +796,17 @@ impl ParTree {
                 )
             }),
         );
-        fsm_info_map
-            .insert(early_reset_group.borrow().name(), Rc::clone(&fsm_ref));
+        let const_0 = builder.add_constant(0, fsm_ref.borrow().bitwidth);
+        let fsm_cell = Rc::clone(&fsm_ref.borrow().fsm_cell);
+        let fsm_eq_0 = guard!(fsm_cell["out"] == const_0["out"]);
+        fsm_info_map.insert(
+            early_reset_group.borrow().name(),
+            (
+                fsm_cell.borrow().name(),
+                fsm_eq_0,
+                self.get_final_state(builder),
+            ),
+        );
 
         // Recursively realize each child.
         self.threads.iter_mut().for_each(|(child, _)| {

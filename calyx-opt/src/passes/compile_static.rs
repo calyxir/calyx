@@ -2,7 +2,7 @@ use crate::analysis::{
     FSMTree, GraphColoring, ParTree, StateType, StaticFSM, Tree,
 };
 use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
-use calyx_ir::{self as ir, PortParent};
+use calyx_ir::{self as ir, Nothing, PortParent};
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
 use core::panic;
@@ -21,8 +21,9 @@ pub struct CompileStatic {
     wrapper_map: HashMap<ir::Id, ir::Id>,
     /// maps fsm names to their corresponding signal_reg
     signal_reg_map: HashMap<ir::Id, ir::Id>,
-    /// maps reset_early_group names to StaticFSM object
-    fsm_info_map: HashMap<ir::Id, ir::RRC<StaticFSM>>,
+    /// maps reset_early_group names to (fsm == 0, final_fsm_state);
+    fsm_info_map:
+        HashMap<ir::Id, (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>)>,
 }
 
 impl Named for CompileStatic {
@@ -53,7 +54,8 @@ impl CompileStatic {
     /// may be used for multiple static islands, and we only add resetting logic
     /// for the signal_reg once.
     fn build_wrapper_group(
-        fsm_object: ir::RRC<StaticFSM>,
+        fsm_eq_0: ir::Guard<Nothing>,
+        fsm_final_state: ir::Guard<Nothing>,
         group_name: &ir::Id,
         signal_reg: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
@@ -72,8 +74,6 @@ impl CompileStatic {
             });
 
         // fsm.out == 0
-        let first_state =
-            *fsm_object.borrow_mut().query_between(builder, (0, 1));
         structure!( builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -85,9 +85,9 @@ impl CompileStatic {
         // !signal_reg.out
         let not_signal_reg = signal_reg_guard.clone().not();
         // fsm.out == 0 & signal_reg.out
-        let first_state_and_signal = first_state.clone() & signal_reg_guard;
+        let eq_0_and_signal = fsm_eq_0.clone() & signal_reg_guard;
         // fsm.out == 0 & ! signal_reg.out
-        let first_state_and_not_signal = first_state & not_signal_reg;
+        let final_state_not_signal = fsm_final_state & not_signal_reg;
         // create the wrapper group for early_reset_group
         let mut wrapper_name = group_name.clone().to_string();
         wrapper_name.insert_str(0, "wrapper_");
@@ -97,10 +97,10 @@ impl CompileStatic {
           // early_reset_group[go] = 1'd1
           early_reset_group["go"] = ? signal_on["out"];
           // when fsm == 0, and !signal_reg, then set signal_reg to high
-          signal_reg["write_en"] = first_state_and_not_signal ? signal_on["out"];
-          signal_reg["in"] =  first_state_and_not_signal ? signal_on["out"];
+          signal_reg["write_en"] = final_state_not_signal ? signal_on["out"];
+          signal_reg["in"] =  final_state_not_signal ? signal_on["out"];
           // group[done] = fsm.out == 0 & signal_reg.out ? 1'd1
-          g["done"] = first_state_and_signal ? signal_on["out"];
+          g["done"] = eq_0_and_signal ? signal_on["out"];
         );
         if add_reseting_logic {
             // continuous assignments to reset signal_reg back to 0 when the wrapper is done
@@ -108,8 +108,8 @@ impl CompileStatic {
                 builder;
                 // when (fsm == 0 & signal_reg is high), which is the done condition of the wrapper,
                 // reset the signal_reg back to low
-                signal_reg["write_en"] = first_state_and_signal ? signal_on["out"];
-                signal_reg["in"] =  first_state_and_signal ? signal_off["out"];
+                signal_reg["write_en"] = eq_0_and_signal ? signal_on["out"];
+                signal_reg["in"] =  eq_0_and_signal ? signal_off["out"];
             );
             builder.add_continuous_assignments(continuous_assigns.to_vec());
         }
@@ -129,7 +129,7 @@ impl CompileStatic {
     /// Note: this only works if the port for the while condition is `@stable`.
     fn build_wrapper_group_while(
         &self,
-        fsm_object: ir::RRC<StaticFSM>,
+        fsm_eq_0: ir::Guard<Nothing>,
         group_name: &ir::Id,
         port: RRC<ir::Port>,
         builder: &mut ir::Builder,
@@ -143,8 +143,6 @@ impl CompileStatic {
                     group_name
                 )
             });
-
-        let fsm_eq_0 = *fsm_object.borrow_mut().query_between(builder, (0, 1));
 
         let wrapper_group =
             builder.add_group(format!("while_wrapper_{}", group_name));
@@ -506,31 +504,39 @@ impl CompileStatic {
                     }
                 }
                 PortParent::Group(_) => panic!(""),
-                PortParent::StaticGroup(sgroup) => match &*assign.guard {
-                    calyx_ir::Guard::Info(static_timing_interval) => {
-                        assert!(assign.src.borrow().is_constant(1, 1));
-                        let name = sgroup.upgrade().borrow().name();
-                        let target_child_latency =
-                            Self::get_sgroup_latency(name, static_groups);
-                        let (beg, end) = static_timing_interval.get_interval();
-                        let child_execution_time = end - beg;
-                        assert!(
-                            child_execution_time % target_child_latency == 0,
-                            ""
-                        );
-                        let child_num_repeats =
-                            child_execution_time / target_child_latency;
-                        children_vec.push((
-                            Self::build_tree_object(
-                                name,
-                                static_groups,
-                                child_num_repeats,
-                            ),
-                            static_timing_interval.get_interval(),
-                        ));
-                    }
-                    _ => panic!(""),
-                },
+                PortParent::StaticGroup(sgroup) => {
+                    let (beg, end) = match &*assign.guard {
+                        calyx_ir::Guard::Info(static_timing_interval) => {
+                            assert!(assign.src.borrow().is_constant(1, 1));
+                            static_timing_interval.get_interval()
+                        }
+                        calyx_ir::Guard::True => {
+                            assert!(assign.src.borrow().is_constant(1, 1));
+                            (0, target_group_ref.get_latency())
+                        }
+                        _ => {
+                            panic!("")
+                        }
+                    };
+                    let name: calyx_ir::Id = sgroup.upgrade().borrow().name();
+                    let target_child_latency =
+                        Self::get_sgroup_latency(name, static_groups);
+                    let child_execution_time = end - beg;
+                    assert!(
+                        child_execution_time % target_child_latency == 0,
+                        ""
+                    );
+                    let child_num_repeats =
+                        child_execution_time / target_child_latency;
+                    children_vec.push((
+                        Self::build_tree_object(
+                            name,
+                            static_groups,
+                            child_num_repeats,
+                        ),
+                        (beg, end),
+                    ));
+                }
             }
         }
 
@@ -548,7 +554,10 @@ impl CompileStatic {
             let mut cur_lat = 0;
             let mut delay_map = BTreeMap::new();
             for (_, (beg, end)) in &children_vec {
-                delay_map.insert((cur_lat, *beg), StateType::Delay(cur_delay));
+                if cur_lat != *beg {
+                    delay_map
+                        .insert((cur_lat, *beg), StateType::Delay(cur_delay));
+                }
                 delay_map
                     .insert((*beg, *end), StateType::Offload(beg - cur_delay));
                 cur_lat = *end;
@@ -560,6 +569,7 @@ impl CompileStatic {
                     StateType::Delay(cur_delay),
                 );
             }
+            dbg!(&delay_map);
             FSMTree::Tree(Tree {
                 latency: target_group_ref.latency,
                 fsm_cell: None,
@@ -932,12 +942,11 @@ impl Visitor for CompileStatic {
             None => {
                 // create the builder/cells that we need to create wrapper group
                 let mut builder = ir::Builder::new(comp, sigs);
-                let fsm_object = self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
+                let (fsm_name, fsm_eq_0, fsm_final_state) = self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
                 // If we've already made a wrapper for a group that uses the same
                 // FSM, we can reuse the signal_reg. Otherwise, we must
                 // instantiate a new signal_reg.
-                let fsm_name = fsm_object.borrow().get_unique_id();
-                let wrapper = match self.signal_reg_map.get(&fsm_name) {
+                let wrapper = match self.signal_reg_map.get(fsm_name) {
                     None => {
                         // Need to build the signal_reg and the continuous
                         // assignment that resets the signal_reg
@@ -945,9 +954,10 @@ impl Visitor for CompileStatic {
                             let signal_reg = prim std_reg(1);
                         );
                         self.signal_reg_map
-                            .insert(fsm_name, signal_reg.borrow().name());
+                            .insert(*fsm_name, signal_reg.borrow().name());
                         Self::build_wrapper_group(
-                            Rc::clone(fsm_object),
+                            fsm_eq_0.clone(),
+                            fsm_final_state.clone(),
                             early_reset_name,
                             signal_reg,
                             &mut builder,
@@ -965,7 +975,8 @@ impl Visitor for CompileStatic {
                                 unreachable!("signal reg {reg_name} found")
                             });
                         Self::build_wrapper_group(
-                            Rc::clone(fsm_object),
+                            fsm_eq_0.clone(),
+                            fsm_final_state.clone(),
                             early_reset_name,
                             signal_reg,
                             &mut builder,
@@ -1037,9 +1048,9 @@ impl Visitor for CompileStatic {
                 let reset_group_name = self.get_reset_group_name(sc);
 
                 // Get fsm for reset_group
-                let fsm_object = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
+                let (_, fsm_eq_0, _) = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
                 let wrapper_group = self.build_wrapper_group_while(
-                    Rc::clone(fsm_object),
+                    fsm_eq_0.clone(),
                     reset_group_name,
                     Rc::clone(&s.port),
                     &mut builder,
