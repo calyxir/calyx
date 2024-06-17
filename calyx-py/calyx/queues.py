@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from typing import List
 from typing import Optional
-from calyx import queue_util
+
+MAX_CMDS = 20000
+QUEUE_SIZE = 16
 
 
 class QueueError(Exception):
@@ -22,7 +24,7 @@ class Fifo:
 
     def __init__(self, data: List[int], error_mode=True, max_len: int = None):
         self.data = data
-        self.max_len = max_len or queue_util.QUEUE_SIZE
+        self.max_len = max_len or QUEUE_SIZE
         self.error_mode = error_mode
 
     def push(self, val: int) -> None:
@@ -101,7 +103,7 @@ class Pifo:
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
-        self.max_len = max_len or queue_util.QUEUE_SIZE
+        self.max_len = max_len or QUEUE_SIZE
         self.error_mode = error_mode
         assert (
             self.pifo_len <= self.max_len
@@ -192,5 +194,5 @@ def operate_queue(commands, values, queue):
                 break
 
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (queue_util.MAX_CMDS - len(ans))
+    ans += [0] * (MAX_CMDS - len(ans))
     return ans
