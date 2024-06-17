@@ -550,23 +550,27 @@ impl CompileStatic {
         } else {
             children_vec.sort_by_key(|(_, interval)| *interval);
             assert!(Self::are_ranges_non_overlapping(&children_vec));
-            let mut cur_delay = 0;
+            let mut cur_num_states = 0;
             let mut cur_lat = 0;
             let mut delay_map = BTreeMap::new();
             for (_, (beg, end)) in &children_vec {
                 if cur_lat != *beg {
-                    delay_map
-                        .insert((cur_lat, *beg), StateType::Delay(cur_delay));
+                    delay_map.insert(
+                        (cur_lat, *beg),
+                        StateType::Delay(cur_lat - cur_num_states),
+                    );
+                    cur_num_states += beg - cur_lat;
+                    // cur_lat = *beg; assignment is unnecessary
                 }
                 delay_map
-                    .insert((*beg, *end), StateType::Offload(beg - cur_delay));
+                    .insert((*beg, *end), StateType::Offload(cur_num_states));
                 cur_lat = *end;
-                cur_delay += end - beg;
+                cur_num_states += 1;
             }
             if cur_lat != target_group_ref.latency {
                 delay_map.insert(
                     (cur_lat, target_group_ref.latency),
-                    StateType::Delay(cur_delay),
+                    StateType::Delay(cur_lat - cur_num_states),
                 );
             }
             dbg!(&delay_map);

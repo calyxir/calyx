@@ -296,6 +296,24 @@ impl FSMTree {
         }
     }
 
+    fn get_first_state(
+        &mut self,
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.get_first_state(builder),
+            FSMTree::Par(par_struct) => par_struct.get_first_state(builder),
+        }
+    }
+
+    fn query_between(
+        &mut self,
+        query: (u64, u64),
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        panic!("")
+    }
+
     pub fn get_group_name(&self) -> ir::Id {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.root.0,
@@ -537,11 +555,171 @@ impl Tree {
         })
     }
 
-    fn get_final_fsm_state(
+    // fn get_final_fsm_state(
+    //     &mut self,
+    //     builder: &mut ir::Builder,
+    // ) -> ir::Guard<Nothing> {
+    //     match &mut self.fsm_cell {
+    //         None => {
+    //             // If there is no FSM, then we know latency has to be 1.
+    //             assert!(self.latency == 1);
+    //             ir::Guard::True
+    //         }
+    //         Some(static_fsm_cell) => {
+    //             // If there is an FSM, we check whether during its final state,
+    //             // it is offloading or incrementing.
+    //             let static_fsm = Rc::clone(&static_fsm_cell);
+
+    //             if let Some((child, (beg_interval, end_interval))) =
+    //                 self.children.last_mut()
+    //             {
+    //                 // You have to clone these earlier to avoid borrow checker nonsense.
+    //                 // XXX(Caleb): think of better solution.
+    //                 let beg_interval_clone = *beg_interval;
+    //                 let end_interval_clone = *end_interval;
+    //                 if *end_interval == self.latency {
+    //                     let final_child_state =
+    //                         Box::new(child.get_final_state(builder));
+    //                     let final_parent_state =
+    //                         static_fsm.borrow_mut().query_between(
+    //                             builder,
+    //                             self.translate_query((
+    //                                 beg_interval_clone,
+    //                                 end_interval_clone,
+    //                             )),
+    //                         );
+    //                     let final_parent_state =
+    //                         static_fsm.borrow_mut().query_between(
+    //                             builder,
+    //                             self.translate_query((
+    //                                 beg_interval_clone,
+    //                                 end_interval_clone,
+    //                             )),
+    //                         );
+    //                     return final_parent_state.and(*final_child_state);
+    //                 }
+    //             }
+    //             // Otherwise, can just do a normal query.
+    //             let g = static_fsm.borrow_mut().query_between(
+    //                 builder,
+    //                 self.translate_query((self.latency - 1, self.latency)),
+    //             );
+    //             *g
+    //         }
+    //     }
+    // }
+    // // Get the tree's final state (i.e., the state of the tree during its final cycle).
+    // fn get_final_state(
+    //     &mut self,
+    //     builder: &mut ir::Builder,
+    // ) -> ir::Guard<Nothing> {
+    //     let fsm_final_state = Box::new(self.get_final_fsm_state(builder));
+    //     let counter_final_state = match &mut self.iter_count_cell {
+    //         None => {
+    //             assert!(self.num_repeats == 1);
+    //             Box::new(ir::Guard::True)
+    //         }
+    //         Some(static_fsm) => static_fsm.borrow_mut().query_between(
+    //             builder,
+    //             (self.num_repeats - 1, self.num_repeats),
+    //         ),
+    //     };
+    //     ir::Guard::And(fsm_final_state, counter_final_state)
+    // }
+
+    fn query_between(
+        &mut self,
+        fsm_query: Option<(u64, u64)>,
+        repeat_query: Option<u64>,
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        let (query_beg, query_end) = fsm_query.unwrap();
+        let relevant_intervals = self
+            .delay_map
+            .iter()
+            .filter(|((beg, end), _)| {
+                let x = *beg <= query_beg && query_beg < *end;
+                let y = *beg <= query_end && query_end < *end;
+                let z = query_beg <= *beg && *end < query_end;
+                x || y || z
+            })
+            .collect_vec();
+        let fsm_cell: Rc<std::cell::RefCell<StaticFSM>> =
+            Rc::clone(self.fsm_cell.as_ref().unwrap());
+        let mut res = ir::Guard::True.not();
+        for ((beg, end), state_type) in relevant_intervals {
+            let guard = match state_type {
+                StateType::Delay(delay) => fsm_cell.borrow_mut().query_between(
+                    builder,
+                    (query_beg - delay, query_end - delay),
+                ),
+                StateType::Offload(offload_num) => {
+                    let in_offload_state = fsm_cell.borrow_mut().query_between(
+                        builder,
+                        (*offload_num, offload_num + 1),
+                    );
+                    if *beg <= query_beg && *end <= query_end {
+                        in_offload_state
+                    } else {
+                        // Get the child
+                        let mut offload_index = 0;
+                        let mut cur_delay = 0;
+                        let mut child_query = ir::Guard::True;
+                        for ((beg, end), state) in self.delay_map.iter() {
+                            match state {
+                                StateType::Offload(x) => {
+                                    if offload_num == x {
+                                        let (key_child, _) = self
+                                            .children
+                                            .get_mut(offload_index)
+                                            .unwrap();
+                                        child_query = key_child.query_between(
+                                            (
+                                                std::cmp::max(
+                                                    (query_beg as i64)
+                                                        - (*beg as i64),
+                                                    0,
+                                                )
+                                                    as u64,
+                                                std::cmp::min(query_end, *end)
+                                                    - beg,
+                                            ),
+                                            builder,
+                                        );
+                                    }
+                                    offload_index += 1;
+                                }
+                                StateType::Delay(del) => (),
+                            }
+                        }
+                        if matches!(ir::Guard::<Nothing>::True, child_query) {
+                            panic!("")
+                        }
+                        Box::new(in_offload_state.and(child_query))
+                    }
+                }
+            };
+            res.update(|g| g.or(*guard));
+        }
+
+        let counter_state = match &mut self.iter_count_cell {
+            None => {
+                assert!(self.num_repeats == 1);
+                Box::new(ir::Guard::True)
+            }
+            Some(static_fsm) => static_fsm.borrow_mut().query_between(
+                builder,
+                (repeat_query.unwrap(), repeat_query.unwrap() + 1),
+            ),
+        };
+        ir::Guard::And(Box::new(res), counter_state)
+    }
+
+    fn get_first_state(
         &mut self,
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
-        match &mut self.fsm_cell {
+        let fsm_first_state = match &mut self.fsm_cell {
             None => {
                 // If there is no FSM, then we know latency has to be 1.
                 assert!(self.latency == 1);
@@ -553,69 +731,56 @@ impl Tree {
                 let static_fsm = Rc::clone(&static_fsm_cell);
 
                 if let Some((child, (beg_interval, end_interval))) =
-                    self.children.last_mut()
+                    self.children.first_mut()
                 {
-                    // You have to clone these earlier to avoid borrow checker nonsense.
-                    // XXX(Caleb): think of better solution.
-                    let beg_interval_clone = *beg_interval;
-                    let end_interval_clone = *end_interval;
-                    if *end_interval == self.latency {
-                        let final_child_state =
-                            Box::new(child.get_final_state(builder));
-                        let final_parent_state =
-                            static_fsm.borrow_mut().query_between(
-                                builder,
-                                self.translate_query((
-                                    beg_interval_clone,
-                                    end_interval_clone,
-                                )),
-                            );
-                        return final_parent_state.and(*final_child_state);
+                    if *beg_interval == 0 {
+                        let first_child_state =
+                            Box::new(child.get_first_state(builder));
+                        let first_parent_state = static_fsm
+                            .borrow_mut()
+                            .query_between(builder, (0, 1));
+                        return first_parent_state.and(*first_child_state);
                     }
                 }
                 // Otherwise, can just do a normal query.
-                let g = static_fsm.borrow_mut().query_between(
-                    builder,
-                    self.translate_query((self.latency - 1, self.latency)),
-                );
+                let g = static_fsm.borrow_mut().query_between(builder, (0, 1));
                 *g
             }
-        }
-    }
-    // Get the tree's final state (i.e., the state of the tree during its final cycle).
-    fn get_final_state(
-        &mut self,
-        builder: &mut ir::Builder,
-    ) -> ir::Guard<Nothing> {
-        let fsm_final_state = Box::new(self.get_final_fsm_state(builder));
-        let counter_final_state = match &mut self.iter_count_cell {
+        };
+        let first_counter_state = match &mut self.iter_count_cell {
             None => {
                 assert!(self.num_repeats == 1);
                 Box::new(ir::Guard::True)
             }
-            Some(static_fsm) => static_fsm.borrow_mut().query_between(
-                builder,
-                (self.num_repeats - 1, self.num_repeats),
-            ),
+            Some(static_fsm) => {
+                static_fsm.borrow_mut().query_between(builder, (0, 1))
+            }
         };
-        ir::Guard::And(fsm_final_state, counter_final_state)
+        ir::Guard::And(Box::new(fsm_first_state), first_counter_state)
     }
 
     fn extract_fsm_cell(&mut self) -> ir::RRC<StaticFSM> {
         Rc::clone(self.fsm_cell.as_ref().expect("field was None"))
     }
 
-    fn translate_query(&self, query: (u64, u64)) -> (u64, u64) {
+    fn translate_query(
+        &self,
+        query: (u64, u64),
+    ) -> ((u64, u64), Option<(u64)>) {
+        let iter_count = None;
         let (beg_query, end_query) = query;
         for ((beg, end), state_type) in &self.delay_map {
             if (beg_query >= *beg) && (end_query <= *end) {
                 match state_type {
                     StateType::Delay(delay) => {
-                        return (beg_query - delay, end_query - delay);
+                        return (
+                            (beg_query - delay, end_query - delay),
+                            iter_count,
+                        );
                     }
                     StateType::Offload(state) => {
                         assert!((*beg == beg_query) && *end == end_query);
-                        return (*state, state + 1);
+                        return ((*state, state + 1), iter_count);
                     }
                 }
             }
@@ -825,6 +990,15 @@ impl ParTree {
     ) -> ir::Guard<Nothing> {
         let longest_tree = self.get_longest_tree();
         longest_tree.get_final_state(builder)
+    }
+
+    pub fn get_first_state(
+        &mut self,
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        // Can do any FSM, but just picking longest one.
+        let longest_tree = self.get_longest_tree();
+        longest_tree.get_first_state(builder)
     }
 }
 
