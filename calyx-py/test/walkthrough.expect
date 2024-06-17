@@ -116,17 +116,17 @@ component map(v: 32) -> () {
   cells {
     ref mem = comb_mem_d1(32, 10, 32);
     reg_1 = std_reg(8);
-    reg_1_incr = std_add(8);
+    reg_1_incr_1 = std_add(8);
     mult_pipe_2 = std_mult_pipe(32);
     lt_3 = std_lt(8);
   }
   wires {
-    group reg_1_incr_group {
-      reg_1_incr.left = reg_1.out;
-      reg_1_incr.right = 8'd1;
+    group reg_1_incr_1_group {
+      reg_1_incr_1.left = reg_1.out;
+      reg_1_incr_1.right = 8'd1;
       reg_1.write_en = 1'd1;
-      reg_1.in = reg_1_incr.out;
-      reg_1_incr_group[done] = reg_1.done;
+      reg_1.in = reg_1_incr_1.out;
+      reg_1_incr_1_group[done] = reg_1.done;
     }
     comb group lt_3_group {
       lt_3.left = reg_1.out;
@@ -145,7 +145,7 @@ component map(v: 32) -> () {
     while lt_3.out with lt_3_group {
       seq {
         mul_at_position_i;
-        reg_1_incr_group;
+        reg_1_incr_1_group;
       }
     }
   }
