@@ -704,9 +704,9 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
     base_reg = main.reg(width, "base_reg")
     exp_reg = main.reg(width, "exp_reg")
-    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
-    b = main.comb_mem_d1("b", width, 1, 1, is_external=True)
-    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.seq_mem_d1("x", width, 1, 1, is_external=True)
+    b = main.seq_mem_d1("b", width, 1, 1, is_external=True)
+    ret = main.seq_mem_d1("ret", width, 1, 1, is_external=True)
     f = main.comp_instance("f", "fp_pow_full")
 
     read_base = main.mem_load_d1(b, 0, base_reg, "read_base")
@@ -740,14 +740,15 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
 
     t = main.reg(width, "t")
-    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
-    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.seq_mem_d1("x", width, 1, 1, is_external=True)
+    ret = main.seq_mem_d1("ret", width, 1, 1, is_external=True)
     e = main.comp_instance("e", "exp")
 
     with main.group("init") as init:
         x.addr0 = 0
-        t.in_ = x.read_data
-        t.write_en = 1
+        x.content_en = 1
+        t.in_ = x.done @ x.read_data
+        t.write_en = x.done @ 1
         init.done = t.done
 
     write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory")

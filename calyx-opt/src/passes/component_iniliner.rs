@@ -7,6 +7,7 @@ use calyx_ir::{self as ir, rewriter, GetAttributes, LibrarySignatures, RRC};
 use calyx_utils::Error;
 use ir::Nothing;
 use itertools::Itertools;
+use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -71,7 +72,7 @@ impl ComponentInliner {
             always_inline,
             new_fsms,
             control_map: HashMap::default(),
-            interface_rewrites: HashMap::default(),
+            interface_rewrites: LinkedHashMap::default(),
             inlined_cells: Vec::default(),
         }
     }
@@ -442,7 +443,8 @@ impl Visitor for ComponentInliner {
             .collect::<HashMap<_, _>>();
 
         // Rewrites for the interface ports of inlined cells.
-        let mut interface_rewrites: rewriter::PortRewriteMap = HashMap::new();
+        let mut interface_rewrites: rewriter::PortRewriteMap =
+            LinkedHashMap::new();
         // Track names of cells that were inlined.
         let mut inlined_cells = HashSet::new();
         let mut builder = ir::Builder::new(comp, sigs);

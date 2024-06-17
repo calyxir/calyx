@@ -132,6 +132,13 @@ class ComponentBuilder:
         """
         return self._port_with_attributes(name, size, False, attribute_literals)
 
+    def output_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+        """Declare an output port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+        return self._port_with_attributes(name, size, False, attribute_literals)
+
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
@@ -148,7 +155,6 @@ class ComponentBuilder:
 
         Returns an expression builder for the port.
         """
-
         attributes = []
         for attr in attribute_literals:
             if isinstance(attr, str):
@@ -549,7 +555,7 @@ class ComponentBuilder:
         name = name or self.generate_name("const_mult")
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.const_mult(size, const))
-
+        
     def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
         """Generate a StdPad cell."""
         name = name or self.generate_name("pad")
