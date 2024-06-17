@@ -4,12 +4,11 @@ import random
 
 import json
 import sys
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 FormatType = Dict[str, Union[bool, str, int]]
 
 MAX_CMDS = 20000
-QUEUE_SIZE = 16
 
 
 def format_gen(width: int) -> FormatType:
@@ -17,7 +16,7 @@ def format_gen(width: int) -> FormatType:
     return {"is_signed": False, "numeric_type": "bitnum", "width": width}
 
 
-def no_err_cmds_list():
+def no_err_cmds_list(queue_size):
     """A special data-gen helper that creates a commands list while
     ensuring that there are:
     - No overflows.
@@ -36,7 +35,7 @@ def no_err_cmds_list():
             # This would make us underflow,
             # so we'll change the command to `push` instead
             command = "push"
-        if command == "push" and running_count == QUEUE_SIZE:
+        if command == "push" and running_count == queue_size:
             # This would make us overflow,
             # so we'll change the command to `pop` instead
             command = "pop"
@@ -59,7 +58,7 @@ def no_err_cmds_list():
     return commands
 
 
-def dump_json(no_err: bool):
+def dump_json(no_err: bool, queue_size: Optional[int] = None):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
@@ -75,7 +74,7 @@ def dump_json(no_err: bool):
         "commands": {
             "data": (
                 # The `commands` memory has MAX_CMDS items, which are all 0, 1, or 2
-                no_err_cmds_list()
+                no_err_cmds_list(queue_size)
                 # If the `no_err` flag is set, then we use the special helper
                 # that ensures no overflow or overflow will occur.
                 if no_err
@@ -106,7 +105,9 @@ def dump_json(no_err: bool):
 if __name__ == "__main__":
     # Accept a flag that we pass to dump_json.
     # This says whether we should use the special no_err helper.
-
-    no_err = len(sys.argv) > 1 and sys.argv[1] == "--no-err"
     random.seed(5)
-    dump_json(no_err)
+    if len(sys.argv) > 1 and sys.argv[1] == "--no-err":
+        queue_size = int(sys.argv[2])
+        dump_json(True, queue_size)
+    else:
+        dump_json(False)
