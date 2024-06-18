@@ -169,13 +169,18 @@ pub struct InvokeSignature {
     pub inputs: SmallVec<[(PortRef, PortRef); 1]>,
     /// The ports attached to the outputs of the invoked cell, an association list
     /// of the port ref in the **PARENT** context, and the port connected
-    /// to it in the parent context. i.e. (dst, src)
+    /// to it in the parent context. i.e. (src, dst)
     pub outputs: SmallVec<[(PortRef, PortRef); 1]>,
 }
 
 impl InvokeSignature {
-    pub fn iter(&self) -> impl Iterator<Item = &(PortRef, PortRef)> {
-        self.inputs.iter().chain(self.outputs.iter())
+    // TODO Griffin: fix this it's stupid
+    pub fn iter(&self) -> impl Iterator<Item = (&PortRef, &PortRef)> {
+        self.inputs
+            .iter()
+            .map(|x| (&x.0, &x.1))
+            // need to reverse the outputs because invoke is confusing
+            .chain(self.outputs.iter().map(|(src, dest)| (dest, src)))
     }
 }
 
@@ -231,6 +236,18 @@ impl Invoke {
     }
 }
 
+#[derive(Debug)]
+pub struct Repeat {
+    pub body: ControlIdx,
+    pub num_repeats: u64,
+}
+
+impl Repeat {
+    pub fn new(body: ControlIdx, num_repeats: u64) -> Self {
+        Self { body, num_repeats }
+    }
+}
+
 /// An enum representing the different types of control nodes
 #[derive(Debug)]
 pub enum ControlNode {
@@ -240,6 +257,7 @@ pub enum ControlNode {
     Par(Par),
     If(If),
     While(While),
+    Repeat(Repeat),
     Invoke(Invoke),
 }
 
@@ -247,6 +265,7 @@ impl ControlNode {
     pub fn is_leaf(&self) -> bool {
         match self {
             ControlNode::While(_)
+            | ControlNode::Repeat(_)
             | ControlNode::Seq(_)
             | ControlNode::Par(_)
             | ControlNode::If(_) => false,

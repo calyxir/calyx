@@ -86,6 +86,9 @@ class Component:
         )
 
     def doc(self) -> str:
+        # if(self.name == "axi_seq_mem_A0"):
+        #     for s in self.inputs:
+        #         print(s.doc())
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         latency_annotation = (
@@ -173,6 +176,10 @@ class CompAttribute(Attribute):
     def doc(self) -> str:
         return f'"{self.name}"={self.value}'
 
+@dataclass
+class PortAttribute(Attribute):
+    name: str
+    value: Optional[int] = None
 
 @dataclass
 class PortAttribute(Attribute):
@@ -398,6 +405,42 @@ class Neq(GuardExpr):
 
     def doc(self) -> str:
         return f"({self.left.doc()} != {self.right.doc()})"
+
+
+@dataclass
+class Lt(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} < {self.right.doc()})"
+
+
+@dataclass
+class Lte(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} <= {self.right.doc()})"
+
+
+@dataclass
+class Gt(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} > {self.right.doc()})"
+
+
+@dataclass
+class Gte(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} >= {self.right.doc()})"
 
 
 # Control
