@@ -197,6 +197,19 @@ impl CalyxWriter for Attribute {
 /// A list of attributes.
 type Attributes = Vec<Attribute>;
 
+/// Abstracts attribute functionality.
+trait AttributeProvider {
+    fn add_attribute(&mut self, attr: Attribute);
+
+    fn with_attribute(mut self, attr: Attribute) -> Self
+    where
+        Self: Sized,
+    {
+        self.add_attribute(attr);
+        self
+    }
+}
+
 impl CalyxWriter for Attributes {
     fn write(
         &self,
@@ -241,6 +254,13 @@ impl Port {
         }
     }
 
+    /// Constructs a new port with the given `name` in a component.
+    ///
+    /// Requires: `width > 0`.
+    pub fn new_in_comp<S: ToString>(name: S, width: usize) -> Self {
+        Self::new::<String, S>(None, name, width)
+    }
+
     /// Constructs a new port with the given `parent` and `name` and with
     /// inferred width.
     pub fn inferred<S: ToString, T: ToString>(
@@ -255,12 +275,14 @@ impl Port {
         }
     }
 
-    pub fn add_attribute(&mut self, attr: Attribute) {
-        self.attributes.push(attr);
-    }
-
     pub fn has_inferred_width(&self) -> bool {
         self.width == -1
+    }
+}
+
+impl AttributeProvider for Port {
+    fn add_attribute(&mut self, attr: Attribute) {
+        self.attributes.push(attr);
     }
 }
 
@@ -307,6 +329,12 @@ pub struct Cell {
 impl PortProvider for Cell {
     fn get(&self, port: String) -> Port {
         Port::inferred(Some(self.name.clone()), port)
+    }
+}
+
+impl AttributeProvider for Cell {
+    fn add_attribute(&mut self, attr: Attribute) {
+        self.attributes.push(attr);
     }
 }
 
@@ -357,6 +385,18 @@ pub struct Assignment {
     lhs: Port,
     rhs: Port,
     guard: Guard,
+}
+
+impl Assignment {
+    /// Constructs a new assignment guarded by `guard` between `lhs` and `rhs`.
+    ///
+    /// Requires: the assignment is well-formed.
+    fn new(lhs: Port, rhs: Port, guard: Guard) -> Self {
+        if !lhs.has_inferred_width() && !rhs.has_inferred_width() {
+            assert!(lhs.width == rhs.width, "port width mismatch");
+        }
+        Self { lhs, rhs, guard }
+    }
 }
 
 impl CalyxWriter for Assignment {
@@ -419,7 +459,7 @@ impl Group {
 
     /// Adds an assignment guarded by `guard` between `lhs` and `rhs`.
     pub fn assign_guarded(&mut self, lhs: Port, rhs: Port, guard: Guard) {
-        self.assignments.push(Assignment { lhs, rhs, guard });
+        self.assignments.push(Assignment::new(lhs, rhs, guard));
     }
 }
 
@@ -534,8 +574,10 @@ impl Control {
             value: ControlValue::If(port, group, then_controls, else_controls),
         }
     }
+}
 
-    pub fn add_attribute(&mut self, attribute: Attribute) {
+impl AttributeProvider for Control {
+    fn add_attribute(&mut self, attribute: Attribute) {
         self.attributes.push(attribute);
     }
 }
@@ -624,6 +666,7 @@ impl CalyxWriter for Control {
 
 /// See `calyx_ir::Component`.
 pub struct Component {
+    attributes: Attributes,
     is_comb: bool,
     name: String,
     inputs: Vec<Port>,
@@ -635,6 +678,28 @@ pub struct Component {
 }
 
 impl Component {
+    fn new<S: ToString>(name: S, is_comb: bool) -> Self {
+        Self {
+            attributes: vec![],
+            is_comb,
+            name: name.to_string(),
+            inputs: vec![
+                Port::new_in_comp("go", 1)
+                    .with_attribute(Attribute::bool("go")),
+                Port::new_in_comp("clk", 1)
+                    .with_attribute(Attribute::bool("clk")),
+                Port::new_in_comp("reset", 1)
+                    .with_attribute(Attribute::bool("reset")),
+            ],
+            outputs: vec![Port::new_in_comp("done", 1)
+                .with_attribute(Attribute::bool("done"))],
+            cells: vec![],
+            groups: vec![],
+            control: Control::empty(),
+            continuous_assignments: vec![],
+        }
+    }
+
     /// Sets whether the component is combinational or not.
     pub fn set_comb(&mut self, is_comb: bool) {
         self.is_comb = is_comb;
@@ -642,12 +707,12 @@ impl Component {
 
     /// Adds an input port `name` to this component.
     pub fn add_input<S: ToString>(&mut self, name: S, width: usize) {
-        self.add_port(Port::new::<String, S>(None, name, width), true);
+        self.add_port(Port::new_in_comp(name, width), true);
     }
 
     /// Adds an output port `name` to this component.
     pub fn add_output<S: ToString>(&mut self, name: S, width: usize) {
-        self.add_port(Port::new::<String, S>(None, name, width), false);
+        self.add_port(Port::new_in_comp(name, width), false);
     }
 
     /// [`Component::add_input`] or [`Component::add_output`] may be more
@@ -683,7 +748,7 @@ impl Component {
     /// `rhs`.
     pub fn assign(&mut self, lhs: Port, rhs: Port, guard: Guard) {
         self.continuous_assignments
-            .push(Assignment { lhs, rhs, guard });
+            .push(Assignment::new(lhs, rhs, guard));
     }
 
     /// Use [`declare_group!`] and [`build_group!`] instead.
@@ -744,6 +809,7 @@ impl Component {
     fn write_ports_sig(
         &self,
         f: &mut fmt::Formatter,
+        indent: &mut Indent,
         ports: &[Port],
     ) -> fmt::Result {
         for (i, port) in ports.iter().enumerate() {
@@ -751,6 +817,7 @@ impl Component {
                 f.write_str(", ")?;
             }
             assert!(!port.has_inferred_width());
+            port.attributes.write(f, indent)?;
             write!(f, "{}: {}", port.name, port.width)?;
         }
         Ok(())
@@ -770,6 +837,12 @@ impl PortProvider for Component {
     }
 }
 
+impl AttributeProvider for Component {
+    fn add_attribute(&mut self, attribute: Attribute) {
+        self.attributes.push(attribute);
+    }
+}
+
 impl CalyxWriter for Component {
     fn marker(&self) -> Option<Marker> {
         Some(Marker::unique("component", self.name.clone()))
@@ -780,15 +853,16 @@ impl CalyxWriter for Component {
         f: &mut fmt::Formatter<'_>,
         indent: &mut Indent,
     ) -> fmt::Result {
+        self.attributes.write(f, indent)?;
         write!(
             f,
             "{}component {}(",
             if self.is_comb { "comb " } else { "" },
             self.name
         )?;
-        self.write_ports_sig(f, &self.inputs)?;
+        self.write_ports_sig(f, indent, &self.inputs)?;
         write!(f, ") -> (")?;
-        self.write_ports_sig(f, &self.outputs)?;
+        self.write_ports_sig(f, indent, &self.outputs)?;
         writeln!(f, ") {{")?;
         self.brace_section(f, indent, "cells", |f, indent| {
             for cell in &self.cells {
@@ -843,16 +917,7 @@ impl Program {
 
     /// Constructs an empty component named `name`.
     pub fn comp<S: ToString>(&mut self, name: S) -> RRC<Component> {
-        let comp = rrc(Component {
-            is_comb: false,
-            name: name.to_string(),
-            inputs: vec![],
-            outputs: vec![],
-            cells: vec![],
-            groups: vec![],
-            control: Control::empty(),
-            continuous_assignments: vec![],
-        });
+        let comp = rrc(Component::new(name, false));
         self.comps.push(comp.clone());
         comp
     }
