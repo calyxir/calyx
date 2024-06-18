@@ -12,6 +12,6 @@ cat ../test/correctness/queues/sdn.data | python3 pifo_tree_oracle.py 20000 16 -
 # - pifo_tree_oracle.py
 
 for queue_kind in fifo pifo pifo_tree; do
-    python3 queue_data_gen.py 20000 --no-err 16 > ../test/correctness/queues/$queue_kind.data
+    python3 queue_data_gen.py 20000 > ../test/correctness/queues/$queue_kind.data
     cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py 20000 16 --keepgoing > ../test/correctness/queues/$queue_kind.expect
 done
