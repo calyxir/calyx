@@ -1,6 +1,5 @@
 # pylint: disable=import-error
-from . import py_ast as ast
-from calyx import queue_util
+from .py_ast import Empty
 import calyx.builder as cb
 
 
@@ -188,7 +187,7 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
                     ref_stats_controller=stats,
                 )
                 if controller
-                else ast.Empty
+                else Empty
             ),
         ],
     )
