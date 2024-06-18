@@ -1,4 +1,11 @@
-// TODO(ethan): document everything & make code good
+// Author: Ethan Uppal
+
+//! This library serves as a rust version of calyx-py. The main builder API is
+//! via [`Program`], from where you can create [`Component`]s. Most `struct`s
+//! here are [`CalyxWriter`]s, so you can easily obtain their calyx
+//! representations (although, of course, that of [`Program`] is arguably the
+//! most useful). Macros have been developed for creating cells, groups, and
+//! control; they are the *intended* way of constructing these elements.
 
 use std::{
     cell::RefCell,
@@ -6,8 +13,10 @@ use std::{
     rc::Rc,
 };
 
+/// Shorthand for the `Rc<RefCell<>>` pattern.
 pub type RRC<T> = Rc<RefCell<T>>;
 
+/// Convenience constructor for [`RRC`].
 fn rrc<T>(value: T) -> RRC<T> {
     Rc::new(RefCell::new(value))
 }
@@ -45,31 +54,43 @@ impl Default for Indent {
     }
 }
 
+/// A location in the source code for source element `element` and optionally a
+/// unique identifier `id` for that element. For example,
+/// ```
+/// // COMPONENT END: main
+/// ```
+/// would be a marker for the "component" element and with a unique identifier
+/// of "main".
 struct Marker {
-    name: String,
+    element: String,
     id: Option<String>,
 }
 
 impl Marker {
-    pub fn general<S: ToString>(name: S) -> Marker {
+    /// A marker for an `element`.
+    #[allow(dead_code)]
+    pub fn general<S: ToString>(element: S) -> Marker {
         Marker {
-            name: name.to_string(),
+            element: element.to_string(),
             id: None,
         }
     }
 
-    pub fn unique<S: ToString, T: ToString>(name: S, id: T) -> Marker {
+    /// A marker for a unique `element` identified by `id`.
+    pub fn unique<S: ToString, T: ToString>(element: S, id: T) -> Marker {
         Marker {
-            name: name.to_string(),
+            element: element.to_string(),
             id: Some(id.to_string()),
         }
     }
 
-    pub fn to_string<S: ToString>(&self, descriptor: S) -> String {
+    /// Constructs a comment string for the marker at a given `location`. For
+    /// example, `marker.to_string("end")`.
+    pub fn to_string<S: ToString>(&self, location: S) -> String {
         format!(
             "// {} {}{}\n",
-            self.name.to_ascii_uppercase(),
-            descriptor.to_string(),
+            self.element.to_ascii_uppercase(),
+            location.to_string().to_ascii_uppercase(),
             self.id
                 .as_ref()
                 .map(|id| format!(": {}", id))
@@ -78,27 +99,38 @@ impl Marker {
     }
 }
 
+/// An element of calyx source code that MUST implement [`CalyxWriter::write`],
+/// can OPTIONALLY implement [`CalyxWriter::marker`], and must NEVER override
+/// [`CalyxWriter::writeln`].
 trait CalyxWriter {
     fn marker(&self) -> Option<Marker> {
-        return None;
+        None
     }
 
+    /// Writes this element to `f`. It may be assumed that `indent.current()`
+    /// spaces have already been written, but on any further line, these number
+    /// of spaces must be effected. See also [`CalyxWriter::writeln`].
     fn write(
         &self,
         f: &mut fmt::Formatter<'_>,
         indent: &mut Indent,
     ) -> fmt::Result;
 
+    /// Writes this element followed by a newline and wrapped with markers if
+    /// the element provides them. See more information at
+    /// [`CalyxWriter::write`].
+    ///
+    /// Do NOT override this function. See details at [`CalyxWriter`].
     fn writeln(
         &self,
         f: &mut fmt::Formatter<'_>,
         indent: &mut Indent,
     ) -> fmt::Result {
         if let Some(marker) = self.marker() {
-            write!(f, "{}", marker.to_string("START"))?;
+            write!(f, "{}", marker.to_string("start"))?;
             self.write(f, indent)?;
             f.write_char('\n')?;
-            write!(f, "{}", marker.to_string("END"))?;
+            write!(f, "{}", marker.to_string("end"))?;
         } else {
             self.write(f, indent)?;
             f.write_char('\n')?;
@@ -107,6 +139,7 @@ trait CalyxWriter {
     }
 }
 
+/// A calyx import statement.
 struct Import {
     path: String,
 }
@@ -121,6 +154,7 @@ impl CalyxWriter for Import {
     }
 }
 
+/// A clyx attribute.
 #[derive(PartialEq, Eq, Clone)]
 pub struct Attribute {
     name: String,
@@ -128,6 +162,8 @@ pub struct Attribute {
 }
 
 impl Attribute {
+    /// Constructs a `calyx_frontend::BoolAttr`, such as `@external`, named
+    /// `name`.
     pub fn bool<S: ToString>(name: S) -> Self {
         Self {
             name: name.to_string(),
@@ -135,6 +171,7 @@ impl Attribute {
         }
     }
 
+    /// Constructs a `calyx_frontend::NumAttr`, such as `@go`, named `name`.    
     pub fn num<S: ToString>(name: S, value: u64) -> Self {
         Self {
             name: name.to_string(),
@@ -157,6 +194,7 @@ impl CalyxWriter for Attribute {
     }
 }
 
+/// A list of attributes.
 type Attributes = Vec<Attribute>;
 
 impl CalyxWriter for Attributes {
@@ -173,21 +211,28 @@ impl CalyxWriter for Attributes {
     }
 }
 
+/// A calyx port on a cell or a component.
 #[derive(PartialEq, Eq, Clone)]
 pub struct Port {
     attributes: Vec<Attribute>,
+    /// The cell that this port belongs to, or `None` if it is in a component
+    /// signature.
     parent: Option<String>,
     name: String,
-    // -1 = unkown
+    /// A width of `-1` means the actual width is unknown/irrelevant/inferred.
     width: isize,
 }
 
 impl Port {
+    /// Constructs a new port with the given `parent` and `name`.
+    ///
+    /// Requires: `width > 0`.
     pub fn new<S: ToString, T: ToString>(
         parent: Option<S>,
         name: T,
         width: usize,
     ) -> Self {
+        assert!(width > 0);
         Self {
             attributes: vec![],
             parent: parent.map(|s| s.to_string()),
@@ -196,6 +241,8 @@ impl Port {
         }
     }
 
+    /// Constructs a new port with the given `parent` and `name` and with
+    /// inferred width.
     pub fn inferred<S: ToString, T: ToString>(
         parent: Option<S>,
         name: T,
@@ -211,38 +258,9 @@ impl Port {
     pub fn add_attribute(&mut self, attr: Attribute) {
         self.attributes.push(attr);
     }
-}
 
-type Ports = Vec<Port>;
-
-pub trait PortProvider {
-    fn get(&self, port: String) -> Port;
-}
-
-impl CalyxWriter for Ports {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
-        for (i, port) in self.iter().enumerate() {
-            if i > 0 {
-                f.write_str(", ")?;
-            }
-            port.write(f, indent)?;
-        }
-        Ok(())
-    }
-}
-
-impl CalyxWriter for Port {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
-        self.attributes.write(f, indent)?;
-        write!(f, "{}: {}", self.name, self.width)
+    pub fn has_inferred_width(&self) -> bool {
+        self.width == -1
     }
 }
 
@@ -255,10 +273,33 @@ impl Display for Port {
     }
 }
 
+impl CalyxWriter for Port {
+    /// Behaves identically to [`Port::fmt`]. Please read [`CalyxWriter::write`]
+    /// for documentation on this function.
+    fn write(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        _indent: &mut Indent,
+    ) -> fmt::Result {
+        self.fmt(f)
+    }
+}
+
+/// Abstracts port functionality over components and cells.
+pub trait PortProvider {
+    /// Retrieves the port on this provider named `port`.
+    ///
+    /// Requires: `port` exists on this provider.
+    fn get(&self, port: String) -> Port;
+}
+
+/// A calyx cell.
 pub struct Cell {
     is_ref: bool,
     attributes: Vec<Attribute>,
     name: String,
+    /// The name of the component or primitive instantiated, e.g., "std_reg"
+    /// for the register primitive.
     inst: String,
     args: Vec<u64>,
 }
@@ -291,6 +332,7 @@ impl CalyxWriter for Cell {
     }
 }
 
+/// A guard for a calyx [`Assignment`].
 #[derive(PartialEq, Eq)]
 pub enum Guard {
     None,
@@ -310,6 +352,7 @@ impl CalyxWriter for Guard {
     }
 }
 
+/// A calyx assignment.
 pub struct Assignment {
     lhs: Port,
     rhs: Port,
@@ -331,15 +374,19 @@ impl CalyxWriter for Assignment {
     }
 }
 
+/// A calyx group.
 pub struct Group {
     name: String,
     description: Option<String>,
     is_comb: bool,
+    /// `None` if dynamic, `Some(latency)` if static and taking `latency cycles.`
     latency: Option<usize>,
     assignments: Vec<Assignment>,
 }
 
 impl Group {
+    /// Constructs an empty group named `name`, combinational if and only if
+    /// `is_comb`.
     fn new<S: ToString>(name: S, is_comb: bool) -> Self {
         Self {
             name: name.to_string(),
@@ -350,6 +397,8 @@ impl Group {
         }
     }
 
+    /// Sets a human-readable description of the group. This description may
+    /// take multiple lines.
     pub fn describe(&mut self, description: String) {
         self.description = Some(description);
     }
@@ -362,10 +411,13 @@ impl Group {
         self.is_comb
     }
 
+    /// Adds an unguarded assignment between `lhs` and `rhs`. Behaves like
+    /// [`Group::assign_guarded`] with [`Guard::None`] passed for the guard.
     pub fn assign(&mut self, lhs: Port, rhs: Port) {
         self.assign_guarded(lhs, rhs, Guard::None);
     }
 
+    /// Adds an assignment guarded by `guard` between `lhs` and `rhs`.
     pub fn assign_guarded(&mut self, lhs: Port, rhs: Port, guard: Guard) {
         self.assignments.push(Assignment { lhs, rhs, guard });
     }
@@ -405,7 +457,8 @@ impl CalyxWriter for Group {
     }
 }
 
-pub enum ControlValue {
+/// Helper variant with [`Control`].
+enum ControlValue {
     Empty,
     Enable(RRC<Group>),
     Seq(Vec<Control>),
@@ -414,12 +467,24 @@ pub enum ControlValue {
     If(Port, Option<RRC<Group>>, Vec<Control>, Vec<Control>),
 }
 
+/// Structured calyx control with attributes.
 pub struct Control {
     attributes: Attributes,
     value: ControlValue,
 }
 
 impl Control {
+    /// Constructs an empty control node.
+    pub fn empty() -> Self {
+        Control {
+            attributes: Attributes::new(),
+            value: ControlValue::Empty,
+        }
+    }
+
+    /// Constructs a control node that enables `group` in a context-dependent
+    /// way. For example, in a sequence control, this control will enable the
+    /// group after all previous nodes in sequence.
     pub fn enable(group: RRC<Group>) -> Self {
         Control {
             attributes: Attributes::new(),
@@ -427,31 +492,37 @@ impl Control {
         }
     }
 
-    pub fn seq(controls: Vec<Control>) -> Self {
+    /// Constructs a sequential control node.
+    pub fn seq(nodes: Vec<Control>) -> Self {
         Control {
             attributes: Attributes::new(),
-            value: ControlValue::Seq(controls),
+            value: ControlValue::Seq(nodes),
         }
     }
 
-    pub fn par(controls: Vec<Control>) -> Self {
+    /// Constructs a parallel control node.
+    pub fn par(nodes: Vec<Control>) -> Self {
         Control {
             attributes: Attributes::new(),
-            value: ControlValue::Par(controls),
+            value: ControlValue::Par(nodes),
         }
     }
 
+    /// Constructs a while loop control node. A combinational group `group` may
+    /// optionally be activated for the condition `cond`.
     pub fn while_(
-        port: Port,
+        cond: Port,
         group: Option<RRC<Group>>,
         controls: Vec<Control>,
     ) -> Self {
         Control {
             attributes: Attributes::new(),
-            value: ControlValue::While(port, group, controls),
+            value: ControlValue::While(cond, group, controls),
         }
     }
 
+    /// Constructs a conditional branching control node. A combinational group
+    /// `group` may optionally be activated for the condition `cond`.
     pub fn if_(
         port: Port,
         group: Option<RRC<Group>>,
@@ -551,11 +622,12 @@ impl CalyxWriter for Control {
     }
 }
 
+/// A calyx component.
 pub struct Component {
     is_comb: bool,
     name: String,
-    inputs: Ports,
-    outputs: Ports,
+    inputs: Vec<Port>,
+    outputs: Vec<Port>,
     cells: Vec<RRC<Cell>>,
     groups: Vec<RRC<Group>>,
     control: Control,
@@ -563,18 +635,23 @@ pub struct Component {
 }
 
 impl Component {
+    /// Sets whether the component is combinational or not.
     pub fn set_comb(&mut self, is_comb: bool) {
         self.is_comb = is_comb;
     }
 
+    /// Adds an input port `name` to this component.
     pub fn add_input<S: ToString>(&mut self, name: S, width: usize) {
         self.add_port(Port::new::<String, S>(None, name, width), true);
     }
 
+    /// Adds an output port `name` to this component.
     pub fn add_output<S: ToString>(&mut self, name: S, width: usize) {
         self.add_port(Port::new::<String, S>(None, name, width), false);
     }
 
+    /// [`Component::add_input`] or [`Component::add_output`] may be more
+    /// useful.
     pub fn add_port(&mut self, port: Port, is_input: bool) {
         if is_input {
             self.inputs.push(port);
@@ -583,6 +660,8 @@ impl Component {
         }
     }
 
+    /// Constructs a new cell named `name` that instatiates `inst` with
+    /// arguments `args`.
     pub fn cell<S: ToString, T: ToString>(
         &mut self,
         name: S,
@@ -600,27 +679,43 @@ impl Component {
         cell
     }
 
+    /// Establishes a continuous assignment guarded by `guard` between `lhs` and
+    /// `rhs`.
     pub fn assign(&mut self, lhs: Port, rhs: Port, guard: Guard) {
         self.continuous_assignments
             .push(Assignment { lhs, rhs, guard });
     }
 
+    /// Use [`declare_group!`] and [`build_group!`] instead.
     pub fn group<S: ToString>(&mut self, name: S) -> RRC<Group> {
         let group = rrc(Group::new(name, false));
         self.groups.push(group.clone());
         group
     }
 
+    /// Use [`declare_group!`] and [`build_group!`] instead.
     pub fn comb_group<S: ToString>(&mut self, name: S) -> RRC<Group> {
         let group = rrc(Group::new(name, true));
         self.groups.push(group.clone());
         group
     }
 
+    /// Sets the root control node for this component. Use [`build_control!`] to
+    /// construct this node.
     pub fn set_control(&mut self, control: Control) {
         self.control = control;
     }
 
+    /// Opens an indented section within a component and runs a callback after
+    /// applying another indent. For instance, when called with a `name` of
+    /// "cells", this function allows formatting of:
+    /// ```
+    /// ...
+    ///   cells {
+    ///     ...
+    ///   }
+    /// ...
+    /// ```
     fn brace_section<S: ToString, F>(
         &self,
         f: &mut fmt::Formatter,
@@ -640,6 +735,26 @@ impl Component {
         indent.pop();
         result
     }
+
+    /// Formats a list of ports as an input or output signature. For example,
+    /// the syntax for ports in the declaration of a component with name-width
+    /// pairs separated by colons is such a signature.
+    ///
+    /// Requires: all ports in `ports` must have definite widths.
+    fn write_ports_sig(
+        &self,
+        f: &mut fmt::Formatter,
+        ports: &Vec<Port>,
+    ) -> fmt::Result {
+        for (i, port) in ports.iter().enumerate() {
+            if i > 0 {
+                f.write_str(", ")?;
+            }
+            assert!(!port.has_inferred_width());
+            write!(f, "{}: {}", port.name, port.width)?;
+        }
+        Ok(())
+    }
 }
 
 impl PortProvider for Component {
@@ -648,7 +763,9 @@ impl PortProvider for Component {
             .iter()
             .chain(self.outputs.iter())
             .find(|p| p.name == port)
-            .expect("port does not exist, violating precondition".into())
+            .unwrap_or_else(|| {
+                panic!("{}", "port does not exist, violating precondition")
+            })
             .clone()
     }
 }
@@ -669,9 +786,9 @@ impl CalyxWriter for Component {
             if self.is_comb { "comb " } else { "" },
             self.name
         )?;
-        self.inputs.write(f, indent)?;
+        self.write_ports_sig(f, &self.inputs)?;
         write!(f, ") -> (")?;
-        self.outputs.write(f, indent)?;
+        self.write_ports_sig(f, &self.outputs)?;
         writeln!(f, ") {{")?;
         self.brace_section(f, indent, "cells", |f, indent| {
             for cell in &self.cells {
@@ -699,14 +816,16 @@ impl CalyxWriter for Component {
     }
 }
 
+/// A complete calyx program containing imports and components.
 #[derive(Default)]
 pub struct Program {
     imports: Vec<Import>,
-    // inv: no element is removed from this array
+    /// inv: no element is removed from this array
     comps: Vec<Rc<RefCell<Component>>>,
 }
 
 impl Program {
+    /// Constructs an empty program.
     pub fn new() -> Self {
         Self {
             imports: vec![],
@@ -714,12 +833,14 @@ impl Program {
         }
     }
 
+    /// Imports the calyx standard library file `path`.
     pub fn import<S: ToString>(&mut self, path: S) {
         self.imports.push(Import {
             path: path.to_string(),
         });
     }
 
+    /// Constructs an empty component named `name`.
     pub fn comp<S: ToString>(&mut self, name: S) -> RRC<Component> {
         let comp = rrc(Component {
             is_comb: false,
@@ -728,7 +849,7 @@ impl Program {
             outputs: vec![],
             cells: vec![],
             groups: vec![],
-            control: Control::seq(vec![]),
+            control: Control::empty(),
             continuous_assignments: vec![],
         });
         self.comps.push(comp.clone());
@@ -758,6 +879,7 @@ impl Display for Program {
     }
 }
 
+/// Similar to the `structure!` macro in `calyx_ir`.
 #[macro_export]
 macro_rules! build_cells {
     ($comp:ident; $($name:ident = $cell:ident($($args:expr),*);)*) => {
