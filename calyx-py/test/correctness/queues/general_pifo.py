@@ -8,15 +8,13 @@ import calyx.queue_call as qc
 QUEUE_LEN_FACTOR = 4
 
 
-def invoke_subqueue(pifo, sub_fifo, num, cmd, value, ans, err) -> cb.invoke:
+def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
     """Invokes the cell {queue_cell} with:
     {cmd} passed by value
     {value} passed by value
     {ans} passed by reference
     {err} passed by reference
     """
-    name = "queue_" + str(num)
-    queue_cell = pifo.cell(name, sub_fifo)
     return cb.invoke(
         queue_cell,
         in_cmd=cmd,
@@ -83,6 +81,12 @@ def insert_pifo(
     # If it is 2, we push `value` to the queue.
     value = pifo.input("value", 32)  # The value to push to the queue
 
+    fifo_cells = []
+    for num in range(len(fifos)):
+        name = "queue_" + str(num)
+        cell = pifo.cell(name, fifos[num])
+        fifo_cells.append(cell)
+
     # If a stats component was provided, declare it as a cell of this component.
     if stats:
         stats = pifo.cell("stats", stats, is_ref=True)
@@ -97,7 +101,7 @@ def insert_pifo(
     err = pifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = pifo.reg(32, "length")  # The active length of the PIFO.
+    length = pifo.reg(32, "length")  # The active length of the PIFO.
 
     # A register that marks the next sub-queue to `pop` from.
     hot = pifo.reg(32, "hot")
@@ -136,8 +140,8 @@ def insert_pifo(
 
     # Some equality checks.
     hot_eq_n = pifo.eq_use(hot.out, n_flows-1, cellname="hot_eq_n") #bc 0-based indexing
-    len_eq_0 = pifo.eq_use(len.out, 0, cellname="len_eq_0")
-    len_eq_max_queue_len = pifo.eq_use(len.out, max_queue_len, cellname="len_eq_maxq")
+    len_eq_0 = pifo.eq_use(length.out, 0, cellname="len_eq_0")
+    len_eq_max_queue_len = pifo.eq_use(length.out, max_queue_len, cellname="len_eq_maxq")
     cmd_eq_0 = pifo.eq_use(cmd, 0, cellname="cmd_eq_0")
     cmd_eq_1 = pifo.eq_use(cmd, 1, cellname="cmd_eq_1")
     cmd_eq_2 = pifo.eq_use(cmd, 2, cellname="cmd_eq_2")
@@ -150,8 +154,8 @@ def insert_pifo(
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
     reset_hot = pifo.reg_store(hot, 0, "reset_hot") # hot := 0
 
-    len_incr = pifo.incr(len)  # len++
-    len_decr = pifo.decr(len)  # len--
+    len_incr = pifo.incr(length)  # len++
+    len_decr = pifo.decr(length)  # len--
 
     #n_int = 0
     #loop_lt_n = pifo.lt_use(n.out, cb.const(32, n_flows), "loop_lt_n")
@@ -160,8 +164,17 @@ def insert_pifo(
     handles = []
     for n in range(n_flows):
         handle = cb.if_with(pifo.eq_use(hot.out, cb.const(32, n)), # const(n, 32)
-        invoke_subqueue(pifo, fifos[n], n, cmd, value, ans, err))
+        invoke_subqueue(fifo_cells[n], cmd, value, ans, err))
         handles.append(handle)
+
+    hot_flow = pifo.reg(32)
+    upd_hot_flow, _ = pifo.div_store_in_reg(flow.out, bound_val.out, hot_flow)
+    decr_hot_flow = pifo.decr(hot_flow) # have to subtract the index by 1 bc the way we calculate it, it can't be 0 bc you can't divide by 0
+    flow_handles = []
+    for m in range(n_flows): 
+        handle1 = cb.if_with(pifo.eq_use(hot_flow.out, cb.const(32, m)),
+        invoke_subqueue(fifo_cells[m], cmd, value, ans, err))
+        flow_handles.append(handle1)
 
     # The main logic.
     pifo.control += [store_bound_val, cb.par(
@@ -240,8 +253,10 @@ def insert_pifo(
                 [  # The queue is not full. Proceed.
                     lower_err,
                     # We need to check which flow this value should be pushed to.
-                    cb.while_with(i_lt_n, [infer_flow_grp, upd_divider]),  # pt the flow and write it to `flow`.
-                    handles,
+                    cb.while_with(i_lt_n, [upd_divider, infer_flow_grp]),
+                    upd_hot_flow,  # compute which flow is 'hot', ie the flow that should be pushed to based on the value.
+                    decr_hot_flow,
+                    flow_handles,
                     cb.if_with(
                         err_eq_0,
                         # If no stats component is provided,
@@ -280,7 +295,7 @@ def build():
         sub_fifos.append(sub_fifo)
 
     pifo = insert_pifo(prog, "pifo", sub_fifos, 200, n_flows)
-    qc.insert_main(prog, pifo)
+    qc.insert_main(prog, pifo, 8)
     return prog.program
 
 
