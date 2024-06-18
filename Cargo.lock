@@ -364,6 +364,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
+name = "cache"
+version = "0.7.1"
+dependencies = [
+ "calyx_writer",
+]
+
+[[package]]
 name = "calyx"
 version = "0.7.1"
 dependencies = [

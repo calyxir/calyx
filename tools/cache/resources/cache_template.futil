@@ -1,0 +1,92 @@
+// this stuff is for LSP to not complain
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}
+
+component LEVEL_BELOW_MARKER() -> () {
+  cells {}
+  wires {}
+  control {}
+}
+
+$define ADDRESS_BITS 16
+$define BYTE_BITS 8
+$define EXTRA_BITS 2 // valid + dirty
+
+$define TAG_BITS 10
+$define INDEX_BITS 3
+$define OFFSET_BITS 4
+$define BLOCKS_PER_SET 4
+
+// BEGIN_TEMPLATE
+
+// entry = [ valid bit | dirty bit | tag bits | block bits ]
+$define BLOCK_SIZE 2 ^ OFFSET_BITS
+$define SET_BITS BLOCKS_PER_SET * BLOCK_SIZE * BYTE_BITS
+$define ENTRY_BITS EXTRA_BITS + TAG_BITS + INDEX_BITS + SET_BITS
+$define NUM_ENTRIES 2 ^ INDEX_BITS 
+
+$define INDEX_START_IN_ADDR OFFSET_BITS
+$define TAG_START_IN_ADDR OFFSET_BITS + INDEX_BITS 
+$define TAG_START_IN_ENTRY INDEX_BITS + BLOCKS_PER_SET * BLOCK_SIZE * BYTE_BITS
+
+component NAME_MARKER(
+  read_en: 1, 
+  write_en: 1, 
+  in: $BYTE_BITS, 
+  addr: $ADDRESS_BITS,
+
+  // private
+  fetch_en: 1,
+  fetch_in: $SET_BITS
+) -> (
+  out: $BYTE_BITS,
+
+  // private
+  req_addr: $ADDRESS_BITS
+) {
+  cells {
+    entries = comb_mem_d1($ENTRY_BITS, $NUM_ENTRIES, $INDEX_BITS); // so lookup is instant
+    addr_to_index = std_bit_slice($ADDRESS_BITS, $INDEX_START_IN_ADDR, $(INDEX_START_IN_ADDR + INDEX_BITS), $INDEX_BITS);
+    addr_to_tag = std_bit_slice($ADDRESS_BITS, $TAG_START_IN_ADDR, $(TAG_START_IN_ADDR + TAG_BITS), $TAG_BITS);
+    entry_to_tag = std_bit_slice($ENTRY_BITS, $TAG_START_IN_ENTRY, $(TAG_START_IN_ENTRY + TAG_BITS), $TAG_BITS);
+    tag_matches = std_eq($TAG_BITS);
+  }
+  wires {
+    // checks if the given `addr` exists in the cache
+    comb group check_tag_matches {
+      addr_to_index.in = addr;
+      addr_to_tag.in = addr;
+      entry_to_tag.in = entries.read_data;
+
+      entries.addr0 = addr_to_index.out;
+      tag_matches.left = addr_to_tag.out;
+      tag_matches.right = entry_to_tag.out;
+    }
+    // if so we can just return the byte. TODO is handle dirty
+    group read_cached {
+
+    }
+    // otherwise we need to fetch it from below. see read_cached todo
+    group read_uncached {
+
+    }
+  }
+  control {
+    if read_en {
+      if tag_matches.out with check_tag_matches {
+        read_cached;
+      } else {
+        read_uncached;
+      }
+    }
+    if write_en {
+
+    }
+  }
+}
