@@ -73,7 +73,7 @@ fn find_path_self_loop() {
     let t1 = bld.op("t1", &[], s1, s1, |_, _, _| Ok(()));
     let driver = bld.build();
     assert_eq!(
-        Some(vec![((t1, vec![s1]))]),
+        Some(vec![(t1, vec![s1])]),
         driver.find_path(&[s1], &[s1], &[t1])
     );
 }
