@@ -139,7 +139,7 @@ trait CalyxWriter {
     }
 }
 
-/// A calyx import statement.
+/// Imports a calyx file from the standard library.
 struct Import {
     path: String,
 }
@@ -154,7 +154,7 @@ impl CalyxWriter for Import {
     }
 }
 
-/// A clyx attribute.
+/// See `calyx_frontend::Attribute`.
 #[derive(PartialEq, Eq, Clone)]
 pub struct Attribute {
     name: String,
@@ -211,7 +211,7 @@ impl CalyxWriter for Attributes {
     }
 }
 
-/// A calyx port on a cell or a component.
+/// A port on a cell or a component.
 #[derive(PartialEq, Eq, Clone)]
 pub struct Port {
     attributes: Vec<Attribute>,
@@ -293,7 +293,7 @@ pub trait PortProvider {
     fn get(&self, port: String) -> Port;
 }
 
-/// A calyx cell.
+/// See `calyx_ir::Cell`.
 pub struct Cell {
     is_ref: bool,
     attributes: Vec<Attribute>,
@@ -332,7 +332,7 @@ impl CalyxWriter for Cell {
     }
 }
 
-/// A guard for a calyx [`Assignment`].
+/// A guard for an [`Assignment`].
 #[derive(PartialEq, Eq)]
 pub enum Guard {
     None,
@@ -352,7 +352,7 @@ impl CalyxWriter for Guard {
     }
 }
 
-/// A calyx assignment.
+/// See `calyx_ir::Assignment`.
 pub struct Assignment {
     lhs: Port,
     rhs: Port,
@@ -374,7 +374,7 @@ impl CalyxWriter for Assignment {
     }
 }
 
-/// A calyx group.
+/// See `calyx_ir::Group`. Contains optional documentation.
 pub struct Group {
     name: String,
     description: Option<String>,
@@ -622,7 +622,7 @@ impl CalyxWriter for Control {
     }
 }
 
-/// A calyx component.
+/// See `calyx_ir::Component`.
 pub struct Component {
     is_comb: bool,
     name: String,
@@ -816,7 +816,8 @@ impl CalyxWriter for Component {
     }
 }
 
-/// A complete calyx program containing imports and components.
+/// A complete calyx program containing imports and components. To obtain the
+/// generated calyx as text, use the [`Program::to_string`] function.
 #[derive(Default)]
 pub struct Program {
     imports: Vec<Import>,
@@ -879,7 +880,14 @@ impl Display for Program {
     }
 }
 
-/// Similar to the `structure!` macro in `calyx_ir`.
+/// Similar to the `structure!` macro in `calyx_ir`. For example,
+/// ```
+/// build_cells!(comp;
+///     a = std_reg(32);
+///     b = std_add(32);
+/// )
+/// ```
+/// Remember to import (via [`Program::import`]) the necessary primitives.
 #[macro_export]
 macro_rules! build_cells {
     ($comp:ident; $($name:ident = $cell:ident($($args:expr),*);)*) => {
@@ -889,6 +897,10 @@ macro_rules! build_cells {
     };
 }
 
+/// `declare_group!(comp; group name)` declares `name` as a group and binds it
+/// as a variable. `declare_group!(comp; comb group name)` behaves identically
+/// but constructs a combinational group. In both cases, an optional `: "..."`
+/// can be places after the group name (`name`) to provide it a description.
 #[macro_export]
 macro_rules! declare_group {
     ($comp:expr; group $group:ident) => {
@@ -907,9 +919,18 @@ macro_rules! declare_group {
     };
 }
 
+/// Adds assignments to a group. For example,
+/// ```
+/// build_group!(group;
+///     a.addr0 = b.out;
+///     b.foo = a.bar;
+///     comp.in_port = x.foo;
+/// )
+/// ```
+/// Currently, only unguarded assignments are supported.
 #[macro_export]
 macro_rules! build_group {
-    ($group:ident; $($lhs:ident.$lhs_port:ident = $rhs:ident.$rhs_port:ident;)*) => {
+    ($group:expr; $($lhs:ident.$lhs_port:ident = $rhs:ident.$rhs_port:ident;)*) => {
         $(
             $group.borrow_mut().assign(
                 $lhs.borrow().get(stringify!($lhs_port).to_string()),
@@ -919,6 +940,23 @@ macro_rules! build_group {
     };
 }
 
+/// Recursively constructs control nodes. For example,
+/// ```
+/// let control = build_control!(
+///     [par {
+///         [if comp.read_en {
+///             [if tag_matches.out with check_tag_matches {
+///                 [read_cached]
+///             } else {
+///                 [read_uncached]
+///             }]
+///         }],
+///         [if comp.write_en {
+///
+///         }]
+///     }]
+/// );
+/// ```
 #[macro_export]
 macro_rules! build_control {
     ([$x:ident]) => {
