@@ -38,13 +38,13 @@ def insert_binheap(prog, name, queue_len_factor):
 
     It has:
     - three inputs, `cmd`, `value`, and `rank`.
-    - one memory, `mem`, of size `(2**queue_len_factor) - 1`.
+    - one memory, `mem`, of size `(2**queue_len_factor)`.
     - two ref registers, `ans` and `err`.
     """
 
     comp = prog.component(name)
 
-    max_queue_len = (2**queue_len_factor) - 1
+    max_queue_len = 2**queue_len_factor
 
     cmd = comp.input("cmd", 2)
     # If it is 0, we pop.
@@ -52,18 +52,18 @@ def insert_binheap(prog, name, queue_len_factor):
     # If it is 2, we push `(rank, value)` to the queue.
 
     # The value and associated rank to push to the heap.
-    rank = comp.input("rank", 32)
+    rank = comp.input("rank", 64)
     value = comp.input("value", 32)
 
     swap = comp.cell(
-        "swap", insert_swap(prog, "swap", 64, max_queue_len, queue_len_factor)
+        "swap", insert_swap(prog, "swap", 96, max_queue_len, queue_len_factor)
     )
-    tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", 32, 32))
-    untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", 32, 32))
+    tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", 64, 32))
+    untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", 64, 32))
 
-    mem = comp.seq_mem_d1("mem", 64, max_queue_len, queue_len_factor)
+    mem = comp.seq_mem_d1("mem", 96, max_queue_len, queue_len_factor)
     # The memory to store the heap, represented as an array.
-    # Each cell of the memory is 64 bits wide: a 32-bit rank and a 32-bit value.
+    # Each cell of the memory is 96 bits wide: a 64-bit rank and a 32-bit value.
 
     ans = comp.reg(32, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
@@ -80,19 +80,19 @@ def insert_binheap(prog, name, queue_len_factor):
 
     # Cells and groups to check for overflow and underflow.
     size_eq_0 = comp.eq_use(size.out, 0)
-    size_eq_max = comp.eq_use(size.out, max_queue_len)
+    size_eq_max = comp.eq_use(size.out, max_queue_len - 1)
 
     current_idx = comp.reg(queue_len_factor)
-    current_rank = comp.reg(32)
+    current_rank = comp.reg(64)
 
     parent_idx = comp.reg(queue_len_factor)
-    parent_rank = comp.reg(32)
+    parent_rank = comp.reg(64)
 
     child_l_idx = comp.reg(queue_len_factor)
-    child_l_rank = comp.reg(32)
+    child_l_rank = comp.reg(64)
 
     child_r_idx = comp.reg(queue_len_factor)
-    child_r_rank = comp.reg(32)
+    child_r_rank = comp.reg(64)
 
     # current_idx := 0
     set_idx_zero = comp.reg_store(current_idx, 0, "set_idx_zero")
@@ -207,7 +207,7 @@ def insert_binheap(prog, name, queue_len_factor):
     current_lt_parent = comp.lt_use(current_rank.out, parent_rank.out)
 
     le_1 = comp.le(queue_len_factor)
-    le_2 = comp.le(32)
+    le_2 = comp.le(64)
     if_or = comp.or_(1)
     with comp.comb_group("child_l_swap") as child_l_swap:
         # Check if the `current_idx`th element should be swapped with its left child.
@@ -222,9 +222,9 @@ def insert_binheap(prog, name, queue_len_factor):
         if_or.right = le_2.out
 
     lt_1 = comp.lt(queue_len_factor)
-    lt_2 = comp.lt(32)
+    lt_2 = comp.lt(64)
     lt_3 = comp.lt(queue_len_factor)
-    lt_4 = comp.lt(32)
+    lt_4 = comp.lt(64)
     and_1 = comp.and_(1)
     and_2 = comp.and_(1)
     while_or = comp.or_(1)
@@ -378,7 +378,7 @@ def insert_main(prog):
         return cb.invoke(
             binheap,
             in_value=cb.const(32, value),
-            in_rank=cb.const(32, rank),
+            in_rank=cb.const(64, rank),
             in_cmd=cb.const(2, 2),
             ref_ans=ans,
             ref_err=err,
@@ -392,7 +392,7 @@ def insert_main(prog):
             cb.invoke(
                 binheap,
                 in_value=cb.const(32, 50),
-                in_rank=cb.const(32, 50),
+                in_rank=cb.const(64, 50),
                 in_cmd=cb.const(2, 0),
                 ref_ans=ans,
                 ref_err=err,
@@ -408,7 +408,7 @@ def insert_main(prog):
             cb.invoke(
                 binheap,
                 in_value=cb.const(32, 50),
-                in_rank=cb.const(32, 50),
+                in_rank=cb.const(64, 50),
                 in_cmd=cb.const(2, 1),
                 ref_ans=ans,
                 ref_err=err,
