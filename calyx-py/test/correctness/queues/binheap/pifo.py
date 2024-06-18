@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import sys
 import calyx.builder as cb
 import calyx.queue_call as qc
 from stable_binheap import insert_stable_binheap
@@ -155,10 +156,11 @@ def insert_main(prog):
 
 def build():
     """Top-level function to build the program."""
+    num_cmds = int(sys.argv[1])
     prog = cb.Builder()
-    #pifo = insert_binheap_pifo(prog, "pifo", 200, 5)
-    #qc.insert_main(prog, pifo)
-    insert_main(prog)
+    pifo = insert_binheap_pifo(prog, "pifo", 200, 6)
+    qc.insert_main(prog, pifo, num_cmds)
+    #insert_main(prog)
     return prog.program
 
 
