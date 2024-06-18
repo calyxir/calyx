@@ -1,3 +1,5 @@
+use ahash::HashSet;
+
 use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
@@ -17,6 +19,7 @@ pub fn build_primitive(
     // extras for memory initialization
     ctx: &Context,
     dump: &Option<DataDump>,
+    memories_initialized: &mut HashSet<String>,
 ) -> Box<dyn Primitive> {
     match &prim.prototype {
         CellPrototype::Constant {
@@ -128,11 +131,15 @@ pub fn build_primitive(
 
             match mem_type {
                 MemType::Seq => Box::new(if let Some(data) = data {
+                    memories_initialized
+                        .insert(ctx.lookup_string(prim.name).clone());
                     SeqMem::new_with_init(base_port, *width, false, dims, data)
                 } else {
                     SeqMemD1::new(base_port, *width, false, dims)
                 }),
                 MemType::Std => Box::new(if let Some(data) = data {
+                    memories_initialized
+                        .insert(ctx.lookup_string(prim.name).clone());
                     CombMem::new_with_init(base_port, *width, false, dims, data)
                 } else {
                     CombMem::new(base_port, *width, false, dims)

@@ -25,6 +25,7 @@ use crate::{
             environment::program_counter::ControlPoint, index_trait::IndexRef,
         },
     },
+    logging,
     serialization::data_dump::{DataDump, Dimensions},
     values::Value,
 };
@@ -32,6 +33,7 @@ use ahash::HashMap;
 use ahash::HashSet;
 use ahash::HashSetExt;
 use itertools::Itertools;
+use slog::warn;
 use std::{fmt::Debug, iter::once};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
@@ -250,7 +252,7 @@ impl<'a> Environment<'a> {
 
         let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
-        env.layout_component(root, data_map);
+        env.layout_component(root, data_map, &mut HashSet::new());
 
         // Initialize program counter
         // TODO griffin: Maybe refactor into a separate function
@@ -280,6 +282,7 @@ impl<'a> Environment<'a> {
         &mut self,
         comp: GlobalCellIdx,
         data_map: Option<DataDump>,
+        memories_initialized: &mut HashSet<String>,
     ) {
         let ComponentLedger {
             index_bases,
@@ -339,7 +342,11 @@ impl<'a> Environment<'a> {
                     );
                 }
                 let cell_dyn = primitives::build_primitive(
-                    info, port_base, self.ctx, &data_map,
+                    info,
+                    port_base,
+                    self.ctx,
+                    &data_map,
+                    memories_initialized,
                 );
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
 
@@ -358,7 +365,16 @@ impl<'a> Environment<'a> {
                 );
 
                 // layout sub-component but don't include the data map
-                self.layout_component(cell, None);
+                self.layout_component(cell, None, memories_initialized);
+            }
+        }
+
+        if let Some(data) = data_map {
+            for dec in data.header.memories.iter() {
+                if !memories_initialized.contains(&dec.name) {
+                    // TODO griffin: maybe make this an error?
+                    warn!(logging::root(), "Initialization was provided for memory {} but no such memory exists in the entrypoint component.", dec.name);
+                }
             }
         }
 
