@@ -573,7 +573,6 @@ impl CompileStatic {
                     StateType::Delay(cur_lat - cur_num_states),
                 );
             }
-            dbg!(&delay_map);
             FSMTree::Tree(Tree {
                 latency: target_group_ref.latency,
                 fsm_cell: None,

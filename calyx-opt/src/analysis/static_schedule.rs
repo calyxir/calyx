@@ -535,15 +535,14 @@ impl Tree {
             }),
         );
 
-        let const_0 = builder.add_constant(0, fsm_ref.borrow().bitwidth);
-        let fsm_cell = Rc::clone(&fsm_ref.borrow().fsm_cell);
-        let fsm_eq_0 = guard!(fsm_cell["out"] == const_0["out"]);
+        let fsm_cell: Rc<std::cell::RefCell<calyx_ir::Cell>> =
+            Rc::clone(&fsm_ref.borrow().fsm_cell);
         let total_latency = self.latency * self.num_repeats;
         fsm_info_map.insert(
             early_reset_group.borrow().name(),
             (
                 fsm_cell.borrow().name(),
-                fsm_eq_0,
+                self.query_between((0, 1), builder),
                 self.query_between((total_latency - 1, total_latency), builder),
             ),
         );
@@ -582,9 +581,12 @@ impl Tree {
         let (beg_query, end_query) = query;
         let (beg_iter_query, beg_fsm_query) =
             (beg_query / self.latency, beg_query % self.latency);
-        let (end_iter_query, end_fsm_query) =
-            (end_query / self.latency, end_query % self.latency);
-        if beg_iter_query == end_iter_query {
+        let (end_iter_query, mut end_fsm_query) =
+            ((end_query - 1) / self.latency, (end_query) % self.latency);
+        if (end_fsm_query == 0) {
+            end_fsm_query = self.latency;
+        }
+        let x = if beg_iter_query == end_iter_query {
             let repeat_query = beg_iter_query;
             let fsm_query = (beg_fsm_query, end_fsm_query);
             let res = Some((repeat_query, fsm_query));
@@ -611,7 +613,8 @@ impl Tree {
             let res1 = Some((repeat_query1, fsm_query1));
 
             (res0, repeat_res, res1)
-        }
+        };
+        x
     }
 
     // Given query (i,j), get the fsm query for cycles (i,j).
@@ -742,7 +745,7 @@ impl Tree {
     ) -> Box<ir::Guard<Nothing>> {
         match self.num_repeats {
             1 => {
-                assert!(query.0 == 0 && query.1 == 0);
+                assert!(query.0 == 0 && query.1 == 1);
                 Box::new(ir::Guard::True)
             }
             _ => self
@@ -852,10 +855,9 @@ impl ParTree {
         }
     }
     pub fn get_longest_tree(&mut self) -> &mut Tree {
-        let max = self
-            .threads
-            .iter_mut()
-            .max_by_key(|(child, _)| child.get_latency() as i64);
+        let max = self.threads.iter_mut().max_by_key(|(child, _)| {
+            (child.get_latency() * child.get_num_repeats()) as i64
+        });
         if let Some((max_child, _)) = max {
             match max_child {
                 FSMTree::Par(par_tree) => par_tree.get_longest_tree(),
@@ -932,15 +934,13 @@ impl ParTree {
                 )
             }),
         );
-        let const_0 = builder.add_constant(0, fsm_ref.borrow().bitwidth);
         let fsm_cell = Rc::clone(&fsm_ref.borrow().fsm_cell);
-        let fsm_eq_0 = guard!(fsm_cell["out"] == const_0["out"]);
         let total_latency = self.latency * self.num_repeats;
         fsm_info_map.insert(
             early_reset_group.borrow().name(),
             (
                 fsm_cell.borrow().name(),
-                fsm_eq_0,
+                self.query_between((0, 1), builder),
                 self.query_between((total_latency - 1, total_latency), builder),
             ),
         );

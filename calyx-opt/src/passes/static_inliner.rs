@@ -220,7 +220,7 @@ impl StaticInliner {
                     let signal_on = constant(1,1);
                 );
                 let trigger_body = build_assignments!(builder;
-                    par_wrapper["go"] = ? signal_on["out"];
+                    par_group["go"] = ? signal_on["out"];
                 );
                 // par_wrapper triggers par_group[go]
                 par_wrapper.borrow_mut().assignments.extend(trigger_body);
