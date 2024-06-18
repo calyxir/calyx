@@ -914,12 +914,17 @@ e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
                 &["$cocotb-makefile-dir/run_axi_test.py"],
                 &[],
             )?;
-            let waves = e.config_constrained_or("waves", vec!["true", "false"], "false")?;
-            let waves = FromStr::from_str(&waves).expect("The 'waves' flag should be either 'true' or 'false'.");
+            let waves = e.config_constrained_or(
+                "waves",
+                vec!["true", "false"],
+                "false",
+            )?;
+            let waves = FromStr::from_str(&waves)
+                .expect("The 'waves' flag should be either 'true' or 'false'.");
 
             let vcd_file_name = format!("{}.fst", basename(input));
             let mut make_in = input;
-            if waves{
+            if waves {
                 make_in = "dumpvars.v";
                 e.build_cmd(&[make_in], "iverilog-fst-sed", &[input], &[])?;
                 e.arg("fst_file_name", &vcd_file_name)?;
@@ -931,7 +936,6 @@ e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
                 &["Makefile", "axi_test.py", "run_axi_test.py"],
             )?;
             e.build_cmd(&[output], "cleanup-cocotb", &["tmp.dat"], &[])?;
-
 
             Ok(())
         },
