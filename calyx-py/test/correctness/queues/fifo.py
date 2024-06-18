@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import sys
 import calyx.builder as cb
 import calyx.queue_call as qc
 
@@ -102,9 +103,10 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
 
 def build():
     """Top-level function to build the program."""
+    num_cmds = int(sys.argv[1])
     prog = cb.Builder()
     fifo = insert_fifo(prog, "fifo")
-    qc.insert_main(prog, fifo)
+    qc.insert_main(prog, fifo, num_cmds)
     return prog.program
 
 
