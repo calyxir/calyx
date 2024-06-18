@@ -35,11 +35,8 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
 
     # We take a stats component by reference,
     # but all we'll really do with it is pass it to the queue component.
-    stats_cell = (
-        runner.cell("stats_runner", stats_component, is_ref=True)
-        if stats_component
-        else None
-    )
+    if stats_component:
+        stats = runner.cell("stats_runner", stats_component, is_ref=True)
 
     # We'll invoke the queue component.
     queue = runner.cell("myqueue", queue)
@@ -75,7 +72,7 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
                 in_value=value.out,
                 ref_ans=ans,
                 ref_err=err,
-                ref_stats=stats_cell,
+                ref_stats=stats,
             )
             if stats_component
             else cb.invoke(  # Invoke the queue without a stats component.
@@ -96,15 +93,14 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
             ],
         ),
         runner.incr(i),  # i++
-        runner.eq_store_in_reg(i.out, num_cmds, err)[
-            0
-        ],  # If we're out of commands, raise `err`
     ]
 
     return runner
 
 
-def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
+def insert_main(
+    prog, queue, num_cmds, keepgoing=False, controller=None, stats_component=None
+):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components.
     """
@@ -123,17 +119,32 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
     commands = main.seq_mem_d1("commands", 2, num_cmds, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
-    i = main.reg(32)  # The index on the answer-list we'll write to
+    i = main.reg(32)  # A counter for how many times we have invoked the dataplane.
+    j = main.reg(32)  # The index on the answer-list we'll write to
+    keep_looping = main.and_(1)  # If this is high, we keep going. Otherwise, we stop.
+    lt = main.lt(32)
+    # not_err = main.not_(1)
+
+    with main.comb_group("Compute_keep_looping") as compute_keep_looping:
+        # The condition to keep looping is:
+        # - The index `i` is less than the number of commands `num_cmds`
+        # - If the `keepgoing` flag is _not_ set, the dataplane error is zero.
+
+        lt.left = i.out
+        lt.right = num_cmds
+        # not_err.in_ = dataplane_err.out
+        # keep_looping.left = lt.out
+        # keep_looping.right = cb.HI
+        # if keepgoing else not_err.out
 
     main.control += cb.while_with(
         # We will run the dataplane and controller components in sequence,
-        # in a while loop. The loop will terminate when the dataplane component
-        # raises `dataplane_err`.
-        main.not_use(dataplane_err.out),
+        # in a while loop. The loop will terminate when `break_` has a value of `1`.
+        cb.CellAndGroup(lt, compute_keep_looping),
         [
             main.reg_store(has_ans, 0, "lower_has_ans"),  # Lower the has-ans flag.
             (
-                cb.invoke(  # Invoke the dataplane component.
+                cb.invoke(  # Invoke the dataplane component with a stats component.
                     dataplane,
                     ref_commands=commands,
                     ref_values=values,
@@ -143,7 +154,7 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
                     ref_stats_runner=stats,
                 )
                 if stats_component
-                else cb.invoke(  # Invoke the dataplane component.
+                else cb.invoke(  # Invoke the dataplane component without a stats component.
                     dataplane,
                     ref_commands=commands,
                     ref_values=values,
@@ -153,26 +164,27 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
                 )
             ),
             # If the dataplane component has a nonzero answer,
-            # write it to the answer-list and increment the index `i`.
+            # write it to the answer-list and increment the index `j`.
             cb.if_(
                 has_ans.out,
                 cb.if_with(
                     main.neq_use(dataplane_ans.out, 0),
                     [
                         main.mem_store_d1(
-                            ans_mem, i.out, dataplane_ans.out, "write_ans"
+                            ans_mem, j.out, dataplane_ans.out, "write_ans"
                         ),
-                        main.incr(i),
+                        main.incr(j),
                     ],
                 ),
             ),
-            (
-                cb.invoke(  # Invoke the controller component.
-                    controller,
-                    ref_stats_controller=stats,
-                )
-                if controller
-                else Empty
-            ),
+            # (
+            #     cb.invoke(  # Invoke the controller component.
+            #         controller,
+            #         ref_stats_controller=stats,
+            #     )
+            #     if controller
+            #     else Empty
+            # ),
+            main.incr(i),  # i++
         ],
     )
