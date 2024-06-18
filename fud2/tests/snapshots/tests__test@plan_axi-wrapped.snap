@@ -28,7 +28,7 @@ rule gen-axi
 rule combine
   command = cat $in > $out
 rule remove-imports
-  command = sed '1,/component main/{/component main/!d}' $in > $out
+  command = sed '1,/component main/{/component main/!d; }' $in > $out
 
 build input.yxi: yxi /input.ext
 build refified_input.futil: calyx-pass /input.ext
