@@ -865,14 +865,15 @@ impl Visitor for CompileStatic {
         // Make each tree count to n.
         for tree in &mut tree_objects {
             // Check whether we are compiling the top level static island.
-            let static_component_interface = match top_level_sgroup {
-                None => false,
-                // For the top level group, sch.static_groups should really only
-                // have one group--the top level group.
-                Some(top_level_group) => {
-                    tree.get_group_name() == top_level_group
-                }
-            };
+            // let static_component_interface = match top_level_sgroup {
+            //     None => false,
+            //     // For the top level group, sch.static_groups should really only
+            //     // have one group--the top level group.
+            //     Some(top_level_group) => {
+            //         tree.get_group_name() == top_level_group
+            //     }
+            // };
+            let static_component_interface = false;
             // Static component/groups have different interfaces
             if static_component_interface {
                 panic!("")
