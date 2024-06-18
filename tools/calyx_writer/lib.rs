@@ -744,7 +744,7 @@ impl Component {
     fn write_ports_sig(
         &self,
         f: &mut fmt::Formatter,
-        ports: &Vec<Port>,
+        ports: &[Port],
     ) -> fmt::Result {
         for (i, port) in ports.iter().enumerate() {
             if i > 0 {
