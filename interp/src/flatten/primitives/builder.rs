@@ -72,7 +72,9 @@ pub fn build_primitive(
             PrimType1::SignedDivPipe => {
                 Box::new(StdDivPipe::<2, true>::new(base_port, *width))
             }
-            PrimType1::Sqrt => todo!(),
+            PrimType1::Sqrt => {
+                Box::new(Sqrt::<false>::new(base_port, *width, None))
+            }
             PrimType1::UnsynMult => {
                 Box::new(StdUnsynMult::new(base_port, *width))
             }

@@ -2,7 +2,10 @@ use ibig::ops::RemEuclid;
 
 use crate::{
     flatten::{flat_ir::prelude::*, primitives::declare_ports},
-    primitives::{prim_utils::ShiftBuffer, stateful::floored_division},
+    primitives::{
+        prim_utils::ShiftBuffer,
+        stateful::{floored_division, int_sqrt},
+    },
     values::InputNumber,
 };
 use crate::{
@@ -234,5 +237,84 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             .write_exact_unchecked(out_rem, self.output_remainder.clone());
 
         Ok(quot_changed | rem_changed | done_signal)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Sqrt<const IS_FIXED_POINT: bool> {
+    base_port: GlobalPortIdx,
+    output: PortValue,
+    done_is_high: bool,
+    width: u32,
+    frac_width: Option<u32>,
+}
+
+impl<const IS_FIXED_POINT: bool> Sqrt<IS_FIXED_POINT> {
+    declare_ports!(_CLK: 0, RESET: 1, GO: 2, IN: 3, OUT: 4, DONE: 5);
+    pub fn new(
+        base_port: GlobalPortIdx,
+        width: u32,
+        frac_width: Option<u32>,
+    ) -> Self {
+        Self {
+            base_port,
+            output: PortValue::new_undef(),
+            done_is_high: false,
+            width,
+            frac_width,
+        }
+    }
+}
+
+impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+        ports![&self.base_port; out: Self::OUT, done: Self::DONE];
+
+        let done_changed = port_map.set_done(done, self.done_is_high)?;
+        let out_changed =
+            port_map.write_exact_unchecked(out, self.output.clone());
+
+        Ok(out_changed | done_changed)
+    }
+
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+        ports![&self.base_port;
+            reset: Self::RESET,
+            go: Self::GO,
+            done: Self::DONE,
+            in_val: Self::IN,
+            out: Self::OUT
+        ];
+
+        if port_map[reset].as_bool().unwrap_or_default() {
+            self.done_is_high = false;
+            self.output = PortValue::new_cell(Value::zeroes(self.width));
+        } else if port_map[go].as_bool().unwrap_or_default() {
+            let input = port_map[in_val].as_option();
+            if let Some(input) = input {
+                self.output = if IS_FIXED_POINT {
+                    let val = int_sqrt(
+                        &(input.val().as_unsigned()
+                            << (self.frac_width.unwrap() as usize)),
+                    );
+                    PortValue::new_cell(Value::from(val, self.width))
+                } else {
+                    let val = int_sqrt(&input.val().as_unsigned());
+                    PortValue::new_cell(Value::from(val, self.width))
+                };
+            } else {
+                // TODO griffin: should probably put an error or warning here?
+                self.output = PortValue::new_undef();
+            }
+            self.done_is_high = true;
+        } else {
+            self.done_is_high = false;
+        }
+
+        let done_signal = port_map.set_done(done, self.done_is_high)?;
+        let out_changed =
+            port_map.write_exact_unchecked(out, self.output.clone());
+
+        Ok(out_changed | done_signal)
     }
 }
