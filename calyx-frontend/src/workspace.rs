@@ -3,7 +3,7 @@ use super::{
     parser,
 };
 use crate::LibrarySignatures;
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::{CalyxResult, Error, WithPos};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -62,7 +62,7 @@ impl Workspace {
         lib_path: &Path,
     ) -> CalyxResult<PathBuf>
     where
-        S: AsRef<Path> + Clone,
+        S: AsRef<Path> + Clone + WithPos,
     {
         let parent_path = parent.join(import.clone());
         if parent_path.exists() {
@@ -78,7 +78,7 @@ impl Workspace {
             import.as_ref().to_string_lossy(),
             parent.to_string_lossy(),
             lib_path.to_string_lossy()
-        )))
+        )).with_pos(&import))
     }
 
     // Get the absolute path to an extern. Extern can only exist on paths
@@ -255,7 +255,8 @@ impl Workspace {
         })?;
 
         // Add original imports to workspace
-        ws.original_imports = ns.imports.clone();
+        ws.original_imports =
+            ns.imports.iter().map(|imp| imp.to_string()).collect();
 
         // TODO (griffin): Probably not a great idea to clone the metadata
         // string but it works for now

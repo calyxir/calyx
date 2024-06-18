@@ -2,14 +2,71 @@
 use super::parser;
 use crate::{Attributes, PortDef, Primitive};
 use atty::Stream;
-use calyx_utils::{CalyxResult, Error, GPosIdx, Id};
+use calyx_utils::{CalyxResult, Error, GPosIdx, Id, WithPos};
 use std::{num::NonZeroU64, path::PathBuf};
+
+/// A positioned string.
+#[derive(Clone, Debug)]
+pub struct PosString {
+    data: String,
+    span: GPosIdx,
+}
+
+impl Into<PosString> for String {
+    fn into(self) -> PosString {
+        PosString {
+            data: self,
+            span: GPosIdx::UNKNOWN,
+        }
+    }
+}
+
+impl Into<String> for PosString {
+    fn into(self) -> String {
+        self.data
+    }
+}
+
+impl ToString for PosString {
+    fn to_string(&self) -> String {
+        self.data.to_string()
+    }
+}
+
+impl AsRef<str> for PosString {
+    fn as_ref(&self) -> &str {
+        &self.data
+    }
+}
+
+impl AsRef<std::path::Path> for PosString {
+    fn as_ref(&self) -> &std::path::Path {
+        self.data.as_ref()
+    }
+}
+
+impl WithPos for PosString {
+    fn copy_span(&self) -> GPosIdx {
+        self.span
+    }
+}
+
+impl PosString {
+    pub fn new(data: String, span: GPosIdx) -> Self {
+        Self { data, span }
+    }
+
+    pub fn with_span(mut self, span: GPosIdx) -> Self {
+        self.span = span;
+        self
+    }
+}
 
 /// Corresponds to an individual Calyx file.
 #[derive(Debug)]
 pub struct NamespaceDef {
     /// Path to extern files.
-    pub imports: Vec<String>,
+    pub imports: Vec<PosString>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.

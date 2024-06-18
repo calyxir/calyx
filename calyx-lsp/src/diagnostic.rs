@@ -21,45 +21,59 @@ pub struct CalyxError {
 impl Diagnostic {
     /// Run the `calyx` compiler on `path` with libraries at `lib_path`
     pub fn did_save(path: &Path, lib_path: &Path) -> Vec<CalyxError> {
-        calyx_frontend::Workspace::construct(
+        let ws_res = calyx_frontend::Workspace::construct(
             &Some(path.to_path_buf()),
             lib_path.resolve().as_ref(),
-        )
-        .and_then(calyx_ir::from_ast::ast_to_ir)
-        .and_then(|mut ctx| {
-            let mut wellformed = <WellFormed as ConstructVisitor>::from(&ctx)?;
-            wellformed.do_pass(&mut ctx)?;
+        );
+        match ws_res {
+            Ok(ws) => calyx_ir::from_ast::ast_to_ir(ws)
+                .and_then(|mut ctx| {
+                    let mut wellformed =
+                        <WellFormed as ConstructVisitor>::from(&ctx)?;
+                    wellformed.do_pass(&mut ctx)?;
 
-            let mut diag_papercut = <Papercut as ConstructVisitor>::from(&ctx)?;
-            diag_papercut.do_pass(&mut ctx)?;
+                    let mut diag_papercut =
+                        <Papercut as ConstructVisitor>::from(&ctx)?;
+                    diag_papercut.do_pass(&mut ctx)?;
 
-            let mut synth_papercut =
-                <SynthesisPapercut as ConstructVisitor>::from(&ctx)?;
-            synth_papercut.do_pass(&mut ctx)?;
+                    let mut synth_papercut =
+                        <SynthesisPapercut as ConstructVisitor>::from(&ctx)?;
+                    synth_papercut.do_pass(&mut ctx)?;
 
-            Ok(wellformed
-                .diagnostics()
-                .errors_iter()
-                .chain(diag_papercut.diagnostics().errors_iter())
-                .chain(synth_papercut.diagnostics().errors_iter())
-                .cloned()
-                .collect::<Vec<_>>())
-        })
-        .map(|errors| {
-            errors
-                .into_iter()
-                .map(|e| {
-                    let (file_name, pos_start, pos_end) = e.location();
-                    let msg = e.message();
-                    CalyxError {
-                        file_name: file_name.to_string(),
-                        pos_start,
-                        pos_end,
-                        msg,
-                    }
+                    Ok(wellformed
+                        .diagnostics()
+                        .errors_iter()
+                        .chain(diag_papercut.diagnostics().errors_iter())
+                        .chain(synth_papercut.diagnostics().errors_iter())
+                        .cloned()
+                        .collect::<Vec<_>>())
                 })
-                .collect()
-        })
-        .unwrap_or_default()
+                .map(|errors| {
+                    errors
+                        .into_iter()
+                        .map(|e| {
+                            let (file_name, pos_start, pos_end) = e.location();
+                            let msg = e.message();
+                            CalyxError {
+                                file_name: file_name.to_string(),
+                                pos_start,
+                                pos_end,
+                                msg,
+                            }
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            Err(e) => {
+                let (file_name, pos_start, pos_end) = e.location();
+                let msg = e.message();
+                vec![CalyxError {
+                    file_name: file_name.to_string(),
+                    pos_start,
+                    pos_end,
+                    msg,
+                }]
+            }
+        }
     }
 }

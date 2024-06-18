@@ -5,6 +5,7 @@ use super::ast::{
     self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
 };
 use super::Attributes;
+use crate::ast::PosString;
 use crate::{Attribute, Direction, PortDef, Primitive, Width};
 use calyx_utils::{self, CalyxResult, Id};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
@@ -350,10 +351,11 @@ impl CalyxParser {
         Ok(input.as_str())
     }
 
-    fn string_lit(input: Node) -> ParseResult<String> {
+    fn string_lit(input: Node) -> ParseResult<PosString> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [char(c)..] => c.collect::<Vec<_>>().join("")
+            [char(c)..] => PosString::new(c.collect::<Vec<_>>().join(""), span)
         ))
     }
 
@@ -361,7 +363,7 @@ impl CalyxParser {
     fn attribute(input: Node) -> ParseResult<(Attribute, u64)> {
         match_nodes!(
             input.clone().into_children();
-            [string_lit(key), bitwidth(num)] => Attribute::from_str(&key).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
+            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
         )
     }
     fn attributes(input: Node) -> ParseResult<Attributes> {
@@ -1199,7 +1201,7 @@ impl CalyxParser {
         )
     }
 
-    fn imports(input: Node) -> ParseResult<Vec<String>> {
+    fn imports(input: Node) -> ParseResult<Vec<PosString>> {
         Ok(match_nodes!(
             input.into_children();
             [string_lit(path)..] => path.collect()
@@ -1209,7 +1211,7 @@ impl CalyxParser {
     fn ext(input: Node) -> ParseResult<(Option<String>, Vec<Primitive>)> {
         Ok(match_nodes!(
             input.into_children();
-            [string_lit(file), primitive(prims)..] => (Some(file), prims.collect())
+            [string_lit(file), primitive(prims)..] => (Some(file.into()), prims.collect())
         ))
     }
 
