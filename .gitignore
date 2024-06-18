@@ -46,6 +46,7 @@ results.xml
 
 # Ignore .fud2 cache
 .fud2/
+.fud2-*/
 
 
 !cider-dap/calyxDebug/package.json
