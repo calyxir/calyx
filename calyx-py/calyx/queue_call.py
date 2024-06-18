@@ -5,9 +5,27 @@ import calyx.builder as cb
 
 def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     """Inserts the component `name` into the program.
-    This will be used to `invoke` the component `queue` and feed it one command.
+    This will be used to `invoke` the component `queue` and feed it _one command_.
     This component is designed to be invoked by some other component, and does not
     directly interface with external memories.
+
+    The user-facing interface of this component is captured by a number
+    of items that are passed to this component by reference.
+    #
+    - 1: `commands`, a list of commands.
+       Where each command is a 2-bit unsigned integer with the following format:
+       `0`: pop
+       `1`: peek
+       `2`: push
+    - 2: `values`, a list of values.
+       Where each value is a 32-bit unsigned integer.
+       The value at `i` is pushed if the command at `i` is `2`.
+    - 3: `has_ans`, a 1-bit unsigned integer.
+       We raise/lower this to indicate whether the queue had a reply to the command.
+    - 4: `component_ans`, a 32-bit unsigned integer.
+       We put in this register the answer, if any.
+    - 5: `component_err`, a 1-bit unsigned integer.
+       We raise/lower it to indicate whether an error occurred.
     """
     assert (
         name != "main"
@@ -17,31 +35,14 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
 
     # We take a stats component by reference,
     # but all we'll really do with it is pass it to the queue component.
-    if stats_component:
-        stats = runner.cell("stats_runner", stats_component, is_ref=True)
+    stats_cell = (
+        runner.cell("stats_runner", stats_component, is_ref=True)
+        if stats_component
+        else None
+    )
 
     # We'll invoke the queue component.
     queue = runner.cell("myqueue", queue)
-
-    # The user-facing interface of this component is captured by a number
-    # of items that are passed to this component by reference.
-    #
-    # - 1: `commands`, a list of commands.
-    #    Where each command is a 2-bit unsigned integer with the following format:
-    #    `0`: pop
-    #    `1`: peek
-    #    `2`: push
-    # - 2: `values`, a list of values.
-    #    Where each value is a 32-bit unsigned integer.
-    #    The value at `i` is pushed if the command at `i` is `2`.
-    # - 3: `has_ans`, a 1-bit unsigned integer.
-    #    We raise/lower this to indicate whether the queue had a reply to the command.
-    # - 4: `component_ans`, a 32-bit unsigned integer.
-    #    We put in this register the answer to the command, if any.
-    # - 5: `component_err`, a 1-bit unsigned integer.
-    #    We raise/lower it to indicates whether an error occurred
-    #    and the queue should no longer be invoked.
-    #
     # The user-facing interface of the `queue` component is assumed to be:
     # - input `cmd`
     #    where each command is a 2-bit unsigned integer, with the following format:
@@ -89,7 +90,7 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
                 in_value=value.out,
                 ref_ans=ans,
                 ref_err=err,
-                ref_stats=stats,
+                ref_stats=stats_cell,
             )
             if stats_component
             else cb.invoke(  # Invoke the queue.
