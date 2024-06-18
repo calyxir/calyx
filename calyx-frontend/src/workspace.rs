@@ -88,17 +88,19 @@ impl Workspace {
         parent: &Path,
     ) -> CalyxResult<PathBuf>
     where
-        S: AsRef<Path> + Clone,
+        S: AsRef<Path> + Clone + WithPos,
     {
-        let parent_path = parent.join(extern_path.clone()).canonicalize()?;
-        if parent_path.exists() {
-            return Ok(parent_path);
-        }
-        Err(Error::invalid_file(format!(
-            "Extern path `{}` not found in parent directory ({})",
-            extern_path.as_ref().to_string_lossy(),
-            parent.to_string_lossy(),
-        )))
+        parent
+            .join(extern_path.clone())
+            .canonicalize()
+            .map_err(|_| {
+                Error::invalid_file(format!(
+                    "Extern path `{}` not found in parent directory ({})",
+                    extern_path.as_ref().to_string_lossy(),
+                    parent.to_string_lossy(),
+                ))
+                .with_pos(&extern_path)
+            })
     }
 
     /// Construct a new workspace using the `compile.futil` library which

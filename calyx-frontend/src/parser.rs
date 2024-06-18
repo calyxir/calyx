@@ -189,7 +189,7 @@ impl CalyxParser {
 
 #[allow(clippy::large_enum_variant)]
 enum ExtOrComp {
-    Ext((Option<String>, Vec<Primitive>)),
+    Ext((Option<PosString>, Vec<Primitive>)),
     Comp(ComponentDef),
     PrimInline(Primitive),
 }
@@ -1208,7 +1208,7 @@ impl CalyxParser {
         ))
     }
 
-    fn ext(input: Node) -> ParseResult<(Option<String>, Vec<Primitive>)> {
+    fn ext(input: Node) -> ParseResult<(Option<PosString>, Vec<Primitive>)> {
         Ok(match_nodes!(
             input.into_children();
             [string_lit(file), primitive(prims)..] => (Some(file.into()), prims.collect())

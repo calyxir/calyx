@@ -21,7 +21,7 @@ pub struct CalyxError {
 impl Diagnostic {
     /// Run the `calyx` compiler on `path` with libraries at `lib_path`
     pub fn did_save(path: &Path, lib_path: &Path) -> Vec<CalyxError> {
-        let ws_res = calyx_frontend::Workspace::construct(
+        let ws_res = calyx_frontend::Workspace::construct_shallow(
             &Some(path.to_path_buf()),
             lib_path.resolve().as_ref(),
         );
