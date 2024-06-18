@@ -1,18 +1,14 @@
 import json
 import sys
 
-MAX_CMDS = 20000
-QUEUE_SIZE = 16
-
 
 def parse_json():
     """Effectively the opposite of `data_gen`:
-    Given a JSON file formatted for Calyx purposes, parse it into its two lists:
-    - The `commands` memory, which has MAX_CMDS items.
-    - The `values` memory, which has MAX_CMDS items.
+    Given a JSON file formatted for Calyx purposes, parses it into two lists:
+    - The `commands` list.
+    - The `values` list.
     Returns the two lists.
     """
-
     data = json.load(sys.stdin)
     commands = data["commands"]["data"]
     values = data["values"]["data"]

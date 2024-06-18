@@ -1,5 +1,5 @@
 {
-  "mem": {
+  "out": {
     "data": [
       0,
       0,
@@ -20,7 +20,7 @@
     "format": {
       "is_signed": false,
       "numeric_type": "bitnum",
-      "width": 64
+      "width": 32
     }
   }
 }
