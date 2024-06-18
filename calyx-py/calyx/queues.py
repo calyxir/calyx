@@ -194,3 +194,152 @@ def operate_queue(commands, values, queue):
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
     ans += [0] * (queue_util.MAX_CMDS - len(ans))
     return ans
+
+@dataclass
+class Pieo:
+    """A PIEO data structure.
+    Supports the operations `push`, `pop`, and `peek`.
+
+    Stores elements ordered increasingly by a totally ordered `rank` attribute (for
+    simplicitly, our implementation is just using integers).
+
+    At initialization we take in a set of `(int, int)` pairs `data` which stores
+    values and their ranks, and is ordered.
+    
+    We also take at initialization a `max_len` value to store the maximum possible
+    length of a queue.
+
+    If initialized with "error mode" turned on, the queue raises errors in case
+    of underflow or overflow and stops the simulation.
+
+    Otherwise, it allows those commands to fail silently but continues the simulation.
+
+    When asked to push:
+    - If the PIEO is at length `max_len`,
+        we fail silently or raise an error depending on error_mode.
+    - Otherwise, we insert the element into the PIEO such that the rank order stays increasing.
+
+    When asked to pop:
+    - If the length of `data` is 0,
+        we fail silently or raise an error depending on error_mode.
+
+    - We can either pop based on value or based on eligibility.
+    - This implementation supports the most common eligibility predicate:
+        the <= relation on some bound.
+
+    - If a value is passed in, we pop the first (lowest-rank) instance of that value.
+    - If no value is passed in but a bound is,
+        we pop the first (lowest-rank) value that passes the predicate.
+    - Note that either a value or a bound must be passed in - both cannot be, nor can neither.
+
+    When asked to peek:
+    We do the same thing as `pop`, except:
+    - We peek into the PIEO instead of popping it - i.e. we don't remove any elements.
+
+    We compactly represent these similar operations through `query`, which takes in an additional
+    optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
+    """
+    
+    def __init__(self, data: List[(int, int)], error_mode=True, max_len: int = None):
+        """Initialize structure. Ensures that rank ordering is preserved."""
+        self.data = data.sort(lambda x : x[1])
+        self.error_mode = error_mode
+        self.max_len = max_len or queue_util.QUEUE_SIZE
+    
+    def push(self, val: int, rank : int) -> None:
+        """Pushes to a PIEO.
+        Inserts element such that rank ordering is preserved
+        """
+        if len(self.data) == self.max_len:
+            if self.error_mode:
+                raise QueueError("Cannot push to full PIEO")
+            return
+        
+        else:
+            for x in range(len(self.data)):
+                if self.ranks[x] >= rank:
+                    continue
+                else:
+                    self.data.insert(x, (val, rank))
+    
+    def query(self, val=None, bound=None, remove=False) -> Optional[int]:
+        """Queries a PIEO. Pops the PIEO if remove is True. Peeks otherwise.
+        Can take in either a value or a bound. If a value is passed in,
+        query scans data for that value and returns the first instance
+        (with the lowest rank).
+
+        If a bound parameter is passed in, this is treated as a parameter for
+        an eligibility predicate for which data[i] <= bound.
+        """
+
+        if len(self.data) == 0:
+            if self.error_mode:
+                raise QueueError("Cannot pop from empty PIEO.")
+            
+        if val == None and bound == None:
+            raise QueueError("Either a value or predicate must be supplied.")
+        
+        elif val != None and bound != None:
+            raise QueueError("Cannot supply both a value and an eligibility predicate.")
+        
+        if bound == None:
+            for x in range(len(self.data)):
+                if self.data[x][0] == val:
+                    return self.data.pop(x)[0] if remove else self.data[x][0]
+            return None
+        
+        if val == None:
+            try:
+                return [x for x in self.data if x[1] <= bound][0]
+            except IndexError:
+                raise QueueError("No elements match eligibility predicate")
+    
+    def pop(self, val=None, bound=None) -> Optional[int]:
+        """Pops a PIEO. See query() for specifics."""
+
+        return self.query(val, bound, remove=True)
+
+    def peek(self, val=None, bound=None) -> Optional[int]:
+        """Peeks a PIEO. See query() for specifics."""
+
+        return self.query(val, bound, remove=False)
+    
+    def operate_queue(commands, values, ranks, bounds, queue):
+        """Given the four lists:
+        - One of commands, one of values, one of ranks, one of bounds:
+        - Feed these into our queue, and return the answer memory.
+        - Commands correspond to:
+            0 : pop by value
+            1 : pop by predicate
+            2 : peek by value
+            3 : peek by predicate
+            4 : push
+        """
+
+        ans = []
+        for cmd, val, rank, bound in zip(commands, values, ranks, bounds):
+            if cmd < 2:
+                try:
+                    result = queue.pop(val if cmd == 0 else bound)
+                    if result:
+                        ans.append(result)
+                except QueueError:
+                    break
+
+            elif cmd < 4:
+                try:
+                    result = queue.peek(val if cmd == 2 else bound)
+                    if result:
+                        ans.append(result)
+                except QueueError:
+                    break
+
+            elif cmd == 4:
+                try:
+                    queue.push((val, rank))
+                except QueueError:
+                    break
+
+        # Pad the answer memory with zeroes until it is of length MAX_CMDS.
+        ans += [0] * (queue_util.MAX_CMDS - len(ans))
+        return ans
