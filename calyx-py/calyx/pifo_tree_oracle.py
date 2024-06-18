@@ -1,15 +1,13 @@
-# Usage:
-# To make a .data file:
-# python calyx-py/calyx/queue_data_gen.py --piezo > calyx-py/test/correctness/sdn.data
-# To then make a .expect file:
-# cat calyx-py/test/correctness/sdn.data |
-# python calyx-py/calyx/pifotree_oracle.py > calyx-py/test/correctness/sdn.expect
+# For usage, see gen_queue_data_expect.sh
 
+import sys
 import calyx.queues as queues
 from calyx import queue_util
 
 
 if __name__ == "__main__":
+
+    max_cmds, len = int(sys.argv[1]), int(sys.argv[2])
     commands, values = queue_util.parse_json()
 
     # Our PIFO is a little complicated: it is a tree of queues.
@@ -23,8 +21,11 @@ if __name__ == "__main__":
     #   - The boundary for this is 200.
 
     pifo = queues.Pifo(
-        queues.Pifo(queues.Fifo([]), queues.Fifo([]), 100), queues.Fifo([]), 200, False
+        queues.Pifo(queues.Fifo(len), queues.Fifo(len), 100, len),
+        queues.Fifo(len),
+        200,
+        len,
     )
 
-    ans = queues.operate_queue(commands, values, pifo)
+    ans = queues.operate_queue(commands, values, pifo, max_cmds)
     queue_util.dump_json(commands, values, ans)

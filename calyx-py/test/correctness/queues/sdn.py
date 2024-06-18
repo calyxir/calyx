@@ -100,6 +100,9 @@ def build(static=False):
     """Top-level function to build the program.
     The `static` flag determines whether the program is static or dynamic.
     """
+    static = "--static" in sys.argv
+    num_cmds = int(sys.argv[1])
+
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
     controller = insert_controller(prog, "controller", stats_component)
@@ -119,11 +122,10 @@ def build(static=False):
     )
     # The root PIFO will take a stats component by reference.
 
-    queue_call.insert_main(prog, pifo_root, controller, stats_component)
+    queue_call.insert_main(prog, pifo_root, num_cmds, controller, stats_component)
     return prog.program
 
 
 # We will have a command line argument to determine whether the program is static.
 if __name__ == "__main__":
-    static = sys.argv[1] == "--static" if len(sys.argv) > 1 else False
-    build(static=static).emit()
+    build().emit()
