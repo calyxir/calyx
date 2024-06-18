@@ -96,6 +96,7 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
             ],
         ),
         runner.incr(i),  # i++
+        runner.reg_store(err, 0, "lower_err"),  # Lower the error flag.
     ]
 
     return runner
