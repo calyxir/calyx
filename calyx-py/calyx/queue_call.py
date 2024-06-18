@@ -101,7 +101,14 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     return runner
 
 
-def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
+def insert_main(
+    prog,
+    queue,
+    num_cmds,
+    keepgoing=False,
+    controller=None,
+    stats_component=None,
+):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components.
     """
@@ -124,28 +131,28 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
     j = main.reg(32)  # The index on the answer-list we'll write to
     keep_looping = main.and_(1)  # If this is high, we keep going. Otherwise, we stop.
     lt = main.lt(32)
-    # not_err = main.not_(1)
+    not_err = main.not_(1)
 
     with main.comb_group("Compute_keep_looping") as compute_keep_looping:
         # The condition to keep looping is:
-        # - The index `i` is less than the number of commands `num_cmds`
-        # - If the `keepgoing` flag is _not_ set, the dataplane error is zero.
-
+        # The index `i` is less than the number of commands `num_cmds`
+        # AND
+        # If the `keepgoing` flag is _not_ set, the dataplane error is not high.
         lt.left = i.out
         lt.right = num_cmds
-        # not_err.in_ = dataplane_err.out
-        # keep_looping.left = lt.out
-        # keep_looping.right = cb.HI
-        # if keepgoing else not_err.out
+        not_err.in_ = dataplane_err.out
+        keep_looping.left = lt.out
+        keep_looping.right = cb.HI if keepgoing else not_err.out
 
     main.control += cb.while_with(
         # We will run the dataplane and controller components in sequence,
         # in a while loop. The loop will terminate when `break_` has a value of `1`.
-        cb.CellAndGroup(lt, compute_keep_looping),
+        cb.CellAndGroup(keep_looping, compute_keep_looping),
         [
             main.reg_store(has_ans, 0, "lower_has_ans"),  # Lower the has-ans flag.
             (
-                cb.invoke(  # Invoke the dataplane component with a stats component.
+                cb.invoke(
+                    # Invoke the dataplane component with a stats component.
                     dataplane,
                     ref_commands=commands,
                     ref_values=values,
@@ -155,7 +162,8 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
                     ref_stats_runner=stats,
                 )
                 if stats_component
-                else cb.invoke(  # Invoke the dataplane component without a stats component.
+                else cb.invoke(
+                    # Invoke the dataplane component without a stats component.
                     dataplane,
                     ref_commands=commands,
                     ref_values=values,
@@ -178,14 +186,14 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
                     ],
                 ),
             ),
-            # (
-            #     cb.invoke(  # Invoke the controller component.
-            #         controller,
-            #         ref_stats_controller=stats,
-            #     )
-            #     if controller
-            #     else Empty
-            # ),
+            (
+                cb.invoke(  # Invoke the controller component.
+                    controller,
+                    ref_stats_controller=stats,
+                )
+                if controller
+                else Empty
+            ),
             main.incr(i),  # i++
         ],
     )
