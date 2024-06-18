@@ -27,7 +27,7 @@ def insert_stable_binheap(prog, name, queue_len_factor):
     err = comp.reg(1, "err", is_ref=True)
 
     i = comp.reg(32)
-    
+
     cat = comp.cat(32, 32)
 
     with comp.continuous:
@@ -35,7 +35,14 @@ def insert_stable_binheap(prog, name, queue_len_factor):
         cat.right = i.out
 
     comp.control += [
-        cb.invoke(below, in_value=value, in_rank=cat.out, in_cmd=cmd, ref_ans=ans, ref_err=err),
+        cb.invoke(
+            below, 
+            in_value=value, 
+            in_rank=cat.out, 
+            in_cmd=cmd, 
+            ref_ans=ans, 
+            ref_err=err
+        ),
         comp.incr(i)
     ]
 
@@ -129,6 +136,7 @@ def insert_main(prog):
         ]
 
     comp.control += [
+        # works like the usual heap?
         push(9, 9),
         push(12, 12),
         push(6, 6),
@@ -143,6 +151,7 @@ def insert_main(prog):
         pop_and_store(),
         pop_and_store(),
         pop_and_store(),
+        # breaks ties correctly?
         push(3, 2),
         push(4, 2),
         push(5, 2),
@@ -152,7 +161,7 @@ def insert_main(prog):
         pop_and_store(),
         pop_and_store(),
         pop_and_store(),
-        pop_and_store()
+        pop_and_store(),
     ]
 
 
