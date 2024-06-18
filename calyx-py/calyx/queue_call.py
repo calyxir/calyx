@@ -65,26 +65,14 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     cmd = runner.reg(2)  # The command we're currently processing
     value = runner.reg(32)  # The value we're currently processing
 
-    incr_i = runner.incr(i)  # i++
-    cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
-
-    # Wiring to perform `cmd := commands[i]` and `value := values[i]`.
-    write_cmd_to_reg = runner.mem_load_d1(commands, i.out, cmd, "write_cmd")
-    write_value_to_reg = runner.mem_load_d1(values, i.out, value, "write_value")
-
-    # Wiring to raise/lower flags and compute a negation.
-    raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
-    lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
-    not_err = runner.not_use(err.out)
-
     # Wiring that raises `err` iff `i = num_cmds`.
     check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, num_cmds, err)
 
     runner.control += [
-        write_cmd_to_reg,  # `cmd := commands[i]`
-        write_value_to_reg,  # `value := values[i]`
+        runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),  # `cmd := commands[i]`
+        runner.mem_load_d1(values, i.out, value, "write_value"),  # `value := values[i]`
         (
-            cb.invoke(  # Invoke the queue.
+            cb.invoke(  # Invoke the queue with a stats component.
                 queue,
                 in_cmd=cmd.out,
                 in_value=value.out,
@@ -93,7 +81,7 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
                 ref_stats=stats_cell,
             )
             if stats_component
-            else cb.invoke(  # Invoke the queue.
+            else cb.invoke(  # Invoke the queue without a stats component.
                 queue,
                 in_cmd=cmd.out,
                 in_value=value.out,
@@ -103,16 +91,18 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
         ),
         # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
-            not_err,  # If there was no error
+            runner.not_use(err.out),  # If there was no error
             [
                 cb.if_with(
-                    cmd_le_1,  # If the command was a pop or peek
-                    raise_has_ans,  # then raise the `has_ans` flag
-                    lower_has_ans,  # else lower the `has_ans` flag
+                    # If cmd <= 1, meaning cmd is pop or peek, raise the `has_ans` flag.
+                    # Otherwise, lower the `has_ans` flag.
+                    runner.le_use(cmd.out, 1),
+                    runner.reg_store(has_ans, 1, "raise_has_ans"),
+                    runner.reg_store(has_ans, 0, "lower_has_ans"),
                 ),
             ],
         ),
-        incr_i,  # Increment the command index
+        runner.incr(i),  # i++
         check_if_out_of_cmds,  # If we're out of commands, raise `err`
     ]
 
@@ -142,20 +132,18 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
     ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
 
     j = main.reg(32)  # The index on the answer-list we'll write to
-    incr_j = main.incr(j)  # j++
     write_ans = main.mem_store_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
     # ans_mem[j] = dataplane_ans
-    lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
-
-    not_err = main.not_use(dataplane_err.out)
 
     main.control += cb.while_with(
         # We will run the dataplane and controller components in sequence,
         # in a while loop. The loop will terminate when the dataplane component
         # raises `dataplane_err`.
-        not_err,  # While the dataplane component has not errored out.
+        main.not_use(
+            dataplane_err.out
+        ),  # While the dataplane component has not errored out.
         [
-            lower_has_ans,  # Lower the has-ans flag.
+            main.reg_store(has_ans, 0, "lower_has_ans"),  # Lower the has-ans flag.
             (
                 cb.invoke(  # Invoke the dataplane component.
                     dataplane,
@@ -180,7 +168,7 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
             # write it to the answer-list and increment the index `j`.
             cb.if_(
                 has_ans.out,
-                cb.if_with(ans_neq_0, [write_ans, incr_j]),
+                cb.if_with(ans_neq_0, [write_ans, main.incr(j)]),
             ),
             (
                 cb.invoke(  # Invoke the controller component.
