@@ -106,12 +106,12 @@ fn find_path_nontrivial_cycle() {
     let s1 = bld.state("s1", &[]);
     let s2 = bld.state("s2", &[]);
     let s3 = bld.state("s3", &[]);
-    let t1 = bld.op("t1", &[], s2, s2, |_, _, _| Ok(()));
-    let _t2 = bld.op("t2", &[], s1, s2, |_, _, _| Ok(()));
+    let _t1 = bld.op("t1", &[], s2, s2, |_, _, _| Ok(()));
+    let t2 = bld.op("t2", &[], s1, s2, |_, _, _| Ok(()));
     let t3 = bld.op("t3", &[], s2, s3, |_, _, _| Ok(()));
     let driver = bld.build();
     assert_eq!(
-        Some(vec![(t1, vec![s2]), (t3, vec![s3])]),
+        Some(vec![(t2, vec![s2]), (t3, vec![s3])]),
         driver.find_path(&[s1], &[s3], &[])
     );
 }

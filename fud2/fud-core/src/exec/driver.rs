@@ -1,13 +1,18 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
-use cranelift_entity::{PrimaryMap, SecondaryMap};
+use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
-use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    error::Error,
+    ffi::OsStr,
+    fmt::Display,
+};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 enum Node {
     State(StateRef),
     Op(OpRef),
@@ -22,114 +27,278 @@ pub struct Driver {
     pub ops: PrimaryMap<OpRef, Operation>,
     pub rsrc_dir: Option<Utf8PathBuf>,
     pub rsrc_files: Option<FileData>,
-    op_graph: HashMap<Node, Vec<Node>>,
+    /// Maps from a node to a tuple (nodes with edge into node, nodes with edge from node)
+    op_graph: HashMap<Node, (Vec<Node>, Vec<Node>)>,
 }
 
 impl Driver {
-    /// Return parents ops of a given state
-    fn parent_ops(&self, state: StateRef) -> Vec<OpRef> {
-        self.ops
-            .iter()
-            .filter_map(|(op_ref, op)| {
-                if op.output.contains(&state) {
-                    Some(op_ref)
-                } else {
-                    None
+    fn merge_plans(
+        p1: Option<Vec<(OpRef, Vec<StateRef>)>>,
+        p2: Option<Vec<(OpRef, Vec<StateRef>)>>,
+    ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
+        match (p1, p2) {
+            (Some(p1), Some(p2)) => {
+                let mut res = p1.clone();
+                for (o, used) in p2 {
+                    if let Some(i) = res.iter_mut().find(|(p, _)| *p == o) {
+                        let used = used
+                            .iter()
+                            .filter(|r| !i.1.contains(r))
+                            .collect::<Vec<_>>();
+                        i.1.extend(used);
+                    } else {
+                        res.push((o, used));
+                    }
                 }
-            })
-            .collect()
+                Some(res)
+            }
+            _ => None,
+        }
     }
 
-    fn find_reversed_path(
+    fn find_tree_from_op(
         &self,
+        from: OpRef,
         start: &[StateRef],
-        end: &[StateRef],
-        through: &[OpRef],
-        visited: &mut SecondaryMap<StateRef, u32>,
+        last: Node,
     ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
-        let mut path: Vec<(OpRef, Vec<StateRef>)> = vec![];
-        for &output in end.iter().filter(|s| !start.contains(s)) {
-            // visit the state at most twice
-            if visited[output] > 1 {
-                continue;
+        fn dfs(
+            driver: &Driver,
+            from: Node,
+            last: Node,
+            start: &[StateRef],
+            visited: &mut HashMap<Node, u32>,
+        ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
+            // update visiteds
+            visited.entry(from).or_insert(0);
+            if visited[&from] > 0 {
+                return None;
             }
-            visited[output] += 1;
+            visited.insert(from, visited[&from] + 1);
 
-            // select and order ops
-            let ops = self.parent_ops(output);
-            let mut reordered_ops = vec![];
-            for &op in through {
-                if ops.contains(&op) {
-                    reordered_ops.push(op);
-                }
-            }
-            for op in ops {
-                if !reordered_ops.contains(&op) {
-                    reordered_ops.push(op);
-                }
-            }
-
-            // recurse to find path to current point
-            let mut segment = None;
-            for op in reordered_ops {
-                if let Some(p) = self.find_reversed_path(
-                    start,
-                    &self.ops[op].input,
-                    through,
-                    visited,
-                ) {
-                    segment = Some((p, op));
-                    break;
+            // base case of just a single state
+            if let Node::State(state_ref) = from {
+                if start.contains(&state_ref) {
+                    return Some(vec![]);
                 }
             }
 
-            match segment {
-                Some((s, o)) => {
-                    let mut in_path = false;
-                    for (op, states) in path.iter_mut() {
-                        if *op == o {
-                            states.push(output);
-                            in_path = true;
-                            break;
+            match from {
+                // in the case of a state we just need one of the ops to work
+                Node::State(_) => {
+                    for &op in &driver.op_graph[&from].0 {
+                        if let Some(plan) =
+                            dfs(driver, op, from, start, visited)
+                        {
+                            return Some(plan);
                         }
                     }
-                    if !in_path {
-                        path.push((o, vec![output]));
-                    }
-                    path.extend(s);
+                    None
                 }
-                None => return None,
+                // in the case of an op we need to get plans from all inputs
+                Node::Op(op) => {
+                    let mut res = vec![];
+                    if let Node::State(state) = last {
+                        res.push((op, vec![state]));
+                    } else {
+                        panic!("invariant violated: all ops should only have edges to states");
+                    }
+                    let mut res = Some(res);
+                    for &state in &driver.op_graph[&from].0 {
+                        let plan = dfs(driver, state, from, start, visited);
+                        res = Driver::merge_plans(res, plan);
+                        if res.is_none() {
+                            return res;
+                        }
+                    }
+                    res
+                }
             }
         }
-        Some(path)
+        dfs(self, Node::Op(from), last, start, &mut HashMap::new()).map(
+            |mut v| {
+                v.reverse();
+                v
+            },
+        )
     }
 
-    /// Find a chain of operations from the `start` state to the `end` state, passing through each
-    /// `through` operation in order. Include with each operation the list of used output states.
+    fn find_path_generating_state(
+        &self,
+        from: OpRef,
+        target: StateRef,
+        start: &[StateRef],
+    ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
+        let mut visited = HashSet::new();
+        let mut q = VecDeque::new();
+        let mut par: HashMap<Node, Node> = HashMap::new();
+        q.push_back(Node::Op(from));
+        visited.insert(Node::Op(from));
+        println!(
+            "from {:?} to {:?}",
+            self.ops[from].name, self.states[target].name
+        );
+        while !q.is_empty() {
+            println!(
+                "q: {:?}",
+                q.iter()
+                    .map(|&n| match n {
+                        Node::Op(op) => self.ops[op].name.clone(),
+                        Node::State(state) => self.states[state].name.clone(),
+                    })
+                    .collect::<Vec<_>>()
+            );
+            println!(
+                "visited: {:?}",
+                visited
+                    .iter()
+                    .map(|&n| match n {
+                        Node::Op(op) => self.ops[op].name.clone(),
+                        Node::State(state) => self.states[state].name.clone(),
+                    })
+                    .collect::<Vec<_>>()
+            );
+            println!(
+                "par: {:?}",
+                par.iter()
+                    .map(|(&k, &v)| match (k, v) {
+                        (Node::Op(op), Node::State(state)) => (
+                            self.ops[op].name.clone(),
+                            self.states[state].name.clone()
+                        ),
+                        (Node::State(state), Node::Op(op)) => (
+                            self.states[state].name.clone(),
+                            self.ops[op].name.clone()
+                        ),
+                        _ => panic!("impossible"),
+                    })
+                    .collect::<Vec<_>>()
+            );
+            let mut v = q.pop_front().unwrap();
+            if let Node::Op(op) = v {
+                if self.ops[op].output.contains(&target) {
+                    // retrieve the solution
+                    let mut res = Some(vec![]);
+                    loop {
+                        if let Some(&n) = par.get(&v) {
+                            println!(
+                                "n: {:?}",
+                                match n {
+                                    Node::Op(op) => self.ops[op].name.clone(),
+                                    Node::State(state) =>
+                                        self.states[state].name.clone(),
+                                }
+                            );
+                            if let Node::Op(t) = n {
+                                let plan = self
+                                    .find_tree_from_op(t, start, v)
+                                    .map(|mut v| {
+                                        v.push((op, vec![target]));
+                                        v
+                                    });
+                                println!(
+                                    "plan: {:?}",
+                                    plan.clone().map(|v| v
+                                        .iter()
+                                        .map(|(r, _)| self.ops[*r].name.clone())
+                                        .collect::<Vec<_>>())
+                                );
+                                res = Self::merge_plans(res, plan);
+                            }
+                            v = n;
+                        } else {
+                            let op = match v {
+                                    Node::Op(op) => op,
+                                    _ => panic!("invariant violated: all ops should only have edges to states"),
+                            };
+                            println!(
+                                "hit global parent op: {:?}",
+                                self.ops[match v {
+                                    Node::Op(op) => op,
+                                    _ => panic!("impossible"),
+                                }]
+                                .name
+                            );
+                            let plan = self
+                                .find_tree_from_op(
+                                    op,
+                                    start,
+                                    Node::State(target),
+                                )
+                                .map(|mut v| {
+                                    v.push((op, vec![target]));
+                                    v
+                                });
+                            println!(
+                                "tacking on plan: {:?}",
+                                plan.clone().map(|v| v
+                                    .iter()
+                                    .map(|(r, _)| self.ops[*r].name.clone())
+                                    .collect::<Vec<_>>())
+                            );
+                            return Self::merge_plans(res, plan);
+                        }
+                    }
+                }
+            }
+            for &u in &self.op_graph[&v].1 {
+                if !visited.contains(&u) {
+                    par.insert(u, v);
+                    visited.insert(u);
+                    q.push_back(u);
+                }
+            }
+        }
+        None
+    }
+
+    /// creates a sequence of ops and used states from each op
+    /// each element of end and through are associated based on their index
+    /// currently we assume the amount of items passed is no greater than the states in end
     pub fn find_path(
         &self,
         start: &[StateRef],
         end: &[StateRef],
         through: &[OpRef],
     ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
-        let path = self.find_reversed_path(
-            start,
-            end,
-            through,
-            &mut SecondaryMap::new(),
-        );
-        // reverse the path
-        path.map(|mut p| {
-            p.reverse();
-            p
-        })
-        // make sure we actually go through everything we are trying to go through
-        // the algo just does it's best to satisfy the through constraint, but doesn't guarrentee it
-        .filter(|p| {
-            through
+        let mut plan = Some(vec![]);
+        for i in 0..through.len() {
+            println!(
+                "starting through {:?} with target {:?}",
+                self.ops[through[i]].name, self.states[end[i]].name
+            );
+            let comp =
+                self.find_path_generating_state(through[i], end[i], start);
+            plan = Self::merge_plans(plan, comp);
+        }
+        for &target in end.iter().skip(through.len()) {
+            println!("starting target: {:?}", target);
+            let mut path_found = false;
+            for &n in &self.op_graph[&Node::State(target)].0 {
+                if let Node::Op(op) = n {
+                    if let Some(comp) =
+                        self.find_path_generating_state(op, target, start)
+                    {
+                        plan = Self::merge_plans(plan, Some(comp));
+                        path_found = true;
+                        break;
+                    }
+                } else {
+                    panic!("invariant violated: all ops should only have edges to states");
+                }
+            }
+            if !path_found {
+                return None;
+            }
+        }
+        println!(
+            "final plan: {:?}",
+            plan.clone().map(|v| v
                 .iter()
-                .all(|t| p.iter().map(|(o, _)| o).any(|o| o == t))
-        })
+                .map(|(r, _)| self.ops[*r].name.clone())
+                .collect::<Vec<_>>())
+        );
+        plan
     }
 
     /// Generate a filename with an extension appropriate for the given State.
@@ -445,20 +614,31 @@ impl DriverBuilder {
     pub fn build(self) -> Driver {
         let mut op_graph = HashMap::new();
         for (state_ref, _) in &self.states {
-            op_graph.insert(Node::State(state_ref), Vec::new());
+            op_graph.insert(Node::State(state_ref), (Vec::new(), Vec::new()));
         }
         for (op_ref, op) in &self.ops {
             op_graph.insert(
                 Node::Op(op_ref),
-                op.input
-                    .iter()
-                    .map(|&state_ref| Node::State(state_ref))
-                    .collect(),
+                (
+                    op.input
+                        .iter()
+                        .map(|&state_ref| Node::State(state_ref))
+                        .collect(),
+                    op.output
+                        .iter()
+                        .map(|&state_ref| Node::State(state_ref))
+                        .collect(),
+                ),
             );
+            for &state_ref in &op.input {
+                if let Some(v) = op_graph.get_mut(&Node::State(state_ref)) {
+                    v.1.push(Node::Op(op_ref))
+                }
+            }
             for &state_ref in &op.output {
-                op_graph
-                    .get_mut(&Node::State(state_ref))
-                    .map(|v| v.push(Node::Op(op_ref)));
+                if let Some(v) = op_graph.get_mut(&Node::State(state_ref)) {
+                    v.0.push(Node::Op(op_ref));
+                }
             }
         }
 
