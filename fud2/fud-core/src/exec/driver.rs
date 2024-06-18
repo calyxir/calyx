@@ -134,46 +134,7 @@ impl Driver {
         let mut par: HashMap<Node, Node> = HashMap::new();
         q.push_back(Node::Op(from));
         visited.insert(Node::Op(from));
-        println!(
-            "from {:?} to {:?}",
-            self.ops[from].name, self.states[target].name
-        );
         while !q.is_empty() {
-            println!(
-                "q: {:?}",
-                q.iter()
-                    .map(|&n| match n {
-                        Node::Op(op) => self.ops[op].name.clone(),
-                        Node::State(state) => self.states[state].name.clone(),
-                    })
-                    .collect::<Vec<_>>()
-            );
-            println!(
-                "visited: {:?}",
-                visited
-                    .iter()
-                    .map(|&n| match n {
-                        Node::Op(op) => self.ops[op].name.clone(),
-                        Node::State(state) => self.states[state].name.clone(),
-                    })
-                    .collect::<Vec<_>>()
-            );
-            println!(
-                "par: {:?}",
-                par.iter()
-                    .map(|(&k, &v)| match (k, v) {
-                        (Node::Op(op), Node::State(state)) => (
-                            self.ops[op].name.clone(),
-                            self.states[state].name.clone()
-                        ),
-                        (Node::State(state), Node::Op(op)) => (
-                            self.states[state].name.clone(),
-                            self.ops[op].name.clone()
-                        ),
-                        _ => panic!("impossible"),
-                    })
-                    .collect::<Vec<_>>()
-            );
             let mut v = q.pop_front().unwrap();
             if let Node::Op(op) = v {
                 if self.ops[op].output.contains(&target) {
@@ -181,14 +142,6 @@ impl Driver {
                     let mut res = Some(vec![]);
                     loop {
                         if let Some(&n) = par.get(&v) {
-                            println!(
-                                "n: {:?}",
-                                match n {
-                                    Node::Op(op) => self.ops[op].name.clone(),
-                                    Node::State(state) =>
-                                        self.states[state].name.clone(),
-                                }
-                            );
                             if let Node::Op(t) = n {
                                 let plan = self
                                     .find_tree_from_op(t, start, v)
@@ -196,13 +149,6 @@ impl Driver {
                                         v.push((op, vec![target]));
                                         v
                                     });
-                                println!(
-                                    "plan: {:?}",
-                                    plan.clone().map(|v| v
-                                        .iter()
-                                        .map(|(r, _)| self.ops[*r].name.clone())
-                                        .collect::<Vec<_>>())
-                                );
                                 res = Self::merge_plans(res, plan);
                             }
                             v = n;
@@ -211,14 +157,6 @@ impl Driver {
                                     Node::Op(op) => op,
                                     _ => panic!("invariant violated: all ops should only have edges to states"),
                             };
-                            println!(
-                                "hit global parent op: {:?}",
-                                self.ops[match v {
-                                    Node::Op(op) => op,
-                                    _ => panic!("impossible"),
-                                }]
-                                .name
-                            );
                             let plan = self
                                 .find_tree_from_op(
                                     op,
@@ -229,13 +167,6 @@ impl Driver {
                                     v.push((op, vec![target]));
                                     v
                                 });
-                            println!(
-                                "tacking on plan: {:?}",
-                                plan.clone().map(|v| v
-                                    .iter()
-                                    .map(|(r, _)| self.ops[*r].name.clone())
-                                    .collect::<Vec<_>>())
-                            );
                             return Self::merge_plans(res, plan);
                         }
                     }
@@ -263,16 +194,11 @@ impl Driver {
     ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
         let mut plan = Some(vec![]);
         for i in 0..through.len() {
-            println!(
-                "starting through {:?} with target {:?}",
-                self.ops[through[i]].name, self.states[end[i]].name
-            );
             let comp =
                 self.find_path_generating_state(through[i], end[i], start);
             plan = Self::merge_plans(plan, comp);
         }
         for &target in end.iter().skip(through.len()) {
-            println!("starting target: {:?}", target);
             let mut path_found = false;
             for &n in &self.op_graph[&Node::State(target)].0 {
                 if let Node::Op(op) = n {
@@ -291,13 +217,6 @@ impl Driver {
                 return None;
             }
         }
-        println!(
-            "final plan: {:?}",
-            plan.clone().map(|v| v
-                .iter()
-                .map(|(r, _)| self.ops[*r].name.clone())
-                .collect::<Vec<_>>())
-        );
         plan
     }
 
