@@ -123,7 +123,7 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
     commands = main.seq_mem_d1("commands", 2, num_cmds, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
-    j = main.reg(32)  # The index on the answer-list we'll write to
+    i = main.reg(32)  # The index on the answer-list we'll write to
 
     main.control += cb.while_with(
         # We will run the dataplane and controller components in sequence,
@@ -153,16 +153,16 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
                 )
             ),
             # If the dataplane component has a nonzero answer,
-            # write it to the answer-list and increment the index `j`.
+            # write it to the answer-list and increment the index `i`.
             cb.if_(
                 has_ans.out,
                 cb.if_with(
                     main.neq_use(dataplane_ans.out, 0),
                     [
                         main.mem_store_d1(
-                            ans_mem, j.out, dataplane_ans.out, "write_ans"
+                            ans_mem, i.out, dataplane_ans.out, "write_ans"
                         ),
-                        main.incr(j),
+                        main.incr(i),
                     ],
                 ),
             ),
