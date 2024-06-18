@@ -18,13 +18,27 @@ op(
 );
 
 fn wrapper_setup(e) {
-   e.config_var_or("axi-generator", "axi.generator", "$calyx-base/yxi/axi-calyx/axi-generator.py");
-   e.config_var_or("python", "python", "python3");
-   e.rule("gen-axi", "$python $axi-generator $in > $out");
+    // Define a `gen-axi` rule that invokes our Python code generator program.
+    // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
+    let dynamic =
+        e.config_constrained_or("dynamic", ["true", "false"], "false");
+    let generator_path = if dynamic == "true" {
+        "$calyx-base/yxi/axi-calyx/dynamic-axi-generator.py"
+    } else {
+        "$calyx-base/yxi/axi-calyx/axi-generator.py"
+    };
+    e.config_var_or("axi-generator", "axi.generator", generator_path);
+    e.config_var_or("python", "python", "python3");
 
-   // Define a simple `combine` rule that just concats any number of files.
-   e.rule("combine", "cat $in > $out");
-   e.rule("remove-imports", "sed '1,/component main/{/component main/!d}' $in > $out");
+    e.rule("gen-axi", "$python $axi-generator $in > $out");
+
+    // Define a simple `combine` rule that just concatenates any numer of files.
+    e.rule("combine", "cat $in > $out");
+
+    e.rule(
+        "remove-imports",
+        "sed '1,/component main/{/component main/!d; }' $in > $out",
+    );
 }
 
 /// Replace the extension in `path` with `new_ext`
