@@ -15,7 +15,7 @@ def build():
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
     pifo_root = pifo.insert_pifo(prog, "pifo_root", pifo_red, fifo_blue, 200)
-    qc.insert_main(prog, pifo_root, num_cmds)
+    qc.insert_main(prog, pifo_root, num_cmds, keepgoing=True)
     return prog.program
 
 

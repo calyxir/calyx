@@ -300,7 +300,7 @@ def build():
     fifo_l = fifo.insert_fifo(prog, "fifo_l", QUEUE_LEN_FACTOR)
     fifo_r = fifo.insert_fifo(prog, "fifo_r", QUEUE_LEN_FACTOR)
     pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
-    qc.insert_main(prog, pifo, num_cmds)
+    qc.insert_main(prog, pifo, num_cmds, keepgoing=True)
     return prog.program
 
 

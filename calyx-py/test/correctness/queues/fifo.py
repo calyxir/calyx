@@ -106,7 +106,7 @@ def build():
     num_cmds = int(sys.argv[1])
     prog = cb.Builder()
     fifo = insert_fifo(prog, "fifo")
-    qc.insert_main(prog, fifo, num_cmds)
+    qc.insert_main(prog, fifo, num_cmds, keepgoing=True)
     return prog.program
 
 
