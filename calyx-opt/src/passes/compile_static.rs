@@ -583,6 +583,7 @@ impl CompileStatic {
                 delay_map: delay_map,
                 children: children_vec,
                 num_repeats: num_repeats,
+                num_states: cur_num_states,
             })
         }
     }
