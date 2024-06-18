@@ -168,7 +168,7 @@ class Pifo:
         return self.pifo_len
 
 
-def operate_queue(commands, values, queue, max_cmds):
+def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
     """Given the two lists, one of commands and one of values.
     Feed these into our queue, and return the answer memory.
     """
@@ -181,6 +181,8 @@ def operate_queue(commands, values, queue, max_cmds):
                 if result:
                     ans.append(result)
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
         elif cmd == 1:
@@ -189,12 +191,16 @@ def operate_queue(commands, values, queue, max_cmds):
                 if result:
                     ans.append(queue.peek())
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
         elif cmd == 2:
             try:
                 queue.push(val)
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
     # Pad the answer memory with zeroes until it is of length `max_cmds`.
