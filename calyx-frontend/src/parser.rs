@@ -5,9 +5,8 @@ use super::ast::{
     self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
 };
 use super::Attributes;
-use crate::ast::PosString;
 use crate::{Attribute, Direction, PortDef, Primitive, Width};
-use calyx_utils::{self, CalyxResult, Id};
+use calyx_utils::{self, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
@@ -72,6 +71,7 @@ impl CalyxParser {
                         path.to_string_lossy(),
                         err = e
                     ))
+                    .with_pos(&Self::error_span(e, file))
                 })?;
         let input = inputs.single().map_err(|e| {
             calyx_utils::Error::misc(format!(
@@ -79,13 +79,15 @@ impl CalyxParser {
                 path.to_string_lossy(),
                 err = e
             ))
+            .with_pos(&Self::error_span(e, file))
         })?;
         let out = CalyxParser::file(input).map_err(|e| {
             calyx_utils::Error::misc(format!(
                 "Failed to parse `{}`: {err}",
                 path.to_string_lossy(),
-                err = e
+                err = e,
             ))
+            .with_pos(&Self::error_span(e, file))
         })?;
         log::info!(
             "Parsed `{}` in {}ms",
@@ -114,12 +116,15 @@ impl CalyxParser {
                 calyx_utils::Error::misc(
                     format!("Failed to parse buffer: {e}",),
                 )
+                .with_pos(&Self::error_span(e, file))
             })?;
         let input = inputs.single().map_err(|e| {
-            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}",))
+            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}"))
+                .with_pos(&Self::error_span(e, file))
         })?;
         let out = CalyxParser::file(input).map_err(|e| {
-            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}",))
+            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}"))
+                .with_pos(&Self::error_span(e, file))
         })?;
         Ok(out)
     }
@@ -132,6 +137,15 @@ impl CalyxParser {
             sp.start(),
             sp.end(),
         );
+        GPosIdx(pos)
+    }
+
+    fn error_span(error: pest::error::Error<Rule>, file: FileIdx) -> GPosIdx {
+        let (start, end) = match error.location {
+            pest::error::InputLocation::Pos(off) => (off, off + 1),
+            pest::error::InputLocation::Span((start, end)) => (start, end),
+        };
+        let pos = GlobalPositionTable::as_mut().add_pos(file, start, end);
         GPosIdx(pos)
     }
 
@@ -1211,7 +1225,7 @@ impl CalyxParser {
     fn ext(input: Node) -> ParseResult<(Option<PosString>, Vec<Primitive>)> {
         Ok(match_nodes!(
             input.into_children();
-            [string_lit(file), primitive(prims)..] => (Some(file.into()), prims.collect())
+            [string_lit(file), primitive(prims)..] => (Some(file), prims.collect())
         ))
     }
 
