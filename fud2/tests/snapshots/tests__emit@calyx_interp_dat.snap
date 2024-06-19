@@ -57,6 +57,6 @@ build data.dump: dump-to-interp $sim_data | $cider-converter
 
 # build targets
 build interp_out.json: cider stdin | data.json
-build stdin.json: interp-to-dat interp_out.json | $sim_data interp-dat.py
+build _from_stdin_dat.json: interp-to-dat interp_out.json | $sim_data interp-dat.py
 
-default stdin.json
+default _from_stdin_dat.json

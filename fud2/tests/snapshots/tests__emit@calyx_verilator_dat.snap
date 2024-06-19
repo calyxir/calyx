@@ -43,14 +43,14 @@ rule cp
   command = cp $in $out
 
 # build targets
-build stdin.sv: calyx stdin
+build verilog.sv: calyx stdin
   backend = verilog
-build verilator-out/VTOP: verilator-compile-standalone-tb stdin.sv | tb.sv
+build verilator-out/VTOP: verilator-compile-standalone-tb verilog.sv | tb.sv
   out-dir = verilator-out
-build stdin.exe: cp verilator-out/VTOP
-build sim.log: sim-run stdin.exe $datadir
-  bin = stdin.exe
+build sim.exe: cp verilator-out/VTOP
+build sim.log: sim-run sim.exe $datadir
+  bin = sim.exe
   args = +NOTRACE=1
-build stdin.json: json-data $datadir sim.log | json-dat.py
+build _from_stdin_dat.json: json-data $datadir sim.log | json-dat.py
 
-default stdin.json
+default _from_stdin_dat.json

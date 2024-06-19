@@ -40,13 +40,13 @@ rule icarus-compile-custom-tb
   command = $iverilog -g2012 -o $out tb.sv memories.sv $in
 
 # build targets
-build stdin.sv: calyx stdin
+build verilog-noverify.sv: calyx stdin
   backend = verilog
   args = --disable-verify
-build stdin.exe: icarus-compile-standalone-tb stdin.sv | tb.sv
-build sim.log: sim-run stdin.exe $datadir
-  bin = stdin.exe
+build sim.exe: icarus-compile-standalone-tb verilog-noverify.sv | tb.sv
+build sim.log: sim-run sim.exe $datadir
+  bin = sim.exe
   args = +NOTRACE=1
-build stdin.json: json-data $datadir sim.log | json-dat.py
+build _from_stdin_dat.json: json-data $datadir sim.log | json-dat.py
 
-default stdin.json
+default _from_stdin_dat.json

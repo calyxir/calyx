@@ -44,8 +44,8 @@ build tb.sv: generate-refmem-testbench memory-info.json
 build tmp-out.fir: calyx ref.futil
   backend = firrtl
   args = --emit-primitive-extmodules
-build stdin.fir: dummy tmp-out.fir tb.sv
-build partial.sv: firrtl stdin.fir
-build stdin.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
+build firrtl.fir: dummy tmp-out.fir tb.sv
+build partial.sv: firrtl firrtl.fir
+build _from_stdin_verilog-refmem.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
 
-default stdin.sv
+default _from_stdin_verilog-refmem.sv

@@ -56,6 +56,6 @@ rule interp-to-dump
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
 # build targets
-build _pseudo_debug: cider-debug stdin | data.json
+build _from_stdin_debug: cider-debug stdin | data.json
 
-default _pseudo_debug
+default _from_stdin_debug

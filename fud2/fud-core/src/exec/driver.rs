@@ -226,13 +226,54 @@ impl Driver {
     }
 
     /// Generate a filename with an extension appropriate for the given State.
-    fn gen_name(&self, stem: &str, state: StateRef) -> Utf8PathBuf {
-        let state = &self.states[state];
+    /// We assume states are only used once
+    fn gen_name(
+        &self,
+        state_ref: StateRef,
+        used: bool,
+        req: &Request,
+    ) -> Utf8PathBuf {
+        let state = &self.states[state_ref];
+        let extension = if !state.extensions.is_empty() {
+            &state.extensions[0]
+        } else {
+            ""
+        };
+
+        // make sure we have correct input/output filenames and mark if we read from stdio
+        if req.start_state == state_ref {
+            if let Some(ref start_file) = req.start_file {
+                return start_file.clone();
+            } else {
+                return Utf8PathBuf::from(format!(
+                    "_from_stdin_{}",
+                    state.name
+                ))
+                .with_extension(extension);
+            }
+        }
+
+        if req.end_state == state_ref {
+            if let Some(ref end_file) = req.end_file {
+                return end_file.clone();
+            } else {
+                return Utf8PathBuf::from(format!(
+                    "_from_stdin_{}",
+                    state.name
+                ))
+                .with_extension(extension);
+            }
+        }
+
+        // okay, wild west filename time (make them unique and hopefully helpful)
+        let prefix = if !used { "_unused_" } else { "" };
         if state.is_pseudo() {
-            Utf8PathBuf::from(format!("_pseudo_{}", state.name))
+            Utf8PathBuf::from(format!("{}from_stdin_{}", prefix, state.name))
+                .with_extension(extension)
         } else {
             // TODO avoid collisions in case we reuse extensions...
-            Utf8PathBuf::from(stem).with_extension(&state.extensions[0])
+            Utf8PathBuf::from(format!("{}{}", prefix, state.name))
+                .with_extension(extension)
         }
     }
 
@@ -245,26 +286,40 @@ impl Driver {
         let path =
             self.find_path(&[req.start_state], &[req.end_state], &req.through)?;
 
-        let mut steps: Vec<(OpRef, Utf8PathBuf)> = vec![];
-
         // Get the initial input filename and the stem to use to generate all intermediate filenames.
         let (stdin, start_file) = match req.start_file {
-            Some(path) => (false, utils::relative_path(&path, &req.workdir)),
+            Some(ref path) => (false, utils::relative_path(path, &req.workdir)),
             None => (true, "stdin".into()),
         };
-        let stem = start_file.file_stem().unwrap();
 
         // Generate filenames for each step.
-        steps.extend(path.into_iter().map(|(op, used_states)| {
-            let filename = self.gen_name(stem, used_states[0]);
-            (op, filename)
-        }));
+        let steps = path
+            .into_iter()
+            .map(|(op, used_states)| {
+                let _input_filenames = self
+                    .ops
+                    .get(op)
+                    .unwrap()
+                    .input
+                    .iter()
+                    .map(|&state| self.gen_name(state, true, &req))
+                    .collect::<Vec<_>>();
+                let output_filenames = self
+                    .ops
+                    .get(op)
+                    .unwrap()
+                    .output
+                    .iter()
+                    .map(|&state| {
+                        self.gen_name(state, used_states.contains(&state), &req)
+                    })
+                    .collect();
+                (op, output_filenames)
+            })
+            .collect::<Vec<_>>();
 
         // If we have a specified output filename, use that instead of the generated one.
-        let stdout = if let Some(end_file) = req.end_file {
-            // TODO Can we just avoid generating the unused filename in the first place?
-            let last_step = steps.last_mut().expect("no steps");
-            last_step.1 = utils::relative_path(&end_file, &req.workdir);
+        let stdout = if let Some(_end_file) = req.end_file {
             false
         } else {
             // Print to stdout if the last state is a real (non-pseudo) state.

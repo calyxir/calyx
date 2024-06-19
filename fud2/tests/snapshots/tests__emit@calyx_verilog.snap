@@ -16,7 +16,7 @@ rule calyx-pass
   command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
 
 # build targets
-build stdin.sv: calyx stdin
+build _from_stdin_verilog.sv: calyx stdin
   backend = verilog
 
-default stdin.sv
+default _from_stdin_verilog.sv
