@@ -101,17 +101,15 @@ impl CalyxParser {
         let inputs =
             CalyxParser::parse_with_userdata(Rule::file, contents, user_data)
                 .map_err(|e| {
-                calyx_utils::Error::misc(
-                    format!("Failed to parse buffer: {e}",),
-                )
-                .with_pos(&Self::error_span(&e, file))
+                calyx_utils::Error::parse_error(e.variant.message())
+                    .with_pos(&Self::error_span(&e, file))
             })?;
         let input = inputs.single().map_err(|e| {
-            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}"))
+            calyx_utils::Error::parse_error(e.variant.message())
                 .with_pos(&Self::error_span(&e, file))
         })?;
         let out = CalyxParser::file(input).map_err(|e| {
-            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}"))
+            calyx_utils::Error::parse_error(e.variant.message())
                 .with_pos(&Self::error_span(&e, file))
         })?;
         Ok(out)
