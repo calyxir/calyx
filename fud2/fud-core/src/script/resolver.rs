@@ -10,7 +10,7 @@ use std::{
 use itertools::Itertools;
 use rhai::EvalAltResult;
 
-use super::{exec_scripts::RhaiResult, report::RhaiReport};
+use super::exec_scripts::RhaiResult;
 
 #[derive(Default)]
 pub(super) struct Resolver {
@@ -28,8 +28,8 @@ enum ResolverError {
 impl Display for ResolverError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ResolverError::Failed(m) => write!(f, "Loading `{m}` failed."),
-            ResolverError::Unknown(m) => write!(f, "`{m}` was not found."),
+            ResolverError::Failed(m) => write!(f, "Loading {m} failed."),
+            ResolverError::Unknown(m) => write!(f, "{m} was not found."),
         }
     }
 }
@@ -48,7 +48,6 @@ impl Resolver {
         path: PathBuf,
         ast: rhai::AST,
     ) -> rhai::AST {
-        // let stem = path.file_stem().unwrap().into();
         let functions = ast.clone_functions_only();
         self.files.push((path, ast));
 
@@ -72,7 +71,7 @@ impl Resolver {
             .collect()
     }
 
-    fn resolve_name(&self, name: &str) -> Option<&rhai::AST> {
+    fn find_ast(&self, name: &str) -> Option<&rhai::AST> {
         self.files
             .iter()
             .find(|(path, _)| {
@@ -83,6 +82,16 @@ impl Resolver {
                     || Some(name) == path.file_stem().and_then(|os| os.to_str())
             })
             .map(|(_, ast)| ast)
+    }
+
+    fn resolve_filename(&self, name: &str) -> Option<&PathBuf> {
+        self.files
+            .iter()
+            .find(|(path, _)| {
+                Some(name) == path.to_str()
+                    || Some(name) == path.file_stem().and_then(|os| os.to_str())
+            })
+            .map(|(path, _)| path)
     }
 
     fn normalize_name(&self, name: &str) -> String {
@@ -109,7 +118,7 @@ impl Resolver {
         let name = self.normalize_name(path);
         if self.failed.borrow().contains(&name) {
             Err(Box::new(EvalAltResult::ErrorSystem(
-                "Failed module loading".to_string(),
+                "".to_string(),
                 Box::new(ResolverError::Failed(format!("{path:?}"))),
             )))
         } else {
@@ -129,9 +138,12 @@ impl rhai::ModuleResolver for Resolver {
         engine: &rhai::Engine,
         _source: Option<&str>,
         name: &str,
-        _pos: rhai::Position,
+        pos: rhai::Position,
     ) -> RhaiResult<Rc<rhai::Module>> {
-        let path_buf = PathBuf::from(name);
+        let path_buf = self
+            .resolve_filename(name)
+            .cloned()
+            .unwrap_or(PathBuf::from(name));
 
         // if this path has already failed, don't try loading it again
         self.did_fail(name)?;
@@ -141,7 +153,7 @@ impl rhai::ModuleResolver for Resolver {
             Ok(module)
         } else {
             // otherwise, make a new module, cache it, and return it
-            self.resolve_name(name)
+            self.find_ast(name)
                 .ok_or(ResolverError::Unknown(name.to_string()).into())
                 .and_then(|ast| {
                     rhai::Module::eval_ast_as_new(
@@ -151,10 +163,14 @@ impl rhai::ModuleResolver for Resolver {
                     )
                 })
                 .map(|m| self.insert(name, m))
-                .inspect_err(|e| {
-                    e.report(&path_buf);
-                    self.add_failed(name)
+                .map_err(|e| {
+                    Box::new(EvalAltResult::ErrorInModule(
+                        path_buf.as_os_str().to_str().unwrap().to_string(),
+                        e,
+                        pos,
+                    ))
                 })
+                .inspect_err(|_| self.add_failed(name))
         }
     }
 }

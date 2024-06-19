@@ -14,7 +14,7 @@ description = "Compiler driver for the Calyx infrastructure"
 
 [features]
 migrate_to_scripts = []
-default = []
+default = ["migrate_to_scripts"]
 
 [dependencies]
 fud-core = { path = "fud-core", version = "0.0.2" }
@@ -32,3 +32,4 @@ path = "src/main.rs"
 
 [dev-dependencies]
 insta = "1.36.0"
+itertools.workspace = true
