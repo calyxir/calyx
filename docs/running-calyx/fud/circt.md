@@ -22,7 +22,7 @@ path/to/circt-translate --export-calyx /path/to/file
 
 For example, you can use the expected output of the test `tests/backend/mlir/simple.expect`:
 ```
-{{#include ../../tests/backend/mlir/simple.expect}}
+{{#include ../../../tests/backend/mlir/simple.expect}}
 ```
 
 Using the command:
@@ -35,7 +35,7 @@ path/to/circt-translate --export-calyx tests/backend/mlir/simple.expect
 This should output:
 
 ```
-{{#include ../../tests/backend/mlir/simple.futil}}
+{{#include ../../../tests/backend/mlir/simple.futil}}
 ```
 
 ## Native Representation to MLIR
@@ -73,10 +73,10 @@ We provide `-x discover-external:default=<size>` which tells the pass that when 
 A limitation of this approach is that the pass does not support discovering interface memories with different sizes.
 If you desperately need this, please [open an issue][issue], and we'll try to prioritize it.
 
-[`fud`]: ../fud
+[`fud`]: ./index.md
 [cider]: ../interpreter.md
-[synth]: ../fud/xilinx.html#synthesis-only
-[axi-gen]: ../fud/axi-gen.html
+[synth]: ./xilinx.html#synthesis-only
+[axi-gen]: ./axi-gen.html
 [`@external`]: ../lang/attributes.html#external
 [issue]:https://github.com/calyxir/calyx/issues/new
 

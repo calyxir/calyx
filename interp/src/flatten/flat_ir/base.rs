@@ -172,7 +172,7 @@ impl From<GlobalPortIdx> for GlobalPortRef {
 
 impl GlobalPortRef {
     #[must_use]
-    pub fn as_port(&self) -> Option<&GlobalPortIdx> {
+    pub fn _as_port(&self) -> Option<&GlobalPortIdx> {
         if let Self::Port(v) = self {
             Some(v)
         } else {
@@ -181,7 +181,7 @@ impl GlobalPortRef {
     }
 
     #[must_use]
-    pub fn as_ref(&self) -> Option<&GlobalRefPortIdx> {
+    pub fn _as_ref(&self) -> Option<&GlobalRefPortIdx> {
         if let Self::Ref(v) = self {
             Some(v)
         } else {
@@ -246,6 +246,50 @@ impl From<LocalRefCellOffset> for CellRef {
 
 impl From<LocalCellOffset> for CellRef {
     fn from(v: LocalCellOffset) -> Self {
+        Self::Local(v)
+    }
+}
+
+#[derive(Debug)]
+pub enum GlobalCellRef {
+    Cell(GlobalCellIdx),
+    Ref(GlobalRefCellIdx),
+}
+
+impl From<GlobalRefCellIdx> for GlobalCellRef {
+    fn from(v: GlobalRefCellIdx) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<GlobalCellIdx> for GlobalCellRef {
+    fn from(v: GlobalCellIdx) -> Self {
+        Self::Cell(v)
+    }
+}
+
+impl GlobalCellRef {
+    pub fn from_local(local: CellRef, base_info: &BaseIndices) -> Self {
+        match local {
+            CellRef::Local(l) => (base_info + l).into(),
+            CellRef::Ref(r) => (base_info + r).into(),
+        }
+    }
+}
+
+pub enum CellDefinitionRef {
+    Local(CellDefinitionIdx),
+    Ref(RefCellDefinitionIdx),
+}
+
+impl From<RefCellDefinitionIdx> for CellDefinitionRef {
+    fn from(v: RefCellDefinitionIdx) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<CellDefinitionIdx> for CellDefinitionRef {
+    fn from(v: CellDefinitionIdx) -> Self {
         Self::Local(v)
     }
 }

@@ -199,18 +199,48 @@ When we have following two conditions:
 1. An input port is marked with `@data` in the component definitions, and
 2. The cell instance is marked as `@data`
 
-The backend generate `'x` as the default value for the assignment to the port instead of `'0`. Additionally, if the port has exactly one assignment, the backend removes the guard entirely and produces a continuous assignment.
+The backend generates `'x` as the default value for the assignment to the port instead of `'0`. Additionally, if the port has exactly one assignment, the backend removes the guard entirely and produces a continuous assignment.
 
 This represents the optimization:
 ```
-in = g ? out : 'x
+cells {
+  @data cell = cell_component();
+}
+wires {
+  cell.in = g ? out : 'x
+}
 ```
 into:
 ```
-in = out;
+// cells are same as before
+wires {
+  cell.in = out;
+}
 ```
 Since the value `'x` can be replaced with anything.
+(Currently Calyx does not support assignments of the form `rhs = guard ? lhs1: lhs2`,
+so the syntax isn't 100% accurate.
+This optimization happens when translating from Calyx to Verilog.
+At some point we may want to make this optimization happen during a Calyx pass.)
 
+`@data` can also appear on the output ports of a Calyx component.
+This represents when we want to optimize assignments to the port _within a Calyx component_.
+Consider the following example:
+```
+component main() ->(...@data out_write_data: 32....) {
+  ...
+  wires {
+    out_write_data = g ? out : 'x // we want to optimize to out_write_data = out
+  }
+}
+```
+Note that we are trying to perform this optimization _within the component_, i.e.,
+`out_write_data` is a port on the signature of the component itself, not an instance.
+Also note that in this case, `@data` appears on the _output_ port of the component's signature.
+When `@data` appears on an output port of a Calyx component, it means that assignments
+to this port _within_ the component will get the "default to `'x`" semantics and optimizations.
+Note that there is no requirement of having the "cell instance is marked as `@data`",
+as before.
 
 [datapath-components]: https://github.com/calyxir/calyx/issues/1169
 [builder]: https://docs.rs/calyx-ir/latest/calyx_ir/struct.Builder.html

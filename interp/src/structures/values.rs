@@ -391,6 +391,15 @@ impl Value {
         self.vec.truncate(new_size);
     }
 
+    /// returns a value which consists of all the bits from left as the upper
+    /// bits and all the bits from right as the lower bits of a value whose
+    /// width is the sum of the widths of left and right
+    pub fn concat(left: &Self, right: &Self) -> Self {
+        Value {
+            vec: left.vec.iter().chain(right.vec.iter()).collect(),
+        }
+    }
+
     /// Zero-extend the vector to length ext.
     ///
     /// # Example:
@@ -646,6 +655,62 @@ impl Value {
         let new_bv = BitVec::from_bitslice(&self.vec[lower_idx..=upper_idx]);
         Value { vec: new_bv }
     }
+
+    /// Creates a value from a byte slice and truncates to the specified width.
+    /// The bytes are assumed to be little-endian. The slice of bytes must be
+    /// non-empty. And the width must be less than or equal to the number of
+    /// bits in the slice. In cases where the width of the value is less than
+    /// the bits provided, the unused upper values should be set to zero and will be
+    /// discarded.
+    pub fn from_bytes_le(bytes: &[u8], width: usize) -> Self {
+        assert!(!bytes.is_empty());
+        assert!(width <= bytes.len() * 8);
+        // TODO griffin: Make this sanity check even mildly comprehensible
+        let overhead = (width.div_ceil(8) * 8) - width;
+        assert!(
+            bytes.last().unwrap().leading_zeros() >= overhead as u32,
+            "The upper byte of the provided value has non-zero values in the padding. Given byte is {} but the upper {} bit(s) should be zero",
+            bytes.last().unwrap(),
+            overhead
+        );
+
+        let chunks = bytes.chunks_exact(8);
+        let remainder = chunks.remainder();
+
+        let mut vec: Vec<usize> = chunks
+            .map(|x| {
+                usize::from_le_bytes([
+                    x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7],
+                ])
+            })
+            .collect();
+
+        if !remainder.is_empty() {
+            let mut acc = 0_usize;
+            for (byte_number, u) in remainder.iter().enumerate() {
+                acc |= (*u as usize) << (byte_number * 8)
+            }
+            vec.push(acc);
+        }
+
+        let mut bv = BitString::from_vec(vec);
+        bv.truncate(width);
+        Value { vec: bv }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        // there has got to be a better way to do this
+        self.vec
+            .chunks(8)
+            .map(|bits| {
+                let mut byte = 0_u8;
+                for (i, bit) in bits.iter().enumerate() {
+                    byte |= (*bit as u8) << i;
+                }
+                byte
+            })
+            .collect()
+    }
 }
 
 /* ============== Impls for Values to make them easier to use ============= */
@@ -746,5 +811,23 @@ impl<'de> Deserialize<'de> for Value {
 
         let (val, bytes) = deserializer.deserialize_str(BitVecVisitor)?;
         Ok(Value::from(val, bytes * 8))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_byte_roundtrip(data in proptest::collection::vec(any::<u8>(), 1..100)) {
+            // this doesn't really test the truncation since it's been hard to
+            // get that working in a way that still generates values correctly
+            // but this is good enough for now
+            let val = Value::from_bytes_le(&data, data.len() * 8);
+            let bytes = val.to_bytes();
+            prop_assert_eq!(bytes, data);
+        }
     }
 }

@@ -4,7 +4,7 @@ use calyx_utils::CalyxResult;
 use ir::RRC;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 /// A pass to detect cells that have been inlined into the top-level component
 /// and turn them into real cells marked with [ir::BoolAttr::External].
@@ -241,7 +241,7 @@ impl Visitor for DiscoverExternal {
         }
 
         // Rewrite the ports mentioned in the component signature and remove them
-        let mut rewrites: ir::rewriter::PortRewriteMap = HashMap::new();
+        let mut rewrites: ir::rewriter::PortRewriteMap = LinkedHashMap::new();
         for (pre, ports) in port_map {
             // let prim = sigs.get_primitive(pre_to_prim[&pre]);
             let cr = pre_to_cells[&pre].clone();

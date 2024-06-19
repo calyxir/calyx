@@ -50,3 +50,12 @@ results.xml
 
 !cider-dap/calyxDebug/package.json
 !cider-dap/calyxDebug/tsconfig.json
+
+# btor2i ignore
+tools/btor2/btor2i/build/
+
+# vcd-parsing tmp files ignore
+tools/profiler/tmp/
+tools/profiler/logs
+
+temp/

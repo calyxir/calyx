@@ -6,7 +6,6 @@
  * - All parameter names must be SNAKE_CASE and all caps.
  * - Port names must be snake_case, no caps.
  */
-`default_nettype none
 
 module std_slice #(
     parameter IN_WIDTH  = 32,
@@ -182,16 +181,6 @@ module std_le #(
    output logic out
 );
   assign out = left <= right;
-endmodule
-
-module std_lsh #(
-    parameter WIDTH = 32
-) (
-   input wire               logic [WIDTH-1:0] left,
-   input wire               logic [WIDTH-1:0] right,
-   output logic [WIDTH-1:0] out
-);
-  assign out = left << right;
 endmodule
 
 module std_rsh #(

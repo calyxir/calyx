@@ -18,8 +18,9 @@ The following defines a stage that transforms [MrXL][] programs to Calyx
 programs.
 
 ```python
-{{#include ../../frontends/mrxl/fud/mrxl.py}}
+{{#include ../../../frontends/mrxl/fud/mrxl.py}}
 ```
+
 
 External stages *must* define default values for configuration keys using the
 `Stage.defaults()` static method and the name of the stage using the static
@@ -47,4 +48,4 @@ The override order for stage configuration is:
 2. Configuration value in the fud config.
 3. Default value provided by `Stage.defaults()`
 
-[MrXL]: ../frontends/mrxl.md
+[MrXL]: ../../frontends/mrxl.md

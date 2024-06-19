@@ -267,6 +267,6 @@ Take a look at the [full language reference][lang-ref] for details on the comple
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/calyxir/calyx/tree/master/examples/tutorial
 [icarus verilog]: http://iverilog.icarus.com
-[fud]: ../fud/index.md
+[fud]: ../running-calyx/fud/index.md
 [data-format]: ../lang/data-format.md
 [lang-ref]: ../lang/ref.md

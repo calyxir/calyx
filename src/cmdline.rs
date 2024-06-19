@@ -5,7 +5,7 @@ use calyx_backend::SexpBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
     Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
-    ResourcesBackend, VerilogBackend, YxiBackend,
+    ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -89,6 +89,10 @@ pub struct Opts {
     #[argh(option, short = 'x', long = "extra-opt")]
     pub extra_opts: Vec<String>,
 
+    /// establish a relative ordering of passes
+    #[argh(option, short = 'i', long = "insert")]
+    pub insertions: Vec<String>,
+
     /// enable verbose printing
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
@@ -165,10 +169,6 @@ impl Opts {
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend;
-                backend.run(context, self.output)
-            }
-            BackendOpt::Yxi => {
-                let backend = YxiBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Firrtl => {

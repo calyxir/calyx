@@ -14,6 +14,11 @@ members = [
     "cider-dap",
     "fud2",
     "fud2/fud-core",
+    "data-conversion",
+    "tools/btor2/btor2i",
+    "tools/cider-data-converter",
+    "tools/calyx-pass-explorer",
+    "tools/yxi",
 ]
 exclude = ["site"]
 

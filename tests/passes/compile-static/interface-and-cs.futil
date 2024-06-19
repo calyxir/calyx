@@ -1,0 +1,49 @@
+// -p validate -p compile-invoke -p static-inline -p dead-group-removal -p add-guard -p simplify-static-guards -p compile-static
+// This test case is needed to test how the `compile-static` pass works in tandem
+// with components that have been compiled using the static interface (i.e.,
+// components that separated %[0:n] -> %[0] | %[1:n]).
+// Previous test cases had missed this interaction leading us to catching bugs late.
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+static<6> component do_add(left: 32, right: 32) -> () {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    static<1> group a {
+      add.left = r.out;
+      add.right = right;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+
+    static<1> group b {
+      add.left = left;
+      add.right = right;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+  }
+  control {
+    static seq {
+      b;
+      static repeat 5 {
+        a;
+      }
+    }
+  }
+
+}
+
+component main () -> () {
+  cells {
+    a = do_add();
+  }
+  wires {}
+
+  control {
+    static invoke a(left=32'd5, right = 32'd6)();
+  }
+}

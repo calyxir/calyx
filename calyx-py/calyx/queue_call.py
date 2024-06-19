@@ -4,7 +4,7 @@ from calyx import queue_util
 import calyx.builder as cb
 
 
-def insert_runner(prog, queue, name, stats_component=None):
+def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it one command.
     This component is designed to be invoked by some other component, and does not
@@ -55,57 +55,51 @@ def insert_runner(prog, queue, name, stats_component=None):
     # - ref register `err`, which is raised if an error occurs.
 
     # Our memories and registers, all of which are passed to us by reference.
-    commands = runner.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_ref=True)
-    values = runner.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_ref=True)
-    has_ans = runner.reg("has_ans", 1, is_ref=True)
-    ans = runner.reg("component_ans", 32, is_ref=True)
-    err = runner.reg("component_err", 1, is_ref=True)
+    commands = runner.seq_mem_d1("commands", 2, num_cmds, 32, is_ref=True)
+    values = runner.seq_mem_d1("values", 32, num_cmds, 32, is_ref=True)
+    has_ans = runner.reg(1, "has_ans", is_ref=True)
+    ans = runner.reg(32, "component_ans", is_ref=True)
+    err = runner.reg(1, "component_err", is_ref=True)
 
-    i = runner.reg("i", 32)  # The index of the command we're currently processing
-    cmd = runner.reg("command", 2)  # The command we're currently processing
-    value = runner.reg("value", 32)  # The value we're currently processing
+    i = runner.reg(32)  # The index of the command we're currently processing
+    cmd = runner.reg(2)  # The command we're currently processing
+    value = runner.reg(32)  # The value we're currently processing
 
     incr_i = runner.incr(i)  # i++
     cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
 
     # Wiring to perform `cmd := commands[i]` and `value := values[i]`.
-    read_cmd = runner.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
-    write_cmd_to_reg = runner.mem_write_seq_d1_to_reg(commands, cmd, "write_cmd_phase2")
-    read_value = runner.mem_read_seq_d1(values, i.out, "read_value")
-    write_value_to_reg = runner.mem_write_seq_d1_to_reg(
-        values, value, "write_value_to_reg"
-    )
+    write_cmd_to_reg = runner.mem_load_d1(commands, i.out, cmd, "write_cmd")
+    write_value_to_reg = runner.mem_load_d1(values, i.out, value, "write_value")
 
     # Wiring to raise/lower flags and compute a negation.
     raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
     lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
     not_err = runner.not_use(err.out)
 
-    # Wiring that raises `err` iff `i = MAX_CMDS`.
-    check_if_out_of_cmds, _ = runner.eq_store_in_reg(
-        i.out, cb.const(32, queue_util.MAX_CMDS), "i_eq_MAX_CMDS", 32, err
-    )
+    # Wiring that raises `err` iff `i = num_cmds`.
+    check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, num_cmds, err)
 
     runner.control += [
-        read_cmd,
         write_cmd_to_reg,  # `cmd := commands[i]`
-        read_value,
         write_value_to_reg,  # `value := values[i]`
-        cb.invoke(  # Invoke the queue.
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
-            ref_stats=stats,
-        )
-        if stats_component
-        else cb.invoke(  # Invoke the queue.
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
+        (
+            cb.invoke(  # Invoke the queue.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+                ref_stats=stats,
+            )
+            if stats_component
+            else cb.invoke(  # Invoke the queue.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+            )
         ),
         # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
@@ -125,7 +119,7 @@ def insert_runner(prog, queue, name, stats_component=None):
     return runner
 
 
-def insert_main(prog, queue, controller=None, stats_component=None):
+def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components.
     """
@@ -134,22 +128,22 @@ def insert_main(prog, queue, controller=None, stats_component=None):
 
     stats = main.cell("stats_main", stats_component) if stats_component else None
     controller = main.cell("controller", controller) if controller else None
-    dataplane = insert_runner(prog, queue, "dataplane", stats_component)
+    dataplane = insert_runner(prog, queue, "dataplane", num_cmds, stats_component)
     dataplane = main.cell("dataplane", dataplane)
 
-    has_ans = main.reg("has_ans", 1)
-    dataplane_ans = main.reg("dataplane_ans", 32)
-    dataplane_err = main.reg("dataplane_err", 1)
+    has_ans = main.reg(1)
+    dataplane_ans = main.reg(32)
+    dataplane_err = main.reg(1)
 
-    commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
-    values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, queue_util.MAX_CMDS, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 2, num_cmds, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
 
     ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
 
-    j = main.reg("j", 32)  # The index on the answer-list we'll write to
+    j = main.reg(32)  # The index on the answer-list we'll write to
     incr_j = main.incr(j)  # j++
-    write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
+    write_ans = main.mem_store_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
     # ans_mem[j] = dataplane_ans
     lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
 
@@ -162,23 +156,25 @@ def insert_main(prog, queue, controller=None, stats_component=None):
         not_err,  # While the dataplane component has not errored out.
         [
             lower_has_ans,  # Lower the has-ans flag.
-            cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
-                ref_has_ans=has_ans,
-                ref_component_ans=dataplane_ans,
-                ref_component_err=dataplane_err,
-                ref_stats_runner=stats,
-            )
-            if stats_component
-            else cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
-                ref_has_ans=has_ans,
-                ref_component_ans=dataplane_ans,
-                ref_component_err=dataplane_err,
+            (
+                cb.invoke(  # Invoke the dataplane component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                    ref_stats_runner=stats,
+                )
+                if stats_component
+                else cb.invoke(  # Invoke the dataplane component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                )
             ),
             # If the dataplane component has a nonzero answer,
             # write it to the answer-list and increment the index `j`.
@@ -186,11 +182,13 @@ def insert_main(prog, queue, controller=None, stats_component=None):
                 has_ans.out,
                 cb.if_with(ans_neq_0, [write_ans, incr_j]),
             ),
-            cb.invoke(  # Invoke the controller component.
-                controller,
-                ref_stats_controller=stats,
-            )
-            if controller
-            else ast.Empty,
+            (
+                cb.invoke(  # Invoke the controller component.
+                    controller,
+                    ref_stats_controller=stats,
+                )
+                if controller
+                else ast.Empty
+            ),
         ],
     )

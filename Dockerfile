@@ -15,10 +15,13 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install python dependencies
+# Install python dependencies cocotb==1.6.2 seems to be for Xilinx cocotb tests
 RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
+
+# Install clang
+RUN apt-get install -y clang
 
 # Install Verilator
 WORKDIR /home
@@ -54,7 +57,7 @@ WORKDIR /home
 RUN git  clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 ## Checkout specific version. Fetch before checkout because clone might be cached.
-RUN git fetch --all && git checkout 88e05e5
+RUN git fetch --all && git checkout 9ec9a58
 RUN sbt "; getHeaders; assembly"
 
 # Add the Calyx source code from the build context
@@ -62,9 +65,9 @@ WORKDIR /home
 ADD . calyx
 # Build the compiler
 WORKDIR /home/calyx
-RUN cargo build --all && \
+RUN cargo build --workspace && \
     cargo install vcdump && \
-    cargo install runt --version 0.4.0
+    cargo install runt --version 0.4.1
 
 # Install fud
 WORKDIR /home/calyx/fud
@@ -72,6 +75,12 @@ RUN FLIT_ROOT_INSTALL=1 flit install --symlink --deps production
 RUN mkdir -p /root/.config
 ENV PATH=$PATH:/root/.local/bin
 ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
+
+# Link fud2
+WORKDIR /home/calyx
+run mkdir -p ~/.local/bin
+RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
+RUN printf "[calyx]\nbase = \"/home/calyx\"" >> ~/.config/fud2.toml
 
 # Install calyx-py
 WORKDIR /home/calyx/calyx-py

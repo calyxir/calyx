@@ -186,9 +186,22 @@ impl PassManager {
         &self,
         incls: &[String],
         excls: &[String],
+        insns: &[String],
     ) -> CalyxResult<(Vec<String>, HashSet<String>)> {
-        // Incls and excls can both have aliases in them. Resolve them.
-        let passes = incls
+        let mut insertions = insns
+            .iter()
+            .filter_map(|str| match str.split_once(':') {
+                Some((before, after)) => {
+                    Some((before.to_string(), after.to_string()))
+                }
+                None => {
+                    log::warn!("No ':' in {str}. Ignoring this option.");
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        // Incls and excls can have aliases in them. Resolve them.
+        let mut passes = incls
             .iter()
             .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<Vec<_>>();
@@ -199,7 +212,7 @@ impl PassManager {
             .collect::<HashSet<String>>();
 
         // Validate that names of passes in incl and excl sets are known
-        passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
+        passes.iter().chain(excl_set.iter().chain(insertions.iter().flat_map(|(pass1, pass2)| vec![pass1, pass2]))).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
                 Err(Error::misc(format!(
                     "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
@@ -209,18 +222,50 @@ impl PassManager {
             }
         })?;
 
+        // Remove passes from `insertions` that are not slated to run.
+        insertions.retain(|(pass1, pass2)|
+            if !passes.contains(pass1) || excl_set.contains(pass1) {
+                log::warn!("Pass {pass1} is not slated to run. Reordering will have no effect.");
+                false
+            }
+            else if !passes.contains(pass2) || excl_set.contains(pass2) {
+                log::warn!("Pass {pass2} is not slated to run. Reordering will have no effect.");
+                false
+            }
+            else {
+                true
+            }
+        );
+
+        // Perform re-insertion.
+        // Insert `after` right after `before`. If `after` already appears after
+        // before, do nothing.
+        for (before, after) in insertions {
+            let before_idx =
+                passes.iter().position(|pass| *pass == before).unwrap();
+            let after_idx =
+                passes.iter().position(|pass| *pass == after).unwrap();
+            // Only need to perform re-insertion if it is actually out of order.
+            if before_idx > after_idx {
+                passes.insert(before_idx + 1, after);
+                passes.remove(after_idx);
+            }
+        }
+
         Ok((passes, excl_set))
     }
 
     /// Executes a given "plan" constructed using the incl and excl lists.
+    /// ord is a relative ordering that should be enforced.
     pub fn execute_plan(
         &self,
         ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
+        insn: &[String],
         dump_ir: bool,
     ) -> CalyxResult<()> {
-        let (passes, excl_set) = self.create_plan(incl, excl)?;
+        let (passes, excl_set) = self.create_plan(incl, excl, insn)?;
 
         for name in passes {
             // Pass is known to exist because create_plan validates the

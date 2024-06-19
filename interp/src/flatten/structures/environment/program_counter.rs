@@ -4,8 +4,11 @@ use ahash::{HashMap, HashMapExt};
 
 use super::super::context::Context;
 use crate::flatten::{
-    flat_ir::prelude::{ControlIdx, ControlMap, ControlNode, GlobalCellIdx},
-    structures::index_trait::{impl_index_nonzero, IndexRef},
+    flat_ir::prelude::{
+        AssignmentIdx, CombGroupIdx, ControlIdx, ControlMap, ControlNode,
+        GlobalCellIdx,
+    },
+    structures::index_trait::{impl_index_nonzero, IndexRange, IndexRef},
 };
 
 use itertools::{FoldWhile, Itertools};
@@ -55,6 +58,12 @@ impl ControlPoint {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ContinuousAssignments {
+    pub comp: GlobalCellIdx,
+    pub assigns: IndexRange<AssignmentIdx>,
+}
+
 /// An index for searching up and down a tree. This is used to index into
 /// various  control nodes. For If blocks the true branch is denoted by 0 and
 /// the false by 1. The same is true for while blocks. For seq and par blocks,
@@ -82,7 +91,7 @@ impl SearchIndex {
         self.index() == Self::TRUE_BRANCH
     }
 
-    fn is_false_branch(&self) -> bool {
+    fn _is_false_branch(&self) -> bool {
         self.index() == Self::FALSE_BRANCH
     }
 }
@@ -97,7 +106,7 @@ impl SearchPath {
         SearchPath { path: vec![] }
     }
 
-    pub fn source_node(&self) -> Option<&SearchNode> {
+    pub fn _source_node(&self) -> Option<&SearchNode> {
         self.path.first()
     }
 
@@ -105,7 +114,7 @@ impl SearchPath {
         self.path.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub fn _is_empty(&self) -> bool {
         self.path.is_empty()
     }
 
@@ -136,9 +145,6 @@ impl SearchPath {
                             return Some(next_child);
                         }
                         // we finished this seq node and need to ascend further
-                        else {
-                            continue;
-                        }
                     }
                     ControlNode::Par(_) => {
                         // the challenge here is that we currently don't know if
@@ -148,9 +154,14 @@ impl SearchPath {
                         // par's child count should be decremented. The latter
                         // seems more promising but I need to think on it more
 
-                        todo!("need to deal with par")
+                        return Some(*node);
                     }
-                    ControlNode::If(_) => {
+                    ControlNode::If(i) => {
+                        if i.cond_group().is_some() {
+                            // since this has a with, we need to re-visit
+                            // the node to clean-up the with group
+                            return Some(*node);
+                        }
                         // there is nothing to do when ascending to an if as it
                         // is already done once the body is done
                         continue;
@@ -326,33 +337,19 @@ pub type ChildCount = u16;
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
     par_map: HashMap<ControlPoint, ChildCount>,
+    continuous_assigns: Vec<ContinuousAssignments>,
+    with_map: HashMap<ControlPoint, CombGroupIdx>,
 }
 
 // we need a few things from the program counter
 
 impl ProgramCounter {
-    pub fn new(ctx: &Context) -> Self {
-        let root = ctx.entry_point;
-        // this relies on the fact that we construct the root cell-ledger
-        // as the first possible cell in the program. If that changes this will break.
-        let root_cell = GlobalCellIdx::new(0);
-
-        let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
-
-        if let Some(current) = ctx.primary[root].control {
-            vec.push(ControlPoint {
-                comp: root_cell,
-                control_node_idx: current,
-            })
-        } else {
-            todo!(
-                "Flat interpreter does not support control-less components yet"
-            )
-        }
-
+    pub(crate) fn new_empty() -> Self {
         Self {
-            vec,
+            vec: Vec::with_capacity(CONTROL_POINT_PREALLOCATE),
             par_map: HashMap::new(),
+            continuous_assigns: Vec::new(),
+            with_map: HashMap::new(),
         }
     }
 
@@ -360,20 +357,62 @@ impl ProgramCounter {
         self.vec.iter()
     }
 
-    pub fn is_done(&self) -> bool {
-        self.vec.is_empty()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
+    pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
         self.vec.iter_mut()
     }
 
-    pub(crate) fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
+    pub fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
         &mut self.vec
     }
 
-    pub(crate) fn insert_node(&mut self, node: ControlPoint) {
-        self.vec.push(node)
+    pub fn _par_map_mut(&mut self) -> &mut HashMap<ControlPoint, ChildCount> {
+        &mut self.par_map
+    }
+
+    pub fn _par_map(&self) -> &HashMap<ControlPoint, ChildCount> {
+        &self.par_map
+    }
+
+    pub fn take_fields(
+        &mut self,
+    ) -> (
+        Vec<ControlPoint>,
+        HashMap<ControlPoint, ChildCount>,
+        HashMap<ControlPoint, CombGroupIdx>,
+    ) {
+        (
+            std::mem::take(&mut self.vec),
+            std::mem::take(&mut self.par_map),
+            std::mem::take(&mut self.with_map),
+        )
+    }
+
+    pub fn restore_fields(
+        &mut self,
+        vec: Vec<ControlPoint>,
+        par_map: HashMap<ControlPoint, ChildCount>,
+        with_map: HashMap<ControlPoint, CombGroupIdx>,
+    ) {
+        self.vec = vec;
+        self.par_map = par_map;
+        self.with_map = with_map;
+    }
+
+    pub(crate) fn push_continuous_assigns(
+        &mut self,
+        comp: GlobalCellIdx,
+        assigns: IndexRange<AssignmentIdx>,
+    ) {
+        let assigns = ContinuousAssignments { comp, assigns };
+        self.continuous_assigns.push(assigns)
+    }
+
+    pub(crate) fn continuous_assigns(&self) -> &[ContinuousAssignments] {
+        &self.continuous_assigns
+    }
+
+    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, CombGroupIdx> {
+        &self.with_map
     }
 }
 

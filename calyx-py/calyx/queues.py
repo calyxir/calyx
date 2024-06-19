@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import List
 from typing import Optional
-from calyx import queue_util
 
 
 class QueueError(Exception):
@@ -20,9 +19,9 @@ class Fifo:
     Otherwise, it allows those commands to fail silently but continues the simulation.
     """
 
-    def __init__(self, data: List[int], error_mode=True, max_len: int = None):
-        self.data = data
-        self.max_len = max_len or queue_util.QUEUE_SIZE
+    def __init__(self, max_len: int, error_mode=True):
+        self.data = []
+        self.max_len = max_len
         self.error_mode = error_mode
 
     def push(self, val: int) -> None:
@@ -96,12 +95,19 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary, error_mode=True, max_len=None):
+    def __init__(
+        self,
+        queue_1,
+        queue_2,
+        boundary,
+        max_len: int,
+        error_mode=True,
+    ):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
-        self.max_len = max_len or queue_util.QUEUE_SIZE
+        self.max_len = max_len
         self.error_mode = error_mode
         assert (
             self.pifo_len <= self.max_len
@@ -162,7 +168,7 @@ class Pifo:
         return self.pifo_len
 
 
-def operate_queue(commands, values, queue):
+def operate_queue(commands, values, queue, max_cmds):
     """Given the two lists, one of commands and one of values.
     Feed these into our queue, and return the answer memory.
     """
@@ -191,6 +197,6 @@ def operate_queue(commands, values, queue):
             except QueueError:
                 break
 
-    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (queue_util.MAX_CMDS - len(ans))
+    # Pad the answer memory with zeroes until it is of length `max_cmds`.
+    ans += [0] * (max_cmds - len(ans))
     return ans

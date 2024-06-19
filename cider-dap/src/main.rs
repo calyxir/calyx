@@ -4,18 +4,18 @@ mod error;
 use adapter::MyAdapter;
 use dap::events::{ExitedEventBody, StoppedEventBody, ThreadEventBody};
 use dap::responses::{
-    ContinueResponse, SetBreakpointsResponse, SetExceptionBreakpointsResponse,
-    StackTraceResponse, ThreadsResponse,
+    ContinueResponse, ScopesResponse, SetBreakpointsResponse,
+    SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
 use error::MyAdapterError;
 
 use dap::prelude::*;
 use error::AdapterResult;
 use slog::{info, Drain};
-use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
+use std::path::{Path, PathBuf};
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -26,6 +26,13 @@ struct Opts {
     #[argh(option, short = 'p', long = "port", default = "8080")]
     /// port for the TCP server
     port: u16,
+    #[argh(
+        option,
+        short = 'l',
+        default = "Path::new(option_env!(\"CALYX_PRIMITIVES_DIR\").unwrap_or(\".\")).into()"
+    )]
+    /// std_lib path
+    path: PathBuf,
 }
 
 fn main() -> Result<(), MyAdapterError> {
@@ -65,7 +72,7 @@ fn main() -> Result<(), MyAdapterError> {
         let mut server = Server::new(read_stream, write_stream);
 
         // Get the adapter from the init function
-        let adapter = multi_session_init(&mut server, &logger)?;
+        let adapter = multi_session_init(&mut server, &logger, opts.path)?;
 
         // Run the server using the adapter
         run_server(&mut server, adapter, &logger)?;
@@ -74,7 +81,7 @@ fn main() -> Result<(), MyAdapterError> {
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
         let mut server = Server::new(read, write);
-        let adapter = multi_session_init(&mut server, &logger)?;
+        let adapter = multi_session_init(&mut server, &logger, opts.path)?;
         run_server(&mut server, adapter, &logger)?;
     }
     info!(logger, "exited run_Server");
@@ -84,6 +91,7 @@ fn main() -> Result<(), MyAdapterError> {
 fn multi_session_init<R, W>(
     server: &mut Server<R, W>,
     logger: &slog::Logger,
+    std_path: PathBuf,
 ) -> AdapterResult<MyAdapter>
 where
     R: Read,
@@ -98,6 +106,9 @@ where
         Command::Initialize(_) => {
             let rsp =
                 req.success(ResponseBody::Initialize(types::Capabilities {
+                    // Not sure if we need it
+                    // Make VSCode send disassemble request
+                    supports_stepping_granularity: Some(true),
                     ..Default::default()
                 }));
             server.respond(rsp)?;
@@ -134,13 +145,11 @@ where
         panic!("second request was not a launch");
     };
 
-    // Open file using the extracted program path
-    let file = File::open(program_path)?;
-
     // Construct the adapter
-    let mut adapter = MyAdapter::new(file);
+    let mut adapter = MyAdapter::new(program_path, std_path)?;
 
-    //Make two threads to make threads visible on call stack, subject to change.
+    // Currently, we need two threads to run the debugger and step through,
+    // not sure why but would be good to look into for the future.
     let thread = &adapter.create_thread(String::from("Main"));
     let thread2 = &adapter.create_thread(String::from("Thread 1"));
 
@@ -191,7 +200,6 @@ fn run_server<R: Read, W: Write>(
                 }
             }
 
-            // TODO: Implement this request fully when adapter becomes functional
             Command::SetExceptionBreakpoints(_) => {
                 let rsp = req.success(ResponseBody::SetExceptionBreakpoints(
                     SetExceptionBreakpointsResponse {
@@ -221,10 +229,16 @@ fn run_server<R: Read, W: Write>(
             }
             // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
+                // Create new frame if empty, SUBJECT TO CHANGE
+                let frames = if adapter.clone_stack().is_empty() {
+                    adapter.create_stack()
+                } else {
+                    adapter.clone_stack()
+                };
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {
-                        stack_frames: vec![],
-                        total_frames: None,
+                        stack_frames: frames,
+                        total_frames: Some(0),
                     }));
                 server.respond(rsp)?;
             }
@@ -249,6 +263,20 @@ fn run_server<R: Read, W: Write>(
             }
             // Step over
             Command::Next(args) => {
+                // Move stack frame
+                // If done then disconnect
+                if adapter.next_line(args.thread_id) {
+                    let rsp = req.clone().success(ResponseBody::Disconnect);
+                    server.send_event(Event::Exited(ExitedEventBody {
+                        exit_code: 0,
+                    }))?;
+                    server.respond(rsp)?;
+
+                    // Exit
+                    info!(logger, "exited debugger");
+                    return Ok(());
+                }
+
                 // Get ID before rsp takes ownership
                 let thread_id = args.thread_id;
                 let rsp = req.success(ResponseBody::Next);
@@ -283,6 +311,13 @@ fn run_server<R: Read, W: Write>(
                     create_stopped(String::from("Paused on step"), thread_id);
                 server.send_event(stopped)?;
             }
+            Command::Scopes(_) => {
+                let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
+                    scopes: vec![],
+                }));
+                server.respond(rsp)?;
+            }
+
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),

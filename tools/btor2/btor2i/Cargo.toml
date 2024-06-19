@@ -1,0 +1,17 @@
+[package]
+name = "btor2i"
+version = "0.1.0"
+authors = ["Justin Ngai <jn537@cornell.edu>", "Sanjit Basker <sb866@cornell.edu>","Omkar Bhalerao <opb7@cornell.edu>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.4.7", features = ["derive"] }
+num-bigint = "0.4.4"
+num-traits = "0.2.17"
+bitvec = "1.0.1"
+tempfile = "3.8.1"
+thiserror = "1.0.50"
+num-integer = "0.1.45"
+btor2tools = { git = "https://github.com/obhalerao/btor2tools.rs" }

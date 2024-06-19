@@ -1,0 +1,17 @@
+---
+source: fud2/tests/tests.rs
+description: emit dahlia -> calyx
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+# Dahlia compiler
+dahlia-exe = /test/bin/dahlia
+rule dahlia-to-calyx
+  command = $dahlia-exe -b calyx --lower -l error $in -o $out
+
+# build targets
+build stdin.futil: dahlia-to-calyx stdin
+
+default stdin.futil

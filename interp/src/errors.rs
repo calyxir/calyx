@@ -12,6 +12,12 @@ pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
 
 pub struct BoxedInterpreterError(Box<InterpreterError>);
 
+impl BoxedInterpreterError {
+    pub fn into_inner(&mut self) -> &mut InterpreterError {
+        &mut self.0
+    }
+}
+
 impl std::fmt::Display for BoxedInterpreterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&*self.0, f)
@@ -70,6 +76,15 @@ pub enum InterpreterError {
         #[from]
         pest_consume::Error<crate::debugger::source::metadata_parser::Rule>,
     ),
+    // Unable to parse metadata
+    #[error(transparent)]
+    NewMetadataParseError(
+        #[from] pest_consume::Error<crate::debugger::new_parser::Rule>,
+    ),
+
+    // Missing metadata
+    #[error("missing metadata")]
+    MissingMetaData,
 
     /// Wrapper for errors coming from the interactive CLI
     #[error(transparent)]
@@ -170,12 +185,27 @@ pub enum InterpreterError {
     IOError(#[from] std::io::Error),
 
     //TODO Griffin: Make this more descriptive
-    #[error("Attempted to write an undefined value to register or memory")]
-    UndefinedWrite,
+    #[error(
+        "Attempted to write an undefined value to register or memory named \"{0}\""
+    )]
+    UndefinedWrite(String),
 
     //TODO Griffin: Make this more descriptive
-    #[error("Attempted to write an undefined memory address")]
-    UndefinedWriteAddr,
+    #[error(
+        "Attempted to write an undefined memory address in memory named \"{0}\""
+    )]
+    UndefinedWriteAddr(String),
+
+    // TODO Griffin: Make this more descriptive
+    #[error(
+        "Attempted to read an undefined memory address from memory named \"{0}\""
+    )]
+    UndefinedReadAddr(String),
+
+    #[error(transparent)]
+    SerializationError(
+        #[from] crate::serialization::data_dump::SerializationError,
+    ),
 }
 
 impl InterpreterError {

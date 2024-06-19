@@ -1,13 +1,15 @@
 fn main() {
-    let language = "calyx";
-    let package = format!("tree-sitter-{}", language);
-    let source_directory = format!("{}/src", package);
-    let source_file = format!("{}/parser.c", source_directory);
+    let src_dir = std::path::Path::new("tree-sitter-calyx/src");
 
-    println!("cargo:rerun-if-changed={}", source_file);
+    let mut c_config = cc::Build::new();
+    c_config.include(src_dir);
+    c_config
+        .flag_if_supported("-Wno-unused-parameter")
+        .flag_if_supported("-Wno-unused-but-set-variable")
+        .flag_if_supported("-Wno-trigraphs");
+    let parser_path = src_dir.join("parser.c");
+    c_config.file(&parser_path);
 
-    cc::Build::new()
-        .file(source_file)
-        .include(source_directory)
-        .compile(&package);
+    c_config.compile("parser");
+    println!("cargo:rerun-if-changed={}", parser_path.to_str().unwrap());
 }

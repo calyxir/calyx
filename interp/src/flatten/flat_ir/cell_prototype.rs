@@ -1,7 +1,9 @@
 use calyx_ir::{self as cir};
 use smallvec::SmallVec;
 
-use crate::primitives::prim_utils::get_params;
+use crate::{
+    primitives::prim_utils::get_params, serialization::data_dump::Dimensions,
+};
 
 use super::prelude::ComponentIdx;
 
@@ -82,6 +84,101 @@ pub enum MemType {
     Std,
 }
 
+#[derive(Debug, Clone)]
+pub enum MemoryDimensions {
+    D1 {
+        d0_size: Width,
+        d0_idx_size: Width,
+    },
+    D2 {
+        d0_size: Width,
+        d0_idx_size: Width,
+        d1_size: Width,
+        d1_idx_size: Width,
+    },
+    D3 {
+        d0_size: Width,
+        d0_idx_size: Width,
+        d1_size: Width,
+        d1_idx_size: Width,
+        d2_size: Width,
+        d2_idx_size: Width,
+    },
+    D4 {
+        d0_size: Width,
+        d0_idx_size: Width,
+        d1_size: Width,
+        d1_idx_size: Width,
+        d2_size: Width,
+        d2_idx_size: Width,
+        d3_size: Width,
+        d3_idx_size: Width,
+    },
+}
+
+impl MemoryDimensions {
+    pub fn size(&self) -> usize {
+        match self {
+            Self::D1 { d0_size, .. } => *d0_size as usize,
+            Self::D2 {
+                d0_size, d1_size, ..
+            } => *d0_size as usize * *d1_size as usize,
+            Self::D3 {
+                d0_size,
+                d1_size,
+                d2_size,
+                ..
+            } => *d0_size as usize * *d1_size as usize * *d2_size as usize,
+            Self::D4 {
+                d0_size,
+                d1_size,
+                d2_size,
+                d3_size,
+                ..
+            } => {
+                *d0_size as usize
+                    * *d1_size as usize
+                    * *d2_size as usize
+                    * *d3_size as usize
+            }
+        }
+    }
+
+    /// Returns a Dimensions object
+    pub fn as_serializing_dim(&self) -> Dimensions {
+        match self {
+            MemoryDimensions::D1 { d0_size, .. } => {
+                Dimensions::D1(*d0_size as usize)
+            }
+            MemoryDimensions::D2 {
+                d0_size, d1_size, ..
+            } => Dimensions::D2(*d0_size as usize, *d1_size as usize),
+            MemoryDimensions::D3 {
+                d0_size,
+                d1_size,
+                d2_size,
+                ..
+            } => Dimensions::D3(
+                *d0_size as usize,
+                *d1_size as usize,
+                *d2_size as usize,
+            ),
+            MemoryDimensions::D4 {
+                d0_size,
+                d1_size,
+                d2_size,
+                d3_size,
+                ..
+            } => Dimensions::D4(
+                *d0_size as usize,
+                *d1_size as usize,
+                *d2_size as usize,
+                *d3_size as usize,
+            ),
+        }
+    }
+}
+
 /// A type alias to allow potential space hacks
 pub type Width = u32;
 
@@ -118,41 +215,10 @@ pub enum CellPrototype {
         out: Width,
     },
     // Memories
-    MemD1 {
+    Memory {
         mem_type: MemType,
         width: Width,
-        size: Width,
-        idx_size: Width,
-    },
-    MemD2 {
-        mem_type: MemType,
-        width: Width,
-        d0_size: Width,
-        d1_size: Width,
-        d0_idx_size: Width,
-        d1_idx_size: Width,
-    },
-    MemD3 {
-        mem_type: MemType,
-        width: Width,
-        d0_size: Width,
-        d1_size: Width,
-        d2_size: Width,
-        d0_idx_size: Width,
-        d1_idx_size: Width,
-        d2_idx_size: Width,
-    },
-    MemD4 {
-        mem_type: MemType,
-        width: Width,
-        d0_size: Width,
-        d1_size: Width,
-        d2_size: Width,
-        d3_size: Width,
-        d0_idx_size: Width,
-        d1_idx_size: Width,
-        d2_idx_size: Width,
-        d3_idx_size: Width,
+        dims: MemoryDimensions,
     },
 
     // TODO Griffin: lots more
@@ -463,15 +529,17 @@ impl CellPrototype {
                         size: "SIZE",
                         idx_size: "IDX_SIZE"
                     ];
-                    Self::MemD1 {
+                    Self::Memory {
                         mem_type: if n == "comb_mem_d1" {
                             MemType::Std
                         } else {
                             MemType::Seq
                         },
                         width: width.try_into().unwrap(),
-                        size: size.try_into().unwrap(),
-                        idx_size: idx_size.try_into().unwrap(),
+                        dims: MemoryDimensions::D1 {
+                            d0_size: size.try_into().unwrap(),
+                            d0_idx_size: idx_size.try_into().unwrap(),
+                        },
                     }
                 }
                 n @ ("comb_mem_d2" | "seq_mem_d2") => {
@@ -482,17 +550,19 @@ impl CellPrototype {
                         d0_idx_size: "D0_IDX_SIZE",
                         d1_idx_size: "D1_IDX_SIZE"
                     ];
-                    Self::MemD2 {
+                    Self::Memory {
                         mem_type: if n == "comb_mem_d2" {
                             MemType::Std
                         } else {
                             MemType::Seq
                         },
                         width: width.try_into().unwrap(),
-                        d0_size: d0_size.try_into().unwrap(),
-                        d1_size: d1_size.try_into().unwrap(),
-                        d0_idx_size: d0_idx_size.try_into().unwrap(),
-                        d1_idx_size: d1_idx_size.try_into().unwrap(),
+                        dims: MemoryDimensions::D2 {
+                            d0_size: d0_size.try_into().unwrap(),
+                            d1_size: d1_size.try_into().unwrap(),
+                            d0_idx_size: d0_idx_size.try_into().unwrap(),
+                            d1_idx_size: d1_idx_size.try_into().unwrap(),
+                        },
                     }
                 }
                 n @ ("comb_mem_d3" | "seq_mem_d3") => {
@@ -505,19 +575,21 @@ impl CellPrototype {
                         d1_idx_size: "D1_IDX_SIZE",
                         d2_idx_size: "D2_IDX_SIZE"
                     ];
-                    Self::MemD3 {
+                    Self::Memory {
                         mem_type: if n == "comb_mem_d3" {
                             MemType::Std
                         } else {
                             MemType::Seq
                         },
                         width: width.try_into().unwrap(),
-                        d0_size: d0_size.try_into().unwrap(),
-                        d1_size: d1_size.try_into().unwrap(),
-                        d2_size: d2_size.try_into().unwrap(),
-                        d0_idx_size: d0_idx_size.try_into().unwrap(),
-                        d1_idx_size: d1_idx_size.try_into().unwrap(),
-                        d2_idx_size: d2_idx_size.try_into().unwrap(),
+                        dims: MemoryDimensions::D3 {
+                            d0_size: d0_size.try_into().unwrap(),
+                            d1_size: d1_size.try_into().unwrap(),
+                            d2_size: d2_size.try_into().unwrap(),
+                            d0_idx_size: d0_idx_size.try_into().unwrap(),
+                            d1_idx_size: d1_idx_size.try_into().unwrap(),
+                            d2_idx_size: d2_idx_size.try_into().unwrap(),
+                        },
                     }
                 }
                 n @ ("comb_mem_d4" | "seq_mem_d4") => {
@@ -533,21 +605,23 @@ impl CellPrototype {
                         d3_idx_size: "D3_IDX_SIZE"
                     ];
 
-                    Self::MemD4 {
+                    Self::Memory {
                         mem_type: if n == "comb_mem_d4" {
                             MemType::Std
                         } else {
                             MemType::Seq
                         },
                         width: width.try_into().unwrap(),
-                        d0_size: d0_size.try_into().unwrap(),
-                        d1_size: d1_size.try_into().unwrap(),
-                        d2_size: d2_size.try_into().unwrap(),
-                        d3_size: d3_size.try_into().unwrap(),
-                        d0_idx_size: d0_idx_size.try_into().unwrap(),
-                        d1_idx_size: d1_idx_size.try_into().unwrap(),
-                        d2_idx_size: d2_idx_size.try_into().unwrap(),
-                        d3_idx_size: d3_idx_size.try_into().unwrap(),
+                        dims: MemoryDimensions::D4 {
+                            d0_size: d0_size.try_into().unwrap(),
+                            d1_size: d1_size.try_into().unwrap(),
+                            d2_size: d2_size.try_into().unwrap(),
+                            d3_size: d3_size.try_into().unwrap(),
+                            d0_idx_size: d0_idx_size.try_into().unwrap(),
+                            d1_idx_size: d1_idx_size.try_into().unwrap(),
+                            d2_idx_size: d2_idx_size.try_into().unwrap(),
+                            d3_idx_size: d3_idx_size.try_into().unwrap(),
+                        },
                     }
                 }
                 n @ ("std_unsyn_mult" | "std_unsyn_div" | "std_unsyn_smult"

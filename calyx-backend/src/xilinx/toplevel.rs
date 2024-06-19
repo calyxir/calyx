@@ -38,7 +38,7 @@ impl Backend for XilinxInterfaceBackend {
             .find(|c| c.name == prog.entrypoint)
             .unwrap();
 
-        let memories = ir::utils::external_memories_names(toplevel);
+        let memories = ir::utils::external_and_ref_memories_names(toplevel);
         if memories.is_empty() {
             return Err(Error::misc(
                     "Program has no memories marked with attribute @external.".to_owned() +
@@ -51,8 +51,8 @@ impl Backend for XilinxInterfaceBackend {
         for (i, mem) in mem_info.iter().enumerate() {
             modules.push(bram(
                 &format!("SINGLE_PORT_BRAM_{}", i),
-                mem.width,
-                mem.size,
+                mem.data_width,
+                mem.total_size,
                 mem.idx_sizes[0],
             ))
         }
@@ -70,8 +70,8 @@ impl Backend for XilinxInterfaceBackend {
                 &format!("Memory_controller_axi_{}", i),
                 512,
                 64,
-                mem.width,
-                mem.size,
+                mem.data_width,
+                mem.total_size,
                 mem.idx_sizes[0],
             ))
         }
@@ -97,17 +97,17 @@ impl Backend for XilinxInterfaceBackend {
 // Gets all memory cells in top level marked external.
 //Panics if not all memories are 1-d
 fn external_1d_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
-    let memories = ir::utils::external_memories_cells(comp);
+    let memories = ir::utils::external_and_ref_memories_cells(comp);
     for memory in memories.iter() {
         if !memory.borrow().is_primitive(Some("comb_mem_d1")) {
-            panic!("cell `{}' marked with `@external' but is not a comb_mem_d1. The AXI generator currently only supports `comb_mem_d1'", memory.borrow().name())
+            panic!("cell `{}' marked with `@external' or `ref` but is not a comb_mem_d1. The AXI generator currently only supports `comb_mem_d1'", memory.borrow().name())
         }
     }
     memories
 }
 
 fn top_level(toplevel: &ir::Component) -> v::Module {
-    let memories = &ir::utils::external_memories_names(toplevel);
+    let memories = &ir::utils::external_and_ref_memories_names(toplevel);
     let mem_info = &external_1d_memories_cells(toplevel).get_mem_info();
     assert!(!memories.is_empty()); // At least 1 memory should exist within the toplevel
     let mut module = v::Module::new("Toplevel");
@@ -190,7 +190,7 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         let addr0 = format!("{}_addr0", mem);
         let write_en = format!("{}_write_en", mem);
         let done = format!("{}_done", mem);
-        let width = mem_info[idx].width;
+        let width = mem_info[idx].data_width;
         module.add_decl(v::Decl::new_wire(&write_data, width));
         module.add_decl(v::Decl::new_wire(&read_data, width));
         module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].idx_sizes[0]));

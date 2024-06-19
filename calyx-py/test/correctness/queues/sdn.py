@@ -4,7 +4,6 @@ import fifo
 import pifo
 import calyx.builder as cb
 from calyx import queue_call
-from calyx import queue_util
 
 
 def insert_stats(prog, name, static=False):
@@ -14,7 +13,7 @@ def insert_stats(prog, name, static=False):
     - One input port, the index of a flow (0 or 1).
     - Two output ports, `count_0` and `count_1`.
 
-    It also maintains two internal registers, `count_0_sto` and `count_1_sto`.
+    It maintains two internal registers, `count_0_sto` and `count_1_sto`.
 
     The component continously outputs the values of the two registers into the
     two output ports.
@@ -33,8 +32,8 @@ def insert_stats(prog, name, static=False):
     stats.output("count_1", 32)
 
     # Two registers to count the number of times we've been invoked with each flow.
-    count_0_sto = stats.reg("count_0_sto", 32)
-    count_1_sto = stats.reg("count_1_sto", 32)
+    count_0_sto = stats.reg(32)
+    count_1_sto = stats.reg(32)
 
     # Wiring to increment the appropriate register.
     count_0_incr = stats.incr(count_0_sto, static=static)
@@ -77,18 +76,21 @@ def insert_controller(prog, name, stats_component):
     controller = prog.component(name)
     stats = controller.cell("stats_controller", stats_component, is_ref=True)
 
-    count_0 = controller.reg("count_0", 32)
-    count_1 = controller.reg("count_1", 32)
+    count_0 = controller.reg(32)
+    count_1 = controller.reg(32)
 
-    with controller.group("get_data_locally") as get_data_locally:
+    with controller.group("get_data_locally_count0") as get_data_locally_count0:
         count_0.in_ = stats.count_0
         count_0.write_en = 1
+        get_data_locally_count0.done = count_0.done
+
+    with controller.group("get_data_locally_count1") as get_data_locally_count1:
         count_1.in_ = stats.count_1
         count_1.write_en = 1
-        get_data_locally.done = (count_0.done & count_1.done) @ 1
+        get_data_locally_count1.done = count_1.done
 
     # The main logic.
-    controller.control += get_data_locally
+    controller.control += cb.par(get_data_locally_count0, get_data_locally_count1)
     # Great, now I have the data around locally.
 
     return controller
@@ -98,6 +100,9 @@ def build(static=False):
     """Top-level function to build the program.
     The `static` flag determines whether the program is static or dynamic.
     """
+    static = "--static" in sys.argv
+    num_cmds = int(sys.argv[1])
+
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
     controller = insert_controller(prog, "controller", stats_component)
@@ -107,15 +112,20 @@ def build(static=False):
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
     pifo_root = pifo.insert_pifo(
-        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component, static
+        prog,
+        "pifo_root",
+        pifo_red,
+        fifo_blue,
+        200,
+        stats=stats_component,
+        static=static,
     )
     # The root PIFO will take a stats component by reference.
 
-    queue_call.insert_main(prog, pifo_root, controller, stats_component)
+    queue_call.insert_main(prog, pifo_root, num_cmds, controller, stats_component)
     return prog.program
 
 
 # We will have a command line argument to determine whether the program is static.
 if __name__ == "__main__":
-    static = sys.argv[1] == "--static" if len(sys.argv) > 1 else False
-    build(static=static).emit()
+    build().emit()

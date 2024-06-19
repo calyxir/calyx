@@ -1,27 +1,25 @@
 WHITESPACE = _{ " " | "\t" }
-dot = _{"."}
+dot        = _{ "." }
 ident_syms = _{ "_" | "-" | "'" }
-quote = _{"\""}
-num = @{ASCII_DIGIT+}
+quote      = _{ "\"" }
+num        = @{ ASCII_DIGIT+ }
 
-id_string = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT | "::" |".")* }
+id_string = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT | "::" | ".")* }
 
 named_tag = { "(" ~ num ~ "," ~ id_string ~ ")" }
 
 tag = { named_tag | num }
 
 escaped_newline = @{ "\\" ~ NEWLINE }
-string_char = ${ !(NEWLINE | EOI) ~ ANY }
-source_char = { escaped_newline | string_char }
+string_char     = ${ !(NEWLINE | EOI) ~ ANY }
+source_char     =  { escaped_newline | string_char }
 
-inner_position_string =  ${ source_char* }
+inner_position_string = ${ source_char* }
 
 position_string = { inner_position_string ~ (NEWLINE | &EOI) }
 
-entry = { tag ~ ":" ~ position_string}
+entry = { tag ~ ":" ~ position_string }
 
 metadata = {
-    SOI ~
-    entry+ ~
-    EOI
+    SOI ~ entry+ ~ EOI
 }
