@@ -39,40 +39,42 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     len = fifo.reg(32)  # The active length of the FIFO.
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
-    pop_peek_logic = [
-        # `pop` or `peek` has been called, and the queue is not empty.
-        fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem"),
-        # Write the answer to the answer register.
-        # If the user called pop, increment `read` and decrement `len`.
-        cb.if_with(fifo.eq_use(cmd, 0), [fifo.incr(read), fifo.decr(len)]),
-    ]
+    # The user called pop/peek.
+    # If the queue is empty, we should raise an error.
+    # Otherwise, we should proceed with the core logic
+    pop_peek_logic = cb.if_with(
+        fifo.eq_use(len.out, 0),
+        raise_err,
+        [
+            # `pop` or `peek` has been called, and the queue is not empty.
+            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem"),
+            # Write the answer to the answer register.
+            # If the user called pop, increment `read` and decrement `len`.
+            cb.if_with(fifo.eq_use(cmd, 0), [fifo.incr(read), fifo.decr(len)]),
+        ],
+    )
 
-    push_logic = [  # `push` has been called and the queue is not full.
-        # Write `value` to the queue, and increment `write` and `len`.
-        fifo.mem_store_d1(mem, write.out, value, "write_payload_to_mem"),
-        fifo.incr(write),
-        fifo.incr(len),
-    ]
+    # The user called push.
+    # If the queue is full, we should raise an error.
+    # Otherwise, we should proceed with the core logic.
+    push_logic = cb.if_with(
+        fifo.eq_use(len.out, max_queue_len),
+        raise_err,
+        [  # `push` has been called and the queue is not full.
+            # Write `value` to the queue, and increment `write` and `len`.
+            fifo.mem_store_d1(mem, write.out, value, "write_payload_to_mem"),
+            fifo.incr(write),
+            fifo.incr(len),
+        ],
+    )
 
     fifo.control += cb.par(
         # Was it a (pop/peek), or a push? We can do those two cases in parallel.
         # The logic is shared for pops and peeks, with just a few differences.
-        cb.if_with(
-            # Did the user call pop/peek?
-            fifo.lt_use(cmd, 2),
-            # Yes, the user called pop/peek.
-            # If the queue is empty, we should raise an error.
-            # Otherwise, we should proceed with the pop/peek logic.
-            cb.if_with(fifo.eq_use(len.out, 0), raise_err, pop_peek_logic),
-        ),
-        cb.if_with(
-            # Did the user call push?
-            fifo.eq_use(cmd, 2),
-            # Yes, the user called push.
-            # If the queue is full, we should raise an error.
-            # Otherwise, we should proceed with the push logic.
-            cb.if_with(fifo.eq_use(len.out, max_queue_len), raise_err, push_logic),
-        ),
+        # Did the user call pop/peek?
+        cb.if_with(fifo.lt_use(cmd, 2), pop_peek_logic),
+        # Did the user call push?
+        cb.if_with(fifo.eq_use(cmd, 2), push_logic),
     )
 
     return fifo
