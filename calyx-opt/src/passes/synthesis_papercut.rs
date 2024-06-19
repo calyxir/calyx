@@ -113,7 +113,7 @@ impl Visitor for SynthesisPapercut {
                     format!(
                         "Only writes performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external to cell to turn this into an interface memory.",
                     ),
-                ));
+                ).with_pos(&cell.borrow().attributes));
             }
             let write_port = cell.borrow().get(WRITE_PORT);
             if analysis.writes_to(&write_port.borrow()).next().is_none() {
@@ -121,7 +121,7 @@ impl Visitor for SynthesisPapercut {
                     format!(
                         "Only reads performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external to cell to turn this into an interface memory.",
                     ),
-                ));
+                ).with_pos(&cell.borrow().attributes));
             }
         }
 

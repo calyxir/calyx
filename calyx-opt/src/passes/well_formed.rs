@@ -489,9 +489,12 @@ impl Visitor for WellFormed {
                     // Group uses another group's done condition
                     if gname != dst.get_parent_name() {
                         self.diag.err(Error::malformed_structure(
-                            format!("Group `{}` refers to the done condition of another group (`{}`).",
-                            gname,
-                            dst.get_parent_name())).with_pos(&dst.attributes));
+                            format!(
+                                "Group `{}` refers to the done condition of another group (`{}`). {:?}",
+                                gname,
+                                dst.get_parent_name(),
+                                dst
+                            )).with_pos(&assign.attributes));
                     }
                 }
             }
