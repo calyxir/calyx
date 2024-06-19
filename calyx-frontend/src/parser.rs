@@ -66,28 +66,16 @@ impl CalyxParser {
             CalyxParser::parse_with_userdata(Rule::file, content, user_data)
                 .map_err(|e| e.with_path(&path.to_string_lossy()))
                 .map_err(|e| {
-                    calyx_utils::Error::misc(format!(
-                        "Failed to parse `{}`: {err}",
-                        path.to_string_lossy(),
-                        err = e
-                    ))
-                    .with_pos(&Self::error_span(e, file))
+                    calyx_utils::Error::parse_error(e.variant.message())
+                        .with_pos(&Self::error_span(&e, file))
                 })?;
         let input = inputs.single().map_err(|e| {
-            calyx_utils::Error::misc(format!(
-                "Failed to parse `{}`: {err}",
-                path.to_string_lossy(),
-                err = e
-            ))
-            .with_pos(&Self::error_span(e, file))
+            calyx_utils::Error::parse_error(e.variant.message())
+                .with_pos(&Self::error_span(&e, file))
         })?;
         let out = CalyxParser::file(input).map_err(|e| {
-            calyx_utils::Error::misc(format!(
-                "Failed to parse `{}`: {err}",
-                path.to_string_lossy(),
-                err = e,
-            ))
-            .with_pos(&Self::error_span(e, file))
+            calyx_utils::Error::parse_error(e.variant.message())
+                .with_pos(&Self::error_span(&e, file))
         })?;
         log::info!(
             "Parsed `{}` in {}ms",
@@ -116,15 +104,15 @@ impl CalyxParser {
                 calyx_utils::Error::misc(
                     format!("Failed to parse buffer: {e}",),
                 )
-                .with_pos(&Self::error_span(e, file))
+                .with_pos(&Self::error_span(&e, file))
             })?;
         let input = inputs.single().map_err(|e| {
             calyx_utils::Error::misc(format!("Failed to parse buffer: {e}"))
-                .with_pos(&Self::error_span(e, file))
+                .with_pos(&Self::error_span(&e, file))
         })?;
         let out = CalyxParser::file(input).map_err(|e| {
             calyx_utils::Error::misc(format!("Failed to parse buffer: {e}"))
-                .with_pos(&Self::error_span(e, file))
+                .with_pos(&Self::error_span(&e, file))
         })?;
         Ok(out)
     }
@@ -140,7 +128,7 @@ impl CalyxParser {
         GPosIdx(pos)
     }
 
-    fn error_span(error: pest::error::Error<Rule>, file: FileIdx) -> GPosIdx {
+    fn error_span(error: &pest::error::Error<Rule>, file: FileIdx) -> GPosIdx {
         let (start, end) = match error.location {
             pest::error::InputLocation::Pos(off) => (off, off + 1),
             pest::error::InputLocation::Span((start, end)) => (start, end),

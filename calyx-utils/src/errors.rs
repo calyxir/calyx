@@ -103,6 +103,13 @@ impl Error {
             post_msg: None,
         }
     }
+    pub fn parse_error<S: ToString>(msg: S) -> Self {
+        Self {
+            kind: Box::new(ErrorKind::Parse),
+            pos: GPosIdx::UNKNOWN,
+            post_msg: Some(msg.to_string()),
+        }
+    }
     pub fn invalid_file<S: ToString>(msg: S) -> Self {
         Self {
             kind: Box::new(ErrorKind::InvalidFile(msg.to_string())),
@@ -151,6 +158,8 @@ enum ErrorKind {
     Papercut(String),
 
     // =========== Frontend Errors ===============
+    /// Parse error
+    Parse,
     /// Miscellaneous error message
     Misc(String),
     /// The input file is invalid (does not exist).
@@ -184,6 +193,9 @@ impl std::fmt::Display for ErrorKind {
             }
             MalformedStructure(msg) => {
                 write!(f, "Malformed Structure: {msg}")
+            }
+            Parse => {
+                write!(f, "Parse error")
             }
             InvalidFile(msg) | WriteError(msg) | Misc(msg) => {
                 write!(f, "{msg}")
