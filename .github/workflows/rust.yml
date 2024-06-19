@@ -105,7 +105,9 @@ jobs:
         git init
         git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        echo $GITHUB_REF
         git fetch origin $GITHUB_REF
+        echo $GITHUB_SHA
         git checkout -f $GITHUB_SHA
         git clean -fd
 
