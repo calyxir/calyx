@@ -499,7 +499,7 @@ impl Tree {
             .assignments
             .clone()
             .into_iter()
-            .map(|assign| self.make_assign_dyn(assign, builder))
+            .map(|assign| self.make_assign_dyn(assign, false, builder))
             .collect_vec();
 
         // Add assignment `group[done] = ud.out`` to the new group.
@@ -659,15 +659,17 @@ impl Tree {
                 assert!(beg_interval.is_false());
                 match state_type {
                     StateType::Delay(delay) => {
-                        beg_interval = *fsm_cell.borrow_mut().query_between(
-                            builder,
-                            (
-                                query_beg - delay,
-                                // This query either stretches into another interval, or
-                                // ends within the interavl: we want to capture both of these choices.
-                                std::cmp::min(query_end - delay, end - delay),
-                            ),
+                        let translated_query = (
+                            query_beg - delay,
+                            // This query either stretches into another interval, or
+                            // ends within the interavl: we want to capture both of these choices.
+                            std::cmp::min(query_end - delay, end - delay),
                         );
+                        dbg!(&self.root.0);
+                        dbg!(&translated_query);
+                        beg_interval = *fsm_cell
+                            .borrow_mut()
+                            .query_between(builder, translated_query);
                     }
                     StateType::Offload(offload_state) => {
                         let in_offload_state =
@@ -801,28 +803,45 @@ impl Tree {
     fn make_guard_dyn(
         &mut self,
         guard: ir::Guard<ir::StaticTiming>,
+        global_view: bool,
         builder: &mut ir::Builder,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-                self.make_guard_dyn(*l, builder),
-                self.make_guard_dyn(*r, builder),
+                self.make_guard_dyn(*l, global_view, builder),
+                self.make_guard_dyn(*r, global_view, builder),
             )),
             ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-                self.make_guard_dyn(*l, builder),
-                self.make_guard_dyn(*r, builder),
+                self.make_guard_dyn(*l, global_view, builder),
+                self.make_guard_dyn(*r, global_view, builder),
             )),
-            ir::Guard::Not(g) => {
-                Box::new(ir::Guard::Not(self.make_guard_dyn(*g, builder)))
-            }
+            ir::Guard::Not(g) => Box::new(ir::Guard::Not(self.make_guard_dyn(
+                *g,
+                global_view,
+                builder,
+            ))),
             ir::Guard::CompOp(op, l, r) => {
                 Box::new(ir::Guard::CompOp(op, l, r))
             }
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
-            ir::Guard::Info(static_timing) => Box::new(
-                self.query_between(static_timing.get_interval(), builder),
-            ),
+            ir::Guard::Info(static_timing) => {
+                if global_view {
+                    Box::new(
+                        self.query_between(
+                            static_timing.get_interval(),
+                            builder,
+                        ),
+                    )
+                } else {
+                    Box::new(
+                        self.get_fsm_query(
+                            static_timing.get_interval(),
+                            builder,
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -831,13 +850,14 @@ impl Tree {
     pub fn make_assign_dyn(
         &mut self,
         assign: ir::Assignment<ir::StaticTiming>,
+        global_view: bool,
         builder: &mut ir::Builder,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
             src: assign.src,
             dst: assign.dst,
             attributes: assign.attributes,
-            guard: self.make_guard_dyn(*assign.guard, builder),
+            guard: self.make_guard_dyn(*assign.guard, global_view, builder),
         }
     }
 }
@@ -900,7 +920,7 @@ impl ParTree {
             .assignments
             .clone()
             .into_iter()
-            .map(|assign| longest_tree.make_assign_dyn(assign, builder))
+            .map(|assign| longest_tree.make_assign_dyn(assign, true, builder))
             .collect_vec();
 
         // Add assignment `group[done] = ud.out`` to the new group.

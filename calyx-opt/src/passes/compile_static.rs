@@ -572,6 +572,7 @@ impl CompileStatic {
                     (cur_lat, target_group_ref.latency),
                     StateType::Delay(cur_lat - cur_num_states),
                 );
+                cur_num_states += target_group_ref.latency - cur_lat;
             }
             FSMTree::Tree(Tree {
                 latency: target_group_ref.latency,
