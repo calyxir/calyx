@@ -473,8 +473,8 @@ fn create_cell_prototype(
 ) -> CellPrototype {
     let borrow = cell.borrow();
     match &borrow.prototype {
-        prim @ cir::CellType::Primitive { .. } => {
-            CellPrototype::construct_primitive(prim)
+        cir::CellType::Primitive { .. } => {
+            CellPrototype::construct_primitive(&borrow)
         }
         cir::CellType::Component { name } => {
             CellPrototype::Component(comp_id_map[name])
@@ -674,8 +674,9 @@ impl FlattenTree for cir::Control {
             cir::Control::Static(_) => {
                 todo!("The interpreter does not support static control yet")
             }
-            cir::Control::Repeat(_) => {
-                todo!("The interpreter does not support repeat yet")
+            cir::Control::Repeat(repeat) => {
+                let body = handle.enqueue(&repeat.body);
+                ControlNode::Repeat(Repeat::new(body, repeat.num_repeats))
             }
         }
     }
