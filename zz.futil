@@ -1,0 +1,835 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data A0_0 = seq_mem_d2(32, 8, 8, 4, 4);
+    @external @data A_int = seq_mem_d2(32, 8, 8, 4, 4);
+    @data A_int_read0_0 = std_reg(32);
+    @data A_read0_0 = std_reg(32);
+    @data A_read1_0 = std_reg(32);
+    @data A_sh_read0_0 = std_reg(32);
+    @data add0 = std_add(4);
+    @data add1 = std_add(4);
+    @data add10 = std_add(32);
+    @data add11 = std_add(4);
+    @data add12 = std_add(32);
+    @data add13 = std_add(4);
+    @data add14 = std_add(4);
+    @data add15 = std_add(4);
+    @data add16 = std_add(4);
+    @data add17 = std_add(4);
+    @data add2 = std_add(4);
+    @data add3 = std_add(32);
+    @data add4 = std_add(32);
+    @data add5 = std_add(4);
+    @data add6 = std_add(4);
+    @data add7 = std_add(32);
+    @data add8 = std_add(4);
+    @data add9 = std_add(4);
+    @data alpha__0 = std_reg(32);
+    @external @data alpha_int = seq_mem_d1(32, 1, 1);
+    @data beta__0 = std_reg(32);
+    @external @data beta_int = seq_mem_d1(32, 1, 1);
+    @data bin_read0_0 = std_reg(32);
+    @data bin_read1_0 = std_reg(32);
+    @data bin_read2_0 = std_reg(32);
+    @data bin_read3_0 = std_reg(32);
+    @data bin_read4_0 = std_reg(32);
+    @data bin_read5_0 = std_reg(32);
+    @data const0 = std_const(1, 0);
+    @data const1 = std_const(1, 0);
+    @data const10 = std_const(4, 1);
+    @data const11 = std_const(4, 1);
+    @data const12 = std_const(4, 0);
+    @data const13 = std_const(4, 0);
+    @data const14 = std_const(4, 1);
+    @data const15 = std_const(4, 1);
+    @data const16 = std_const(4, 0);
+    @data const17 = std_const(4, 1);
+    @data const18 = std_const(4, 0);
+    @data const19 = std_const(4, 0);
+    @data const2 = std_const(4, 0);
+    @data const20 = std_const(4, 1);
+    @data const21 = std_const(4, 1);
+    @data const22 = std_const(4, 0);
+    @data const23 = std_const(4, 1);
+    @data const24 = std_const(4, 0);
+    @data const25 = std_const(4, 0);
+    @data const26 = std_const(4, 1);
+    @data const27 = std_const(4, 1);
+    @data const3 = std_const(4, 1);
+    @data const4 = std_const(4, 0);
+    @data const5 = std_const(4, 0);
+    @data const6 = std_const(4, 1);
+    @data const7 = std_const(4, 1);
+    @data const8 = std_const(4, 0);
+    @data const9 = std_const(4, 0);
+    @data i0 = std_reg(4);
+    @data i1 = std_reg(4);
+    @data i2 = std_reg(4);
+    @data i3 = std_reg(4);
+    @data i4 = std_reg(4);
+    @data i5 = std_reg(4);
+    @data i6 = std_reg(4);
+    @data i7 = std_reg(4);
+    @data j0 = std_reg(4);
+    @data j1 = std_reg(4);
+    @data j2 = std_reg(4);
+    @data j3 = std_reg(4);
+    @data j4 = std_reg(4);
+    @data mult_pipe0 = std_mult_pipe(32);
+    @data mult_pipe1 = std_mult_pipe(32);
+    @data mult_pipe2 = std_mult_pipe(32);
+    @data mult_pipe3 = std_mult_pipe(32);
+    @data mult_pipe4 = std_mult_pipe(32);
+    @data mult_pipe5 = std_mult_pipe(32);
+    @data old_0 = std_reg(32);
+    @data old_1 = std_reg(32);
+    @data red_read00 = std_reg(32);
+    @data red_read10 = std_reg(32);
+    @data tmp1_0 = std_reg(32);
+    @data tmp2_0 = std_reg(32);
+    @data tmp3_0 = std_reg(32);
+    @data tmp4_0 = std_reg(32);
+    @data u10 = seq_mem_d1(32, 8, 4);
+    @external @data u1_int = seq_mem_d1(32, 8, 4);
+    @data u1_int_read0_0 = std_reg(32);
+    @data u1_read0_0 = std_reg(32);
+    @data u1_sh_read0_0 = std_reg(32);
+    @data u20 = seq_mem_d1(32, 8, 4);
+    @external @data u2_int = seq_mem_d1(32, 8, 4);
+    @data u2_int_read0_0 = std_reg(32);
+    @data u2_read0_0 = std_reg(32);
+    @data u2_sh_read0_0 = std_reg(32);
+    @data v10 = seq_mem_d1(32, 8, 4);
+    @external @data v1_int = seq_mem_d1(32, 8, 4);
+    @data v1_int_read0_0 = std_reg(32);
+    @data v1_read0_0 = std_reg(32);
+    @data v1_sh_read0_0 = std_reg(32);
+    @data v20 = seq_mem_d1(32, 8, 4);
+    @external @data v2_int = seq_mem_d1(32, 8, 4);
+    @data v2_int_read0_0 = std_reg(32);
+    @data v2_read0_0 = std_reg(32);
+    @data v2_sh_read0_0 = std_reg(32);
+    @data w0 = seq_mem_d1(32, 8, 4);
+    @external @data w_int = seq_mem_d1(32, 8, 4);
+    @data w_int_read0_0 = std_reg(32);
+    @data w_sh_read0_0 = std_reg(32);
+    @data x0 = seq_mem_d1(32, 8, 4);
+    @external @data x_int = seq_mem_d1(32, 8, 4);
+    @data x_int_read0_0 = std_reg(32);
+    @data x_read0_0 = std_reg(32);
+    @data x_sh_read0_0 = std_reg(32);
+    @data y0 = seq_mem_d1(32, 8, 4);
+    @external @data y_int = seq_mem_d1(32, 8, 4);
+    @data y_int_read0_0 = std_reg(32);
+    @data y_read0_0 = std_reg(32);
+    @data y_sh_read0_0 = std_reg(32);
+    @data z0 = seq_mem_d1(32, 8, 4);
+    @external @data z_int = seq_mem_d1(32, 8, 4);
+    @data z_int_read0_0 = std_reg(32);
+    @data z_sh_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(32);
+    @generated comb_reg0 = std_reg(4);
+    @generated comb_reg1 = std_reg(4);
+    @generated comb_reg2 = std_reg(32);
+    @generated comb_reg3 = std_reg(4);
+    @generated comb_reg4 = std_reg(4);
+    @generated comb_reg5 = std_reg(32);
+    @generated comb_reg6 = std_reg(4);
+    @generated comb_reg7 = std_reg(4);
+    @generated comb_reg8 = std_reg(32);
+    @generated comb_reg9 = std_reg(4);
+    @generated comb_reg10 = std_reg(32);
+    @generated comb_reg11 = std_reg(4);
+    @generated comb_reg12 = std_reg(4);
+    @generated comb_reg13 = std_reg(4);
+    @generated comb_reg14 = std_reg(4);
+    @generated comb_reg15 = std_reg(4);
+    @generated comb_reg16 = std_reg(4);
+  }
+  wires {
+    static<1> group invoke400 {
+      u10.content_en = 1'd1;
+      u10.addr0 = i0.out;
+      u10.write_en = 1'd1;
+      u10.write_data = bin_read1_0.out;
+    }
+    static<1> group invoke600 {
+      v10.content_en = 1'd1;
+      v10.addr0 = i0.out;
+      v10.write_en = 1'd1;
+      v10.write_data = old_0.out;
+    }
+    static<1> group invoke800 {
+      u20.content_en = 1'd1;
+      u20.addr0 = i0.out;
+      u20.write_en = 1'd1;
+      u20.write_data = bin_read1_0.out;
+    }
+    static<1> group invoke1010 {
+      v20.content_en = 1'd1;
+      v20.addr0 = i0.out;
+      v20.write_en = 1'd1;
+      v20.write_data = old_0.out;
+    }
+    static<1> group invoke120 {
+      w0.content_en = 1'd1;
+      w0.addr0 = i0.out;
+      w0.write_en = 1'd1;
+      w0.write_data = bin_read1_0.out;
+    }
+    static<1> group invoke140 {
+      x0.content_en = 1'd1;
+      x0.addr0 = i0.out;
+      x0.write_en = 1'd1;
+      x0.write_data = old_0.out;
+    }
+    static<1> group invoke160 {
+      y0.content_en = 1'd1;
+      y0.addr0 = i0.out;
+      y0.write_en = 1'd1;
+      y0.write_data = bin_read1_0.out;
+    }
+    static<1> group upd350 {
+      u1_int.content_en = 1'd1;
+      u1_int.addr0 = i0.out;
+      u1_int.write_en = 1'd1;
+      u1_int.write_data = alpha__0.out;
+    }
+    static<1> group upd370 {
+      v1_int.content_en = 1'd1;
+      v1_int.addr0 = i0.out;
+      v1_int.write_en = 1'd1;
+      v1_int.write_data = beta__0.out;
+    }
+    static<1> group upd390 {
+      u2_int.content_en = 1'd1;
+      u2_int.addr0 = i0.out;
+      u2_int.write_en = 1'd1;
+      u2_int.write_data = alpha__0.out;
+    }
+    static<1> group upd410 {
+      v2_int.content_en = 1'd1;
+      v2_int.addr0 = i0.out;
+      v2_int.write_en = 1'd1;
+      v2_int.write_data = beta__0.out;
+    }
+    static<1> group upd430 {
+      w_int.content_en = 1'd1;
+      w_int.addr0 = i0.out;
+      w_int.write_en = 1'd1;
+      w_int.write_data = alpha__0.out;
+    }
+    static<1> group upd450 {
+      x_int.content_en = 1'd1;
+      x_int.addr0 = i0.out;
+      x_int.write_en = 1'd1;
+      x_int.write_data = beta__0.out;
+    }
+    static<1> group upd470 {
+      y_int.content_en = 1'd1;
+      y_int.addr0 = i0.out;
+      y_int.write_en = 1'd1;
+      y_int.write_data = alpha__0.out;
+    }
+    static<3254> group static_seq {
+      static_par[go] = %[0:273] ? 1'd1;
+      i0.write_en = %273 ? 1'd1;
+      i0.in = %273 ? const2.out;
+      static_seq14[go] = %[274:1122] ? 1'd1;
+      i0.write_en = %1122 ? 1'd1;
+      i0.in = %1122 ? const2.out;
+      static_seq22[go] = %[1123:2035] ? 1'd1;
+      i0.write_en = %2035 ? 1'd1;
+      i0.in = %2035 ? const2.out;
+      static_seq27[go] = %[2036:2068] ? 1'd1;
+      i0.write_en = %2068 ? 1'd1;
+      i0.in = %2068 ? const2.out;
+      static_seq30[go] = %[2069:2981] ? 1'd1;
+      static_par29[go] = %[2981:3254] ? 1'd1;
+    }
+    static<273> group static_par<"promotable"=273, "par"=1> {
+      static_seq0[go] = %[0:2] ? 1'd1;
+      static_seq1[go] = %[0:2] ? 1'd1;
+      static_seq2[go] = %[0:145] ? 1'd1;
+      static_seq11[go] = 1'd1;
+    }
+    static<2> group static_seq0<"promotable"=2> {
+      alpha_int.content_en = %0 ? 1'd1;
+      alpha_int.addr0 = %0 ? const0.out;
+      alpha__0.write_en = %1 ? 1'd1;
+      alpha__0.in = %1 ? alpha_int.read_data;
+    }
+    static<2> group static_seq1<"promotable"=2> {
+      beta_int.content_en = %0 ? 1'd1;
+      beta_int.addr0 = %0 ? const1.out;
+      beta__0.write_en = %1 ? 1'd1;
+      beta__0.in = %1 ? beta_int.read_data;
+    }
+    static<145> group static_seq2<"promotable"=145> {
+      i0.write_en = %0 ? 1'd1;
+      i0.in = %0 ? const2.out;
+      static_seq3[go] = %[1:145] ? 1'd1;
+    }
+    static<18> group static_seq3<"promotable"=18> {
+      u1_int.content_en = %0 ? 1'd1;
+      u1_int.addr0 = %0 ? i0.out;
+      bin_read1_0.write_en = %1 ? 1'd1;
+      bin_read1_0.in = %1 ? u1_int.read_data;
+      static_par0[go] = %[2:4] ? 1'd1;
+      static_par2[go] = %[4:6] ? 1'd1;
+      static_par4[go] = %[6:8] ? 1'd1;
+      static_par6[go] = %[8:10] ? 1'd1;
+      static_par8[go] = %[10:12] ? 1'd1;
+      static_par10[go] = %[12:14] ? 1'd1;
+      static_par12[go] = %[14:16] ? 1'd1;
+      z0.content_en = %16 ? 1'd1;
+      z0.addr0 = %16 ? i0.out;
+      z0.write_en = %16 ? 1'd1;
+      z0.write_data = %16 ? old_0.out;
+      i0.write_en = %17 ? 1'd1;
+      i0.in = %17 ? add0.out;
+      add0.left = %17 ? i0.out;
+      add0.right = %17 ? const23.out;
+    }
+    static<2> group static_par0<"promotable"=2, "par"=1> {
+      invoke400[go] = %0 ? 1'd1;
+      static_seq4[go] = 1'd1;
+    }
+    static<2> group static_seq4<"promotable"=2> {
+      v1_int.content_en = %0 ? 1'd1;
+      v1_int.addr0 = %0 ? i0.out;
+      old_0.write_en = %1 ? 1'd1;
+      old_0.in = %1 ? v1_int.read_data;
+    }
+    static<2> group static_par2<"promotable"=2, "par"=1> {
+      invoke600[go] = %0 ? 1'd1;
+      static_seq5[go] = 1'd1;
+    }
+    static<2> group static_seq5<"promotable"=2> {
+      u2_int.content_en = %0 ? 1'd1;
+      u2_int.addr0 = %0 ? i0.out;
+      bin_read1_0.write_en = %1 ? 1'd1;
+      bin_read1_0.in = %1 ? u2_int.read_data;
+    }
+    static<2> group static_par4<"promotable"=2, "par"=1> {
+      invoke800[go] = %0 ? 1'd1;
+      static_seq6[go] = 1'd1;
+    }
+    static<2> group static_seq6<"promotable"=2> {
+      v2_int.content_en = %0 ? 1'd1;
+      v2_int.addr0 = %0 ? i0.out;
+      old_0.write_en = %1 ? 1'd1;
+      old_0.in = %1 ? v2_int.read_data;
+    }
+    static<2> group static_par6<"promotable"=2, "par"=1> {
+      invoke1010[go] = %0 ? 1'd1;
+      static_seq7[go] = 1'd1;
+    }
+    static<2> group static_seq7<"promotable"=2> {
+      w_int.content_en = %0 ? 1'd1;
+      w_int.addr0 = %0 ? i0.out;
+      bin_read1_0.write_en = %1 ? 1'd1;
+      bin_read1_0.in = %1 ? w_int.read_data;
+    }
+    static<2> group static_par8<"promotable"=2, "par"=1> {
+      invoke120[go] = %0 ? 1'd1;
+      static_seq8[go] = 1'd1;
+    }
+    static<2> group static_seq8<"promotable"=2> {
+      x_int.content_en = %0 ? 1'd1;
+      x_int.addr0 = %0 ? i0.out;
+      old_0.write_en = %1 ? 1'd1;
+      old_0.in = %1 ? x_int.read_data;
+    }
+    static<2> group static_par10<"promotable"=2, "par"=1> {
+      invoke140[go] = %0 ? 1'd1;
+      static_seq9[go] = 1'd1;
+    }
+    static<2> group static_seq9<"promotable"=2> {
+      y_int.content_en = %0 ? 1'd1;
+      y_int.addr0 = %0 ? i0.out;
+      bin_read1_0.write_en = %1 ? 1'd1;
+      bin_read1_0.in = %1 ? y_int.read_data;
+    }
+    static<2> group static_par12<"promotable"=2, "par"=1> {
+      invoke160[go] = %0 ? 1'd1;
+      static_seq10[go] = 1'd1;
+    }
+    static<2> group static_seq10<"promotable"=2> {
+      z_int.content_en = %0 ? 1'd1;
+      z_int.addr0 = %0 ? i0.out;
+      old_0.write_en = %1 ? 1'd1;
+      old_0.in = %1 ? z_int.read_data;
+    }
+    static<273> group static_seq11<"promotable"=273> {
+      i1.write_en = %0 ? 1'd1;
+      i1.in = %0 ? const4.out;
+      static_seq12[go] = %[1:273] ? 1'd1;
+    }
+    static<34> group static_seq12<"promotable"=34> {
+      j0.write_en = %0 ? 1'd1;
+      j0.in = %0 ? const4.out;
+      static_seq13[go] = %[1:33] ? 1'd1;
+      i1.write_en = %33 ? 1'd1;
+      i1.in = %33 ? add1.out;
+      add1.left = %33 ? i1.out;
+      add1.right = %33 ? const26.out;
+    }
+    static<4> group static_seq13<"promotable"=4> {
+      A_int.content_en = %0 ? 1'd1;
+      A_int.addr1 = %0 ? j0.out;
+      A_int.addr0 = %0 ? i1.out;
+      A_int_read0_0.write_en = %1 ? 1'd1;
+      A_int_read0_0.in = %1 ? A_int.read_data;
+      A0_0.content_en = %2 ? 1'd1;
+      A0_0.addr1 = %2 ? j0.out;
+      A0_0.addr0 = %2 ? i1.out;
+      A0_0.write_en = %2 ? 1'd1;
+      A0_0.write_data = %2 ? A_int_read0_0.out;
+      j0.write_en = %3 ? 1'd1;
+      j0.in = %3 ? add1.out;
+      add1.left = %3 ? j0.out;
+      add1.right = %3 ? const26.out;
+    }
+    static<106> group static_seq14<"promotable"=106> {
+      i1.write_en = %0 ? 1'd1;
+      i1.in = %0 ? const2.out;
+      static_seq15[go] = %[1:105] ? 1'd1;
+      i0.write_en = %105 ? 1'd1;
+      i0.in = %105 ? add0.out;
+      add0.left = %105 ? i0.out;
+      add0.right = %105 ? const23.out;
+    }
+    static<13> group static_seq15<"promotable"=13> {
+      static_par15[go] = %[0:2] ? 1'd1;
+      static_par17[go] = %[2:11] ? 1'd1;
+      A0_0.content_en = %11 ? 1'd1;
+      A0_0.addr1 = %11 ? i1.out;
+      A0_0.addr0 = %11 ? i0.out;
+      A0_0.write_en = %11 ? 1'd1;
+      A0_0.write_data = %11 ? add10.out;
+      add10.left = %11 ? old_0.out;
+      add10.right = %11 ? tmp1_0.out;
+      i1.write_en = %12 ? 1'd1;
+      i1.in = %12 ? add0.out;
+      add0.left = %12 ? i1.out;
+      add0.right = %12 ? const23.out;
+    }
+    static<2> group static_par15<"promotable"=2, "par"=1> {
+      static_seq16[go] = 1'd1;
+      static_seq17[go] = 1'd1;
+      static_seq18[go] = 1'd1;
+      static_seq19[go] = 1'd1;
+    }
+    static<2> group static_seq16<"promotable"=2> {
+      u10.content_en = %0 ? 1'd1;
+      u10.addr0 = %0 ? i0.out;
+      A_int_read0_0.write_en = %1 ? 1'd1;
+      A_int_read0_0.in = %1 ? u10.read_data;
+    }
+    static<2> group static_seq17<"promotable"=2> {
+      v10.content_en = %0 ? 1'd1;
+      v10.addr0 = %0 ? i1.out;
+      v1_read0_0.write_en = %1 ? 1'd1;
+      v1_read0_0.in = %1 ? v10.read_data;
+    }
+    static<2> group static_seq18<"promotable"=2> {
+      u20.content_en = %0 ? 1'd1;
+      u20.addr0 = %0 ? i0.out;
+      bin_read1_0.write_en = %1 ? 1'd1;
+      bin_read1_0.in = %1 ? u20.read_data;
+    }
+    static<2> group static_seq19<"promotable"=2> {
+      v20.content_en = %0 ? 1'd1;
+      v20.addr0 = %0 ? i1.out;
+      v2_read0_0.write_en = %1 ? 1'd1;
+      v2_read0_0.in = %1 ? v20.read_data;
+    }
+    static<9> group static_par17<"promotable"=9, "par"=1> {
+      static_seq20[go] = 1'd1;
+      static_seq21[go] = %[0:2] ? 1'd1;
+    }
+    static<9> group static_seq20<"promotable"=9> {
+      mult_pipe0.go = %[0:3] ? 1'd1;
+      mult_pipe0.left = %[0:3] ? A_int_read0_0.out;
+      mult_pipe0.right = %[0:3] ? v1_read0_0.out;
+      A_int_read0_0.write_en = %3 ? 1'd1;
+      A_int_read0_0.in = %3 ? mult_pipe0.out;
+      mult_pipe0.go = %[4:7] ? 1'd1;
+      mult_pipe0.left = %[4:7] ? bin_read1_0.out;
+      mult_pipe0.right = %[4:7] ? v2_read0_0.out;
+      bin_read1_0.write_en = %7 ? 1'd1;
+      bin_read1_0.in = %7 ? mult_pipe0.out;
+      tmp1_0.write_en = %8 ? 1'd1;
+      tmp1_0.in = %8 ? add10.out;
+      add10.left = %8 ? A_int_read0_0.out;
+      add10.right = %8 ? bin_read1_0.out;
+    }
+    static<2> group static_seq21<"promotable"=2> {
+      A0_0.content_en = %0 ? 1'd1;
+      A0_0.addr1 = %0 ? i1.out;
+      A0_0.addr0 = %0 ? i0.out;
+      old_0.write_en = %1 ? 1'd1;
+      old_0.in = %1 ? A0_0.read_data;
+    }
+    static<114> group static_seq22<"promotable"=114> {
+      i1.write_en = %0 ? 1'd1;
+      i1.in = %0 ? const2.out;
+      static_par22[go] = %[1:113] ? 1'd1;
+      i0.write_en = %113 ? 1'd1;
+      i0.in = %113 ? add0.out;
+      add0.left = %113 ? i0.out;
+      add0.right = %113 ? const23.out;
+    }
+    static<14> group static_par19<"promotable"=14, "promoted"=1, "par"=1> {
+      static_seq23[go] = 1'd1;
+      static_seq26[go] = %[0:3] ? 1'd1;
+    }
+    static<14> group static_seq23 {
+      static_par20[go] = %[0:2] ? 1'd1;
+      mult_pipe0.go = %[2:5] ? 1'd1;
+      mult_pipe0.left = %[2:5] ? beta__0.out;
+      mult_pipe0.right = %[2:5] ? A_int_read0_0.out;
+      A_int_read0_0.write_en = %5 ? 1'd1;
+      A_int_read0_0.in = %5 ? mult_pipe0.out;
+      mult_pipe0.go = %[6:9] ? 1'd1;
+      mult_pipe0.left = %[6:9] ? A_int_read0_0.out;
+      mult_pipe0.right = %[6:9] ? bin_read1_0.out;
+      A_int_read0_0.write_en = %9 ? 1'd1;
+      A_int_read0_0.in = %9 ? mult_pipe0.out;
+      bin_read1_0.write_en = %10 ? 1'd1;
+      bin_read1_0.in = %10 ? A_int_read0_0.out;
+      x0.content_en = %11 ? 1'd1;
+      x0.addr0 = %11 ? i0.out;
+      A_int_read0_0.write_en = %12 ? 1'd1;
+      A_int_read0_0.in = %12 ? x0.read_data;
+      x0.content_en = %13 ? 1'd1;
+      x0.addr0 = %13 ? i0.out;
+      x0.write_en = %13 ? 1'd1;
+      x0.write_data = %13 ? add10.out;
+      add10.left = %13 ? A_int_read0_0.out;
+      add10.right = %13 ? bin_read1_0.out;
+    }
+    static<2> group static_par20<"promotable"=2, "par"=1> {
+      static_seq24[go] = 1'd1;
+      static_seq25[go] = 1'd1;
+    }
+    static<2> group static_seq24<"promotable"=2> {
+      A0_0.content_en = %0 ? 1'd1;
+      A0_0.addr1 = %0 ? i0.out;
+      A0_0.addr0 = %0 ? i1.out;
+      A_int_read0_0.write_en = %1 ? 1'd1;
+      A_int_read0_0.in = %1 ? A0_0.read_data;
+    }
+    static<2> group static_seq25<"promotable"=2> {
+      y0.content_en = %0 ? 1'd1;
+      y0.addr0 = %0 ? i1.out;
+      bin_read1_0.write_en = %1 ? 1'd1;
+      bin_read1_0.in = %1 ? y0.read_data;
+    }
+    static<3> group static_seq26 {
+      i1.write_en = %2 ? 1'd1;
+      i1.in = %2 ? add0.out;
+      add0.left = %2 ? i1.out;
+      add0.right = %2 ? const23.out;
+    }
+    static<14> group static_par22 {
+      static_par19[go] = 1'd1;
+    }
+    static<4> group static_seq27<"promotable"=4> {
+      static_par23[go] = %[0:2] ? 1'd1;
+      x0.content_en = %2 ? 1'd1;
+      x0.addr0 = %2 ? i0.out;
+      x0.write_en = %2 ? 1'd1;
+      x0.write_data = %2 ? add10.out;
+      add10.left = %2 ? A_int_read0_0.out;
+      add10.right = %2 ? beta__0.out;
+      i0.write_en = %3 ? 1'd1;
+      i0.in = %3 ? add0.out;
+      add0.left = %3 ? i0.out;
+      add0.right = %3 ? const23.out;
+    }
+    static<2> group static_par23<"promotable"=2, "par"=1> {
+      static_seq28[go] = 1'd1;
+      static_seq29[go] = 1'd1;
+    }
+    static<2> group static_seq28<"promotable"=2> {
+      z0.content_en = %0 ? 1'd1;
+      z0.addr0 = %0 ? i0.out;
+      beta__0.write_en = %1 ? 1'd1;
+      beta__0.in = %1 ? z0.read_data;
+    }
+    static<2> group static_seq29<"promotable"=2> {
+      x0.content_en = %0 ? 1'd1;
+      x0.addr0 = %0 ? i0.out;
+      A_int_read0_0.write_en = %1 ? 1'd1;
+      A_int_read0_0.in = %1 ? x0.read_data;
+    }
+    static<114> group static_seq30<"promotable"=114> {
+      i1.write_en = %0 ? 1'd1;
+      i1.in = %0 ? const2.out;
+      static_par28[go] = %[1:113] ? 1'd1;
+      i0.write_en = %113 ? 1'd1;
+      i0.in = %113 ? add0.out;
+      add0.left = %113 ? i0.out;
+      add0.right = %113 ? const23.out;
+    }
+    static<14> group static_par25<"promotable"=14, "promoted"=1, "par"=1> {
+      static_seq31[go] = 1'd1;
+      static_seq34[go] = %[0:3] ? 1'd1;
+    }
+    static<14> group static_seq31 {
+      static_par26[go] = %[0:2] ? 1'd1;
+      mult_pipe0.go = %[2:5] ? 1'd1;
+      mult_pipe0.left = %[2:5] ? alpha__0.out;
+      mult_pipe0.right = %[2:5] ? A_int_read0_0.out;
+      A_int_read0_0.write_en = %5 ? 1'd1;
+      A_int_read0_0.in = %5 ? mult_pipe0.out;
+      mult_pipe0.go = %[6:9] ? 1'd1;
+      mult_pipe0.left = %[6:9] ? A_int_read0_0.out;
+      mult_pipe0.right = %[6:9] ? beta__0.out;
+      A_int_read0_0.write_en = %9 ? 1'd1;
+      A_int_read0_0.in = %9 ? mult_pipe0.out;
+      beta__0.write_en = %10 ? 1'd1;
+      beta__0.in = %10 ? A_int_read0_0.out;
+      w0.content_en = %11 ? 1'd1;
+      w0.addr0 = %11 ? i0.out;
+      A_int_read0_0.write_en = %12 ? 1'd1;
+      A_int_read0_0.in = %12 ? w0.read_data;
+      w0.content_en = %13 ? 1'd1;
+      w0.addr0 = %13 ? i0.out;
+      w0.write_en = %13 ? 1'd1;
+      w0.write_data = %13 ? add10.out;
+      add10.left = %13 ? A_int_read0_0.out;
+      add10.right = %13 ? beta__0.out;
+    }
+    static<2> group static_par26<"promotable"=2, "par"=1> {
+      static_seq32[go] = 1'd1;
+      static_seq33[go] = 1'd1;
+    }
+    static<2> group static_seq32<"promotable"=2> {
+      A0_0.content_en = %0 ? 1'd1;
+      A0_0.addr1 = %0 ? i1.out;
+      A0_0.addr0 = %0 ? i0.out;
+      A_int_read0_0.write_en = %1 ? 1'd1;
+      A_int_read0_0.in = %1 ? A0_0.read_data;
+    }
+    static<2> group static_seq33<"promotable"=2> {
+      x0.content_en = %0 ? 1'd1;
+      x0.addr0 = %0 ? i1.out;
+      beta__0.write_en = %1 ? 1'd1;
+      beta__0.in = %1 ? x0.read_data;
+    }
+    static<3> group static_seq34 {
+      i1.write_en = %2 ? 1'd1;
+      i1.in = %2 ? add0.out;
+      add0.left = %2 ? i1.out;
+      add0.right = %2 ? const23.out;
+    }
+    static<14> group static_par28 {
+      static_par25[go] = 1'd1;
+    }
+    static<273> group static_par29<"promotable"=273, "par"=1> {
+      static_seq35[go] = %[0:145] ? 1'd1;
+      static_seq44[go] = 1'd1;
+    }
+    static<145> group static_seq35<"promotable"=145> {
+      i0.write_en = %0 ? 1'd1;
+      i0.in = %0 ? const2.out;
+      static_seq36[go] = %[1:145] ? 1'd1;
+    }
+    static<18> group static_seq36<"promotable"=18> {
+      u10.content_en = %0 ? 1'd1;
+      u10.addr0 = %0 ? i0.out;
+      alpha__0.write_en = %1 ? 1'd1;
+      alpha__0.in = %1 ? u10.read_data;
+      static_par30[go] = %[2:4] ? 1'd1;
+      static_par32[go] = %[4:6] ? 1'd1;
+      static_par34[go] = %[6:8] ? 1'd1;
+      static_par36[go] = %[8:10] ? 1'd1;
+      static_par38[go] = %[10:12] ? 1'd1;
+      static_par40[go] = %[12:14] ? 1'd1;
+      static_par42[go] = %[14:16] ? 1'd1;
+      z_int.content_en = %16 ? 1'd1;
+      z_int.addr0 = %16 ? i0.out;
+      z_int.write_en = %16 ? 1'd1;
+      z_int.write_data = %16 ? beta__0.out;
+      i0.write_en = %17 ? 1'd1;
+      i0.in = %17 ? add0.out;
+      add0.left = %17 ? i0.out;
+      add0.right = %17 ? const23.out;
+    }
+    static<2> group static_par30<"promotable"=2, "par"=1> {
+      upd350[go] = %0 ? 1'd1;
+      static_seq37[go] = 1'd1;
+    }
+    static<2> group static_seq37<"promotable"=2> {
+      v10.content_en = %0 ? 1'd1;
+      v10.addr0 = %0 ? i0.out;
+      beta__0.write_en = %1 ? 1'd1;
+      beta__0.in = %1 ? v10.read_data;
+    }
+    static<2> group static_par32<"promotable"=2, "par"=1> {
+      upd370[go] = %0 ? 1'd1;
+      static_seq38[go] = 1'd1;
+    }
+    static<2> group static_seq38<"promotable"=2> {
+      u20.content_en = %0 ? 1'd1;
+      u20.addr0 = %0 ? i0.out;
+      alpha__0.write_en = %1 ? 1'd1;
+      alpha__0.in = %1 ? u20.read_data;
+    }
+    static<2> group static_par34<"promotable"=2, "par"=1> {
+      upd390[go] = %0 ? 1'd1;
+      static_seq39[go] = 1'd1;
+    }
+    static<2> group static_seq39<"promotable"=2> {
+      v20.content_en = %0 ? 1'd1;
+      v20.addr0 = %0 ? i0.out;
+      beta__0.write_en = %1 ? 1'd1;
+      beta__0.in = %1 ? v20.read_data;
+    }
+    static<2> group static_par36<"promotable"=2, "par"=1> {
+      upd410[go] = %0 ? 1'd1;
+      static_seq40[go] = 1'd1;
+    }
+    static<2> group static_seq40<"promotable"=2> {
+      w0.content_en = %0 ? 1'd1;
+      w0.addr0 = %0 ? i0.out;
+      alpha__0.write_en = %1 ? 1'd1;
+      alpha__0.in = %1 ? w0.read_data;
+    }
+    static<2> group static_par38<"promotable"=2, "par"=1> {
+      upd430[go] = %0 ? 1'd1;
+      static_seq41[go] = 1'd1;
+    }
+    static<2> group static_seq41<"promotable"=2> {
+      x0.content_en = %0 ? 1'd1;
+      x0.addr0 = %0 ? i0.out;
+      beta__0.write_en = %1 ? 1'd1;
+      beta__0.in = %1 ? x0.read_data;
+    }
+    static<2> group static_par40<"promotable"=2, "par"=1> {
+      upd450[go] = %0 ? 1'd1;
+      static_seq42[go] = 1'd1;
+    }
+    static<2> group static_seq42<"promotable"=2> {
+      y0.content_en = %0 ? 1'd1;
+      y0.addr0 = %0 ? i0.out;
+      alpha__0.write_en = %1 ? 1'd1;
+      alpha__0.in = %1 ? y0.read_data;
+    }
+    static<2> group static_par42<"promotable"=2, "par"=1> {
+      upd470[go] = %0 ? 1'd1;
+      static_seq43[go] = 1'd1;
+    }
+    static<2> group static_seq43<"promotable"=2> {
+      z0.content_en = %0 ? 1'd1;
+      z0.addr0 = %0 ? i0.out;
+      beta__0.write_en = %1 ? 1'd1;
+      beta__0.in = %1 ? z0.read_data;
+    }
+    static<273> group static_seq44<"promotable"=273> {
+      i1.write_en = %0 ? 1'd1;
+      i1.in = %0 ? const4.out;
+      static_seq45[go] = %[1:273] ? 1'd1;
+    }
+    static<34> group static_seq45<"promotable"=34> {
+      j0.write_en = %0 ? 1'd1;
+      j0.in = %0 ? const4.out;
+      static_seq46[go] = %[1:33] ? 1'd1;
+      i1.write_en = %33 ? 1'd1;
+      i1.in = %33 ? add1.out;
+      add1.left = %33 ? i1.out;
+      add1.right = %33 ? const26.out;
+    }
+    static<4> group static_seq46<"promotable"=4> {
+      A0_0.content_en = %0 ? 1'd1;
+      A0_0.addr1 = %0 ? j0.out;
+      A0_0.addr0 = %0 ? i1.out;
+      A_int_read0_0.write_en = %1 ? 1'd1;
+      A_int_read0_0.in = %1 ? A0_0.read_data;
+      A_int.content_en = %2 ? 1'd1;
+      A_int.addr1 = %2 ? j0.out;
+      A_int.addr0 = %2 ? i1.out;
+      A_int.write_en = %2 ? 1'd1;
+      A_int.write_data = %2 ? A_int_read0_0.out;
+      j0.write_en = %3 ? 1'd1;
+      j0.in = %3 ? add1.out;
+      add1.left = %3 ? j0.out;
+      add1.right = %3 ? const26.out;
+    }
+  }
+  control {
+    static_seq;
+  }
+}
+metadata #{
+0: let alpha_ = alpha_int[0];
+  1: let beta_ = beta_int[0];
+  2: for (let i: ubit<4> = 0..8) {
+  3:   u1_sh[i] := u1_int[i];
+  4:   u1_sh[i] := u1_int[i];
+  5:   v1_sh[i] := v1_int[i];
+  6:   v1_sh[i] := v1_int[i];
+  7:   u2_sh[i] := u2_int[i];
+  8:   u2_sh[i] := u2_int[i];
+  9:   v2_sh[i] := v2_int[i];
+  10:   v2_sh[i] := v2_int[i];
+  11:   w_sh[i] := w_int[i];
+  12:   w_sh[i] := w_int[i];
+  13:   x_sh[i] := x_int[i];
+  14:   x_sh[i] := x_int[i];
+  15:   y_sh[i] := y_int[i];
+  16:   y_sh[i] := y_int[i];
+  17:   z_sh[i] := z_int[i];
+  18:   z_sh[i] := z_int[i];
+  19: for (let i: ubit<4> = 0..8) {
+  20:   for (let j: ubit<4> = 0..8) {
+  21:     A_sh[i][j] := A_int[i][j];
+  22:     A_sh[i][j] := A_int[i][j];
+  23: for (let i: ubit<4> = 0..8) {
+  24:   for (let j: ubit<4> = 0..8) {
+  25:     let tmp1 = u1[i] * v1[j] + u2[i] * v2[j];
+  26:     let tmp1 = u1[i] * v1[j] + u2[i] * v2[j];
+  27:     let tmp1 = u1[i] * v1[j] + u2[i] * v2[j];
+  28:     let tmp1 = u1[i] * v1[j] + u2[i] * v2[j];
+  29:     let old = A[i][j];
+  30:     A[i][j] := old + tmp1;
+  31: for (let i: ubit<4> = 0..8) {
+  32:   for (let j: ubit<4> = 0..8) {
+  33:     let tmp2 = beta_ * A[j][i] * y[j];
+  34:     let tmp2 = beta_ * A[j][i] * y[j];
+  35: for (let i: ubit<4> = 0..8) {
+  36:   let tmp3 = z[i];
+  37:   let old = x[i];
+  38:   x[i] := old + tmp3;
+  39: for (let i: ubit<4> = 0..8) {
+  40:   for (let j: ubit<4> = 0..8) {
+  41:     let tmp4 = alpha_ * A[i][j] * x[j];
+  42:     let tmp4 = alpha_ * A[i][j] * x[j];
+  43: for (let i: ubit<4> = 0..8) {
+  44:   u1_int[i] := u1_sh[i];
+  45:   u1_int[i] := u1_sh[i];
+  46:   v1_int[i] := v1_sh[i];
+  47:   v1_int[i] := v1_sh[i];
+  48:   u2_int[i] := u2_sh[i];
+  49:   u2_int[i] := u2_sh[i];
+  50:   v2_int[i] := v2_sh[i];
+  51:   v2_int[i] := v2_sh[i];
+  52:   w_int[i] := w_sh[i];
+  53:   w_int[i] := w_sh[i];
+  54:   x_int[i] := x_sh[i];
+  55:   x_int[i] := x_sh[i];
+  56:   y_int[i] := y_sh[i];
+  57:   y_int[i] := y_sh[i];
+  58:   z_int[i] := z_sh[i];
+  59:   z_int[i] := z_sh[i];
+  60: for (let i: ubit<4> = 0..8) {
+  61:   for (let j: ubit<4> = 0..8) {
+  62:     A_int[i][j] := A_sh[i][j];
+  63:     A_int[i][j] := A_sh[i][j];
+}#

@@ -698,7 +698,7 @@ impl Tree {
                         end_interval = *fsm_cell.borrow_mut().query_between(
                             builder,
                             (
-                                std::cmp::max(query_beg - delay, beg - delay),
+                                std::cmp::max(query_beg, *beg) - delay,
                                 query_end - delay,
                             ),
                         );
