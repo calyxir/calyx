@@ -122,7 +122,14 @@ def build(static=False):
     )
     # The root PIFO will take a stats component by reference.
 
-    queue_call.insert_main(prog, pifo_root, num_cmds, controller, stats_component)
+    queue_call.insert_main(
+        prog,
+        pifo_root,
+        num_cmds,
+        keepgoing=False,
+        controller=controller,
+        stats_component=stats_component,
+    )
     return prog.program
 
 

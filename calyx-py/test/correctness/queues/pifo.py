@@ -296,11 +296,12 @@ def insert_pifo(
 def build():
     """Top-level function to build the program."""
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
     fifo_l = fifo.insert_fifo(prog, "fifo_l", QUEUE_LEN_FACTOR)
     fifo_r = fifo.insert_fifo(prog, "fifo_r", QUEUE_LEN_FACTOR)
     pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
-    qc.insert_main(prog, pifo, num_cmds)
+    qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 
