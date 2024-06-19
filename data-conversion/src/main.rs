@@ -1,11 +1,11 @@
 //use std::env;
 use argh::FromArgs;
+use std::error::Error;
+use std::fmt;
 use std::fs::read_to_string;
 use std::fs::File;
 use std::io::{self, Write};
 use std::str::FromStr;
-use std::fmt;
-use std::error::Error;
 
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "binary" --totype "hex"
 
@@ -76,7 +76,6 @@ struct Arguments {
     #[argh(option, default = "-1.")]
     exp: f32,
 }
-
 
 fn main() {
     let args: Arguments = argh::from_env();
@@ -167,7 +166,9 @@ fn convert(
 
     eprintln!(
         "Successfully converted from {} to {} in {}",
-        convert_from.to_string(), convert_to.to_string(), filepath_send
+        convert_from.to_string(),
+        convert_to.to_string(),
+        filepath_send
     );
 }
 
@@ -389,7 +390,6 @@ fn fixed_to_binary(
     exponent: f32,
     // scale: usize,
 ) -> io::Result<()> {
-
     // Convert fixed value from string to int
     let fixed_value: f32;
     match fixed_string.parse::<f32>() {
