@@ -665,8 +665,6 @@ impl Tree {
                             // ends within the interavl: we want to capture both of these choices.
                             std::cmp::min(query_end - delay, end - delay),
                         );
-                        dbg!(&self.root.0);
-                        dbg!(&translated_query);
                         beg_interval = *fsm_cell
                             .borrow_mut()
                             .query_between(builder, translated_query);
