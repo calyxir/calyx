@@ -139,8 +139,6 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
 
-    ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
-
     j = main.reg(32)  # The index on the answer-list we'll write to
     incr_j = main.incr(j)  # j++
     write_ans = main.mem_store_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
@@ -176,12 +174,9 @@ def insert_main(prog, queue, num_cmds, controller=None, stats_component=None):
                     ref_component_err=dataplane_err,
                 )
             ),
-            # If the dataplane component has a nonzero answer,
+            # If the dataplane component has an answer,
             # write it to the answer-list and increment the index `j`.
-            cb.if_(
-                has_ans.out,
-                cb.if_with(ans_neq_0, [write_ans, incr_j]),
-            ),
+            cb.if_(has_ans.out, [write_ans, incr_j]),
             (
                 cb.invoke(  # Invoke the controller component.
                     controller,
