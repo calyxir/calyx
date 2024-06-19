@@ -83,7 +83,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
     }
     values = {
         "values": {
-            "data": [random.randint(0, 1) for _ in range(num_cmds)],
+            "data": [random.randint(0, 400) for _ in range(num_cmds)],
             # The `values` memory has `num_cmds` items, which are all
             # random values between 0 and 400.
             "format": format_gen(32),
