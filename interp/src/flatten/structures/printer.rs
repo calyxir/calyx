@@ -284,6 +284,9 @@ impl<'a> Printer<'a> {
 
                 text_utils::indent(out, indent)
             }
+            ControlNode::Repeat(_) => {
+                todo!()
+            }
         }
     }
 

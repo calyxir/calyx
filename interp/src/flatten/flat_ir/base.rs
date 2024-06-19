@@ -447,6 +447,10 @@ impl PortValue {
         Self(Some(AssignedValue::cell_value(val)))
     }
 
+    pub fn new_cell_zeroes(width: u32) -> Self {
+        Self::new_cell(Value::zeroes(width))
+    }
+
     /// Creates a [PortValue] that has the "winner" as implicit
     pub fn new_implicit(val: Value) -> Self {
         Self(Some(AssignedValue::implicit_value(val)))
