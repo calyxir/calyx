@@ -1,0 +1,15 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: dahlia-to-calyx"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+dahlia-exe = /test/bin/dahlia
+rule dahlia-to-calyx
+  command = $dahlia-exe -b calyx --lower -l error $in -o $out
+
+build /output.ext: dahlia-to-calyx /input.ext
+
+default /output.ext

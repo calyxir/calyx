@@ -814,7 +814,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
         e.rule(
             "remove-imports",
-            "sed '1,/component main/{/component main/!d}' $in > $out",
+            "sed '1,/component main/{/component main/!d; }' $in > $out",
         )?;
         Ok(())
     });
