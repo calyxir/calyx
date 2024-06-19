@@ -3,80 +3,64 @@ import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 import "primitives/pipelined.futil";
 
-/**
-* Checks to see if the FSM generated for seq activates a component for
-* exactly the right amount of time.
-* Regression: https://github.com/calyxir/calyx/pull/446
-*/
-
 component main() -> () {
   cells {
-    a = std_reg(32);
-    b = std_reg(32);
-    c = std_reg(32);
-    d = std_reg(32);
-    e = std_reg(32);
-    f = std_reg(32);
-    g = std_reg(32);
-    h = std_reg(32);
-    i = std_reg(32);
+    res1 = std_reg(32);
+    res2 = std_reg(32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    mult1 = std_mult_pipe(32);
+    mult2 = std_mult_pipe(32);
+    @external(1) m = seq_mem_d1(32,1,1);
   }
   wires {
-    static<1> group A {
-      a.write_en = 1'd1;
-      a.in = 32'd2;
+    static<1> group incr_res1 {
+      res1.write_en = 1'd1;
+      res1.in = add.out;
+      add1.left = res1.out;
+      add1.right = 32'd1;
     }
-    static<1> group B {
-      b.write_en = 1'd1;
-      b.in = 32'd2;
+    static<4> group double_res1 {
+      res1.write_en = %4 ? 1'd1;
+      res1.in = %4 ? mult1.out;
+      mult1.left =  %[0:3] ? res1.out;
+      mult1.right = %[0:3] ? 32'd2;
     }
-    static<1> group C {
-      c.write_en = 1'd1;
-      c.in = 32'd2;
+    static<1> group incr_res2 {
+      res2.write_en = 1'd1;
+      res2.in = add.out;
+      add2.left = res2.out;
+      add2.right = 32'd1;
     }
-    static<1> group D {
-      d.write_en = 1'd1;
-      d.in = 32'd2;
+    static<4> group double_res2 {
+      res2.write_en = %4 ? 1'd1;
+      res2.in = %4 ? mult2.out;
+      mult2.left =  %[0:3] ? res2.out;
+      mult2.right = %[0:3] ? 32'd2;
     }
-    static<1> group E {
-      e.write_en = 1'd1;
-      e.in = 32'd2;
-    }
-    static<1> group F {
-      f.write_en = 1'd1;
-      f.in = 32'd2;
-    }
-    static<1> group G {
-      g.write_en = 1'd1;
-      g.in = 32'd2;
-    }
-    static<1> group H {
-      g.write_en = 1'd1;
-      g.in = 32'd2;
-    }
-    static<1> group I {
-      h.write_en = 1'd1;
-      h.in = 32'd2;
-    }
-    static<1> group J {
-      i.write_en = 1'd1;
-      i.in = 32'd2;
+    static<1> group write_mem {
+      m.addr0 = 1'd0;
+      m.content_en = 1'd1;
+      m.write_en = 1'd1;
+      m.write_data = add1.out;
+      add1.left = res1.out;
+      add1.right = res1.out;
     }
   }
   control {
     static seq {
-      A; B;
+      incr_res1; incr_res2;
       static par {
         static seq {
-          C; D;
+          incr_res1; double_res1;
           static repeat 5 {
-            static seq { E; F;}
+            static seq { incr_res1; double_res1;}
           }
         }
         static seq {
-          G;
+          double_res2;
           static repeat 20 {
-            H;
+            incr_res2;
           }
         }
       }
