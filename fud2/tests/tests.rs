@@ -21,16 +21,16 @@ fn test_driver() -> Driver {
 }
 
 trait InstaTest: Sized {
-    /// Get a human-readable description of Self.
+    /// Get a human-readable description of Self
     fn desc(&self, driver: &Driver) -> String;
 
-    /// Get a short string uniquely identifying Self.
+    /// Get a short string uniquely identifying Self
     fn slug(&self, driver: &Driver) -> String;
 
-    /// Emit the string that will be snapshot tested.
+    /// Emit the string that will be snapshot tested
     fn emit(self, driver: &Driver) -> String;
 
-    /// Run snapshap test
+    /// Run snapshot test
     fn test(self, driver: &Driver) {
         let desc = self.desc(driver);
         let slug = self.slug(driver);
