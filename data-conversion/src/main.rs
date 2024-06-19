@@ -3,112 +3,161 @@ use argh::FromArgs;
 use std::fs::read_to_string;
 use std::fs::File;
 use std::io::{self, Write};
+use std::str::FromStr;
+use std::fmt;
+use std::error::Error;
 
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "binary" --totype "hex"
 
-fn main() {
-    #[derive(FromArgs)]
-    /// get arguments to convert
-    struct Arguments {
-        /// file to convert from
-        #[argh(option)]
-        from: String,
+#[derive(Debug)]
+struct ParseNumTypeError;
 
-        /// file to convery to
-        #[argh(option)]
-        to: String,
-
-        /// type to convert from
-        #[argh(option)]
-        ftype: String,
-
-        /// type to convert to
-        #[argh(option)]
-        totype: String,
-
-        /// optional exponent for fixed_to_binary -> default is -1
-        #[argh(option, default = "String::from(\"-1\")")]
-        exp: String,
+impl fmt::Display for ParseNumTypeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid number type")
     }
+}
 
+impl Error for ParseNumTypeError {}
+
+#[derive(Debug, PartialEq)] // Add PartialEq derivation here - What is this?
+enum NumType {
+    Binary,
+    Float,
+    Hex,
+    Fixed,
+}
+
+impl ToString for NumType {
+    fn to_string(&self) -> String {
+        match self {
+            NumType::Binary => "binary".to_string(),
+            NumType::Float => "float".to_string(),
+            NumType::Hex => "hex".to_string(),
+            NumType::Fixed => "fixed".to_string(),
+        }
+    }
+}
+
+impl FromStr for NumType {
+    type Err = ParseNumTypeError;
+
+    fn from_str(input: &str) -> Result<NumType, Self::Err> {
+        match input {
+            "binary" => Ok(NumType::Binary),
+            "float" => Ok(NumType::Float),
+            "hex" => Ok(NumType::Hex),
+            "fixed" => Ok(NumType::Fixed),
+            _ => Err(ParseNumTypeError),
+        }
+    }
+}
+
+#[derive(FromArgs)]
+/// get arguments to convert
+struct Arguments {
+    /// file to convert from
+    #[argh(option)]
+    from: String,
+
+    /// file to convery to
+    #[argh(option)]
+    to: String,
+
+    /// type to convert from
+    #[argh(option)]
+    ftype: NumType,
+
+    /// type to convert to
+    #[argh(option)]
+    totype: NumType,
+
+    /// optional exponent for fixed_to_binary -> default is -1
+    #[argh(option, default = "-1.")]
+    exp: f32,
+}
+
+
+fn main() {
     let args: Arguments = argh::from_env();
 
-    // Array of all possible options to convert from
-    let from_types: Vec<String> = vec![
-        "binary".to_string(),
-        "float".to_string(),
-        "hex".to_string(),
-        "fixed".to_string(),
-        "exp".to_string(),
-    ];
-    // Array of all possible options to convert to
-    let to_types: Vec<String> = vec![
-        "binary".to_string(),
-        "float".to_string(),
-        "hex".to_string(),
-        "fixed".to_string(),
-    ];
-
-    if !from_types.contains(&args.ftype) {
-        panic!("{} is not a valid type to convert from", args.from);
-    }
-    if !to_types.contains(&args.totype) {
-        panic!("{} is not a valid type to convert to", args.to);
-    }
-
-    convert(&args.from, &args.to, &args.ftype, &args.totype, &args.exp);
+    convert(&args.from, &args.to, &args.ftype, &args.totype, args.exp);
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
 /// [convert_to] in [filepath_send]
+///
+/// # Arguments
+///
+/// * `float_string` - A string slice containing the floating-point number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the binary representation
+///   will be appended.
+///
+/// # Returns
+///
+/// Returns `Ok` if the operation is successful, or an `Err` if an I/O error occurs while
+/// writing to the file.
+///
+/// # Panics
+///
+/// Panics if the input string cannot be parsed as a floating-point number.
+///
+/// # Example
+///
+/// ```rust
+/// use std::fs::File;
+///
+/// let mut file = File::create("output.txt").expect("Failed to create file");
+/// float_to_binary("3.14", &mut file).expect("Failed to convert float to binary");
+/// ```
 fn convert(
     filepath_get: &String,
     filepath_send: &String,
-    convert_from: &String,
-    convert_to: &String,
-    exponent: &str,
+    convert_from: &NumType,
+    convert_to: &NumType,
+    exponent: f32,
 ) {
     // Create a file called converted.txt
     let mut converted = File::create(filepath_send).expect("creation failed");
 
-    if convert_to == "binary" {
+    if *convert_to == NumType::Binary {
         //Convert from hex to binary
-        if convert_from == "hex" {
+        if *convert_from == NumType::Hex {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 hex_to_binary(line, &mut converted)
                     .expect("Failed to write binary to file");
             }
         //Convert from float to binary
-        } else if convert_from == "float" {
+        } else if *convert_from == NumType::Float {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 float_to_binary(line, &mut converted)
                     .expect("Failed to write binary to file");
             }
-        } else if convert_from == "fixed" {
+        } else if *convert_from == NumType::Fixed {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 fixed_to_binary(line, &mut converted, exponent)
                     .expect("Failed to write binary to file");
             }
         }
-    } else if convert_to == "hex" {
+    } else if *convert_to == NumType::Hex {
         //Convert from binary to hex
-        if convert_from == "binary" {
+        if *convert_from == NumType::Binary {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 binary_to_hex(line, &mut converted)
                     .expect("Failed to write hex to file");
             }
         }
-    } else if convert_to == "float" {
+    } else if *convert_to == NumType::Float {
         //Convert from binary to float
-        if convert_from == "binary" {
+        if *convert_from == NumType::Binary {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 binary_to_float(line, &mut converted)
                     .expect("Failed to write float to file");
             }
         }
-    } else if convert_to == "fixed" {
+    } else if *convert_to == NumType::Fixed {
         // Convert from binary to fixed
-        if convert_from == "binary" {
+        if *convert_from == NumType::Binary {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 binary_to_fixed(line, &mut converted, exponent)
                     .expect("Failed to write float to file");
@@ -118,7 +167,7 @@ fn convert(
 
     eprintln!(
         "Successfully converted from {} to {} in {}",
-        convert_from, convert_to, filepath_send
+        convert_from.to_string(), convert_to.to_string(), filepath_send
     );
 }
 
@@ -137,7 +186,28 @@ fn format_hex(to_format: u32) -> String {
     format!("0x{:X}", to_format)
 }
 
-/// Converts [float_string] to binary and appends to [filepath_send]
+/// Converts a string representation of a floating-point number to its binary
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a floating-point number,
+/// converts it to a 32-bit floating-point number (`f32`), then converts this
+/// number to its binary representation. The binary representation is formatted
+/// as a string and written to the specified file, followed by a newline.
+///
+/// # Arguments
+///
+/// * `float_string` - A string slice containing the floating-point number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the binary representation
+///   will be appended.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a floating-point number.
 fn float_to_binary(
     float_string: &str,
     filepath_send: &mut File,
@@ -162,7 +232,28 @@ fn float_to_binary(
     Ok(())
 }
 
-/// Converts [hex_string] to binary and appends to [filepath_send]
+/// Converts a string representation of a hexadecimal number to its binary
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a hexadecimal number,
+/// converts it to a 32-bit integer (`u32`), then converts this number to its
+/// binary representation. The binary representation is formatted as a string
+/// and written to the specified file, followed by a newline.
+///
+/// # Arguments
+///
+/// * `hex_string` - A string slice containing the hexadecimal number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the binary representation
+///   will be appended.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a hexadecimal number.
 fn hex_to_binary(hex_string: &str, filepath_send: &mut File) -> io::Result<()> {
     // Convert hex to binary
     let binary_of_hex = match u32::from_str_radix(hex_string, 16) {
@@ -182,6 +273,28 @@ fn hex_to_binary(hex_string: &str, filepath_send: &mut File) -> io::Result<()> {
     Ok(())
 }
 
+/// Converts a string representation of a binary number to its hexadecimal
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a binary number,
+/// converts it to a 32-bit integer (`u32`), then converts this number to its
+/// hexadecimal representation. The hexadecimal representation is formatted
+/// as a string and written to the specified file, followed by a newline.
+///
+/// # Arguments
+///
+/// * `binary_string` - A string slice containing the binary number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the hexadecimal representation
+///   will be appended.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a binary number.
 fn binary_to_hex(
     binary_string: &str,
     filepath_send: &mut File,
@@ -201,6 +314,29 @@ fn binary_to_hex(
     Ok(())
 }
 
+/// Converts a string representation of a binary number to its floating-point
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a binary number,
+/// converts it to a 32-bit integer (`u32`), then interprets this integer as
+/// the binary representation of a 32-bit floating-point number (`f32`).
+/// The floating-point representation is formatted as a string and written
+/// to the specified file, followed by a newline.
+///
+/// # Arguments
+///
+/// * `binary_string` - A string slice containing the binary number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the floating-point representation
+///   will be appended.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a binary number.
 fn binary_to_float(
     binary_string: &str,
     filepath_send: &mut File,
@@ -223,30 +359,41 @@ fn binary_to_float(
     Ok(())
 }
 
+/// Converts a string representation of a fixed-point number to its binary
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a fixed-point number,
+/// multiplies it by 2 raised to the power of the negative exponent, converts the result
+/// to a 32-bit integer, and then to its binary representation. The binary representation
+/// is formatted as a string and written to the specified file, followed by a newline.
+///
+/// # Arguments
+///
+/// * `fixed_string` - A string slice containing the fixed-point number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the binary representation
+///   will be appended.
+/// * `exponent` - A floating-point number representing the exponent to be applied in the
+///   conversion process.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a fixed-point number.
 fn fixed_to_binary(
     fixed_string: &str,
     filepath_send: &mut File,
-    exp_str: &str,
+    exponent: f32,
     // scale: usize,
 ) -> io::Result<()> {
-    // Create an array with the elements of fixed_string
-    let words: Vec<&str> = fixed_string.split_whitespace().collect();
-    let fixed_str: &&str =
-        words.first().unwrap_or(&"There is not a fixed number");
-    // exp_str = words.get(1).unwrap_or(&"There is no exponent");
 
     // Convert fixed value from string to int
     let fixed_value: f32;
-    match fixed_str.parse::<f32>() {
+    match fixed_string.parse::<f32>() {
         Ok(parsed_num) => fixed_value = parsed_num,
-        Err(_) => {
-            panic!("Bad fixed value input")
-        }
-    }
-    // Convert exponent from string to float
-    let exponent: f32;
-    match exp_str.parse::<f32>() {
-        Ok(parsed_num) => exponent = parsed_num,
         Err(_) => {
             panic!("Bad fixed value input")
         }
@@ -268,10 +415,36 @@ fn fixed_to_binary(
     Ok(())
 }
 
+/// Converts a string representation of a binary number to its fixed-point
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a binary number,
+/// converts it to a 32-bit unsigned integer, interprets this integer as
+/// a floating-point number, divides it by 2 raised to the power of the negative exponent,
+/// and converts the result to its fixed-point representation. The fixed-point
+/// representation is formatted as a string and written to the specified file,
+/// followed by a newline.
+///
+/// # Arguments
+///
+/// * `binary_string` - A string slice containing the binary number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the fixed-point representation
+///   will be appended.
+/// * `exponent` - A floating-point number representing the exponent to be applied in the
+///   conversion process.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a binary number.
 fn binary_to_fixed(
     binary_string: &str,
     filepath_send: &mut File,
-    exp_str: &str,
+    exponent: f32,
 ) -> io::Result<()> {
     // Create an array with the elements of fixed_string
     let words: Vec<&str> = binary_string.split_whitespace().collect();
@@ -283,15 +456,6 @@ fn binary_to_fixed(
         Ok(parsed_num) => parsed_num,
         Err(_) => panic!("Bad binary value input"),
     };
-
-    // Convert exponent from string to float
-    let exponent: f32;
-    match exp_str.parse::<f32>() {
-        Ok(parsed_num) => exponent = parsed_num,
-        Err(_) => {
-            panic!("Bad fixed value input")
-        }
-    }
 
     // Convert to fixed
     let int_of_binary = binary_value as f32;
