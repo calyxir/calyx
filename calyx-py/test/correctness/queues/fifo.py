@@ -75,6 +75,8 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
         cb.if_with(fifo.lt_use(cmd, 2), pop_peek_logic),
         # Did the user call push?
         cb.if_with(fifo.eq_use(cmd, 2), push_logic),
+        # Did the user call an invalid command?
+        cb.if_with(fifo.eq_use(cmd, 3), raise_err),
     )
 
     return fifo
