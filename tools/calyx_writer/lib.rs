@@ -21,36 +21,50 @@ fn rrc<T>(value: T) -> RRC<T> {
     Rc::new(RefCell::new(value))
 }
 
-// TODO(ethan): too lazy to find a crate that handles this
-struct Indent {
-    current: String,
-    add: usize,
+struct IndentFormatter<'a, 'b: 'a> {
+    current_indent: String,
+    add_indent: usize,
+    last_was_newline: bool,
+    formatter: &'a mut fmt::Formatter<'b>,
 }
 
-impl Indent {
-    fn push(&mut self) {
-        for _ in 0..self.add {
-            self.current.push(' ');
+impl<'a, 'b: 'a> IndentFormatter<'a, 'b> {
+    /// Constructs a new formatter managing indents of `indent` spaces in the
+    /// wrapped formatter `formatter`.
+    pub fn new(formatter: &'a mut fmt::Formatter<'b>, indent: usize) -> Self {
+        Self {
+            current_indent: String::new(),
+            add_indent: indent,
+            last_was_newline: false,
+            formatter,
         }
     }
 
-    fn pop(&mut self) {
-        for _ in 0..self.add {
-            self.current.pop();
+    /// Adds a level of indentation.
+    pub fn push(&mut self) {
+        for _ in 0..self.add_indent {
+            self.current_indent.push(' ');
         }
     }
 
-    fn current(&self) -> &str {
-        &self.current
+    /// Removes a level of indentation.
+    pub fn pop(&mut self) {
+        for _ in 0..self.add_indent {
+            self.current_indent.pop();
+        }
     }
 }
 
-impl Default for Indent {
-    fn default() -> Self {
-        Indent {
-            current: String::new(),
-            add: 2,
+impl fmt::Write for IndentFormatter<'_, '_> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            if self.last_was_newline {
+                self.formatter.write_str(&self.current_indent)?;
+            }
+            self.formatter.write_char(c)?;
+            self.last_was_newline = c == '\n';
         }
+        Ok(())
     }
 }
 
@@ -107,32 +121,21 @@ trait CalyxWriter {
         None
     }
 
-    /// Writes this element to `f`. It may be assumed that `indent.current()`
-    /// spaces have already been written, but on any further line, these number
-    /// of spaces must be effected. See also [`CalyxWriter::writeln`].
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result;
+    /// Writes this element to `f`. See also [`CalyxWriter::writeln`].
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result;
 
     /// Writes this element followed by a newline and wrapped with markers if
-    /// the element provides them. See more information at
-    /// [`CalyxWriter::write`].
+    /// the element provides them. See also [`CalyxWriter::write`].
     ///
     /// Do NOT override this function. See details at [`CalyxWriter`].
-    fn writeln(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
+    fn writeln(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         if let Some(marker) = self.marker() {
             write!(f, "{}", marker.to_string("start"))?;
-            self.write(f, indent)?;
+            self.write(f)?;
             f.write_char('\n')?;
             write!(f, "{}", marker.to_string("end"))?;
         } else {
-            self.write(f, indent)?;
+            self.write(f)?;
             f.write_char('\n')?;
         }
         Ok(())
@@ -145,17 +148,13 @@ struct Import {
 }
 
 impl CalyxWriter for Import {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        _indent: &mut Indent,
-    ) -> fmt::Result {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         write!(f, "import \"{}\";", self.path)
     }
 }
 
 /// See `calyx_frontend::Attribute`.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Attribute {
     name: String,
     value: Option<u64>,
@@ -181,11 +180,7 @@ impl Attribute {
 }
 
 impl CalyxWriter for Attribute {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        _indent: &mut Indent,
-    ) -> fmt::Result {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         write!(f, "@{}", self.name)?;
         if let Some(value) = self.value {
             write!(f, "({})", value)?;
@@ -211,13 +206,9 @@ trait AttributeProvider {
 }
 
 impl CalyxWriter for Attributes {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         for attr in self {
-            attr.write(f, indent)?;
+            attr.write(f)?;
             f.write_char(' ')?;
         }
         Ok(())
@@ -225,7 +216,7 @@ impl CalyxWriter for Attributes {
 }
 
 /// A port on a cell or a component.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Port {
     attributes: Vec<Attribute>,
     /// The cell that this port belongs to, or `None` if it is in a component
@@ -298,12 +289,8 @@ impl Display for Port {
 impl CalyxWriter for Port {
     /// Behaves identically to [`Port::fmt`]. Please read [`CalyxWriter::write`]
     /// for documentation on this function.
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        _indent: &mut Indent,
-    ) -> fmt::Result {
-        self.fmt(f)
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -326,6 +313,13 @@ pub struct Cell {
     args: Vec<u64>,
 }
 
+impl Cell {
+    /// Whether this cell is a ref cell.
+    pub fn is_ref(&self) -> bool {
+        self.is_ref
+    }
+}
+
 impl PortProvider for Cell {
     fn get(&self, port: String) -> Port {
         Port::inferred(Some(self.name.clone()), port)
@@ -339,12 +333,8 @@ impl AttributeProvider for Cell {
 }
 
 impl CalyxWriter for Cell {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
-        self.attributes.write(f, indent)?;
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
+        self.attributes.write(f)?;
         write!(
             f,
             "{}{} = {}({});",
@@ -361,7 +351,7 @@ impl CalyxWriter for Cell {
 }
 
 /// A guard for an [`Assignment`].
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum Guard {
     None,
     Constant(u64),
@@ -370,17 +360,14 @@ pub enum Guard {
 }
 
 impl CalyxWriter for Guard {
-    fn write(
-        &self,
-        _f: &mut fmt::Formatter<'_>,
-        _indent: &mut Indent,
-    ) -> fmt::Result {
+    fn write(&self, _f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         // TODO
         Ok(())
     }
 }
 
 /// See `calyx_ir::Assignment`.
+#[derive(PartialEq, Eq, Debug)]
 pub struct Assignment {
     lhs: Port,
     rhs: Port,
@@ -400,14 +387,10 @@ impl Assignment {
 }
 
 impl CalyxWriter for Assignment {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         write!(f, "{} = ", self.lhs)?;
         if self.guard != Guard::None {
-            self.guard.write(f, indent)?;
+            self.guard.write(f)?;
             write!(f, " ? ")?;
         }
         write!(f, "{};", self.rhs)
@@ -415,6 +398,7 @@ impl CalyxWriter for Assignment {
 }
 
 /// See `calyx_ir::Group`. Contains optional documentation.
+#[derive(PartialEq, Eq, Debug)]
 pub struct Group {
     name: String,
     description: Option<String>,
@@ -470,14 +454,10 @@ impl PortProvider for Group {
 }
 
 impl CalyxWriter for Group {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         if let Some(description) = &self.description {
             for line in description.lines() {
-                write!(f, "// {}\n{}", line, indent.current())?;
+                writeln!(f, "// {}", line)?;
             }
         }
         if let Some(latency) = self.latency {
@@ -487,17 +467,17 @@ impl CalyxWriter for Group {
             write!(f, "comb ")?;
         }
         writeln!(f, "group {} {{", self.name)?;
-        indent.push();
+        f.push();
         for assignment in &self.assignments {
-            write!(f, "{}", indent.current())?;
-            assignment.writeln(f, indent)?;
+            assignment.writeln(f)?;
         }
-        indent.pop();
-        write!(f, "{}}}", indent.current())
+        f.pop();
+        write!(f, "}}")
     }
 }
 
 /// Helper variant with [`Control`].
+#[derive(PartialEq, Eq, Debug)]
 enum ControlValue {
     Empty,
     Enable(RRC<Group>),
@@ -508,6 +488,7 @@ enum ControlValue {
 }
 
 /// Structured calyx control with attributes.
+#[derive(PartialEq, Eq, Debug)]
 pub struct Control {
     attributes: Attributes,
     value: ControlValue,
@@ -583,12 +564,8 @@ impl AttributeProvider for Control {
 }
 
 impl CalyxWriter for Control {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
-        self.attributes.write(f, indent)?;
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
+        self.attributes.write(f)?;
         match &self.value {
             ControlValue::Empty => {}
             ControlValue::Enable(group) => {
@@ -596,23 +573,21 @@ impl CalyxWriter for Control {
             }
             ControlValue::Seq(body) => {
                 writeln!(f, "seq {{")?;
-                indent.push();
+                f.push();
                 for node in body {
-                    write!(f, "{}", indent.current())?;
-                    node.writeln(f, indent)?;
+                    node.writeln(f)?;
                 }
-                indent.pop();
-                write!(f, "{}}}", indent.current())?;
+                f.pop();
+                write!(f, "}}")?;
             }
             ControlValue::Par(body) => {
                 writeln!(f, "par {{")?;
-                indent.push();
+                f.push();
                 for node in body {
-                    write!(f, "{}", indent.current())?;
-                    node.writeln(f, indent)?;
+                    node.writeln(f)?;
                 }
-                indent.pop();
-                write!(f, "{}}}", indent.current())?;
+                f.pop();
+                write!(f, "}}")?;
             }
             ControlValue::While(cond, group, body) => {
                 writeln!(
@@ -625,13 +600,12 @@ impl CalyxWriter for Control {
                         "".into()
                     }
                 )?;
-                indent.push();
+                f.push();
                 for node in body {
-                    write!(f, "{}", indent.current())?;
-                    node.writeln(f, indent)?;
+                    node.writeln(f)?;
                 }
-                indent.pop();
-                write!(f, "{}}}", indent.current())?;
+                f.pop();
+                write!(f, "}}")?;
             }
             ControlValue::If(cond, group, body_true, body_false) => {
                 writeln!(
@@ -644,20 +618,18 @@ impl CalyxWriter for Control {
                         "".into()
                     }
                 )?;
-                indent.push();
+                f.push();
                 for node in body_true {
-                    write!(f, "{}", indent.current())?;
-                    node.writeln(f, indent)?;
+                    node.writeln(f)?;
                 }
-                indent.pop();
-                writeln!(f, "{}}} else {{", indent.current())?;
-                indent.push();
+                f.pop();
+                writeln!(f, "}} else {{")?;
+                f.push();
                 for node in body_false {
-                    write!(f, "{}", indent.current())?;
-                    node.writeln(f, indent)?;
+                    node.writeln(f)?;
                 }
-                indent.pop();
-                write!(f, "{}}}", indent.current())?;
+                f.pop();
+                write!(f, "}}")?;
             }
         }
         Ok(())
@@ -729,12 +701,13 @@ impl Component {
     /// arguments `args`.
     pub fn cell<S: ToString, T: ToString>(
         &mut self,
+        is_ref: bool,
         name: S,
         inst: T,
         args: Vec<u64>,
     ) -> RRC<Cell> {
         let cell = rrc(Cell {
-            is_ref: false,
+            is_ref,
             attributes: vec![],
             name: name.to_string(),
             inst: inst.to_string(),
@@ -783,21 +756,20 @@ impl Component {
     /// ```
     fn brace_section<S: ToString, F>(
         &self,
-        f: &mut fmt::Formatter,
-        indent: &mut Indent,
+        f: &mut IndentFormatter<'_, '_>,
         name: S,
         body: F,
     ) -> fmt::Result
     where
-        F: FnOnce(&mut fmt::Formatter, &mut Indent) -> fmt::Result,
+        F: FnOnce(&mut IndentFormatter<'_, '_>) -> fmt::Result,
     {
-        indent.push();
-        writeln!(f, "{}{} {{", indent.current(), name.to_string(),)?;
-        indent.push();
-        let result = body(f, indent);
-        indent.pop();
-        writeln!(f, "{}}}", indent.current())?;
-        indent.pop();
+        f.push();
+        writeln!(f, "{} {{", name.to_string(),)?;
+        f.push();
+        let result = body(f);
+        f.pop();
+        writeln!(f, "}}")?;
+        f.pop();
         result
     }
 
@@ -808,8 +780,7 @@ impl Component {
     /// Requires: all ports in `ports` must have definite widths.
     fn write_ports_sig(
         &self,
-        f: &mut fmt::Formatter,
-        indent: &mut Indent,
+        f: &mut IndentFormatter<'_, '_>,
         ports: &[Port],
     ) -> fmt::Result {
         for (i, port) in ports.iter().enumerate() {
@@ -817,7 +788,7 @@ impl Component {
                 f.write_str(", ")?;
             }
             assert!(!port.has_inferred_width());
-            port.attributes.write(f, indent)?;
+            port.attributes.write(f)?;
             write!(f, "{}: {}", port.name, port.width)?;
         }
         Ok(())
@@ -848,44 +819,34 @@ impl CalyxWriter for Component {
         Some(Marker::unique("component", self.name.clone()))
     }
 
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
-        self.attributes.write(f, indent)?;
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
+        self.attributes.write(f)?;
         write!(
             f,
             "{}component {}(",
             if self.is_comb { "comb " } else { "" },
             self.name
         )?;
-        self.write_ports_sig(f, indent, &self.inputs)?;
+        self.write_ports_sig(f, &self.inputs)?;
         write!(f, ") -> (")?;
-        self.write_ports_sig(f, indent, &self.outputs)?;
+        self.write_ports_sig(f, &self.outputs)?;
         writeln!(f, ") {{")?;
-        self.brace_section(f, indent, "cells", |f, indent| {
+        self.brace_section(f, "cells", |f| {
             for cell in &self.cells {
-                write!(f, "{}", indent.current())?;
-                cell.borrow().writeln(f, indent)?;
+                cell.borrow().writeln(f)?;
             }
             Ok(())
         })?;
-        self.brace_section(f, indent, "wires", |f, indent| {
+        self.brace_section(f, "wires", |f| {
             for group in &self.groups {
-                write!(f, "{}", indent.current())?;
-                group.borrow().writeln(f, indent)?;
+                group.borrow().writeln(f)?;
             }
             for assignment in &self.continuous_assignments {
-                write!(f, "{}", indent.current())?;
-                assignment.writeln(f, indent)?;
+                assignment.writeln(f)?;
             }
             Ok(())
         })?;
-        self.brace_section(f, indent, "control", |f, indent| {
-            write!(f, "{}", indent.current())?;
-            self.control.writeln(f, indent)
-        })?;
+        self.brace_section(f, "control", |f| self.control.writeln(f))?;
         write!(f, "}}")
     }
 }
@@ -924,16 +885,12 @@ impl Program {
 }
 
 impl CalyxWriter for Program {
-    fn write(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        indent: &mut Indent,
-    ) -> fmt::Result {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         for import in &self.imports {
-            import.writeln(f, indent)?;
+            import.writeln(f)?;
         }
         for comp in &self.comps {
-            comp.borrow().writeln(f, indent)?;
+            comp.borrow().writeln(f)?;
         }
         Ok(())
     }
@@ -941,7 +898,8 @@ impl CalyxWriter for Program {
 
 impl Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.write(f, &mut Indent::default())
+        let mut f = IndentFormatter::new(f, 2);
+        self.write(&mut f)
     }
 }
 
@@ -949,17 +907,21 @@ impl Display for Program {
 /// ```
 /// build_cells!(comp;
 ///     a = std_reg(32);
-///     b = std_add(32);
+///     ref b = std_add(32);
 /// )
 /// ```
 /// Remember to import (via [`Program::import`]) the necessary primitives.
 #[macro_export]
 macro_rules! build_cells {
-    ($comp:ident; $($name:ident = $cell:ident($($args:expr),*);)*) => {
-        $(
-            let $name = $comp.borrow_mut().cell(stringify!($name), stringify!($cell), vec![$($args as u64),*]);
-        )*
+    ($comp:ident; ref $name:ident = $cell:ident($($args:expr),*); $($rest:tt)*) => {
+        let $name = $comp.borrow_mut().cell(true, stringify!($name), stringify!($cell), vec![$($args as u64),*]);
+        build_cells!($comp; $($rest)*);
     };
+    ($comp:ident; $name:ident = $cell:ident($($args:expr),*); $($rest:tt)*) => {
+        let $name = $comp.borrow_mut().cell(false, stringify!($name), stringify!($cell), vec![$($args as u64),*]);
+        build_cells!($comp; $($rest)*);
+    };
+    ($comp:ident;) => {};
 }
 
 /// `declare_group!(comp; group name)` declares `name` as a group and binds it
@@ -1027,6 +989,9 @@ macro_rules! build_control {
     ([$x:ident]) => {
         Control::enable($x.clone())
     };
+    (($c:expr)) => {
+        $c
+    };
     ([seq { $($x:tt),+ }]) => {
         Control::seq(vec![$(build_control!($x)),*])
     };
@@ -1051,4 +1016,62 @@ macro_rules! build_control {
     ([if $cond:ident.$port:ident with $comb_group:ident { $($x_true:tt),* } else { $($x_false:tt),* }]) => {
         Control::if_($cond.borrow().get(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+
+    struct TestIndentFormatter;
+    impl Display for TestIndentFormatter {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let mut f = IndentFormatter::new(f, 2);
+            writeln!(f, "hello\ngoodbye")?;
+            f.push();
+            writeln!(f, "hello\ngoodbye")?;
+            f.pop();
+            writeln!(f, "hello\ngoodbye")
+        }
+    }
+
+    #[test]
+    fn test_indent_formatter() {
+        assert_eq!(
+            "hello\ngoodbye\n  hello\n  goodbye\nhello\ngoodbye\n",
+            TestIndentFormatter.to_string()
+        );
+    }
+
+    #[test]
+    fn test_build_cell() {
+        let mut prog = Program::new();
+        let comp = prog.comp("test");
+        build_cells!(comp;
+            x = std_reg(32);
+            ref y = std_ref(32);
+        );
+        assert!(!x.borrow().is_ref());
+        assert!(y.borrow().is_ref());
+    }
+
+    #[test]
+    fn test_build_control() {
+        let mut prog = Program::new();
+        let comp = prog.comp("test");
+        declare_group!(comp; group foo);
+        declare_group!(comp; group bar);
+        let control = build_control! {
+            [seq {
+                [foo],
+                (Control::enable(bar.clone()))
+            }]
+        };
+        assert_eq!(
+            Control::seq(vec![
+                Control::enable(foo.clone()),
+                Control::enable(bar.clone())
+            ]),
+            control
+        );
+    }
 }
