@@ -85,9 +85,10 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
 def build():
     """Top-level function to build the program."""
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
     fifo = insert_fifo(prog, "fifo")
-    qc.insert_main(prog, fifo, num_cmds, keepgoing=True)
+    qc.insert_main(prog, fifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 
