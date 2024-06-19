@@ -85,9 +85,9 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
 
     # Cells and groups to check for overflow and underflow.
     size_eq_0 = comp.eq_use(size.out, 0)
-    full = comp.reg(1)
-    set_full_on = comp.reg_store(full, 1, "set_full_on")
-    set_full_off = comp.reg_store(full, 0, "set_full_off")
+    is_full = comp.reg(1)
+    set_full_on = comp.reg_store(is_full, 1, "set_full_on")
+    set_full_off = comp.reg_store(is_full, 0, "set_full_off")
 
     current_idx = comp.reg(addr_size)
     current_rank = comp.reg(rnk_w)
@@ -365,7 +365,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         lower_err,
         cb.if_with(
             cmd_le_1,
-            cb.if_(full.out, 
+            cb.if_(is_full.out, 
                    [peek_or_pop, set_full_off],
                    cb.if_with(size_eq_0, raise_err, peek_or_pop)
             )
@@ -373,7 +373,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         cb.if_with(
             cmd_eq_2, 
             [
-                cb.if_(full.out, raise_err, push),
+                cb.if_(is_full.out, raise_err, push),
                 cb.if_with(size_eq_0, set_full_on)
             ]
         ),
