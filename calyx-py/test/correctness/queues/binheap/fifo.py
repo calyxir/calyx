@@ -7,13 +7,24 @@ from stable_binheap import insert_stable_binheap
 
 def insert_binheap_fifo(prog, name, queue_size_factor):
     """Inserts the component `fifo` into the program.
-
-    It is a first in, first out queue implemented via binary heap
+    
+    It is a first in, first out queue implemented via binary heap.
 
     It has:
     - two inputs, `cmd` and `value`.
+        - `cmd` has width 2.
+        - `value` has width 32.
     - one memory, `mem`, of size `2**queue_size_factor`.
     - two ref registers, `ans` and `err`.
+        - `ans` has width 32.
+        - `err` has width 1.
+
+    We use `stable_binheap`, a binary heap that resolves ties based on insertion order. 
+    That is, If two elements with the same rank are inserted, the element that was inserted 
+    first is the one that gets popped first.
+
+    Hence, we insert all elements with the same rank into `stable_binheap`, as our 
+    tie-breaking mechanism ensures FIFO order. 
     """
     comp = prog.component(name)
 

@@ -4,18 +4,34 @@ from binheap import insert_binheap
 
 
 def insert_stable_binheap(prog, name, queue_len_factor):
-    """Inserts the component `insertion_order_binheap` into the program.
+    """Inserts the component `stable_binheap` into the program.
 
-    It is a minimum binary heap that breaks ties via insertion order.
+    It is a minimum binary heap that breaks ties via insertion order. That is, if 
+    two elements with the same rank are inserted, the element that was inserted 
+    first is the one that gets popped first.
 
     It has:
     - three inputs, `cmd`, `value`, and `rank`.
+        - `cmd` has width 2.
+        - `rank` has width 32.
+        - `value` has width 32.
+    - one memory, `mem`, of size `2**queue_size_factor`.
     - two ref registers, `ans` and `err`.
+        - `ans` has width 32.
+        - `err` has width 1.
+
+    We use `below`, a binary heap that accepts 64-bit ranks and 32-bit values, and counter `i`.
+    - To push a pair `(r, v)`, we push `(r << 32 + i, v)` to `below` and increment `i`.
+    - To peak, we peak `below`.
+    - To pop, we pop `below`.
+    
+    If we push `(r, v)` and then later `(r, v')`, we know `v` will be popped before `v'` 
+    since it is pushed with higher rank to `below`.
     """
 
     comp = prog.component(name)
 
-    below = comp.cell("below", insert_binheap(prog, "below", queue_len_factor))
+    below = comp.cell("below", insert_binheap(prog, "below", queue_len_factor, 64, 32))
 
     cmd = comp.input("cmd", 2)
 

@@ -31,15 +31,20 @@ def insert_swap(prog, name, width, size, idx_w):
     return comp
 
 
-def insert_binheap(prog, name, queue_size_factor):
+def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     """Inserts the component `binheap` into the program.
 
     It is a minimum binary heap, represented as an array.
 
     It has:
-    - three inputs, `cmd`, `value`, and `rank`.
+    - three inputs, `cmd`, `rank`, and `value`.
+        - `cmd` has width 2.
+        - `rank` has width `rnk_w`.
+        - `value` has width `val_w`.
     - one memory, `mem`, of size `2**queue_size_factor`.
     - two ref registers, `ans` and `err`.
+        - `ans` has width `val_w`.
+        - `err` has width 1.
     """
 
     comp = prog.component(name)
@@ -53,18 +58,18 @@ def insert_binheap(prog, name, queue_size_factor):
     # If it is 2, we push `(rank, value)` to the queue.
 
     # The value and associated rank to push to the heap.
-    rank = comp.input("rank", 64)
-    value = comp.input("value", 32)
+    rank = comp.input("rank", rnk_w)
+    value = comp.input("value", val_w)
 
-    swap = comp.cell("swap", insert_swap(prog, "swap", 96, max_queue_size, addr_size))
-    tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", 64, 32))
-    untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", 64, 32))
+    swap = comp.cell("swap", insert_swap(prog, "swap", rnk_w + val_w, max_queue_size, addr_size))
+    tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", rnk_w, val_w))
+    untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", rnk_w, val_w))
 
     mem = comp.seq_mem_d1("mem", 96, max_queue_size, addr_size)
     # The memory to store the heap, represented as an array.
-    # Each cell of the memory is 96 bits wide: a 64-bit rank and a 32-bit value.
+    # Each cell of the memory is 96 bits wide: a `rnk_w`-bit rank and a `val_w`-bit value.
 
-    ans = comp.reg(32, "ans", is_ref=True)
+    ans = comp.reg(val_w, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
 
     err = comp.reg(1, "err", is_ref=True)
@@ -74,8 +79,9 @@ def insert_binheap(prog, name, queue_size_factor):
 
     # Cells and groups to check which command we got.
     cmd_eq_0 = comp.eq_use(cmd, 0)
-    cmd_eq_1 = comp.eq_use(cmd, 1)
+    cmd_le_1 = comp.le_use(cmd, 1)
     cmd_eq_2 = comp.eq_use(cmd, 2)
+    cmd_eq_3 = comp.eq_use(cmd, 3)
 
     # Cells and groups to check for overflow and underflow.
     size_eq_0 = comp.eq_use(size.out, 0)
@@ -84,16 +90,16 @@ def insert_binheap(prog, name, queue_size_factor):
     set_full_off = comp.reg_store(full, 0, "set_full_off")
 
     current_idx = comp.reg(addr_size)
-    current_rank = comp.reg(64)
+    current_rank = comp.reg(rnk_w)
 
     parent_idx = comp.reg(addr_size)
-    parent_rank = comp.reg(64)
+    parent_rank = comp.reg(rnk_w)
 
     child_l_idx = comp.reg(addr_size)
-    child_l_rank = comp.reg(64)
+    child_l_rank = comp.reg(rnk_w)
 
     child_r_idx = comp.reg(addr_size)
-    child_r_rank = comp.reg(64)
+    child_r_rank = comp.reg(rnk_w)
 
     # current_idx := 0
     set_idx_zero = comp.reg_store(current_idx, 0, "set_idx_zero")
@@ -204,7 +210,7 @@ def insert_binheap(prog, name, queue_size_factor):
         child_r_rank,
     )
 
-    lt_1 = comp.lt(64)
+    lt_1 = comp.lt(rnk_w)
     lt_2 = comp.lt(addr_size)
     while_and = comp.and_(1)
     with comp.comb_group("current_lt_parent") as current_lt_parent:
@@ -221,11 +227,12 @@ def insert_binheap(prog, name, queue_size_factor):
 
     le_1 = comp.le(addr_size)
     le_2 = comp.le(addr_size)
-    le_3 = comp.le(64)
+    le_3 = comp.le(rnk_w)
     inner_or = comp.or_(1)
     if_or = comp.or_(1)
     with comp.comb_group("child_l_swap") as child_l_swap:
         # Check if the `current_idx`th element should be swapped with its left child.
+        # I.e. does the right child not exist or does the left child have smaller rank
         # size <= child_r_idx OR child_r_idx <= current_idx OR child_l_rank <= child_r_rank
         le_1.left = size.out
         le_1.right = child_r_idx.out
@@ -244,10 +251,10 @@ def insert_binheap(prog, name, queue_size_factor):
 
     lt_l_1 = comp.lt(addr_size)
     lt_l_2 = comp.lt(addr_size)
-    lt_l_3 = comp.lt(64)
+    lt_l_3 = comp.lt(rnk_w)
     lt_r_1 = comp.lt(addr_size)
     lt_r_2 = comp.lt(addr_size)
-    lt_r_3 = comp.lt(64)
+    lt_r_3 = comp.lt(rnk_w)
     and_l_1 = comp.and_(1)
     and_l_2 = comp.and_(1)
     and_r_1 = comp.and_(1)
@@ -255,6 +262,7 @@ def insert_binheap(prog, name, queue_size_factor):
     while_or = comp.or_(1)
     with comp.comb_group("current_gt_children") as current_gt_children:
         # Check if the `current_idx`th element should be swapped with its left OR right child.
+        # I.e. does the left (or right) child exist and have smaller rank than the `current_idx`th element.
         # child_l_idx < size AND current_idx < child_l_idx AND child_l_rank < current_rank
         # OR
         # child_r_idx < size AND current_idx < child_r_idx AND child_r_rank < current_rank
@@ -296,7 +304,6 @@ def insert_binheap(prog, name, queue_size_factor):
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
-        comp.mem_store_d1(mem, size.out, cb.const(96, 0), "zero_leaf"),
         extract_current_rank,
         find_child_idx,
         extract_child_l_rank,
@@ -352,30 +359,25 @@ def insert_binheap(prog, name, queue_size_factor):
         ),
     ]
 
+    peek_or_pop = cb.if_with(cmd_eq_0, pop, peek)
+
     comp.control += [
         lower_err,
         cb.if_with(
-            cmd_eq_0,
+            cmd_le_1,
             cb.if_(full.out, 
-                   [pop, set_full_off],
-                   cb.if_with(size_eq_0, raise_err, pop)
-            ),
-            cb.if_with(
-                cmd_eq_1,
-                cb.if_(full.out, 
-                       peek,
-                       cb.if_with(size_eq_0, raise_err, peek)
-                ),
-                cb.if_with(
-                    cmd_eq_2, 
-                    [
-                        cb.if_(full.out, raise_err, push),
-                        cb.if_with(size_eq_0, set_full_on)
-                    ], 
-                    raise_err
-                ),
-            ),
+                   [peek_or_pop, set_full_off],
+                   cb.if_with(size_eq_0, raise_err, peek_or_pop)
+            )
         ),
+        cb.if_with(
+            cmd_eq_2, 
+            [
+                cb.if_(full.out, raise_err, push),
+                cb.if_with(size_eq_0, set_full_on)
+            ]
+        ),
+        cb.if_with(cmd_eq_3, raise_err)
     ]
 
     return comp
@@ -411,7 +413,7 @@ def insert_main(prog):
 
     queue_size_factor = 4
 
-    binheap = insert_binheap(prog, "binheap", queue_size_factor)
+    binheap = insert_binheap(prog, "binheap", queue_size_factor, 64, 32)
     binheap = comp.cell("binheap", binheap)
 
     out = comp.seq_mem_d1("out", 32, 15, queue_size_factor, is_external=True)
