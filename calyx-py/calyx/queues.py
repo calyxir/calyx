@@ -158,9 +158,7 @@ def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
     for cmd, val in zip(commands, values):
         if cmd == 0:
             try:
-                result = queue.pop()
-                if result:
-                    ans.append(result)
+                ans.append(queue.pop())
             except QueueError:
                 if keepgoing:
                     continue
@@ -168,9 +166,7 @@ def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
 
         elif cmd == 1:
             try:
-                result = queue.peek()
-                if result:
-                    ans.append(queue.peek())
+                ans.append(queue.peek())
             except QueueError:
                 if keepgoing:
                     continue
