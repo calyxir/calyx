@@ -35,7 +35,7 @@ Because they expose a common interface, we can test all queues using the same ha
 First, we have a Python module that generates randomized sequences of operations and values, and dumps the sequences out in a Calyx `.data` file.
 It accepts as a command line argument the number of operations to generate.
 It also takes a flag, `--no-err`, that generates a special sequence of operations that does not trigger any overflow or underflow errors.
-If the flag is provided, the queue's length must also be provided.
+If this flag is provided, the queue's length must also be provided.
 The Python code is in [`queue_data_gen.py`][queue_data_gen.py].
 
 #### Oracles
@@ -43,13 +43,13 @@ Next, we have a Python module _for each kind of queue_ that reads the `.data` fi
 This Python code is aware of our [shared iterface](#shared-interface).
 The oracles are in [`fifo_oracle.py`][fifo_oracle.py], [`pifo_oracle.py`][pifo_oracle.py], and [`pifo_tree_oracle.py`][pifo_tree_oracle.py].
 They all appeal to pure-Python implementations of the queues, which are found in [`queues.py`][queues.py].
-The oracles also require, as command line arguments, the number of operations and the queue's length.
+Each oracle also requires, as command line arguments, the number of operations being simulated and the queue's length.
 
 #### Queue Call
 
 The steps above lay out `.data` and `.expect` files for our Calyx code.
-To actually pass a series of commands to a given queue implementation, we need to call the queue repeatedly with memories parsed from the `.data` file.
-Unlike the above, this needs to happen at the Calyx level.
+To actually pass a series of commands to a given eDSL queue implementation, we need to call the queue repeatedly with memories parsed from the `.data` file.
+Unlike the above, which happens at the pure Python level, this needs to happen at the eDSL level.
 
 This is exactly what [`queue_call.py`][queue_call.py] does.
 It accepts as a Python-level argument a handle to the queue component that is to be tested.
@@ -62,7 +62,7 @@ If not, the `main` component will stop after the queue component first raises an
 The testing harness can be executed, for all our queues, by running the shell script [`gen_queue_data_expect.sh`][gen_queue_data_expect.sh].
 This generates the `.data` and `.expect` files for each queue.
 
-Then each queue can be testing using our `runt` setup.
+Then, each queue can be tested using our `runt` setup.
 The queue-generating Python files themselves expect command-line arguments (the number of operations and the optional `--keepgoing` flag) and you can see these being passed in the [relevant `runt` stanza][runt-queues].
 
 
