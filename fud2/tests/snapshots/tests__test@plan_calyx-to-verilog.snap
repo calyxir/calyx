@@ -1,12 +1,11 @@
 ---
 source: fud2/tests/tests.rs
-description: emit calyx -> verilog
+description: "emit plan: calyx-to-verilog"
 ---
 build-tool = fud2
 rule get-rsrc
   command = $build-tool get-rsrc $out
 
-# Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
 args = 
@@ -18,8 +17,7 @@ flags = -p none
 rule calyx-with-flags
   command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
-# build targets
-build stdin.sv: calyx stdin
+build /output.ext: calyx /input.ext
   backend = verilog
 
-default stdin.sv
+default /output.ext

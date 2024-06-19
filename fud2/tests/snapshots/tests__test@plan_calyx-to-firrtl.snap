@@ -1,12 +1,11 @@
 ---
 source: fud2/tests/tests.rs
-description: emit calyx -> verilog-refmem through firrtl
+description: "emit plan: calyx-to-firrtl"
 ---
 build-tool = fud2
 rule get-rsrc
   command = $build-tool get-rsrc $out
 
-# Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
 args = 
@@ -18,7 +17,6 @@ flags = -p none
 rule calyx-with-flags
   command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
-# Custom Testbench Setup
 rule ref-to-external
   command = sed 's/ref /@external /g' $in > $out
 rule external-to-ref
@@ -30,24 +28,13 @@ rule generate-refmem-testbench
 rule dummy
   command = sh -c 'cat $$0' $in > $out
 
-# Firrtl to Verilog compiler
-firrtl-exe = /test/bin/firrtl
-rule firrtl
-  command = $firrtl-exe -i $in -o $out -X sverilog
-build primitives-for-firrtl.sv: get-rsrc
-rule add-verilog-primitives
-  command = cat primitives-for-firrtl.sv $in > $out
-
-# build targets
-build external.futil: ref-to-external stdin
-build ref.futil: external-to-ref stdin
+build external.futil: ref-to-external /input.ext
+build ref.futil: external-to-ref /input.ext
 build memory-info.json: yxi external.futil
 build tb.sv: generate-refmem-testbench memory-info.json
 build tmp-out.fir: calyx ref.futil
   backend = firrtl
   args = --emit-primitive-extmodules
-build stdin.fir: dummy tmp-out.fir tb.sv
-build partial.sv: firrtl stdin.fir
-build stdin.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
+build /output.ext: dummy tmp-out.fir tb.sv
 
-default stdin.sv
+default /output.ext
