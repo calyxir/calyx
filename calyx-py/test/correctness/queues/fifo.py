@@ -2,13 +2,14 @@
 import sys
 import calyx.builder as cb
 import calyx.queue_call as qc
+from calyx.utils import bits_needed
 
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
 QUEUE_LEN_FACTOR = 4
 
 
-def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
+def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     """Inserts the component `fifo` into the program.
 
     It has:
@@ -23,20 +24,20 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     # If it is 0, we pop.
     # If it is 1, we peek.
     # If it is 2, we push `value` to the queue.
-    value = fifo.input("value", 32)  # The value to push to the queue
+    value = fifo.input("value", val_width)  # The value to push to the queue
 
     max_queue_len = 2**queue_len_factor
-    mem = fifo.seq_mem_d1("mem", 32, max_queue_len, queue_len_factor)
+    mem = fifo.seq_mem_d1("mem", val_width, max_queue_len, queue_len_factor)
     write = fifo.reg(queue_len_factor)  # The next address to write to
     read = fifo.reg(queue_len_factor)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size 2^queue_len_factor.
 
-    ans = fifo.reg(32, "ans", is_ref=True)
+    ans = fifo.reg(val_width, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
     err = fifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
-    len = fifo.reg(32)  # The active length of the FIFO.
+    len = fifo.reg(bits_needed(max_queue_len))  # The active length of the FIFO.
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
     # The user called pop/peek.
