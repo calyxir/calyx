@@ -121,7 +121,7 @@ op(
         xrt_setup,
     ],
     xclbin,
-    sim::dat,
+    sim::vcd,
     |e, input, output| {
         e.rsrc("xrt_trace.ini");
         e.build_cmd(

@@ -102,6 +102,7 @@ def build(static=False):
     """
     static = "--static" in sys.argv
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
 
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
@@ -122,7 +123,14 @@ def build(static=False):
     )
     # The root PIFO will take a stats component by reference.
 
-    queue_call.insert_main(prog, pifo_root, num_cmds, controller, stats_component)
+    queue_call.insert_main(
+        prog,
+        pifo_root,
+        num_cmds,
+        keepgoing=keepgoing,
+        controller=controller,
+        stats_component=stats_component,
+    )
     return prog.program
 
 

@@ -132,7 +132,12 @@ class ComponentBuilder:
         """
         return self._port_with_attributes(name, size, False, attribute_literals)
 
-    def output_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+    def output_with_attributes(
+        self,
+        name: str,
+        size: int,
+        attribute_literals: List[Union[str, Tuple[str, int]]],
+    ) -> ExprBuilder:
         """Declare an output port on the component with attributes.
 
         Returns an expression builder for the port.
@@ -555,7 +560,7 @@ class ComponentBuilder:
         name = name or self.generate_name("const_mult")
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.const_mult(size, const))
-        
+
     def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
         """Generate a StdPad cell."""
         name = name or self.generate_name("pad")
@@ -890,15 +895,7 @@ class ComponentBuilder:
             load_grp.done = ans.done
         return load_grp
 
-    def op_store_in_reg(
-        self,
-        op_cell,
-        left,
-        right,
-        cellname,
-        width,
-        ans_reg=None
-    ):
+    def op_store_in_reg(self, op_cell, left, right, cellname, width, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left op right`,
         where `op_cell`, a Cell that performs some `op`, is provided.
         """
@@ -974,14 +971,16 @@ class ComponentBuilder:
         cell = self.neq(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
 
+    def le_store_in_reg(
+        self, left, right, ans_reg=None, cellname=None, width=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left <= right`."""
+        width = width or self.try_infer_width(width, left, right)
+        cell = self.le(width, cellname, signed)
+        return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+
     def mult_store_in_reg(
-        self,
-        left,
-        right,
-        ans_reg=None,
-        cellname=None,
-        width=None,
-        signed=False
+        self, left, right, ans_reg=None, cellname=None, width=None, signed=False
     ):
         """Inserts wiring into `self` to perform `reg := left * right`."""
         width = width or self.try_infer_width(width, left, right)
@@ -989,19 +988,12 @@ class ComponentBuilder:
         return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
 
     def div_store_in_reg(
-        self,
-        left,
-        right,
-        ans_reg=None,
-        cellname=None,
-        width=None,
-        signed=False
+        self, left, right, ans_reg=None, cellname=None, width=None, signed=False
     ):
         """Inserts wiring into `self` to perform `reg := left / right`."""
         width = width or self.try_infer_width(width, left, right)
         cell = self.div_pipe(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
-
 
     def infer_width(self, expr) -> int:
         """Infer the width of an expression."""
