@@ -173,6 +173,11 @@ impl Driver {
                 }
             }
             for &u in &self.op_graph[&v].1 {
+                if let Node::Op(o) = u {
+                    if self.find_tree_from_op(o, start, v).is_none() {
+                        continue;
+                    }
+                }
                 if !visited.contains(&u) {
                     par.insert(u, v);
                     visited.insert(u);
