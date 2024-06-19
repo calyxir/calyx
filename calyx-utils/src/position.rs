@@ -236,3 +236,9 @@ pub trait WithPos {
     /// Copy the span associated with this node.
     fn copy_span(&self) -> GPosIdx;
 }
+
+impl WithPos for GPosIdx {
+    fn copy_span(&self) -> GPosIdx {
+        *self
+    }
+}
