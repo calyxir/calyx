@@ -6,10 +6,8 @@ from stable_binheap import insert_stable_binheap
 
 
 def insert_flow_inference(comp, value, flow, boundary, group):
-    """The flow is needed when the command is a push.
-    If the value to be pushed is less than or equal to `boundary`,
-    the value belongs to flow 0.
-    Otherwise, the value belongs to flow 1.
+    """If the value to be pushed is less than or equal to `boundary`, the value 
+    belongs to flow A. Otherwise, the value belongs to flow B.
 
     This method adds a group to the component `comp` that does this.
     1. Within component `comp`, creates a group called `group`.
@@ -31,12 +29,39 @@ def insert_flow_inference(comp, value, flow, boundary, group):
 def insert_binheap_pifo(prog, name, boundary, factor):
     """Inserts the component `pifo` into the program.
 
-    It is a two-flow, round-robin queue implemented via binary heap
+    It is a two-flow, round-robin queue implemented via binary heap.
 
     It has:
     - two inputs, `cmd` and `value`.
+        - `cmd` has width 2.
+        - `value` has width 32.
     - one memory, `mem`, of size `2**queue_size_factor`.
     - two ref registers, `ans` and `err`.
+        - `ans` has width 32.
+        - `err` has width 1.
+
+    Call our flows A and B, represented by 0 and 1 respectively.
+    When popping, we pop one value from A, one from B, and so on.
+    If one class is silent and the other is active, we pop from the active class 
+    in FIFO order until the silent class starts up again. The erstwhile silent class 
+    does not get any form of "credit" for the time it was silent.
+
+    We use `binheap`, a stable binary heap, rank pointers `r_a` and `r_b`, and a 1-bit 
+    signal `turn`. The pointers `r_a` and `r_b` represent the rank assigned to the 
+    next pushed value from flows A and B respectively. The signal `turn` stores 
+    which flow's turn it is.
+    - `turn` is initialized to 0 (i.e. flow A).
+    - `r_a` is initialized to 0.
+    - `r_b` is initialized to 1.
+    - To push value `v_a` (resp. `v_b`) from flow A (resp. B), 
+        - we push `(r_a, v_a)` (resp. `(r_b, v_b)`) to `binheap`.
+        - Then, `r_a += 2` (resp. `r_b += 2`).
+    - To pop, we pop `binheap`; say we obtain `v`.
+        - if the flow `v` belongs to matches `turn`, switch `turn` to the other flow.
+        - Otherwise, if `v` belongs to flow A (resp. B), `r_b += 2` (resp. `r_a += 2`).
+    - To peek, we peek `binheap`.
+
+    This mechanism for moving `r_a` and `r_b` ensures flows A and B are interleaved correctly.
     """
     comp = prog.component(name)
 
