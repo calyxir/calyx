@@ -65,6 +65,8 @@ component main() -> () {
           }
         }
       }
+      incr_res1;
+      incr_res2;
       write_mem;
     }
   }
