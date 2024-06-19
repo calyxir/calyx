@@ -237,6 +237,7 @@ where
     let dsts1 = assigns1.filter(|a| a.guard.is_true()).map(|a| {
         (
             a.dst.borrow().canonical(),
+            a.attributes.copy_span(),
             a.attributes
                 .copy_span()
                 .into_option()
@@ -247,6 +248,7 @@ where
     let dsts2 = assigns2.filter(|a| a.guard.is_true()).map(|a| {
         (
             a.dst.borrow().canonical(),
+            a.attributes.copy_span(),
             a.attributes
                 .copy_span()
                 .into_option()
@@ -256,17 +258,18 @@ where
     });
     let dsts = dsts1.chain(dsts2);
     let dst_grps = dsts
-        .sorted_by(|(dst1, _), (dst2, _)| ir::Canonical::cmp(dst1, dst2))
-        .group_by(|(dst, _)| dst.clone());
+        .sorted_by(|(dst1, _, _), (dst2, _, _)| ir::Canonical::cmp(dst1, dst2))
+        .group_by(|(dst, _, _)| dst.clone());
 
     for (_, group) in &dst_grps {
-        let assigns = group.map(|(_, a)| a).collect_vec();
+        let assigns = group.map(|(_, pos, a)| (pos, a)).collect_vec();
         if assigns.len() > 1 {
-            let msg = assigns.into_iter().join("");
+            let msg = assigns.iter().map(|(_pos, a)| a).join("");
             return Err(Error::malformed_structure(format!(
                 "Obviously conflicting assignments found:\n{}",
                 msg
-            )));
+            ))
+            .with_pos(&assigns[0].0));
         }
     }
     Ok(())
