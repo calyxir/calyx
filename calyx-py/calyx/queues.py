@@ -25,7 +25,7 @@ class Fifo:
         self.max_len = max_len or queue_util.QUEUE_SIZE
         self.error_mode = error_mode
 
-    def push(self, val: int) -> None:
+    def push(self, val: int, time=None, rank=None) -> None:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
             if self.error_mode:
@@ -33,7 +33,7 @@ class Fifo:
             return
         self.data.append(val)
 
-    def pop(self) -> Optional[int]:
+    def pop(self, time=0) -> Optional[int]:
         """Pops the FIFO."""
         if len(self.data) == 0:
             if self.error_mode:
@@ -41,7 +41,7 @@ class Fifo:
             return None
         return self.data.pop(0)
 
-    def peek(self) -> Optional[int]:
+    def peek(self, time=0) -> Optional[int]:
         """Peeks into the FIFO."""
         if len(self.data) == 0:
             if self.error_mode:
@@ -107,7 +107,7 @@ class Pifo:
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int):
+    def push(self, val: int, time=None, rank=None) -> None:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             if self.error_mode:
@@ -119,7 +119,7 @@ class Pifo:
             self.data[1].push(val)
         self.pifo_len += 1
 
-    def pop(self) -> Optional[int]:
+    def pop(self, time=0) -> Optional[int]:
         """Pops the PIFO."""
         if self.pifo_len == 0:
             if self.error_mode:
@@ -141,7 +141,7 @@ class Pifo:
                 self.hot = 1
                 return self.data[0].pop()
 
-    def peek(self) -> Optional[int]:
+    def peek(self, time=0) -> Optional[int]:
         """Peeks into the PIFO."""
         if self.pifo_len == 0:
             if self.error_mode:
@@ -170,8 +170,8 @@ class Pieo:
     Stores elements ordered increasingly by a totally ordered `rank` attribute (for
     simplicitly, our implementation is just using integers).
 
-    At initialization we take in a set of `(int, int)` pairs `data` which stores
-    values and their ranks, and is ordered.
+    At initialization we take in a set of `(int, int, int)` triples `data` which stores
+    values, ready times, and their ranks, and is ordered by rank.
     
     We also take at initialization a `max_len` value to store the maximum possible
     length of a queue.
@@ -191,11 +191,10 @@ class Pieo:
         we fail silently or raise an error depending on error_mode.
 
     - We can either pop based on value or based on eligibility.
-    - This implementation supports the most common eligibility predicate:
-        the <= relation on some bound.
+    - This implementation supports the most common eligibility predicate - whether an element is 'ripe'.
 
     - If a value is passed in, we pop the first (lowest-rank) instance of that value.
-    - If no value is passed in but a bound is,
+    - If no value is passed in but a time is,
         we pop the first (lowest-rank) value that passes the predicate.
     - Note that either a value or a bound must be passed in - both cannot be, nor can neither.
 
@@ -207,13 +206,17 @@ class Pieo:
     optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
     
-    def __init__(self, data: List[(int, int)], error_mode=True, max_len: int = None):
+    def __init__(self, data: List[(int, int, int)], error_mode=True, max_len: int = None):
         """Initialize structure. Ensures that rank ordering is preserved."""
         self.data = data.sort(lambda x : x[1])
         self.error_mode = error_mode
         self.max_len = max_len or queue_util.QUEUE_SIZE
+
+    def ripe(val, time):
+        """Check that a value is 'ripe' – i.e. its ready time has passed"""
+        return val[1] <= time
     
-    def push(self, val: int, rank : int) -> None:
+    def push(self, val: int, time=0, rank=0) -> None:
         """Pushes to a PIEO.
         Inserts element such that rank ordering is preserved
         """
@@ -227,49 +230,41 @@ class Pieo:
                 if self.ranks[x] >= rank:
                     continue
                 else:
-                    self.data.insert(x, (val, rank))
-    
-    def query(self, val=None, bound=None, remove=False) -> Optional[int]:
+                    self.data.insert(x, (val, time, rank))
+     
+    def query(self, val=None, time=0, remove=False) -> Optional[int]:
         """Queries a PIEO. Pops the PIEO if remove is True. Peeks otherwise.
-        Can take in either a value or a bound. If a value is passed in,
-        query scans data for that value and returns the first instance
-        (with the lowest rank).
-
-        If a bound parameter is passed in, this is treated as a parameter for
-        an eligibility predicate for which data[i] <= bound.
+        
+        Takes in a time (default 0), and possibly a value. Uses the time for
+        the eligibility predicate. If the value is passed in, returns the first
+        eligible (ripe) value which matches the passed value parameter.
         """
 
         if len(self.data) == 0:
             if self.error_mode:
                 raise QueueError("Cannot pop from empty PIEO.")
-            
-        if val == None and bound == None:
-            raise QueueError("Either a value or predicate must be supplied.")
-        
-        elif val != None and bound != None:
-            raise QueueError("Cannot supply both a value and an eligibility predicate.")
-        
-        if bound == None:
-            for x in range(len(self.data)):
-                if self.data[x][0] == val:
-                    return self.data.pop(x)[0] if remove else self.data[x][0]
-            return None
         
         if val == None:
             try:
-                return [x for x in self.data if x[1] <= bound][0]
+                #Find all eligible elements and return the lowest-ranked.
+                return [x for x in self.data if self.ripe(x[1], time)][0]
             except IndexError:
-                raise QueueError("No elements match eligibility predicate")
+                raise QueueError("No elements are eligibile.")
+            
+        for x in range(len(self.data)):
+            #Find the first value that matches the query who is 'ripe'
+            if self.data[x][0] == val and self.ripe(self.data[x][1], time):
+                return self.data.pop(x)[0] if remove else self.data[x][0]
+        return None
     
-    def pop(self, val=None, bound=None) -> Optional[int]:
+    def pop(self, val=None, time=0) -> Optional[int]:
         """Pops a PIEO. See query() for specifics."""
 
-        return self.query(val, bound, remove=True)
+        return self.query(val, time, True)
 
-    def peek(self, val=None, bound=None) -> Optional[int]:
+    def peek(self, val=None, time=0) -> Optional[int]:
         """Peeks a PIEO. See query() for specifics."""
-
-        return self.query(val, bound, remove=False)
+        return self.query(val, time)
 
 @dataclass
 class CalendarQueue:
@@ -280,15 +275,15 @@ class CalendarQueue:
         self.error_mode = error_mode
         self.max_len = max_len
     
-    def push(self, val: int, rank: int) -> None:
+    def push(self, val: int, time=None, rank=None) -> None:
         """Pushes a value with some rank/priority to a calendar queue"""
         pass
     
-    def pop(self) -> Optional[int]:
+    def pop(self, time=0) -> Optional[int]:
         """Pops a calendar queue."""
         pass
     
-    def peek(self) -> Optional[int]:
+    def peek(self, time=0) -> Optional[int]:
         """Peeks a calendar queue."""
         pass
 
@@ -297,73 +292,58 @@ class CalendarQueue:
         pass
 
 
-def operate_queue(commands, values, queue):
-    """Given the two lists, one of commands and one of values.
-    Feed these into our queue, and return the answer memory.
+def operate_queue(commands, values, queue, ranks=None, times=None):
+    """Given the four lists:
+    - One of commands, one of values, one of ranks, one of bounds:
+    - Feed these into our queue, and return the answer memory.
+    - Commands correspond to:
+        0 : pop by predicate
+        1 : peek by predicate
+        2 : push
+        3 : pop by value
+        4 : peek by value
     """
 
     ans = []
-    for cmd, val in zip(commands, values):
-        if cmd == 0:
+    ranks = ranks or [0] * len(values)
+    times = times or [0] * len(values)
+
+    for cmd, val, rank, time in zip(commands, values, ranks, times):
+        if cmd == 0: #Pop with time predicate
             try:
-                result = queue.pop()
+                result = queue.pop(time)
                 if result:
                     ans.append(result)
             except QueueError:
                 break
 
-        elif cmd == 1:
+        elif cmd == 1: #Peek with time predicate
             try:
-                result = queue.peek()
+                result = queue.peek(time)
                 if result:
                     ans.append(queue.peek())
             except QueueError:
                 break
 
-        elif cmd == 2:
+        elif cmd == 2: #Push
             try:
-                queue.push(val)
+                queue.push(val, time, rank)
             except QueueError:
                 break
 
-    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (queue_util.MAX_CMDS - len(ans))
-    return ans
-
-def operate_pieo(commands, values, ranks, bounds, queue):
-    """Operate a PIEO queue
-    Given the four lists:
-    - One of commands, one of values, one of ranks, one of bounds:
-    - Feed these into our queue, and return the answer memory.
-    - Commands correspond to:
-        0 : pop by value
-        1 : pop by predicate
-        2 : peek by value
-        3 : peek by predicate
-        4 : push
-    """
-
-    ans = []
-    for cmd, val, rank, bound in zip(commands, values, ranks, bounds):
-        if cmd < 2:
+        elif cmd == 3: #Pop with value parameter
             try:
-                result = queue.pop(val if cmd == 0 else bound)
+                result = queue.pop(val, time)
                 if result:
                     ans.append(result)
             except QueueError:
                 break
 
-        elif cmd < 4:
+        elif cmd == 4: #Peek with value parameter
             try:
-                result = queue.peek(val if cmd == 2 else bound)
+                result = queue.peek(val, time)
                 if result:
                     ans.append(result)
-            except QueueError:
-                break
-
-        elif cmd == 4:
-            try:
-                queue.push((val, rank))
             except QueueError:
                 break
 
