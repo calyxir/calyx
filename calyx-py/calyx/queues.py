@@ -7,6 +7,9 @@ from calyx import queue_util
 class QueueError(Exception):
     """An error that occurs when we try to pop/peek from an empty queue,"""
 
+class CmdError(Exception):
+    """An error that occurs if an undefined command is passed"""
+
 
 @dataclass
 class Fifo:
@@ -284,14 +287,20 @@ class PCQ:
 
         location = (rank * self.width) % len(self.data)
 
+        inserted = False
         for x in range(len(self.data[location])):
             if self.data[location][1] >= rank:
                 self.data[location].insert(x, (val, rank))
+                inserted = True
                 break
+            
+        if not inserted:
+            self.data[location].append((val, rank))
+        
     
     def query(self, remove=False, time=0) -> Optional[int]:
         """Queries a PCQ."""
-        
+
         bucket = self.data[self.day]
         try:
             result = bucket.pop(0) if remove else bucket[0]
@@ -335,35 +344,43 @@ def operate_queue(commands, values, queue, ranks=None, times=None):
             except QueueError:
                 break
 
-        elif cmd == 1: #Peek with time predicate
-            try:
-                result = queue.peek(time)
-                if result:
-                    ans.append(queue.peek())
-            except QueueError:
+        match cmd:
+            case 1: #Peek with time predicate
+                try:
+                    result = queue.peek(time)
+                    if result:
+                        ans.append(queue.peek())
+                except QueueError:
+                    break
                 break
 
-        elif cmd == 2: #Push
-            try:
-                queue.push(val, time, rank)
-            except QueueError:
+            case 2: #Push
+                try:
+                    queue.push(val, time, rank)
+                except QueueError:
+                    break
                 break
 
-        elif cmd == 3: #Pop with value parameter
-            try:
-                result = queue.pop(val, time)
-                if result:
-                    ans.append(result)
-            except QueueError:
+            case 3: #Pop with value parameter
+                try:
+                    result = queue.pop(val, time)
+                    if result:
+                        ans.append(result)
+                except QueueError:
+                    break
                 break
 
-        elif cmd == 4: #Peek with value parameter
-            try:
-                result = queue.peek(val, time)
-                if result:
-                    ans.append(result)
-            except QueueError:
+            case 4: #Peek with value parameter
+                try:
+                    result = queue.peek(val, time)
+                    if result:
+                        ans.append(result)
+                except QueueError:
+                    break
                 break
+            
+            case _:
+                raise CmdError("Unrecognized command.")
 
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
     ans += [0] * (queue_util.MAX_CMDS - len(ans))
