@@ -1,0 +1,507 @@
+✗ [calyx-py] queues correctness:calyx-py/test/correctness/queues/general_pifo.py
+         ~
+    1    │- {
+    2    │-   "ans_mem": [
+    3    │-     81,
+    4    │-     191,
+    5    │-     127,
+    6    │-     195,
+    7    │-     0,
+    8    │-     0,
+    9    │-     0,
+   10    │-     0
+   11    │-   ],
+   12    │-   "commands": [
+   13    │-     2,
+   14    │-     0,
+   15    │-     2,
+   16    │-     0,
+   17    │-     2,
+   18    │-     2,
+   19    │-     0,
+   20    │-     0
+   21    │-   ],
+   22    │-   "values": [
+   23    │-     81,
+   24    │-     58,
+   25    │-     191,
+   26    │-     241,
+   27    │-     127,
+   28    │-     195,
+   29    │-     279,
+   30    │-     53
+   31    │-   ]
+   32    │- }
+   33    │- 
+        1│+ ---CODE---
+        2│+ 255
+        3│+ ---STDERR---
+        4│+ Traceback (most recent call last):
+        5│+   File "/scratch/cassandra/calyx/calyx-py/test/correctness/queues/general_pifo.py", line 301, in <module>
+        6│+     build().emit()
+        7│+   File "/scratch/cassandra/calyx/calyx-py/test/correctness/queues/general_pifo.py", line 296, in build
+        8│+     qc.insert_main(prog, pifo)
+        9│+ TypeError: insert_main() missing 1 required positional argument: 'num_cmds'
+       10│+ [fud] ERROR: `./target/debug/calyx -l /scratch/cassandra/calyx -b verilog' failed:
+       11│+ =====STDERR=====
+       12│+ Error: No entry point for the program. Program needs to be either mark a component with the "toplevel" attribute or define a component named `main`
+       13│+ 
+       14│+ =====STDOUT=====
+       15│+ 
+       16│+ 
+         ~
+? [calyx-py] queues correctness:calyx-py/test/correctness/queues/copyofgenpifo.py
+         ~
+        1│+ ---CODE---
+        2│+ 255
+        3│+ ---STDERR---
+        4│+ Traceback (most recent call last):
+        5│+   File "/scratch/cassandra/calyx/calyx-py/test/correctness/queues/copyofgenpifo.py", line 288, in <module>
+        6│+     build().emit()
+        7│+   File "/scratch/cassandra/calyx/calyx-py/test/correctness/queues/copyofgenpifo.py", line 283, in build
+        8│+     qc.insert_main(prog, pifo)
+        9│+ TypeError: insert_main() missing 1 required positional argument: 'num_cmds'
+       10│+ [fud] ERROR: `./target/debug/calyx -l /scratch/cassandra/calyx -b verilog' failed:
+       11│+ =====STDERR=====
+       12│+ Error: No entry point for the program. Program needs to be either mark a component with the "toplevel" attribute or define a component named `main`
+       13│+ 
+       14│+ =====STDOUT=====
+       15│+ 
+       16│+ 
+         ~
+✗ [calyx-py] queues correctness:calyx-py/test/correctness/queues/cs_testloops.py
+         ~
+    1    │- import "primitives/core.futil";
+    2    │- import "primitives/memories/seq.futil";
+    3    │- import "primitives/binary_operators.futil";
+    4    │- component fifo0(cmd: 2, value: 32) -> () {
+    5    │-   cells {
+    6    │-     mem = seq_mem_d1(32, 16, 4);
+    7    │-     next_write = std_reg(4);
+    8    │-     next_read = std_reg(4);
+    9    │-     ref ans = std_reg(32);
+   10    │-     ref err = std_reg(1);
+   11    │-     reg_1 = std_reg(32);
+   12    │-     eq_2 = std_eq(2);
+   13    │-     lt_3 = std_lt(2);
+   14    │-     eq_4 = std_eq(2);
+   15    │-     eq_5 = std_eq(32);
+   16    │-     eq_6 = std_eq(32);
+   17    │-     next_write_incr = std_add(4);
+   18    │-     next_read_incr = std_add(4);
+   19    │-     reg_1_incr = std_add(32);
+   20    │-     reg_1_decr = std_sub(32);
+   21    │-   }
+   22    │-   wires {
+   23    │-     comb group eq_2_group {
+   24    │-       eq_2.left = cmd;
+   25    │-       eq_2.right = 2'd0;
+   26    │-     }
+   27    │-     comb group lt_3_group {
+   28    │-       lt_3.left = cmd;
+   29    │-       lt_3.right = 2'd2;
+   30    │-     }
+   31    │-     comb group eq_4_group {
+   32    │-       eq_4.left = cmd;
+   33    │-       eq_4.right = 2'd2;
+   34    │-     }
+   35    │-     comb group eq_5_group {
+   36    │-       eq_5.left = reg_1.out;
+   37    │-       eq_5.right = 32'd0;
+   38    │-     }
+   39    │-     comb group eq_6_group {
+   40    │-       eq_6.left = reg_1.out;
+   41    │-       eq_6.right = 32'd16;
+   42    │-     }
+   43    │-     group next_write_incr_group {
+   44    │-       next_write_incr.left = next_write.out;
+   45    │-       next_write_incr.right = 4'd1;
+   46    │-       next_write.write_en = 1'd1;
+   47    │-       next_write.in = next_write_incr.out;
+   48    │-       next_write_incr_group[done] = next_write.done;
+   49    │-     }
+   50    │-     group next_read_incr_group {
+   51    │-       next_read_incr.left = next_read.out;
+   52    │-       next_read_incr.right = 4'd1;
+   53    │-       next_read.write_en = 1'd1;
+   54    │-       next_read.in = next_read_incr.out;
+   55    │-       next_read_incr_group[done] = next_read.done;
+   56    │-     }
+   57    │-     group reg_1_incr_group {
+   58    │-       reg_1_incr.left = reg_1.out;
+   59    │-       reg_1_incr.right = 32'd1;
+   60    │-       reg_1.write_en = 1'd1;
+   61    │-       reg_1.in = reg_1_incr.out;
+   62    │-       reg_1_incr_group[done] = reg_1.done;
+   63    │-     }
+   64    │-     group reg_1_decr_group {
+   65    │-       reg_1_decr.left = reg_1.out;
+   66    │-       reg_1_decr.right = 32'd1;
+   67    │-       reg_1.write_en = 1'd1;
+   68    │-       reg_1.in = reg_1_decr.out;
+   69    │-       reg_1_decr_group[done] = reg_1.done;
+   70    │-     }
+   71    │-     group raise_err {
+   72    │-       err.in = 1'd1;
+   73    │-       err.write_en = 1'd1;
+   74    │-       raise_err[done] = err.done;
+   75    │-     }
+   76    │-     group write_payload_to_mem {
+   77    │-       mem.addr0 = next_write.out;
+   78    │-       mem.write_en = 1'd1;
+   79    │-       mem.write_data = value;
+   80    │-       write_payload_to_mem[done] = mem.done;
+   81    │-       mem.content_en = 1'd1;
+   82    │-     }
+   83    │-     group read_payload_from_mem {
+   84    │-       mem.addr0 = next_read.out;
+   85    │-       mem.content_en = 1'd1;
+   86    │-       ans.write_en = mem.done ? 1'd1;
+   87    │-       ans.in = mem.done ? mem.read_data;
+   88    │-       read_payload_from_mem[done] = ans.done;
+   89    │-     }
+   90    │-   }
+   91    │-   control {
+   92    │-     par {
+   93    │-       if lt_3.out with lt_3_group {
+   94    │-         if eq_5.out with eq_5_group {
+   95    │-           raise_err;
+   96    │-         } else {
+   97    │-           seq {
+   98    │-             read_payload_from_mem;
+   99    │-             if eq_2.out with eq_2_group {
+  100    │-               seq {
+  101    │-                 next_read_incr_group;
+  102    │-                 reg_1_decr_group;
+  103    │-               }
+  104    │-             }
+  105    │-           }
+  106    │-         }
+  107    │-       }
+  108    │-       if eq_4.out with eq_4_group {
+  109    │-         if eq_6.out with eq_6_group {
+  110    │-           raise_err;
+  111    │-         } else {
+  112    │-           seq {
+  113    │-             write_payload_to_mem;
+  114    │-             next_write_incr_group;
+  115    │-             reg_1_incr_group;
+  116    │-           }
+  117    │-         }
+  118    │-       }
+  119    │-     }
+  120    │-   }
+  121    │- }
+  122    │- component fifo1(cmd: 2, value: 32) -> () {
+  123    │-   cells {
+  124    │-     mem = seq_mem_d1(32, 16, 4);
+  125    │-     next_write = std_reg(4);
+  126    │-     next_read = std_reg(4);
+  127    │-     ref ans = std_reg(32);
+  128    │-     ref err = std_reg(1);
+  129    │-     reg_1 = std_reg(32);
+  130    │-     eq_2 = std_eq(2);
+  131    │-     lt_3 = std_lt(2);
+  132    │-     eq_4 = std_eq(2);
+  133    │-     eq_5 = std_eq(32);
+  134    │-     eq_6 = std_eq(32);
+  135    │-     next_write_incr = std_add(4);
+  136    │-     next_read_incr = std_add(4);
+  137    │-     reg_1_incr = std_add(32);
+  138    │-     reg_1_decr = std_sub(32);
+  139    │-   }
+  140    │-   wires {
+  141    │-     comb group eq_2_group {
+  142    │-       eq_2.left = cmd;
+  143    │-       eq_2.right = 2'd0;
+  144    │-     }
+  145    │-     comb group lt_3_group {
+  146    │-       lt_3.left = cmd;
+  147    │-       lt_3.right = 2'd2;
+  148    │-     }
+  149    │-     comb group eq_4_group {
+  150    │-       eq_4.left = cmd;
+  151    │-       eq_4.right = 2'd2;
+  152    │-     }
+  153    │-     comb group eq_5_group {
+  154    │-       eq_5.left = reg_1.out;
+  155    │-       eq_5.right = 32'd0;
+  156    │-     }
+  157    │-     comb group eq_6_group {
+  158    │-       eq_6.left = reg_1.out;
+  159    │-       eq_6.right = 32'd16;
+  160    │-     }
+  161    │-     group next_write_incr_group {
+  162    │-       next_write_incr.left = next_write.out;
+  163    │-       next_write_incr.right = 4'd1;
+  164    │-       next_write.write_en = 1'd1;
+  165    │-       next_write.in = next_write_incr.out;
+  166    │-       next_write_incr_group[done] = next_write.done;
+  167    │-     }
+  168    │-     group next_read_incr_group {
+  169    │-       next_read_incr.left = next_read.out;
+  170    │-       next_read_incr.right = 4'd1;
+  171    │-       next_read.write_en = 1'd1;
+  172    │-       next_read.in = next_read_incr.out;
+  173    │-       next_read_incr_group[done] = next_read.done;
+  174    │-     }
+  175    │-     group reg_1_incr_group {
+  176    │-       reg_1_incr.left = reg_1.out;
+  177    │-       reg_1_incr.right = 32'd1;
+  178    │-       reg_1.write_en = 1'd1;
+  179    │-       reg_1.in = reg_1_incr.out;
+  180    │-       reg_1_incr_group[done] = reg_1.done;
+  181    │-     }
+  182    │-     group reg_1_decr_group {
+  183    │-       reg_1_decr.left = reg_1.out;
+  184    │-       reg_1_decr.right = 32'd1;
+  185    │-       reg_1.write_en = 1'd1;
+  186    │-       reg_1.in = reg_1_decr.out;
+  187    │-       reg_1_decr_group[done] = reg_1.done;
+  188    │-     }
+  189    │-     group raise_err {
+  190    │-       err.in = 1'd1;
+  191    │-       err.write_en = 1'd1;
+  192    │-       raise_err[done] = err.done;
+  193    │-     }
+  194    │-     group write_payload_to_mem {
+  195    │-       mem.addr0 = next_write.out;
+  196    │-       mem.write_en = 1'd1;
+  197    │-       mem.write_data = value;
+  198    │-       write_payload_to_mem[done] = mem.done;
+  199    │-       mem.content_en = 1'd1;
+  200    │-     }
+  201    │-     group read_payload_from_mem {
+  202    │-       mem.addr0 = next_read.out;
+  203    │-       mem.content_en = 1'd1;
+  204    │-       ans.write_en = mem.done ? 1'd1;
+  205    │-       ans.in = mem.done ? mem.read_data;
+  206    │-       read_payload_from_mem[done] = ans.done;
+  207    │-     }
+  208    │-   }
+  209    │-   control {
+  210    │-     par {
+  211    │-       if lt_3.out with lt_3_group {
+  212    │-         if eq_5.out with eq_5_group {
+  213    │-           raise_err;
+  214    │-         } else {
+  215    │-           seq {
+  216    │-             read_payload_from_mem;
+  217    │-             if eq_2.out with eq_2_group {
+  218    │-               seq {
+  219    │-                 next_read_incr_group;
+  220    │-                 reg_1_decr_group;
+  221    │-               }
+  222    │-             }
+  223    │-           }
+  224    │-         }
+  225    │-       }
+  226    │-       if eq_4.out with eq_4_group {
+  227    │-         if eq_6.out with eq_6_group {
+  228    │-           raise_err;
+  229    │-         } else {
+  230    │-           seq {
+  231    │-             write_payload_to_mem;
+  232    │-             next_write_incr_group;
+  233    │-             reg_1_incr_group;
+  234    │-           }
+  235    │-         }
+  236    │-       }
+  237    │-     }
+  238    │-   }
+  239    │- }
+  240    │- component fifo2(cmd: 2, value: 32) -> () {
+  241    │-   cells {
+  242    │-     mem = seq_mem_d1(32, 16, 4);
+  243    │-     next_write = std_reg(4);
+  244    │-     next_read = std_reg(4);
+  245    │-     ref ans = std_reg(32);
+  246    │-     ref err = std_reg(1);
+  247    │-     reg_1 = std_reg(32);
+  248    │-     eq_2 = std_eq(2);
+  249    │-     lt_3 = std_lt(2);
+  250    │-     eq_4 = std_eq(2);
+  251    │-     eq_5 = std_eq(32);
+  252    │-     eq_6 = std_eq(32);
+  253    │-     next_write_incr = std_add(4);
+  254    │-     next_read_incr = std_add(4);
+  255    │-     reg_1_incr = std_add(32);
+  256    │-     reg_1_decr = std_sub(32);
+  257    │-   }
+  258    │-   wires {
+  259    │-     comb group eq_2_group {
+  260    │-       eq_2.left = cmd;
+  261    │-       eq_2.right = 2'd0;
+  262    │-     }
+  263    │-     comb group lt_3_group {
+  264    │-       lt_3.left = cmd;
+  265    │-       lt_3.right = 2'd2;
+  266    │-     }
+  267    │-     comb group eq_4_group {
+  268    │-       eq_4.left = cmd;
+  269    │-       eq_4.right = 2'd2;
+  270    │-     }
+  271    │-     comb group eq_5_group {
+  272    │-       eq_5.left = reg_1.out;
+  273    │-       eq_5.right = 32'd0;
+  274    │-     }
+  275    │-     comb group eq_6_group {
+  276    │-       eq_6.left = reg_1.out;
+  277    │-       eq_6.right = 32'd16;
+  278    │-     }
+  279    │-     group next_write_incr_group {
+  280    │-       next_write_incr.left = next_write.out;
+  281    │-       next_write_incr.right = 4'd1;
+  282    │-       next_write.write_en = 1'd1;
+  283    │-       next_write.in = next_write_incr.out;
+  284    │-       next_write_incr_group[done] = next_write.done;
+  285    │-     }
+  286    │-     group next_read_incr_group {
+  287    │-       next_read_incr.left = next_read.out;
+  288    │-       next_read_incr.right = 4'd1;
+  289    │-       next_read.write_en = 1'd1;
+  290    │-       next_read.in = next_read_incr.out;
+  291    │-       next_read_incr_group[done] = next_read.done;
+  292    │-     }
+  293    │-     group reg_1_incr_group {
+  294    │-       reg_1_incr.left = reg_1.out;
+  295    │-       reg_1_incr.right = 32'd1;
+  296    │-       reg_1.write_en = 1'd1;
+  297    │-       reg_1.in = reg_1_incr.out;
+  298    │-       reg_1_incr_group[done] = reg_1.done;
+  299    │-     }
+  300    │-     group reg_1_decr_group {
+  301    │-       reg_1_decr.left = reg_1.out;
+  302    │-       reg_1_decr.right = 32'd1;
+  303    │-       reg_1.write_en = 1'd1;
+  304    │-       reg_1.in = reg_1_decr.out;
+  305    │-       reg_1_decr_group[done] = reg_1.done;
+  306    │-     }
+  307    │-     group raise_err {
+  308    │-       err.in = 1'd1;
+  309    │-       err.write_en = 1'd1;
+  310    │-       raise_err[done] = err.done;
+  311    │-     }
+  312    │-     group write_payload_to_mem {
+  313    │-       mem.addr0 = next_write.out;
+  314    │-       mem.write_en = 1'd1;
+  315    │-       mem.write_data = value;
+  316    │-       write_payload_to_mem[done] = mem.done;
+  317    │-       mem.content_en = 1'd1;
+  318    │-     }
+  319    │-     group read_payload_from_mem {
+  320    │-       mem.addr0 = next_read.out;
+  321    │-       mem.content_en = 1'd1;
+  322    │-       ans.write_en = mem.done ? 1'd1;
+  323    │-       ans.in = mem.done ? mem.read_data;
+  324    │-       read_payload_from_mem[done] = ans.done;
+  325    │-     }
+  326    │-   }
+  327    │-   control {
+  328    │-     par {
+  329    │-       if lt_3.out with lt_3_group {
+  330    │-         if eq_5.out with eq_5_group {
+  331    │-           raise_err;
+  332    │-         } else {
+  333    │-           seq {
+  334    │-             read_payload_from_mem;
+  335    │-             if eq_2.out with eq_2_group {
+  336    │-               seq {
+  337    │-                 next_read_incr_group;
+  338    │-                 reg_1_decr_group;
+  339    │-               }
+  340    │-             }
+  341    │-           }
+  342    │-         }
+  343    │-       }
+  344    │-       if eq_4.out with eq_4_group {
+  345    │-         if eq_6.out with eq_6_group {
+  346    │-           raise_err;
+  347    │-         } else {
+  348    │-           seq {
+  349    │-             write_payload_to_mem;
+  350    │-             next_write_incr_group;
+  351    │-             reg_1_incr_group;
+  352    │-           }
+  353    │-         }
+  354    │-       }
+  355    │-     }
+  356    │-   }
+  357    │- }
+  358    │- component pifo(cmd: 2, value: 32) -> () {
+  359    │-   cells {
+  360    │-     reg_1 = std_reg(32);
+  361    │-     ref ans = std_reg(32);
+  362    │-     ref err = std_reg(1);
+  363    │-     eq_2 = std_eq(32);
+  364    │-     reg_1_incr = std_add(32);
+  365    │-     eq_3 = std_eq(32);
+  366    │-     queue_0 = fifo0();
+  367    │-     eq_4 = std_eq(32);
+  368    │-     queue_1 = fifo1();
+  369    │-     eq_5 = std_eq(32);
+  370    │-     queue_2 = fifo2();
+  371    │-   }
+  372    │-   wires {
+  373    │-     group reset_hot {
+  374    │-       reg_1.in = 32'd0;
+  375    │-       reg_1.write_en = 1'd1;
+  376    │-       reset_hot[done] = reg_1.done;
+  377    │-     }
+  378    │-     comb group eq_2_group {
+  379    │-       eq_2.left = reg_1.out;
+  380    │-       eq_2.right = 32'd2;
+  381    │-     }
+  382    │-     group reg_1_incr_group {
+  383    │-       reg_1_incr.left = reg_1.out;
+  384    │-       reg_1_incr.right = 32'd1;
+  385    │-       reg_1.write_en = 1'd1;
+  386    │-       reg_1.in = reg_1_incr.out;
+  387    │-       reg_1_incr_group[done] = reg_1.done;
+  388    │-     }
+  389    │-     comb group eq_3_group {
+  390    │-       eq_3.left = reg_1.out;
+  391    │-       eq_3.right = 32'd0;
+  392    │-     }
+  393    │-     comb group eq_4_group {
+  394    │-       eq_4.left = reg_1.out;
+  395    │-       eq_4.right = 32'd1;
+  396    │-     }
+  397    │-     comb group eq_5_group {
+  398    │-       eq_5.left = reg_1.out;
+  399    │-       eq_5.right = 32'd2;
+  400    │-     }
+  401    │-   }
+  402    │-   control {
+  403    │-     par {
+  404    │-       seq {
+  405    │-         if eq_3.out with eq_3_group {
+  406    │-           invoke queue_0[ans=ans, err=err](cmd=cmd, value=value)();
+  407    │-         }
+  408    │-         if eq_4.out with eq_4_group {
+  409    │-           invoke queue_1[ans=ans, err=err](cmd=cmd, value=value)();
+  410    │-         }
+  411    │-         if eq_5.out with eq_5_group {
+  412    │-           invoke queue_2[ans=ans, err=err](cmd=cmd, value=value)();
+  413    │-         }
+  414    │-       }
+  415    │-       if eq_2.out with eq_2_group {
+  416    │-         reg_1_incr_group;
+  417    │-       } else {
+  418    │-         reset_hot;
+  419    │-       }
+  420    │-     }
+  421    │-   }
+  422    │- }
+        1│+ ---CODE---
+        2│+ 255
+        3│+ ---STDERR---
+        4│+ [fud] ERROR: `./target/debug/calyx -l /scratch/cassandra/calyx -b verilog' failed:
+        5│+ =====STDERR=====
+        6│+ Error: No entry point for the program. Program needs to be either mark a component with the "toplevel" attribute or define a component named `main`
+        7│+ 
+        8│+ =====STDOUT=====
+        9│+ 
+       10│+ 
+         ~
+ 8 passing / 2 failing / 1 missing / 0 skipped / 0 remaining
