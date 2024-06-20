@@ -86,28 +86,28 @@ struct Marker {
 impl Marker {
     /// A marker for an `element`.
     #[allow(dead_code)]
-    pub fn general<S: ToString>(element: S) -> Marker {
+    pub fn general<S: AsRef<str>>(element: S) -> Marker {
         Marker {
-            element: element.to_string(),
+            element: element.as_ref().to_string(),
             id: None,
         }
     }
 
     /// A marker for a unique `element` identified by `id`.
-    pub fn unique<S: ToString, T: ToString>(element: S, id: T) -> Marker {
+    pub fn unique<S: AsRef<str>, T: AsRef<str>>(element: S, id: T) -> Marker {
         Marker {
-            element: element.to_string(),
-            id: Some(id.to_string()),
+            element: element.as_ref().to_string(),
+            id: Some(id.as_ref().to_string()),
         }
     }
 
     /// Constructs a comment string for the marker at a given `location`. For
     /// example, `marker.to_string("end")`.
-    pub fn to_string<S: ToString>(&self, location: S) -> String {
+    pub fn to_string<S: AsRef<str>>(&self, location: S) -> String {
         format!(
             "// {} {}{}\n",
             self.element.to_ascii_uppercase(),
-            location.to_string().to_ascii_uppercase(),
+            location.as_ref().to_string().to_ascii_uppercase(),
             self.id
                 .as_ref()
                 .map(|id| format!(": {}", id))
@@ -170,17 +170,17 @@ pub struct Attribute {
 impl Attribute {
     /// Constructs a `calyx_frontend::BoolAttr`, such as `@external`, named
     /// `name`.
-    pub fn bool<S: ToString>(name: S) -> Self {
+    pub fn bool<S: AsRef<str>>(name: S) -> Self {
         Self {
-            name: name.to_string(),
+            name: name.as_ref().to_string(),
             value: 1,
         }
     }
 
     /// Constructs a `calyx_frontend::NumAttr`, such as `@go`, named `name`.
-    pub fn num<S: ToString>(name: S, value: u64) -> Self {
+    pub fn num<S: AsRef<str>>(name: S, value: u64) -> Self {
         Self {
-            name: name.to_string(),
+            name: name.as_ref().to_string(),
             value,
         }
     }
@@ -235,15 +235,15 @@ impl Port {
     /// Constructs a new port with the given `parent` and `name`.
     ///
     /// Requires: `width` is nonzero.
-    pub fn new<S: ToString, T: ToString>(
+    pub fn new<S: AsRef<str>, T: AsRef<str>>(
         parent: Option<S>,
         name: T,
         width: u64,
     ) -> Self {
         Self {
             attributes: vec![],
-            parent: parent.map(|s| s.to_string()),
-            name: name.to_string(),
+            parent: parent.map(|s| s.as_ref().to_string()),
+            name: name.as_ref().to_string(),
             width: Some(NonZeroU64::new(width).expect("width cannot be zero")),
         }
     }
@@ -251,20 +251,20 @@ impl Port {
     /// Constructs a new port with the given `name` in a component.
     ///
     /// Requires: `width > 0`.
-    pub fn new_in_comp<S: ToString>(name: S, width: u64) -> Self {
+    pub fn new_in_comp<S: AsRef<str>>(name: S, width: u64) -> Self {
         Self::new::<String, S>(None, name, width)
     }
 
     /// Constructs a new port with the given `parent` and `name` and with
     /// inferred width.
-    pub fn inferred<S: ToString, T: ToString>(
+    pub fn inferred<S: AsRef<str>, T: AsRef<str>>(
         parent: Option<S>,
         name: T,
     ) -> Self {
         Self {
             attributes: vec![],
-            parent: parent.map(|s| s.to_string()),
-            name: name.to_string(),
+            parent: parent.map(|s| s.as_ref().to_string()),
+            name: name.as_ref().to_string(),
             width: None,
         }
     }
@@ -433,9 +433,9 @@ pub struct Group {
 impl Group {
     /// Constructs an empty group named `name`, combinational if and only if
     /// `is_comb`.
-    fn new<S: ToString>(name: S, is_comb: bool) -> Self {
+    fn new<S: AsRef<str>>(name: S, is_comb: bool) -> Self {
         Self {
-            name: name.to_string(),
+            name: name.as_ref().to_string(),
             description: None,
             is_comb,
             latency: None,
@@ -673,11 +673,11 @@ pub struct Component {
 
 impl Component {
     #[allow(clippy::single_element_loop)]
-    fn new<S: ToString>(name: S, is_comb: bool) -> Self {
+    fn new<S: AsRef<str>>(name: S, is_comb: bool) -> Self {
         let mut new_self = Self {
             attributes: vec![],
             is_comb,
-            name: name.to_string(),
+            name: name.as_ref().to_string(),
             inputs: vec![],
             outputs: vec![],
             cells: vec![],
@@ -706,18 +706,18 @@ impl Component {
     }
 
     /// Adds an input port `name` to this component.
-    pub fn add_input<S: ToString>(&mut self, name: S, width: u64) {
+    pub fn add_input<S: AsRef<str>>(&mut self, name: S, width: u64) {
         self.inputs.push(Port::new_in_comp(name, width));
     }
 
     /// Adds an output port `name` to this component.
-    pub fn add_output<S: ToString>(&mut self, name: S, width: u64) {
+    pub fn add_output<S: AsRef<str>>(&mut self, name: S, width: u64) {
         self.outputs.push(Port::new_in_comp(name, width));
     }
 
     /// Constructs a new cell named `name` that instantiates `inst` with
     /// arguments `args`.
-    pub fn cell<S: ToString, T: ToString>(
+    pub fn cell<S: AsRef<str>, T: AsRef<str>>(
         &mut self,
         is_ref: bool,
         name: S,
@@ -727,8 +727,8 @@ impl Component {
         let cell = rrc(Cell {
             is_ref,
             attributes: vec![],
-            name: name.to_string(),
-            inst: inst.to_string(),
+            name: name.as_ref().to_string(),
+            inst: inst.as_ref().to_string(),
             args,
         });
         self.cells.push(cell.clone());
@@ -743,14 +743,14 @@ impl Component {
     }
 
     /// Use [`declare_group!`] and [`build_group!`] instead.
-    pub fn group<S: ToString>(&mut self, name: S) -> RRC<Group> {
+    pub fn group<S: AsRef<str>>(&mut self, name: S) -> RRC<Group> {
         let group = rrc(Group::new(name, false));
         self.groups.push(group.clone());
         group
     }
 
     /// Use [`declare_group!`] and [`build_group!`] instead.
-    pub fn comb_group<S: ToString>(&mut self, name: S) -> RRC<Group> {
+    pub fn comb_group<S: AsRef<str>>(&mut self, name: S) -> RRC<Group> {
         let group = rrc(Group::new(name, true));
         self.groups.push(group.clone());
         group
@@ -772,7 +772,7 @@ impl Component {
     ///   }
     /// ...
     /// ```
-    fn brace_section<S: ToString, F>(
+    fn brace_section<S: AsRef<str>, F>(
         &self,
         f: &mut IndentFormatter<'_, '_>,
         name: S,
@@ -782,7 +782,7 @@ impl Component {
         F: FnOnce(&mut IndentFormatter<'_, '_>) -> fmt::Result,
     {
         f.increase_indent();
-        writeln!(f, "{} {{", name.to_string(),)?;
+        writeln!(f, "{} {{", name.as_ref().to_string(),)?;
         f.increase_indent();
         body(f)?;
         f.decrease_indent();
@@ -895,14 +895,14 @@ impl Program {
     }
 
     /// Constructs an empty component named `name`.
-    pub fn comp<S: ToString>(&mut self, name: S) -> RRC<Component> {
+    pub fn comp<S: AsRef<str>>(&mut self, name: S) -> RRC<Component> {
         let comp = rrc(Component::new(name, false));
         self.comps.push(comp.clone());
         comp
     }
 
     /// Constructs an empty combinational component named `name`.
-    pub fn comb_comp<S: ToString>(&mut self, name: S) -> RRC<Component> {
+    pub fn comb_comp<S: AsRef<str>>(&mut self, name: S) -> RRC<Component> {
         let comp = rrc(Component::new(name, true));
         self.comps.push(comp.clone());
         comp
