@@ -50,7 +50,7 @@ def insert_matmul_component(prog, n):
     load_A = matmul.mem_load_d2(A, i.out, k.out, a, "read_A")
     # Latch B[k][j], so that we can later read `B.read_data` and get B[k][j].
     # While `mem_load` works on combinational and sequential memories,
-    # `mem_latch` only works on combinational memories.
+    # `mem_latch` only works on sequential memories.
     latch_B = matmul.mem_latch_d2(B, k.out, j.out, "read_B")
 
     # C[i][j] := acc
