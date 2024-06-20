@@ -228,7 +228,7 @@ class ComponentBuilder:
                 std_eq.right = const(width, branch)
             ifs.append(if_(std_eq["out"], controllable))
 
-        self.control += par(*ifs)
+        return par(*ifs)
 
     def port_width(self, port: ExprBuilder) -> int:
         """Get the width of an expression, which may be a port of this component."""
