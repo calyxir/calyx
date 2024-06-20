@@ -490,7 +490,10 @@ impl CompileStatic {
             calyx_ir::Guard::Info(static_timing_interval) => {
                 Some(static_timing_interval.get_interval())
             }
-            calyx_ir::Guard::True => Some((0, lat)),
+            calyx_ir::Guard::Not(_)
+            | calyx_ir::Guard::CompOp(_, _, _)
+            | calyx_ir::Guard::Port(_)
+            | calyx_ir::Guard::True => Some((0, lat)),
             calyx_ir::Guard::And(l, r) => {
                 match (
                     Self::get_interval_from_guard(l, lat, id),
@@ -500,12 +503,17 @@ impl CompileStatic {
                     (None, None) => {
                         panic!("neither option")
                     }
-                    (Some(_), Some(_)) => {
-                        panic!("both options")
+                    (Some((beg1, end1)), Some((beg2, end2))) => {
+                        assert!(end1 - beg1 == lat || end2 - beg2 == lat);
+                        if end1 - beg1 == lat {
+                            Some((beg2, end2))
+                        } else {
+                            Some((beg1, end1))
+                        }
                     }
                 }
             }
-            _ => None,
+            ir::Guard::Or(_, _) => None,
         }
     }
 
@@ -532,13 +540,15 @@ impl CompileStatic {
                 PortParent::Group(_) => panic!(""),
                 PortParent::StaticGroup(sgroup) => {
                     assert!(assign.src.borrow().is_constant(1, 1));
-                    let (beg, end) = Self::get_interval_from_guard(
+                    let x = Self::get_interval_from_guard(
                         &assign.guard,
                         target_group.borrow().get_latency(),
                         &name,
-                    )
-                    .expect("couldn't get interval from guard");
-                    let name: calyx_ir::Id = sgroup.upgrade().borrow().name();
+                    );
+                    let (beg, end) =
+                        x.expect("couldn't get interval from guard");
+                    let name: calyx_ir::Id =
+                        sgroup.upgrade().borrow().name().clone();
                     let target_child_latency =
                         Self::get_sgroup_latency(name, static_groups);
                     let child_execution_time = end - beg;
@@ -847,6 +857,14 @@ impl CompileStatic {
                 &fsm_tree.get_root_name(),
                 static_groups,
             );
+            for (child, _) in fsm_tree.get_children() {
+                child.realize_only_transfer(
+                    static_groups,
+                    &mut self.reset_early_map,
+                    group_rewrites,
+                    builder,
+                )
+            }
             let assignments =
                 std::mem::take(&mut sgroup.borrow_mut().assignments);
             for mut assign in assignments {

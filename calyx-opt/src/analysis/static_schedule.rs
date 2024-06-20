@@ -294,6 +294,29 @@ impl FSMTree {
         }
     }
 
+    pub fn realize_only_transfer(
+        &mut self,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.realize_only_transfer(
+                static_groups,
+                reset_early_map,
+                group_rewrites,
+                builder,
+            ),
+            FSMTree::Par(par_struct) => par_struct.realize_only_transfer(
+                static_groups,
+                reset_early_map,
+                group_rewrites,
+                builder,
+            ),
+        }
+    }
+
     pub fn query_between(
         &mut self,
         query: (u64, u64),
@@ -340,6 +363,13 @@ impl FSMTree {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.root.0,
             FSMTree::Par(par_struct) => par_struct.group_name,
+        }
+    }
+
+    pub fn get_children(&mut self) -> &mut Vec<(FSMTree, (u64, u64))> {
+        match self {
+            FSMTree::Tree(tree_struct) => &mut tree_struct.children,
+            FSMTree::Par(par_struct) => &mut par_struct.threads,
         }
     }
 
@@ -556,7 +586,7 @@ impl Tree {
             .assignments
             .clone()
             .into_iter()
-            .map(|assign| self.make_assign_dyn(assign, false, builder))
+            .map(|assign| self.make_assign_dyn(assign, false, false, builder))
             .collect_vec();
 
         // Add assignment `group[done] = ud.out`` to the new group.
@@ -611,6 +641,80 @@ impl Tree {
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
+                group_rewrites,
+                builder,
+            )
+        })
+    }
+
+    fn realize_only_transfer(
+        &mut self,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) {
+        // Get static grouo we are "realizing".
+        let static_group = Rc::clone(
+            &static_groups
+                .iter()
+                .find(|sgroup| sgroup.borrow().name() == self.root.0)
+                .unwrap(),
+        );
+        // Create the dynamic "early reset group" that will replace the static group.
+        let static_group_name = static_group.borrow().name();
+        let mut early_reset_name = static_group_name.to_string();
+        early_reset_name.insert_str(0, "early_reset_");
+        let early_reset_group = builder.add_group(early_reset_name);
+        // Realize the static %[i:j] guards to fsm checks.
+        // This is significantly more complicated with a tree structure.
+        let mut assigns = static_group
+            .borrow()
+            .assignments
+            .clone()
+            .into_iter()
+            .map(|assign| self.make_assign_dyn(assign, false, true, builder))
+            .collect_vec();
+
+        // Add assignment `group[done] = ud.out`` to the new group.
+        structure!( builder; let ud = prim undef(1););
+        let early_reset_done_assign = build_assignments!(
+          builder;
+          early_reset_group["done"] = ? ud["out"];
+        );
+        assigns.extend(early_reset_done_assign);
+        // Adding the count_to_n assigns;
+        assigns.extend(std::mem::take(&mut self.root.1));
+        self.root.1 = assigns.clone();
+
+        early_reset_group.borrow_mut().assignments = assigns;
+        early_reset_group.borrow_mut().attributes =
+            static_group.borrow().attributes.clone();
+
+        // Now we have to update the fields with a bunch of information.
+        // This makes it easier when we have to build wrappers, rewrite ports, etc.
+
+        // Map the static group name -> early reset group name.
+        reset_early_map
+            .insert(static_group_name, early_reset_group.borrow().name());
+        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
+        // Technically we could do this w/ early_reset_map but is easier w/
+        // group_rewrite, which is explicitly of type `PortRewriterMap`
+        group_rewrites.insert(
+            ir::Canonical::new(static_group_name, ir::Id::from("go")),
+            early_reset_group.borrow().find("go").unwrap_or_else(|| {
+                unreachable!(
+                    "group {} has no go port",
+                    early_reset_group.borrow().name()
+                )
+            }),
+        );
+
+        // Recursively realize each child.
+        self.children.iter_mut().for_each(|(child, _)| {
+            child.realize_only_transfer(
+                static_groups,
+                reset_early_map,
                 group_rewrites,
                 builder,
             )
@@ -860,20 +964,22 @@ impl Tree {
         &mut self,
         guard: ir::Guard<ir::StaticTiming>,
         global_view: bool,
+        ignore_timing: bool,
         builder: &mut ir::Builder,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-                self.make_guard_dyn(*l, global_view, builder),
-                self.make_guard_dyn(*r, global_view, builder),
+                self.make_guard_dyn(*l, global_view, ignore_timing, builder),
+                self.make_guard_dyn(*r, global_view, ignore_timing, builder),
             )),
             ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-                self.make_guard_dyn(*l, global_view, builder),
-                self.make_guard_dyn(*r, global_view, builder),
+                self.make_guard_dyn(*l, global_view, ignore_timing, builder),
+                self.make_guard_dyn(*r, global_view, ignore_timing, builder),
             )),
             ir::Guard::Not(g) => Box::new(ir::Guard::Not(self.make_guard_dyn(
                 *g,
                 global_view,
+                ignore_timing,
                 builder,
             ))),
             ir::Guard::CompOp(op, l, r) => {
@@ -882,6 +988,10 @@ impl Tree {
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
             ir::Guard::Info(static_timing) => {
+                if ignore_timing {
+                    assert!(static_timing.get_interval() == (0, 1));
+                    return Box::new(ir::Guard::True);
+                }
                 if global_view {
                     Box::new(
                         self.query_between(
@@ -907,13 +1017,19 @@ impl Tree {
         &mut self,
         assign: ir::Assignment<ir::StaticTiming>,
         global_view: bool,
+        ignore_timing: bool,
         builder: &mut ir::Builder,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
             src: assign.src,
             dst: assign.dst,
             attributes: assign.attributes,
-            guard: self.make_guard_dyn(*assign.guard, global_view, builder),
+            guard: self.make_guard_dyn(
+                *assign.guard,
+                global_view,
+                ignore_timing,
+                builder,
+            ),
         }
     }
 
@@ -952,6 +1068,81 @@ impl ParTree {
             panic!("Field is empty or no maximum value found");
         }
     }
+
+    pub fn realize_only_transfer(
+        &mut self,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) {
+        // Get static grouo we are "realizing".
+        let static_group = Rc::clone(
+            &static_groups
+                .iter()
+                .find(|sgroup| sgroup.borrow().name() == self.group_name)
+                .unwrap(),
+        );
+        // Create the dynamic "early reset group" that will replace the static group.
+        let static_group_name = static_group.borrow().name();
+        let mut early_reset_name = static_group_name.to_string();
+        early_reset_name.insert_str(0, "early_reset_");
+        let early_reset_group = builder.add_group(early_reset_name);
+
+        let longest_tree = self.get_longest_tree();
+        // Use the longest tree to dictate the assignments of the others.
+        let mut assigns = static_group
+            .borrow()
+            .assignments
+            .clone()
+            .into_iter()
+            .map(|assign| {
+                longest_tree.make_assign_dyn(assign, true, true, builder)
+            })
+            .collect_vec();
+
+        // Add assignment `group[done] = ud.out`` to the new group.
+        structure!( builder; let ud = prim undef(1););
+        let early_reset_done_assign = build_assignments!(
+          builder;
+          early_reset_group["done"] = ? ud["out"];
+        );
+        assigns.extend(early_reset_done_assign);
+
+        early_reset_group.borrow_mut().assignments = assigns;
+        early_reset_group.borrow_mut().attributes =
+            static_group.borrow().attributes.clone();
+
+        // Now we have to update the fields with a bunch of information.
+        // This makes it easier when we have to build wrappers, rewrite ports, etc.
+
+        // Map the static group name -> early reset group name.
+        // This is helpful for rewriting control
+        reset_early_map
+            .insert(static_group_name, early_reset_group.borrow().name());
+        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
+        // Technically we could do this w/ early_reset_map but is easier w/
+        // group_rewrite, which is explicitly of type `PortRewriterMap`
+        group_rewrites.insert(
+            ir::Canonical::new(static_group_name, ir::Id::from("go")),
+            early_reset_group.borrow().find("go").unwrap_or_else(|| {
+                unreachable!(
+                    "group {} has no go port",
+                    early_reset_group.borrow().name()
+                )
+            }),
+        );
+
+        self.threads.iter_mut().for_each(|(child, _)| {
+            child.realize_only_transfer(
+                static_groups,
+                reset_early_map,
+                group_rewrites,
+                builder,
+            )
+        })
+    }
+
     pub fn realize(
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
@@ -985,7 +1176,9 @@ impl ParTree {
             .assignments
             .clone()
             .into_iter()
-            .map(|assign| longest_tree.make_assign_dyn(assign, true, builder))
+            .map(|assign| {
+                longest_tree.make_assign_dyn(assign, true, false, builder)
+            })
             .collect_vec();
 
         // Add assignment `group[done] = ud.out`` to the new group.
