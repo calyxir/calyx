@@ -129,7 +129,7 @@ impl CompileStatic {
     /// Note: this only works if the port for the while condition is `@stable`.
     fn build_wrapper_group_while(
         &self,
-        fsm_eq_0: ir::Guard<Nothing>,
+        fsm_first_state: ir::Guard<Nothing>,
         group_name: &ir::Id,
         port: RRC<ir::Port>,
         builder: &mut ir::Builder,
@@ -154,12 +154,10 @@ impl CompileStatic {
 
         let port_parent = port.borrow().cell_parent();
         let port_name = port.borrow().name;
-        let done_guard = guard!(port_parent[port_name]).not() & fsm_eq_0;
+        let done_guard = guard!(port_parent[port_name]).not() & fsm_first_state;
 
         let assignments = build_assignments!(
             builder;
-            // reset_early_group[go] = 1'd1;
-            // wrapper_group[done] = !port ? 1'd1;
             reset_early_group["go"] = ? one["out"];
             wrapper_group["done"] = done_guard ? one["out"];
         );
@@ -721,11 +719,11 @@ impl CompileStatic {
 
     // Makes `done` signal for promoted static<n> component.
     fn make_done_signal_for_promoted_component(
-        fsm: &mut StaticFSM,
+        fsm_tree: &mut FSMTree,
         builder: &mut ir::Builder,
         comp_sig: RRC<ir::Cell>,
     ) -> Vec<ir::Assignment<ir::Nothing>> {
-        let first_state_guard = *fsm.query_between(builder, (0, 1));
+        let first_state_guard = fsm_tree.query_between((0, 1), builder);
         structure!(builder;
           let sig_reg = prim std_reg(1);
           let one = constant(1, 1);
@@ -782,59 +780,98 @@ impl CompileStatic {
     // Compiles `sgroup` according to the static component interface.
     // The assignments are removed from `sgroup` and placed into
     // `builder.component`'s continuous assignments.
-    // fn compile_static_interface(
-    //     &self,
-    //     sgroup: ir::RRC<ir::StaticGroup>,
-    //     builder: &mut ir::Builder,
-    // ) {
-    //     if sgroup.borrow().get_latency() > 1 {
-    //         // Build a StaticSchedule object, realize it and add assignments
-    //         // as continuous assignments.
-    //         let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-    //         let (mut assigns, mut fsm) = sch.realize_schedule(builder, true);
-    //         builder
-    //             .component
-    //             .continuous_assignments
-    //             .extend(assigns.pop_front().unwrap());
-    //         let comp_sig = Rc::clone(&builder.component.signature);
-    //         if builder.component.attributes.has(ir::BoolAttr::Promoted) {
-    //             // If necessary, add the logic to produce a done signal.
-    //             let done_assigns =
-    //                 Self::make_done_signal_for_promoted_component(
-    //                     &mut fsm, builder, comp_sig,
-    //                 );
-    //             builder
-    //                 .component
-    //                 .continuous_assignments
-    //                 .extend(done_assigns);
-    //         }
-    //     } else {
-    //         // Handle components with latency == 1.
-    //         // In this case, we don't need an FSM; we just guard the assignments
-    //         // with comp.go.
-    //         let assignments =
-    //             std::mem::take(&mut sgroup.borrow_mut().assignments);
-    //         for assign in assignments {
-    //             let comp_sig = Rc::clone(&builder.component.signature);
-    //             builder.component.continuous_assignments.push(
-    //                 Self::make_assign_dyn_one_cycle_static_comp(
-    //                     assign, comp_sig,
-    //                 ),
-    //             );
-    //         }
-    //         if builder.component.attributes.has(ir::BoolAttr::Promoted) {
-    //             let comp_sig = Rc::clone(&builder.component.signature);
-    //             let done_assigns =
-    //                 Self::make_done_signal_for_promoted_component_one_cycle(
-    //                     builder, comp_sig,
-    //                 );
-    //             builder
-    //                 .component
-    //                 .continuous_assignments
-    //                 .extend(done_assigns);
-    //         }
-    //     }
-    // }
+    fn compile_static_interface(
+        &mut self,
+        fsm_tree: &mut FSMTree,
+        static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) -> calyx_utils::CalyxResult<()> {
+        if fsm_tree.get_latency() > 1 {
+            let sgroup = Self::find_static_group(
+                &fsm_tree.get_root_name(),
+                static_groups,
+            );
+            for assign in &mut sgroup.borrow_mut().assignments {
+                FSMTree::preprocess_static_interface_assigns(
+                    assign,
+                    Rc::clone(&builder.component.signature),
+                );
+            }
+
+            let comp_go = ir::Guard::port(
+                builder
+                    .component
+                    .signature
+                    .borrow()
+                    .find_unique_with_attr(ir::NumAttr::Go)?
+                    .unwrap(),
+            );
+            // Build a StaticSchedule object, realize it and add assignments
+            // as continuous assignments.
+            fsm_tree.count_to_n(builder, Some(comp_go));
+            fsm_tree.realize(
+                static_groups,
+                &mut self.reset_early_map,
+                &mut self.fsm_info_map,
+                group_rewrites,
+                builder,
+            );
+            builder.component.continuous_assignments.extend(
+                fsm_tree.take_root_assigns().into_iter().filter(|assign| {
+                    let dst = assign.dst.borrow();
+                    match dst.parent {
+                        PortParent::Cell(_) => true,
+                        PortParent::Group(_) => dst.name != "done",
+                        PortParent::StaticGroup(_) => true,
+                    }
+                }),
+            );
+            let comp_sig = Rc::clone(&builder.component.signature);
+            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                // If necessary, add the logic to produce a done signal.
+                let done_assigns =
+                    Self::make_done_signal_for_promoted_component(
+                        fsm_tree, builder, comp_sig,
+                    );
+                builder
+                    .component
+                    .continuous_assignments
+                    .extend(done_assigns);
+            }
+        } else {
+            // Handle components with latency == 1.
+            // In this case, we don't need an FSM; we just guard the assignments
+            // with comp.go.
+            let sgroup = Self::find_static_group(
+                &fsm_tree.get_root_name(),
+                static_groups,
+            );
+            let assignments =
+                std::mem::take(&mut sgroup.borrow_mut().assignments);
+            for mut assign in assignments {
+                let comp_sig = Rc::clone(&builder.component.signature);
+                assign.guard.update(|g| g.and(guard!(comp_sig["go"])));
+                builder.component.continuous_assignments.push(
+                    Self::make_assign_dyn_one_cycle_static_comp(
+                        assign, comp_sig,
+                    ),
+                );
+            }
+            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                let comp_sig = Rc::clone(&builder.component.signature);
+                let done_assigns =
+                    Self::make_done_signal_for_promoted_component_one_cycle(
+                        builder, comp_sig,
+                    );
+                builder
+                    .component
+                    .continuous_assignments
+                    .extend(done_assigns);
+            };
+        };
+        Ok(())
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -844,27 +881,6 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Get a vec of all groups that are enabled in comp's control.
-        let static_enable_ids =
-            Self::get_static_enables(&*comp.control.borrow());
-        // Static components have a different interface than static groups.
-        // If we have a static component, we have to compile the top-level
-        // island (this island should be a group by now and corresponds
-        // to the the entire control of the component) differently.
-        // This island might invoke other static groups-- these static groups
-        // should still follow the group interface.
-        let top_level_sgroup = if comp.is_static() {
-            let comp_control = comp.control.borrow();
-            match &*comp_control {
-                ir::Control::Static(ir::StaticControl::Enable(sen)) => {
-                    Some(sen.group.borrow().name())
-                }
-                _ => return Err(Error::malformed_control(format!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name()))),
-            }
-        } else {
-            None
-        };
-
         // Drain static groups of component
         let mut sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
@@ -875,6 +891,9 @@ impl Visitor for CompileStatic {
         // let coloring: HashMap<calyx_ir::Id, calyx_ir::Id> = Self::get_coloring(&sgroups, &comp.control.borrow());
 
         let mut builder = ir::Builder::new(comp, sigs);
+        // Get a vec of all groups that are enabled in comp's control.
+        let static_enable_ids =
+            Self::get_static_enables(&*builder.component.control.borrow());
         // Build one tree object per static enable.
         let mut tree_objects = static_enable_ids
             .iter()
@@ -883,31 +902,45 @@ impl Visitor for CompileStatic {
 
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
-
+        // Static components have a different interface than static groups.
+        // If we have a static component, we have to compile the top-level
+        // island (this island should be a group by now and corresponds
+        // to the the entire control of the component) differently.
+        // This island might invoke other static groups-- these static groups
+        // should still follow the group interface.
+        let top_level_sgroup = if builder.component.is_static() {
+            let comp_control = builder.component.control.borrow();
+            match &*comp_control {
+                ir::Control::Static(ir::StaticControl::Enable(sen)) => {
+                    Some(sen.group.borrow().name())
+                }
+                _ => return Err(Error::malformed_control(format!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name()))),
+            }
+        } else {
+            None
+        };
         // Make each tree count to n.
         for tree in &mut tree_objects {
             // Check whether we are compiling the top level static island.
-            // let static_component_interface = match top_level_sgroup {
-            //     None => false,
-            //     // For the top level group, sch.static_groups should really only
-            //     // have one group--the top level group.
-            //     Some(top_level_group) => {
-            //         tree.get_group_name() == top_level_group
-            //     }
-            // };
-            let static_component_interface = false;
+            let static_component_interface = match top_level_sgroup {
+                None => false,
+                // For the top level group, sch.static_groups should really only
+                // have one group--the top level group.
+                Some(top_level_group) => tree.get_id() == top_level_group,
+            };
             // Static component/groups have different interfaces
             if static_component_interface {
-                panic!("")
                 // Compile top level static group differently.
                 // We know that the top level static island has its own
                 // unique FSM so we can do `.pop().unwrap()`
-                // self.compile_static_interface(
-                //     sch.static_groups.pop().unwrap(),
-                //     &mut builder,
-                // )
+                self.compile_static_interface(
+                    tree,
+                    &mut sgroups,
+                    &mut group_rewrites,
+                    &mut builder,
+                )?;
             } else {
-                tree.count_to_n(&mut builder);
+                tree.count_to_n(&mut builder, None);
                 tree.realize(
                     &sgroups,
                     &mut self.reset_early_map,

@@ -250,10 +250,18 @@ pub enum FSMTree {
 }
 
 impl FSMTree {
-    pub fn count_to_n(&mut self, builder: &mut ir::Builder) {
+    pub fn count_to_n(
+        &mut self,
+        builder: &mut ir::Builder,
+        incr_start_cond: Option<ir::Guard<Nothing>>,
+    ) {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.count_to_n(builder),
-            FSMTree::Par(par_struct) => par_struct.count_to_n(builder),
+            FSMTree::Tree(tree_struct) => {
+                tree_struct.count_to_n(builder, incr_start_cond)
+            }
+            FSMTree::Par(par_struct) => {
+                par_struct.count_to_n(builder, incr_start_cond)
+            }
         }
     }
 
@@ -286,7 +294,7 @@ impl FSMTree {
         }
     }
 
-    fn query_between(
+    pub fn query_between(
         &mut self,
         query: (u64, u64),
         builder: &mut ir::Builder,
@@ -301,10 +309,37 @@ impl FSMTree {
         }
     }
 
-    fn get_latency(&self) -> u64 {
+    pub fn take_root_assigns(&mut self) -> Vec<ir::Assignment<Nothing>> {
+        match self {
+            FSMTree::Tree(tree_struct) => {
+                std::mem::take(&mut tree_struct.root.1)
+            }
+            FSMTree::Par(_) => {
+                panic!("Cannot take root assignments of par_struct")
+            }
+        }
+    }
+
+    pub fn get_root_name(&mut self) -> ir::Id {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.root.0,
+            FSMTree::Par(_) => {
+                panic!("Cannot take root name of par_struct")
+            }
+        }
+    }
+
+    pub fn get_latency(&self) -> u64 {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.latency,
             FSMTree::Par(par_struct) => par_struct.latency,
+        }
+    }
+
+    pub fn get_id(&self) -> ir::Id {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.root.0,
+            FSMTree::Par(par_struct) => par_struct.group_name,
         }
     }
 
@@ -337,7 +372,11 @@ pub struct Tree {
 }
 
 impl Tree {
-    fn count_to_n(&mut self, builder: &mut ir::Builder) {
+    fn count_to_n(
+        &mut self,
+        builder: &mut ir::Builder,
+        incr_start_cond: Option<ir::Guard<Nothing>>,
+    ) {
         // offload_states are the fsm_states that last >1 cycles
         // i.e., the same as the children.
         let offload_states = self
@@ -371,16 +410,18 @@ impl Tree {
 
         // Now handle incrementing when we are offloading to a child (we increment
         // when the child is finished).
-        for (i, (child, (_, end))) in self.children.iter_mut().enumerate() {
+        for (i, (child, (beg, end))) in self.children.iter_mut().enumerate() {
             // Recursive call that makes the child count to n.
-            child.count_to_n(builder);
+            child.count_to_n(builder, None);
 
             // Increment parent when child is in final state. e.g.,
             // fsm.in = fsm == offload_state && child_fsm_in_final_state ? fsm + 1;
             // fsm.write_en = .offload_state && child_fsm_in_final_state ? 1'd1;
             // If the offload state is the last state (end == self.latency) then we don't
             // increment, we need to reset to 0: we will handle that case separately.
-            if *end != self.latency {
+            if *end != self.latency
+                && !(incr_start_cond.is_some() && (*beg == 0 && *end == 1))
+            {
                 // We know each offload state corresponds to exactly one child.
                 let child_state = offload_states[i];
                 let in_child_state = parent_fsm
@@ -405,6 +446,19 @@ impl Tree {
             }
         }
 
+        let first_state = self.get_fsm_query((0, 1), builder);
+        let other_incr_condition = match incr_start_cond {
+            None => ir::Guard::True,
+            Some(g) => {
+                res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
+                    first_state.clone().and(g),
+                    Rc::clone(&adder),
+                    builder,
+                ));
+                first_state.not()
+            }
+        };
+
         // Increment when fsm is not in an offload state and not in final fsm state.
         let mut offload_state_guard: ir::Guard<Nothing> =
             ir::Guard::Not(Box::new(ir::Guard::True));
@@ -423,11 +477,14 @@ impl Tree {
         let final_fsm_state =
             self.get_fsm_query((self.latency - 1, self.latency), builder);
         let not_final_state = final_fsm_state.clone().not();
-        res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
-            not_offload_state.and(not_final_state.clone()),
-            Rc::clone(&adder),
-            builder,
-        ));
+        res_vec.extend(
+            parent_fsm.borrow_mut().conditional_increment(
+                not_offload_state
+                    .and(not_final_state.clone().and(other_incr_condition)),
+                Rc::clone(&adder),
+                builder,
+            ),
+        );
         // reset at final fsm_state.
         res_vec.extend(
             parent_fsm
@@ -511,6 +568,7 @@ impl Tree {
         assigns.extend(early_reset_done_assign);
         // Adding the count_to_n assigns;
         assigns.extend(std::mem::take(&mut self.root.1));
+        self.root.1 = assigns.clone();
 
         early_reset_group.borrow_mut().assignments = assigns;
         early_reset_group.borrow_mut().attributes =
@@ -858,7 +916,12 @@ impl Tree {
             guard: self.make_guard_dyn(*assign.guard, global_view, builder),
         }
     }
+
+    fn extract_fsm_cell(&mut self) -> ir::RRC<StaticFSM> {
+        Rc::clone(self.fsm_cell.as_ref().expect("field was None"))
+    }
 }
+
 pub struct ParTree {
     pub group_name: ir::Id,
     pub latency: u64,
@@ -867,9 +930,13 @@ pub struct ParTree {
 }
 
 impl ParTree {
-    pub fn count_to_n(&mut self, builder: &mut ir::Builder) {
+    pub fn count_to_n(
+        &mut self,
+        builder: &mut ir::Builder,
+        incr_start_cond: Option<ir::Guard<Nothing>>,
+    ) {
         for (child, _) in &mut self.threads {
-            child.count_to_n(builder);
+            child.count_to_n(builder, incr_start_cond.clone());
         }
     }
     pub fn get_longest_tree(&mut self) -> &mut Tree {
@@ -985,13 +1052,9 @@ impl ParTree {
     }
 }
 
-impl Tree {
-    fn extract_fsm_cell(&mut self) -> ir::RRC<StaticFSM> {
-        Rc::clone(self.fsm_cell.as_ref().expect("field was None"))
-    }
-
+impl FSMTree {
     // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
-    fn handle_static_interface_guard(
+    fn preprocess_static_interface_guard(
         guard: ir::Guard<ir::StaticTiming>,
         comp_sig: ir::RRC<ir::Cell>,
     ) -> ir::Guard<ir::StaticTiming> {
@@ -1019,23 +1082,25 @@ impl Tree {
                 guard
             }
             ir::Guard::And(l, r) => {
-                let left = Self::handle_static_interface_guard(
+                let left = Self::preprocess_static_interface_guard(
                     *l,
                     Rc::clone(&comp_sig),
                 );
-                let right = Self::handle_static_interface_guard(*r, comp_sig);
+                let right =
+                    Self::preprocess_static_interface_guard(*r, comp_sig);
                 ir::Guard::and(left, right)
             }
             ir::Guard::Or(l, r) => {
-                let left = Self::handle_static_interface_guard(
+                let left = Self::preprocess_static_interface_guard(
                     *l,
                     Rc::clone(&comp_sig),
                 );
-                let right = Self::handle_static_interface_guard(*r, comp_sig);
+                let right =
+                    Self::preprocess_static_interface_guard(*r, comp_sig);
                 ir::Guard::or(left, right)
             }
             ir::Guard::Not(g) => {
-                let a = Self::handle_static_interface_guard(*g, comp_sig);
+                let a = Self::preprocess_static_interface_guard(*g, comp_sig);
                 ir::Guard::Not(Box::new(a))
             }
             _ => guard,
@@ -1043,18 +1108,12 @@ impl Tree {
     }
 
     // Looks recursively thru assignment's guard to %[0:n] into %0 | %[1:n].
-    fn handle_static_interface(
-        assign: ir::Assignment<ir::StaticTiming>,
+    pub fn preprocess_static_interface_assigns(
+        assign: &mut ir::Assignment<ir::StaticTiming>,
         comp_sig: ir::RRC<ir::Cell>,
-    ) -> ir::Assignment<ir::StaticTiming> {
-        ir::Assignment {
-            src: assign.src,
-            dst: assign.dst,
-            attributes: assign.attributes,
-            guard: Box::new(Self::handle_static_interface_guard(
-                *assign.guard,
-                comp_sig,
-            )),
-        }
+    ) {
+        assign
+            .guard
+            .update(|g| Self::preprocess_static_interface_guard(g, comp_sig));
     }
 }
