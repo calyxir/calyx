@@ -666,6 +666,7 @@ pub struct Component {
 }
 
 impl Component {
+    #[allow(clippy::single_element_loop)]
     fn new<S: ToString>(name: S, is_comb: bool) -> Self {
         let mut new_self = Self {
             attributes: vec![],
