@@ -33,7 +33,7 @@ fn setup_calyx(
         calyx,
         verilog,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
             e.arg("backend", "verilog")?;
             Ok(())
         },
@@ -124,11 +124,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         dat,
         |e, input, output| {
-            e.build_cmd(&["sim.log"], "sim-run", &[input, "$datadir"], &[])?;
-            e.arg("bin", input)?;
+            e.build_cmd(&["sim.log"], "sim-run", &[input[0], "$datadir"], &[])?;
+            e.arg("bin", input[0])?;
             e.arg("args", "+NOTRACE=1")?;
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "json-data",
                 &["$datadir", "sim.log"],
                 &["json-dat.py"],
@@ -138,13 +138,13 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op("trace", &[sim_setup], simulator, vcd, |e, input, output| {
         e.build_cmd(
-            &["sim.log", output],
+            &["sim.log", output[0]],
             "sim-run",
-            &[input, "$datadir"],
+            &[input[0], "$datadir"],
             &[],
         )?;
-        e.arg("bin", input)?;
-        e.arg("args", &format!("+NOTRACE=0 +OUT={}", output))?;
+        e.arg("bin", input[0])?;
+        e.arg("args", &format!("+NOTRACE=0 +OUT={}", output[0]))?;
         Ok(())
     });
 
@@ -207,7 +207,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify,
         |e, input, output| {
             // Icarus requires a special --disable-verify version of Calyx code.
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
             e.arg("backend", "verilog")?;
             e.arg("args", "--disable-verify")?;
             Ok(())
@@ -221,9 +221,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         |e, input, output| {
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "icarus-compile-standalone-tb",
-                &[input],
+                &[input[0]],
                 &["tb.sv"],
             )?;
             Ok(())
@@ -236,9 +236,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         |e, input, output| {
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "icarus-compile-custom-tb",
-                &[input],
+                &[input[0]],
                 &["tb.sv", "memories.sv"],
             )?;
             Ok(())
@@ -345,7 +345,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[calyx_setup, custom_testbench_setup],
         calyx,
         firrtl,
-        |e, input, output| calyx_to_firrtl_helper(e, input, output, false),
+        |e, input, output| {
+            calyx_to_firrtl_helper(e, input[0], output[0], false)
+        },
     );
 
     bld.op(
@@ -353,7 +355,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[calyx_setup, firrtl_primitives_setup, custom_testbench_setup],
         calyx,
         firrtl_with_primitives,
-        |e, input, output| calyx_to_firrtl_helper(e, input, output, true),
+        |e, input, output| calyx_to_firrtl_helper(e, input[0], output[0], true),
     );
 
     // The FIRRTL compiler.
@@ -397,7 +399,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl,
         verilog_refmem,
-        |e, input, output| firrtl_compile_helper(e, input, output, false),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], false),
     );
     // FIRRTL --> Verilog compilation using Verilog primitive implementations for Icarus
     // This is a bit of a hack, but the Icarus-friendly "noverify" state is identical for this path
@@ -407,7 +409,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl,
         verilog_refmem_noverify,
-        |e, input, output| firrtl_compile_helper(e, input, output, false),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], false),
     );
     // FIRRTL --> Verilog compilation using FIRRTL primitive implementations for Verilator
     bld.op(
@@ -415,7 +417,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl_with_primitives,
         verilog_refmem,
-        |e, input, output| firrtl_compile_helper(e, input, output, true),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], true),
     );
     // FIRRTL --> Verilog compilation using FIRRTL primitive implementations for Icarus
     bld.op(
@@ -423,7 +425,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl_with_primitives,
         verilog_refmem_noverify,
-        |e, input, output| firrtl_compile_helper(e, input, output, true),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], true),
     );
 
     // primitive-uses backend
@@ -434,7 +436,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         primitive_uses_json,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
             e.arg("backend", "primitive-uses")?;
             Ok(())
         },
@@ -488,7 +490,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[sim_setup, standalone_testbench_setup, verilator_setup],
         verilog,
         simulator,
-        |e, input, output| verilator_build(e, input, output, true),
+        |e, input, output| verilator_build(e, input[0], output[0], true),
     );
 
     bld.op(
@@ -496,7 +498,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[sim_setup, custom_testbench_setup, verilator_setup],
         verilog_refmem,
         simulator,
-        |e, input, output| verilator_build(e, input, output, false),
+        |e, input, output| verilator_build(e, input[0], output[0], false),
     );
 
     // Interpreter.
@@ -565,9 +567,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         dat,
         |e, input, output| {
             let out_file = "interp_out.json";
-            e.build_cmd(&[out_file], "cider", &[input], &["data.json"])?;
+            e.build_cmd(&[out_file], "cider", &[input[0]], &["data.json"])?;
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "interp-to-dat",
                 &[out_file],
                 &["$sim_data", "interp-dat.py"],
@@ -582,9 +584,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         dat,
         |e, input, output| {
             let out_file = "interp_out.dump";
-            e.build_cmd(&[out_file], "cider2", &[input], &["data.dump"])?;
+            e.build_cmd(&[out_file], "cider2", &[input[0]], &["data.dump"])?;
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "interp-to-dump",
                 &[out_file],
                 &["$sim_data", "$cider-converter"],
@@ -603,7 +605,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         debug,
         |e, input, output| {
-            e.build_cmd(&[output], "cider-debug", &[input], &["data.json"])?;
+            e.build_cmd(
+                &[output[0]],
+                "cider-debug",
+                &[input[0]],
+                &["data.json"],
+            )?;
             Ok(())
         },
     );
@@ -638,19 +645,19 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         xo,
         |e, input, output| {
             // Emit the Verilog itself in "synthesis mode."
-            e.build_cmd(&["main.sv"], "calyx", &[input], &[])?;
+            e.build_cmd(&["main.sv"], "calyx", &[input[0]], &[])?;
             e.arg("backend", "verilog")?;
             e.arg("args", "--synthesis -p external")?;
 
             // Extra ingredients for the `.xo` package.
-            e.build_cmd(&["toplevel.v"], "calyx", &[input], &[])?;
+            e.build_cmd(&["toplevel.v"], "calyx", &[input[0]], &[])?;
             e.arg("backend", "xilinx")?;
-            e.build_cmd(&["kernel.xml"], "calyx", &[input], &[])?;
+            e.build_cmd(&["kernel.xml"], "calyx", &[input[0]], &[])?;
             e.arg("backend", "xilinx-xml")?;
 
             // Package the `.xo`.
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "gen-xo",
                 &[],
                 &[
@@ -665,7 +672,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
     bld.op("xclbin", &[xilinx_setup], xo, xclbin, |e, input, output| {
-        e.build_cmd(&[output], "compile-xclbin", &[input], &[])?;
+        e.build_cmd(&[output[0]], "compile-xclbin", &[input[0]], &[])?;
         Ok(())
     });
 
@@ -703,9 +710,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             e.rsrc("xrt.ini")?;
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "xclrun",
-                &[input, "$sim_data"],
+                &[input[0], "$sim_data"],
                 &["emconfig.json", "xrt.ini"],
             )?;
             e.arg("xrt_ini", "xrt.ini")?;
@@ -725,9 +732,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             e.rsrc("xrt_trace.ini")?;
             e.build_cmd(
-                &[output], // TODO not the VCD, yet...
+                &[output[0]], // TODO not the VCD, yet...
                 "xclrun",
-                &[input, "$sim_data"],
+                &[input[0], "$sim_data"],
                 &[
                     "emconfig.json",
                     "pre_sim.tcl",
@@ -747,7 +754,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         yxi,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
             e.arg("backend", "yxi")?;
             Ok(())
         },
@@ -781,7 +788,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             // Generate the YXI file.
             // no extension
-            let file_name = input
+            let file_name = input[0]
                 .rsplit_once('/')
                 .unwrap()
                 .1
@@ -793,12 +800,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             // TODO(nate): Eventually (#1952) This will be able to use the `yxi` operation
             // instead of hardcoding the build cmd calyx rule with arguments
             let tmp_yxi = format!("{}.yxi", file_name);
-            e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
+            e.build_cmd(&[&tmp_yxi], "calyx", &[input[0]], &[])?;
             e.arg("backend", "yxi")?;
 
             // Generate the AXI wrapper.
             let refified_calyx = format!("refified_{}.futil", file_name);
-            e.build_cmd(&[&refified_calyx], "calyx-pass", &[input], &[])?;
+            e.build_cmd(&[&refified_calyx], "calyx-pass", &[input[0]], &[])?;
             e.arg("pass", "external-to-ref")?;
 
             let axi_wrapper = "axi_wrapper.futil";
@@ -815,7 +822,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
             // Combine the original Calyx and the wrapper.
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "combine",
                 &[axi_wrapper, &no_imports_calyx],
                 &[],
@@ -870,11 +877,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             e.build_cmd(
                 &["tmp.dat"],
                 "make-cocotb",
-                &[input],
+                &[input[0]],
                 &["Makefile", "axi_test.py", "run_axi_test.py"],
             )?;
 
-            e.build_cmd(&[output], "cleanup-cocotb", &["tmp.dat"], &[])?;
+            e.build_cmd(&[output[0]], "cleanup-cocotb", &["tmp.dat"], &[])?;
 
             Ok(())
         },

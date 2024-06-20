@@ -227,12 +227,7 @@ impl Driver {
 
     /// Generate a filename with an extension appropriate for the given State.
     /// We assume states are only used once
-    fn gen_name(
-        &self,
-        state_ref: StateRef,
-        used: bool,
-        req: &Request,
-    ) -> Utf8PathBuf {
+    fn gen_name(&self, state_ref: StateRef, used: bool, req: &Request) -> IO {
         let state = &self.states[state_ref];
         let extension = if !state.extensions.is_empty() {
             &state.extensions[0]
@@ -243,38 +238,47 @@ impl Driver {
         // make sure we have correct input/output filenames and mark if we read from stdio
         if req.start_state == state_ref {
             if let Some(ref start_file) = req.start_file {
-                return start_file.clone();
+                return IO::File(utils::relative_path(
+                    start_file,
+                    &req.workdir,
+                ));
             } else {
-                return Utf8PathBuf::from(format!(
-                    "_from_stdin_{}",
-                    state.name
-                ))
-                .with_extension(extension);
+                return IO::StdIO(
+                    1,
+                    utils::relative_path(
+                        &Utf8PathBuf::from(format!(
+                            "_from_stdin_{}",
+                            state.name
+                        ))
+                        .with_extension(extension),
+                        &req.workdir,
+                    ),
+                );
             }
         }
 
         if req.end_state == state_ref {
             if let Some(ref end_file) = req.end_file {
-                return end_file.clone();
+                return IO::File(end_file.clone());
             } else {
-                return Utf8PathBuf::from(format!(
-                    "_from_stdin_{}",
-                    state.name
-                ))
-                .with_extension(extension);
+                return IO::StdIO(
+                    1,
+                    Utf8PathBuf::from(format!("_from_stdin_{}", state.name))
+                        .with_extension(extension),
+                );
             }
         }
 
         // okay, wild west filename time (make them unique and hopefully helpful)
         let prefix = if !used { "_unused_" } else { "" };
-        if state.is_pseudo() {
+        IO::File(if state.is_pseudo() {
             Utf8PathBuf::from(format!("{}from_stdin_{}", prefix, state.name))
                 .with_extension(extension)
         } else {
             // TODO avoid collisions in case we reuse extensions...
             Utf8PathBuf::from(format!("{}{}", prefix, state.name))
                 .with_extension(extension)
-        }
+        })
     }
 
     /// Concoct a plan to carry out the requested build.
@@ -286,17 +290,11 @@ impl Driver {
         let path =
             self.find_path(&[req.start_state], &[req.end_state], &req.through)?;
 
-        // Get the initial input filename and the stem to use to generate all intermediate filenames.
-        let (stdin, start_file) = match req.start_file {
-            Some(ref path) => (false, utils::relative_path(path, &req.workdir)),
-            None => (true, "stdin".into()),
-        };
-
         // Generate filenames for each step.
         let steps = path
             .into_iter()
             .map(|(op, used_states)| {
-                let _input_filenames = self
+                let input_filenames = self
                     .ops
                     .get(op)
                     .unwrap()
@@ -314,24 +312,17 @@ impl Driver {
                         self.gen_name(state, used_states.contains(&state), &req)
                     })
                     .collect();
-                (op, output_filenames)
+                (op, input_filenames, output_filenames)
             })
             .collect::<Vec<_>>();
 
-        // If we have a specified output filename, use that instead of the generated one.
-        let stdout = if let Some(_end_file) = req.end_file {
-            false
-        } else {
-            // Print to stdout if the last state is a real (non-pseudo) state.
-            !self.states[req.end_state].is_pseudo()
-        };
+        // get filesnames of outputs
+        let results = vec![self.gen_name(req.end_state, true, &req)];
 
         Some(Plan {
-            start: start_file,
             steps,
+            results,
             workdir: req.workdir,
-            stdin,
-            stdout,
         })
     }
 
@@ -635,29 +626,22 @@ impl DriverBuilder {
     }
 }
 
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum IO {
+    // we order these so when they are sorted, StdIO comes first
+    // the u32 is a rank used to know which files should be read from stdin first
+    StdIO(u32, Utf8PathBuf),
+    File(Utf8PathBuf),
+}
+
 #[derive(Debug)]
 pub struct Plan {
-    /// The input to the first step.
-    pub start: Utf8PathBuf,
+    /// The chain of operations to run and each step's input and output files.
+    pub steps: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
 
-    /// The chain of operations to run and each step's output file.
-    pub steps: Vec<(OpRef, Utf8PathBuf)>,
+    // The final resulting files of the plan.
+    pub results: Vec<IO>,
 
     /// The directory that the build will happen in.
     pub workdir: Utf8PathBuf,
-
-    /// Read the first input from stdin.
-    pub stdin: bool,
-
-    /// Write the final output to stdout.
-    pub stdout: bool,
-}
-
-impl Plan {
-    pub fn end(&self) -> &Utf8Path {
-        match self.steps.last() {
-            Some((_, path)) => path,
-            None => &self.start,
-        }
-    }
 }

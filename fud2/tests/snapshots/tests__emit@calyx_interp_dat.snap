@@ -56,7 +56,7 @@ rule interp-to-dump
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
 # build targets
-build interp_out.json: cider stdin | data.json
+build interp_out.json: cider _from_stdin_calyx.futil | data.json
 build _from_stdin_dat.json: interp-to-dat interp_out.json | $sim_data interp-dat.py
 
 default _from_stdin_dat.json

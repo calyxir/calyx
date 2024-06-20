@@ -40,7 +40,7 @@ rule icarus-compile-custom-tb
   command = $iverilog -g2012 -o $out tb.sv memories.sv $in
 
 # build targets
-build verilog-noverify.sv: calyx stdin
+build verilog-noverify.sv: calyx _from_stdin_calyx.futil
   backend = verilog
   args = --disable-verify
 build sim.exe: icarus-compile-standalone-tb verilog-noverify.sv | tb.sv

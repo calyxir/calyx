@@ -43,7 +43,7 @@ rule cp
   command = cp $in $out
 
 # build targets
-build verilog.sv: calyx stdin
+build verilog.sv: calyx _from_stdin_calyx.futil
   backend = verilog
 build verilator-out/VTOP: verilator-compile-standalone-tb verilog.sv | tb.sv
   out-dir = verilator-out

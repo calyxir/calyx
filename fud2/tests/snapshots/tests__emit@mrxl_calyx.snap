@@ -12,6 +12,6 @@ rule mrxl-to-calyx
   command = $mrxl-exe $in > $out
 
 # build targets
-build _from_stdin_calyx.futil: mrxl-to-calyx stdin
+build _from_stdin_calyx.futil: mrxl-to-calyx _from_stdin_mrxl.mrxl
 
 default _from_stdin_calyx.futil

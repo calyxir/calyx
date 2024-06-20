@@ -36,8 +36,8 @@ rule add-verilog-primitives
   command = cat primitives-for-firrtl.sv $in > $out
 
 # build targets
-build external.futil: ref-to-external stdin
-build ref.futil: external-to-ref stdin
+build external.futil: ref-to-external _from_stdin_calyx.futil
+build ref.futil: external-to-ref _from_stdin_calyx.futil
 build memory-info.json: calyx external.futil
   backend = yxi
 build tb.sv: generate-refmem-testbench memory-info.json

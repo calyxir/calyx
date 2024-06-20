@@ -191,8 +191,8 @@ impl EmitBuild for RhaiSetupCtx {
     fn build(
         &self,
         emitter: &mut StreamEmitter,
-        input: &str,
-        output: &str,
+        input: &[&str],
+        output: &[&str],
     ) -> EmitResult {
         RhaiEmitter::with(emitter, |rhai_emit| {
             EMIT_ENGINE.with(|e| {
@@ -200,7 +200,11 @@ impl EmitBuild for RhaiSetupCtx {
                     &mut rhai::Scope::new(),
                     &self.ast,
                     &self.name,
-                    (rhai_emit.clone(), input.to_string(), output.to_string()),
+                    (
+                        rhai_emit.clone(),
+                        input[0].to_string(),
+                        output[0].to_string(),
+                    ),
                 )
                 .report(self.path.as_ref())
             });

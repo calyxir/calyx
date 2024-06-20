@@ -1,5 +1,5 @@
 use crate::config;
-use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
+use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef, IO};
 use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
 use std::collections::{HashMap, HashSet};
@@ -48,19 +48,19 @@ pub trait EmitBuild {
     fn build(
         &self,
         emitter: &mut StreamEmitter,
-        input: &str,
-        output: &str,
+        input: &[&str],
+        output: &[&str],
     ) -> EmitResult;
 }
 
-pub type EmitBuildFn = fn(&mut StreamEmitter, &str, &str) -> EmitResult;
+pub type EmitBuildFn = fn(&mut StreamEmitter, &[&str], &[&str]) -> EmitResult;
 
 impl EmitBuild for EmitBuildFn {
     fn build(
         &self,
         emitter: &mut StreamEmitter,
-        input: &str,
-        output: &str,
+        input: &[&str],
+        output: &[&str],
     ) -> EmitResult {
         self(emitter, input, output)
     }
@@ -76,10 +76,10 @@ impl EmitBuild for EmitRuleBuild {
     fn build(
         &self,
         emitter: &mut StreamEmitter,
-        input: &str,
-        output: &str,
+        input: &[&str],
+        output: &[&str],
     ) -> EmitResult {
-        emitter.build(&self.rule_name, input, output)?;
+        emitter.build_cmd(output, &self.rule_name, input, &[])?;
         Ok(())
     }
 }
@@ -127,16 +127,27 @@ impl<'a> Run<'a> {
 
     /// Just print the plan for debugging purposes.
     pub fn show(self) {
-        if self.plan.stdin {
-            println!("(stdin) -> {}", self.plan.start);
-        } else {
-            println!("start: {}", self.plan.start);
-        }
-        for (op, file) in self.plan.steps {
-            println!("{}: {} -> {}", op, self.driver.ops[op].name, file);
-        }
-        if self.plan.stdout {
-            println!("-> (stdout)");
+        for (op, files_in, files_out) in self.plan.steps {
+            println!(
+                "{}: {} -> {}",
+                self.driver.ops[op].name,
+                files_in
+                    .into_iter()
+                    .map(|f| match f {
+                        IO::StdIO(_, p) => p.to_string(),
+                        IO::File(p) => p.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                files_out
+                    .into_iter()
+                    .map(|f| match f {
+                        IO::StdIO(_, p) => p.to_string(),
+                        IO::File(p) => p.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
         }
     }
 
@@ -149,14 +160,23 @@ impl<'a> Run<'a> {
         // Record the states and ops that are actually used in the plan.
         let mut states: HashMap<StateRef, String> = HashMap::new();
         let mut ops: HashSet<OpRef> = HashSet::new();
-        let first_op = self.plan.steps[0].0;
-        states.insert(
-            self.driver.ops[first_op].input[0],
-            self.plan.start.to_string(),
-        );
-        for (op, file) in &self.plan.steps {
-            states.insert(self.driver.ops[*op].output[0], file.to_string());
-            ops.insert(*op);
+        for (op_ref, files_in, files_out) in &self.plan.steps {
+            let op = &self.driver.ops[*op_ref];
+            for (s, f) in op.input.iter().zip(files_in.iter()) {
+                let filename = match f {
+                    IO::StdIO(_, p) => p,
+                    IO::File(p) => p,
+                };
+                states.insert(*s, filename.to_string());
+            }
+            for (s, f) in op.output.iter().zip(files_out.iter()) {
+                let filename = match f {
+                    IO::StdIO(_, p) => p,
+                    IO::File(p) => p,
+                };
+                states.insert(*s, filename.to_string());
+            }
+            ops.insert(*op_ref);
         }
 
         // Show all states.
@@ -209,11 +229,19 @@ impl<'a> Run<'a> {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 
-        // Capture stdin.
-        if self.plan.stdin {
-            let stdin_file = std::fs::File::create(
-                self.plan.workdir.join(&self.plan.start),
-            )?;
+        let mut stdin_files = vec![];
+        for step in &self.plan.steps {
+            for io in &step.1 {
+                if let IO::StdIO(rank, filename) = io {
+                    stdin_files.push((rank, filename));
+                }
+            }
+        }
+        stdin_files.sort();
+
+        for (_, filename) in stdin_files {
+            let stdin_file = 
+                std::fs::File::create(self.plan.workdir.join(filename))?;
             std::io::copy(
                 &mut std::io::stdin(),
                 &mut std::io::BufWriter::new(stdin_file),
@@ -235,17 +263,25 @@ impl<'a> Run<'a> {
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
         let status = cmd.status()?;
 
-        // Emit stdout, only when Ninja succeeded.
-        if status.success() && self.plan.stdout {
-            let stdout_file =
-                std::fs::File::open(self.plan.workdir.join(self.plan.end()))?;
-            std::io::copy(
-                &mut std::io::BufReader::new(stdout_file),
-                &mut std::io::stdout(),
-            )?;
-        }
-
         if status.success() {
+            let mut stdout_files = vec![];
+            for step in &self.plan.steps {
+                for io in &step.2 {
+                    if let IO::StdIO(rank, filename) = io {
+                        stdout_files.push((rank, filename));
+                    }
+                }
+            }
+            stdout_files.sort();
+
+            for (_, filename) in stdout_files {
+                let stdout_files =
+                    std::fs::File::open(self.plan.workdir.join(filename))?;
+                std::io::copy(
+                    &mut std::io::BufReader::new(stdout_files),
+                    &mut std::io::stdout(),
+                )?;
+            }
             Ok(())
         } else {
             Err(RunError::NinjaFailed(status))
@@ -266,7 +302,7 @@ impl<'a> Run<'a> {
 
         // Emit the setup for each operation used in the plan, only once.
         let mut done_setups = HashSet::<SetupRef>::new();
-        for (op, _) in &self.plan.steps {
+        for (op, _, _) in &self.plan.steps {
             for setup in &self.driver.ops[*op].setups {
                 if done_setups.insert(*setup) {
                     let setup = &self.driver.setups[*setup];
@@ -279,20 +315,30 @@ impl<'a> Run<'a> {
 
         // Emit the build commands for each step in the plan.
         emitter.comment("build targets")?;
-        let mut last_file = &self.plan.start;
-        for (op, out_file) in &self.plan.steps {
+        for (op, in_files, out_files) in &self.plan.steps {
             let op = &self.driver.ops[*op];
             op.emit.build(
                 &mut emitter,
-                last_file.as_str(),
-                out_file.as_str(),
+                in_files.iter().map(|io| match io {
+                    IO::StdIO(_, filename) => filename.as_str(),
+                    IO::File(filename) => filename.as_str(),
+                }).collect::<Vec<_>>().as_slice(),
+                out_files.iter().map(|io| match io {
+                    IO::StdIO(_, filename) => filename.as_str(),
+                    IO::File(filename) => filename.as_str(),
+                }).collect::<Vec<_>>().as_slice(),
             )?;
-            last_file = out_file;
         }
         writeln!(emitter.out)?;
 
         // Mark the last file as the default target.
-        writeln!(emitter.out, "default {}", last_file)?;
+        for result in &self.plan.results {
+            let p = match result {
+                IO::StdIO(_, p) => p,
+                IO::File(p) => p,
+            };
+            writeln!(emitter.out, "default {}", p)?;
+        }
 
         Ok(())
     }
