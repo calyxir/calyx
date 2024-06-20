@@ -162,39 +162,6 @@ class Pifo:
         return self.pifo_len
 
 
-def operate_queue(commands, values, queue):
-    """Given the two lists, one of commands and one of values.
-    Feed these into our queue, and return the answer memory.
-    """
-
-    ans = []
-    for cmd, val in zip(commands, values):
-        if cmd == 0:
-            try:
-                result = queue.pop()
-                if result:
-                    ans.append(result)
-            except QueueError:
-                break
-
-        elif cmd == 1:
-            try:
-                result = queue.peek()
-                if result:
-                    ans.append(queue.peek())
-            except QueueError:
-                break
-
-        elif cmd == 2:
-            try:
-                queue.push(val)
-            except QueueError:
-                break
-
-    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (queue_util.MAX_CMDS - len(ans))
-    return ans
-
 @dataclass
 class Pieo:
     """A PIEO data structure.
@@ -303,43 +270,103 @@ class Pieo:
         """Peeks a PIEO. See query() for specifics."""
 
         return self.query(val, bound, remove=False)
+
+@dataclass
+class CalendarQueue:
+
+    def __init__(self, data : List[int], initial_day=0, error_mode=True, max_len: int = None):
+        self.data = data
+        self.day = initial_day
+        self.error_mode = error_mode
+        self.max_len = max_len
     
-    def operate_queue(commands, values, ranks, bounds, queue):
-        """Given the four lists:
-        - One of commands, one of values, one of ranks, one of bounds:
-        - Feed these into our queue, and return the answer memory.
-        - Commands correspond to:
-            0 : pop by value
-            1 : pop by predicate
-            2 : peek by value
-            3 : peek by predicate
-            4 : push
-        """
+    def push(self, val: int, rank: int) -> None:
+        """Pushes a value with some rank/priority to a calendar queue"""
+        pass
+    
+    def pop(self) -> Optional[int]:
+        """Pops a calendar queue."""
+        pass
+    
+    def peek(self) -> Optional[int]:
+        """Peeks a calendar queue."""
+        pass
 
-        ans = []
-        for cmd, val, rank, bound in zip(commands, values, ranks, bounds):
-            if cmd < 2:
-                try:
-                    result = queue.pop(val if cmd == 0 else bound)
-                    if result:
-                        ans.append(result)
-                except QueueError:
-                    break
+    def rotate(self) -> None:
+        """Rotates a calendar queue"""
+        pass
 
-            elif cmd < 4:
-                try:
-                    result = queue.peek(val if cmd == 2 else bound)
-                    if result:
-                        ans.append(result)
-                except QueueError:
-                    break
 
-            elif cmd == 4:
-                try:
-                    queue.push((val, rank))
-                except QueueError:
-                    break
+def operate_queue(commands, values, queue):
+    """Given the two lists, one of commands and one of values.
+    Feed these into our queue, and return the answer memory.
+    """
 
-        # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-        ans += [0] * (queue_util.MAX_CMDS - len(ans))
-        return ans
+    ans = []
+    for cmd, val in zip(commands, values):
+        if cmd == 0:
+            try:
+                result = queue.pop()
+                if result:
+                    ans.append(result)
+            except QueueError:
+                break
+
+        elif cmd == 1:
+            try:
+                result = queue.peek()
+                if result:
+                    ans.append(queue.peek())
+            except QueueError:
+                break
+
+        elif cmd == 2:
+            try:
+                queue.push(val)
+            except QueueError:
+                break
+
+    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
+    ans += [0] * (queue_util.MAX_CMDS - len(ans))
+    return ans
+
+def operate_pieo(commands, values, ranks, bounds, queue):
+    """Operate a PIEO queue
+    Given the four lists:
+    - One of commands, one of values, one of ranks, one of bounds:
+    - Feed these into our queue, and return the answer memory.
+    - Commands correspond to:
+        0 : pop by value
+        1 : pop by predicate
+        2 : peek by value
+        3 : peek by predicate
+        4 : push
+    """
+
+    ans = []
+    for cmd, val, rank, bound in zip(commands, values, ranks, bounds):
+        if cmd < 2:
+            try:
+                result = queue.pop(val if cmd == 0 else bound)
+                if result:
+                    ans.append(result)
+            except QueueError:
+                break
+
+        elif cmd < 4:
+            try:
+                result = queue.peek(val if cmd == 2 else bound)
+                if result:
+                    ans.append(result)
+            except QueueError:
+                break
+
+        elif cmd == 4:
+            try:
+                queue.push((val, rank))
+            except QueueError:
+                break
+
+    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
+    ans += [0] * (queue_util.MAX_CMDS - len(ans))
+    return ans
