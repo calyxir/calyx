@@ -13,7 +13,8 @@ def add_case(prog):
         my_comp.out_1 = 24
 
     my_invoke = invoke(comp_reg, in_in=1)
-    my_comp.case(in_1, {1: my_group, 2: my_invoke})
+    in_1_comps = my_comp.case(in_1, {1: my_group, 2: my_invoke})
+    my_comp.control += in_1_comps
 
 
 def build():
