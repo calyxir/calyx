@@ -486,6 +486,7 @@ impl CompileStatic {
     fn get_interval_from_guard(
         g: &ir::Guard<ir::StaticTiming>,
         lat: u64,
+        id: &ir::Id,
     ) -> Option<(u64, u64)> {
         match g {
             calyx_ir::Guard::Info(static_timing_interval) => {
@@ -494,11 +495,16 @@ impl CompileStatic {
             calyx_ir::Guard::True => Some((0, lat)),
             calyx_ir::Guard::And(l, r) => {
                 match (
-                    Self::get_interval_from_guard(l, lat),
-                    Self::get_interval_from_guard(r, lat),
+                    Self::get_interval_from_guard(l, lat, id),
+                    Self::get_interval_from_guard(r, lat, id),
                 ) {
                     (None, Some(x)) | (Some(x), None) => Some(x),
-                    (None, None) | (Some(_), Some(_)) => panic!(""),
+                    (None, None) => {
+                        panic!("neither option")
+                    }
+                    (Some(_), Some(_)) => {
+                        panic!("both options")
+                    }
                 }
             }
             _ => None,
@@ -531,6 +537,7 @@ impl CompileStatic {
                     let (beg, end) = Self::get_interval_from_guard(
                         &assign.guard,
                         target_group.borrow().get_latency(),
+                        &name,
                     )
                     .expect("couldn't get interval from guard");
                     let name: calyx_ir::Id = sgroup.upgrade().borrow().name();
