@@ -234,42 +234,28 @@ where
     I1: Iterator<Item = &'a ir::Assignment<Nothing>>,
     I2: Iterator<Item = &'a ir::Assignment<StaticTiming>>,
 {
-    let dsts1 = assigns1.filter(|a| a.guard.is_true()).map(|a| {
-        (
-            a.dst.borrow().canonical(),
-            a.attributes.copy_span(),
-            a.attributes
-                .copy_span()
-                .into_option()
-                .map(|s| s.show())
-                .unwrap_or_else(|| ir::Printer::assignment_to_str(a)),
-        )
-    });
-    let dsts2 = assigns2.filter(|a| a.guard.is_true()).map(|a| {
-        (
-            a.dst.borrow().canonical(),
-            a.attributes.copy_span(),
-            a.attributes
-                .copy_span()
-                .into_option()
-                .map(|s| s.show())
-                .unwrap_or_else(|| ir::Printer::assignment_to_str(a)),
-        )
-    });
+    let dsts1 = assigns1
+        .filter(|a| a.guard.is_true())
+        .map(|a| (a.dst.borrow().canonical(), a.attributes.copy_span()));
+    let dsts2 = assigns2
+        .filter(|a| a.guard.is_true())
+        .map(|a| (a.dst.borrow().canonical(), a.attributes.copy_span()));
     let dsts = dsts1.chain(dsts2);
     let dst_grps = dsts
-        .sorted_by(|(dst1, _, _), (dst2, _, _)| ir::Canonical::cmp(dst1, dst2))
-        .group_by(|(dst, _, _)| dst.clone());
+        .sorted_by(|(dst1, _), (dst2, _)| ir::Canonical::cmp(dst1, dst2))
+        .group_by(|(dst, _)| dst.clone());
 
     for (_, group) in &dst_grps {
-        let assigns = group.map(|(_, pos, a)| (pos, a)).collect_vec();
+        let assigns = group.collect_vec();
         if assigns.len() > 1 {
-            let msg = assigns.iter().map(|(_pos, a)| a).join("");
-            return Err(Error::malformed_structure(format!(
-                "Obviously conflicting assignments found:\n{}",
-                msg
-            ))
-            .with_pos(&assigns[0].0));
+            let mut asgn_iter = assigns.into_iter().rev();
+            return Err(Error::malformed_structure(
+                "Obviously conflicting assignments found",
+            )
+            .with_pos(&asgn_iter.next().unwrap().1)
+            .with_annotations(asgn_iter.map(|(cannon, pos)| {
+                (pos, format!("`{cannon}` is also written to here"))
+            })));
         }
     }
     Ok(())
@@ -600,12 +586,10 @@ impl Visitor for WellFormed {
             group.assignments.iter(),
         )
         .map_err(|err| {
-            let msg = s
-                .attributes
-                .copy_span()
-                .into_option()
-                .map(|s| s.format("Assigments activated by group enable"));
-            err.with_post_msg(msg)
+            err.with_annotation(
+                &s.attributes,
+                "Assignments activated by group static enable, causing the conflict",
+            )
         })
         .accumulate_err(&mut self.diag)?;
 
@@ -657,12 +641,10 @@ impl Visitor for WellFormed {
             std::iter::empty::<&ir::Assignment<StaticTiming>>(),
         )
         .map_err(|err| {
-            let msg = s
-                .attributes
-                .copy_span()
-                .into_option()
-                .map(|s| s.format("Assigments activated by group enable"));
-            err.with_post_msg(msg)
+            err.with_annotation(
+                &s.attributes,
+                "Assignments activated by group enable, causing the conflict",
+            )
         })
         .accumulate_err(&mut self.diag)?;
 
@@ -720,11 +702,13 @@ impl Visitor for WellFormed {
                 std::iter::empty::<&ir::Assignment<StaticTiming>>(),
             )
             .map_err(|err| {
-                let msg = s.attributes.copy_span().format(format!(
-                    "Assignments from `{}' are actived here",
-                    cg.name()
-                ));
-                err.with_post_msg(Some(msg))
+                err.with_annotation(
+                    &s.attributes,
+                    format!(
+                        "Assignments from `{}' are activated here, causing the conflict",
+                        cg.name()
+                    ),
+                )
             })
             .accumulate_err(&mut self.diag)?;
             // Push the combinational group to the stack of active groups
@@ -789,7 +773,7 @@ impl Visitor for WellFormed {
             )
             .map_err(|err| {
                 let msg = s.attributes.copy_span().format(format!(
-                    "Assignments from `{}' are actived here",
+                    "Assignments from `{}' are activated here",
                     cg.name()
                 ));
                 err.with_post_msg(Some(msg))

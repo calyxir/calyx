@@ -1,10 +1,12 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Structure: Obviously conflicting assignments found:
-14 |      w1.in = 32'd2;
+Error: tests/errors/if-cond-conflict.futil
 11 |      w1.in = 32'd1;
-
-tests/errors/if-cond-conflict.futil
+   |      ^^^^^^^^^^^^^^ Malformed Structure: Obviously conflicting assignments found
+...
+14 |      w1.in = 32'd2;
+   |      ^^^^^^^^^^^^^^ `w1.in` is also written to here
+...
 24 |      if w1.out with w1_2 {
-   |      ^^^^^^^^^^^^^^^^^^^^^ Assignments from `w1_2' are actived here
+   |      ^^^^^^^^^^^^^^^^^^^^^ Assignments from `w1_2' are activated here, causing the conflict

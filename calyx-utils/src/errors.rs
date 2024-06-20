@@ -9,6 +9,7 @@ pub type CalyxResult<T> = std::result::Result<T, Error>;
 pub struct Error {
     kind: Box<ErrorKind>,
     pos: GPosIdx,
+    annotations: Vec<(GPosIdx, String)>,
     post_msg: Option<String>,
 }
 
@@ -17,7 +18,10 @@ impl std::fmt::Debug for Error {
         if self.pos == GPosIdx::UNKNOWN {
             write!(f, "{}", self.kind)?
         } else {
-            write!(f, "{}", self.pos.format(self.kind.to_string()))?
+            write!(f, "{}", self.pos.format(self.kind.to_string()))?;
+            for (other_pos, msg) in &self.annotations {
+                write!(f, "\n...\n{}", other_pos.format_raw(msg))?;
+            }
         }
         if let Some(post) = &self.post_msg {
             write!(f, "\n{}", post)?;
@@ -32,6 +36,25 @@ impl Error {
         self
     }
 
+    pub fn with_annotation<T: WithPos, S: ToString>(
+        mut self,
+        pos: &T,
+        msg: S,
+    ) -> Self {
+        self.annotations.push((pos.copy_span(), msg.to_string()));
+        self
+    }
+
+    pub fn with_annotations<T: WithPos, S: ToString>(
+        mut self,
+        pos_iter: impl Iterator<Item = (T, S)>,
+    ) -> Self {
+        self.annotations.extend(
+            pos_iter.map(|(pos, msg)| (pos.copy_span(), msg.to_string())),
+        );
+        self
+    }
+
     pub fn with_post_msg(mut self, msg: Option<String>) -> Self {
         self.post_msg = msg;
         self
@@ -41,6 +64,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::ReservedName(name)),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -48,6 +72,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::MalformedControl(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -55,6 +80,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::MalformedStructure(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -65,6 +91,7 @@ impl Error {
                 msg.to_string(),
             )),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -72,6 +99,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::Undefined(name, typ.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -79,6 +107,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::AlreadyBound(name, typ.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -86,6 +115,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::Unused(group, typ.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -93,6 +123,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::Papercut(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -100,6 +131,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::Misc(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -107,6 +139,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::Parse),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: Some(msg.to_string()),
         }
     }
@@ -114,6 +147,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::InvalidFile(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
@@ -121,6 +155,7 @@ impl Error {
         Self {
             kind: Box::new(ErrorKind::WriteError(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
+            annotations: vec![],
             post_msg: None,
         }
     }
