@@ -10,7 +10,10 @@
 use std::{
     cell::RefCell,
     fmt::{self, Display, Write},
+    num::NonZeroU64,
+    path::PathBuf,
     rc::Rc,
+    str::FromStr,
 };
 
 /// Shorthand for the `Rc<RefCell<>>` pattern.
@@ -21,7 +24,7 @@ fn rrc<T>(value: T) -> RRC<T> {
     Rc::new(RefCell::new(value))
 }
 
-struct IndentFormatter<'a, 'b: 'a> {
+pub struct IndentFormatter<'a, 'b: 'a> {
     current_indent: String,
     add_indent: usize,
     last_was_newline: bool,
@@ -41,14 +44,14 @@ impl<'a, 'b: 'a> IndentFormatter<'a, 'b> {
     }
 
     /// Adds a level of indentation.
-    pub fn push(&mut self) {
+    pub fn increase_indent(&mut self) {
         for _ in 0..self.add_indent {
             self.current_indent.push(' ');
         }
     }
 
     /// Removes a level of indentation.
-    pub fn pop(&mut self) {
+    pub fn decrease_indent(&mut self) {
         for _ in 0..self.add_indent {
             self.current_indent.pop();
         }
@@ -144,20 +147,24 @@ trait CalyxWriter {
 
 /// Imports a calyx file from the standard library.
 struct Import {
-    path: String,
+    path: PathBuf,
 }
 
 impl CalyxWriter for Import {
     fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
-        write!(f, "import \"{}\";", self.path)
+        write!(
+            f,
+            "import \"{}\";",
+            self.path.to_str().expect("invalid path")
+        )
     }
 }
 
-/// See `calyx_frontend::Attribute`.
+/// See [`calyx_frontend::Attributes`](https://docs.calyxir.org/source/calyx_frontend/struct.Attributes.html).
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Attribute {
     name: String,
-    value: Option<u64>,
+    value: u64,
 }
 
 impl Attribute {
@@ -166,33 +173,31 @@ impl Attribute {
     pub fn bool<S: ToString>(name: S) -> Self {
         Self {
             name: name.to_string(),
-            value: None,
+            value: 1,
         }
     }
 
-    /// Constructs a `calyx_frontend::NumAttr`, such as `@go`, named `name`.    
+    /// Constructs a `calyx_frontend::NumAttr`, such as `@go`, named `name`.
     pub fn num<S: ToString>(name: S, value: u64) -> Self {
         Self {
             name: name.to_string(),
-            value: Some(value),
+            value,
         }
     }
 }
 
 impl CalyxWriter for Attribute {
     fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
-        write!(f, "@{}", self.name)?;
-        if let Some(value) = self.value {
-            write!(f, "({})", value)?;
-        }
-        Ok(())
+        write!(f, "@{}({})", self.name, self.value)
     }
 }
 
 /// A list of attributes.
 type Attributes = Vec<Attribute>;
 
-/// Abstracts attribute functionality.
+/// Abstracts attribute functionality. This trait doesn't actually do anything,
+/// but it ties together all the implementations via the type system to make
+/// them more maintainable in response to API changes.
 trait AttributeProvider {
     fn add_attribute(&mut self, attr: Attribute);
 
@@ -223,32 +228,31 @@ pub struct Port {
     /// signature.
     parent: Option<String>,
     name: String,
-    /// A width of `-1` means the actual width is unknown/irrelevant/inferred.
-    width: isize,
+    width: Option<NonZeroU64>,
 }
 
 impl Port {
     /// Constructs a new port with the given `parent` and `name`.
     ///
-    /// Requires: `width > 0`.
+    /// Requires: `width` is nonzero.
     pub fn new<S: ToString, T: ToString>(
         parent: Option<S>,
         name: T,
-        width: usize,
+        width: u64,
     ) -> Self {
-        assert!(width > 0);
+        assert!(width != 0);
         Self {
             attributes: vec![],
             parent: parent.map(|s| s.to_string()),
             name: name.to_string(),
-            width: width as isize,
+            width: Some(unsafe { NonZeroU64::new_unchecked(width) }),
         }
     }
 
     /// Constructs a new port with the given `name` in a component.
     ///
     /// Requires: `width > 0`.
-    pub fn new_in_comp<S: ToString>(name: S, width: usize) -> Self {
+    pub fn new_in_comp<S: ToString>(name: S, width: u64) -> Self {
         Self::new::<String, S>(None, name, width)
     }
 
@@ -262,12 +266,12 @@ impl Port {
             attributes: vec![],
             parent: parent.map(|s| s.to_string()),
             name: name.to_string(),
-            width: -1,
+            width: None,
         }
     }
 
     pub fn has_inferred_width(&self) -> bool {
-        self.width == -1
+        self.width.is_none()
     }
 }
 
@@ -294,12 +298,17 @@ impl CalyxWriter for Port {
     }
 }
 
-/// Abstracts port functionality over components and cells.
+/// Abstracts port functionality over components and cells. This trait doesn't
+/// actually do anything, but it ties together all the implementations via the
+/// type system to make them more maintainable in response to API changes. For
+/// example, Griffin suggested I change the name of the member function from
+/// `get` to `get_port`, which I could achieve everywhere with a simple
+/// refactor.
 pub trait PortProvider {
     /// Retrieves the port on this provider named `port`.
     ///
     /// Requires: `port` exists on this provider.
-    fn get(&self, port: String) -> Port;
+    fn get_port(&self, port: String) -> Port;
 }
 
 /// See `calyx_ir::Cell`.
@@ -321,7 +330,7 @@ impl Cell {
 }
 
 impl PortProvider for Cell {
-    fn get(&self, port: String) -> Port {
+    fn get_port(&self, port: String) -> Port {
         Port::inferred(Some(self.name.clone()), port)
     }
 }
@@ -353,15 +362,22 @@ impl CalyxWriter for Cell {
 /// A guard for an [`Assignment`].
 #[derive(PartialEq, Eq, Debug)]
 pub enum Guard {
-    None,
-    Constant(u64),
+    True,
     Port(Port),
     And(Box<Guard>, Box<Guard>),
 }
 
 impl CalyxWriter for Guard {
-    fn write(&self, _f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
-        // TODO
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
+        match self {
+            Guard::True => {}
+            Guard::Port(port) => port.write(f)?,
+            Guard::And(lhs, rhs) => {
+                lhs.write(f)?;
+                write!(f, " & ")?;
+                rhs.write(f)?;
+            }
+        }
         Ok(())
     }
 }
@@ -389,7 +405,7 @@ impl Assignment {
 impl CalyxWriter for Assignment {
     fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
         write!(f, "{} = ", self.lhs)?;
-        if self.guard != Guard::None {
+        if self.guard != Guard::True {
             self.guard.write(f)?;
             write!(f, " ? ")?;
         }
@@ -438,7 +454,7 @@ impl Group {
     /// Adds an unguarded assignment between `lhs` and `rhs`. Behaves like
     /// [`Group::assign_guarded`] with [`Guard::None`] passed for the guard.
     pub fn assign(&mut self, lhs: Port, rhs: Port) {
-        self.assign_guarded(lhs, rhs, Guard::None);
+        self.assign_guarded(lhs, rhs, Guard::True);
     }
 
     /// Adds an assignment guarded by `guard` between `lhs` and `rhs`.
@@ -448,7 +464,7 @@ impl Group {
 }
 
 impl PortProvider for Group {
-    fn get(&self, port: String) -> Port {
+    fn get_port(&self, port: String) -> Port {
         Port::inferred(Some(self.name.clone()), port)
     }
 }
@@ -467,11 +483,11 @@ impl CalyxWriter for Group {
             write!(f, "comb ")?;
         }
         writeln!(f, "group {} {{", self.name)?;
-        f.push();
+        f.increase_indent();
         for assignment in &self.assignments {
             assignment.writeln(f)?;
         }
-        f.pop();
+        f.decrease_indent();
         write!(f, "}}")
     }
 }
@@ -573,20 +589,20 @@ impl CalyxWriter for Control {
             }
             ControlValue::Seq(body) => {
                 writeln!(f, "seq {{")?;
-                f.push();
+                f.increase_indent();
                 for node in body {
                     node.writeln(f)?;
                 }
-                f.pop();
+                f.decrease_indent();
                 write!(f, "}}")?;
             }
             ControlValue::Par(body) => {
                 writeln!(f, "par {{")?;
-                f.push();
+                f.increase_indent();
                 for node in body {
                     node.writeln(f)?;
                 }
-                f.pop();
+                f.decrease_indent();
                 write!(f, "}}")?;
             }
             ControlValue::While(cond, group, body) => {
@@ -600,11 +616,11 @@ impl CalyxWriter for Control {
                         "".into()
                     }
                 )?;
-                f.push();
+                f.increase_indent();
                 for node in body {
                     node.writeln(f)?;
                 }
-                f.pop();
+                f.decrease_indent();
                 write!(f, "}}")?;
             }
             ControlValue::If(cond, group, body_true, body_false) => {
@@ -618,17 +634,17 @@ impl CalyxWriter for Control {
                         "".into()
                     }
                 )?;
-                f.push();
+                f.increase_indent();
                 for node in body_true {
                     node.writeln(f)?;
                 }
-                f.pop();
+                f.decrease_indent();
                 writeln!(f, "}} else {{")?;
-                f.push();
+                f.increase_indent();
                 for node in body_false {
                     node.writeln(f)?;
                 }
-                f.pop();
+                f.decrease_indent();
                 write!(f, "}}")?;
             }
         }
@@ -651,53 +667,48 @@ pub struct Component {
 
 impl Component {
     fn new<S: ToString>(name: S, is_comb: bool) -> Self {
-        Self {
+        let mut new_self = Self {
             attributes: vec![],
             is_comb,
             name: name.to_string(),
-            inputs: vec![
-                Port::new_in_comp("go", 1)
-                    .with_attribute(Attribute::bool("go")),
-                Port::new_in_comp("clk", 1)
-                    .with_attribute(Attribute::bool("clk")),
-                Port::new_in_comp("reset", 1)
-                    .with_attribute(Attribute::bool("reset")),
-            ],
-            outputs: vec![Port::new_in_comp("done", 1)
-                .with_attribute(Attribute::bool("done"))],
+            inputs: vec![],
+            outputs: vec![],
             cells: vec![],
             groups: vec![],
             control: Control::empty(),
             continuous_assignments: vec![],
+        };
+        if is_comb {
+            for input in [
+                Port::new_in_comp("go", 1)
+                    .with_attribute(Attribute::num("go", 1)),
+                Port::new_in_comp("clk", 1)
+                    .with_attribute(Attribute::bool("clk")),
+                Port::new_in_comp("reset", 1)
+                    .with_attribute(Attribute::bool("reset")),
+            ] {
+                new_self.inputs.push(input);
+            }
+            for output in [Port::new_in_comp("done", 1)
+                .with_attribute(Attribute::num("done", 1))]
+            {
+                new_self.outputs.push(output);
+            }
         }
-    }
-
-    /// Sets whether the component is combinational or not.
-    pub fn set_comb(&mut self, is_comb: bool) {
-        self.is_comb = is_comb;
+        new_self
     }
 
     /// Adds an input port `name` to this component.
-    pub fn add_input<S: ToString>(&mut self, name: S, width: usize) {
-        self.add_port(Port::new_in_comp(name, width), true);
+    pub fn add_input<S: ToString>(&mut self, name: S, width: u64) {
+        self.inputs.push(Port::new_in_comp(name, width));
     }
 
     /// Adds an output port `name` to this component.
-    pub fn add_output<S: ToString>(&mut self, name: S, width: usize) {
-        self.add_port(Port::new_in_comp(name, width), false);
+    pub fn add_output<S: ToString>(&mut self, name: S, width: u64) {
+        self.outputs.push(Port::new_in_comp(name, width));
     }
 
-    /// [`Component::add_input`] or [`Component::add_output`] may be more
-    /// useful.
-    pub fn add_port(&mut self, port: Port, is_input: bool) {
-        if is_input {
-            self.inputs.push(port);
-        } else {
-            self.outputs.push(port);
-        }
-    }
-
-    /// Constructs a new cell named `name` that instatiates `inst` with
+    /// Constructs a new cell named `name` that instantiates `inst` with
     /// arguments `args`.
     pub fn cell<S: ToString, T: ToString>(
         &mut self,
@@ -763,14 +774,14 @@ impl Component {
     where
         F: FnOnce(&mut IndentFormatter<'_, '_>) -> fmt::Result,
     {
-        f.push();
+        f.increase_indent();
         writeln!(f, "{} {{", name.to_string(),)?;
-        f.push();
-        let result = body(f);
-        f.pop();
+        f.increase_indent();
+        body(f)?;
+        f.decrease_indent();
         writeln!(f, "}}")?;
-        f.pop();
-        result
+        f.decrease_indent();
+        Ok(())
     }
 
     /// Formats a list of ports as an input or output signature. For example,
@@ -789,14 +800,20 @@ impl Component {
             }
             assert!(!port.has_inferred_width());
             port.attributes.write(f)?;
-            write!(f, "{}: {}", port.name, port.width)?;
+            write!(
+                f,
+                "{}: {}",
+                port.name,
+                port.width
+                    .expect("we just checked that port has concrete width")
+            )?;
         }
         Ok(())
     }
 }
 
 impl PortProvider for Component {
-    fn get(&self, port: String) -> Port {
+    fn get_port(&self, port: String) -> Port {
         self.inputs
             .iter()
             .chain(self.outputs.iter())
@@ -857,28 +874,34 @@ impl CalyxWriter for Component {
 pub struct Program {
     imports: Vec<Import>,
     /// inv: no element is removed from this array
-    comps: Vec<Rc<RefCell<Component>>>,
+    comps: Vec<RRC<Component>>,
 }
 
 impl Program {
     /// Constructs an empty program.
     pub fn new() -> Self {
-        Self {
-            imports: vec![],
-            comps: vec![],
-        }
+        Self::default()
     }
 
     /// Imports the calyx standard library file `path`.
-    pub fn import<S: ToString>(&mut self, path: S) {
+    ///
+    /// Requires: `path` is a well-formed path.
+    pub fn import<S: AsRef<str>>(&mut self, path: S) {
         self.imports.push(Import {
-            path: path.to_string(),
+            path: PathBuf::from_str(path.as_ref()).expect("precondition"),
         });
     }
 
     /// Constructs an empty component named `name`.
     pub fn comp<S: ToString>(&mut self, name: S) -> RRC<Component> {
         let comp = rrc(Component::new(name, false));
+        self.comps.push(comp.clone());
+        comp
+    }
+
+    /// Constructs an empty combinational component named `name`.
+    pub fn comb_comp<S: ToString>(&mut self, name: S) -> RRC<Component> {
+        let comp = rrc(Component::new(name, true));
         self.comps.push(comp.clone());
         comp
     }
@@ -903,6 +926,55 @@ impl Display for Program {
     }
 }
 
+/// Static assertion.
+#[macro_export]
+macro_rules! const_assert {
+    ($($tt:tt)*) => {
+        const _: () = assert!($($tt)*);
+    }
+}
+
+/// Constructs static and dynamic assertions for the given primitive, if a
+/// verification case exists. Due to limiations (https://github.com/rust-lang/rust/issues/85077)
+/// we have to add a dummy value to the beginning of the input array, so the
+/// logic must be modified accordingly (and annoyingly).
+#[macro_export]
+macro_rules! _validate_primitive {
+    (std_reg($arg_arr:expr)) => {
+        const_assert!(
+            $arg_arr.len() - 1 == 1,
+            "Invalid std_reg instantiation: std_reg takes 1 argument"
+        );
+    };
+    (std_add($arg_arr:expr)) => {
+        const_assert!(
+            $arg_arr.len() - 1 == 1,
+            "Invalid std_add instantiation: std_add takes 1 argument"
+        );
+    };
+    (comb_mem_d1($arg_arr:expr)) => {
+        const_assert!(
+            $arg_arr.len() - 1 == 3,
+            "Invalid comb_mem_d1 instantiation: comb_mem_d1 takes 3 arguments"
+        );
+    };
+    (seq_mem_d1($arg_arr:expr)) => {
+        const_assert!(
+            $arg_arr.len() - 1 == 3,
+            "Invalid seq_mem_d1 instantiation: seq_mem_d1 takes 3 arguments"
+        );
+    };
+    (std_bit_slice($arg_arr:expr)) => {
+        const_assert!(
+            $arg_arr.len() - 1 == 4,
+            "Invalid std_bit_slice instantiation: std_bit_slice takes 4 arguments"
+        );
+        assert!($arg_arr[4] >= $arg_arr[1], "Invalid std_bit_slice instantiation: out_width <= in_width");
+        assert!($arg_arr[4] == $arg_arr[3] - $arg_arr[2], "Invalid std_bit_slice instantiation: out_width must be end_idx - start_idx")
+    };
+    ($idc:ident($idc2:expr)) => {};
+}
+
 /// Similar to the `structure!` macro in `calyx_ir`. For example,
 /// ```
 /// build_cells!(comp;
@@ -914,10 +986,12 @@ impl Display for Program {
 #[macro_export]
 macro_rules! build_cells {
     ($comp:ident; ref $name:ident = $cell:ident($($args:expr),*); $($rest:tt)*) => {
+        _validate_primitive!($cell([0 as u64, $($args as u64),*]));
         let $name = $comp.borrow_mut().cell(true, stringify!($name), stringify!($cell), vec![$($args as u64),*]);
         build_cells!($comp; $($rest)*);
     };
     ($comp:ident; $name:ident = $cell:ident($($args:expr),*); $($rest:tt)*) => {
+        _validate_primitive!($cell([0 as u64, $($args as u64),*]));
         let $name = $comp.borrow_mut().cell(false, stringify!($name), stringify!($cell), vec![$($args as u64),*]);
         build_cells!($comp; $($rest)*);
     };
@@ -954,7 +1028,7 @@ macro_rules! declare_group {
 ///     comp.in_port = x.foo;
 /// )
 /// ```
-/// Currently, only unguarded assignments are supported.
+/// Currently, only unguarded assignments are supported. (TODO(ethan))
 #[macro_export]
 macro_rules! build_group {
     ($group:expr; $($lhs:ident.$lhs_port:ident = $rhs:ident.$rhs_port:ident;)*) => {
@@ -967,7 +1041,8 @@ macro_rules! build_group {
     };
 }
 
-/// Recursively constructs control nodes. For example,
+/// Recursively constructs control nodes. You can use calyx syntax or embed
+/// arbitrary expressions that are typed `Control`. For example,
 /// ```
 /// let control = build_control!(
 ///     [par {
@@ -979,7 +1054,7 @@ macro_rules! build_group {
 ///             }]
 ///         }],
 ///         [if comp.write_en {
-///
+///             [(Control::empty())]
 ///         }]
 ///     }]
 /// );
@@ -987,91 +1062,33 @@ macro_rules! build_group {
 #[macro_export]
 macro_rules! build_control {
     ([$x:ident]) => {
-        Control::enable($x.clone())
+        $crate::Control::enable($x.clone())
     };
     (($c:expr)) => {
         $c
     };
     ([seq { $($x:tt),+ }]) => {
-        Control::seq(vec![$(build_control!($x)),*])
+        $crate::Control::seq(vec![$(build_control!($x)),*])
     };
     ([par { $($x:tt),+ }]) => {
-        Control::par(vec![$(build_control!($x)),*])
+        $crate::Control::par(vec![$(build_control!($x)),*])
     };
     ([while $cond:ident.$port:ident { $($x:tt),* }]) => {
-        Control::while_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x)),*])
+        $crate::Control::while_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x)),*])
     };
     ([while $cond:ident.$port:ident with $comb_group:ident { $($x:tt),* }]) => {
-        Control::while_($cond.borrow().get(stringify!($port).into()), Some($comb_group), vec![$(build_control!($x)),*])
+        $crate::Control::while_($cond.borrow().get(stringify!($port).into()), Some($comb_group), vec![$(build_control!($x)),*])
     };
     ([if $cond:ident.$port:ident { $($x_true:tt),* }]) => {
-        Control::if_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![])
+        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![])
     };
     ([if $cond:ident.$port:ident { $($x_true:tt),* } else { $($x_false:tt),* }]) => {
-        Control::if_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
+        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
     };
     ([if $cond:ident.$port:ident with $comb_group:ident { $($x_true:tt),* }=]) => {
-        Control::if_($cond.borrow().get(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![])
+        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![])
     };
     ([if $cond:ident.$port:ident with $comb_group:ident { $($x_true:tt),* } else { $($x_false:tt),* }]) => {
-        Control::if_($cond.borrow().get(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
+        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
     };
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::*;
-
-    struct TestIndentFormatter;
-    impl Display for TestIndentFormatter {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let mut f = IndentFormatter::new(f, 2);
-            writeln!(f, "hello\ngoodbye")?;
-            f.push();
-            writeln!(f, "hello\ngoodbye")?;
-            f.pop();
-            writeln!(f, "hello\ngoodbye")
-        }
-    }
-
-    #[test]
-    fn test_indent_formatter() {
-        assert_eq!(
-            "hello\ngoodbye\n  hello\n  goodbye\nhello\ngoodbye\n",
-            TestIndentFormatter.to_string()
-        );
-    }
-
-    #[test]
-    fn test_build_cell() {
-        let mut prog = Program::new();
-        let comp = prog.comp("test");
-        build_cells!(comp;
-            x = std_reg(32);
-            ref y = std_ref(32);
-        );
-        assert!(!x.borrow().is_ref());
-        assert!(y.borrow().is_ref());
-    }
-
-    #[test]
-    fn test_build_control() {
-        let mut prog = Program::new();
-        let comp = prog.comp("test");
-        declare_group!(comp; group foo);
-        declare_group!(comp; group bar);
-        let control = build_control! {
-            [seq {
-                [foo],
-                (Control::enable(bar.clone()))
-            }]
-        };
-        assert_eq!(
-            Control::seq(vec![
-                Control::enable(foo.clone()),
-                Control::enable(bar.clone())
-            ]),
-            control
-        );
-    }
 }
