@@ -226,7 +226,7 @@ def add_read_channel(prog, mem):
     
     # Could arguably get rid of this while loop for the dynamic verison, but this
     # matches nicely with non dynamic version and conforms to spec,
-    # and will be easier to exten to variable length dynamic transfers in the future
+    # and will be easier to extend to variable length dynamic transfers in the future
     while_body = [
         # invoke_bt_reg,
         block_transfer,
@@ -275,14 +275,13 @@ def add_write_channel(prog, mem):
     with write_channel.group("service_write_transfer") as service_write_transfer:
         WREADY = write_channel.this()["WREADY"]
 
-        # Assert then deassert. Can maybe getgit right of w_handshake_occurred in guard
+        # Assert then deassert. Can maybe get rid of w_handshake_occurred in guard
         wvalid.in_ = (~(wvalid.out & WREADY) & ~w_handshake_occurred.out) @ 1
         wvalid.in_ = ((wvalid.out & WREADY) | w_handshake_occurred.out) @ 0
         wvalid.write_en = 1
 
         # Set high when wvalid is high even once
         # This is just wavlid.in_ guard from above
-        # TODO: confirm this is correct?
         w_handshake_occurred.in_ = (wvalid.out & WREADY) @ 1
         w_handshake_occurred.in_ = ~(wvalid.out & WREADY) @ 0
         w_handshake_occurred.write_en = (~w_handshake_occurred.out) @ 1
