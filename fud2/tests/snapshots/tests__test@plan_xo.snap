@@ -1,0 +1,43 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: xo"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+
+vivado-dir = /test/xilinx/vivado
+vitis-dir = /test/xilinx/vitis
+build gen_xo.tcl: get-rsrc
+build get-ports.py: get-rsrc
+python = python3
+rule gen-xo
+  command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
+  pool = console
+xilinx-mode = hw_emu
+platform = xilinx_u50_gen3x16_xdma_201920_3
+rule compile-xclbin
+  command = $vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in
+  pool = console
+
+build main.sv: calyx /input.ext
+  backend = verilog
+  args = --synthesis -p external
+build toplevel.v: calyx /input.ext
+  backend = xilinx
+build kernel.xml: calyx /input.ext
+  backend = xilinx-xml
+build /output.ext: gen-xo | main.sv toplevel.v kernel.xml gen_xo.tcl get-ports.py
+
+default /output.ext

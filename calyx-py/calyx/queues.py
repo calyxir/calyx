@@ -20,33 +20,26 @@ class Fifo:
     Otherwise, it allows those commands to fail silently but continues the simulation.
     """
 
-    def __init__(self, data: List[int], error_mode=True, max_len: int = None):
+    def __init__(self, data: List[int], max_len: int = None):
         self.data = data
         self.max_len = max_len or queue_util.QUEUE_SIZE
-        self.error_mode = error_mode
 
     def push(self, val: int, time=None, rank=None) -> None:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
-            if self.error_mode:
-                raise QueueError("Cannot push to full FIFO.")
-            return
+            raise QueueError("Cannot push to full FIFO.")
         self.data.append(val)
 
     def pop(self, time=0) -> Optional[int]:
         """Pops the FIFO."""
         if len(self.data) == 0:
-            if self.error_mode:
-                raise QueueError("Cannot pop from empty FIFO.")
-            return None
+            raise QueueError("Cannot pop from empty FIFO.")
         return self.data.pop(0)
 
     def peek(self, time=0) -> Optional[int]:
         """Peeks into the FIFO."""
         if len(self.data) == 0:
-            if self.error_mode:
-                raise QueueError("Cannot peek into empty FIFO.")
-            return None
+            raise QueueError("Cannot peek into empty FIFO.")
         return self.data[0]
 
     def __len__(self) -> int:
@@ -96,13 +89,12 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary, error_mode=True, max_len=None):
+    def __init__(self, queue_1, queue_2, boundary, max_len=None):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
         self.max_len = max_len or queue_util.QUEUE_SIZE
-        self.error_mode = error_mode
         assert (
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
@@ -110,9 +102,7 @@ class Pifo:
     def push(self, val: int, time=None, rank=None) -> None:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
-            if self.error_mode:
-                raise QueueError("Cannot push to full PIFO.")
-            return
+            raise QueueError("Cannot push to full PIFO.")
         if val <= self.boundary:
             self.data[0].push(val)
         else:
@@ -122,9 +112,7 @@ class Pifo:
     def pop(self, time=0) -> Optional[int]:
         """Pops the PIFO."""
         if self.pifo_len == 0:
-            if self.error_mode:
-                raise QueueError("Cannot pop from empty PIFO.")
-            return None
+            raise QueueError("Cannot pop from empty PIFO.")
         self.pifo_len -= 1  # We decrement `pifo_len` by 1.
         if self.hot == 0:
             try:
@@ -144,9 +132,7 @@ class Pifo:
     def peek(self, time=0) -> Optional[int]:
         """Peeks into the PIFO."""
         if self.pifo_len == 0:
-            if self.error_mode:
-                raise QueueError("Cannot peek into empty PIFO.")
-            return None
+            raise QueueError("Cannot peek into empty PIFO.")
         if self.hot == 0:
             try:
                 return self.data[0].peek()
@@ -182,13 +168,11 @@ class Pieo:
     Otherwise, it allows those commands to fail silently but continues the simulation.
 
     When asked to push:
-    - If the PIEO is at length `max_len`,
-        we fail silently or raise an error depending on error_mode.
+    - If the PIEO is at length `max_len`, we raise an error.
     - Otherwise, we insert the element into the PIEO such that the rank order stays increasing.
 
     When asked to pop:
-    - If the length of `data` is 0,
-        we fail silently or raise an error depending on error_mode.
+    - If the length of `data` is 0, we raise an error .
 
     - We can either pop based on value or based on eligibility.
     - This implementation supports the most common eligibility predicate - whether an element is 'ripe'.
@@ -206,10 +190,9 @@ class Pieo:
     optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
     
-    def __init__(self, data: List[(int, int, int)], error_mode=True, max_len: int = None):
+    def __init__(self, data: List[(int, int, int)], max_len: int = None):
         """Initialize structure. Ensures that rank ordering is preserved."""
         self.data = data.sort(lambda x : x[1])
-        self.error_mode = error_mode
         self.max_len = max_len or queue_util.QUEUE_SIZE
 
     def ripe(val, time):
@@ -221,9 +204,7 @@ class Pieo:
         Inserts element such that rank ordering is preserved
         """
         if len(self.data) == self.max_len:
-            if self.error_mode:
-                raise QueueError("Cannot push to full PIEO")
-            return
+            raise QueueError("Cannot push to full PIEO")
         
         else:
             for x in range(len(self.data)):
@@ -241,8 +222,7 @@ class Pieo:
         """
 
         if len(self.data) == 0:
-            if self.error_mode:
-                raise QueueError("Cannot pop from empty PIEO.")
+            raise QueueError("Cannot pop from empty PIEO.")
         
         if val == None:
             try:
@@ -269,10 +249,9 @@ class Pieo:
 @dataclass
 class CalendarQueue:
 
-    def __init__(self, data : List[List[(int, int)]], num_buckets=200, width=4, initial_day=0, error_mode=True, max_len: int = None):
+    def __init__(self, data : List[List[(int, int)]], num_buckets=200, width=4, initial_day=0, max_len: int = None):
         self.width = width
         self.day = initial_day
-        self.error_mode = error_mode
         self.max_len = max_len
 
         self.data = data
@@ -281,8 +260,6 @@ class CalendarQueue:
 
     
     def push(self, val: int, rank: int, time=None) -> None:
-        i = rank/self.width % 
-
         """Pushes a value with some rank/priority to a calendar queue"""
         pass
     

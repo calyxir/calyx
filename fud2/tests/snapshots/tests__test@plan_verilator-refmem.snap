@@ -1,0 +1,46 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: verilator-refmem"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+python = python3
+build json-dat.py: get-rsrc
+rule hex-data
+  command = $python json-dat.py --from-json $in $out
+rule json-data
+  command = $python json-dat.py --to-json $out $in
+sim_data = /test/data.json
+datadir = sim_data
+build $datadir: hex-data $sim_data | json-dat.py
+rule sim-run
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+cycle-limit = 500000000
+
+rule ref-to-external
+  command = sed 's/ref /@external /g' $in > $out
+rule external-to-ref
+  command = sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out
+gen-testbench-script = $calyx-base/tools/firrtl/generate-testbench.py
+build memories.sv: get-rsrc
+rule generate-refmem-testbench
+  command = python3 $gen-testbench-script $in > $out
+rule dummy
+  command = sh -c 'cat $$0' $in > $out
+
+verilator = verilator
+cycle-limit = 500000000
+rule verilator-compile-standalone-tb
+  command = $verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+rule verilator-compile-custom-tb
+  command = $verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+rule cp
+  command = cp $in $out
+
+build verilator-out/VTOP: verilator-compile-custom-tb /input.ext | tb.sv memories.sv
+  out-dir = verilator-out
+build /output.ext: cp verilator-out/VTOP
+
+default /output.ext

@@ -1,0 +1,15 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: mrxl-to-calyx"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+mrxl-exe = mrxl
+rule mrxl-to-calyx
+  command = $mrxl-exe $in > $out
+
+build /output.ext: mrxl-to-calyx /input.ext
+
+default /output.ext

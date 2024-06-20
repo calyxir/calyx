@@ -1,0 +1,56 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: xrt-trace"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+vivado-dir = /test/xilinx/vivado
+vitis-dir = /test/xilinx/vitis
+build gen_xo.tcl: get-rsrc
+build get-ports.py: get-rsrc
+python = python3
+rule gen-xo
+  command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
+  pool = console
+xilinx-mode = hw_emu
+platform = xilinx_u50_gen3x16_xdma_201920_3
+rule compile-xclbin
+  command = $vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in
+  pool = console
+
+python = python3
+build json-dat.py: get-rsrc
+rule hex-data
+  command = $python json-dat.py --from-json $in $out
+rule json-data
+  command = $python json-dat.py --to-json $out $in
+sim_data = /test/data.json
+datadir = sim_data
+build $datadir: hex-data $sim_data | json-dat.py
+rule sim-run
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+cycle-limit = 500000000
+
+build tb.sv: get-rsrc
+
+rule emconfig
+  command = $vitis-dir/bin/emconfigutil --platform $platform
+build emconfig.json: emconfig
+xrt-dir = /test/xilinx/xrt
+rule xclrun
+  command = bash -c 'source $vitis-dir/settings64.sh ; source $xrt-dir/setup.sh ; XRT_INI_PATH=$xrt_ini EMCONFIG_PATH=. XCL_EMULATION_MODE=$xilinx-mode $python -m fud.xclrun --out $out $in'
+  pool = console
+rule echo
+  command = echo $contents > $out
+build pre_sim.tcl: echo  | 
+  contents = open_vcd\\nlog_vcd *\\n
+build post_sim.tcl: echo  | 
+  contents = close_vcd\\n
+
+build xrt_trace.ini: get-rsrc
+build /output.ext: xclrun /input.ext $sim_data | emconfig.json pre_sim.tcl post_sim.tcl xrt_trace.ini
+  xrt_ini = xrt_trace.ini
+
+default /output.ext
