@@ -14,10 +14,6 @@ class Fifo:
     Supports the operations `push`, `pop`, and `peek`.
     Inherent to the queue is its `max_len`,
     which is given at initialization and cannot be exceeded.
-
-    If initialized with "error mode" turned on, the queue raises errors in case
-    of underflow or overflow and stops the simulation.
-    Otherwise, it allows those commands to fail silently but continues the simulation.
     """
 
     def __init__(self, data: List[int], max_len: int = None):
@@ -63,10 +59,6 @@ class Pifo:
 
     Inherent to the queue is its `max_len`, which is given to us at initialization
     and we cannot exceed.
-
-    If initialized with "error mode" turned on, the queue raises errors in case
-    of underflow or overflow and stops the simulation.
-    Otherwise, it allows those commands to fail silently but continues the simulation.
 
     When asked to pop:
     - If `pifo_len` is 0, we fail silently or raise an error.
@@ -162,11 +154,6 @@ class Pieo:
     We also take at initialization a `max_len` value to store the maximum possible
     length of a queue.
 
-    If initialized with "error mode" turned on, the queue raises errors in case
-    of underflow or overflow and stops the simulation.
-
-    Otherwise, it allows those commands to fail silently but continues the simulation.
-
     When asked to push:
     - If the PIEO is at length `max_len`, we raise an error.
     - Otherwise, we insert the element into the PIEO such that the rank order stays increasing.
@@ -247,38 +234,81 @@ class Pieo:
         return self.query(val, time)
 
 @dataclass
-class CalendarQueue:
+class PCQ:
+    """A Programmable Calendar Queue (PCQ) data structure.
+    Supports the operations `push`, `pop`, and `peek`.
+
+    Elements are stored in buckets within which they are ordered by priority.
+    Bucket priority is determined by the 'day pointer', which points to the current
+    bucket with highest priority. 
+
+    At initialization we take in a set of `(int, int)` tuple lists `data` which stores
+    lists of values and their ranks, each representing a bucket.
+    
+    We also take at initialization a `max_len` value to store the maximum possible
+    length of a queue.
+
+    When asked to push:
+    - We compute the bucket to push to as the rank of the new element multiplied by bucket width,
+    wrapped around to be within the size of the queue.
+    - We then insert said new element into its assigned bucket such that the rank order is preserved.
+
+    When asked to pop:
+    - If the length of `data` is 0, we raise an error .
+    - Otherwise, we pop the lowest-rank element of the current day.
+    - If, following our pop, the bucket is empty, we rotate to the next bucket.
+
+    When asked to peek:
+    We do the same thing as `pop`, except:
+    - We peek into the PCQ instead of popping it - i.e. we don't remove any elements.
+
+    We compactly represent these similar operations through `query`, which takes in an additional
+    optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
+    """
 
     def __init__(self, data : List[List[(int, int)]], num_buckets=200, width=4, initial_day=0, max_len: int = None):
         self.width = width
         self.day = initial_day
         self.max_len = max_len
-
         self.data = data
-        for x in range(len(data), num_buckets):
+        for _ in range(len(data), num_buckets):
             self.data.push([])
 
     
+    def rotate(self) -> None:
+        """Rotates a PCQ."""
+        self.day = (self.day + 1) % len(self.data)
+
     def push(self, val: int, rank: int, time=None) -> None:
-        """Pushes a value with some rank/priority to a calendar queue"""
-        pass
+        """Pushes a value with some rank/priority to a PCQ"""
+
+        location = (rank * self.width) % len(self.data)
+
+        for x in range(len(self.data[location])):
+            if self.data[location][1] >= rank:
+                self.data[location].insert(x, (val, rank))
+                break
+    
+    def query(self, remove=False, time=0) -> Optional[int]:
+        """Queries a PCQ."""
+        
+        bucket = self.data[self.day]
+        try:
+            result = bucket.pop(0) if remove else bucket[0]
+            if len(bucket) == 0:
+                self.rotate()
+            return result
+        except IndexError:
+            raise QueueError("Cannot query empty queue.")
     
     def pop(self, time=0) -> Optional[int]:
-        bucket = self.data[self.day]
-        while len(bucket) == 0:
-            self.day = self.day + 1 % len(self.data)
-        
-
-        """Pops a calendar queue."""
-        pass
+        """Pops a PCQ."""
+        return self.query(remove=True)
     
     def peek(self, time=0) -> Optional[int]:
-        """Peeks a calendar queue."""
-        pass
+        """Peeks a PCQ."""
+        return self.query()
 
-    def rotate(self) -> None:
-        """Rotates a calendar queue"""
-        self.day = (self.day + 1) % len(self.data)
 
 def operate_queue(commands, values, queue, ranks=None, times=None):
     """Given the four lists:
