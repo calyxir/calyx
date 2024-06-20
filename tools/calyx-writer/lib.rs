@@ -240,12 +240,11 @@ impl Port {
         name: T,
         width: u64,
     ) -> Self {
-        assert!(width != 0);
         Self {
             attributes: vec![],
             parent: parent.map(|s| s.to_string()),
             name: name.to_string(),
-            width: Some(unsafe { NonZeroU64::new_unchecked(width) }),
+            width: Some(NonZeroU64::new(width).expect("width cannot be zero")),
         }
     }
 
@@ -359,12 +358,16 @@ impl CalyxWriter for Cell {
     }
 }
 
+// Griffin: To state the obvious, which I'm sure you'll add later. This is missing Or, Not, and BinOps. Also worth noting that Port's are only allowed as individual guard elements when they are 1bit values, otherwise they have to be part of some comparison operator
+
 /// A guard for an [`Assignment`].
 #[derive(PartialEq, Eq, Debug)]
 pub enum Guard {
     True,
     Port(Port),
+    Not(Box<Guard>),
     And(Box<Guard>, Box<Guard>),
+    Or(Box<Guard>, Box<Guard>),
 }
 
 impl CalyxWriter for Guard {
@@ -373,10 +376,13 @@ impl CalyxWriter for Guard {
             Guard::True => {}
             Guard::Port(port) => port.write(f)?,
             Guard::And(lhs, rhs) => {
+                write!(f, "(")?;
                 lhs.write(f)?;
                 write!(f, " & ")?;
                 rhs.write(f)?;
+                write!(f, "(")?;
             }
+            _ => todo!("not all guards implemented")
         }
         Ok(())
     }
@@ -805,8 +811,7 @@ impl Component {
                 f,
                 "{}: {}",
                 port.name,
-                port.width
-                    .expect("we just checked that port has concrete width")
+                port.width.unwrap()
             )?;
         }
         Ok(())
@@ -889,7 +894,7 @@ impl Program {
     /// Requires: `path` is a well-formed path.
     pub fn import<S: AsRef<str>>(&mut self, path: S) {
         self.imports.push(Import {
-            path: PathBuf::from_str(path.as_ref()).expect("precondition"),
+            path: PathBuf::from_str(path.as_ref()).expect("malformed input path"),
         });
     }
 
