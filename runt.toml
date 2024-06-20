@@ -130,7 +130,10 @@ python3 {} |\
 
 [[tests]]
 name = "[calyx-py] queues correctness"
-paths = ["calyx-py/test/correctness/queues/*.py"]
+paths = [
+    "calyx-py/test/correctness/queues/*.py",
+    "calyx-py/test/correctness/queues/binheap/*.py"
+]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
