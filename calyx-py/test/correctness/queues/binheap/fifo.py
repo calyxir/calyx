@@ -6,6 +6,7 @@ from stable_binheap import insert_stable_binheap
 
 FACTOR = 4
 
+
 def insert_binheap_fifo(prog, name, queue_size_factor=FACTOR):
     """Inserts the component `fifo` into the program.
     

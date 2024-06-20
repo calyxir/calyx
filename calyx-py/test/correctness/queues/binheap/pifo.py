@@ -79,6 +79,7 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
 
     cmd_eq_0 = comp.eq_use(cmd, 0)
     cmd_eq_2 = comp.eq_use(cmd, 2)
+    err_eq_0 = comp.eq_use(err.out, 0)
 
     flow_in = comp.reg(1, "flow_in")
     infer_flow_in = insert_flow_inference(
@@ -102,6 +103,7 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
     init = comp.reg(1, "init")
     init_eq_0 = comp.eq_use(init.out, 0)
 
+
     comp.control += [
         cb.if_with(init_eq_0, [comp.reg_store(r_b, 1), comp.incr(init)]),
         infer_flow_in,
@@ -124,22 +126,26 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
                 ref_err=err,
             ),
         ),
-        infer_flow_out,
-        cb.if_with(
-            cmd_eq_0,
-            cb.if_with(
-                turn_neq_flow_out,
-                cb.if_(flow_out.out, r_a_incr_2, r_b_incr_2),
-                comp.incr(turn),
-            )
-        ),
-        cb.if_with(
-            cmd_eq_2, 
-            cb.if_(
-                flow_in.out, 
-                r_b_incr_2, 
-                r_a_incr_2
-            )
+        cb.if_with(err_eq_0,
+               [
+                   infer_flow_out,
+                   cb.if_with(
+                       cmd_eq_0,
+                       cb.if_with(
+                           turn_neq_flow_out,
+                           cb.if_(flow_out.out, r_a_incr_2, r_b_incr_2),
+                           comp.incr(turn),
+                       )
+                   ),
+                   cb.if_with(
+                       cmd_eq_2, 
+                       cb.if_(
+                           flow_in.out, 
+                           r_b_incr_2, 
+                           r_a_incr_2
+                       )
+                   )
+               ]
         )
     ]
 

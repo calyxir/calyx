@@ -79,15 +79,15 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
 
     # Cells and groups to check which command we got.
     cmd_eq_0 = comp.eq_use(cmd, 0)
-    cmd_le_1 = comp.le_use(cmd, 1)
+    cmd_eq_1 = comp.eq_use(cmd, 1)
     cmd_eq_2 = comp.eq_use(cmd, 2)
     cmd_eq_3 = comp.eq_use(cmd, 3)
 
     # Cells and groups to check for overflow and underflow.
     size_eq_0 = comp.eq_use(size.out, 0)
     is_full = comp.reg(1)
-    set_full_on = comp.reg_store(is_full, 1, "set_full_on")
-    set_full_off = comp.reg_store(is_full, 0, "set_full_off")
+    turn_full_on = comp.reg_store(is_full, 1, "turn_full_on")
+    turn_full_off = comp.reg_store(is_full, 0, "turn_full_off")
 
     current_idx = comp.reg(addr_size)
     current_rank = comp.reg(rnk_w)
@@ -359,25 +359,32 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         ),
     ]
 
-    peek_or_pop = cb.if_with(cmd_eq_0, pop, peek)
-
     comp.control += [
         lower_err,
-        cb.if_with(
-            cmd_le_1,
-            cb.if_(is_full.out, 
-                   [peek_or_pop, set_full_off],
-                   cb.if_with(size_eq_0, raise_err, peek_or_pop)
-            )
-        ),
-        cb.if_with(
-            cmd_eq_2, 
-            [
-                cb.if_(is_full.out, raise_err, push),
-                cb.if_with(size_eq_0, set_full_on)
-            ]
-        ),
-        cb.if_with(cmd_eq_3, raise_err)
+        cb.par(
+            cb.if_with(
+                cmd_eq_0,
+                cb.if_(is_full.out, 
+                       [pop, turn_full_off], 
+                       cb.if_with(size_eq_0, raise_err, pop)
+                )
+            ),
+            cb.if_with(
+                cmd_eq_1,
+                cb.if_(is_full.out, 
+                       peek,
+                       cb.if_with(size_eq_0, raise_err, peek)
+                )
+            ),
+            cb.if_with(
+                cmd_eq_2, 
+                [
+                    cb.if_(is_full.out, raise_err, push),
+                    cb.if_with(size_eq_0, turn_full_on)
+                ]
+            ),
+            cb.if_with(cmd_eq_3, raise_err)
+        )
     ]
 
     return comp
