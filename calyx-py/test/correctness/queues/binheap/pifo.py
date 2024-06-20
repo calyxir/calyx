@@ -125,14 +125,16 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
         cb.if_with(
             err_eq_0,
             [
-                infer_flow_out,
                 cb.if_with(
                     cmd_eq_0,
-                    cb.if_with(
-                        turn_eq_flow_out,
-                        comp.incr(turn),
-                        cb.if_(flow_out.out, r_a_incr_2, r_b_incr_2),
-                    ),
+                    [
+                        infer_flow_out,
+                        cb.if_with(
+                            turn_eq_flow_out,
+                            comp.incr(turn),
+                            cb.if_(flow_out.out, r_a_incr_2, r_b_incr_2),
+                        ),
+                    ],
                 ),
                 cb.if_with(cmd_eq_2, cb.if_(flow_in.out, r_b_incr_2, r_a_incr_2)),
             ],
