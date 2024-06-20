@@ -4,6 +4,9 @@ import calyx.builder as cb
 import calyx.queue_call as qc
 from stable_binheap import insert_stable_binheap
 
+FACTOR = 4
+BOUNDARY = 200
+
 
 def insert_flow_inference(comp, value, flow, boundary, group):
     """If the value to be pushed is less than or equal to `boundary`, the value 
@@ -26,7 +29,7 @@ def insert_flow_inference(comp, value, flow, boundary, group):
     return infer_flow_grp
 
 
-def insert_binheap_pifo(prog, name, boundary, factor):
+def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR):
     """Inserts the component `pifo` into the program.
 
     It is a two-flow, round-robin queue implemented via binary heap.
@@ -65,7 +68,7 @@ def insert_binheap_pifo(prog, name, boundary, factor):
     """
     comp = prog.component(name)
 
-    binheap = insert_stable_binheap(prog, "binheap", factor)
+    binheap = insert_stable_binheap(prog, "binheap", queue_size_factor)
     binheap = comp.cell("binheap", binheap)
 
     cmd = comp.input("cmd", 2)
@@ -146,9 +149,10 @@ def insert_binheap_pifo(prog, name, boundary, factor):
 def build():
     """Top-level function to build the program."""
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
-    pifo = insert_binheap_pifo(prog, "pifo", 200, 4)
-    qc.insert_main(prog, pifo, num_cmds)
+    pifo = insert_binheap_pifo(prog, "pifo")
+    qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 

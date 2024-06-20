@@ -4,8 +4,9 @@ import calyx.builder as cb
 import calyx.queue_call as qc
 from stable_binheap import insert_stable_binheap
 
+FACTOR = 4
 
-def insert_binheap_fifo(prog, name, queue_size_factor):
+def insert_binheap_fifo(prog, name, queue_size_factor=FACTOR):
     """Inserts the component `fifo` into the program.
     
     It is a first in, first out queue implemented via binary heap.
@@ -54,9 +55,10 @@ def insert_binheap_fifo(prog, name, queue_size_factor):
 def build():
     """Top-level function to build the program."""
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
-    fifo = insert_binheap_fifo(prog, "fifo", 4)
-    qc.insert_main(prog, fifo, num_cmds)
+    fifo = insert_binheap_fifo(prog, "fifo")
+    qc.insert_main(prog, fifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 
