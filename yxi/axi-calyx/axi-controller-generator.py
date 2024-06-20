@@ -208,6 +208,47 @@ def add_bresp_channel(prog):
     bresp_channel.control += [invoke(b_handshake_occurred, in_in = 0), block_transfer]
 
 
+def add_read_controller(prog, mems):
+    read_controller = prog.component("read_controller")
+    read_controller_inputs = [
+        ("ARESETn", 1),
+        ("ARVALID", 1),
+        ("ARADDR", 16),
+        ("ARPROT", 3),
+        ("RREADY", 1)
+        ("ap_done", 1) #signal from XRT, passed in from the entire controller
+    ]
+
+    read_controller_outputs = [
+        ("ARREADY", 1),
+        ("RVALID", 1),
+        ("RRESP", 2),
+        ("RDATA", 32),
+    ]
+
+    read_controller.add_ports(read_controller_inputs, read_controller_outputs)
+
+    #Cells
+    ar_channel = read_controller.cell(f"ar_channel", prog.get_component(f"s_ar_channel"))
+    r_channel = read_controller.cell(f"r_channel", prog.get_component(f"s_r_channel"))
+
+    #XRT registers. We currently ignore everything except control and kernel argument registers
+
+    control = read_controller.reg(32, "control_reg", is_ref = True)
+    #Global Interrupt Enable
+    gie = read_controller.reg(32, "gie", is_ref = True)
+    #IP Interrupt Enable
+    iie = read_controller.reg(32, "iie", is_ref = True)
+    #IP Interrupt Status
+    iis = read_controller.reg(32, "iis", is_ref = True)
+    #These hold the base address of the memory mappings on the host
+    #Kernel Arguments
+    for mem in mems:
+        read_controller.reg(64, f"{mem['name']}_base_addr", is_ref = True)
+
+    read_controller.control +
+
+
 
 #Ports must be named `s_axi_control_*` and is case sensitive.
 def add_control_subordinate(prog, mems):
