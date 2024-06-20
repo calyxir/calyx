@@ -269,17 +269,29 @@ class Pieo:
 @dataclass
 class CalendarQueue:
 
-    def __init__(self, data : List[int], initial_day=0, error_mode=True, max_len: int = None):
-        self.data = data
+    def __init__(self, data : List[List[(int, int)]], num_buckets=200, width=4, initial_day=0, error_mode=True, max_len: int = None):
+        self.width = width
         self.day = initial_day
         self.error_mode = error_mode
         self.max_len = max_len
+
+        self.data = data
+        for x in range(len(data), num_buckets):
+            self.data.push([])
+
     
-    def push(self, val: int, time=None, rank=None) -> None:
+    def push(self, val: int, rank: int, time=None) -> None:
+        i = rank/self.width % 
+
         """Pushes a value with some rank/priority to a calendar queue"""
         pass
     
     def pop(self, time=0) -> Optional[int]:
+        bucket = self.data[self.day]
+        while len(bucket) == 0:
+            self.day = self.day + 1 % len(self.data)
+        
+
         """Pops a calendar queue."""
         pass
     
@@ -289,8 +301,7 @@ class CalendarQueue:
 
     def rotate(self) -> None:
         """Rotates a calendar queue"""
-        pass
-
+        self.day = (self.day + 1) % len(self.data)
 
 def operate_queue(commands, values, queue, ranks=None, times=None):
     """Given the four lists:

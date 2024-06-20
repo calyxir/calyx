@@ -62,7 +62,7 @@ def piezo_special():
     return commands
 
 
-def dump_json(piezo: bool):
+def dump_json(piezo: bool, pieo: bool):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
