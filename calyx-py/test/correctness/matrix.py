@@ -35,7 +35,7 @@ def insert_matmul_component(prog, n):
     j = matmul.reg(3)
     k = matmul.reg(3)
 
-    # matrix entry for matrix A. We won't need one for B.
+    # A register to store an entry of matrix A. We won't need one for matrix B.
     a = matmul.reg(32)
 
     zero_acc = matmul.reg_store(acc, 0)  # acc := 0
