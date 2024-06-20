@@ -3,7 +3,7 @@ from .py_ast import Empty
 import calyx.builder as cb
 
 
-def insert_runner(prog, queue, name, num_cmds, stats_component=None):
+def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it _one command_.
     This component is designed to be invoked by some other component, and does not
@@ -57,6 +57,7 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     # Our memories and registers, all of which are passed to us by reference.
     commands = runner.seq_mem_d1("commands", 2, num_cmds, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, num_cmds, 32, is_ref=True)
+    ranks = runner.seq_mem_d1("ranks", 32, num_cmds, 32, is_ref=True) if use_ranks else None
     has_ans = runner.reg(1, "has_ans", is_ref=True)
     ans = runner.reg(32, "component_ans", is_ref=True)
     err = runner.reg(1, "component_err", is_ref=True)
@@ -64,10 +65,24 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
     i = runner.reg(32)  # The index of the command we're currently processing
     cmd = runner.reg(2)  # The command we're currently processing
     value = runner.reg(32)  # The value we're currently processing
+    rank = runner.reg(32)  # The rank we're currently processing
+    
+    load_data = []
+    if use_ranks:
+        load_data = [
+            runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),  # `cmd := commands[i]`
+            runner.mem_load_d1(values, i.out, value, "write_value"),  # `value := values[i]`
+            runner.mem_load_d1(ranks, i.out, rank, "write_rank"),  # `rank := ranks[i]`
+        ]
+    else:
+        load_data = [
+            runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),  # `cmd := commands[i]`
+            runner.mem_load_d1(values, i.out, value, "write_value"),  # `value := values[i]`
+        ]
+
 
     runner.control += [
-        runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),  # `cmd := commands[i]`
-        runner.mem_load_d1(values, i.out, value, "write_value"),  # `value := values[i]`
+        load_data,
         (
             cb.invoke(  # Invoke the queue with a stats component.
                 queue,
@@ -78,7 +93,16 @@ def insert_runner(prog, queue, name, num_cmds, stats_component=None):
                 ref_stats=stats_cell,
             )
             if stats_component
-            else cb.invoke(  # Invoke the queue without a stats component.
+            else cb.invoke(  # Invoke the queue with ranks.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                in_rank=rank.out,
+                ref_ans=ans,
+                ref_err=err,
+            )
+            if use_ranks
+            else cb.invoke(  # Invoke the queue without stats or ranks.
                 queue,
                 in_cmd=cmd.out,
                 in_value=value.out,
@@ -107,6 +131,7 @@ def insert_main(
     queue,
     num_cmds,
     keepgoing=False,
+    use_ranks=False,
     controller=None,
     stats_component=None,
 ):
@@ -118,7 +143,7 @@ def insert_main(
 
     stats = main.cell("stats_main", stats_component) if stats_component else None
     controller = main.cell("controller", controller) if controller else None
-    dataplane = insert_runner(prog, queue, "dataplane", num_cmds, stats_component)
+    dataplane = insert_runner(prog, queue, "dataplane", num_cmds, use_ranks, stats_component)
     dataplane = main.cell("dataplane", dataplane)
 
     has_ans = main.reg(1)
@@ -128,6 +153,7 @@ def insert_main(
     commands = main.seq_mem_d1("commands", 2, num_cmds, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
+    ranks = main.seq_mem_d1("ranks", 32, num_cmds, 32, is_external=True) if use_ranks else None
     i = main.reg(32)  # A counter for how many times we have invoked the dataplane.
     j = main.reg(32)  # The index on the answer-list we'll write to
     keep_looping = main.and_(1)  # If this is high, we keep going. Otherwise, we stop.
@@ -164,7 +190,18 @@ def insert_main(
                 )
                 if stats_component
                 else cb.invoke(
-                    # Invoke the dataplane component without a stats component.
+                    # Invoke the dataplane component with ranks.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_ranks=ranks,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                )
+                if use_ranks 
+                else cb.invoke(
+                    # Invoke the dataplane component without stats or ranks.
                     dataplane,
                     ref_commands=commands,
                     ref_values=values,
