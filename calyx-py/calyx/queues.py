@@ -183,3 +183,62 @@ def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
     # Pad the answer memory with zeroes until it is of length `max_cmds`.
     ans += [0] * (max_cmds - len(ans))
     return ans
+
+@dataclass
+class NPifo:
+    """
+    """
+    def __init__(self, n, boundary, max_len: int, error_mode=True):
+        self.data = []
+        for i in range(n):
+            queue = Fifo(max_len)
+            self.data.append(queue)
+        self.hot = 0
+        self.n_flows = n
+        self.pifo_len = 0
+        divide = (boundary * 2) // n_flows
+        self.boundaries = []
+        for i in range(n):
+            bound = divide + (divide * n)
+            self.boundaries.append(bound)
+
+        self.max_len = max_len
+        self.error_mode = error_mode
+        assert (
+            self.pifo_len <= self.max_len
+        )  # We can't be initialized with a PIFO that is too long.
+
+    def push(self, val: int):
+        """Pushes `val` to the PIFO."""
+        if self.pifo_len == self.max_len:
+            if self.error_mode:
+                raise QueueError("Cannot push to full PIFO.")
+            return
+        for b in range(len(self.boundaries)):
+            if val <= self.boundaries[b]:
+                self.data[b].push(val)
+                break
+
+        self.pifo_len += 1
+
+    def pop(self) -> Optional[int]:
+        """Pops the PIFO."""
+        if self.pifo_len == 0:
+            if self.error_mode:
+                raise QueueError("Cannot pop from empty PIFO.")
+            return None
+        self.pifo_len -= 1  # We decrement `pifo_len` by 1.
+
+        result = None
+        while result is None: # We want to loop until we find the first subqueue that is nonempty
+            try:
+                val = self.data[self.hot].pop()
+                if self.hot == (n_flows - 1): # handle wrap around when updating hot
+                    self.hot = 0
+                else:
+                    self.hot = self.hot + 1
+                return val
+            except QueueError:
+                pass
+
+
