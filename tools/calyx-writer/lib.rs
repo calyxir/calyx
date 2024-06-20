@@ -382,7 +382,7 @@ impl CalyxWriter for Guard {
                 rhs.write(f)?;
                 write!(f, "(")?;
             }
-            _ => todo!("not all guards implemented")
+            _ => todo!("not all guards implemented"),
         }
         Ok(())
     }
@@ -807,12 +807,7 @@ impl Component {
             }
             assert!(!port.has_inferred_width());
             port.attributes.write(f)?;
-            write!(
-                f,
-                "{}: {}",
-                port.name,
-                port.width.unwrap()
-            )?;
+            write!(f, "{}: {}", port.name, port.width.unwrap())?;
         }
         Ok(())
     }
@@ -894,7 +889,8 @@ impl Program {
     /// Requires: `path` is a well-formed path.
     pub fn import<S: AsRef<str>>(&mut self, path: S) {
         self.imports.push(Import {
-            path: PathBuf::from_str(path.as_ref()).expect("malformed input path"),
+            path: PathBuf::from_str(path.as_ref())
+                .expect("malformed input path"),
         });
     }
 
