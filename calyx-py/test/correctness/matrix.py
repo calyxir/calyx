@@ -30,7 +30,7 @@ def insert_matmul_component(prog, n):
     add = matmul.add(32)
     acc = matmul.reg(32)
 
-    # iterators: i, j, k ∈ [0, n)
+    # Iterators: i, j, k ∈ [0, n)
     i = matmul.reg(3)
     j = matmul.reg(3)
     k = matmul.reg(3)
@@ -48,7 +48,7 @@ def insert_matmul_component(prog, n):
 
     # a := A[i][k]
     load_A = matmul.mem_load_d2(A, i.out, k.out, a, "read_A")
-    # latch B[k][j], so that we can later read `B.read_data` and get B[k][j]
+    # Latch B[k][j], so that we can later read `B.read_data` and get B[k][j].
     # While `mem_load` works on combinational and sequential memories,
     # `mem_latch` only works on combinational memories.
     latch_B = matmul.mem_latch_d2(B, k.out, j.out, "read_B")
@@ -60,12 +60,12 @@ def insert_matmul_component(prog, n):
 
     # acc := acc + (a * b), where b is the value latched at B
     with matmul.group("upd_acc") as upd_acc:
-        # compute a*b
+        # Compute a*b
         mult.go = 1
         mult.left = a.out
         mult.right = B.read_data
 
-        # compute acc + (a*b)
+        # Compute acc + (a*b)
         add.left = mult.done @ acc.out
         add.right = mult.done @ mult.out
 
