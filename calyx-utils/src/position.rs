@@ -232,7 +232,7 @@ impl GPosIdx {
         (name, pos_d.start, pos_d.end)
     }
 
-    /// Visualizes the span without any message or mkaring
+    /// Visualizes the span without any message or marking
     pub fn show(&self) -> String {
         let (lines, _, linum) = self.get_lines();
         let l = lines[0];
