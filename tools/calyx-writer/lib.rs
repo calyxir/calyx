@@ -782,7 +782,7 @@ impl Component {
         F: FnOnce(&mut IndentFormatter<'_, '_>) -> fmt::Result,
     {
         f.increase_indent();
-        writeln!(f, "{} {{", name.as_ref().to_string(),)?;
+        writeln!(f, "{} {{", name.as_ref(),)?;
         f.increase_indent();
         body(f)?;
         f.decrease_indent();
