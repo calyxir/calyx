@@ -1,10 +1,13 @@
 use std::path::Path;
+use tower_lsp::lsp_types::{self as lspt};
 
 use calyx_opt::{
     passes::{Papercut, SynthesisPapercut, WellFormed},
     traversal::{ConstructVisitor, DiagnosticPass, Visitor},
 };
 use resolve_path::PathResolveExt;
+
+use crate::document::Document;
 
 pub struct Diagnostic;
 
@@ -16,6 +19,7 @@ pub struct CalyxError {
     pub pos_start: usize,
     pub pos_end: usize,
     pub msg: String,
+    pub annotations: Vec<(String, usize, usize)>,
 }
 
 impl Diagnostic {
@@ -45,11 +49,13 @@ impl Diagnostic {
                 .map(|e| {
                     let (file_name, pos_start, pos_end) = e.location();
                     let msg = e.message();
+                    let annotations = e.annotations();
                     CalyxError {
                         file_name: file_name.to_string(),
                         pos_start,
                         pos_end,
                         msg,
+                        annotations,
                     }
                 })
                 .collect::<Vec<_>>())
@@ -62,7 +68,67 @@ impl Diagnostic {
                 pos_start,
                 pos_end,
                 msg,
+                annotations: vec![],
             }]
         })
+    }
+}
+
+impl CalyxError {
+    pub fn into_lspt_diagnostics(
+        self,
+        doc: &Document,
+    ) -> Vec<lspt::Diagnostic> {
+        // convert annotations into related information
+        // this however doesn't actually highlight the locations.
+        // instead is just shows up in the error tooltop in VSCode.
+        let related_information = self
+            .annotations
+            .iter()
+            .filter_map(|(msg, start, end)| {
+                doc.bytes_to_range(*start, *end).map(|range| {
+                    lspt::DiagnosticRelatedInformation {
+                        location: lspt::Location::new(
+                            doc.url.clone(),
+                            range.into(),
+                        ),
+                        message: msg.to_string(),
+                    }
+                })
+            })
+            .collect();
+
+        // also translate annotations into diagnostics
+        let annotation_diagnostics =
+            self.annotations.iter().filter_map(|(msg, start, end)| {
+                doc.bytes_to_range(*start, *end)
+                    .map(|range| lspt::Diagnostic {
+                        range: range.into(),
+                        severity: Some(lspt::DiagnosticSeverity::INFORMATION),
+                        code: None,
+                        code_description: None,
+                        source: Some("calyx-lsp".to_string()),
+                        message: msg.to_string(),
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    })
+            });
+
+        doc.bytes_to_range(self.pos_start, self.pos_end)
+            .map(|range| lspt::Diagnostic {
+                range: range.into(),
+                severity: Some(lspt::DiagnosticSeverity::ERROR),
+                code: None,
+                code_description: None,
+                source: Some("calyx-lsp".to_string()),
+                message: self.msg,
+                related_information: Some(related_information),
+                tags: None,
+                data: None,
+            })
+            .into_iter()
+            .chain(annotation_diagnostics)
+            .collect()
     }
 }

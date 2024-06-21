@@ -60,7 +60,7 @@ impl Debug {
 
 macro_rules! stdout {
     ($($t:tt)*) => {{
-        log::Debug::stdout(format!($($t)*))
+        crate::Debug::stdout(format!($($t)*))
     }};
 }
 

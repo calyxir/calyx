@@ -165,6 +165,15 @@ impl Error {
     pub fn message(&self) -> String {
         self.kind.to_string()
     }
+    pub fn annotations(&self) -> Vec<(String, usize, usize)> {
+        self.annotations
+            .iter()
+            .map(|(pos, msg)| {
+                let (_, s, e) = pos.get_location();
+                (msg.to_string(), s, e)
+            })
+            .collect()
+    }
 }
 
 /// Standard error type for Calyx errors.
