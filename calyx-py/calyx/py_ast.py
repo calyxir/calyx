@@ -212,6 +212,9 @@ class ThisPort(Port):
     def doc(self) -> str:
         return self.id.doc()
 
+    def name(self) -> str:
+        return self.id.name
+
 
 @dataclass
 class HolePort(Port):
@@ -361,6 +364,9 @@ class Atom(GuardExpr):
 
     def doc(self) -> str:
         return self.item.doc()
+
+    def name(self) -> str:
+        return self.item.name()
 
 
 @dataclass
