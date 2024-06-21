@@ -73,7 +73,7 @@ build kernel.xml: calyx _from_stdin_calyx.futil
 build xo.xo: gen-xo | main.sv toplevel.v kernel.xml gen_xo.tcl get-ports.py
 build xclbin.xclbin: compile-xclbin xo.xo
 build xrt_trace.ini: get-rsrc
-build _from_stdin_vcd.vcd: xclrun xclbin.xclbin $sim_data | emconfig.json pre_sim.tcl post_sim.tcl xrt_trace.ini
+build _to_stdout_vcd.vcd: xclrun xclbin.xclbin $sim_data | emconfig.json pre_sim.tcl post_sim.tcl xrt_trace.ini
   xrt_ini = xrt_trace.ini
 
-default _from_stdin_vcd.vcd
+default _to_stdout_vcd.vcd

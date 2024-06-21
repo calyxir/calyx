@@ -16,10 +16,10 @@ fn request(
     through: &[&str],
 ) -> Request {
     fud_core::exec::Request {
-        start_file: None,
-        start_state: driver.get_state(start).unwrap(),
-        end_file: None,
-        end_state: driver.get_state(end).unwrap(),
+        start_file: vec![],
+        start_state: vec![driver.get_state(start).unwrap()],
+        end_file: vec![],
+        end_state: vec![driver.get_state(end).unwrap()],
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
     }
@@ -44,10 +44,19 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
 
 /// Get a human-readable description of a request.
 fn req_desc(driver: &Driver, req: &Request) -> String {
-    let mut desc = format!(
-        "emit {} -> {}",
-        driver.states[req.start_state].name, driver.states[req.end_state].name
-    );
+    let input_states = req
+        .start_state
+        .iter()
+        .map(|&s| driver.states[s].name.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let output_states = req
+        .end_state
+        .iter()
+        .map(|&s| driver.states[s].name.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut desc = format!("emit {} -> {}", input_states, output_states);
     if !req.through.is_empty() {
         desc.push_str(" through");
         for op in &req.through {
@@ -60,13 +69,24 @@ fn req_desc(driver: &Driver, req: &Request) -> String {
 
 /// Get a short string uniquely identifying a request.
 fn req_slug(driver: &Driver, req: &Request) -> String {
-    let mut desc = driver.states[req.start_state].name.to_string();
+    let mut desc = req
+        .start_state
+        .iter()
+        .map(|&s| driver.states[s].name.clone())
+        .collect::<Vec<_>>()
+        .join("_");
     for op in &req.through {
         desc.push('_');
         desc.push_str(&driver.ops[*op].name);
     }
     desc.push('_');
-    desc.push_str(&driver.states[req.end_state].name);
+    let output_states = req
+        .end_state
+        .iter()
+        .map(|&s| driver.states[s].name.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    desc.push_str(&output_states);
     desc
 }
 

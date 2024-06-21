@@ -48,8 +48,8 @@ build verilog.sv: calyx _from_stdin_calyx.futil
 build verilator-out/VTOP: verilator-compile-standalone-tb verilog.sv | tb.sv
   out-dir = verilator-out
 build sim.exe: cp verilator-out/VTOP
-build sim.log _from_stdin_vcd.vcd: sim-run sim.exe $datadir
+build sim.log _to_stdout_vcd.vcd: sim-run sim.exe $datadir
   bin = sim.exe
-  args = +NOTRACE=0 +OUT=_from_stdin_vcd.vcd
+  args = +NOTRACE=0 +OUT=_to_stdout_vcd.vcd
 
-default _from_stdin_vcd.vcd
+default _to_stdout_vcd.vcd

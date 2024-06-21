@@ -46,6 +46,6 @@ build tmp-out.fir: calyx ref.futil
   args = --emit-primitive-extmodules
 build firrtl.fir: dummy tmp-out.fir tb.sv
 build partial.sv: firrtl firrtl.fir
-build _from_stdin_verilog-refmem.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
+build _to_stdout_verilog-refmem.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
 
-default _from_stdin_verilog-refmem.sv
+default _to_stdout_verilog-refmem.sv

@@ -236,15 +236,16 @@ impl Driver {
         };
 
         // make sure we have correct input/output filenames and mark if we read from stdio
-        if req.start_state == state_ref {
-            if let Some(ref start_file) = req.start_file {
+        if req.start_state.contains(&state_ref) {
+            let idx = req.start_state.partition_point(|&r| r == state_ref);
+            if let Some(start_file) = req.start_file.get(idx) {
                 return IO::File(utils::relative_path(
                     start_file,
                     &req.workdir,
                 ));
             } else {
                 return IO::StdIO(
-                    1,
+                    idx,
                     utils::relative_path(
                         &Utf8PathBuf::from(format!(
                             "_from_stdin_{}",
@@ -257,14 +258,21 @@ impl Driver {
             }
         }
 
-        if req.end_state == state_ref {
-            if let Some(ref end_file) = req.end_file {
-                return IO::File(end_file.clone());
+        if req.end_state.contains(&state_ref) {
+            let idx = req.end_state.partition_point(|&r| r == state_ref);
+            if let Some(end_file) = req.end_file.get(idx) {
+                return IO::File(utils::relative_path(end_file, &req.workdir));
             } else {
                 return IO::StdIO(
-                    1,
-                    Utf8PathBuf::from(format!("_from_stdin_{}", state.name))
+                    idx,
+                    utils::relative_path(
+                        &Utf8PathBuf::from(format!(
+                            "_to_stdout_{}",
+                            state.name
+                        ))
                         .with_extension(extension),
+                        &req.workdir,
+                    ),
                 );
             }
         }
@@ -288,7 +296,7 @@ impl Driver {
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
         let path =
-            self.find_path(&[req.start_state], &[req.end_state], &req.through)?;
+            self.find_path(&req.start_state, &req.end_state, &req.through)?;
 
         // Generate filenames for each step.
         let steps = path
@@ -317,7 +325,11 @@ impl Driver {
             .collect::<Vec<_>>();
 
         // get filesnames of outputs
-        let results = vec![self.gen_name(req.end_state, true, &req)];
+        let results = req
+            .end_state
+            .iter()
+            .map(|&s| self.gen_name(s, true, &req))
+            .collect::<Vec<_>>();
 
         Some(Plan {
             steps,
@@ -630,7 +642,7 @@ impl DriverBuilder {
 pub enum IO {
     // we order these so when they are sorted, StdIO comes first
     // the u32 is a rank used to know which files should be read from stdin first
-    StdIO(u32, Utf8PathBuf),
+    StdIO(usize, Utf8PathBuf),
     File(Utf8PathBuf),
 }
 

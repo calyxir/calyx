@@ -12,6 +12,6 @@ rule dahlia-to-calyx
   command = $dahlia-exe -b calyx --lower -l error $in -o $out
 
 # build targets
-build _from_stdin_calyx.futil: dahlia-to-calyx _from_stdin_dahlia.fuse
+build _to_stdout_calyx.futil: dahlia-to-calyx _from_stdin_dahlia.fuse
 
-default _from_stdin_calyx.futil
+default _to_stdout_calyx.futil

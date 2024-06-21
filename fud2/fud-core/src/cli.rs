@@ -187,10 +187,16 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         .collect();
 
     Ok(Request {
-        start_file: args.input.clone(),
-        start_state: from_state(driver, args)?,
-        end_file: args.output.clone(),
-        end_state: to_state(driver, args)?,
+        start_file: match &args.input {
+            Some(p) => vec![p.clone()],
+            None => vec![],
+        },
+        start_state: vec![from_state(driver, args)?],
+        end_file: match &args.output {
+            Some(p) => vec![p.clone()],
+            None => vec![],
+        },
+        end_state: vec![to_state(driver, args)?],
         through: through?,
         workdir,
     })

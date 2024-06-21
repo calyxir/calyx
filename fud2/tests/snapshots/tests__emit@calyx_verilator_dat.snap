@@ -51,6 +51,6 @@ build sim.exe: cp verilator-out/VTOP
 build sim.log: sim-run sim.exe $datadir
   bin = sim.exe
   args = +NOTRACE=1
-build _from_stdin_dat.json: json-data $datadir sim.log | json-dat.py
+build _to_stdout_dat.json: json-data $datadir sim.log | json-dat.py
 
-default _from_stdin_dat.json
+default _to_stdout_dat.json
