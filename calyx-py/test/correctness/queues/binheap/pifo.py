@@ -9,7 +9,7 @@ BOUNDARY = 200
 
 
 def insert_flow_inference(comp, value, flow, boundary, group):
-    """If the value to be pushed is less than or equal to `boundary`, the value 
+    """If the value to be pushed is less than or equal to `boundary`, the value
     belongs to flow A. Otherwise, the value belongs to flow B.
 
     This method adds a group to the component `comp` that does this.
@@ -45,18 +45,18 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
 
     Call our flows A and B, represented by 0 and 1 respectively.
     When popping, we pop one value from A, one from B, and so on.
-    If one class is silent and the other is active, we pop from the active class 
-    in FIFO order until the silent class starts up again. The erstwhile silent class 
+    If one class is silent and the other is active, we pop from the active class
+    in FIFO order until the silent class starts up again. The erstwhile silent class
     does not get any form of "credit" for the time it was silent.
 
-    We use `binheap`, a stable binary heap, rank pointers `r_a` and `r_b`, and a 1-bit 
-    signal `turn`. The pointers `r_a` and `r_b` represent the rank assigned to the 
-    next pushed value from flows A and B respectively. The signal `turn` stores 
+    We use `binheap`, a stable binary heap, rank pointers `r_a` and `r_b`, and a 1-bit
+    signal `turn`. The pointers `r_a` and `r_b` represent the rank assigned to the
+    next pushed value from flows A and B respectively. The signal `turn` stores
     which flow's turn it is.
     - `turn` is initialized to 0 (i.e. flow A).
     - `r_a` is initialized to 0.
     - `r_b` is initialized to 1.
-    - To push value `v_a` (resp. `v_b`) from flow A (resp. B), 
+    - To push value `v_a` (resp. `v_b`) from flow A (resp. B),
         - we push `(r_a, v_a)` (resp. `(r_b, v_b)`) to `binheap`.
         - Then, `r_a += 2` (resp. `r_b += 2`).
     - To pop, we pop `binheap`; say we obtain `v`.
@@ -64,7 +64,8 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
         - Otherwise, if `v` belongs to flow A (resp. B), `r_b += 2` (resp. `r_a += 2`).
     - To peek, we peek `binheap`.
 
-    This mechanism for moving `r_a` and `r_b` ensures flows A and B are interleaved correctly.
+    This mechanism for moving `r_a` and `r_b` ensures flows A and B are
+    interleaved correctly.
     """
     comp = prog.component(name)
 
@@ -98,55 +99,46 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
     r_b_incr_2 = comp.incr(r_b, 2)
 
     turn = comp.reg(1, "turn")
-    turn_neq_flow_out = comp.neq_use(turn.out, flow_out.out)
+    turn_eq_flow_out = comp.eq_use(turn.out, flow_out.out)
 
     init = comp.reg(1, "init")
     init_eq_0 = comp.eq_use(init.out, 0)
 
+    def binheap_invoke_helper(value, rank):
+        return cb.invoke(
+            binheap,
+            in_value=value,
+            in_rank=rank,
+            in_cmd=cmd,
+            ref_ans=ans,
+            ref_err=err,
+        )
 
     comp.control += [
         cb.if_with(init_eq_0, [comp.reg_store(r_b, 1), comp.incr(init)]),
         infer_flow_in,
         cb.if_(
             flow_in.out,
-            cb.invoke(
-                binheap,
-                in_value=value,
-                in_rank=r_b.out,
-                in_cmd=cmd,
-                ref_ans=ans,
-                ref_err=err,
-            ),
-            cb.invoke(
-                binheap,
-                in_value=value,
-                in_rank=r_a.out,
-                in_cmd=cmd,
-                ref_ans=ans,
-                ref_err=err,
-            ),
+            binheap_invoke_helper(value, r_b.out),
+            binheap_invoke_helper(value, r_a.out),
         ),
-        cb.if_with(err_eq_0,
-               [
-                   infer_flow_out,
-                   cb.if_with(
-                       cmd_eq_0,
-                       cb.if_with(
-                           turn_neq_flow_out,
-                           cb.if_(flow_out.out, r_a_incr_2, r_b_incr_2),
-                           comp.incr(turn),
-                       )
-                   ),
-                   cb.if_with(
-                       cmd_eq_2, 
-                       cb.if_(
-                           flow_in.out, 
-                           r_b_incr_2, 
-                           r_a_incr_2
-                       )
-                   )
-               ]
-        )
+        cb.if_with(
+            err_eq_0,
+            [
+                cb.if_with(
+                    cmd_eq_0,
+                    [
+                        infer_flow_out,
+                        cb.if_with(
+                            turn_eq_flow_out,
+                            comp.incr(turn),
+                            cb.if_(flow_out.out, r_a_incr_2, r_b_incr_2),
+                        ),
+                    ],
+                ),
+                cb.if_with(cmd_eq_2, cb.if_(flow_in.out, r_b_incr_2, r_a_incr_2)),
+            ],
+        ),
     ]
 
     return comp
