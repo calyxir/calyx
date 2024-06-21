@@ -250,6 +250,13 @@ pub enum FSMTree {
 }
 
 impl FSMTree {
+    pub fn instantiate_fsms(&mut self, builder: &mut ir::Builder) {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.instantiate_fsms(builder),
+            FSMTree::Par(par_struct) => par_struct.instantiate_fsms(builder),
+        }
+    }
+
     pub fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,
@@ -402,6 +409,19 @@ pub struct Tree {
 }
 
 impl Tree {
+    fn instantiate_fsms(&mut self, builder: &mut ir::Builder) {
+        // Build parent FSM for the "root" of the tree.
+        let fsm_cell = StaticFSM::from_basic_info(
+            self.num_states,
+            FSMEncoding::Binary, // XXX(Caleb): change this
+            builder,
+        );
+        self.fsm_cell = Some(ir::rrc(fsm_cell));
+        for (child, _) in &mut self.children {
+            child.instantiate_fsms(builder);
+        }
+    }
+
     fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,
@@ -420,13 +440,7 @@ impl Tree {
 
         // res_vec will contain the assignments that count to n.
         let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
-        // Build parent FSM for the "root" of the tree.
-        let fsm_cell = StaticFSM::from_basic_info(
-            self.num_states,
-            FSMEncoding::Binary, // XXX(Caleb): change this
-            builder,
-        );
-        self.fsm_cell = Some(ir::rrc(fsm_cell));
+
         let parent_fsm = Rc::clone(
             &self
                 .fsm_cell
@@ -1046,6 +1060,12 @@ pub struct ParTree {
 }
 
 impl ParTree {
+    pub fn instantiate_fsms(&mut self, builder: &mut ir::Builder) {
+        for (child, _) in &mut self.threads {
+            child.instantiate_fsms(builder);
+        }
+    }
+
     pub fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,

@@ -819,6 +819,7 @@ impl CompileStatic {
             );
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
+            fsm_tree.instantiate_fsms(builder);
             fsm_tree.count_to_n(builder, Some(comp_go));
             fsm_tree.realize(
                 static_groups,
@@ -958,6 +959,7 @@ impl Visitor for CompileStatic {
                     &mut builder,
                 )?;
             } else {
+                tree.instantiate_fsms(&mut builder);
                 tree.count_to_n(&mut builder, None);
                 tree.realize(
                     &sgroups,
