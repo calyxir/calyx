@@ -20,7 +20,7 @@ impl fmt::Display for ParseNumTypeError {
 
 impl Error for ParseNumTypeError {}
 
-#[derive(Debug, PartialEq)] // Add PartialEq derivation here - What is this?
+#[derive(Debug, PartialEq, Clone, Copy)] // Add PartialEq derivation here - What is this?
 enum NumType {
     Binary,
     Float,
@@ -73,95 +73,85 @@ struct Arguments {
     totype: NumType,
 
     /// optional exponent for fixed_to_binary -> default is -1
-    #[argh(option, default = "-1.")]
-    exp: f32,
+    #[argh(option, default = "-1")]
+    exp: i32,
 }
 
 fn main() {
     let args: Arguments = argh::from_env();
 
-    convert(&args.from, &args.to, &args.ftype, &args.totype, args.exp);
+    convert(&args.from, &args.to, args.ftype, args.totype, args.exp);
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
 /// [convert_to] in [filepath_send]
-///
+
 /// # Arguments
 ///
-/// * `float_string` - A string slice containing the floating-point number to be converted.
-/// * `filepath_send` - A mutable reference to a `File` where the binary representation
-///   will be appended.
+/// * `filepath_get` - A reference to a `String` representing the path to the input file
+///   containing data to be converted.
+/// * `filepath_send` - A reference to a `String` representing the path to the output file
+///   where the converted data will be written.
+/// * `convert_from` - A reference to a `NumType` enum indicating the type of the input data.
+/// * `convert_to` - A reference to a `NumType` enum indicating the type of the output data.
+/// * `exponent` - An `i32` value used as the exponent for conversions involving fixed-point numbers.
 ///
 /// # Returns
 ///
-/// Returns `Ok` if the operation is successful, or an `Err` if an I/O error occurs while
-/// writing to the file.
-///
-/// # Panics
-///
-/// Panics if the input string cannot be parsed as a floating-point number.
-///
-/// # Example
-///
-/// ```rust
-/// use std::fs::File;
-///
-/// let mut file = File::create("output.txt").expect("Failed to create file");
-/// float_to_binary("3.14", &mut file).expect("Failed to convert float to binary");
-/// ```
+/// Returns `Ok(())` if the conversion and file writing operations are successful,
+/// or an `Err` if an I/O error occurs during the process.
 fn convert(
     filepath_get: &String,
     filepath_send: &String,
-    convert_from: &NumType,
-    convert_to: &NumType,
-    exponent: f32,
+    convert_from: NumType,
+    convert_to: NumType,
+    exponent: i32,
 ) {
-    // Create a file called converted.txt
+    // Create the output file
     let mut converted = File::create(filepath_send).expect("creation failed");
 
-    if *convert_to == NumType::Binary {
-        //Convert from hex to binary
-        if *convert_from == NumType::Hex {
+    match (convert_from, convert_to) {
+        (NumType::Hex, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 hex_to_binary(line, &mut converted)
                     .expect("Failed to write binary to file");
             }
-        //Convert from float to binary
-        } else if *convert_from == NumType::Float {
+        }
+        (NumType::Float, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 float_to_binary(line, &mut converted)
                     .expect("Failed to write binary to file");
             }
-        } else if *convert_from == NumType::Fixed {
+        }
+        (NumType::Fixed, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 fixed_to_binary(line, &mut converted, exponent)
                     .expect("Failed to write binary to file");
             }
         }
-    } else if *convert_to == NumType::Hex {
-        //Convert from binary to hex
-        if *convert_from == NumType::Binary {
+        (NumType::Binary, NumType::Hex) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 binary_to_hex(line, &mut converted)
                     .expect("Failed to write hex to file");
             }
         }
-    } else if *convert_to == NumType::Float {
-        //Convert from binary to float
-        if *convert_from == NumType::Binary {
+        (NumType::Binary, NumType::Float) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 binary_to_float(line, &mut converted)
                     .expect("Failed to write float to file");
             }
         }
-    } else if *convert_to == NumType::Fixed {
-        // Convert from binary to fixed
-        if *convert_from == NumType::Binary {
+        (NumType::Binary, NumType::Fixed) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 binary_to_fixed(line, &mut converted, exponent)
-                    .expect("Failed to write float to file");
+                    .expect("Failed to write fixed-point to file");
             }
         }
+        _ => panic!(
+            "Conversion from {} to {} is not supported",
+            convert_from.to_string(),
+            convert_to.to_string()
+        ),
     }
 
     eprintln!(
@@ -252,17 +242,13 @@ fn float_to_binary(
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
 ///
-/// # Panics
+/// # Error
 ///
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
 fn hex_to_binary(hex_string: &str, filepath_send: &mut File) -> io::Result<()> {
     // Convert hex to binary
-    let binary_of_hex = match u32::from_str_radix(hex_string, 16) {
-        Ok(value) => value,
-        Err(err) => {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, err))
-        }
-    };
+    let binary_of_hex = u32::from_str_radix(hex_string, 16)
+        .expect("Failed to parse hex string");
 
     // Format nicely
     let formatted_binary_str = format!("{:b}", binary_of_hex);
@@ -300,12 +286,9 @@ fn binary_to_hex(
     binary_string: &str,
     filepath_send: &mut File,
 ) -> io::Result<()> {
-    let hex_of_binary = match u32::from_str_radix(binary_string, 2) {
-        Ok(value) => value,
-        Err(err) => {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, err))
-        }
-    };
+
+    let hex_of_binary = u32::from_str_radix(binary_string, 2)
+        .expect("Failed to parse binary string");
 
     let formatted_hex_str = format_hex(hex_of_binary);
 
@@ -342,12 +325,8 @@ fn binary_to_float(
     binary_string: &str,
     filepath_send: &mut File,
 ) -> io::Result<()> {
-    let binary_value = match u32::from_str_radix(binary_string, 2) {
-        Ok(value) => value,
-        Err(err) => {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, err))
-        }
-    };
+    let binary_value = u32::from_str_radix(binary_string, 2)
+        .expect("Failed to parse binary string");
 
     // Interpret the integer as the binary representation of a floating-point number
     let float_value = f32::from_bits(binary_value);
@@ -387,7 +366,7 @@ fn binary_to_float(
 fn fixed_to_binary(
     fixed_string: &str,
     filepath_send: &mut File,
-    exponent: f32,
+    exp_int: i32,
     // scale: usize,
 ) -> io::Result<()> {
     // Convert fixed value from string to int
@@ -398,6 +377,9 @@ fn fixed_to_binary(
             panic!("Bad fixed value input")
         }
     }
+
+    //exponent int to float so we can multiply 
+    let exponent = exp_int as f32;
 
     // Exponent math
     let multiplied_fixed = fixed_value * 2_f32.powf(-exponent);
@@ -444,7 +426,7 @@ fn fixed_to_binary(
 fn binary_to_fixed(
     binary_string: &str,
     filepath_send: &mut File,
-    exponent: f32,
+    exp_int: i32,
 ) -> io::Result<()> {
     // Create an array with the elements of fixed_string
     let words: Vec<&str> = binary_string.split_whitespace().collect();
@@ -459,6 +441,9 @@ fn binary_to_fixed(
 
     // Convert to fixed
     let int_of_binary = binary_value as f32;
+
+    //exponent int to float so we can multiply 
+    let exponent = exp_int as f32;
 
     // Exponent math
     let divided: f32 = int_of_binary / 2_f32.powf(-exponent);
