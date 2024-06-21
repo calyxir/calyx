@@ -1,4 +1,4 @@
-from calyx.builder import Builder, add_comp_ports, invoke, par, while_, if_
+from calyx.builder import Builder, add_comp_ports, invoke, const, par, while_with, if_
 from typing import Literal
 from math import log2
 import json
@@ -202,10 +202,8 @@ def add_bresp_channel(prog):
 
 
 def add_read_controller(prog, mems):
-
     add_arread_channel(prog)
     add_read_channel(prog)
-    add_bresp_channel(prog)
 
     read_controller = prog.component("read_controller")
     read_controller_inputs = [
@@ -235,7 +233,7 @@ def add_read_controller(prog, mems):
     # Registers
     raddr = read_controller.reg(16, "raddr")
 
-    generate_control_registers(read_controller, mems)
+    generate_control_registers(read_controller, mems, as_refs=True)
 
     # Helps construct our case control blocks below.
     # This method returns an invocation of the r_channel that
@@ -258,7 +256,7 @@ def add_read_controller(prog, mems):
     read_controller.control += [
         invoke(
             ar_channel,
-            ref_r_addr = raddr,
+            ref_r_addr=raddr,
             in_ARESETn=read_controller.this()["ARESETn"],
             in_ARVALID=read_controller.this()["ARVALID"],
             in_ARADDR=read_controller.this()["ARADDR"],
@@ -304,7 +302,7 @@ def add_write_controller(prog, mems):
 
     # Registers
     w_addr = write_controller.reg(16, "w_addr")
-    generate_control_registers(write_controller, mems)
+    generate_control_registers(write_controller, mems, as_refs=True)
 
     # Invocation thats writes what is on WDATA to `reg`
     def invoke_write_channel(reg):
@@ -338,7 +336,6 @@ def add_write_controller(prog, mems):
             out_BRESP=write_controller.this()["BRRESP"],
         ),
     ]
-    
 
 
 def get_xrt_case_dict(invoke_function, controller, mems):
@@ -357,51 +354,46 @@ def get_xrt_case_dict(invoke_function, controller, mems):
         args_addr += 8  # 64 bit addr per kernel argument is 8 bytes
     return case_dict
 
+
 # Add XRT specified control registers and appropriate base_address registers for each memory
 # to `component`
-def generate_control_registers(component, mems):
+# Returns list of control registers for easy access to iterate through
+def generate_control_registers(component, mems, as_refs : bool):
     # XRT registers. We currently ignore everything except control and kernel argument registers
-    component.reg(32, "control", is_ref=True)
-    
-    #We only need these if we want to support interrupts
+    control_regs = [component.reg(32, "control", as_refs)]
+
+    # We only need these if we want to support interrupts
     # # Global Interrupt Enable
-    # component.reg(32, "gie", is_ref=True)
+    # component.reg(32, "gie", as_refs)
     # # IP Interrupt Enable
-    # component.reg(32, "iie", is_ref=True)
+    # component.reg(32, "iie", as_refs)
     # # IP Interrupt Status
-    # component.reg(32, "iis", is_ref=True)
+    # component.reg(32, "iis", as_refs)
 
     # These hold the base address of the memory mappings on the host
     # Kernel Arguments
     for mem in mems:
-        component.reg(64, f"{mem['name']}_base_addr", is_ref=True)
+        control_regs.append(component.reg(64, f"{mem['name']}_base_addr", as_refs))
+    return control_regs
 
 
 # Ports must be named `s_axi_control_*` and is case sensitive.
 def add_control_subordinate(prog, mems):
-
     add_read_controller(prog, mems)
     add_write_controller(prog, mems)
     control_subordinate = prog.component("control_subordinate")
     control_subordinate_inputs = [
         ("ARESETn", 1),
         ("AWVALID", 1),
-        (
-            "AWADDR",
-            16,
-        ),  # XRT imposes a 16-bit address space for the control subordinate
+        # XRT imposes a 16-bit address space for the control subordinate
+        ("AWADDR", 16),
         # ("AWPROT", 3), #We don't do anything with this
         ("WVALID", 1),
-        (
-            "WDATA",
-            32,
-        ),  # Want to use 32 bits because the registers in XRT are asusemd to be this size
-        (
-            "WSTRB",
-            32 / 8,
-        )(  # We don't use this but it is required by some versions of the spec. We should tie high on subordinate.
-            "BREADY", 1
-        ),
+        # Want to use 32 bits because the registers in XRT are asusemd to be this size
+        ("WDATA", 32),
+        # We don't use this but it is required by some versions of the spec. We should tie high on subordinate.
+        ("WSTRB", 32 / 8),
+        ("BREADY", 1),
         ("ARVALID", 1),
         ("ARADDR", 16),
         # ("ARPROT", 3), #We don't do anything with this
@@ -416,17 +408,23 @@ def add_control_subordinate(prog, mems):
         ("ARREADY", 1),
         ("RDATA", 32),
         ("RRESP", 2),  # No error detection, for now we just set to 0b00 = OKAY.
+        ("ap_start", 1),
+        ("ap_done", 1),
     ]
 
-    add_comp_ports(control_subordinate, control_subordinate_inputs, control_subordinate_outputs)
+    add_comp_ports(
+        control_subordinate, control_subordinate_inputs, control_subordinate_outputs
+    )
 
     # Cells
-    control = control_subordinate.reg(32, "control")
-    #TODO: It could be nice to add to builder a way to access bits directly.
+    # Registers for control
+    control_regs = generate_control_registers(control_subordinate, mems, as_refs=False)
+    # TODO: It could be nice to add to builder a way to access bits directly.
     # Currently: need to hook up these wires manually
-    ap_start = control_subordinate.bit_slice("ap_start", 32, 0,0)
-    ap_done = control_subordinate.bit_slice("ap_done", 32, 1,1)
-    
+    ap_start = control_subordinate.bit_slice("ap_start", 32, 0, 0, 1)
+    ap_done = control_subordinate.bit_slice("ap_done", 32, 1, 1, 1)
+
+
     read_controller = control_subordinate.cell(
         f"read_controller", prog.get_component("read_controller")
     )
@@ -434,8 +432,73 @@ def add_control_subordinate(prog, mems):
         f"write_controller", prog.get_component("write_controller")
     )
 
+    # Wires
+    xrt_control_reg = control_subordinate.get_cell("control")
+    
+    with control_subordinate.continuous:
+        # NOTE (nate): There must be a better away of hooking up a components ports to
+        # a cell's ports within the component. Unfortunately I don't think the builders existing
+        # `build_connections` does exactly what we want here.
+        this = control_subordinate.this()
+
+        # Connections from sub-controllers to control subordinate.
+        #   Inputs
+        write_controller["ARESETn"] = this["ARESETn"]
+        write_controller["AWVALID"] = this["AWVALID"]
+        write_controller["AWADDR"] = this["AWADDR"]
+        write_controller["AWPROT"] = const(3, 0b110) #Tie to priveleged, nonsecure, data access request
+        write_controller["WVALID"] = this["WVALID"]
+        write_controller["WDATA"] = this["WDATA"]
+        write_controller["WSTRB"] = this["WSTRB"]
+        write_controller["BREADY"] = this["BREADY"]
+
+        read_controller["ARESETn"] = this["ARESETn"]
+        read_controller["ARVALID"] = this["ARVALID"]
+        read_controller["ARADDR"] = this["ARADDR"]
+        read_controller["ARPROT"] = const(3, 0b110) #Tie to priveleged, nonsecure, data access request.
+        read_controller["RREADY"] = this["RREADY"]
+
+        #   Outputs
+        this["AWREADY"] = write_controller["AWREADY"]
+        this["WREADY"] = write_controller["WREADY"]
+        this["BVALID"] = write_controller["BVALID"]
+        this["BRESP"] = write_controller["BRRESP"]
+        this["ARREADY"] = read_controller["ARREADY"]
+        this["RDATA"] = read_controller["RDATA"]
+        this["RRESP"] = read_controller["RRESP"]
 
 
+        # XRT Wiring stuff
+        ap_start.in_ = xrt_control_reg.out
+        ap_done.in_ = xrt_control_reg.out
+        control_subordinate.this()
+
+    with control_subordinate.group("init_control_regs") as init_control_regs:
+        for reg in control_regs:
+            reg.in_ = 0
+
+        init_control_regs.done = xrt_control_reg.done
+
+    sub_controller_kwargs = {}
+    for reg in control_regs:
+        sub_controller_kwargs[f"ref_{reg.name}"] = reg
+    # Control
+    read_controller_invoke = invoke(
+        read_controller,
+        **sub_controller_kwargs
+    )
+
+    write_controller_invoke = invoke(
+        write_controller,
+        **sub_controller_kwargs
+    )
+        
+    n_ap_done = control_subordinate.not_use(ap_done.out, "n_ap_done")
+
+    control_subordinate.control += [
+        init_control_regs,
+        while_with(n_ap_done, par(read_controller_invoke, write_controller_invoke)),
+    ]
 
 
 #########################################
@@ -470,10 +533,8 @@ def clog2_or_1(x):
 
 def build():
     prog = Builder()
-    #TODO: All of these should be called heirarchically from add_control_subordinate
     check_mems_welformed(mems)
-    add_read_controller(prog, mems)
-    add_write_controller(prog, mems)
+    add_control_subordinate(prog, mems)
     return prog.program
 
 
