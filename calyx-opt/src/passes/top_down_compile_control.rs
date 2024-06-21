@@ -547,22 +547,24 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // fsm registers; hence, all registers must be updated if `duplicate` is chosen
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
+                // get a transition guard for the first fsm register, and apply it to every fsm register
+                let state_guard = Self::build_query(
+                    self.builder,
+                    used_slicers_vec.get_mut(0).expect(
+                        "the used slicer map at this index 0 does not exist",
+                    ),
+                    &fsm_rep,
+                    fsms.first().expect("register 0 does not exist"),
+                    &signal_on,
+                    &s,
+                    &fsm_size,
+                );
+
                 // add transitions for every fsm register to ensure consistency between each
                 fsms.iter()
-                    .enumerate()
-                    .flat_map(|(i, fsm)| {
-                        let state_guard = Self::build_query(
-                        self.builder,
-                        used_slicers_vec.get_mut(i).expect(
-                            "the used slicer map at this index does not exist",
-                        ),
-                        &fsm_rep,
-                        fsm,
-                        &signal_on,
-                        &s,
-                        &fsm_size,
-                    );
-                        let trans_guard = state_guard.and(guard.clone());
+                    .flat_map(|fsm| {
+                        let trans_guard =
+                            state_guard.clone().and(guard.clone());
                         let end_const = match fsm_rep.encoding {
                             RegisterEncoding::Binary => {
                                 self.builder.add_constant(e, fsm_size)
