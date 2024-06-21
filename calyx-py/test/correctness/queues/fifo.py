@@ -82,18 +82,16 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
         ],
     )
 
-    fifo.control += cb.par(
-        # Was it a pop, peek, push, or an invalid command?
-        # We can do those four cases in parallel.
-        fifo.case(
-            cmd,
-            {
-                0: pop_logic,
-                1: peek_logic,
-                2: push_logic,
-                3: raise_err,
-            },
-        ),
+    # Was it a pop, peek, push, or an invalid command?
+    # We can do those four cases in parallel.
+    fifo.control += fifo.case(
+        cmd,
+        {
+            0: pop_logic,
+            1: peek_logic,
+            2: push_logic,
+            3: raise_err,
+        },
     )
 
     return fifo

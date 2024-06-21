@@ -99,41 +99,39 @@ component fifo(cmd: 2, value: 32) -> () {
   }
   control {
     par {
-      par {
-        if cmd_eq_0.out {
-          if eq_4.out with eq_4_group {
-            raise_err;
-          } else {
-            seq {
-              read_payload_from_mem_pop;
-              reg_2_incr_1_5_group;
-              reg_3_decr_1_6_group;
-            }
-          }
-        }
-        if cmd_eq_1.out {
-          if eq_7.out with eq_7_group {
-            raise_err;
-          } else {
-            seq {
-              read_payload_from_mem_peek;
-            }
-          }
-        }
-        if cmd_eq_2.out {
-          if eq_8.out with eq_8_group {
-            raise_err;
-          } else {
-            seq {
-              write_payload_to_mem;
-              reg_1_incr_1_9_group;
-              reg_3_incr_1_10_group;
-            }
-          }
-        }
-        if cmd_eq_3.out {
+      if cmd_eq_0.out {
+        if eq_4.out with eq_4_group {
           raise_err;
+        } else {
+          seq {
+            read_payload_from_mem_pop;
+            reg_2_incr_1_5_group;
+            reg_3_decr_1_6_group;
+          }
         }
+      }
+      if cmd_eq_1.out {
+        if eq_7.out with eq_7_group {
+          raise_err;
+        } else {
+          seq {
+            read_payload_from_mem_peek;
+          }
+        }
+      }
+      if cmd_eq_2.out {
+        if eq_8.out with eq_8_group {
+          raise_err;
+        } else {
+          seq {
+            write_payload_to_mem;
+            reg_1_incr_1_9_group;
+            reg_3_incr_1_10_group;
+          }
+        }
+      }
+      if cmd_eq_3.out {
+        raise_err;
       }
     }
   }
