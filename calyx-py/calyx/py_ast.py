@@ -176,10 +176,12 @@ class CompAttribute(Attribute):
     def doc(self) -> str:
         return f'"{self.name}"={self.value}'
 
+
 @dataclass
 class PortAttribute(Attribute):
     name: str
     value: Optional[int] = None
+
 
 @dataclass
 class PortAttribute(Attribute):

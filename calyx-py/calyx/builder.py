@@ -208,7 +208,7 @@ class ComponentBuilder:
         else:
             self.component.controls = builder
 
-    #NOTE: Could also be a GroupBuilder
+    # NOTE: Could also be a GroupBuilder
     Controllable = Union[ast.Control, str, ast.Group, list, set, ast.Empty, None]
 
     def case(
