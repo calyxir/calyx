@@ -186,59 +186,166 @@ def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
 
 @dataclass
 class NPifo:
-    """
-    """
-    def __init__(self, n, boundary, max_len: int, error_mode=True):
-        self.data = []
-        for i in range(n):
-            queue = Fifo(max_len)
-            self.data.append(queue)
-        self.hot = 0
-        self.n_flows = n
-        self.pifo_len = 0
-        divide = (boundary * 2) // n_flows
-        self.boundaries = []
-        for i in range(n):
-            bound = divide + (divide * n)
-            self.boundaries.append(bound)
+   """
+   """
+   def __init__(self, n, boundaries, max_len: int, error_mode=True):
+       self.data = []
+       
+       self.hot = 0
+       self.n_flows = n
+       self.pifo_len = 0
+       self.boundaries = boundaries
+       self.active = [] #keeps track of the individual lengths of each subqueue
+       for i in range(n):
+           queue = Fifo(max_len)
+           self.data.append(queue)
+           self.active.append(0)
 
-        self.max_len = max_len
-        self.error_mode = error_mode
-        assert (
-            self.pifo_len <= self.max_len
-        )  # We can't be initialized with a PIFO that is too long.
+    #    for i in range(n):
+    #        bound = divide + (divide * i)
+    #        self.boundaries.append(bound)
+       print(self.boundaries)
 
-    def push(self, val: int):
-        """Pushes `val` to the PIFO."""
-        if self.pifo_len == self.max_len:
-            if self.error_mode:
-                raise QueueError("Cannot push to full PIFO.")
-            return
-        for b in range(len(self.boundaries)):
-            if val <= self.boundaries[b]:
-                self.data[b].push(val)
-                break
-
-        self.pifo_len += 1
-
-    def pop(self) -> Optional[int]:
-        """Pops the PIFO."""
-        if self.pifo_len == 0:
-            if self.error_mode:
-                raise QueueError("Cannot pop from empty PIFO.")
-            return None
-        self.pifo_len -= 1  # We decrement `pifo_len` by 1.
-
-        result = None
-        while result is None: # We want to loop until we find the first subqueue that is nonempty
-            try:
-                val = self.data[self.hot].pop()
-                if self.hot == (n_flows - 1): # handle wrap around when updating hot
-                    self.hot = 0
-                else:
-                    self.hot = self.hot + 1
-                return val
-            except QueueError:
-                pass
+       self.max_len = max_len
+       self.error_mode = error_mode
+       assert (
+           self.pifo_len <= self.max_len
+       )  # We can't be initialized with a PIFO that is too long.
 
 
+   def push(self, val: int):
+       """Pushes `val` to the PIFO."""
+       if self.pifo_len == self.max_len:
+          if self.error_mode:
+            raise QueueError("Cannot push to full PIFO.")
+          return
+       for b in range(len(self.boundaries)):
+          if val <= self.boundaries[b]:
+            self.data[b].push(val)
+            print("push " + str(b))
+            self.active[b] = self.active[b] + 1
+            break
+
+       self.pifo_len += 1
+       
+
+   def increment_hot(self):
+       """
+       """
+       if self.hot == (self.n_flows - 1): # handle wrap around when updating hot
+            self.hot = 0
+       else:
+            self.hot = self.hot + 1
+
+   def sub_pop(self, pop) -> Optional[int]:
+       """
+       """
+       original_hot = self.hot
+       
+       i = 0
+       while i < self.n_flows: 
+           i += 1
+           try:
+               self.increment_hot()
+               if pop:          
+                   val = self.data[self.hot].pop()
+               else:
+                   val = self.data[self.hot].peek()
+               self.hot = original_hot # pop was a success, now reset hot to orginal value
+               return val
+           except QueueError:
+               pass
+
+       #at end of method, reset hot to original value
+       self.hot = original_hot
+
+        
+   def pop(self) -> Optional[int]:
+       """Pops the PIFO."""
+       print("pop " + str(self.hot))
+       if self.pifo_len == 0:
+           if self.error_mode:
+               raise QueueError("Cannot pop from empty PIFO.")
+           return None
+       self.pifo_len -= 1  # We decrement `pifo_len` by 1.
+       original_hot = self.hot
+
+       if len(self.data[self.hot]) > 0:
+            val = self.data[self.hot].pop()
+       
+       elif len(self.data[self.hot]) > 0:
+            self.increment_hot()
+            val = self.data[self.hot].pop()
+
+       else:
+            self.increment_hot()
+            val = self.data[self.hot].pop()
+
+       self.hot = original_hot
+       self.increment_hot()
+       return val
+
+
+
+   def peek(self) -> Optional[int]:
+       """Peeks into the PIFO."""
+       print("peek " + str(self.hot))
+       if self.pifo_len == 0:
+           raise QueueError("Cannot peek into empty PIFO.")
+
+       original_hot = self.hot
+
+       if len(self.data[self.hot]) > 0:  
+            val = self.data[self.hot].peek()
+            self.increment_hot()
+       elif len(self.data[self.hot]) > 0:
+            val = self.data[self.hot].peek()
+            self.increment_hot()
+       else:
+            val = self.data[self.hot].peek()
+
+       self.hot = original_hot
+       return val
+
+
+
+   def __len__(self) -> int:
+       return self.pifo_len
+
+
+   def operate_queue(commands, values, queue, max_cmds, keepgoing=True):
+       """Given the two lists, one of commands and one of values.
+       Feed these into our queue, and return the answer memory.
+       """
+       ans = []
+       for cmd, val in zip(commands, values):
+           if cmd == 0:
+               try:
+                   ans.append(queue.pop())
+               except QueueError:
+                   if keepgoing:
+                       continue
+                   break
+
+
+           elif cmd == 1:
+               try:
+                   ans.append(queue.peek())
+               except QueueError:
+                   if keepgoing:
+                       continue
+                   break
+
+
+           elif cmd == 2:
+               try:
+                   queue.push(val)
+               except QueueError:
+                   if keepgoing:
+                       continue
+                   break
+
+
+       # Pad the answer memory with zeroes until it is of length `max_cmds`.
+       ans += [0] * (max_cmds - len(ans))
+       return ans
