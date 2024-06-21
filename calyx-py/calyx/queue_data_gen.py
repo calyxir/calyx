@@ -83,8 +83,8 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
     }
     values = {
         "values": {
-            "data": [random.randint(1, 400) for _ in range(num_cmds)],
-            # The `values` memory has `num_cmds` items, whihc are all
+            "data": [random.randint(0, 400) for _ in range(num_cmds)],
+            # The `values` memory has `num_cmds` items, which are all
             # random values between 0 and 400.
             "format": format_gen(32),
         }
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     # This says whether we should use the special no_err helper.
     random.seed(5)
     num_cmds = int(sys.argv[1])
-    no_err = len(sys.argv) > 2 and sys.argv[2] == "--no-err"
+    no_err = "--no-err" in sys.argv
     if no_err:
         queue_size = int(sys.argv[3])
     dump_json(num_cmds, no_err, queue_size if no_err else None)

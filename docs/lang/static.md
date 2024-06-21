@@ -27,29 +27,30 @@ We will now discuss the static constructs available in the Calyx IL, along with 
 
 ### Static Components
 
-Briefly consider a divider component, `std_div`, which divides the value `left` by the value `right` and puts the result in `out`.
+Briefly consider a divider component, `std_div_pipe`, which divides the value `left` by the value `right` and puts the result, which is in two parts, in two `out` ports.
 This component is dynamic; its latency is unknown.
 ```
-primitive std_div[W](go: 1, left: W, right: W) -> (out: W, done: 1);
+primitive std_div_pipe[W](go: 1, left: W, right: W) -> (out_remainder: W, out_quotient: W, done: 1);
 ```
 A client of the divider must pass two inputs `left` and `right`, raise the `go` signal, and wait for the component itself to raise its `done` signal.
-The client can then read the result from the `out` port.
+The client can then read the result from the two `out` ports.
 That is, it obeys the [go-done interface][go-done-interface].
 
-Compare this to a multiplier component, `std_mult`, which has a similar signature but whose latency is known to be three cycles.
+Compare this to a multiplier component, `std_mult_pipe`, which has a similar signature but whose latency is known to be three cycles.
 We declare it as follows:
 ```
-static<3> primitive std_mult[W](go: 1, left: W, right: W) -> (out: W);
+static<3> primitive std_mult_pipe[W](go: 1, left: W, right: W) -> (out: W);
 ```
+The fact that the multiplier has one `out` port while the divider has two is not relevant to the discussion.
 
-The key differences are:
+The differences that _do_ matter are:
 - The `static` qualifier is used to declare the component as static and to specify its latency (3 cycles).
-- The `done` port is absent.
+- The `done` port is absent from the multiplier's signature.
 
 A client of the multiplier must pass two inputs and raise the `go` signal as before.
 However, the client need not then wait for the component to indicate completion.
-It can simply and safely assume that the result will be available after 3 cycles.
-This is a guarantee that the author of the component has made to the client, and the compiler is free to take advantage of it.
+The client can simply and safely assume that the result will be available after 3 cycles.
+This is a guarantee that the author of the component has made to the client, and the client is free to take advantage of it.
 
 
 ### Static Groups and Relative Timing Guards

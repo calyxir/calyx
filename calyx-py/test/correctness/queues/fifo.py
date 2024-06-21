@@ -2,13 +2,14 @@
 import sys
 import calyx.builder as cb
 import calyx.queue_call as qc
+from calyx.utils import bits_needed
 
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
 QUEUE_LEN_FACTOR = 4
 
 
-def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
+def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     """Inserts the component `fifo` into the program.
 
     It has:
@@ -23,34 +24,47 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     # If it is 0, we pop.
     # If it is 1, we peek.
     # If it is 2, we push `value` to the queue.
-    value = fifo.input("value", 32)  # The value to push to the queue
+    value = fifo.input("value", val_width)  # The value to push to the queue
 
     max_queue_len = 2**queue_len_factor
-    mem = fifo.seq_mem_d1("mem", 32, max_queue_len, queue_len_factor)
+    mem = fifo.seq_mem_d1("mem", val_width, max_queue_len, queue_len_factor)
     write = fifo.reg(queue_len_factor)  # The next address to write to
     read = fifo.reg(queue_len_factor)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size 2^queue_len_factor.
 
-    ans = fifo.reg(32, "ans", is_ref=True)
+    ans = fifo.reg(val_width, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
     err = fifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
-    len = fifo.reg(32)  # The active length of the FIFO.
+    len = fifo.reg(bits_needed(max_queue_len))  # The active length of the FIFO.
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
-    # The user called pop/peek.
+    # The user called pop.
     # If the queue is empty, we should raise an error.
     # Otherwise, we should proceed with the core logic
-    pop_peek_logic = cb.if_with(
+    pop_logic = cb.if_with(
         fifo.eq_use(len.out, 0),
         raise_err,
         [
-            # `pop` or `peek` has been called, and the queue is not empty.
-            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem"),
+            # `pop` has been called, and the queue is not empty.
+            # Write the answer to the answer register, increment `read`, and decrement `len`.
+            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_pop"),
+            fifo.incr(read),
+            fifo.decr(len),
+        ],
+    )
+
+    # The user called peek.
+    # If the queue is empty, we should raise an error.
+    # Otherwise, we should proceed with the core logic
+    peek_logic = cb.if_with(
+        fifo.eq_use(len.out, 0),
+        raise_err,
+        [
+            # `peek` has been called, and the queue is not empty.
             # Write the answer to the answer register.
-            # If the user called pop, increment `read` and decrement `len`.
-            cb.if_with(fifo.eq_use(cmd, 0), [fifo.incr(read), fifo.decr(len)]),
+            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_peek"),
         ],
     )
 
@@ -69,14 +83,17 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     )
 
     fifo.control += cb.par(
-        # Was it a (pop/peek), or a push? We can do those two cases in parallel.
-        # The logic is shared for pops and peeks, with just a few differences.
-        # Did the user call pop/peek?
-        cb.if_with(fifo.lt_use(cmd, 2), pop_peek_logic),
-        # Did the user call push?
-        cb.if_with(fifo.eq_use(cmd, 2), push_logic),
-        # Did the user call an invalid command?
-        cb.if_with(fifo.eq_use(cmd, 3), raise_err),
+        # Was it a pop, peek, push, or an invalid command?
+        # We can do those four cases in parallel.
+        fifo.case(
+            cmd,
+            {
+                0: pop_logic,
+                1: peek_logic,
+                2: push_logic,
+                3: raise_err,
+            },
+        ),
     )
 
     return fifo

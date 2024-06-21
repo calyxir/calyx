@@ -176,10 +176,12 @@ class CompAttribute(Attribute):
     def doc(self) -> str:
         return f'"{self.name}"={self.value}'
 
+
 @dataclass
 class PortAttribute(Attribute):
     name: str
     value: Optional[int] = None
+
 
 @dataclass
 class PortAttribute(Attribute):
@@ -211,6 +213,9 @@ class ThisPort(Port):
 
     def doc(self) -> str:
         return self.id.doc()
+
+    def name(self) -> str:
+        return self.id.name
 
 
 @dataclass
@@ -361,6 +366,9 @@ class Atom(GuardExpr):
 
     def doc(self) -> str:
         return self.item.doc()
+
+    def name(self) -> str:
+        return self.item.name()
 
 
 @dataclass
