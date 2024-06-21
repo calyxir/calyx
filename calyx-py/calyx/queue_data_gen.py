@@ -56,7 +56,7 @@ def no_err_cmds_list(queue_size, num_cmds):
     return commands
 
 
-def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
+def dump_json(num_cmds, use_rank: bool, no_err: bool, queue_size: Optional[int] = None):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
@@ -89,6 +89,14 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
             "format": format_gen(32),
         }
     }
+    ranks = {
+        "ranks": {
+            "data": [random.randint(0, 400) for _ in range(num_cmds)],
+            # The `ranks` memory has `num_cmds` items, which are all
+            # random values between 0 and 400.
+            "format": format_gen(32),
+        }
+    }
     ans_mem = {
         "ans_mem": {
             "data": [0] * num_cmds,
@@ -97,8 +105,10 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
         }
     }
 
-    print(json.dumps(commands | values | ans_mem, indent=2))
-
+    if use_rank:
+        print(json.dumps(commands | values | ranks | ans_mem, indent=2))
+    else:
+        print(json.dumps(commands | values | ans_mem, indent=2))
 
 if __name__ == "__main__":
     # Accept a flag that we pass to dump_json.
@@ -106,6 +116,7 @@ if __name__ == "__main__":
     random.seed(5)
     num_cmds = int(sys.argv[1])
     no_err = "--no-err" in sys.argv
+    use_rank = "--use-rank" in sys.argv
     if no_err:
         queue_size = int(sys.argv[3])
-    dump_json(num_cmds, no_err, queue_size if no_err else None)
+    dump_json(num_cmds, use_rank, no_err, queue_size if no_err else None)
