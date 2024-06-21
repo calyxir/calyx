@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from typing import List
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, List, Optional
+import heapq
 
 
 class QueueError(Exception):
@@ -149,13 +149,57 @@ class Pifo:
         return self.pifo_len
 
 
-def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
+@dataclass(order=True)
+class RankValue:
+    priority: int
+    value: Any=field(compare=False)
+
+
+@dataclass
+class Binheap:
+    """A minimum Binary Heap data structure.
+    Supports the operations `push`, `pop`, and `peek`.
+    """
+
+    def __init__(self, max_len):
+        self.heap = []
+        self.len = 0
+        self.counter = 0
+        self.max_len = max_len
+
+    def push(self, rnk, val):
+        """Pushes `(rnk, val)` to the Binary Heap."""
+        if self.len == self.max_len:
+            raise QueueError("Cannot push to full Binary Heap.")
+        self.counter += 1
+        self.len += 1
+        heapq.heappush(self.heap, RankValue((rnk << 32) + self.counter, val))
+
+    def pop(self) -> Optional[int]:
+        """Pops the Binary Heap."""
+        if self.len == 0:
+            raise QueueError("Cannot pop from empty Binary Heap.")
+        self.len -= 1
+        return heapq.heappop(self.heap).value
+
+    def peek(self) -> Optional[int]:
+        """Peeks into the Binary Heap."""
+        if self.len == 0:
+            raise QueueError("Cannot peek from empty Binary Heap.")
+        return self.heap[0].value
+
+    def __len__(self) -> int:
+        return self.len
+
+
+def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False):
     """Given the two lists, one of commands and one of values.
     Feed these into our queue, and return the answer memory.
     """
 
     ans = []
-    for cmd, val in zip(commands, values):
+    ranks_or_values = values if ranks == None else ranks
+    for cmd, val, rnk in zip(commands, values, ranks_or_values):
         if cmd == 0:
             try:
                 ans.append(queue.pop())
@@ -174,7 +218,10 @@ def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
 
         elif cmd == 2:
             try:
-                queue.push(val)
+                if ranks == None:
+                    queue.push(val)
+                else:
+                    queue.push(rnk, val)
             except QueueError:
                 if keepgoing:
                     continue
