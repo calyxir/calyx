@@ -859,7 +859,7 @@ impl CompileStatic {
                 static_groups,
             );
             for (child, _) in fsm_tree.get_children() {
-                child.realize_only_transfer(
+                child.transform_static_assigns(
                     static_groups,
                     &mut self.reset_early_map,
                     group_rewrites,
