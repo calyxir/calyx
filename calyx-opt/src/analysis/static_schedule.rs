@@ -594,7 +594,7 @@ impl Tree {
             );
         }
 
-        let final_fsm_state = if self.num_states == 1 {
+        let final_fsm_state = if self.latency == 1 {
             ir::Guard::True
         } else {
             // Getting final state for the parent fsm.
