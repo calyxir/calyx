@@ -380,7 +380,7 @@ impl CalyxWriter for Guard {
                 lhs.write(f)?;
                 write!(f, " & ")?;
                 rhs.write(f)?;
-                write!(f, "(")?;
+                write!(f, ")")?;
             }
             _ => todo!("not all guards implemented"),
         }
