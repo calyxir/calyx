@@ -218,7 +218,6 @@ class ComponentBuilder:
         like semantics in the component. Does not support `default` cases.
         Branches are implemented via mutually exclusive `if` statements in the
         component's `control` block."""
-        print(signal.expr)
         width = self.infer_width(signal)
         ifs = []
         for branch, controllable in cases.items():
