@@ -466,6 +466,8 @@ def add_control_subordinate(prog, mems):
         this["ARREADY"] = read_controller["ARREADY"]
         this["RDATA"] = read_controller["RDATA"]
         this["RRESP"] = read_controller["RRESP"]
+        this["ap_start"] = ap_start.out
+        this["ap_done"] = ap_done.out
 
 
         # XRT Wiring stuff

@@ -6,6 +6,7 @@ from calyx.builder import (
     while_,
     if_
 )
+from axi_controller_generator import add_control_subordinate
 from typing import Literal
 from math import log2, ceil
 import json
@@ -347,6 +348,9 @@ def add_bresp_channel(prog, mem):
     bresp_channel.control += [invoke(bt_reg, in_in=0), block_transfer]
 
 def add_read_controller(prog, mem):
+    add_arread_channel(prog, mem)
+    add_read_channel(prog, mem)
+
     data_width = mem[width_key]
     name = mem[name_key]
 
@@ -416,6 +420,9 @@ def add_read_controller(prog, mem):
     ]
 
 def add_write_controller(prog, mem):
+    add_awwrite_channel(prog, mem)
+    add_write_channel(prog, mem)
+    add_bresp_channel(prog, mem)
     data_width = mem[width_key]
     name = mem[name_key]
 
@@ -594,15 +601,18 @@ def add_axi_dyn_mem(prog, mem):
     
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
-def add_main_comp(prog, mems):
+def add_wrapper_comp(prog, mems):
+
+    add_control_subordinate(prog,mems)
+    for mem in mems:
+        add_address_translator(prog, mem)
+        add_read_controller(prog, mem)
+        add_write_controller(prog, mem)
+        add_axi_dyn_mem(prog, mem)
+    
     wrapper_comp = prog.component("wrapper")
     wrapper_comp.attribute("toplevel", 1)
     # Get handles to be used later
-    # read_channel = prog.get_component("m_read_channel")
-    # write_channel = prog.get_component("m_write_channel")
-    # ar_channel = prog.get_component("m_ar_channel")
-    # aw_channel = prog.get_component("m_aw_channel")
-    # bresp_channel = prog.get_component("m_bresp_channel")
 
     ref_mem_kwargs = {}
 
@@ -611,6 +621,43 @@ def add_main_comp(prog, mems):
         "main_compute", "main", check_undeclared=False
     )
 
+    # Generate XRT Control Ports for AXI Lite Control Subordinate,
+    # must be prefixed with `s_axi_control`
+    # This is copied from `axi_controller_generator.py`
+    prefix = "s_axi_control_"
+    wrapper_inputs = [
+        (f"{prefix}AWVALID", 1),
+        # XRT imposes a 16-bit address space for the control subordinate
+        (f"{prefix}AWADDR", 16),
+        # ("AWPROT", 3), #We don't do anything with this
+        (f"{prefix}WVALID", 1),
+        # Want to use 32 bits because the registers in XRT are asusemd to be this size
+        (f"{prefix}WDATA", 32),
+        # We don't use this but it is required by some versions of the spec. We should tie high on subordinate.
+        (f"{prefix}WSTRB", 32 / 8),
+        (f"{prefix}BREADY", 1),
+        (f"{prefix}ARVALID", 1),
+        (f"{prefix}ARADDR", 16),
+        # ("ARPROT", 3), #We don't do anything with this
+        (f"{prefix}RVALID", 1),
+    ]
+
+    wrapper_outputs = [
+        (f"{prefix}AWREADY", 1),
+        (f"{prefix}WREADY", 1),
+        (f"{prefix}BVALID", 1),
+        (f"{prefix}BRESP", 2),  
+        (f"{prefix}ARREADY", 1),
+        (f"{prefix}RDATA", 32),
+        (f"{prefix}RRESP", 2),  
+        ("ap_start", 1),
+        ("ap_done", 1),
+    ]
+
+    add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
+
+    wrapper_comp.cell(f"control_subordinate", prog.get_component("control_subordinate"))
+    # Generate manager controllers for each memory
     for mem in mems:
         mem_name = mem[name_key]
         # Inputs/Outputs
@@ -746,17 +793,7 @@ def clog2_or_1(x):
 def build():
     prog = Builder()
     check_mems_welformed(mems)
-    for mem in mems:
-        add_arread_channel(prog, mem)
-        add_awwrite_channel(prog, mem)
-        add_read_channel(prog, mem)
-        add_write_channel(prog, mem)
-        add_bresp_channel(prog, mem)
-        add_address_translator(prog, mem)
-        add_read_controller(prog, mem)
-        add_write_controller(prog, mem)
-        add_axi_dyn_mem(prog, mem) #TODO: need one for each mem
-    add_main_comp(prog, mems)
+    add_wrapper_comp(prog, mems)
     return prog.program
 
 
