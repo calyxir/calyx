@@ -206,6 +206,9 @@ class CompPort(Port):
     def doc(self) -> str:
         return f"{self.id.doc()}.{self.name}"
 
+    def get_name(self) -> str:
+        return f"{self.id.doc()}_{self.name}"
+
 
 @dataclass
 class ThisPort(Port):
@@ -214,8 +217,8 @@ class ThisPort(Port):
     def doc(self) -> str:
         return self.id.doc()
 
-    def name(self) -> str:
-        return self.id.name
+    def get_name(self) -> str:
+        return self.id.get_name()
 
 
 @dataclass
@@ -225,6 +228,9 @@ class HolePort(Port):
 
     def doc(self) -> str:
         return f"{self.id.doc()}[{self.name}]"
+
+    def get_name(self) -> str:
+        return self.name
 
 
 @dataclass
@@ -248,6 +254,9 @@ class CompVar(Emittable):
 
     def add_suffix(self, suffix: str) -> CompVar:
         return CompVar(f"{self.name}{suffix}")
+
+    def get_name(self) -> str:
+        return self.name
 
 
 @dataclass
@@ -367,8 +376,9 @@ class Atom(GuardExpr):
     def doc(self) -> str:
         return self.item.doc()
 
+    @property
     def name(self) -> str:
-        return self.item.name()
+        return f"{self.item.get_name()}"
 
 
 @dataclass
