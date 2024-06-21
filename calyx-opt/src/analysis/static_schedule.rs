@@ -438,21 +438,23 @@ impl Tree {
         builder: &mut ir::Builder,
         incr_start_cond: Option<ir::Guard<Nothing>>,
     ) {
+        let mut child_index = 0;
         // offload_states are the fsm_states that last >1 cycles
         // i.e., the same as the children.
         let offload_states: BTreeMap<usize, u64> = self
             .delay_map
             .iter()
-            .enumerate()
-            .filter_map(|(i, ((beg, end), state_type))| match state_type {
+            .filter_map(|((beg, end), state_type)| match state_type {
                 StateType::Delay(_) => None,
                 StateType::Offload(offload_state) => {
                     // Only need to include the children that last more than one cycle.
-                    if beg + 1 == *end {
+                    let res = if beg + 1 == *end {
                         None
                     } else {
-                        Some((i, *offload_state))
-                    }
+                        Some((child_index, *offload_state))
+                    };
+                    child_index += 1;
+                    res
                 }
             })
             .collect();
