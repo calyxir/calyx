@@ -102,6 +102,7 @@ def build(static=False):
     """
     static = "--static" in sys.argv
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
 
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
@@ -126,7 +127,7 @@ def build(static=False):
         prog,
         pifo_root,
         num_cmds,
-        keepgoing=False,
+        keepgoing=keepgoing,
         controller=controller,
         stats_component=stats_component,
     )

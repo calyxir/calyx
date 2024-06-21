@@ -130,7 +130,10 @@ python3 {} |\
 
 [[tests]]
 name = "[calyx-py] queues correctness"
-paths = ["calyx-py/test/correctness/queues/*.py"]
+paths = [
+    "calyx-py/test/correctness/queues/*.py",
+    "calyx-py/test/correctness/queues/binheap/*.py"
+]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
@@ -149,7 +152,7 @@ paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 20000 |\
+python3 {} 20000 --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
@@ -169,7 +172,7 @@ paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 20000 --static |\
+python3 {} 20000 --static --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
@@ -185,7 +188,7 @@ paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 20000 --static |\
+python3 {} 20000 --static --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \

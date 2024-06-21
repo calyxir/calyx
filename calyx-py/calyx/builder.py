@@ -855,8 +855,20 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
+    def mem_latch_d1(self, mem, i, groupname):
+        """Inserts wiring into `self` to latch `mem[i]`,
+        where `mem` is a seq_mem_d1 memory.
+        A user can later read `mem.out` and get the latched value.
+        """
+        assert mem.is_seq_mem_d1()
+        with self.group(groupname) as latch_grp:
+            mem.addr0 = i
+            mem.content_en = HI
+            latch_grp.done = mem.done
+        return latch_grp
+
     def mem_load_d2(self, mem, i, j, reg, groupname):
-        """Inserts wiring into `self` to perform `reg := mem[i]`,
+        """Inserts wiring into `self` to perform `reg := mem[i][j]`,
         where `mem` is a seq_d2 memory or a comb_mem_d2 memory
         """
         assert mem.is_seq_mem_d2() or mem.is_comb_mem_d2()
@@ -873,6 +885,19 @@ class ComponentBuilder:
                 reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
+
+    def mem_latch_d2(self, mem, i, j, groupname):
+        """Inserts wiring into `self` to latch `mem[i][j]`,
+        where `mem` is a seq_mem_d2 memory.
+        A user can later read `mem.out` and get the latched value.
+        """
+        assert mem.is_seq_mem_d2()
+        with self.group(groupname) as latch_grp:
+            mem.addr0 = i
+            mem.addr1 = j
+            mem.content_en = HI
+            latch_grp.done = mem.done
+        return latch_grp
 
     def mem_store_d1(self, mem, i, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,

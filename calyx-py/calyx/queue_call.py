@@ -173,19 +173,14 @@ def insert_main(
                     ref_component_err=dataplane_err,
                 )
             ),
-            # If the dataplane component has a nonzero answer,
+            # If the dataplane component has an answer,
             # write it to the answer-list and increment the index `j`.
             cb.if_(
                 has_ans.out,
-                cb.if_with(
-                    main.neq_use(dataplane_ans.out, 0),
-                    [
-                        main.mem_store_d1(
-                            ans_mem, j.out, dataplane_ans.out, "write_ans"
-                        ),
-                        main.incr(j),
-                    ],
-                ),
+                [
+                    main.mem_store_d1(ans_mem, j.out, dataplane_ans.out, "write_ans"),
+                    main.incr(j),
+                ],
             ),
             (
                 cb.invoke(  # Invoke the controller component.
