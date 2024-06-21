@@ -208,6 +208,28 @@ class ComponentBuilder:
         else:
             self.component.controls = builder
 
+    # NOTE: Could also be a GroupBuilder
+    Controllable = Union[ast.Control, str, ast.Group, list, set, ast.Empty, None]
+
+    def case(
+        self, signal: ExprBuilder, cases: Dict[int, Controllable], signed=False
+    ) -> None:
+        """Add the required cells, wiring, and `if` statements to enable `case`
+        like semantics in the component. Does not support `default` cases.
+        Branches are implemented via mutually exclusive `if` statements in the
+        component's `control` block."""
+        width = self.infer_width(signal)
+        ifs = []
+        for branch, controllable in cases.items():
+            std_eq = self.eq(width, f"{signal.name}_eq_{branch}", signed)
+
+            with self.continuous:
+                std_eq.left = signal
+                std_eq.right = const(width, branch)
+            ifs.append(if_(std_eq["out"], controllable))
+
+        return par(*ifs)
+
     def port_width(self, port: ExprBuilder) -> int:
         """Get the width of an expression, which may be a port of this component."""
         name = ExprBuilder.unwrap(port).item.id.name
