@@ -1,7 +1,6 @@
 # For usage, see gen_queue_data_expect.sh
 
 import random
-from collections import OrderedDict
 
 import json
 import sys
@@ -93,7 +92,7 @@ def dump_json(num_cmds, use_rank: bool, no_err: bool, queue_size: Optional[int] 
     ranks = {
         "ranks": {
             "data": [random.randint(0, 400) for _ in range(num_cmds)],
-            # The `values` memory has `num_cmds` items, which are all
+            # The `ranks` memory has `num_cmds` items, which are all
             # random values between 0 and 400.
             "format": format_gen(32),
         }
@@ -105,8 +104,6 @@ def dump_json(num_cmds, use_rank: bool, no_err: bool, queue_size: Optional[int] 
             "format": format_gen(32),
         }
     }
-
-    sort_keys=False
 
     if use_rank:
         print(json.dumps(commands | values | ranks | ans_mem, indent=2))

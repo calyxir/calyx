@@ -157,6 +157,10 @@ class RankValue:
 
 @dataclass
 class Binheap:
+    """A minimum Binary Heap data structure.
+    Supports the operations `push`, `pop`, and `peek`.
+    """
+
     def __init__(self, max_len):
         self.heap = []
         self.len = 0
@@ -218,7 +222,6 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False
                     queue.push(val)
                 else:
                     queue.push(rnk, val)
-
             except QueueError:
                 if keepgoing:
                     continue
