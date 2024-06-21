@@ -286,7 +286,6 @@ fn binary_to_hex(
     binary_string: &str,
     filepath_send: &mut File,
 ) -> io::Result<()> {
-
     let hex_of_binary = u32::from_str_radix(binary_string, 2)
         .expect("Failed to parse binary string");
 
@@ -378,7 +377,7 @@ fn fixed_to_binary(
         }
     }
 
-    //exponent int to float so we can multiply 
+    //exponent int to float so we can multiply
     let exponent = exp_int as f32;
 
     // Exponent math
@@ -442,7 +441,7 @@ fn binary_to_fixed(
     // Convert to fixed
     let int_of_binary = binary_value as f32;
 
-    //exponent int to float so we can multiply 
+    //exponent int to float so we can multiply
     let exponent = exp_int as f32;
 
     // Exponent math
