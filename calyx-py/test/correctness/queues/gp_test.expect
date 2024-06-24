@@ -11,42 +11,42 @@ pop 0
 peek 1
 pop 1
 push 0
-pop 2
 pop 0
 pop 1
-peek 2
-peek 2
-pop 2
+pop 0
+peek 0
+peek 0
+pop 0
 peek 0
 push 2
 pop 0
 push 2
-pop 1
-pop 2
+pop 0
+pop 0
 push 2
 pop 0
-peek 1
-peek 1
-pop 1
-peek 1
+peek 0
+peek 0
+pop 0
+peek 0
 {
   "ans_mem": [
     81,
-    81,
-    81,
-    227,
-    227,
-    316,
     36,
-    316,
     64,
+    227,
+    316,
     107,
-    107,
+    316,
+    null,
+    null,
+    null,
+    null,
+    null,
     276,
     320,
-    0,
-    0,
-    0,
+    null,
+    353,
     0,
     0,
     0,

@@ -267,23 +267,18 @@ class NPifo:
            if self.error_mode:
                raise QueueError("Cannot pop from empty PIFO.")
            return None
-       self.pifo_len -= 1  # We decrement `pifo_len` by 1.
+       self.pifo_len -= 1
        original_hot = self.hot
 
-       if len(self.data[self.hot]) > 0:
-            val = self.data[self.hot].pop()
-       
-       elif len(self.data[self.hot]) > 0:
-            self.increment_hot()
-            val = self.data[self.hot].pop()
-
-       else:
-            self.increment_hot()
-            val = self.data[self.hot].pop()
-
-       self.hot = original_hot
-       self.increment_hot()
-       return val
+       while True:
+            try:
+                val = self.data[self.hot].pop()
+                self.increment_hot() 
+                return val
+            except QueueError:
+                self.increment_hot()
+                if self.hot == original_hot:
+                    return None
 
 
 
@@ -294,19 +289,17 @@ class NPifo:
            raise QueueError("Cannot peek into empty PIFO.")
 
        original_hot = self.hot
+       #for n case, could do while len(self.data[self.hot] < 0 and increment hot in the body?)
 
-       if len(self.data[self.hot]) > 0:  
-            val = self.data[self.hot].peek()
-            self.increment_hot()
-       elif len(self.data[self.hot]) > 0:
-            val = self.data[self.hot].peek()
-            self.increment_hot()
-       else:
-            val = self.data[self.hot].peek()
-
-       self.hot = original_hot
-       return val
-
+       while True:
+            try:
+                val = self.data[self.hot].pop()
+                self.hot = original_hot
+                return val
+            except QueueError:
+                self.increment_hot()
+                if self.hot == original_hot:
+                    return None
 
 
    def __len__(self) -> int:
