@@ -8,6 +8,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::ops::Not;
 use std::rc::Rc;
 
+use super::GraphColoring;
+
 #[derive(Debug, Clone, Copy, Default)]
 // Define an FSMEncoding Enum
 pub enum FSMEncoding {
@@ -359,6 +361,13 @@ impl FSMTree {
         }
     }
 
+    pub fn get_group_name(&self) -> ir::Id {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.root.0,
+            FSMTree::Par(par_struct) => par_struct.group_name,
+        }
+    }
+
     pub fn get_latency(&self) -> u64 {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.latency,
@@ -384,6 +393,24 @@ impl FSMTree {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.num_repeats,
             FSMTree::Par(par_struct) => par_struct.num_repeats,
+        }
+    }
+
+    pub fn get_all_nodes(&self) -> Vec<ir::Id> {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.get_all_nodes(),
+            FSMTree::Par(par_struct) => par_struct.get_all_nodes(),
+        }
+    }
+
+    pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
+        match self {
+            FSMTree::Tree(tree_struct) => {
+                tree_struct.add_conflicts(conflict_graph)
+            }
+            FSMTree::Par(par_struct) => {
+                par_struct.add_conflicts(conflict_graph)
+            }
         }
     }
 }
@@ -1154,6 +1181,24 @@ impl Tree {
             ),
         }
     }
+
+    pub fn get_all_nodes(&self) -> Vec<ir::Id> {
+        let mut res = vec![self.root.0];
+        for (child, _) in &self.children {
+            res.extend(child.get_all_nodes())
+        }
+        return res;
+    }
+
+    pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
+        let root_name = self.root.0;
+        for (child, _) in &self.children {
+            for sgroup in &child.get_all_nodes() {
+                conflict_graph.insert_conflict(&root_name, sgroup);
+            }
+            child.add_conflicts(conflict_graph);
+        }
+    }
 }
 
 pub struct ParTree {
@@ -1365,6 +1410,28 @@ impl ParTree {
     ) -> ir::Guard<Nothing> {
         let longest_tree = self.get_longest_tree();
         longest_tree.query_between(query, builder)
+    }
+
+    pub fn get_all_nodes(&self) -> Vec<ir::Id> {
+        let mut res = vec![];
+        for (thread, _) in &self.threads {
+            res.extend(thread.get_all_nodes())
+        }
+        return res;
+    }
+
+    pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
+        for ((thread1, _), (thread2, _)) in
+            self.threads.iter().tuple_combinations()
+        {
+            for sgroup1 in thread1.get_all_nodes() {
+                for sgroup2 in thread2.get_all_nodes() {
+                    conflict_graph.insert_conflict(&sgroup1, &sgroup2);
+                }
+            }
+            thread1.add_conflicts(conflict_graph);
+            thread2.add_conflicts(conflict_graph);
+        }
     }
 }
 

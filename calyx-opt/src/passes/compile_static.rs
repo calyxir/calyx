@@ -1,6 +1,4 @@
-use crate::analysis::{
-    FSMTree, GraphColoring, ParTree, StateType, StaticFSM, Tree,
-};
+use crate::analysis::{FSMTree, GraphColoring, ParTree, StateType, Tree};
 use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
 use calyx_ir::{self as ir, Nothing, PortParent};
 use calyx_ir::{guard, structure, GetAttributes};
@@ -229,11 +227,7 @@ impl CompileStatic {
     // Gets all of the triggered static groups within `c`, and adds it to `cur_names`.
     // Relies on sgroup_uses_map to take into account groups that are triggered through
     // their `go` hole.
-    fn get_used_sgroups(
-        c: &ir::Control,
-        cur_names: &mut HashSet<ir::Id>,
-        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
-    ) {
+    fn get_used_sgroups(c: &ir::Control, cur_names: &mut HashSet<ir::Id>) {
         match c {
             ir::Control::Empty(_)
             | ir::Control::Enable(_)
@@ -243,32 +237,21 @@ impl CompileStatic {
                     unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
                 };
                 let group_name = s.group.borrow().name();
-                if let Some(sgroup_uses) = sgroup_uses_map.get(&group_name) {
-                    cur_names.extend(sgroup_uses);
-                }
                 cur_names.insert(group_name);
             }
             ir::Control::Par(ir::Par { stmts, .. })
             | ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 for stmt in stmts {
-                    Self::get_used_sgroups(stmt, cur_names, sgroup_uses_map);
+                    Self::get_used_sgroups(stmt, cur_names);
                 }
             }
             ir::Control::Repeat(ir::Repeat { body, .. })
             | ir::Control::While(ir::While { body, .. }) => {
-                Self::get_used_sgroups(body, cur_names, sgroup_uses_map);
+                Self::get_used_sgroups(body, cur_names);
             }
             ir::Control::If(if_stmt) => {
-                Self::get_used_sgroups(
-                    &if_stmt.tbranch,
-                    cur_names,
-                    sgroup_uses_map,
-                );
-                Self::get_used_sgroups(
-                    &if_stmt.fbranch,
-                    cur_names,
-                    sgroup_uses_map,
-                );
+                Self::get_used_sgroups(&if_stmt.tbranch, cur_names);
+                Self::get_used_sgroups(&if_stmt.fbranch, cur_names);
             }
         }
     }
@@ -282,7 +265,7 @@ impl CompileStatic {
     /// Would map: A -> {B,C} and B -> {C}
     fn add_par_conflicts(
         c: &ir::Control,
-        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+        fsm_trees: &Vec<FSMTree>,
         conflict_graph: &mut GraphColoring<ir::Id>,
     ) {
         match c {
@@ -292,26 +275,22 @@ impl CompileStatic {
             | ir::Control::Static(_) => (),
             ir::Control::Seq(seq) => {
                 for stmt in &seq.stmts {
-                    Self::add_par_conflicts(
-                        stmt,
-                        sgroup_uses_map,
-                        conflict_graph,
-                    );
+                    Self::add_par_conflicts(stmt, fsm_trees, conflict_graph);
                 }
             }
             ir::Control::Repeat(ir::Repeat { body, .. })
             | ir::Control::While(ir::While { body, .. }) => {
-                Self::add_par_conflicts(body, sgroup_uses_map, conflict_graph)
+                Self::add_par_conflicts(body, fsm_trees, conflict_graph)
             }
             ir::Control::If(if_stmt) => {
                 Self::add_par_conflicts(
                     &if_stmt.tbranch,
-                    sgroup_uses_map,
+                    fsm_trees,
                     conflict_graph,
                 );
                 Self::add_par_conflicts(
                     &if_stmt.fbranch,
-                    sgroup_uses_map,
+                    fsm_trees,
                     conflict_graph,
                 );
             }
@@ -322,29 +301,38 @@ impl CompileStatic {
                 let mut sgroup_conflict_vec = Vec::new();
                 for stmt in &par.stmts {
                     let mut used_sgroups = HashSet::new();
-                    Self::get_used_sgroups(
-                        stmt,
-                        &mut used_sgroups,
-                        sgroup_uses_map,
-                    );
+                    Self::get_used_sgroups(stmt, &mut used_sgroups);
                     sgroup_conflict_vec.push(used_sgroups);
                 }
                 for (thread1_sgroups, thread2_sgroups) in
                     sgroup_conflict_vec.iter().tuple_combinations()
                 {
-                    for sgroup1 in thread1_sgroups {
-                        for sgroup2 in thread2_sgroups {
-                            conflict_graph.insert_conflict(sgroup1, sgroup2);
+                    for static_enable1 in thread1_sgroups {
+                        for static_enable2 in thread2_sgroups {
+                            let tree1 = fsm_trees
+                                .iter()
+                                .find(|tree| {
+                                    tree.get_group_name() == static_enable1
+                                })
+                                .expect("couldn't find FSM tree");
+                            let tree2 = fsm_trees
+                                .iter()
+                                .find(|tree| {
+                                    tree.get_group_name() == static_enable2
+                                })
+                                .expect("couldn't find tree");
+                            for sgroup1 in tree1.get_all_nodes() {
+                                for sgroup2 in tree2.get_all_nodes() {
+                                    conflict_graph
+                                        .insert_conflict(&sgroup1, &sgroup2)
+                                }
+                            }
                         }
                     }
                 }
                 // Necessary to add conflicts between nested pars
                 for stmt in &par.stmts {
-                    Self::add_par_conflicts(
-                        stmt,
-                        sgroup_uses_map,
-                        conflict_graph,
-                    );
+                    Self::add_par_conflicts(stmt, fsm_trees, conflict_graph);
                 }
             }
         }
@@ -458,8 +446,9 @@ impl CompileStatic {
     }
 
     pub fn get_coloring(
-        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
-        control: &ir::Control,
+        tree_objects: &Vec<FSMTree>,
+        sgroups: &[ir::RRC<ir::StaticGroup>],
+        control: &mut ir::Control,
     ) -> HashMap<ir::Id, ir::Id> {
         // `sgroup_uses_map` builds a mapping of static groups -> groups that
         // it (even indirectly) triggers the `go` port of.
@@ -467,16 +456,9 @@ impl CompileStatic {
         // Build conflict graph and get coloring.
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
-        // Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
-        // Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
-        // Self::add_encoding_conflicts(sgroups, &mut conflict_graph);
-        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
-            conflict_graph.insert_conflict(
-                &sgroup1.borrow().name(),
-                &sgroup2.borrow().name(),
-            );
-        }
-        conflict_graph.color_greedy(None, true)
+        Self::add_par_conflicts(control, tree_objects, &mut conflict_graph);
+        for tree in tree_objects {}
+        panic!("")
     }
 }
 
@@ -904,11 +886,6 @@ impl Visitor for CompileStatic {
         let mut sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
 
-        // The first thing is to assign FSMs -> static islands.
-        // We sometimes assign the same FSM to different static islands
-        // to reduce register usage. We do this by getting greedy coloring.
-        // let coloring: HashMap<calyx_ir::Id, calyx_ir::Id> = Self::get_coloring(&sgroups, &comp.control.borrow());
-
         let mut builder = ir::Builder::new(comp, sigs);
         // Get a vec of all groups that are enabled in comp's control.
         let static_enable_ids =
@@ -918,6 +895,15 @@ impl Visitor for CompileStatic {
             .iter()
             .map(|id| Self::build_tree_object(*id, &sgroups, 1))
             .collect_vec();
+
+        // The first thing is to assign FSMs -> static islands.
+        // We sometimes assign the same FSM to different static islands
+        // to reduce register usage. We do this by getting greedy coloring.
+        let coloring: HashMap<calyx_ir::Id, calyx_ir::Id> = Self::get_coloring(
+            &tree_objects,
+            &sgroups,
+            &mut builder.component.control.borrow_mut(),
+        );
 
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
