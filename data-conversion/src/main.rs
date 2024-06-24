@@ -84,7 +84,14 @@ struct Arguments {
 fn main() {
     let args: Arguments = argh::from_env();
 
-    convert(&args.from, &args.to, args.ftype, args.totype, args.exp, args.bits);
+    convert(
+        &args.from,
+        &args.to,
+        args.ftype,
+        args.totype,
+        args.exp,
+        args.bits,
+    );
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
@@ -147,12 +154,12 @@ fn convert(
             }
         }
         (NumType::Binary, NumType::Fixed) => {
-            if !bits{
+            if !bits {
                 for line in read_to_string(filepath_get).unwrap().lines() {
                     binary_to_fixed(line, &mut converted, exponent)
                         .expect("Failed to write fixed-point to file");
                 }
-            }else {
+            } else {
                 for line in read_to_string(filepath_get).unwrap().lines() {
                     binary_to_fixed_bit_slice(line, &mut converted, exponent)
                         .expect("Failed to write fixed-point to file");
@@ -165,7 +172,6 @@ fn convert(
             convert_to.to_string()
         ),
     }
-
     eprintln!(
         "Successfully converted from {} to {} in {}",
         convert_from.to_string(),
@@ -468,11 +474,11 @@ fn binary_to_fixed_bit_slice(
     filepath_send: &mut File,
     exp_int: i32,
 ) -> io::Result<()> {
-
     // Parse the binary string to an integer
-    let binary = i32::from_str_radix(binary_string, 2).expect("Bad binary value input");
-    
-    // Get bitmask from exponent 
+    let binary =
+        i32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+
+    // Get bitmask from exponent
     let shift_amount = -exp_int;
     let int_mask = !((1 << shift_amount) - 1);
     let frac_mask = (1 << shift_amount) - 1;
@@ -499,11 +505,11 @@ fn binary_to_fixed_bit_slice(
     }
 
     // Append the integer and fractional parts
-    let combined_binary_representation = format!("{}.{}", int_part_binary, frac_part_binary);
+    let combined_binary_representation =
+        format!("{}.{}", int_part_binary, frac_part_binary);
 
     // Write the combined binary representation to the file
     writeln!(filepath_send, "{}", combined_binary_representation)?;
 
     Ok(())
-
 }
