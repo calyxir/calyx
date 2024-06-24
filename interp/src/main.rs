@@ -66,8 +66,15 @@ pub struct Opts {
     #[argh(switch, short = 'q', long = "--quiet")]
     quiet: bool,
 
+    /// dump registers as single entry memories
+    #[argh(switch, long = "dump-registers")]
+    dump_registers: bool,
+    /// dumps all memories rather than just external ones
+    #[argh(switch, long = "all-memories")]
+    dump_all_memories: bool,
+
     #[argh(subcommand)]
-    comm: Option<Command>,
+    mode: Option<Command>,
 }
 
 #[derive(FromArgs)]
@@ -80,14 +87,7 @@ enum Command {
 #[derive(FromArgs)]
 #[argh(subcommand, name = "interpret")]
 /// tests the flattened interpreter
-struct CommandInterpret {
-    /// dump registers as memories
-    #[argh(switch, long = "dump-registers")]
-    dump_registers: bool,
-    /// dumps all memories rather than just external ones
-    #[argh(switch, long = "all-memories")]
-    dump_all_memories: bool,
-}
+struct CommandInterpret {}
 
 #[derive(FromArgs)]
 #[argh(subcommand, name = "debug")]
@@ -128,6 +128,8 @@ fn main() -> InterpreterResult<()> {
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
         .allow_par_conflicts(opts.allow_par_conflicts)
+        .dump_registers(opts.dump_registers)
+        .dump_all_memories(opts.dump_all_memories)
         .build();
 
     interp::logging::initialize_logger(config.quiet);
@@ -147,13 +149,10 @@ fn main() -> InterpreterResult<()> {
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[], &[], false)?;
     }
 
-    let command = opts.comm.unwrap_or(Command::Interpret(CommandInterpret {
-        dump_registers: false,
-        dump_all_memories: false,
-    }));
+    let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
 
     match &command {
-        Command::Interpret(configs) => {
+        Command::Interpret(_) => {
             let i_ctx = interp::flatten::flat_ir::translate(&ctx);
             let data_dump = opts
                 .data_file
@@ -168,15 +167,13 @@ fn main() -> InterpreterResult<()> {
 
             sim.run_program()?;
 
-            let output = sim.dump_memories(
-                configs.dump_registers,
-                configs.dump_all_memories,
-            );
+            let output = sim
+                .dump_memories(config.dump_registers, config.dump_all_memories);
 
             output.serialize(&mut stdout())?;
             Ok(())
         }
-        Command::Debug(_configs) => {
+        Command::Debug(_) => {
             todo!()
         }
     }
