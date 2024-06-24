@@ -75,12 +75,16 @@ struct Arguments {
     /// optional exponent for fixed_to_binary -> default is -1
     #[argh(option, default = "-1")]
     exp: i32,
+
+    /// optional for fixed_to_binary using bit slicing. If choosen, will use bit slicing.
+    #[argh(switch, short = 'b')]
+    bits: bool,
 }
 
 fn main() {
     let args: Arguments = argh::from_env();
 
-    convert(&args.from, &args.to, args.ftype, args.totype, args.exp);
+    convert(&args.from, &args.to, args.ftype, args.totype, args.exp, args.bits);
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
@@ -106,6 +110,7 @@ fn convert(
     convert_from: NumType,
     convert_to: NumType,
     exponent: i32,
+    bits: bool,
 ) {
     // Create the output file
     let mut converted = File::create(filepath_send).expect("creation failed");
@@ -142,9 +147,16 @@ fn convert(
             }
         }
         (NumType::Binary, NumType::Fixed) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                binary_to_fixed(line, &mut converted, exponent)
-                    .expect("Failed to write fixed-point to file");
+            if !bits{
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    binary_to_fixed(line, &mut converted, exponent)
+                        .expect("Failed to write fixed-point to file");
+                }
+            }else {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    binary_to_fixed_bit_slice(line, &mut converted, exponent)
+                        .expect("Failed to write fixed-point to file");
+                }
             }
         }
         _ => panic!(
@@ -427,13 +439,8 @@ fn binary_to_fixed(
     filepath_send: &mut File,
     exp_int: i32,
 ) -> io::Result<()> {
-    // Create an array with the elements of fixed_string
-    let words: Vec<&str> = binary_string.split_whitespace().collect();
-    let binary_str: &&str =
-        words.first().unwrap_or(&"There is not a binary number");
-
     // Convert binary value from string to int
-    let binary_value = match u32::from_str_radix(binary_str, 2) {
+    let binary_value = match u32::from_str_radix(binary_string, 2) {
         Ok(parsed_num) => parsed_num,
         Err(_) => panic!("Bad binary value input"),
     };
@@ -454,4 +461,49 @@ fn binary_to_fixed(
     filepath_send.write_all(b"\n")?;
 
     Ok(())
+}
+
+fn binary_to_fixed_bit_slice(
+    binary_string: &str,
+    filepath_send: &mut File,
+    exp_int: i32,
+) -> io::Result<()> {
+
+    // Parse the binary string to an integer
+    let binary = i32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+    
+    // Get bitmask from exponent 
+    let shift_amount = -exp_int;
+    let int_mask = !((1 << shift_amount) - 1);
+    let frac_mask = (1 << shift_amount) - 1;
+
+    // Apply bit mask and shift integer part
+    // Apply bit masks and shift to get the integer and fractional parts
+    let integer_part = (binary & int_mask) >> shift_amount;
+    let fractional_part = binary & frac_mask;
+
+    // Convert the integer part to its binary string representation
+    let int_part_binary = format!("{:b}", integer_part);
+
+    // Convert the fractional part to its binary string representation
+    let mut frac_part_binary = String::new();
+    let mut frac = fractional_part;
+    for _ in 0..shift_amount {
+        frac <<= 1;
+        if frac & (1 << shift_amount) != 0 {
+            frac_part_binary.push('1');
+            frac -= 1 << shift_amount;
+        } else {
+            frac_part_binary.push('0');
+        }
+    }
+
+    // Append the integer and fractional parts
+    let combined_binary_representation = format!("{}.{}", int_part_binary, frac_part_binary);
+
+    // Write the combined binary representation to the file
+    writeln!(filepath_send, "{}", combined_binary_representation)?;
+
+    Ok(())
+
 }
