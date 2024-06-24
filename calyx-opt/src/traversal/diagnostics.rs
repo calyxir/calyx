@@ -12,7 +12,7 @@ pub trait DiagnosticPass {
 #[derive(Default, Debug)]
 pub struct DiagnosticContext {
     errors: Vec<Error>,
-    warnings: Vec<String>,
+    warnings: Vec<Error>,
 }
 
 impl DiagnosticContext {
@@ -22,8 +22,8 @@ impl DiagnosticContext {
     }
 
     /// Report a `warning`
-    pub fn warning<S: ToString>(&mut self, warning: S) {
-        self.warnings.push(warning.to_string())
+    pub fn warning(&mut self, warning: Error) {
+        self.warnings.push(warning)
     }
 
     /// Accumulates `error` into the context, and returns `Ok(Action::Continue)`.
@@ -34,8 +34,8 @@ impl DiagnosticContext {
         Ok(Action::Continue)
     }
 
-    pub fn warning_iter(&self) -> impl Iterator<Item = &str> {
-        self.warnings.iter().map(|x| x.as_str())
+    pub fn warning_iter(&self) -> impl Iterator<Item = &Error> {
+        self.warnings.iter()
     }
 
     pub fn errors_iter(&self) -> impl Iterator<Item = &Error> {

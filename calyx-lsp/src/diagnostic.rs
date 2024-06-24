@@ -20,6 +20,7 @@ pub struct CalyxError {
     pub pos_end: usize,
     pub msg: String,
     pub annotations: Vec<(String, usize, usize)>,
+    severity: lspt::DiagnosticSeverity,
 }
 
 impl Diagnostic {
@@ -41,6 +42,25 @@ impl Diagnostic {
                 <SynthesisPapercut as ConstructVisitor>::from(&ctx)?;
             synth_papercut.do_pass(&mut ctx)?;
 
+            let warnings = wellformed
+                .diagnostics()
+                .warning_iter()
+                .chain(diag_papercut.diagnostics().warning_iter())
+                .chain(synth_papercut.diagnostics().warning_iter())
+                .map(|e| {
+                    let (file_name, pos_start, pos_end) = e.location();
+                    let msg = e.message();
+                    let annotations = e.annotations();
+                    CalyxError {
+                        file_name: file_name.to_string(),
+                        pos_start,
+                        pos_end,
+                        msg,
+                        annotations,
+                        severity: lspt::DiagnosticSeverity::WARNING,
+                    }
+                });
+
             Ok(wellformed
                 .diagnostics()
                 .errors_iter()
@@ -56,8 +76,10 @@ impl Diagnostic {
                         pos_end,
                         msg,
                         annotations,
+                        severity: lspt::DiagnosticSeverity::ERROR,
                     }
                 })
+                .chain(warnings)
                 .collect::<Vec<_>>())
         })
         .unwrap_or_else(|e| {
@@ -69,6 +91,7 @@ impl Diagnostic {
                 pos_end,
                 msg,
                 annotations: vec![],
+                severity: lspt::DiagnosticSeverity::ERROR,
             }]
         })
     }
@@ -118,7 +141,7 @@ impl CalyxError {
         doc.bytes_to_range(self.pos_start, self.pos_end)
             .map(|range| lspt::Diagnostic {
                 range: range.into(),
-                severity: Some(lspt::DiagnosticSeverity::ERROR),
+                severity: Some(self.severity),
                 code: None,
                 code_description: None,
                 source: Some("calyx-lsp".to_string()),

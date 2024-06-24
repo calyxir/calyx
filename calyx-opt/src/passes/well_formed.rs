@@ -714,11 +714,11 @@ impl Visitor for WellFormed {
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
         } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-            let msg = s.attributes.copy_span().format(format!(
-                    "If statement has no comb group and its condition port {} is unstable",
-                    s.port.borrow().canonical()
-                ));
-            self.diag.warning(msg);
+            let err = Error::malformed_control(format!(
+                "If statement has no comb group and its condition port {} is unstable",
+                s.port.borrow().canonical()
+            )).with_pos(&s.attributes);
+            self.diag.warning(err);
         }
         Ok(Action::Continue)
     }
@@ -731,11 +731,12 @@ impl Visitor for WellFormed {
         _comps: &[ir::Component],
     ) -> VisResult {
         if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-            let msg = s.attributes.copy_span().format(format!(
+            let err = Error::malformed_control(format!(
                 "static if statement's condition port {} is unstable",
                 s.port.borrow().canonical()
-            ));
-            self.diag.warning(msg);
+            ))
+            .with_pos(&s.attributes);
+            self.diag.warning(err);
         }
         Ok(Action::Continue)
     }
@@ -782,11 +783,11 @@ impl Visitor for WellFormed {
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
         } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-            let msg = s.attributes.copy_span().format(format!(
-                    "While loop has no comb group and its condition port {} is unstable",
-                    s.port.borrow().canonical()
-                ));
-            self.diag.warning(msg);
+            let err = Error::malformed_control(format!(
+                "While loop has no comb group and its condition port `{}` is unstable",
+                s.port.borrow().canonical()
+            )).with_pos(&s.attributes);
+            self.diag.warning(err);
         }
         Ok(Action::Continue)
     }

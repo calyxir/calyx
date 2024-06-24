@@ -73,7 +73,7 @@ module.exports = grammar({
     wires: $ => seq('wires', '{', optional($.wires_inner), '}'),
     wires_inner: $ => repeat1(choice($.group, $.wire_assignment)),
     group: $ => seq(
-      optional('comb'), 'group', $.ident, optional($.attributes),
+      optional(choice('comb', $.static_annotation)), 'group', $.ident, optional($.attributes),
       '{',
       repeat($.wire_assignment),
       '}'

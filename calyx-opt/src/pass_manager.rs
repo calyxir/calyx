@@ -60,7 +60,7 @@ impl PassManager {
             } else {
                 // only show warnings, if there are no errors
                 visitor.diagnostics().warning_iter().for_each(
-                    |warning| log::warn!(target: Pass::name(), "{warning}"),
+                    |warning| log::warn!(target: Pass::name(), "{warning:?}"),
                 );
                 Ok(())
             }
