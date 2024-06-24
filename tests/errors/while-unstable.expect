@@ -22,4 +22,4 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 ---STDERR---
 [WARN  well-formed] tests/errors/while-unstable.futil
     20 |    while lt.out {
-       |    ^^^^^^^^^^^^^^ While loop has no comb group and its condition port lt.out is unstable
+       |    ^^^^^^^^^^^^^^ While loop has no comb group and its condition port `lt.out` is unstable

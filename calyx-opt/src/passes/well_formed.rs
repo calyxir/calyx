@@ -714,7 +714,7 @@ impl Visitor for WellFormed {
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
         } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-            let err = Error::malformed_control(format!(
+            let err = Error::misc(format!(
                 "If statement has no comb group and its condition port {} is unstable",
                 s.port.borrow().canonical()
             )).with_pos(&s.attributes);
@@ -731,7 +731,7 @@ impl Visitor for WellFormed {
         _comps: &[ir::Component],
     ) -> VisResult {
         if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-            let err = Error::malformed_control(format!(
+            let err = Error::misc(format!(
                 "static if statement's condition port {} is unstable",
                 s.port.borrow().canonical()
             ))
@@ -783,7 +783,7 @@ impl Visitor for WellFormed {
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
         } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-            let err = Error::malformed_control(format!(
+            let err = Error::misc(format!(
                 "While loop has no comb group and its condition port `{}` is unstable",
                 s.port.borrow().canonical()
             )).with_pos(&s.attributes);

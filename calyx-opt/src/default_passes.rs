@@ -1,4 +1,5 @@
 //! Defines the default passes available to [PassManager].
+use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, CompileSync,
@@ -13,10 +14,9 @@ use crate::passes::{
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
-use calyx_utils::CalyxResult;
 
 impl PassManager {
-    pub fn default_passes() -> CalyxResult<Self> {
+    pub fn default_passes() -> PassResult<Self> {
         // Construct the pass manager and register all passes.
         let mut pm = PassManager::default();
 

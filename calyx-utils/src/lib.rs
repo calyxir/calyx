@@ -10,7 +10,7 @@ mod weight_graph;
 mod math;
 pub(crate) mod measure_time;
 
-pub use errors::{CalyxResult, Error};
+pub use errors::{CalyxResult, Error, MultiError};
 pub use id::{GSym, GetName, Id};
 pub use math::bits_needed_for;
 pub use namegenerator::NameGenerator;

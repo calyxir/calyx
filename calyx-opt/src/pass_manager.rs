@@ -2,13 +2,15 @@
 //! passes.
 use crate::traversal;
 use calyx_ir as ir;
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::{Error, MultiError};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::time::Instant;
 
+pub type PassResult<T> = std::result::Result<T, MultiError>;
+
 /// Top-level type for all passes that transform an [ir::Context]
-pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> CalyxResult<()>>;
+pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> PassResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
 #[derive(Default)]
@@ -30,7 +32,7 @@ impl PassManager {
     /// let pm = PassManager::default();
     /// pm.register_pass::<WellFormed>()?;
     /// ```
-    pub fn register_pass<Pass>(&mut self) -> CalyxResult<()>
+    pub fn register_pass<Pass>(&mut self) -> PassResult<()>
     where
         Pass:
             traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
@@ -43,7 +45,7 @@ impl PassManager {
 
     /// Registers a diagnostic pass as a normal pass. If there is an error,
     /// this will report the first error gathered by the pass.
-    pub fn register_diagnostic<Pass>(&mut self) -> CalyxResult<()>
+    pub fn register_diagnostic<Pass>(&mut self) -> PassResult<()>
     where
         Pass: traversal::Visitor
             + traversal::ConstructVisitor
@@ -54,9 +56,10 @@ impl PassManager {
             let mut visitor = Pass::from(ir)?;
             visitor.do_pass(ir)?;
 
-            let mut errors = visitor.diagnostics().errors_iter();
-            if let Some(first_error) = errors.next() {
-                Err(first_error.clone())
+            let errors: Vec<_> =
+                visitor.diagnostics().errors_iter().cloned().collect();
+            if !errors.is_empty() {
+                Err(MultiError::from(errors))
             } else {
                 // only show warnings, if there are no errors
                 visitor.diagnostics().warning_iter().for_each(
@@ -70,7 +73,7 @@ impl PassManager {
     fn register_generic_pass<Pass>(
         &mut self,
         pass_closure: PassClosure,
-    ) -> CalyxResult<()>
+    ) -> PassResult<()>
     where
         Pass:
             traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
@@ -80,7 +83,8 @@ impl PassManager {
             return Err(Error::misc(format!(
                 "Pass with name '{}' is already registered.",
                 name
-            )));
+            ))
+            .into());
         }
         self.passes.insert(name.clone(), pass_closure);
         let mut help = format!("- {}: {}", name, Pass::description());
@@ -105,12 +109,13 @@ impl PassManager {
         &mut self,
         name: String,
         passes: Vec<String>,
-    ) -> CalyxResult<()> {
+    ) -> PassResult<()> {
         if self.aliases.contains_key(&name) {
             return Err(Error::misc(format!(
                 "Alias with name '{}'  already registered.",
                 name
-            )));
+            ))
+            .into());
         }
         // Expand any aliases used in defining this alias.
         let all_passes = passes
@@ -187,7 +192,7 @@ impl PassManager {
         incls: &[String],
         excls: &[String],
         insns: &[String],
-    ) -> CalyxResult<(Vec<String>, HashSet<String>)> {
+    ) -> PassResult<(Vec<String>, HashSet<String>)> {
         let mut insertions = insns
             .iter()
             .filter_map(|str| match str.split_once(':') {
@@ -264,7 +269,7 @@ impl PassManager {
         excl: &[String],
         insn: &[String],
         dump_ir: bool,
-    ) -> CalyxResult<()> {
+    ) -> PassResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl, insn)?;
 
         for name in passes {
