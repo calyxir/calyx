@@ -1,4 +1,5 @@
 use fraction::Fraction;
+use itertools::Itertools;
 use serde::Serialize;
 use std::fmt::{Debug, Display};
 
@@ -161,5 +162,157 @@ impl Display for Entry {
 impl Debug for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
+    }
+}
+
+#[derive(Clone)]
+pub enum Serializable {
+    Empty,
+    Val(Entry),
+    Array(Vec<Entry>, Shape),
+}
+
+impl Serializable {
+    pub fn has_state(&self) -> bool {
+        !matches!(self, Serializable::Empty)
+    }
+}
+
+impl Display for Serializable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Serializable::Empty => write!(f, ""),
+            Serializable::Val(v) => write!(f, "{}", v),
+            Serializable::Array(arr, shape) => {
+                write!(f, "{}", format_array(arr, shape))
+            }
+            full @ Serializable::Full(_) => {
+                write!(f, "{}", serde_json::to_string(full).unwrap())
+            }
+        }
+    }
+}
+
+impl Serialize for Serializable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Serializable::Empty => serializer.serialize_unit(),
+            Serializable::Val(u) => u.serialize(serializer),
+            Serializable::Array(arr, shape) => {
+                let arr: Vec<&Entry> = arr.iter().collect();
+                if shape.is_1d() {
+                    return arr.serialize(serializer);
+                }
+                // there's probably a better way to write this
+                match shape {
+                    Shape::D2(_d0, d1) => {
+                        let mem = arr
+                            .iter()
+                            .chunks(*d1)
+                            .into_iter()
+                            .map(|x| x.into_iter().collect::<Vec<_>>())
+                            .collect::<Vec<_>>();
+                        mem.serialize(serializer)
+                    }
+                    Shape::D3(_d0, d1, d2) => {
+                        let mem = arr
+                            .iter()
+                            .chunks(d1 * d2)
+                            .into_iter()
+                            .map(|x| {
+                                x.into_iter()
+                                    .chunks(*d2)
+                                    .into_iter()
+                                    .map(|y| y.into_iter().collect::<Vec<_>>())
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<_>>();
+                        mem.serialize(serializer)
+                    }
+                    Shape::D4(_d0, d1, d2, d3) => {
+                        let mem = arr
+                            .iter()
+                            .chunks(d2 * d1 * d3)
+                            .into_iter()
+                            .map(|x| {
+                                x.into_iter()
+                                    .chunks(d2 * d3)
+                                    .into_iter()
+                                    .map(|y| {
+                                        y.into_iter()
+                                            .chunks(*d3)
+                                            .into_iter()
+                                            .map(|z| {
+                                                z.into_iter()
+                                                    .collect::<Vec<_>>()
+                                            })
+                                            .collect::<Vec<_>>()
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<_>>();
+                        mem.serialize(serializer)
+                    }
+                    Shape::D1(_) => unreachable!(),
+                }
+            }
+            Serializable::Full(s) => s.serialize(serializer),
+        }
+    }
+}
+
+fn format_array(arr: &[Entry], shape: &Shape) -> String {
+    match shape {
+        Shape::D2(_d0, d1) => {
+            let mem = arr
+                .iter()
+                .chunks(*d1)
+                .into_iter()
+                .map(|x| x.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>();
+            format!("{:?}", mem)
+        }
+        Shape::D3(_d0, d1, d2) => {
+            let mem = arr
+                .iter()
+                .chunks(d1 * d2)
+                .into_iter()
+                .map(|x| {
+                    x.into_iter()
+                        .chunks(*d2)
+                        .into_iter()
+                        .map(|y| y.into_iter().collect::<Vec<_>>())
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            format!("{:?}", mem)
+        }
+        Shape::D4(_d0, d1, d2, d3) => {
+            let mem = arr
+                .iter()
+                .chunks(d2 * d1 * d3)
+                .into_iter()
+                .map(|x| {
+                    x.into_iter()
+                        .chunks(d2 * d3)
+                        .into_iter()
+                        .map(|y| {
+                            y.into_iter()
+                                .chunks(*d3)
+                                .into_iter()
+                                .map(|z| z.into_iter().collect::<Vec<_>>())
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            format!("{:?}", mem)
+        }
+        Shape::D1(_) => {
+            format!("{:?}", arr)
+        }
     }
 }
