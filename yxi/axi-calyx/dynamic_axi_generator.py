@@ -634,7 +634,7 @@ def add_wrapper_comp(prog, mems):
         # Want to use 32 bits because the registers in XRT are asusemd to be this size
         (f"{prefix}WDATA", 32),
         # We don't use this but it is required by some versions of the spec. We should tie high on subordinate.
-        (f"{prefix}WSTRB", 32 / 8),
+        (f"{prefix}WSTRB", int(32 / 8)),
         (f"{prefix}BREADY", 1),
         (f"{prefix}ARVALID", 1),
         (f"{prefix}ARADDR", 16),
@@ -655,8 +655,28 @@ def add_wrapper_comp(prog, mems):
     ]
 
     add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
+    
+    control_subordinate = wrapper_comp.cell(f"control_subordinate", prog.get_component("control_subordinate"))
+    ap_start_block_reg = wrapper_comp.reg(1, f"ap_start_block_reg")
+    ap_done_reg = wrapper_comp.reg(1, f"ap_done_reg")
 
-    wrapper_comp.cell(f"control_subordinate", prog.get_component("control_subordinate"))
+    #NOTE: This breaks encapsulation of modules a bit,
+    # but allows us to block on ap_start in the control block without
+    # adding new control flow constructs.
+
+    # Ideally, it'd be nice to have this functionality included as part of
+    # the control flow of the wrapper or perhaps the main_compute invocation? 
+    with wrapper_comp.group(f"block_ap_start") as block_ap_start:
+        ap_start_block_reg.in_ = 1
+        ap_start_block_reg.write_en = control_subordinate.ap_start
+        block_ap_start.done = ap_start_block_reg.done
+
+    with wrapper_comp.group(f"assert_ap_done") as assert_ap_done:
+        control_subordinate.ap_done_in = ap_done_reg.out
+        ap_done_reg.in_ = 1
+        ap_done_reg.write_en = 1
+        assert_ap_done.done = ap_done_reg.done
+
     # Generate manager controllers for each memory
     for mem in mems:
         mem_name = mem[name_key]
@@ -708,7 +728,6 @@ def add_wrapper_comp(prog, mems):
         # TODO: Don't think these need to be marked external, but we
         # we need to raise them at some point form original calyx program
         axi_mem = wrapper_comp.cell(f"axi_dyn_mem_{mem_name}", prog.get_component(f"axi_dyn_mem_{mem_name}"))
-
         # Wires
 
         with wrapper_comp.continuous:
@@ -750,20 +769,28 @@ def add_wrapper_comp(prog, mems):
             wrapper_comp.this()[f"{mem_name}_WLAST"] = axi_mem.WLAST
             wrapper_comp.this()[f"{mem_name}_WDATA"] = axi_mem.WDATA
             wrapper_comp.this()[f"{mem_name}_BREADY"] = axi_mem.BREADY
+        
 
 
         # Creates `<mem_name> = internal_mem_<mem_name>` as refs in invocation of `main_compute`
         ref_mem_kwargs[f"ref_{mem_name}"] = axi_mem
 
+    # Control
+
     # Compute invoke
     # Assumes refs should be of form `<mem_name> = internal_mem_<mem_name>`
     main_compute_invoke = invoke(
-        wrapper_comp.get_cell("main_compute"), **ref_mem_kwargs
+        main_compute, **ref_mem_kwargs
     )
+    control_subordinate_invoke = invoke(control_subordinate)
+
+
 
     # Compiler should reschedule these 2 seqs to be in parallel right?
-    wrapper_comp.control += main_compute_invoke
-    # Reset axi adress to 0
+    wrapper_comp.control += par(
+        control_subordinate_invoke,
+        [block_ap_start, main_compute_invoke, assert_ap_done]
+        )
 
 
 # Helper functions

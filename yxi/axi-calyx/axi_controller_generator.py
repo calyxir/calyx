@@ -205,7 +205,7 @@ def add_read_controller(prog, mems):
     add_arread_channel(prog)
     add_read_channel(prog)
 
-    read_controller = prog.component("read_controller")
+    read_controller = prog.component("s_control_read_controller")
     read_controller_inputs = [
         ("ARESETn", 1),
         ("ARVALID", 1),
@@ -272,7 +272,7 @@ def add_write_controller(prog, mems):
     add_write_channel(prog)
     add_bresp_channel(prog)
 
-    write_controller = prog.component("write_controller")
+    write_controller = prog.component("s_control_write_controller")
     write_controller_inputs = [
         ("ARESETn", 1),
         ("AWVALID", 1),
@@ -392,12 +392,13 @@ def add_control_subordinate(prog, mems):
         # Want to use 32 bits because the registers in XRT are asusemd to be this size
         ("WDATA", 32),
         # We don't use this but it is required by some versions of the spec. We should tie high on subordinate.
-        ("WSTRB", 32 / 8),
+        ("WSTRB", int(32 / 8)),
         ("BREADY", 1),
         ("ARVALID", 1),
         ("ARADDR", 16),
         # ("ARPROT", 3), #We don't do anything with this
         ("RVALID", 1),
+        ("ap_done_in", 1),
     ]
 
     control_subordinate_outputs = [
@@ -409,7 +410,7 @@ def add_control_subordinate(prog, mems):
         ("RDATA", 32),
         ("RRESP", 2),  # No error detection, for now we just set to 0b00 = OKAY.
         ("ap_start", 1),
-        ("ap_done", 1),
+        ("ap_done_out", 1),
     ]
 
     add_comp_ports(
@@ -421,15 +422,16 @@ def add_control_subordinate(prog, mems):
     control_regs = generate_control_registers(control_subordinate, mems, as_refs=False)
     # TODO: It could be nice to add to builder a way to access bits directly.
     # Currently: need to hook up these wires manually
-    ap_start = control_subordinate.bit_slice("ap_start", 32, 0, 0, 1)
-    ap_done = control_subordinate.bit_slice("ap_done", 32, 1, 1, 1)
+    ap_start_slice = control_subordinate.bit_slice("ap_start_slice", 32, 0, 0, 1)
+    ap_done_slice = control_subordinate.bit_slice("ap_done_slice", 32, 1, 1, 1)
+    ap_done_or = control_subordinate.or_(32, "ap_done_or")
 
 
     read_controller = control_subordinate.cell(
-        f"read_controller", prog.get_component("read_controller")
+        f"s_control_read_controller", prog.get_component("s_control_read_controller")
     )
     write_controller = control_subordinate.cell(
-        f"write_controller", prog.get_component("write_controller")
+        f"s_control_write_controller", prog.get_component("s_control_write_controller")
     )
 
     # Wires
@@ -456,7 +458,6 @@ def add_control_subordinate(prog, mems):
         read_controller["ARVALID"] = this["ARVALID"]
         read_controller["ARADDR"] = this["ARADDR"]
         read_controller["ARPROT"] = const(3, 0b110) #Tie to priveleged, nonsecure, data access request.
-        read_controller["RREADY"] = this["RREADY"]
 
         #   Outputs
         this["AWREADY"] = write_controller["AWREADY"]
@@ -466,13 +467,13 @@ def add_control_subordinate(prog, mems):
         this["ARREADY"] = read_controller["ARREADY"]
         this["RDATA"] = read_controller["RDATA"]
         this["RRESP"] = read_controller["RRESP"]
-        this["ap_start"] = ap_start.out
-        this["ap_done"] = ap_done.out
+        this["ap_start"] = ap_start_slice.out
+        this["ap_done_out"] = ap_done_slice.out
 
 
         # XRT Wiring stuff
-        ap_start.in_ = xrt_control_reg.out
-        ap_done.in_ = xrt_control_reg.out
+        ap_start_slice.in_ = xrt_control_reg.out
+        ap_done_slice.in_ = xrt_control_reg.out
         control_subordinate.this()
 
     with control_subordinate.group("init_control_regs") as init_control_regs:
@@ -480,6 +481,14 @@ def add_control_subordinate(prog, mems):
             reg.in_ = 0
 
         init_control_regs.done = xrt_control_reg.done
+
+    with control_subordinate.group("check_ap_done") as check_ap_done:
+        ap_done_or.left = xrt_control_reg.out
+        ap_done_or.right = ap_done_slice.out @ const(32, 0b10)
+        ap_done_or.right = ~ap_done_slice.out @ const(32, 0)
+        xrt_control_reg.in_ = ap_done_or.out
+        xrt_control_reg.write_en = 1
+        check_ap_done.done = xrt_control_reg.done
 
     sub_controller_kwargs = {}
     for reg in control_regs:
@@ -495,11 +504,11 @@ def add_control_subordinate(prog, mems):
         **sub_controller_kwargs
     )
         
-    n_ap_done = control_subordinate.not_use(ap_done.out, "n_ap_done")
+    n_ap_done = control_subordinate.not_use(ap_done_slice.out, "n_ap_done",width=1)
 
     control_subordinate.control += [
         init_control_regs,
-        while_with(n_ap_done, par(read_controller_invoke, write_controller_invoke)),
+        while_with(n_ap_done, [par(read_controller_invoke, write_controller_invoke), check_ap_done]),
     ]
 
 
