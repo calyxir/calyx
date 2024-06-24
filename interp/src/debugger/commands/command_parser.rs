@@ -12,7 +12,7 @@ use crate::{debugger::commands::PrintCode, errors::InterpreterResult};
 const _GRAMMAR: &str = include_str!("commands.pest");
 
 #[derive(Parser)]
-#[grammar = "debugger/parser/commands.pest"]
+#[grammar = "commands.pest"]
 pub struct CommandParser;
 
 #[pest_consume::parser]

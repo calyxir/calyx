@@ -7,7 +7,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::structures::names::CompGroupName;
+use crate::serialization::PrintCode;
 
 #[derive(Debug)]
 pub struct ParsedGroupName {
