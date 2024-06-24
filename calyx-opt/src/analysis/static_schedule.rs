@@ -252,10 +252,22 @@ pub enum FSMTree {
 }
 
 impl FSMTree {
-    pub fn instantiate_fsms(&mut self, builder: &mut ir::Builder) {
+    pub fn instantiate_fsms(
+        &mut self,
+        builder: &mut ir::Builder,
+        coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_fsm: &mut HashMap<
+            ir::Id,
+            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+        >,
+    ) {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.instantiate_fsms(builder),
-            FSMTree::Par(par_struct) => par_struct.instantiate_fsms(builder),
+            FSMTree::Tree(tree_struct) => {
+                tree_struct.instantiate_fsms(builder, coloring, colors_to_fsm)
+            }
+            FSMTree::Par(par_struct) => {
+                par_struct.instantiate_fsms(builder, coloring, colors_to_fsm)
+            }
         }
     }
 
@@ -436,27 +448,56 @@ pub struct Tree {
 }
 
 impl Tree {
-    fn instantiate_fsms(&mut self, builder: &mut ir::Builder) {
-        if self.num_states != 1 {
-            // Build parent FSM for the "root" of the tree.
-            let fsm_cell = StaticFSM::from_basic_info(
-                self.num_states,
-                FSMEncoding::Binary, // XXX(Caleb): change this
-                builder,
-            );
-            self.fsm_cell = Some(ir::rrc(fsm_cell));
-        }
-        if self.num_repeats != 1 {
-            let repeat_counter = StaticFSM::from_basic_info(
-                self.num_repeats,
-                FSMEncoding::Binary, // XXX(Caleb): change this
-                builder,
-            );
-            self.iter_count_cell = Some(ir::rrc(repeat_counter));
+    fn instantiate_fsms(
+        &mut self,
+        builder: &mut ir::Builder,
+        coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_fsm: &mut HashMap<
+            ir::Id,
+            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+        >,
+    ) {
+        let color = coloring.get(&self.root.0).expect("couldn't find group");
+        match colors_to_fsm.get(color) {
+            None => {
+                let mut fsm_opt = None;
+                let mut repeat_opt = None;
+                if self.num_states != 1 {
+                    // Build parent FSM for the "root" of the tree.
+                    let fsm_cell = ir::rrc(StaticFSM::from_basic_info(
+                        self.num_states,
+                        FSMEncoding::Binary, // XXX(Caleb): change this
+                        builder,
+                    ));
+                    fsm_opt = Some(Rc::clone(&fsm_cell));
+                    self.fsm_cell = Some(fsm_cell);
+                }
+                if self.num_repeats != 1 {
+                    let repeat_counter = ir::rrc(StaticFSM::from_basic_info(
+                        self.num_repeats,
+                        FSMEncoding::Binary, // XXX(Caleb): change this
+                        builder,
+                    ));
+                    repeat_opt = Some(Rc::clone(&repeat_counter));
+                    self.iter_count_cell = Some(repeat_counter);
+                }
+                colors_to_fsm.insert(*color, (fsm_opt, repeat_opt));
+            }
+            Some((fsm_opt, repeat_opt)) => {
+                let fsm_opt_new = match fsm_opt {
+                    None => None,
+                    Some(x) => Some(Rc::clone(x)),
+                };
+                let repeat_opt_new = match repeat_opt {
+                    None => None,
+                    Some(x) => Some(Rc::clone(x)),
+                };
+                colors_to_fsm.insert(*color, (fsm_opt_new, repeat_opt_new));
+            }
         }
 
         for (child, _) in &mut self.children {
-            child.instantiate_fsms(builder);
+            child.instantiate_fsms(builder, coloring, colors_to_fsm);
         }
     }
 
@@ -1209,9 +1250,17 @@ pub struct ParTree {
 }
 
 impl ParTree {
-    pub fn instantiate_fsms(&mut self, builder: &mut ir::Builder) {
+    pub fn instantiate_fsms(
+        &mut self,
+        builder: &mut ir::Builder,
+        coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_fsm: &mut HashMap<
+            ir::Id,
+            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+        >,
+    ) {
         for (child, _) in &mut self.threads {
-            child.instantiate_fsms(builder);
+            child.instantiate_fsms(builder, coloring, colors_to_fsm);
         }
     }
 

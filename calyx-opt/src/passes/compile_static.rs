@@ -1,4 +1,6 @@
-use crate::analysis::{FSMTree, GraphColoring, ParTree, StateType, Tree};
+use crate::analysis::{
+    FSMTree, GraphColoring, ParTree, StateType, StaticFSM, Tree,
+};
 use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
 use calyx_ir::{self as ir, Nothing, PortParent};
 use calyx_ir::{guard, structure, GetAttributes};
@@ -457,8 +459,10 @@ impl CompileStatic {
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
         Self::add_par_conflicts(control, tree_objects, &mut conflict_graph);
-        for tree in tree_objects {}
-        panic!("")
+        for tree in tree_objects {
+            tree.add_conflicts(&mut conflict_graph);
+        }
+        conflict_graph.color_greedy(None, true)
     }
 }
 
@@ -777,6 +781,11 @@ impl CompileStatic {
         fsm_tree: &mut FSMTree,
         static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_fsm: &mut HashMap<
+            ir::Id,
+            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+        >,
         builder: &mut ir::Builder,
     ) -> calyx_utils::CalyxResult<()> {
         if fsm_tree.get_latency() > 1 {
@@ -801,7 +810,7 @@ impl CompileStatic {
             );
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
-            fsm_tree.instantiate_fsms(builder);
+            fsm_tree.instantiate_fsms(builder, coloring, colors_to_fsm);
             fsm_tree.count_to_n(builder, Some(comp_go));
             fsm_tree.realize(
                 static_groups,
@@ -899,11 +908,15 @@ impl Visitor for CompileStatic {
         // The first thing is to assign FSMs -> static islands.
         // We sometimes assign the same FSM to different static islands
         // to reduce register usage. We do this by getting greedy coloring.
-        let coloring: HashMap<calyx_ir::Id, calyx_ir::Id> = Self::get_coloring(
+        let coloring: HashMap<ir::Id, ir::Id> = Self::get_coloring(
             &tree_objects,
             &sgroups,
             &mut builder.component.control.borrow_mut(),
         );
+        let mut colors_to_fsms: HashMap<
+            ir::Id,
+            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+        > = HashMap::new();
 
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
@@ -942,10 +955,16 @@ impl Visitor for CompileStatic {
                     tree,
                     &mut sgroups,
                     &mut group_rewrites,
+                    &coloring,
+                    &mut colors_to_fsms,
                     &mut builder,
                 )?;
             } else {
-                tree.instantiate_fsms(&mut builder);
+                tree.instantiate_fsms(
+                    &mut builder,
+                    &coloring,
+                    &mut colors_to_fsms,
+                );
                 tree.count_to_n(&mut builder, None);
                 tree.realize(
                     &sgroups,
