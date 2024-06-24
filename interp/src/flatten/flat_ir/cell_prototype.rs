@@ -2,7 +2,7 @@ use calyx_ir::{self as cir, BoolAttr};
 use smallvec::SmallVec;
 
 use crate::{
-    primitives::prim_utils::get_params, serialization::data_dump::Dimensions,
+    flatten::primitives::utils::get_params, serialization::Dimensions,
 };
 
 use super::prelude::ComponentIdx;

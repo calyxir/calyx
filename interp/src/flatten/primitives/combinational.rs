@@ -7,11 +7,10 @@ use crate::{
         flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
         primitives::{
             all_defined, comb_primitive, declare_ports, ports,
-            prim_trait::UpdateStatus, Primitive,
+            prim_trait::UpdateStatus, utils::floored_division, Primitive,
         },
         structures::environment::PortMap,
     },
-    primitives::stateful::floored_division,
     values::Value,
 };
 

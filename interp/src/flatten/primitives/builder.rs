@@ -9,7 +9,7 @@ use crate::{
         },
         structures::context::Context,
     },
-    serialization::data_dump::DataDump,
+    serialization::DataDump,
     values::Value,
 };
 
