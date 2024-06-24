@@ -4,8 +4,7 @@ use serde::Serialize;
 use std::fmt::{Debug, Display};
 
 use crate::{
-    flatten::flat_ir::cell_prototype::MemoryDimensions, utils::PrintCode,
-    values::Value,
+    flatten::flat_ir::cell_prototype::MemoryDimensions, values::Value,
 };
 
 /// An enum wrapping over a tuple representing the shape of a multi-dimensional
@@ -165,6 +164,40 @@ impl Debug for Entry {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum PrintCode {
+    Binary,
+    Unsigned,
+    Signed,
+    UFixed(usize),
+    SFixed(usize),
+}
+
+impl Default for PrintCode {
+    fn default() -> Self {
+        Self::Unsigned
+    }
+}
+
+impl Display for PrintCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                PrintCode::Binary =>
+                    owo_colors::OwoColorize::cyan(&"\\b").to_string(),
+                PrintCode::Unsigned =>
+                    owo_colors::OwoColorize::blue(&"\\u").to_string(),
+                PrintCode::Signed =>
+                    owo_colors::OwoColorize::yellow(&"\\s").to_string(),
+                PrintCode::UFixed(n) => format!("\\u.{}", n),
+                PrintCode::SFixed(n) => format!("\\s.{}", n),
+            }
+        )
+    }
+}
+
 #[derive(Clone)]
 pub enum Serializable {
     Empty,
@@ -185,9 +218,6 @@ impl Display for Serializable {
             Serializable::Val(v) => write!(f, "{}", v),
             Serializable::Array(arr, shape) => {
                 write!(f, "{}", format_array(arr, shape))
-            }
-            full @ Serializable::Full(_) => {
-                write!(f, "{}", serde_json::to_string(full).unwrap())
             }
         }
     }
@@ -259,7 +289,6 @@ impl Serialize for Serializable {
                     Shape::D1(_) => unreachable!(),
                 }
             }
-            Serializable::Full(s) => s.serialize(serializer),
         }
     }
 }

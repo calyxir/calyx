@@ -69,37 +69,6 @@ impl From<u64> for BreakPointId {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum PrintCode {
-    Binary,
-    Unsigned,
-    Signed,
-    UFixed(usize),
-    SFixed(usize),
-}
-
-impl Default for PrintCode {
-    fn default() -> Self {
-        Self::Unsigned
-    }
-}
-
-impl Display for PrintCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                PrintCode::Binary => "\\b".cyan().to_string(),
-                PrintCode::Unsigned => "\\u".blue().to_string(),
-                PrintCode::Signed => "\\s".yellow().to_string(),
-                PrintCode::UFixed(n) => format!("\\u.{}", n),
-                PrintCode::SFixed(n) => format!("\\s.{}", n),
-            }
-        )
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 pub enum WatchPosition {
     Before,

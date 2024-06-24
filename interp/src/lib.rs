@@ -1,13 +1,12 @@
-pub mod serialization;
-pub use utils::MemoryMap;
+mod as_raw;
 pub mod configuration;
 pub mod debugger;
 pub mod errors;
 pub mod logging;
 mod macros;
+pub mod serialization;
 mod structures;
 mod tests;
-mod utils;
 
 pub mod flatten;
 
