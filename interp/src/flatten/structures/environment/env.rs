@@ -26,7 +26,7 @@ use crate::{
         },
     },
     logging,
-    serialization::data_dump::{DataDump, Dimensions},
+    serialization::{DataDump, Dimensions},
     values::Value,
 };
 use ahash::HashMap;
