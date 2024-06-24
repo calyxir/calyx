@@ -10,7 +10,6 @@ use calyx_backend::BackendOpt;
 use calyx_frontend as frontend;
 use calyx_ir as ir;
 use calyx_opt::pass_manager::{PassManager, PassResult};
-use calyx_utils::Error;
 use cmdline::{CompileMode, Opts};
 use itertools::Itertools;
 

@@ -290,19 +290,25 @@ impl From<serde_json::Error> for Error {
 
 impl From<std::str::Utf8Error> for MultiError {
     fn from(value: std::str::Utf8Error) -> Self {
-        value.into()
+        MultiError {
+            errors: vec![value.into()],
+        }
     }
 }
 
 impl From<std::io::Error> for MultiError {
     fn from(value: std::io::Error) -> Self {
-        value.into()
+        MultiError {
+            errors: vec![value.into()],
+        }
     }
 }
 
 impl From<serde_json::Error> for MultiError {
     fn from(value: serde_json::Error) -> Self {
-        value.into()
+        MultiError {
+            errors: vec![value.into()],
+        }
     }
 }
 
