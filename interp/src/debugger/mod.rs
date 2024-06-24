@@ -1,5 +1,5 @@
 mod cidr;
-pub(crate) mod commands;
+pub mod commands;
 mod context;
 mod interactive_errors;
 mod io_utils;

@@ -65,7 +65,7 @@ pub enum InterpreterError {
     #[error(transparent)]
     ParseError(
         #[from]
-        pest_consume::Error<crate::debugger::parser::command_parser::Rule>,
+        pest_consume::Error<crate::debugger::commands::command_parser::Rule>,
     ),
 
     /// Unable to parse the debugger command

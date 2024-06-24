@@ -1,18 +1,19 @@
-use super::super::commands::{BreakPointId, Command, ParsedGroupName};
+use super::core::{
+    BreakPointId, Command, ParsedGroupName, PrintMode, WatchPosition,
+};
 use calyx_ir::Id;
 use pest_consume::{match_nodes, Error, Parser};
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use super::super::commands::{PrintMode, WatchPosition};
-use crate::{debugger::commands::PrintCode, errors::InterpreterResult};
+use crate::{errors::InterpreterResult, serialization::PrintCode};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("commands.pest");
 
 #[derive(Parser)]
-#[grammar = "commands.pest"]
+#[grammar = "debugger/commands/commands.pest"]
 pub struct CommandParser;
 
 #[pest_consume::parser]

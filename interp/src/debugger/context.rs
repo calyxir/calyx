@@ -2,8 +2,7 @@ use super::cidr::SPACING;
 use super::commands::{
     BreakPointId, ParsedGroupName, PrintTuple, WatchPosition,
 };
-use crate::interpreter_ir as iir;
-use crate::structures::names::{CompGroupName, GroupQIN};
+
 use calyx_ir::Id;
 use owo_colors::OwoColorize;
 use std::collections::HashMap;
