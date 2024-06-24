@@ -240,7 +240,7 @@ impl<'a> Run<'a> {
         stdin_files.sort();
 
         for (_, filename) in stdin_files {
-            let stdin_file = 
+            let stdin_file =
                 std::fs::File::create(self.plan.workdir.join(filename))?;
             std::io::copy(
                 &mut std::io::stdin(),
@@ -319,14 +319,22 @@ impl<'a> Run<'a> {
             let op = &self.driver.ops[*op];
             op.emit.build(
                 &mut emitter,
-                in_files.iter().map(|io| match io {
-                    IO::StdIO(_, filename) => filename.as_str(),
-                    IO::File(filename) => filename.as_str(),
-                }).collect::<Vec<_>>().as_slice(),
-                out_files.iter().map(|io| match io {
-                    IO::StdIO(_, filename) => filename.as_str(),
-                    IO::File(filename) => filename.as_str(),
-                }).collect::<Vec<_>>().as_slice(),
+                in_files
+                    .iter()
+                    .map(|io| match io {
+                        IO::StdIO(_, filename) => filename.as_str(),
+                        IO::File(filename) => filename.as_str(),
+                    })
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                out_files
+                    .iter()
+                    .map(|io| match io {
+                        IO::StdIO(_, filename) => filename.as_str(),
+                        IO::File(filename) => filename.as_str(),
+                    })
+                    .collect::<Vec<_>>()
+                    .as_slice(),
             )?;
         }
         writeln!(emitter.out)?;
