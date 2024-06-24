@@ -203,9 +203,7 @@ pub enum InterpreterError {
     UndefinedReadAddr(String),
 
     #[error(transparent)]
-    SerializationError(
-        #[from] crate::serialization::data_dump::SerializationError,
-    ),
+    SerializationError(#[from] crate::serialization::SerializationError),
 }
 
 impl InterpreterError {
@@ -235,29 +233,6 @@ impl std::fmt::Debug for InterpreterError {
 impl From<CalyxError> for InterpreterError {
     fn from(e: CalyxError) -> Self {
         Self::CompilerError(Box::new(e))
-    }
-}
-
-impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
-    for InterpreterError
-{
-    fn from(
-        err: crate::structures::stk_env::CollisionError<
-            *const calyx_ir::Port,
-            crate::values::Value,
-        >,
-    ) -> Self {
-        // when the error is first raised, the IR has not yet been deconstructed, so this
-        // dereference is safe
-        let port: &ir::Port = unsafe { &*err.0 };
-        let parent_name = port.get_parent_name();
-        let port_name = port.name;
-        Self::ParOverlap {
-            port_id: port_name,
-            parent_id: parent_name,
-            v1: err.1,
-            v2: err.2,
-        }
     }
 }
 
