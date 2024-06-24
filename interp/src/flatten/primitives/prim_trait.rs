@@ -2,7 +2,6 @@ use crate::{
     debugger::PrintCode,
     errors::InterpreterResult,
     flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
-    serialization::Serializable,
     values::Value,
 };
 
@@ -113,16 +112,6 @@ pub trait Primitive {
 
     fn has_stateful(&self) -> bool {
         true
-    }
-
-    /// Serialize the state of this primitive, if any.
-    fn serialize(&self, _code: Option<PrintCode>) -> Serializable {
-        Serializable::Empty
-    }
-
-    // more efficient to override this with true in stateful cases
-    fn has_serializable_state(&self) -> bool {
-        self.serialize(None).has_state()
     }
 
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
