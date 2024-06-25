@@ -34,11 +34,7 @@ impl Driver {
     {
         // check if the plan of given length is valid
         if len == 0 {
-            return if good(&plan) {
-                Some(plan.clone())
-            } else {
-                None
-            };
+            return if good(plan) { Some(plan.clone()) } else { None };
         }
 
         // generate new plans over every loop
