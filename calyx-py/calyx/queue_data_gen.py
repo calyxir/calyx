@@ -56,11 +56,12 @@ def no_err_cmds_list(queue_size, num_cmds):
     return commands
 
 
-def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
+def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=False):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
-    - The `commands` memory has `num_cmds` items, which are 0, 1, or 2.
+    - Optional memories `ranks` and `times` are included for queues primed for non-work-conserving algorithms.
+    - The `commands` memory has `num_cmds` items, which range from 0-4. They are as follows:
       0: pop, 1: peek, 2: push
       If the `no_err` flag is set, then items are chosen from 0 and 2 using a helper.
     - The `values` memory has `num_cmds` items:
@@ -97,7 +98,28 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None):
         }
     }
 
-    print(json.dumps(commands | values | ans_mem, indent=2))
+    ranks = {
+        "ranks": {
+            "data": [random.randint(0, 400) for _ in range(num_cmds)],
+            # The `values` memory has `num_cmds` items, which are all
+            # random values between 0 and 400.
+            "format": format_gen(32),
+        }
+    }
+
+    times = {
+        "times": {
+            "data": [random.randint(0, 400) for _ in range(num_cmds)],
+            # The `values` memory has `num_cmds` items, which are all
+            # random values between 0 and 400.
+            "format": format_gen(32),
+        }        
+    }
+
+    if nwc:
+        print(json.dumps(commands | values | ranks | times | ans_mem, indent=2))
+    else:
+        print(json.dumps(commands | values | ans_mem, indent=2))
 
 
 if __name__ == "__main__":
@@ -105,7 +127,8 @@ if __name__ == "__main__":
     # This says whether we should use the special no_err helper.
     random.seed(5)
     num_cmds = int(sys.argv[1])
+    nwc = int(sys.argv[2]) == 1
     no_err = "--no-err" in sys.argv
     if no_err:
-        queue_size = int(sys.argv[3])
-    dump_json(num_cmds, no_err, queue_size if no_err else None)
+        queue_size = int(sys.argv[4])
+    dump_json(num_cmds, no_err, queue_size if no_err else None, nwc)

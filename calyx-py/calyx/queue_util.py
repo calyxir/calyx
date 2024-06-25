@@ -16,9 +16,14 @@ def parse_json(parse_ranks=False, parse_times=False):
     if parse_ranks:
         ranks = data["ranks"]["data"]
     if parse_times:
-        times = data["times", "data"]
-        return commands, values, ranks, times if parse_ranks else commands, values, times
-    
+        times = data["times"]["data"]
+
+    if parse_ranks and parse_times:
+        return commands, values, ranks, times
+    if parse_times:
+        return commands, values, times
+    if parse_ranks:
+        return commands, values, ranks
     return commands, values
 
 
