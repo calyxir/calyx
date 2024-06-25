@@ -19,9 +19,9 @@ class Fifo:
     which is given at initialization and cannot be exceeded.
     """
 
-    def __init__(self, data: List[int], max_len: int = None):
-        self.data = data
-        self.max_len = max_len or queue_util.QUEUE_SIZE
+    def __init__(self, max_len: int):
+        self.data = []
+        self.max_len = max_len
 
     def push(self, val: int, time=None, rank=None) -> None:
         """Pushes `val` to the FIFO."""
@@ -84,12 +84,12 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary, max_len=None):
+    def __init__(self, queue_1, queue_2, boundary, max_len):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
-        self.max_len = max_len or queue_util.QUEUE_SIZE
+        self.max_len = max_len
         assert (
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
@@ -180,16 +180,16 @@ class Pieo:
     optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
     
-    def __init__(self, data: List[(int, int, int)], max_len: int = None):
-        """Initialize structure. Ensures that rank ordering is preserved."""
-        self.data = data.sort(lambda x : x[1])
-        self.max_len = max_len or queue_util.QUEUE_SIZE
+    def __init__(self, max_len: int):
+        """Initialize structure."""
+        self.max_len = max_len
+        self.data = []
 
     def ripe(val, time):
         """Check that a value is 'ripe' – i.e. its ready time has passed"""
         return val[1] <= time
     
-    def push(self, val: int, time=0, rank=0) -> None:
+    def push(self, val, time=0, rank=0) -> None:
         """Pushes to a PIEO.
         Inserts element such that rank ordering is preserved
         """
@@ -203,8 +203,9 @@ class Pieo:
                 else:
                     self.data.insert(x, (val, time, rank))
      
-    def query(self, val=None, time=0, remove=False) -> Optional[int]:
-        """Queries a PIEO. Pops the PIEO if remove is True. Peeks otherwise.
+    def query(self, time=0, val=None, remove=False, return_rank=False) -> Optional[int]:
+        """Queries a PIEO. Returns matching value and rank.
+        Pops the PIEO if remove is True. Peeks otherwise.
         
         Takes in a time (default 0), and possibly a value. Uses the time for
         the eligibility predicate. If the value is passed in, returns the first
@@ -224,17 +225,20 @@ class Pieo:
         for x in range(len(self.data)):
             #Find the first value that matches the query who is 'ripe'
             if self.data[x][0] == val and self.ripe(self.data[x][1], time):
-                return self.data.pop(x)[0] if remove else self.data[x][0]
+                if return_rank:
+                    return self.data.pop(x) if remove else self.data[x]
+                else:
+                    return self.data.pop(x)[0] if remove else self.data[x][0]
         return None
     
-    def pop(self, val=None, time=0) -> Optional[int]:
+    def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Pops a PIEO. See query() for specifics."""
 
-        return self.query(val, time, True)
+        return self.query(time, val, True, return_rank)
 
-    def peek(self, val=None, time=0) -> Optional[int]:
+    def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Peeks a PIEO. See query() for specifics."""
-        return self.query(val, time)
+        return self.query(time, val, return_rank)
 
 @dataclass
 class PCQ:
@@ -247,9 +251,6 @@ class PCQ:
 
     At initialization we take in a set of `(int, int)` tuple lists `data` which stores
     lists of values and their ranks, each representing a bucket.
-    
-    We also take at initialization a `max_len` value to store the maximum possible
-    length of a queue.
 
     When asked to push:
     - We compute the bucket to push to as the rank of the new element multiplied by bucket width,
@@ -269,57 +270,77 @@ class PCQ:
     optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
 
-    def __init__(self, data : List[List[(int, int)]], num_buckets=200, width=4, initial_day=0, max_len: int = None):
+    def __init__(self, max_len: int, num_buckets=200, width=4, initial_day=0):
         self.width = width
         self.day = initial_day
         self.max_len = max_len
-        self.data = data
-        for _ in range(len(data), num_buckets):
-            self.data.push([])
+        self.num_elements = 0
+        self.data = []
+        self.bucket_ranges = []
+        for i in range(num_buckets):
+            self.data.append(Pieo(200))
+            self.bucket_ranges.append((i*width, (i+1)*width))
 
     
     def rotate(self) -> None:
-        """Rotates a PCQ."""
+        """Rotates a PCQ and changes the 'top' parameter of the previous bucket."""
+        buckettop = self.bucket_ranges[self.day][1]
+        self.bucket_ranges[self.day] = (buckettop, buckettop + self.width)
         self.day = (self.day + 1) % len(self.data)
 
-    def push(self, val: int, rank: int, time=None) -> None:
+    def push(self, val: int, rank: int, time=0) -> None:
         """Pushes a value with some rank/priority to a PCQ"""
+        if self.num_elements == self.max_len:
+            raise QueueError("Overflow")
 
         location = (rank * self.width) % len(self.data)
-
-        inserted = False
-        for x in range(len(self.data[location])):
-            if self.data[location][1] >= rank:
-                self.data[location].insert(x, (val, rank))
-                inserted = True
-                break
-            
-        if not inserted:
-            self.data[location].append((val, rank))
-        
+        self.data[location].push(val, time, rank)
+        self.num_elements += 1
     
-    def query(self, remove=False, time=0) -> Optional[int]:
+    def query(self, remove=False, time=0, val=None, return_rank=False) -> Optional[int]:
         """Queries a PCQ."""
 
-        bucket = self.data[self.day]
-        try:
-            result = bucket.pop(0) if remove else bucket[0]
-            if len(bucket) == 0:
+        visited = []
+        cached_day = self.day
+        cached_ranges = self.bucket_ranges[:]
+        current_day = self.day
+        
+        while True:
+            #Cycle found (iterated through all buckets)
+            if current_day in visited:
+                self.day = cached_day
+                self.bucket_ranges = cached_ranges[:]
+                raise QueueError("Underflow")
+            
+            bucket = self.data[current_day]
+            top = self.bucket_ranges[current_day][1]
+
+            try:
+                result, rank = bucket.peek(time, val, True)
+                if rank > top:
+                    self.rotate()
+                else:
+                    self.day = cached_day
+                    self.bucket_ranges = cached_ranges[:]
+                    if remove:
+                        self.num_elements -= 1
+                        return bucket.pop(time, val, return_rank)
+                    else:
+                        return (result, rank) if return_rank else result
+                    
+            except QueueError:
                 self.rotate()
-            return result
-        except IndexError:
-            raise QueueError("Cannot query empty queue.")
     
-    def pop(self, time=0) -> Optional[int]:
-        """Pops a PCQ."""
-        return self.query(remove=True)
+    def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
+        """Pops a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
+        return self.query(True, time, val, return_rank)
     
-    def peek(self, time=0) -> Optional[int]:
-        """Peeks a PCQ."""
-        return self.query()
+    def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
+        """Peeks a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
+        return self.query(False, time, val, return_rank)
 
 
-def operate_queue(commands, values, queue, ranks=None, times=None):
+def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None, times=None):
     """Given the four lists:
     - One of commands, one of values, one of ranks, one of bounds:
     - Feed these into our queue, and return the answer memory.
@@ -363,7 +384,7 @@ def operate_queue(commands, values, queue, ranks=None, times=None):
 
             case 3: #Pop with value parameter
                 try:
-                    result = queue.pop(val, time)
+                    result = queue.pop(time, val)
                     if result:
                         ans.append(result)
                 except QueueError:
@@ -372,7 +393,7 @@ def operate_queue(commands, values, queue, ranks=None, times=None):
 
             case 4: #Peek with value parameter
                 try:
-                    result = queue.peek(val, time)
+                    result = queue.peek(time, val)
                     if result:
                         ans.append(result)
                 except QueueError:
@@ -383,5 +404,5 @@ def operate_queue(commands, values, queue, ranks=None, times=None):
                 raise CmdError("Unrecognized command.")
 
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (queue_util.MAX_CMDS - len(ans))
+    ans += [0] * (max_cmds - len(ans))
     return ans

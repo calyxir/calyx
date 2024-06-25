@@ -9,5 +9,5 @@ if __name__ == "__main__":
     keepgoing = "--keepgoing" in sys.argv
     commands, values = queue_util.parse_json()
     fifo = queues.Fifo(len)
-    ans = queues.operate_queue(commands, values, fifo, max_cmds, keepgoing=keepgoing)
+    ans = queues.operate_queue(fifo, max_cmds, commands, values, keepgoing=keepgoing)
     queue_util.dump_json(commands, values, ans)
