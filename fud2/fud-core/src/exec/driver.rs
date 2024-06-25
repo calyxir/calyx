@@ -3,7 +3,12 @@ use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
-use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    ffi::OsStr,
+    fmt::Display,
+};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
@@ -119,7 +124,14 @@ impl Driver {
 
     /// Generate a filename with an extension appropriate for the given State.
     /// We assume states are only used once
-    fn gen_name(&self, state_ref: StateRef, used: bool, req: &Request) -> IO {
+    fn gen_name(
+        &self,
+        state_ref: StateRef,
+        used: bool,
+        req: &Request,
+        num_dups: &mut HashMap<StateRef, u32>,
+        used_as_input: &mut HashSet<StateRef>,
+    ) -> IO {
         let state = &self.states[state_ref];
         let extension = if !state.extensions.is_empty() {
             &state.extensions[0]
@@ -128,7 +140,10 @@ impl Driver {
         };
 
         // make sure we have correct input/output filenames and mark if we read from stdio
-        if req.start_state.contains(&state_ref) {
+        if req.start_state.contains(&state_ref)
+            && !used_as_input.contains(&state_ref)
+        {
+            used_as_input.insert(state_ref);
             let idx = req.start_state.partition_point(|&r| r == state_ref) - 1;
             if let Some(start_file) = req.start_file.get(idx) {
                 return IO::File(utils::relative_path(
@@ -141,7 +156,7 @@ impl Driver {
                     utils::relative_path(
                         &Utf8PathBuf::from(format!(
                             "_from_stdin_{}",
-                            state.name
+                            state.name,
                         ))
                         .with_extension(extension),
                         &req.workdir,
@@ -149,7 +164,6 @@ impl Driver {
                 );
             }
         }
-
         if req.end_state.contains(&state_ref) {
             let idx = req.end_state.partition_point(|&r| r == state_ref) - 1;
             if let Some(end_file) = req.end_file.get(idx) {
@@ -171,12 +185,17 @@ impl Driver {
 
         // okay, wild west filename time (make them unique and hopefully helpful)
         let prefix = if !used { "_unused_" } else { "" };
+        let dups = num_dups.entry(state_ref).or_insert(0);
+        *dups += 1;
         IO::File(if state.is_pseudo() {
-            Utf8PathBuf::from(format!("{}from_stdin_{}", prefix, state.name))
-                .with_extension(extension)
+            Utf8PathBuf::from(format!(
+                "{}from_stdin_{}_{}",
+                prefix, state.name, dups
+            ))
+            .with_extension(extension)
         } else {
             // TODO avoid collisions in case we reuse extensions...
-            Utf8PathBuf::from(format!("{}{}", prefix, state.name))
+            Utf8PathBuf::from(format!("{}{}_{}", prefix, state.name, dups))
                 .with_extension(extension)
         })
     }
@@ -191,6 +210,10 @@ impl Driver {
             self.find_path(&req.start_state, &req.end_state, &req.through)?;
 
         // Generate filenames for each step.
+        let mut dups = HashMap::new();
+        let mut used_as_input = HashSet::new();
+        // collect filenames of outputs
+        let mut results = vec![];
         let steps = path
             .into_iter()
             .map(|(op, used_states)| {
@@ -200,7 +223,15 @@ impl Driver {
                     .unwrap()
                     .input
                     .iter()
-                    .map(|&state| self.gen_name(state, true, &req))
+                    .map(|&state| {
+                        self.gen_name(
+                            state,
+                            true,
+                            &req,
+                            &mut dups,
+                            &mut used_as_input,
+                        )
+                    })
                     .collect::<Vec<_>>();
                 let output_filenames = self
                     .ops
@@ -209,18 +240,23 @@ impl Driver {
                     .output
                     .iter()
                     .map(|&state| {
-                        self.gen_name(state, used_states.contains(&state), &req)
+                        let name = self.gen_name(
+                            state,
+                            used_states.contains(&state),
+                            &req,
+                            &mut dups,
+                            &mut used_as_input,
+                        );
+                        if used_states.contains(&state)
+                            && req.end_state.contains(&state)
+                        {
+                            results.push(name.clone());
+                        }
+                        name
                     })
                     .collect();
                 (op, input_filenames, output_filenames)
             })
-            .collect::<Vec<_>>();
-
-        // get filesnames of outputs
-        let results = req
-            .end_state
-            .iter()
-            .map(|&s| self.gen_name(s, true, &req))
             .collect::<Vec<_>>();
 
         Some(Plan {
@@ -516,7 +552,7 @@ impl DriverBuilder {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum IO {
     // we order these so when they are sorted, StdIO comes first
     // the u32 is a rank used to know which files should be read from stdin first
