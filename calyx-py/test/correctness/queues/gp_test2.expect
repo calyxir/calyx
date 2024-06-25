@@ -1,37 +1,3 @@
-push 0 :  [52]
-peek 0
-push 0 :  [52, 127]
-peek 0
-push 2 :  [374]
-push 0 :  [52, 127, 110]
-push 1 :  [208]
-push 1 :  [208, 143]
-pop initial at 0
-3
-pop val 52 at 0
-peek 1
-pop initial at 1
-2
-pop val 208 at 1
-push 0 :  [127, 110, 81]
-pop initial at 2
-1
-pop val 374 at 2
-pop initial at 0
-3
-pop val 127 at 0
-pop initial at 1
-1
-pop val 143 at 1
-peek 2
-peek 2
-pop initial at 2
-0
-queue error
-2
-pop val 110 at 0
-peek 1
-push 0 :  [81, 67]
 {
   "ans_mem": [
     52,

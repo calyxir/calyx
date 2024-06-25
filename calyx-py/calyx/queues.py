@@ -194,45 +194,6 @@ class Binheap:
         return self.len
 
 
-def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False):
-    """Given the two lists, one of commands and one of values.
-    Feed these into our queue, and return the answer memory.
-    """
-
-    ans = []
-    ranks_or_values = values if ranks == None else ranks
-    for cmd, val, rnk in zip(commands, values, ranks_or_values):
-        if cmd == 0:
-            try:
-                ans.append(queue.pop())
-            except QueueError:
-                if keepgoing:
-                    continue
-                break
-
-        elif cmd == 1:
-            try:
-                ans.append(queue.peek())
-            except QueueError:
-                if keepgoing:
-                    continue
-                break
-
-        elif cmd == 2:
-            try:
-                if ranks == None:
-                    queue.push(val)
-                else:
-                    queue.push(rnk, val)
-            except QueueError:
-                if keepgoing:
-                    continue
-                break
-
-    # Pad the answer memory with zeroes until it is of length `max_cmds`.
-    ans += [0] * (max_cmds - len(ans))
-    return ans
-
 @dataclass
 class RRQueue:
    """
@@ -252,7 +213,7 @@ class RRQueue:
    - Peek works the same as `pop`, except `hot` remains unchanged.
    """
 
-   def __init__(self, n, boundaries, max_len: int, error_mode=True):
+   def __init__(self, n, boundaries, max_len: int):
        self.data = []
        self.hot = 0
        self.n_flows = n
@@ -263,7 +224,6 @@ class RRQueue:
            self.data.append(queue)
 
        self.max_len = max_len
-       self.error_mode = error_mode
        assert (
            self.pifo_len <= self.max_len
        )  # We can't be initialized with a PIFO that is too long.
@@ -272,9 +232,7 @@ class RRQueue:
    def push(self, val: int):
        """Pushes `val` to the PIFO."""
        if self.pifo_len == self.max_len:
-          if self.error_mode:
             raise QueueError("Cannot push to full PIFO.")
-          return
        for b in range(len(self.boundaries)):
           if val <= self.boundaries[b]:
             self.data[b].push(val)
@@ -295,9 +253,7 @@ class RRQueue:
    def pop(self) -> Optional[int]:
        """Pops the PIFO. Updates `hot`."""
        if self.pifo_len == 0:
-           if self.error_mode:
-               raise QueueError("Cannot pop from empty PIFO.")
-           return None
+        raise QueueError("Cannot pop from empty PIFO.")
        
        original_hot = self.hot
 
@@ -343,40 +299,41 @@ class RRQueue:
    def __len__(self) -> int:
        return self.pifo_len
 
+def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False):
+    """Given the two lists, one of commands and one of values.
+    Feed these into our queue, and return the answer memory.
+    """
 
-   def operate_queue(commands, values, queue, max_cmds, keepgoing=True):
-       """Given the two lists, one of commands and one of values.
-       Feed these into our queue, and return the answer memory.
-       """
-       ans = []
-       for cmd, val in zip(commands, values):
-           if cmd == 0:
-               try:
-                   ans.append(queue.pop())
-               except QueueError:
-                   if keepgoing:
-                       continue
-                   break
+    ans = []
+    ranks_or_values = values if ranks == None else ranks
+    for cmd, val, rnk in zip(commands, values, ranks_or_values):
+        if cmd == 0:
+            try:
+                ans.append(queue.pop())
+            except QueueError:
+                if keepgoing:
+                    continue
+                break
 
+        elif cmd == 1:
+            try:
+                ans.append(queue.peek())
+            except QueueError:
+                if keepgoing:
+                    continue
+                break
 
-           elif cmd == 1:
-               try:
-                   ans.append(queue.peek())
-               except QueueError:
-                   if keepgoing:
-                       continue
-                   break
+        elif cmd == 2:
+            try:
+                if ranks == None:
+                    queue.push(val)
+                else:
+                    queue.push(rnk, val)
+            except QueueError:
+                if keepgoing:
+                    continue
+                break
 
-
-           elif cmd == 2:
-               try:
-                   queue.push(val)
-               except QueueError:
-                   if keepgoing:
-                       continue
-                   break
-
-
-       # Pad the answer memory with zeroes until it is of length `max_cmds`.
-       ans += [0] * (max_cmds - len(ans))
-       return ans
+    # Pad the answer memory with zeroes until it is of length `max_cmds`.
+    ans += [0] * (max_cmds - len(ans))
+    return ans
