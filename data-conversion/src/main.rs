@@ -469,14 +469,40 @@ fn binary_to_fixed(
     Ok(())
 }
 
+/// Converts a string representation of a binary number to its fixed-point
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a binary number,
+/// parses it into a 32-bit unsigned integer, separates the integer and fractional
+/// parts based on the given exponent, converts these parts into their decimal
+/// representations, and combines them into a fixed-point decimal number. The fixed-point
+/// decimal number is formatted as a string and written to the specified file,
+/// followed by a newline.
+///
+/// # Arguments
+///
+/// * `binary_string` - A string slice containing the binary number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the fixed-point representation
+///   will be appended.
+/// * `exp_int` - An integer representing the exponent that indicates the position of the
+///   binary point in the binary number.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a binary number.
 fn binary_to_fixed_bit_slice(
     binary_string: &str,
     filepath_send: &mut File,
     exp_int: i32,
 ) -> io::Result<()> {
-    // Parse the binary string to an integer
+    // Parse the binary string to an unsigned integer
     let binary =
-        i32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+        u32::from_str_radix(binary_string, 2).expect("Bad binary value input");
 
     // Get bitmask from exponent
     let shift_amount = -exp_int;
@@ -484,32 +510,26 @@ fn binary_to_fixed_bit_slice(
     let frac_mask = (1 << shift_amount) - 1;
 
     // Apply bit mask and shift integer part
-    // Apply bit masks and shift to get the integer and fractional parts
     let integer_part = (binary & int_mask) >> shift_amount;
+    // Apply bit masks to get the fractional parts
     let fractional_part = binary & frac_mask;
 
     // Convert the integer part to its binary string representation
-    let int_part_binary = format!("{:b}", integer_part);
+    let int_part_value = integer_part as f64;
 
-    // Convert the fractional part to its binary string representation
-    let mut frac_part_binary = String::new();
-    let mut frac = fractional_part;
-    for _ in 0..shift_amount {
-        frac <<= 1;
-        if frac & (1 << shift_amount) != 0 {
-            frac_part_binary.push('1');
-            frac -= 1 << shift_amount;
-        } else {
-            frac_part_binary.push('0');
+    let mut frac_part_value = 0.0;
+    let frac = fractional_part;
+    for i in 0..shift_amount {
+        if (frac & (1 << i)) != 0 {
+            frac_part_value += 1.0 / (1 << (shift_amount - i)) as f64;
         }
     }
 
-    // Append the integer and fractional parts
-    let combined_binary_representation =
-        format!("{}.{}", int_part_binary, frac_part_binary);
+    // Combine the integer and fractional parts to form the fixed-point decimal number
+    let combined_value = int_part_value + frac_part_value;
 
     // Write the combined binary representation to the file
-    writeln!(filepath_send, "{}", combined_binary_representation)?;
+    writeln!(filepath_send, "{}", combined_value)?;
 
     Ok(())
 }
