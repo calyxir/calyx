@@ -140,8 +140,6 @@ impl Driver {
         };
 
         // make sure we have correct input/output filenames and mark if we read from stdio
-        // println!("state_ref: {:?}", state_ref);
-        // println!("used_as_input: {:?}", used_as_input);
         if req.start_state.contains(&state_ref)
             && !used_as_input.contains(&state_ref)
         {
@@ -167,7 +165,6 @@ impl Driver {
             }
         }
 
-        // println!("end_file: {:?}", req.end_file);
         if req.end_state.contains(&state_ref) {
             let idx = req.end_state.partition_point(|&r| r == state_ref) - 1;
             if let Some(end_file) = req.end_file.get(idx) {
@@ -243,7 +240,6 @@ impl Driver {
                 (op, input_filenames, output_filenames)
             })
             .collect::<Vec<_>>();
-        // println!("steps: {:?}", steps);
 
         Some(Plan {
             steps,
