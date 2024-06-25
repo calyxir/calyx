@@ -1,0 +1,89 @@
+{
+  "commands": {
+    "data": [
+      2,
+      2,
+      2,
+      1,
+      0,
+      0,
+      1,
+      0,
+      2,
+      2,
+      0,
+      0,
+      1,
+      2,
+      1,
+      2,
+      2,
+      2,
+      0,
+      1
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 2
+    }
+  },
+  "values": {
+    "data": [
+      52,
+      293,
+      127,
+      6,
+      374,
+      110,
+      208,
+      143,
+      93,
+      392,
+      199,
+      81,
+      390,
+      36,
+      71,
+      316,
+      316,
+      227,
+      64,
+      67
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "ans_mem": {
+    "data": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  }
+}

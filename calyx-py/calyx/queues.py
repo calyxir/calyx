@@ -187,12 +187,26 @@ def operate_queue(commands, values, queue, max_cmds, keepgoing=False):
     return ans
 
 @dataclass
-class NPifo:
+class RRQueue:
    """
+   This is a version of a PIFO generalized to n flows, with a round robin policy
+   that is work conserving. Just as with the PIFO, if a flow falls silent, the 
+   remaining flows will take their turns. That flow effectively skips its turn.
+
+   Supports the operations `push`, `pop`, and `peek`.
+   It takes in a list `boundaries` that must be of length `n`, the user can
+   divide the flows however they like.
+
+   - Push works analagously to that of the PIFO, except it checks the `boundaries`
+   list to determine which flow to push to.
+   - Pop first tries to pop from `hot`, given the length is not 0. If this fails, 
+   it continues to check all flows after. It then increments hot at the end and
+   decreases the length.
+   - Peek works the same as `pop`, except `hot` remains unchanged.
    """
+
    def __init__(self, n, boundaries, max_len: int, error_mode=True):
        self.data = []
-       
        self.hot = 0
        self.n_flows = n
        self.pifo_len = 0
@@ -217,7 +231,6 @@ class NPifo:
        for b in range(len(self.boundaries)):
           if val <= self.boundaries[b]:
             self.data[b].push(val)
-            print("push " + str(b) + " :  " + str(self.data[b]))
             self.pifo_len += 1
             break
 
@@ -233,8 +246,7 @@ class NPifo:
 
         
    def pop(self) -> Optional[int]:
-       """Pops the PIFO."""
-       print("pop initial at " + str(self.hot))
+       """Pops the PIFO. Updates `hot`."""
        if self.pifo_len == 0:
            if self.error_mode:
                raise QueueError("Cannot pop from empty PIFO.")
@@ -244,10 +256,8 @@ class NPifo:
 
        while True:
         try:
-            print(len(self.data[self.hot]))
             val = self.data[self.hot].pop()
             if val is not None:
-                print("pop val " + str(val) + " at " + str(self.hot))
                 self.increment_hot() 
                 self.pifo_len -= 1              
                 return val
@@ -257,26 +267,26 @@ class NPifo:
                     return None
         except QueueError:
             self.increment_hot()
-            print("queue error")
             if self.hot == original_hot:
                 return None
 
 
-
    def peek(self) -> Optional[int]:
-       """Peeks into the PIFO."""
-       print("peek " + str(self.hot))
+       """Peeks into the PIFO. Does not affect what `hot` is."""
        if self.pifo_len == 0:
            raise QueueError("Cannot peek into empty PIFO.")
 
        original_hot = self.hot
-       #for n case, could do while len(self.data[self.hot] < 0 and increment hot in the body?)
-
        while True:
             try:
                 val = self.data[self.hot].peek()
-                self.hot = original_hot
-                return val
+                if val is not None:
+                    self.hot = original_hot
+                    return val
+                else:
+                    self.increment_hot()
+                    if self.hot == original_hot:
+                        return None
             except QueueError:
                 self.increment_hot()
                 if self.hot == original_hot:

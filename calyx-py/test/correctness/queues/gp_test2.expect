@@ -1,0 +1,102 @@
+push 0 :  [52]
+peek 0
+push 0 :  [52, 127]
+peek 0
+push 2 :  [374]
+push 0 :  [52, 127, 110]
+push 1 :  [208]
+push 1 :  [208, 143]
+pop initial at 0
+3
+pop val 52 at 0
+peek 1
+pop initial at 1
+2
+pop val 208 at 1
+push 0 :  [127, 110, 81]
+pop initial at 2
+1
+pop val 374 at 2
+pop initial at 0
+3
+pop val 127 at 0
+pop initial at 1
+1
+pop val 143 at 1
+peek 2
+peek 2
+pop initial at 2
+0
+queue error
+2
+pop val 110 at 0
+peek 1
+push 0 :  [81, 67]
+{
+  "ans_mem": [
+    52,
+    52,
+    52,
+    208,
+    208,
+    374,
+    127,
+    143,
+    110,
+    110,
+    110,
+    81,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "commands": [
+    2,
+    1,
+    2,
+    1,
+    2,
+    2,
+    2,
+    2,
+    0,
+    1,
+    0,
+    2,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    1,
+    2
+  ],
+  "values": [
+    52,
+    293,
+    127,
+    6,
+    374,
+    110,
+    208,
+    143,
+    93,
+    392,
+    199,
+    81,
+    390,
+    36,
+    71,
+    316,
+    316,
+    227,
+    64,
+    67
+  ]
+}
