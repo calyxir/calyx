@@ -19,7 +19,6 @@ impl fmt::Display for ParseNumTypeError {
 }
 
 impl Error for ParseNumTypeError {}
-
 #[derive(Debug, PartialEq, Clone, Copy)] // Add PartialEq derivation here - What is this?
 enum NumType {
     Binary,
@@ -59,7 +58,7 @@ struct Arguments {
     /// file to convert from
     #[argh(option)]
     from: String,
-
+  
     /// file to convery to
     #[argh(option)]
     to: String,

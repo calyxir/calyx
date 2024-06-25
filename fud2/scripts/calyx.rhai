@@ -9,6 +9,12 @@ fn calyx_setup(e) {
    e.config_var_or("args", "calyx.args", "");
    e.rule("calyx", "$calyx-exe -l $calyx-base -b $backend $args $in > $out");
    e.rule("calyx-pass", "$calyx-exe -l $calyx-base -p $pass $args $in > $out");
+
+   e.config_var_or("flags", "calyx.flags", "-p none");
+   e.rule(
+       "calyx-with-flags",
+       "$calyx-exe -l $calyx-base $flags $args $in > $out",
+   );
 }
 
 op(

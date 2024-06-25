@@ -3,6 +3,7 @@ import "testbench" as tb;
 import "calyx" as c;
 
 let dbg = state("debug", []);
+let cider_state = state("cider", []);
 
 fn cider_setup(e) {
    e.config_var_or(
@@ -41,7 +42,7 @@ fn cider_setup(e) {
    );
 
    e.rule(
-       "cider2",
+       "run-cider",
        "$cider-exe -l $calyx-base --data data.dump $in flat > $out",
    );
 
@@ -54,6 +55,21 @@ fn cider_setup(e) {
        ["$cider-converter"],
    );
 }
+
+op(
+    "calyx-to-cider",
+    [sim::sim_setup, c::calyx_setup],
+    c::calyx_state,
+    cider_state,
+    |e, input, _output| {
+        e.build_cmd(
+            ["cider-input.futil"],
+            "calyx-with-flags",
+            [input],
+            [],
+        );
+    },
+);
 
 op(
    "interp",
@@ -76,14 +92,20 @@ op(
         );
     },
 );
+
 op(
-    "interp-flat",
+    "cider",
     [sim::sim_setup, c::calyx_setup, cider_setup],
-    c::calyx_state,
+    cider_state,
     sim::dat,
-    |e, input, output| {
+    |e, _input, output| {
         let out_file = "interp_out.dump";
-        e.build_cmd([out_file], "cider2", [input], ["data.dump"]);
+        e.build_cmd(
+            [out_file],
+            "run-cider",
+            ["cider-input.futil"],
+            ["data.dump"],
+        );
         e.build_cmd(
             [output],
             "interp-to-dump",
@@ -92,6 +114,7 @@ op(
         );
     },
 );
+
 op(
     "debug",
     [

@@ -26,6 +26,45 @@ If `peek` or `pop` is selected, the queue writes the result to this register.
 - Register `err`, a 1-bit integer that is passed to the queue by reference.
 The queue raises this flag in case of overflow or underflow.
 
+## Shared Testing Harness
+
+Because they expose a common interface, we can test all queues using the same harness.
+
+
+#### Data Generation
+First, we have a Python module that generates randomized sequences of operations and values, and dumps the sequences out in a Calyx `.data` file.
+It accepts as a command line argument the number of operations to generate.
+It also takes a flag, `--no-err`, that generates a special sequence of operations that does not trigger any overflow or underflow errors.
+If this flag is provided, the queue's length must also be provided.
+The Python code is in [`queue_data_gen.py`][queue_data_gen.py].
+
+#### Oracles
+Next, we have a Python module _for each kind of queue_ that reads the `.data` file, simulates the queue in Python, and dumps the expected result out in a Calyx `.expect` file.
+This Python code is aware of our [shared iterface](#shared-interface).
+The oracles are in [`fifo_oracle.py`][fifo_oracle.py], [`pifo_oracle.py`][pifo_oracle.py], and [`pifo_tree_oracle.py`][pifo_tree_oracle.py].
+They all appeal to pure-Python implementations of the queues, which are found in [`queues.py`][queues.py].
+Each oracle also requires, as command line arguments, the number of operations being simulated and the queue's length.
+
+#### Queue Call
+
+The steps above lay out `.data` and `.expect` files for our Calyx code.
+To actually pass a series of commands to a given eDSL queue implementation, we need to call the queue repeatedly with memories parsed from the `.data` file.
+Unlike the above, which happens at the pure Python level, this needs to happen at the eDSL level.
+
+This is exactly what [`queue_call.py`][queue_call.py] does.
+It accepts as a Python-level argument a handle to the queue component that is to be tested.
+It inserts a `main` component that reads the `.data` file and calls the queue component repeatedly.
+If a command-line flag, `--keepgoing`, is provided, the `main` component will ignore any overflow or underflow errors raised by the queue component and will complete the entire sequence of operations.
+If not, the `main` component will stop after the queue component first raises an error.
+
+#### Putting It All Together
+
+The testing harness can be executed, for all our queues, by running the shell script [`gen_queue_data_expect.sh`][gen_queue_data_expect.sh].
+This generates the `.data` and `.expect` files for each queue.
+
+Then, each queue can be tested using our `runt` setup.
+The queue-generating Python files themselves expect command-line arguments (the number of operations and the optional `--keepgoing` flag) and you can see these being passed in the [relevant `runt` stanza][runt-queues].
+
 
 ## FIFO
 
@@ -37,6 +76,10 @@ The source code is available [here][fifo.py].
 Internally, our FIFO queue is implemented as a circular buffer.
 One register marks the next element that would be popped, another marks the next cell into which an element would be pushed, and a third marks the number of elements in the queue.
 The control logic is straightforward, and proceeds in three parallel arms based on the operation requested.
+
+Using a circular buffer usually entails incrementing indices modulo the buffer size.
+We use a trick to avoid this: we require the FIFO's length to be a power of two, say `2^k`, and we use adders of width `k` to increment the indices.
+This means we can just naively increment the indices forever and the wrap-around behavior we want is automatically provided by overflow.
 
 ## PIFO
 
@@ -87,3 +130,11 @@ However, it is easy to generalize those two queues: instead of being FIFOs, they
 [pifo_tree.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/pifo_tree.py
 [sivaraman16]: https://dl.acm.org/doi/10.1145/2934872.2934899
 [mohan23]: https://dl.acm.org/doi/10.1145/3622845
+[queue_data_gen.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queue_data_gen.py
+[queues.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queues.py
+[fifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/fifo_oracle.py
+[pifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/pifo_oracle.py
+[pifo_tree_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/pifo_tree_oracle.py
+[gen_queue_data_expect.sh]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/gen_queue_data_expect.sh
+[queue_call.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queue_call.py
+[runt-queues]: https://github.com/calyxir/calyx/blob/a4c2442675d3419be6d2f5cf912aa3f804b3c4ab/runt.toml#L131-L144

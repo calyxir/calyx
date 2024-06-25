@@ -112,4 +112,8 @@ where
     pub fn values(&self) -> impl Iterator<Item = &D> {
         self.data.values()
     }
+
+    pub fn contains(&self, index: K) -> bool {
+        self.data.contains_key(&index)
+    }
 }

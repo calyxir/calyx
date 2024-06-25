@@ -1,0 +1,33 @@
+// `cargo run -- -c main examples/example1.futil` from root
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) in_mem = comb_mem_d1(32, 1, 32);
+    @external(1) out_mem = comb_mem_d1(32, 1, 32);
+    i0 = std_reg(32);
+  }
+  wires {
+    group d1 {
+      in_mem.addr0 = 32'd0;
+      i0.in = in_mem.read_data;
+      i0.write_en = 1'b1;
+      d1[done] = i0.done;
+    }
+    static<1> group s2 {
+      in_mem.addr0 = 32'd0;
+      out_mem.write_data = i0.out;
+      out_mem.write_en = 1'b1;
+    }
+  }
+  control {
+    seq {
+      seq {
+        d1;
+        s2;
+      }
+    }
+  }
+}
