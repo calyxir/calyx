@@ -208,6 +208,28 @@ class ComponentBuilder:
         else:
             self.component.controls = builder
 
+    # NOTE: Could also be a GroupBuilder
+    Controllable = Union[ast.Control, str, ast.Group, list, set, ast.Empty, None]
+
+    def case(
+        self, signal: ExprBuilder, cases: Dict[int, Controllable], signed=False
+    ) -> None:
+        """Add the required cells, wiring, and `if` statements to enable `case`
+        like semantics in the component. Does not support `default` cases.
+        Branches are implemented via mutually exclusive `if` statements in the
+        component's `control` block."""
+        width = self.infer_width(signal)
+        ifs = []
+        for branch, controllable in cases.items():
+            std_eq = self.eq(width, f"{signal.name}_eq_{branch}", signed)
+
+            with self.continuous:
+                std_eq.left = signal
+                std_eq.right = const(width, branch)
+            ifs.append(if_(std_eq["out"], controllable))
+
+        return par(*ifs)
+
     def port_width(self, port: ExprBuilder) -> int:
         """Get the width of an expression, which may be a port of this component."""
         name = ExprBuilder.unwrap(port).item.id.name
@@ -832,8 +854,20 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
+    def mem_latch_d1(self, mem, i, groupname):
+        """Inserts wiring into `self` to latch `mem[i]`,
+        where `mem` is a seq_mem_d1 memory.
+        A user can later read `mem.out` and get the latched value.
+        """
+        assert mem.is_seq_mem_d1()
+        with self.group(groupname) as latch_grp:
+            mem.addr0 = i
+            mem.content_en = HI
+            latch_grp.done = mem.done
+        return latch_grp
+
     def mem_load_d2(self, mem, i, j, reg, groupname):
-        """Inserts wiring into `self` to perform `reg := mem[i]`,
+        """Inserts wiring into `self` to perform `reg := mem[i][j]`,
         where `mem` is a seq_d2 memory or a comb_mem_d2 memory
         """
         assert mem.is_seq_mem_d2() or mem.is_comb_mem_d2()
@@ -850,6 +884,19 @@ class ComponentBuilder:
                 reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
+
+    def mem_latch_d2(self, mem, i, j, groupname):
+        """Inserts wiring into `self` to latch `mem[i][j]`,
+        where `mem` is a seq_mem_d2 memory.
+        A user can later read `mem.out` and get the latched value.
+        """
+        assert mem.is_seq_mem_d2()
+        with self.group(groupname) as latch_grp:
+            mem.addr0 = i
+            mem.addr1 = j
+            mem.content_en = HI
+            latch_grp.done = mem.done
+        return latch_grp
 
     def mem_store_d1(self, mem, i, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,

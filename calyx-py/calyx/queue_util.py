@@ -12,14 +12,28 @@ def parse_json():
     data = json.load(sys.stdin)
     commands = data["commands"]["data"]
     values = data["values"]["data"]
-    return commands, values
+    ranks = None
+    try:
+        ranks = data["ranks"]["data"]
+    except KeyError:
+        pass
+    return commands, values, ranks
 
 
-def dump_json(commands, values, ans_mem):
+def dump_json(ans_mem, commands, values, ranks=None):
     """Prints a JSON representation of the data to stdout."""
-    payload = {
-        "ans_mem": ans_mem,
-        "commands": commands,
-        "values": values,
-    }
+    payload = {}
+    if ranks == None:
+        payload = {
+            "ans_mem": ans_mem,
+            "commands": commands,
+            "values": values
+        }
+    else:
+        payload = {
+            "ans_mem": ans_mem,
+            "commands": commands,
+            "ranks": ranks,
+            "values": values
+        }
     print(json.dumps(payload, indent=2))
