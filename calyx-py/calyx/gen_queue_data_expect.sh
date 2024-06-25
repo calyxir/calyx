@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-num_cmds=20000
+num_cmds=10
 queue_size=16
 
 # For SDN, we use piezo mode when making the data file and
@@ -21,7 +21,7 @@ for queue_kind in fifo pifo pifo_tree; do
     [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.expect ../test/correctness/queues/binheap/$queue_kind.expect
 done
 
-# for queue_kind in pieo pcq; do
-#     python3 queue_data_gen.py $num_cmds 1 > ../test/correctness/queues/$queue_kind.data
-#     cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/$queue_kind.expect
-# done
+for queue_kind in pieo pcq; do
+    python3 queue_data_gen.py $num_cmds 1 > ../test/correctness/queues/$queue_kind.data
+    cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size > ../test/correctness/queues/$queue_kind.expect
+done

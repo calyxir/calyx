@@ -314,6 +314,7 @@ class PCQ:
             
             bucket = self.data[current_day]
             top = self.bucket_ranges[current_day][1]
+            visited.append(current_day)
 
             try:
                 result, rank = bucket.peek(time, val, True)
