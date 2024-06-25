@@ -123,13 +123,13 @@ impl Driver {
     }
 
     /// Generate a filename with an extension appropriate for the given State.
-    /// We assume states are only used once
+    /// This function assumes all input states are unique and all output states are unique.
+    /// Additionally, it assume all non-input/output states are unique.
     fn gen_name(
         &self,
         state_ref: StateRef,
         used: bool,
         req: &Request,
-        num_dups: &mut HashMap<StateRef, u32>,
         used_as_input: &mut HashSet<StateRef>,
     ) -> IO {
         let state = &self.states[state_ref];
@@ -140,6 +140,8 @@ impl Driver {
         };
 
         // make sure we have correct input/output filenames and mark if we read from stdio
+        // println!("state_ref: {:?}", state_ref);
+        // println!("used_as_input: {:?}", used_as_input);
         if req.start_state.contains(&state_ref)
             && !used_as_input.contains(&state_ref)
         {
@@ -164,6 +166,8 @@ impl Driver {
                 );
             }
         }
+
+        // println!("end_file: {:?}", req.end_file);
         if req.end_state.contains(&state_ref) {
             let idx = req.end_state.partition_point(|&r| r == state_ref) - 1;
             if let Some(end_file) = req.end_file.get(idx) {
@@ -185,17 +189,12 @@ impl Driver {
 
         // okay, wild west filename time (make them unique and hopefully helpful)
         let prefix = if !used { "_unused_" } else { "" };
-        let dups = num_dups.entry(state_ref).or_insert(0);
-        *dups += 1;
         IO::File(if state.is_pseudo() {
-            Utf8PathBuf::from(format!(
-                "{}from_stdin_{}_{}",
-                prefix, state.name, dups
-            ))
-            .with_extension(extension)
+            Utf8PathBuf::from(format!("{}from_stdin_{}", prefix, state.name))
+                .with_extension(extension)
         } else {
             // TODO avoid collisions in case we reuse extensions...
-            Utf8PathBuf::from(format!("{}{}_{}", prefix, state.name, dups))
+            Utf8PathBuf::from(format!("{}{}", prefix, state.name))
                 .with_extension(extension)
         })
     }
@@ -210,33 +209,20 @@ impl Driver {
             self.find_path(&req.start_state, &req.end_state, &req.through)?;
 
         // Generate filenames for each step.
-        let mut dups = HashMap::new();
         let mut used_as_input = HashSet::new();
         // collect filenames of outputs
         let mut results = vec![];
         let steps = path
             .into_iter()
             .map(|(op, used_states)| {
-                let input_filenames = self
-                    .ops
-                    .get(op)
-                    .unwrap()
+                let input_filenames = self.ops[op]
                     .input
                     .iter()
                     .map(|&state| {
-                        self.gen_name(
-                            state,
-                            true,
-                            &req,
-                            &mut dups,
-                            &mut used_as_input,
-                        )
+                        self.gen_name(state, true, &req, &mut used_as_input)
                     })
                     .collect::<Vec<_>>();
-                let output_filenames = self
-                    .ops
-                    .get(op)
-                    .unwrap()
+                let output_filenames = self.ops[op]
                     .output
                     .iter()
                     .map(|&state| {
@@ -244,7 +230,6 @@ impl Driver {
                             state,
                             used_states.contains(&state),
                             &req,
-                            &mut dups,
                             &mut used_as_input,
                         );
                         if used_states.contains(&state)
@@ -258,6 +243,7 @@ impl Driver {
                 (op, input_filenames, output_filenames)
             })
             .collect::<Vec<_>>();
+        // println!("steps: {:?}", steps);
 
         Some(Plan {
             steps,
