@@ -39,8 +39,6 @@ class Fifo:
 
     def __len__(self) -> int:
         return len(self.data)
-    def __str__(self) -> str:
-        return str(self.data)
 
 
 @dataclass
@@ -241,9 +239,7 @@ class RRQueue:
 
 
    def increment_hot(self):
-       """
-       Increments hot, taking into account wrap around.
-       """
+       """Increments hot, taking into account wrap around."""
        if self.hot == (self.n_flows - 1): # handle wrap around when updating hot
             self.hot = 0
        else:
