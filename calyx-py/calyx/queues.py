@@ -39,6 +39,8 @@ class Fifo:
 
     def __len__(self) -> int:
         return len(self.data)
+    def __str__(self) -> str:
+        return str(self.data)
 
 
 @dataclass
@@ -195,16 +197,9 @@ class NPifo:
        self.n_flows = n
        self.pifo_len = 0
        self.boundaries = boundaries
-       self.active = [] #keeps track of the individual lengths of each subqueue
        for i in range(n):
            queue = Fifo(max_len)
            self.data.append(queue)
-           self.active.append(0)
-
-    #    for i in range(n):
-    #        bound = divide + (divide * i)
-    #        self.boundaries.append(bound)
-       print(self.boundaries)
 
        self.max_len = max_len
        self.error_mode = error_mode
@@ -222,63 +217,49 @@ class NPifo:
        for b in range(len(self.boundaries)):
           if val <= self.boundaries[b]:
             self.data[b].push(val)
-            print("push " + str(b))
-            self.active[b] = self.active[b] + 1
+            print("push " + str(b) + " :  " + str(self.data[b]))
+            self.pifo_len += 1
             break
 
-       self.pifo_len += 1
-       
 
    def increment_hot(self):
        """
+       Increments hot, taking into account wrap around.
        """
        if self.hot == (self.n_flows - 1): # handle wrap around when updating hot
             self.hot = 0
        else:
             self.hot = self.hot + 1
 
-   def sub_pop(self, pop) -> Optional[int]:
-       """
-       """
-       original_hot = self.hot
-       
-       i = 0
-       while i < self.n_flows: 
-           i += 1
-           try:
-               self.increment_hot()
-               if pop:          
-                   val = self.data[self.hot].pop()
-               else:
-                   val = self.data[self.hot].peek()
-               self.hot = original_hot # pop was a success, now reset hot to orginal value
-               return val
-           except QueueError:
-               pass
-
-       #at end of method, reset hot to original value
-       self.hot = original_hot
-
         
    def pop(self) -> Optional[int]:
        """Pops the PIFO."""
-       print("pop " + str(self.hot))
+       print("pop initial at " + str(self.hot))
        if self.pifo_len == 0:
            if self.error_mode:
                raise QueueError("Cannot pop from empty PIFO.")
            return None
-       self.pifo_len -= 1
+       
        original_hot = self.hot
 
        while True:
-            try:
-                val = self.data[self.hot].pop()
+        try:
+            print(len(self.data[self.hot]))
+            val = self.data[self.hot].pop()
+            if val is not None:
+                print("pop val " + str(val) + " at " + str(self.hot))
                 self.increment_hot() 
+                self.pifo_len -= 1              
                 return val
-            except QueueError:
+            else:
                 self.increment_hot()
                 if self.hot == original_hot:
                     return None
+        except QueueError:
+            self.increment_hot()
+            print("queue error")
+            if self.hot == original_hot:
+                return None
 
 
 
@@ -293,7 +274,7 @@ class NPifo:
 
        while True:
             try:
-                val = self.data[self.hot].pop()
+                val = self.data[self.hot].peek()
                 self.hot = original_hot
                 return val
             except QueueError:
