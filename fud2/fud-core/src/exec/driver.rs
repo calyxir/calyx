@@ -129,7 +129,7 @@ impl Driver {
 
         // make sure we have correct input/output filenames and mark if we read from stdio
         if req.start_state.contains(&state_ref) {
-            let idx = req.start_state.partition_point(|&r| r == state_ref);
+            let idx = req.start_state.partition_point(|&r| r == state_ref) - 1;
             if let Some(start_file) = req.start_file.get(idx) {
                 return IO::File(utils::relative_path(
                     start_file,
@@ -151,7 +151,7 @@ impl Driver {
         }
 
         if req.end_state.contains(&state_ref) {
-            let idx = req.end_state.partition_point(|&r| r == state_ref);
+            let idx = req.end_state.partition_point(|&r| r == state_ref) - 1;
             if let Some(end_file) = req.end_file.get(idx) {
                 return IO::File(utils::relative_path(end_file, &req.workdir));
             } else {
