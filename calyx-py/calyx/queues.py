@@ -357,6 +357,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
     times = times or [0] * len(values)
 
     for cmd, val, rank, time in zip(commands, values, ranks, times):
+
         if cmd == 0: #Pop with time predicate
             try:
                 result = queue.pop(time)
@@ -364,44 +365,39 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                     ans.append(result)
             except QueueError:
                 break
-
-        match cmd:
-            case 1: #Peek with time predicate
-                try:
-                    result = queue.peek(time)
-                    if result:
-                        ans.append(queue.peek())
-                except QueueError:
-                    break
-                break
-
-            case 2: #Push
-                try:
-                    queue.push(val, time, rank)
-                except QueueError:
-                    break
-                break
-
-            case 3: #Pop with value parameter
-                try:
-                    result = queue.pop(time, val)
-                    if result:
-                        ans.append(result)
-                except QueueError:
-                    break
-                break
-
-            case 4: #Peek with value parameter
-                try:
-                    result = queue.peek(time, val)
-                    if result:
-                        ans.append(result)
-                except QueueError:
-                    break
-                break
             
-            case _:
-                raise CmdError("Unrecognized command.")
+        elif cmd == 1: #Peek with time predicate
+            try:
+                result = queue.peek(time)
+                if result:
+                    ans.append(queue.peek())
+            except QueueError:
+                break
+
+        elif cmd == 2: #Push
+            try:
+                queue.push(val, time, rank)
+            except QueueError:
+                break
+
+        elif cmd == 3: #Pop with value parameter
+            try:
+                result = queue.pop(time, val)
+                if result:
+                    ans.append(result)
+            except QueueError:
+                break
+
+        elif cmd == 4: #Peek with value parameter
+            try:
+                result = queue.peek(time, val)
+                if result:
+                    ans.append(result)
+            except QueueError:
+                break
+        
+        else:
+            raise CmdError("Unrecognized command.")
 
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
     ans += [0] * (max_cmds - len(ans))
