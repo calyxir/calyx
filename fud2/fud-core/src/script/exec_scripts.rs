@@ -43,8 +43,44 @@ impl RhaiEmitter {
         self.0.borrow().config_val(key).map_err(to_rhai_err)
     }
 
+    fn config_constrained_val(
+        &mut self,
+        key: &str,
+        valid_values: rhai::Array,
+    ) -> RhaiResult<String> {
+        self.0
+            .borrow()
+            .config_constrained_val(
+                key,
+                to_str_slice(&valid_values)
+                    .iter()
+                    .map(|x| &**x)
+                    .collect::<Vec<_>>(),
+            )
+            .map_err(to_rhai_err)
+    }
+
     fn config_or(&mut self, key: &str, default: &str) -> String {
         self.0.borrow().config_or(key, default)
+    }
+
+    fn config_constrained_or(
+        &mut self,
+        key: &str,
+        valid_values: rhai::Array,
+        default: &str,
+    ) -> RhaiResult<String> {
+        self.0
+            .borrow()
+            .config_constrained_or(
+                key,
+                to_str_slice(&valid_values)
+                    .iter()
+                    .map(|x| &**x)
+                    .collect::<Vec<_>>(),
+                default,
+            )
+            .map_err(to_rhai_err)
     }
 
     fn config_var(&mut self, name: &str, key: &str) -> RhaiResult<()> {
@@ -145,7 +181,9 @@ thread_local! {
             engine
                 .register_type_with_name::<RhaiEmitter>("RhaiEmitter")
                 .register_fn("config_val", RhaiEmitter::config_val)
+                .register_fn("config_constrained_val", RhaiEmitter::config_constrained_val)
                 .register_fn("config_or", RhaiEmitter::config_or)
+                .register_fn("config_constrained_or", RhaiEmitter::config_constrained_or)
                 .register_fn("config_var", RhaiEmitter::config_var)
                 .register_fn("config_var_or", RhaiEmitter::config_var_or)
                 .register_fn("var_", RhaiEmitter::var)

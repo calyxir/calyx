@@ -116,36 +116,36 @@ component map(v: 32) -> () {
   cells {
     ref mem = comb_mem_d1(32, 10, 32);
     reg_1 = std_reg(8);
-    reg_1_incr = std_add(8);
-    add_2 = std_add(32);
-    lt_3 = std_lt(8);
+    reg_1_incr_1_2 = std_add(8);
+    mult_pipe_3 = std_mult_pipe(32);
+    lt_4 = std_lt(8);
   }
   wires {
-    group reg_1_incr_group {
-      reg_1_incr.left = reg_1.out;
-      reg_1_incr.right = 8'd1;
+    group reg_1_incr_1_2_group {
+      reg_1_incr_1_2.left = reg_1.out;
+      reg_1_incr_1_2.right = 8'd1;
       reg_1.write_en = 1'd1;
-      reg_1.in = reg_1_incr.out;
-      reg_1_incr_group[done] = reg_1.done;
+      reg_1.in = reg_1_incr_1_2.out;
+      reg_1_incr_1_2_group[done] = reg_1.done;
     }
-    comb group lt_3_group {
-      lt_3.left = reg_1.out;
-      lt_3.right = 8'd10;
+    comb group lt_4_group {
+      lt_4.left = reg_1.out;
+      lt_4.right = 8'd10;
     }
-    group add_at_position_i {
+    group mul_at_position_i {
       mem.addr0 = reg_1.out;
-      add_2.left = mem.read_data;
-      add_2.right = v;
-      mem.write_en = add_2.done ? 1'd1;
-      mem.write_data = add_2.out;
-      add_at_position_i[done] = mem.done;
+      mult_pipe_3.left = mem.read_data;
+      mult_pipe_3.right = v;
+      mem.write_en = mult_pipe_3.done ? 1'd1;
+      mem.write_data = mult_pipe_3.out;
+      mul_at_position_i[done] = mem.done;
     }
   }
   control {
-    while lt_3.out with lt_3_group {
+    while lt_4.out with lt_4_group {
       seq {
-        add_at_position_i;
-        reg_1_incr_group;
+        mul_at_position_i;
+        reg_1_incr_1_2_group;
       }
     }
   }

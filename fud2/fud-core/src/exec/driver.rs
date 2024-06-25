@@ -95,9 +95,11 @@ impl Driver {
                 false
             });
             let through_used = through.iter().all(|t| {
-                for (op, _) in plan {
+                for (op, used_states) in plan {
                     if op == t {
-                        return true;
+                        // TODO: figure out how to chain this so it check more than one level deep
+                        // required ops not being used
+                        return !used_states.is_empty();
                     }
                 }
                 false
@@ -282,17 +284,26 @@ impl Driver {
             for ext in &state.extensions {
                 print!(" .{}", ext);
             }
+            if let Some(src) = &state.source {
+                print!(" ({src})")
+            }
             println!();
         }
 
         println!();
         println!("Operations:");
         for (_, op) in self.ops.iter() {
+            let dev_info = op
+                .source
+                .as_ref()
+                .map(|src| format!(" ({src})"))
+                .unwrap_or_default();
             println!(
-                "  {}: {} -> {}",
+                "  {}: {} -> {}{}",
                 op.name,
                 self.states[op.input[0]].name,
-                self.states[op.output[0]].name
+                self.states[op.output[0]].name,
+                dev_info
             );
         }
     }
@@ -348,7 +359,12 @@ impl DriverBuilder {
         self.states.push(State {
             name: name.to_string(),
             extensions: extensions.iter().map(|s| s.to_string()).collect(),
+            source: None,
         })
+    }
+
+    pub fn state_source<S: ToString>(&mut self, state: StateRef, src: S) {
+        self.states[state].source = Some(src.to_string());
     }
 
     pub fn find_state(&self, needle: &str) -> Result<StateRef, DriverError> {
@@ -396,6 +412,7 @@ impl DriverBuilder {
             input: input.into(),
             output: output.into(),
             emit: Box::new(emit),
+            source: None,
         })
     }
 
@@ -408,6 +425,10 @@ impl DriverBuilder {
         build: run::EmitBuildFn,
     ) -> OpRef {
         self.add_op(name, setups, &[input], &[output], build)
+    }
+
+    pub fn op_source<S: ToString>(&mut self, op: OpRef, src: S) {
+        self.ops[op].source = Some(src.to_string());
     }
 
     pub fn rule(

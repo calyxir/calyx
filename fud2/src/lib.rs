@@ -1,6 +1,9 @@
+use std::str::FromStr;
+
 use fud_core::{
     exec::{SetupRef, StateRef},
     run::{EmitResult, StreamEmitter},
+    utils::basename,
     DriverBuilder,
 };
 
@@ -25,6 +28,14 @@ fn setup_calyx(
             "calyx-pass",
             "$calyx-exe -l $calyx-base -p $pass $args $in > $out",
         )?;
+
+        e.config_var_or("flags", "calyx.flags", "-p none")?;
+
+        e.rule(
+            "calyx-with-flags",
+            "$calyx-exe -l $calyx-base $flags $args $in > $out",
+        )?;
+
         Ok(())
     });
     bld.op(
@@ -282,8 +293,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.build_cmd(&[only_refs_calyx], "external-to-ref", &[input], &[])?;
 
         // Get YXI to generate JSON for testbench generation
-        e.build_cmd(&[memories_json], "calyx", &[only_externals_calyx], &[])?;
-        e.arg("backend", "yxi")?;
+        e.build_cmd(&[memories_json], "yxi", &[only_externals_calyx], &[])?;
         // generate custom testbench
         e.build_cmd(
             &[testbench],
@@ -503,6 +513,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
     // Interpreter.
     let debug = bld.state("debug", &[]); // A pseudo-state.
+                                         // A pseudo-state for cider input
+    let cider_state = bld.state("cider", &[]);
+
     let cider_setup = bld.setup("Cider interpreter", |e| {
         e.config_var_or(
             "cider-exe",
@@ -540,7 +553,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
 
         e.rule(
-            "cider2",
+            "run-cider",
             "$cider-exe -l $calyx-base --data data.dump $in flat > $out",
         )?;
 
@@ -555,6 +568,22 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
         Ok(())
     });
+    bld.op(
+        "calyx-to-cider",
+        &[sim_setup, calyx_setup],
+        calyx,
+        cider_state,
+        |e, input, _output| {
+            e.build_cmd(
+                &["cider-input.futil"],
+                "calyx-with-flags",
+                input,
+                &[],
+            )?;
+            Ok(())
+        },
+    );
+
     bld.op(
         "interp",
         &[
@@ -578,13 +607,18 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
     bld.op(
-        "interp-flat",
+        "cider",
         &[sim_setup, calyx_setup, cider_setup],
-        calyx,
+        cider_state,
         dat,
-        |e, input, output| {
+        |e, _input, output| {
             let out_file = "interp_out.dump";
-            e.build_cmd(&[out_file], "cider2", &[input[0]], &["data.dump"])?;
+            e.build_cmd(
+                &[out_file],
+                "run-cider",
+                &["cider-input.futil"],
+                &["data.dump"],
+            )?;
             e.build_cmd(
                 &[output[0]],
                 "interp-to-dump",
@@ -747,15 +781,20 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
 
+    let yxi_setup = bld.setup("YXI setup", |e| {
+        e.config_var_or("yxi", "yxi", "$calyx-base/target/debug/yxi")?;
+        e.rule("yxi", "$yxi -l $calyx-base $in > $out")?;
+        Ok(())
+    });
+
     let yxi = bld.state("yxi", &["yxi"]);
     bld.op(
         "calyx-to-yxi",
-        &[calyx_setup],
+        &[calyx_setup, yxi_setup],
         calyx,
         yxi,
         |e, input, output| {
-            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
-            e.arg("backend", "yxi")?;
+            e.build_cmd(output, "yxi", input, &[])?;
             Ok(())
         },
     );
@@ -763,12 +802,18 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let wrapper_setup = bld.setup("YXI and AXI generation", |e| {
         // Define a `gen-axi` rule that invokes our Python code generator program.
         // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
-        e.config_var_or(
-            "axi-generator",
-            "axi.generator",
-            "$calyx-base/yxi/axi-calyx/axi-generator.py",
-        )?;
+        let dynamic =
+            e.config_constrained_or("dynamic", vec!["true", "false"], "false")?;
+        let generator_path = if FromStr::from_str(&dynamic)
+            .expect("The dynamic flag should be either 'true' or 'false'.")
+        {
+            "$calyx-base/yxi/axi-calyx/dynamic-axi-generator.py"
+        } else {
+            "$calyx-base/yxi/axi-calyx/axi-generator.py"
+        };
+        e.config_var_or("axi-generator", "axi.generator", generator_path)?;
         e.config_var_or("python", "python", "python3")?;
+
         e.rule("gen-axi", "$python $axi-generator $in > $out")?;
 
         // Define a simple `combine` rule that just concatenates any numer of files.
@@ -776,32 +821,23 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
         e.rule(
             "remove-imports",
-            "sed '1,/component main/{/component main/!d}' $in > $out",
+            "sed '1,/component main/{/component main/!d; }' $in > $out",
         )?;
         Ok(())
     });
     bld.op(
         "axi-wrapped",
-        &[calyx_setup, wrapper_setup],
+        &[calyx_setup, yxi_setup, wrapper_setup],
         calyx,
         calyx,
         |e, input, output| {
             // Generate the YXI file.
             // no extension
-            let file_name = input[0]
-                .rsplit_once('/')
-                .unwrap()
-                .1
-                .rsplit_once('.')
-                .unwrap()
-                .0;
+            let file_name = basename(input[0]);
 
             // Get yxi file from main compute program.
-            // TODO(nate): Eventually (#1952) This will be able to use the `yxi` operation
-            // instead of hardcoding the build cmd calyx rule with arguments
             let tmp_yxi = format!("{}.yxi", file_name);
-            e.build_cmd(&[&tmp_yxi], "calyx", &[input[0]], &[])?;
-            e.arg("backend", "yxi")?;
+            e.build_cmd(&[&tmp_yxi], "yxi", input, &[])?;
 
             // Generate the AXI wrapper.
             let refified_calyx = format!("refified_{}.futil", file_name);
@@ -839,12 +875,23 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         let data_path = e.external_path(data_name.as_ref());
         e.var("sim_data", data_path.as_str())?;
 
-        // Cocotb is wants files relative to the location of the makefile.
+        // Cocotb wants files relative to the location of the makefile.
         // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
         e.rule("copy", "cp $in $out")?;
-        e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out")?;
-        // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
-        e.rule("cleanup-cocotb", r"sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out")?;
+
+        let waves = e.config_constrained_or("waves", vec!["true", "false"], "false")?;
+        let waves = FromStr::from_str(&waves).expect("The 'waves' flag should be either 'true' or 'false'.");
+        if waves{
+            //adds lines based on what is needed for icarus fst output.
+            e.rule("iverilog-fst-sed",
+            r#"sed '/\/\/ COMPONENT END: wrapper/c\`ifdef COCOTB_SIM\n  initial begin\n    \$$dumpfile ("$fst_file_name");\n    \$$dumpvars (0, wrapper);\n    #1;\n  end\n`endif\n\/\/ COMPONENT END: wrapper' $in > $out"#)?;
+        }
+
+e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
+
+        e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL $cocotb-args > $out")?;
+        // This cleans up the extra `make` and `FST warning` cruft, leaving what is in between `{` and `}.`
+        e.rule("cleanup-cocotb", r#"sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in | sed -n ':a;N;$$!ba;s/^[^{]*{\(.*\)}[^}]*$$/\1/p' | sed '1d;$$d' > $out"#)?;
         Ok(())
     });
 
@@ -874,14 +921,28 @@ pub fn build_driver(bld: &mut DriverBuilder) {
                 &["$cocotb-makefile-dir/run_axi_test.py"],
                 &[],
             )?;
+            let waves = e.config_constrained_or(
+                "waves",
+                vec!["true", "false"],
+                "false",
+            )?;
+            let waves = FromStr::from_str(&waves)
+                .expect("The 'waves' flag should be either 'true' or 'false'.");
+
+            let vcd_file_name = format!("{}.fst", basename(input[0]));
+            let mut make_in = input[0];
+            if waves {
+                make_in = "dumpvars.v";
+                e.build_cmd(&[make_in], "iverilog-fst-sed", input, &[])?;
+                e.arg("fst_file_name", &vcd_file_name)?;
+            }
             e.build_cmd(
                 &["tmp.dat"],
                 "make-cocotb",
-                &[input[0]],
+                &[make_in],
                 &["Makefile", "axi_test.py", "run_axi_test.py"],
             )?;
-
-            e.build_cmd(&[output[0]], "cleanup-cocotb", &["tmp.dat"], &[])?;
+            e.build_cmd(output, "cleanup-cocotb", &["tmp.dat"], &[])?;
 
             Ok(())
         },

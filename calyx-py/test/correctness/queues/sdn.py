@@ -79,15 +79,18 @@ def insert_controller(prog, name, stats_component):
     count_0 = controller.reg(32)
     count_1 = controller.reg(32)
 
-    with controller.group("get_data_locally") as get_data_locally:
+    with controller.group("get_data_locally_count0") as get_data_locally_count0:
         count_0.in_ = stats.count_0
         count_0.write_en = 1
+        get_data_locally_count0.done = count_0.done
+
+    with controller.group("get_data_locally_count1") as get_data_locally_count1:
         count_1.in_ = stats.count_1
         count_1.write_en = 1
-        get_data_locally.done = (count_0.done & count_1.done) @ 1
+        get_data_locally_count1.done = count_1.done
 
     # The main logic.
-    controller.control += get_data_locally
+    controller.control += cb.par(get_data_locally_count0, get_data_locally_count1)
     # Great, now I have the data around locally.
 
     return controller
@@ -97,6 +100,10 @@ def build(static=False):
     """Top-level function to build the program.
     The `static` flag determines whether the program is static or dynamic.
     """
+    static = "--static" in sys.argv
+    num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
+
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
     controller = insert_controller(prog, "controller", stats_component)
@@ -116,11 +123,17 @@ def build(static=False):
     )
     # The root PIFO will take a stats component by reference.
 
-    queue_call.insert_main(prog, pifo_root, controller, stats_component)
+    queue_call.insert_main(
+        prog,
+        pifo_root,
+        num_cmds,
+        keepgoing=keepgoing,
+        controller=controller,
+        stats_component=stats_component,
+    )
     return prog.program
 
 
 # We will have a command line argument to determine whether the program is static.
 if __name__ == "__main__":
-    static = sys.argv[1] == "--static" if len(sys.argv) > 1 else False
-    build(static=static).emit()
+    build().emit()

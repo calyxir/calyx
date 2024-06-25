@@ -99,6 +99,9 @@ struct FlatInterp {
     /// dump registers as memories
     #[argh(switch, long = "dump-registers")]
     dump_registers: bool,
+    /// dumps all memories rather than just external ones
+    #[argh(switch, long = "all-memories")]
+    dump_all_memories: bool,
 }
 
 #[inline]
@@ -215,7 +218,10 @@ fn main() -> InterpreterResult<()> {
 
             sim.run_program()?;
 
-            let output = sim.dump_memories(configs.dump_registers);
+            let output = sim.dump_memories(
+                configs.dump_registers,
+                configs.dump_all_memories,
+            );
 
             output.serialize(&mut stdout())?;
             Ok(())

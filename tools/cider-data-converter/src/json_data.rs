@@ -7,6 +7,7 @@ use serde::{self, Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum NumericType {
     Bitnum,
+    #[serde(alias = "fixed_point")]
     Fixed,
 }
 
@@ -14,10 +15,27 @@ pub enum NumericType {
 pub struct FormatInfo {
     pub numeric_type: NumericType,
     pub is_signed: bool,
-    pub width: u64,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<u64>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub int_width: Option<u64>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frac_width: Option<u64>,
+}
+
+impl FormatInfo {
+    pub fn get_width(&self) -> u64 {
+        if let Some(w) = self.width {
+            w
+        } else if self.int_width.is_some() && self.frac_width.is_some() {
+            self.int_width.unwrap() + self.frac_width.unwrap()
+        } else {
+            panic!("Either width or int_width and frac_width must be set")
+        }
+    }
 }
 
 // this is stupid

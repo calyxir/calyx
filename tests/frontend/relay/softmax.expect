@@ -369,18 +369,21 @@ component exp(x: 32) -> (out: 32) {
       exponent_value.in = x;
       init[done] = exponent_value.done;
     }
-    group split_bits {
+    group split_bits_int_x {
       and0.left = exponent_value.out;
       and0.right = 32'd4294901760;
       rsh.left = and0.out;
       rsh.right = 32'd16;
+      int_x.write_en = 1'd1;
+      int_x.in = rsh.out;
+      split_bits_int_x[done] = int_x.done;
+    }
+    group split_bits_frac_x {
       and1.left = exponent_value.out;
       and1.right = 32'd65535;
-      int_x.write_en = 1'd1;
       frac_x.write_en = 1'd1;
-      int_x.in = rsh.out;
       frac_x.in = and1.out;
-      split_bits[done] = (int_x.done & frac_x.done) ? 1'd1;
+      split_bits_frac_x[done] = frac_x.done;
     }
     group negate {
       mult_pipe1.left = exponent_value.out;
@@ -565,7 +568,10 @@ component exp(x: 32) -> (out: 32) {
       if lt.out with is_negative {
         negate;
       }
-      split_bits;
+      par {
+        split_bits_int_x;
+        split_bits_frac_x;
+      }
       par {
         invoke pow1(base=e.out, integer_exp=int_x.out)();
         invoke pow2(base=frac_x.out, integer_exp=c2.out)();
@@ -620,16 +626,19 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
     pow = std_reg(32);
     count = std_reg(32);
     mul = std_fp_smult_pipe(32, 16, 16);
-    count_incr = std_sadd(32);
-    lt_1 = std_slt(32);
+    count_incr_1_1 = std_sadd(32);
+    lt_2 = std_slt(32);
   }
   wires {
-    group init {
+    group init_pow {
       pow.in = 32'd65536;
       pow.write_en = 1'd1;
+      init_pow[done] = pow.done;
+    }
+    group init_count {
       count.in = 32'd0;
       count.write_en = 1'd1;
-      init[done] = (pow.done & count.done) ? 1'd1;
+      init_count[done] = count.done;
     }
     group execute_mul {
       mul.left = base;
@@ -639,26 +648,29 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
       pow.in = mul.out;
       execute_mul[done] = pow.done;
     }
-    group count_incr_group {
-      count_incr.left = count.out;
-      count_incr.right = 32'd1;
+    group count_incr_1_1_group {
+      count_incr_1_1.left = count.out;
+      count_incr_1_1.right = 32'd1;
       count.write_en = 1'd1;
-      count.in = count_incr.out;
-      count_incr_group[done] = count.done;
+      count.in = count_incr_1_1.out;
+      count_incr_1_1_group[done] = count.done;
     }
-    comb group lt_1_group {
-      lt_1.left = count.out;
-      lt_1.right = integer_exp;
+    comb group lt_2_group {
+      lt_2.left = count.out;
+      lt_2.right = integer_exp;
     }
     out = pow.out;
   }
   control {
     seq {
-      init;
-      while lt_1.out with lt_1_group {
+      par {
+        init_pow;
+        init_count;
+      }
+      while lt_2.out with lt_2_group {
         par {
           execute_mul;
-          count_incr_group;
+          count_incr_1_1_group;
         }
       }
     }

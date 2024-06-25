@@ -1,0 +1,63 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component my_add(left: 32, right: 32) -> (out: 32) {
+    cells {
+        result = std_reg(32);
+        ref add = std_add(32);
+    }
+    wires {
+        group do_add {
+            add.left = left;
+            add.right = right;
+            result.in = add.out;
+            result.write_en = 1'd1;
+            do_add[done] = result.done;
+        }
+
+        out = result.out;
+    }
+
+    control {
+        do_add;
+    }
+}
+
+component main() -> () {
+    cells {
+        left_reg = std_reg(32);
+        right_reg = std_reg(32);
+        my_add = my_add();
+        result = std_reg(32);
+        inner_add = std_add(32);
+    }
+
+    wires {
+        group init_left {
+            left_reg.in = 32'd5;
+            left_reg.write_en = 1'd1;
+            init_left[done] = left_reg.done;
+        }
+
+        group init_right {
+            right_reg.in = 32'd10;
+            right_reg.write_en = 1'd1;
+            init_right[done] = right_reg.done;
+        }
+
+        group store_result {
+            result.in = my_add.out;
+            result.write_en = 1'd1;
+            store_result[done] = result.done;
+        }
+    }
+
+    control {
+        seq {
+            init_left;
+            init_right;
+            invoke my_add[add=inner_add](left=left_reg.out, right=right_reg.out)();
+            store_result;
+        }
+    }
+}
