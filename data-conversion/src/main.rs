@@ -19,7 +19,6 @@ impl fmt::Display for ParseNumTypeError {
 }
 
 impl Error for ParseNumTypeError {}
-
 #[derive(Debug, PartialEq, Clone, Copy)] // Add PartialEq derivation here - What is this?
 enum NumType {
     Binary,
@@ -59,7 +58,7 @@ struct Arguments {
     /// file to convert from
     #[argh(option)]
     from: String,
-
+  
     /// file to convery to
     #[argh(option)]
     to: String,
@@ -75,12 +74,23 @@ struct Arguments {
     /// optional exponent for fixed_to_binary -> default is -1
     #[argh(option, default = "-1")]
     exp: i32,
+
+    /// optional for fixed_to_binary using bit slicing. If choosen, will use bit slicing.
+    #[argh(switch, short = 'b')]
+    bits: bool,
 }
 
 fn main() {
     let args: Arguments = argh::from_env();
 
-    convert(&args.from, &args.to, args.ftype, args.totype, args.exp);
+    convert(
+        &args.from,
+        &args.to,
+        args.ftype,
+        args.totype,
+        args.exp,
+        args.bits,
+    );
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
@@ -106,6 +116,7 @@ fn convert(
     convert_from: NumType,
     convert_to: NumType,
     exponent: i32,
+    bits: bool,
 ) {
     // Create the output file
     let mut converted = File::create(filepath_send).expect("creation failed");
@@ -142,9 +153,16 @@ fn convert(
             }
         }
         (NumType::Binary, NumType::Fixed) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                binary_to_fixed(line, &mut converted, exponent)
-                    .expect("Failed to write fixed-point to file");
+            if !bits {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    binary_to_fixed(line, &mut converted, exponent)
+                        .expect("Failed to write fixed-point to file");
+                }
+            } else {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    binary_to_fixed_bit_slice(line, &mut converted, exponent)
+                        .expect("Failed to write fixed-point to file");
+                }
             }
         }
         _ => panic!(
@@ -153,7 +171,6 @@ fn convert(
             convert_to.to_string()
         ),
     }
-
     eprintln!(
         "Successfully converted from {} to {} in {}",
         convert_from.to_string(),
@@ -427,13 +444,8 @@ fn binary_to_fixed(
     filepath_send: &mut File,
     exp_int: i32,
 ) -> io::Result<()> {
-    // Create an array with the elements of fixed_string
-    let words: Vec<&str> = binary_string.split_whitespace().collect();
-    let binary_str: &&str =
-        words.first().unwrap_or(&"There is not a binary number");
-
     // Convert binary value from string to int
-    let binary_value = match u32::from_str_radix(binary_str, 2) {
+    let binary_value = match u32::from_str_radix(binary_string, 2) {
         Ok(parsed_num) => parsed_num,
         Err(_) => panic!("Bad binary value input"),
     };
@@ -452,6 +464,71 @@ fn binary_to_fixed(
     // filepath_send.write_all(divided)?;
     filepath_send.write_all(string_of_divided.as_bytes())?;
     filepath_send.write_all(b"\n")?;
+
+    Ok(())
+}
+
+/// Converts a string representation of a binary number to its fixed-point
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a binary number,
+/// parses it into a 32-bit unsigned integer, separates the integer and fractional
+/// parts based on the given exponent, converts these parts into their decimal
+/// representations, and combines them into a fixed-point decimal number. The fixed-point
+/// decimal number is formatted as a string and written to the specified file,
+/// followed by a newline.
+///
+/// # Arguments
+///
+/// * `binary_string` - A string slice containing the binary number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the fixed-point representation
+///   will be appended.
+/// * `exp_int` - An integer representing the exponent that indicates the position of the
+///   binary point in the binary number.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a binary number.
+fn binary_to_fixed_bit_slice(
+    binary_string: &str,
+    filepath_send: &mut File,
+    exp_int: i32,
+) -> io::Result<()> {
+    // Parse the binary string to an unsigned integer
+    let binary =
+        u32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+
+    // Get bitmask from exponent
+    let shift_amount = -exp_int;
+    let int_mask = !((1 << shift_amount) - 1);
+    let frac_mask = (1 << shift_amount) - 1;
+
+    // Apply bit mask and shift integer part
+    let integer_part = (binary & int_mask) >> shift_amount;
+    // Apply bit masks to get the fractional parts
+    let fractional_part = binary & frac_mask;
+
+    // Convert the integer part to its binary string representation
+    let int_part_value = integer_part as f64;
+
+    let mut frac_part_value = 0.0;
+    let frac = fractional_part;
+    for i in 0..shift_amount {
+        if (frac & (1 << i)) != 0 {
+            frac_part_value += 1.0 / (1 << (shift_amount - i)) as f64;
+        }
+    }
+
+    // Combine the integer and fractional parts to form the fixed-point decimal number
+    let combined_value = int_part_value + frac_part_value;
+
+    // Write the combined binary representation to the file
+    writeln!(filepath_send, "{}", combined_value)?;
 
     Ok(())
 }
