@@ -27,7 +27,7 @@ jobs:
       - name: Check calyx build
         run: ./target/debug/calyx --version
       - name: validate playground config
-        run: node web/validate-data.js 
+        run: node web/validate-data.js
 
   # Get the hash of the Dockerfile
   hash:
@@ -105,8 +105,7 @@ jobs:
         git init
         git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
-        git fetch origin $GITHUB_REF
-        git checkout -f $GITHUB_SHA
+        git checkout -f ${{ github.sha }}
         git clean -fd
 
     - name: Build
