@@ -23,5 +23,5 @@ done
 
 for queue_kind in pieo pcq; do
     python3 queue_data_gen.py $num_cmds 1 > ../test/correctness/queues/$queue_kind.data
-    cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size > ../test/correctness/queues/$queue_kind.expect
+    cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/$queue_kind.expect
 done

@@ -23,7 +23,7 @@ class Fifo:
         self.data = []
         self.max_len = max_len
 
-    def push(self, val: int, time=None, rank=None) -> None:
+    def push(self, val: int, time=0, rank=None) -> None:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
             raise QueueError("Cannot push to full FIFO.")
@@ -94,7 +94,7 @@ class Pifo:
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int, time=None, rank=None) -> None:
+    def push(self, val: int, time=0, rank=None) -> None:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
@@ -365,6 +365,8 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(result)
             except QueueError:
+                if keepgoing:
+                    continue
                 break
             
         elif cmd == 1: #Peek with time predicate
@@ -373,12 +375,16 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(queue.peek())
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
         elif cmd == 2: #Push
             try:
                 queue.push(val, time, rank)
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
         elif cmd == 3: #Pop with value parameter
@@ -387,6 +393,8 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(result)
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
         elif cmd == 4: #Peek with value parameter
@@ -395,6 +403,8 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(result)
             except QueueError:
+                if keepgoing:
+                    continue
                 break
         
         else:
