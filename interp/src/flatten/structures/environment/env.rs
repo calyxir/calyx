@@ -694,6 +694,22 @@ impl<'a> Simulator<'a> {
     pub fn _unpack_env(self) -> Environment<'a> {
         self.env
     }
+
+    pub fn build_simulator(
+        ctx: &'a Context,
+        data_file: &Option<std::path::PathBuf>,
+    ) -> Result<Self, BoxedInterpreterError> {
+        let data_dump = data_file
+            .map(|path| {
+                let mut file = std::fs::File::open(path)?;
+                DataDump::deserialize(&mut file)
+            })
+            // flip to a result of an option
+            .map_or(Ok(None), |res| res.map(Some))?;
+
+        let mut sim = Simulator::new(Environment::new(ctx, data_dump));
+        Ok(sim)
+    }
 }
 
 // =========================== simulation functions ===========================

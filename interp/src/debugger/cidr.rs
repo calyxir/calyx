@@ -6,8 +6,6 @@ use super::{
     new_parser::parse_metadata,
     source::structures::NewSourceMap,
 };
-use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
-use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
 use crate::{configuration, debugger::source::SourceMap};
@@ -18,6 +16,14 @@ use crate::{
 use crate::{
     errors::{InterpreterError, InterpreterResult},
     structures::names::GroupQIN,
+};
+use crate::{
+    flatten::structures::context::Context,
+    structures::names::{CompGroupName, ComponentQualifiedInstanceName},
+};
+use crate::{
+    flatten::structures::environment::Simulator,
+    interpreter::{ComponentInterpreter, ConstCell, Interpreter},
 };
 use crate::{interpreter_ir as iir, serialization::Serializable};
 use std::collections::HashSet;
@@ -70,15 +76,15 @@ impl ProgramStatus {
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [Debugger::main_loop] function while this struct holds auxilliary
 /// information used to coordinate the debugging process.
-pub struct Debugger {
-    _context: iir::ComponentCtx,
-    main_component: Rc<iir::Component>,
-    debugging_ctx: DebuggingContext,
+pub struct Debugger<'a> {
+    simulator: Simulator<'a>,
+    // this is technically redundant but is here for mutability reasons
+    program_context: &'a Context,
+    debugging_context: DebuggingContext,
     source_map: Option<SourceMap>,
-    interpreter: ComponentInterpreter,
 }
 
-impl Debugger {
+impl<'a> Debugger<'a> {
     /// construct a debugger instance from the target calyx file
     pub fn from_file(
         file: &Path,

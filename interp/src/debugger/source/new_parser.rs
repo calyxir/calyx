@@ -1,4 +1,4 @@
-use super::source::structures::{GroupContents, NewSourceMap};
+use super::structures::{GroupContents, NewSourceMap};
 use crate::errors::InterpreterResult;
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 const _GRAMMAR: &str = include_str!("new_metadata.pest");
 
 #[derive(Parser)]
-#[grammar = "debugger/new_metadata.pest"]
+#[grammar = "debugger/source/new_metadata.pest"]
 pub struct MetadataParser;
 
 #[pest_consume::parser]

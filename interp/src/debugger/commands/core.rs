@@ -37,20 +37,29 @@ impl ParsedGroupName {
         self.component.is_some()
     }
 
-    pub fn unwrap_concrete(self) -> CompGroupName {
-        CompGroupName::new(self.group, self.component.unwrap())
-    }
-
-    pub fn concretize(
-        mut self,
-        main_comp_name: &calyx_ir::Id,
-    ) -> CompGroupName {
-        if !self.is_concrete() {
-            self.component = Some(*main_comp_name);
+    pub fn concretize(&self, component: calyx_ir::Id) -> GroupName {
+        GroupName {
+            component: self.component.unwrap_or(component),
+            group: self.group,
         }
-
-        self.unwrap_concrete()
     }
+
+    pub fn get_concrete(&self) -> Option<GroupName> {
+        if self.is_concrete() {
+            Some(GroupName {
+                component: self.component.unwrap(),
+                group: self.group,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GroupName {
+    pub component: Id,
+    pub group: Id,
 }
 
 pub enum BreakPointId {

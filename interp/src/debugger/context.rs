@@ -1,7 +1,7 @@
-use super::cidr::SPACING;
 use super::commands::{
     BreakPointId, ParsedGroupName, PrintTuple, WatchPosition,
 };
+use super::{cidr::SPACING, commands::GroupName};
 
 use calyx_ir::Id;
 use owo_colors::OwoColorize;
@@ -22,7 +22,7 @@ impl Counter {
     }
 }
 
-enum BreakPointState {
+enum BreakPointStatus {
     /// this breakpoint is active
     Enabled,
     /// this breakpoint is inactive
@@ -31,32 +31,32 @@ enum BreakPointState {
     Deleted,
 }
 
-impl BreakPointState {
+impl BreakPointStatus {
     pub fn enabled(&self) -> bool {
-        matches!(self, BreakPointState::Enabled)
+        matches!(self, BreakPointStatus::Enabled)
     }
 }
 struct BreakPoint {
     id: u64,
-    name: CompGroupName, // Name of the group (may not strictly be needed)
-    state: BreakPointState,
+    name: GroupName, // Name of the group (may not strictly be needed)
+    state: BreakPointStatus,
 }
 
 impl BreakPoint {
     pub fn enable(&mut self) {
-        self.state = BreakPointState::Enabled;
+        self.state = BreakPointStatus::Enabled;
     }
 
     pub fn disable(&mut self) {
-        self.state = BreakPointState::Disabled;
+        self.state = BreakPointStatus::Disabled;
     }
 
     pub fn delete(&mut self) {
-        self.state = BreakPointState::Deleted
+        self.state = BreakPointStatus::Deleted
     }
 
     pub fn is_deleted(&self) -> bool {
-        matches!(self.state, BreakPointState::Deleted)
+        matches!(self.state, BreakPointStatus::Deleted)
     }
 }
 
@@ -80,9 +80,9 @@ impl std::fmt::Debug for BreakPoint {
             &self.id,
             &self.name,
             match &self.state {
-                BreakPointState::Enabled => "enabled",
-                BreakPointState::Disabled => "disabled",
-                BreakPointState::Deleted => "deleted",
+                BreakPointStatus::Enabled => "enabled",
+                BreakPointStatus::Disabled => "disabled",
+                BreakPointStatus::Deleted => "deleted",
             }
         )
     }
@@ -153,14 +153,12 @@ impl BreakpointAction {
 }
 
 pub(super) struct DebuggingContext {
-    breakpoints: HashMap<CompGroupName, BreakPoint>,
-    watchpoints_before:
-        HashMap<CompGroupName, (BreakPointState, Vec<WatchPoint>)>,
-    watchpoints_after:
-        HashMap<CompGroupName, (BreakPointState, Vec<WatchPoint>)>,
+    breakpoints: HashMap<GroupName, BreakPoint>,
+    watchpoints_before: HashMap<GroupName, (BreakPointStatus, Vec<WatchPoint>)>,
+    watchpoints_after: HashMap<GroupName, (BreakPointStatus, Vec<WatchPoint>)>,
     count: Counter,
     watch_count: Counter,
-    group_exec_info: GroupExecutionInfo<CompGroupName>,
+    group_exec_info: GroupExecutionInfo<GroupName>,
     // used primarially for checking if a given group exists
     comp_ctx: HashMap<Id, Rc<iir::Component>>,
     main_comp_name: Id,
@@ -224,7 +222,7 @@ impl DebuggingContext {
             let br = BreakPoint {
                 id: self.count.next(),
                 name: target,
-                state: BreakPointState::Enabled,
+                state: BreakPointStatus::Enabled,
             };
             e.insert(br);
         } else {
@@ -254,14 +252,14 @@ impl DebuggingContext {
             WatchPosition::Before => {
                 self.watchpoints_before
                     .entry(key)
-                    .or_insert((BreakPointState::Enabled, Vec::new()))
+                    .or_insert((BreakPointStatus::Enabled, Vec::new()))
                     .1
                     .push(watchpoint);
             }
             WatchPosition::After => {
                 self.watchpoints_after
                     .entry(key)
-                    .or_insert((BreakPointState::Enabled, Vec::new()))
+                    .or_insert((BreakPointStatus::Enabled, Vec::new()))
                     .1
                     .push(watchpoint);
             }
@@ -347,10 +345,7 @@ impl DebuggingContext {
     }
 
     #[inline]
-    pub fn concretize_group_name(
-        &self,
-        target: ParsedGroupName,
-    ) -> CompGroupName {
+    pub fn concretize_group_name(&self, target: ParsedGroupName) -> GroupName {
         target.concretize(&self.main_comp_name)
     }
 
@@ -360,13 +355,13 @@ impl DebuggingContext {
     }
 
     pub fn set_current_time(&mut self, current: HashSet<GroupQIN>) {
-        let current: HashSet<CompGroupName> =
+        let current: HashSet<GroupName> =
             current.into_iter().map(|x| x.into()).collect();
         self.group_exec_info.shift_current(current.clone());
         self.group_exec_info.shift_current(current);
     }
 
-    pub fn hit_breakpoints(&self) -> Vec<&CompGroupName> {
+    pub fn hit_breakpoints(&self) -> Vec<&GroupName> {
         self.group_exec_info
             .groups_new_on()
             .filter(|x| {
@@ -417,9 +412,9 @@ impl DebuggingContext {
     pub fn is_group_running(
         &self,
         current_executing: HashSet<GroupQIN>,
-        target: &CompGroupName,
+        target: &GroupName,
     ) -> bool {
-        let current: HashSet<CompGroupName> =
+        let current: HashSet<GroupName> =
             current_executing.into_iter().map(|x| x.into()).collect();
 
         current.contains(target)
@@ -454,23 +449,5 @@ impl DebuggingContext {
                 }
             }
         }
-    }
-}
-
-pub(super) trait ConcretizableName {
-    fn concretize(self, context: &DebuggingContext) -> CompGroupName;
-}
-
-impl ConcretizableName for CompGroupName {
-    #[inline]
-    fn concretize(self, _context: &DebuggingContext) -> CompGroupName {
-        self
-    }
-}
-
-impl ConcretizableName for ParsedGroupName {
-    #[inline]
-    fn concretize(self, context: &DebuggingContext) -> CompGroupName {
-        context.concretize_group_name(self)
     }
 }

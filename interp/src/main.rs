@@ -151,19 +151,12 @@ fn main() -> InterpreterResult<()> {
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
 
+    // general setup
+    let i_ctx = interp::flatten::flat_ir::translate(&ctx);
+
     match &command {
         Command::Interpret(_) => {
-            let i_ctx = interp::flatten::flat_ir::translate(&ctx);
-            let data_dump = opts
-                .data_file
-                .map(|path| {
-                    let mut file = std::fs::File::open(path)?;
-                    DataDump::deserialize(&mut file)
-                })
-                // flip to a result of an option
-                .map_or(Ok(None), |res| res.map(Some))?;
-
-            let mut sim = Simulator::new(Environment::new(&i_ctx, data_dump));
+            let mut sim = Simulator::build_simulator(&i_ctx, opts)?;
 
             sim.run_program()?;
 
