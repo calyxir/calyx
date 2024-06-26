@@ -54,8 +54,11 @@ pub struct Workspace {
 
 impl Workspace {
     /// Returns the absolute location to an imported file.
-    /// Imports can refer to files either in the library path or in the parent
-    /// folder.
+    ///
+    /// An import path is first resolved as an absolute or
+    /// relative(-to-`parent`) path, and if no file exists at either such
+    /// extended path exists, it assumed to be under the library path
+    /// `lib_path`.
     fn canonicalize_import<S>(
         import: S,
         parent: &Path,
@@ -64,17 +67,23 @@ impl Workspace {
     where
         S: AsRef<Path> + Clone,
     {
-        let parent_path = parent.join(import.clone());
-        if parent_path.exists() {
-            return Ok(parent_path);
+        let absolute_import = import.as_ref();
+        if absolute_import.is_absolute() && absolute_import.exists() {
+            return Ok(import.as_ref().to_path_buf());
         }
-        let lib = lib_path.join(import.clone());
-        if lib.exists() {
-            return Ok(lib);
+
+        let relative_import = parent.join(import.clone());
+        if relative_import.exists() {
+            return Ok(relative_import);
+        }
+
+        let library_import = lib_path.join(import.clone());
+        if library_import.exists() {
+            return Ok(library_import);
         }
 
         Err(Error::invalid_file(
-            format!("Import path `{}` found neither in the parent ({}) nor library path ({})",
+            format!("Import path `{}` found neither as an absolute path, nor in the parent ({}), nor in library path ({})",
             import.as_ref().to_string_lossy(),
             parent.to_string_lossy(),
             lib_path.to_string_lossy()
