@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-num_cmds=10
+num_cmds=20000
 queue_size=16
 
 # For SDN, we use piezo mode when making the data file and

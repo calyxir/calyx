@@ -88,7 +88,8 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=Fals
                 else (
                     [random.randint(0, 4) for _ in range(num_cmds)]
                     if nwc
-                    else [random.randint(0, 2) for _ in range(num_cmds)]
+                    else
+                    [random.randint(0, 2) for _ in range(num_cmds)]
                 )
             ),
             "format": format_gen(2),
