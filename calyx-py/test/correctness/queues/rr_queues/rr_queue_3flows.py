@@ -1,4 +1,12 @@
 # pylint: disable=import-error
+import os
+import sys
+import inspect
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir) 
+
 import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
@@ -199,14 +207,14 @@ def insert_pifo(
 def build():
    """Top-level function to build the program."""
    prog = cb.Builder()
-   n_flows = 2
+   n_flows = 3
    sub_fifos = []
    for n in range(n_flows):
        name = "fifo" + str(n)
        sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
        sub_fifos.append(sub_fifo)
 
-   pifo = insert_pifo(prog, "pifo", sub_fifos, [0, 200, 400], n_flows)
+   pifo = insert_pifo(prog, "pifo", sub_fifos, [0, 133, 266, 400], n_flows)
    qc.insert_main(prog, pifo, 20)
    return prog.program
 
