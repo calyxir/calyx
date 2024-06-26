@@ -63,6 +63,10 @@ pub struct ComponentCore {
     pub continuous_assignments: IndexRange<AssignmentIdx>,
     /// True iff component is combinational
     pub is_comb: bool,
+    /// The go port for this component
+    pub go: LocalPortOffset,
+    /// The done port for this component
+    pub done: LocalPortOffset,
 }
 
 #[derive(Debug, Clone)]
@@ -192,6 +196,13 @@ impl AuxillaryComponentInfo {
         self.ref_port_offset_map.skip(ref_port);
         self.cell_offset_map.skip(cell);
         self.ref_cell_offset_map.skip(ref_cell);
+    }
+
+    pub fn get_cell_info_idx(&self, cell: CellRef) -> CellDefinitionRef {
+        match cell {
+            CellRef::Local(l) => self.cell_offset_map[l].into(),
+            CellRef::Ref(r) => self.ref_cell_offset_map[r].into(),
+        }
     }
 }
 

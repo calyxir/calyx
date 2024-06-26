@@ -1,5 +1,6 @@
 use ahash::{HashMap, HashMapExt};
-use calyx_ir::{self as cir, RRC};
+use calyx_ir::{self as cir, NumAttr, RRC};
+use itertools::Itertools;
 
 use crate::{
     flatten::{
@@ -192,6 +193,8 @@ fn translate_component(
     // and this is not possible when it is inside the context
     let mut taken_control = std::mem::take(&mut taken_ctx.primary.control);
 
+    let ctrl_idx_start = taken_control.peek_next_idx();
+
     let argument_tuple =
         (group_mapper, layout, taken_ctx, auxillary_component_info);
 
@@ -208,17 +211,57 @@ fn translate_component(
             Some(ctrl_node)
         };
 
+    let ctrl_idx_end = taken_control.peek_next_idx();
+
     // unwrap all the stuff packed into the argument tuple
-    let (_, _layout, mut taken_ctx, auxillary_component_info) = argument_tuple;
+    let (_, layout, mut taken_ctx, auxillary_component_info) = argument_tuple;
 
     // put stuff back
     taken_ctx.primary.control = taken_control;
     *ctx = taken_ctx;
 
+    for node in IndexRange::new(ctrl_idx_start, ctrl_idx_end).iter() {
+        if let ControlNode::Invoke(i) = &mut ctx.primary.control[node] {
+            let assign_start_index = ctx.primary.assignments.peek_next_idx();
+
+            for (dst, src) in i.signature.iter() {
+                ctx.primary.assignments.push(Assignment {
+                    dst: *dst,
+                    src: *src,
+                    guard: ctx.primary.guards.push(Guard::True),
+                });
+            }
+
+            let assign_end_index = ctx.primary.assignments.peek_next_idx();
+            i.assignments =
+                IndexRange::new(assign_start_index, assign_end_index);
+        }
+    }
+
+    let go_ports = comp
+        .signature
+        .borrow()
+        .find_all_with_attr(NumAttr::Go)
+        .collect_vec();
+    let done_ports = comp
+        .signature
+        .borrow()
+        .find_all_with_attr(NumAttr::Done)
+        .collect_vec();
+
+    // Will need to rethink this at some point
+    if go_ports.len() != 1 || done_ports.len() != 1 {
+        todo!("handle multiple go and done ports");
+    }
+    let go_port = &go_ports[0];
+    let done_port = &done_ports[0];
+
     let comp_core = ComponentCore {
         control,
         continuous_assignments,
         is_comb: comp.is_comb,
+        go: *layout.port_map[&go_port.as_raw()].unwrap_local(),
+        done: *layout.port_map[&done_port.as_raw()].unwrap_local(),
     };
 
     let ctrl_ref = ctx.primary.components.push(comp_core);
@@ -430,8 +473,8 @@ fn create_cell_prototype(
 ) -> CellPrototype {
     let borrow = cell.borrow();
     match &borrow.prototype {
-        prim @ cir::CellType::Primitive { .. } => {
-            CellPrototype::construct_primitive(prim)
+        cir::CellType::Primitive { .. } => {
+            CellPrototype::construct_primitive(&borrow)
         }
         cir::CellType::Component { name } => {
             CellPrototype::Component(comp_id_map[name])
@@ -594,6 +637,24 @@ impl FlattenTree for cir::Control {
                     )
                 });
 
+                let go = inv
+                    .comp
+                    .borrow()
+                    .find_all_with_attr(NumAttr::Go)
+                    .collect_vec();
+                assert!(go.len() == 1, "cannot handle multiple go ports yet or the invoked cell has none");
+                let comp_go = layout.port_map[&go[0].as_raw()];
+                let done = inv
+                    .comp
+                    .borrow()
+                    .find_all_with_attr(NumAttr::Done)
+                    .collect_vec();
+                assert!(
+                    done.len() == 1,
+                    "cannot handle multiple done ports yet or the invoked cell has none"
+                );
+                let comp_done = layout.port_map[&done[0].as_raw()];
+
                 ControlNode::Invoke(Invoke::new(
                     invoked_cell,
                     inv.comb_group
@@ -602,6 +663,8 @@ impl FlattenTree for cir::Control {
                     ref_cells,
                     inputs,
                     outputs,
+                    comp_go,
+                    comp_done,
                 ))
             }
             cir::Control::Enable(e) => ControlNode::Enable(Enable::new(
@@ -611,8 +674,9 @@ impl FlattenTree for cir::Control {
             cir::Control::Static(_) => {
                 todo!("The interpreter does not support static control yet")
             }
-            cir::Control::Repeat(_) => {
-                todo!("The interpreter does not support repeat yet")
+            cir::Control::Repeat(repeat) => {
+                let body = handle.enqueue(&repeat.body);
+                ControlNode::Repeat(Repeat::new(body, repeat.num_repeats))
             }
         }
     }

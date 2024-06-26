@@ -86,6 +86,9 @@ class Component:
         )
 
     def doc(self) -> str:
+        # if(self.name == "axi_seq_mem_A0"):
+        #     for s in self.inputs:
+        #         print(s.doc())
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         latency_annotation = (
@@ -179,6 +182,12 @@ class PortAttribute(Attribute):
     name: str
     value: Optional[int] = None
 
+
+@dataclass
+class PortAttribute(Attribute):
+    name: str
+    value: Optional[int] = None
+
     def doc(self) -> str:
         return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
 
@@ -197,6 +206,9 @@ class CompPort(Port):
     def doc(self) -> str:
         return f"{self.id.doc()}.{self.name}"
 
+    def get_name(self) -> str:
+        return f"{self.id.doc()}_{self.name}"
+
 
 @dataclass
 class ThisPort(Port):
@@ -204,6 +216,9 @@ class ThisPort(Port):
 
     def doc(self) -> str:
         return self.id.doc()
+
+    def get_name(self) -> str:
+        return self.id.get_name()
 
 
 @dataclass
@@ -213,6 +228,9 @@ class HolePort(Port):
 
     def doc(self) -> str:
         return f"{self.id.doc()}[{self.name}]"
+
+    def get_name(self) -> str:
+        return self.name
 
 
 @dataclass
@@ -236,6 +254,9 @@ class CompVar(Emittable):
 
     def add_suffix(self, suffix: str) -> CompVar:
         return CompVar(f"{self.name}{suffix}")
+
+    def get_name(self) -> str:
+        return self.name
 
 
 @dataclass
@@ -355,6 +376,10 @@ class Atom(GuardExpr):
     def doc(self) -> str:
         return self.item.doc()
 
+    @property
+    def name(self) -> str:
+        return f"{self.item.get_name()}"
+
 
 @dataclass
 class Not(GuardExpr):
@@ -398,6 +423,42 @@ class Neq(GuardExpr):
 
     def doc(self) -> str:
         return f"({self.left.doc()} != {self.right.doc()})"
+
+
+@dataclass
+class Lt(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} < {self.right.doc()})"
+
+
+@dataclass
+class Lte(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} <= {self.right.doc()})"
+
+
+@dataclass
+class Gt(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} > {self.right.doc()})"
+
+
+@dataclass
+class Gte(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"({self.left.doc()} >= {self.right.doc()})"
 
 
 # Control

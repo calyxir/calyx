@@ -1,0 +1,5 @@
+---STDERR---
+Error: Attempted to write an undefined value to register or memory named "main.reg0"
+thread 'main' panicked at interp/src/serialization/data_dump.rs:160:48:
+called `Result::unwrap()` on an `Err` value: Error { kind: UnexpectedEof, message: "failed to fill whole buffer" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

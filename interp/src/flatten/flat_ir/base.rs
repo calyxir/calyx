@@ -250,6 +250,50 @@ impl From<LocalCellOffset> for CellRef {
     }
 }
 
+#[derive(Debug)]
+pub enum GlobalCellRef {
+    Cell(GlobalCellIdx),
+    Ref(GlobalRefCellIdx),
+}
+
+impl From<GlobalRefCellIdx> for GlobalCellRef {
+    fn from(v: GlobalRefCellIdx) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<GlobalCellIdx> for GlobalCellRef {
+    fn from(v: GlobalCellIdx) -> Self {
+        Self::Cell(v)
+    }
+}
+
+impl GlobalCellRef {
+    pub fn from_local(local: CellRef, base_info: &BaseIndices) -> Self {
+        match local {
+            CellRef::Local(l) => (base_info + l).into(),
+            CellRef::Ref(r) => (base_info + r).into(),
+        }
+    }
+}
+
+pub enum CellDefinitionRef {
+    Local(CellDefinitionIdx),
+    Ref(RefCellDefinitionIdx),
+}
+
+impl From<RefCellDefinitionIdx> for CellDefinitionRef {
+    fn from(v: RefCellDefinitionIdx) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<CellDefinitionIdx> for CellDefinitionRef {
+    fn from(v: CellDefinitionIdx) -> Self {
+        Self::Local(v)
+    }
+}
+
 /// A global index for assignments in the IR
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct AssignmentIdx(u32);
@@ -401,6 +445,10 @@ impl PortValue {
     /// Creates a [PortValue] that has the "winner" as a cell
     pub fn new_cell(val: Value) -> Self {
         Self(Some(AssignedValue::cell_value(val)))
+    }
+
+    pub fn new_cell_zeroes(width: u32) -> Self {
+        Self::new_cell(Value::zeroes(width))
     }
 
     /// Creates a [PortValue] that has the "winner" as implicit

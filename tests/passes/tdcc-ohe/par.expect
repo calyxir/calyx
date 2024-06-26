@@ -1,0 +1,73 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    @generated pd = std_reg(1);
+    @generated pd0 = std_reg(1);
+    @generated pd1 = std_reg(1);
+    @generated fsm = init_one_reg(4);
+    @generated slicer = std_bit_slice(4, 0, 0, 1);
+    @generated slicer0 = std_bit_slice(4, 1, 1, 1);
+    @generated slicer1 = std_bit_slice(4, 2, 2, 1);
+    @generated slicer2 = std_bit_slice(4, 3, 3, 1);
+  }
+  wires {
+    group A {
+      a.in = 2'd0;
+      a.write_en = 1'd1;
+      A[done] = a.done;
+    }
+    group B {
+      b.in = 2'd1;
+      b.write_en = 1'd1;
+      B[done] = b.done;
+    }
+    group C {
+      c.in = 2'd2;
+      c.write_en = 1'd1;
+      C[done] = c.done;
+    }
+    group par0 {
+      A[go] = !(pd.out | A[done]) ? 1'd1;
+      pd.in = A[done] ? 1'd1;
+      pd.write_en = A[done] ? 1'd1;
+      B[go] = !(pd0.out | B[done]) ? 1'd1;
+      pd0.in = B[done] ? 1'd1;
+      pd0.write_en = B[done] ? 1'd1;
+      C[go] = !(pd1.out | C[done]) ? 1'd1;
+      pd1.in = C[done] ? 1'd1;
+      pd1.write_en = C[done] ? 1'd1;
+      par0[done] = pd.out & pd0.out & pd1.out ? 1'd1;
+    }
+    group tdcc {
+      A[go] = !A[done] & slicer.out == 1'd1 ? 1'd1;
+      par0[go] = !par0[done] & slicer0.out == 1'd1 ? 1'd1;
+      B[go] = !B[done] & slicer1.out == 1'd1 ? 1'd1;
+      fsm.in = slicer.out == 1'd1 & A[done] ? 4'd2;
+      fsm.write_en = slicer.out == 1'd1 & A[done] ? 1'd1;
+      fsm.in = slicer0.out == 1'd1 & par0[done] ? 4'd4;
+      fsm.write_en = slicer0.out == 1'd1 & par0[done] ? 1'd1;
+      fsm.in = slicer1.out == 1'd1 & B[done] ? 4'd8;
+      fsm.write_en = slicer1.out == 1'd1 & B[done] ? 1'd1;
+      tdcc[done] = slicer2.out == 1'd1 ? 1'd1;
+    }
+    pd.in = pd.out & pd0.out & pd1.out ? 1'd0;
+    pd.write_en = pd.out & pd0.out & pd1.out ? 1'd1;
+    pd0.in = pd.out & pd0.out & pd1.out ? 1'd0;
+    pd0.write_en = pd.out & pd0.out & pd1.out ? 1'd1;
+    pd1.in = pd.out & pd0.out & pd1.out ? 1'd0;
+    pd1.write_en = pd.out & pd0.out & pd1.out ? 1'd1;
+    slicer.in = fsm.out;
+    slicer0.in = fsm.out;
+    slicer1.in = fsm.out;
+    slicer2.in = fsm.out;
+    fsm.in = slicer2.out == 1'd1 ? 4'd1;
+    fsm.write_en = slicer2.out == 1'd1 ? 1'd1;
+  }
+  control {
+    tdcc;
+  }
+}

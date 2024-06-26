@@ -19,7 +19,6 @@ impl fmt::Display for ParseNumTypeError {
 }
 
 impl Error for ParseNumTypeError {}
-
 #[derive(Debug, PartialEq, Clone, Copy)] // Add PartialEq derivation here - What is this?
 enum NumType {
     Binary,
@@ -59,7 +58,7 @@ struct Arguments {
     /// file to convert from
     #[argh(option)]
     from: String,
-
+  
     /// file to convery to
     #[argh(option)]
     to: String,
@@ -469,6 +468,32 @@ fn binary_to_fixed(
     Ok(())
 }
 
+/// Converts a string representation of a binary number to its fixed-point
+/// format and appends the result to the specified file.
+///
+/// This function takes a string slice representing a binary number,
+/// parses it into a 32-bit unsigned integer, separates the integer and fractional
+/// parts based on the given exponent, converts these parts into their decimal
+/// representations, and combines them into a fixed-point decimal number. The fixed-point
+/// decimal number is formatted as a string and written to the specified file,
+/// followed by a newline.
+///
+/// # Arguments
+///
+/// * `binary_string` - A string slice containing the binary number to be converted.
+/// * `filepath_send` - A mutable reference to a `File` where the fixed-point representation
+///   will be appended.
+/// * `exp_int` - An integer representing the exponent that indicates the position of the
+///   binary point in the binary number.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a binary number.
 fn binary_to_fixed_bit_slice(
     binary_string: &str,
     filepath_send: &mut File,
