@@ -474,9 +474,7 @@ fn binary_to_fixed_bit_slice(
     filepath_send: &mut File,
     exp_int: i32,
 ) -> io::Result<()> {
-    // Parse the binary string to an integer
-    let binary =
-        i32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+    let binary = u32::from_str_radix(binary_string, 2).expect("Bad binary value input");
 
     // Get bitmask from exponent
     let shift_amount = -exp_int;
@@ -484,32 +482,15 @@ fn binary_to_fixed_bit_slice(
     let frac_mask = (1 << shift_amount) - 1;
 
     // Apply bit mask and shift integer part
-    // Apply bit masks and shift to get the integer and fractional parts
     let integer_part = (binary & int_mask) >> shift_amount;
+    // Extract the fractional part directly as bits
     let fractional_part = binary & frac_mask;
 
-    // Convert the integer part to its binary string representation
-    let int_part_binary = format!("{:b}", integer_part);
+    // Combine the integer and fractional parts into a fixed-point representation
+    let fixed_point_value = (integer_part as f64) + (fractional_part as f64 / (1 << shift_amount) as f64);
 
-    // Convert the fractional part to its binary string representation
-    let mut frac_part_binary = String::new();
-    let mut frac = fractional_part;
-    for _ in 0..shift_amount {
-        frac <<= 1;
-        if frac & (1 << shift_amount) != 0 {
-            frac_part_binary.push('1');
-            frac -= 1 << shift_amount;
-        } else {
-            frac_part_binary.push('0');
-        }
-    }
-
-    // Append the integer and fractional parts
-    let combined_binary_representation =
-        format!("{}.{}", int_part_binary, frac_part_binary);
-
-    // Write the combined binary representation to the file
-    writeln!(filepath_send, "{}", combined_binary_representation)?;
+    // Write the fixed-point value to the file
+    writeln!(filepath_send, "{}", fixed_point_value)?;
 
     Ok(())
 }
