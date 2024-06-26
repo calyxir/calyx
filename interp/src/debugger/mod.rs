@@ -1,9 +1,8 @@
 mod cidr;
 pub mod commands;
-mod context;
+mod debugging_context;
 mod interactive_errors;
 mod io_utils;
-pub(crate) mod name_tree;
 pub mod source;
 pub mod structures;
 

@@ -1,40 +1,24 @@
 use super::{
-    commands::{Command, PrintCode, PrintMode},
+    commands::{Command, PrintMode},
     context::DebuggingContext,
     interactive_errors::DebuggerError,
     io_utils::Input,
-    new_parser::parse_metadata,
     source::structures::NewSourceMap,
 };
-use crate::structures::state_views::StateView;
-use crate::utils::AsRaw;
-use crate::{configuration, debugger::source::SourceMap};
 use crate::{
-    environment::{InterpreterState, PrimitiveMap},
-    MemoryMap,
-};
-use crate::{
+    debugger::source::SourceMap,
     errors::{InterpreterError, InterpreterResult},
-    structures::names::GroupQIN,
+    flatten::structures::{context::Context, environment::Simulator},
+    serialization::{PrintCode, Serializable},
 };
-use crate::{
-    flatten::structures::context::Context,
-    structures::names::{CompGroupName, ComponentQualifiedInstanceName},
-};
-use crate::{
-    flatten::structures::environment::Simulator,
-    interpreter::{ComponentInterpreter, ConstCell, Interpreter},
-};
-use crate::{interpreter_ir as iir, serialization::Serializable};
+
 use std::collections::HashSet;
 
-use calyx_frontend::Workspace;
-use calyx_ir::{self as ir, Id, RRC};
+use calyx_ir::{Id, RRC};
 
-use calyx_opt::pass_manager::PassManager;
 use owo_colors::OwoColorize;
+use std::path::Path;
 use std::{cell::Ref, collections::HashMap, rc::Rc};
-use std::{fmt::Write, path::Path};
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
@@ -50,16 +34,8 @@ pub struct ProgramStatus {
 
 impl ProgramStatus {
     /// Create a new program status on the fly
-    pub fn generate(current_groups: HashSet<GroupQIN>, is_done: bool) -> Self {
-        let mut set: HashSet<Id> = HashSet::new();
-        for item in current_groups {
-            set.insert(item.get_suffix());
-        }
-
-        ProgramStatus {
-            status: set,
-            done: is_done,
-        }
+    pub fn generate() -> Self {
+        todo!()
     }
 
     /// get status
@@ -90,98 +66,56 @@ impl<'a> Debugger<'a> {
         file: &Path,
         lib_path: &Path,
     ) -> InterpreterResult<(Self, NewSourceMap)> {
-        // create a workspace using the file and lib_path, run the standard
-        // passes (see main.rs). Construct the initial environment then use that
-        // to create a new debugger instance with new
-
-        let builder = configuration::ConfigBuilder::new();
-
-        let config = builder
-            .quiet(false)
-            .allow_invalid_memory_access(false)
-            .error_on_overflow(false)
-            .allow_par_conflicts(false)
-            .build();
-
-        let ws = Workspace::construct(&Some(file.to_path_buf()), lib_path)?;
-        let mut ctx = ir::from_ast::ast_to_ir(ws)?;
-        let pm = PassManager::default_passes()?;
-
-        // if !opts.skip_verification
-        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], &[], false)?;
-
-        let entry_point = ctx.entrypoint;
-
-        let components: iir::ComponentCtx = Rc::new(
-            ctx.components
-                .into_iter()
-                .map(|x| Rc::new(x.into()))
-                .collect(),
-        );
-
-        let main_component = components
-            .iter()
-            .find(|&cm| cm.name == entry_point)
-            .ok_or(InterpreterError::MissingMainComponent)?;
-
-        let mut mems = MemoryMap::inflate_map(&None)?;
-
-        let env = InterpreterState::init_top_level(
-            &components,
-            main_component,
-            &mut mems,
-            &config,
-        )?;
-
         // Make NewSourceMap, if we can't then we explode
-        let mapping = ctx
-            .metadata
-            .map(|metadata| parse_metadata(&metadata))
-            .unwrap_or_else(|| Err(InterpreterError::MissingMetaData.into()))?;
+        // let mapping = ctx
+        //     .metadata
+        //     .map(|metadata| parse_metadata(&metadata))
+        //     .unwrap_or_else(|| Err(InterpreterError::MissingMetaData.into()))?;
 
-        Ok((
-            Debugger::new(&components, main_component, None, env).unwrap(),
-            mapping,
-        ))
+        // Ok((
+        //     Debugger::new(&components, main_component, None, env).unwrap(),
+        //     mapping,
+        // ))
+        todo!();
     }
 
     pub fn new(
-        context: &iir::ComponentCtx,
-        main_component: &Rc<iir::Component>,
+        program_context: &'a Context,
         source_map: Option<SourceMap>,
-        env: InterpreterState,
+        data_file: Option<std::path::PathBuf>,
     ) -> InterpreterResult<Self> {
-        let qin = ComponentQualifiedInstanceName::new_single(
-            main_component,
-            main_component.name,
-        );
-        let mut component_interpreter =
-            ComponentInterpreter::from_component(main_component, env, qin);
-        component_interpreter.set_go_high();
-
-        component_interpreter.converge()?;
+        let simulator =
+            Simulator::build_simulator(&program_context, &data_file)?;
 
         Ok(Self {
-            _context: Rc::clone(context),
-            main_component: Rc::clone(main_component),
-            debugging_ctx: DebuggingContext::new(context, &main_component.name),
+            simulator,
+            program_context,
+            debugging_context: todo!(),
             source_map,
-            interpreter: component_interpreter,
         })
+    }
+
+    pub fn status(&self) -> ProgramStatus {
+        todo!()
     }
 
     // Go to next step
     pub fn step(&mut self, n: u64) -> InterpreterResult<ProgramStatus> {
+        self.do_step(n)?;
+
+        Ok(self.status())
+    }
+
+    #[inline]
+    fn do_step(
+        &mut self,
+        n: u64,
+    ) -> Result<(), crate::errors::BoxedInterpreterError> {
         for _ in 0..n {
             self.interpreter.step()?;
         }
         self.interpreter.converge()?;
-
-        // Create new HashSet with Ids
-        Ok(ProgramStatus::generate(
-            self.interpreter.currently_executing_group(),
-            self.interpreter.is_done(),
-        ))
+        Ok(())
     }
 
     pub fn cont(&mut self) -> InterpreterResult<()> {
@@ -234,7 +168,7 @@ impl<'a> Debugger<'a> {
 
     // so on and so forth
 
-    pub fn main_loop(mut self) -> InterpreterResult<InterpreterState> {
+    pub fn main_loop(mut self) -> InterpreterResult<()> {
         let mut input_stream = Input::new()?;
 
         println!("== Calyx Interactive Debugger ==");
@@ -558,233 +492,200 @@ impl<'a> Debugger<'a> {
         }
     }
 
-    fn do_print(
-        main_comp_name: Id,
-        print_list: &[Id],
-        code: &Option<PrintCode>,
-        root: StateView,
-        print_mode: &PrintMode,
-    ) -> Result<String, DebuggerError> {
-        let orig_string = print_list
-            .iter()
-            .map(|s| s.id.as_str())
-            .collect::<Vec<_>>()
-            .join(".");
+    // fn do_print(
+    //     main_comp_name: Id,
+    //     print_list: &[Id],
+    //     code: &Option<PrintCode>,
+    //     root: StateView,
+    //     print_mode: &PrintMode,
+    // ) -> Result<String, DebuggerError> {
+    //     let orig_string = print_list
+    //         .iter()
+    //         .map(|s| s.id.as_str())
+    //         .collect::<Vec<_>>()
+    //         .join(".");
 
-        let mut iter = print_list.iter();
+    //     let mut iter = print_list.iter();
 
-        let length = if main_comp_name == print_list[0] {
-            iter.next();
-            print_list.len() - 1
-        } else {
-            print_list.len()
-        };
+    //     let length = if main_comp_name == print_list[0] {
+    //         iter.next();
+    //         print_list.len() - 1
+    //     } else {
+    //         print_list.len()
+    //     };
 
-        let mut current_target = CurrentTarget::Env(&root);
+    //     let mut current_target = CurrentTarget::Env(&root);
 
-        for (idx, target) in iter.enumerate() {
-            let current_ref = current_target.borrow();
-            let current_env = current_ref.get_env().unwrap();
+    //     for (idx, target) in iter.enumerate() {
+    //         let current_ref = current_target.borrow();
+    //         let current_env = current_ref.get_env().unwrap();
 
-            // lowest level
-            if idx == length - 1 {
-                // first look for cell
-                let cell = current_env.get_cell(*target);
-                if let Some(cell) = cell {
-                    return Ok(print_cell(
-                        &cell,
-                        &current_env,
-                        code,
-                        print_mode,
-                    ));
-                } else if idx != 0 {
-                    let prior = &print_list[idx - 1];
+    //         // lowest level
+    //         if idx == length - 1 {
+    //             // first look for cell
+    //             let cell = current_env.get_cell(*target);
+    //             if let Some(cell) = cell {
+    //                 return Ok(print_cell(
+    //                     &cell,
+    //                     &current_env,
+    //                     code,
+    //                     print_mode,
+    //                 ));
+    //             } else if idx != 0 {
+    //                 let prior = &print_list[idx - 1];
 
-                    if let Some(parent) = current_env.get_cell(*prior) {
-                        let parent_ref = parent.borrow();
-                        let pt = parent_ref
-                            .ports()
-                            .iter()
-                            .find(|x| x.borrow().name == target);
-                        if let Some(port) = pt {
-                            return Ok(print_port(
-                                port,
-                                &current_env,
-                                None,
-                                code,
-                            ));
-                        } else {
-                            return Err(DebuggerError::CannotFind(orig_string));
-                            // cannot find
-                        }
-                    } else if let Some(port) =
-                        current_env.get_comp().signature.borrow().find(target)
-                    {
-                        return Ok(print_port(
-                            &port,
-                            &current_env,
-                            Some(print_list[idx - 1]),
-                            code,
-                        ));
-                    } else {
-                        // cannot find
-                        return Err(DebuggerError::CannotFind(orig_string));
-                    }
-                } else {
-                    return Err(DebuggerError::CannotFind(orig_string));
-                }
-            }
-            // still walking
-            else {
-                let map = Rc::clone(current_env.get_cell_map());
-                let cell = current_env.get_cell(*target);
-                if let Some(rrc_cell) = cell {
-                    // need to release these references to replace current
-                    // target
-                    if map.borrow()[&rrc_cell.as_raw()].get_state().is_some() {
-                        drop(current_env);
-                        drop(current_ref);
+    //                 if let Some(parent) = current_env.get_cell(*prior) {
+    //                     let parent_ref = parent.borrow();
+    //                     let pt = parent_ref
+    //                         .ports()
+    //                         .iter()
+    //                         .find(|x| x.borrow().name == target);
+    //                     if let Some(port) = pt {
+    //                         return Ok(print_port(
+    //                             port,
+    //                             &current_env,
+    //                             None,
+    //                             code,
+    //                         ));
+    //                     } else {
+    //                         return Err(DebuggerError::CannotFind(orig_string));
+    //                         // cannot find
+    //                     }
+    //                 } else if let Some(port) =
+    //                     current_env.get_comp().signature.borrow().find(target)
+    //                 {
+    //                     return Ok(print_port(
+    //                         &port,
+    //                         &current_env,
+    //                         Some(print_list[idx - 1]),
+    //                         code,
+    //                     ));
+    //                 } else {
+    //                     // cannot find
+    //                     return Err(DebuggerError::CannotFind(orig_string));
+    //                 }
+    //             } else {
+    //                 return Err(DebuggerError::CannotFind(orig_string));
+    //             }
+    //         }
+    //         // still walking
+    //         else {
+    //             let map = Rc::clone(current_env.get_cell_map());
+    //             let cell = current_env.get_cell(*target);
+    //             if let Some(rrc_cell) = cell {
+    //                 // need to release these references to replace current
+    //                 // target
+    //                 if map.borrow()[&rrc_cell.as_raw()].get_state().is_some() {
+    //                     drop(current_env);
+    //                     drop(current_ref);
 
-                        current_target = CurrentTarget::Target {
-                            name: rrc_cell.as_raw(),
-                            map,
-                        }
-                    }
-                    // otherwise leave the same
-                } else {
-                    // cannot find
-                    return Err(DebuggerError::CannotFind(orig_string));
-                }
-            }
-        }
+    //                     current_target = CurrentTarget::Target {
+    //                         name: rrc_cell.as_raw(),
+    //                         map,
+    //                     }
+    //                 }
+    //                 // otherwise leave the same
+    //             } else {
+    //                 // cannot find
+    //                 return Err(DebuggerError::CannotFind(orig_string));
+    //             }
+    //         }
+    //     }
 
-        unreachable!()
-    }
+    //     unreachable!()
+    // }
 }
 
-fn print_cell(
-    target: &RRC<ir::Cell>,
-    state: &StateView,
-    code: &Option<PrintCode>,
-    mode: &PrintMode,
-) -> String {
-    let cell_ref = target.borrow();
+// fn print_cell(
+//     target: &RRC<ir::Cell>,
+//     state: &StateView,
+//     code: &Option<PrintCode>,
+//     mode: &PrintMode,
+// ) -> String {
+//     let cell_ref = target.borrow();
 
-    match mode {
-        PrintMode::State => {
-            let actual_code =
-                code.as_ref().copied().unwrap_or(PrintCode::Binary);
-            let cell_state = state.get_cell_state(&cell_ref, &actual_code);
-            if matches!(&cell_state, &Serializable::Empty) {
-                print_cell(target, state, code, &PrintMode::Port)
-            } else {
-                format!(
-                    "{}{} = {}",
-                    SPACING,
-                    cell_ref.name().green().bold(),
-                    cell_state.blue().bold()
-                )
-            }
-        }
+//     match mode {
+//         PrintMode::State => {
+//             let actual_code =
+//                 code.as_ref().copied().unwrap_or(PrintCode::Binary);
+//             let cell_state = state.get_cell_state(&cell_ref, &actual_code);
+//             if matches!(&cell_state, &Serializable::Empty) {
+//                 print_cell(target, state, code, &PrintMode::Port)
+//             } else {
+//                 format!(
+//                     "{}{} = {}",
+//                     SPACING,
+//                     cell_ref.name().green().bold(),
+//                     cell_state.blue().bold()
+//                 )
+//             }
+//         }
 
-        PrintMode::Port => {
-            let mut output: String = String::new();
-            writeln!(output, "{}{}", SPACING, cell_ref.name().red())
-                .expect("Something went wrong trying to print the port");
-            for port in cell_ref.ports.iter() {
-                let v = state.lookup(port.as_raw());
-                writeln!(
-                    output,
-                    "{}  {} = {}",
-                    SPACING,
-                    port.borrow().name.red(),
-                    if let Some(code) = code {
-                        match code {
-                            PrintCode::Unsigned => {
-                                format!("{}", v.as_unsigned())
-                            }
-                            PrintCode::Signed => {
-                                format!("{}", v.as_signed().green())
-                            }
-                            PrintCode::UFixed(num) => {
-                                format!("{}", v.as_ufp(*num).blue())
-                            }
-                            PrintCode::SFixed(num) => {
-                                format!("{}", v.as_sfp(*num).purple())
-                            }
-                            PrintCode::Binary => format!("{}", v.cyan()),
-                        }
-                    } else {
-                        format!("{}", &v.magenta())
-                    }
-                )
-                .expect("Something went wrong trying to print the port");
-            }
-            output
-        }
-    }
-}
+//         PrintMode::Port => {
+//             let mut output: String = String::new();
+//             writeln!(output, "{}{}", SPACING, cell_ref.name().red())
+//                 .expect("Something went wrong trying to print the port");
+//             for port in cell_ref.ports.iter() {
+//                 let v = state.lookup(port.as_raw());
+//                 writeln!(
+//                     output,
+//                     "{}  {} = {}",
+//                     SPACING,
+//                     port.borrow().name.red(),
+//                     if let Some(code) = code {
+//                         match code {
+//                             PrintCode::Unsigned => {
+//                                 format!("{}", v.as_unsigned())
+//                             }
+//                             PrintCode::Signed => {
+//                                 format!("{}", v.as_signed().green())
+//                             }
+//                             PrintCode::UFixed(num) => {
+//                                 format!("{}", v.as_ufp(*num).blue())
+//                             }
+//                             PrintCode::SFixed(num) => {
+//                                 format!("{}", v.as_sfp(*num).purple())
+//                             }
+//                             PrintCode::Binary => format!("{}", v.cyan()),
+//                         }
+//                     } else {
+//                         format!("{}", &v.magenta())
+//                     }
+//                 )
+//                 .expect("Something went wrong trying to print the port");
+//             }
+//             output
+//         }
+//     }
+// }
 
-fn print_port(
-    target: &RRC<ir::Port>,
-    state: &StateView,
-    prior_name: Option<ir::Id>,
-    code: &Option<PrintCode>,
-) -> String {
-    let port_ref = target.borrow();
-    let parent_name = if let Some(prior) = prior_name {
-        prior
-    } else {
-        port_ref.get_parent_name()
-    };
+// fn print_port(
+//     target: &RRC<ir::Port>,
+//     state: &StateView,
+//     prior_name: Option<ir::Id>,
+//     code: &Option<PrintCode>,
+// ) -> String {
+//     let port_ref = target.borrow();
+//     let parent_name = if let Some(prior) = prior_name {
+//         prior
+//     } else {
+//         port_ref.get_parent_name()
+//     };
 
-    let v = state.lookup(port_ref.as_raw());
-    let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
+//     let v = state.lookup(port_ref.as_raw());
+//     let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
 
-    format!(
-        "{}{}.{} = {}",
-        SPACING,
-        parent_name.red(),
-        port_ref.name.green(),
-        match code {
-            PrintCode::Unsigned => format!("{}", v.as_unsigned()),
-            PrintCode::Signed => format!("{}", v.as_signed()),
-            PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
-            PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
-            PrintCode::Binary => format!("{}", v),
-        }
-    )
-}
-
-enum CurrentTarget<'a> {
-    Env(&'a StateView<'a>),
-    Target { name: ConstCell, map: PrimitiveMap },
-}
-
-impl<'a> CurrentTarget<'a> {
-    pub fn borrow(&self) -> TargetRef<'_, '_> {
-        match self {
-            CurrentTarget::Env(e) => TargetRef::Env(e),
-            CurrentTarget::Target { name, map } => {
-                TargetRef::Target(*name, map.borrow())
-            }
-        }
-    }
-}
-
-enum TargetRef<'a, 'c> {
-    Env(&'c StateView<'a>),
-    Target(
-        ConstCell,
-        Ref<'c, HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>,
-    ),
-}
-
-impl<'a, 'c> TargetRef<'a, 'c> {
-    pub fn get_env(&self) -> Option<StateView<'_>> {
-        match self {
-            TargetRef::Env(e) => Some((*e).clone()),
-            TargetRef::Target(target, map) => map[target].get_state(),
-        }
-    }
-}
+//     format!(
+//         "{}{}.{} = {}",
+//         SPACING,
+//         parent_name.red(),
+//         port_ref.name.green(),
+//         match code {
+//             PrintCode::Unsigned => format!("{}", v.as_unsigned()),
+//             PrintCode::Signed => format!("{}", v.as_signed()),
+//             PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
+//             PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
+//             PrintCode::Binary => format!("{}", v),
+//         }
+//     )
+// }

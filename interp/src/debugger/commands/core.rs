@@ -7,7 +7,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::serialization::PrintCode;
+use crate::{flatten::flat_ir::prelude::GroupIdx, serialization::PrintCode};
 
 #[derive(Debug)]
 pub struct ParsedGroupName {
@@ -63,15 +63,16 @@ pub struct GroupName {
 }
 
 pub enum BreakPointId {
-    Name(ParsedGroupName),
+    Name(GroupIdx),
     Number(u64),
 }
 
-impl From<ParsedGroupName> for BreakPointId {
-    fn from(grp: ParsedGroupName) -> Self {
-        Self::Name(grp)
+impl From<GroupIdx> for BreakPointId {
+    fn from(v: GroupIdx) -> Self {
+        Self::Name(v)
     }
 }
+
 impl From<u64> for BreakPointId {
     fn from(n: u64) -> Self {
         Self::Number(n)
@@ -90,12 +91,12 @@ impl Default for WatchPosition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PrintMode {
     State,
     Port,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PrintTuple(Vec<Vec<Id>>, Option<PrintCode>, PrintMode);
 
 impl PrintTuple {
