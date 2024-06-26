@@ -1,9 +1,12 @@
-use crate::flatten::flat_ir::prelude::GroupIdx;
+use crate::{
+    debugger::commands::BreakpointID, flatten::flat_ir::prelude::GroupIdx,
+};
 
 use super::super::{
     cidr::SPACING,
     commands::{
-        BreakPointId, GroupName, ParsedGroupName, PrintTuple, WatchPosition,
+        GroupName, ParsedBreakPointID, ParsedGroupName, PrintTuple,
+        WatchPosition,
     },
 };
 
@@ -219,11 +222,11 @@ impl DebuggingContext {
 
     fn act_breakpoint(
         &mut self,
-        target: BreakPointId,
+        target: BreakpointID,
         action: BreakpointAction,
     ) {
         match target {
-            BreakPointId::Name(target) => {
+            BreakpointID::Name(target) => {
                 if let Some(breakpoint) = self.breakpoints.get_mut(&target) {
                     action.take_action_with_feedback(breakpoint);
                 } else {
@@ -233,7 +236,7 @@ impl DebuggingContext {
                     )
                 };
             }
-            BreakPointId::Number(target) => {
+            BreakpointID::Number(target) => {
                 let mut found = false;
                 for x in self.breakpoints.values_mut() {
                     if x.id == target {
@@ -252,21 +255,21 @@ impl DebuggingContext {
         }
     }
 
-    pub fn enable_breakpoint(&mut self, target: BreakPointId) {
+    pub fn enable_breakpoint(&mut self, target: BreakpointID) {
         self.act_breakpoint(target, BreakpointAction::Enable)
     }
-    pub fn disable_breakpoint(&mut self, target: BreakPointId) {
+    pub fn disable_breakpoint(&mut self, target: BreakpointID) {
         self.act_breakpoint(target, BreakpointAction::Disable)
     }
-    pub fn remove_breakpoint(&mut self, target: BreakPointId) {
+    pub fn remove_breakpoint(&mut self, target: BreakpointID) {
         self.act_breakpoint(target, BreakpointAction::Delete);
         self.cleanup_deleted_breakpoints()
     }
 
-    pub fn remove_watchpoint(&mut self, target: BreakPointId) {
+    pub fn remove_watchpoint(&mut self, target: BreakpointID) {
         match target {
-            BreakPointId::Name(name) => self.remove_watchpoint_by_name(name),
-            BreakPointId::Number(num) => self.remove_watchpoint_by_number(num),
+            BreakpointID::Name(name) => self.remove_watchpoint_by_name(name),
+            BreakpointID::Number(num) => self.remove_watchpoint_by_number(num),
         }
     }
 

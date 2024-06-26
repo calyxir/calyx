@@ -1,5 +1,5 @@
 use super::core::{
-    BreakPointId, Command, ParsedGroupName, PrintMode, WatchPosition,
+    Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
 };
 use calyx_ir::Id;
 use pest_consume::{match_nodes, Error, Parser};
@@ -133,7 +133,7 @@ impl CommandParser {
             .map_err(|_| input.error("Expected non-negative number"))
     }
 
-    fn brk_id(input: Node) -> ParseResult<BreakPointId> {
+    fn brk_id(input: Node) -> ParseResult<ParsedBreakPointID> {
         Ok(match_nodes!(input.into_children();
                 [num(n)] => n.into(),
                 [group(g)] => g.into()

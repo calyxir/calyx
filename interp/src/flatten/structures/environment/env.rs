@@ -700,6 +700,7 @@ impl<'a> Simulator<'a> {
         data_file: &Option<std::path::PathBuf>,
     ) -> Result<Self, BoxedInterpreterError> {
         let data_dump = data_file
+            .as_ref()
             .map(|path| {
                 let mut file = std::fs::File::open(path)?;
                 DataDump::deserialize(&mut file)

@@ -62,21 +62,26 @@ pub struct GroupName {
     pub group: Id,
 }
 
-pub enum BreakPointId {
-    Name(GroupIdx),
+pub enum ParsedBreakPointID {
+    Name(ParsedGroupName),
     Number(u64),
 }
 
-impl From<GroupIdx> for BreakPointId {
-    fn from(v: GroupIdx) -> Self {
+impl From<ParsedGroupName> for ParsedBreakPointID {
+    fn from(v: ParsedGroupName) -> Self {
         Self::Name(v)
     }
 }
 
-impl From<u64> for BreakPointId {
+impl From<u64> for ParsedBreakPointID {
     fn from(n: u64) -> Self {
         Self::Number(n)
     }
+}
+
+pub enum BreakpointID {
+    Name(GroupIdx),
+    Number(u64),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -156,10 +161,10 @@ pub enum Command {
     Exit,                        // Exit the debugger
     InfoBreak,                   // List breakpoints
     InfoWatch,
-    Disable(Vec<BreakPointId>),
-    Enable(Vec<BreakPointId>),
-    Delete(Vec<BreakPointId>),
-    DeleteWatch(Vec<BreakPointId>),
+    Disable(Vec<ParsedBreakPointID>),
+    Enable(Vec<ParsedBreakPointID>),
+    Delete(Vec<ParsedBreakPointID>),
+    DeleteWatch(Vec<ParsedBreakPointID>),
     StepOver(ParsedGroupName),
     Watch(
         ParsedGroupName,
