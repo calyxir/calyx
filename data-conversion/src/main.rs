@@ -58,7 +58,7 @@ struct Arguments {
     /// file to convert from
     #[argh(option)]
     from: String,
-  
+
     /// file to convery to
     #[argh(option)]
     to: String,
@@ -102,9 +102,10 @@ fn main() {
 ///   containing data to be converted.
 /// * `filepath_send` - A reference to a `String` representing the path to the output file
 ///   where the converted data will be written.
-/// * `convert_from` - A reference to a `NumType` enum indicating the type of the input data.
-/// * `convert_to` - A reference to a `NumType` enum indicating the type of the output data.
+/// * `convert_from` - A `NumType` enum indicating the type of the input data.
+/// * `convert_to` - A `NumType` enum indicating the type of the output data.
 /// * `exponent` - An `i32` value used as the exponent for conversions involving fixed-point numbers.
+/// * `bits` - A boolean denoting whether to use bit manupulation or not
 ///
 /// # Returns
 ///
@@ -499,7 +500,8 @@ fn binary_to_fixed_bit_slice(
     filepath_send: &mut File,
     exp_int: i32,
 ) -> io::Result<()> {
-    let binary = u32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+    let binary =
+        u32::from_str_radix(binary_string, 2).expect("Bad binary value input");
 
     // Get bitmask from exponent
     let shift_amount = -exp_int;
@@ -512,7 +514,8 @@ fn binary_to_fixed_bit_slice(
     let fractional_part = binary & frac_mask;
 
     // Combine the integer and fractional parts into a fixed-point representation
-    let fixed_point_value = (integer_part as f64) + (fractional_part as f64 / (1 << shift_amount) as f64);
+    let fixed_point_value = (integer_part as f64)
+        + (fractional_part as f64 / (1 << shift_amount) as f64);
 
     // Write the fixed-point value to the file
     writeln!(filepath_send, "{}", fixed_point_value)?;
