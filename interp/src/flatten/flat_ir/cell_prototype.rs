@@ -1,4 +1,4 @@
-use calyx_ir::{self as cir};
+use calyx_ir::{self as cir, BoolAttr};
 use smallvec::SmallVec;
 
 use crate::{
@@ -219,6 +219,7 @@ pub enum CellPrototype {
         mem_type: MemType,
         width: Width,
         dims: MemoryDimensions,
+        is_external: bool,
     },
 
     // TODO Griffin: lots more
@@ -242,12 +243,12 @@ impl CellPrototype {
     }
 
     #[must_use]
-    pub fn construct_primitive(cell: &cir::CellType) -> Self {
+    pub fn construct_primitive(cell: &cir::Cell) -> Self {
         if let cir::CellType::Primitive {
             name,
             param_binding,
             ..
-        } = cell
+        } = &cell.prototype
         {
             let name: &str = name.as_ref();
             let params: &SmallVec<_> = param_binding;
@@ -540,6 +541,9 @@ impl CellPrototype {
                             d0_size: size.try_into().unwrap(),
                             d0_idx_size: idx_size.try_into().unwrap(),
                         },
+                        is_external: cell
+                            .get_attribute(BoolAttr::External)
+                            .is_some(),
                     }
                 }
                 n @ ("comb_mem_d2" | "seq_mem_d2") => {
@@ -563,6 +567,9 @@ impl CellPrototype {
                             d0_idx_size: d0_idx_size.try_into().unwrap(),
                             d1_idx_size: d1_idx_size.try_into().unwrap(),
                         },
+                        is_external: cell
+                            .get_attribute(BoolAttr::External)
+                            .is_some(),
                     }
                 }
                 n @ ("comb_mem_d3" | "seq_mem_d3") => {
@@ -590,6 +597,9 @@ impl CellPrototype {
                             d1_idx_size: d1_idx_size.try_into().unwrap(),
                             d2_idx_size: d2_idx_size.try_into().unwrap(),
                         },
+                        is_external: cell
+                            .get_attribute(BoolAttr::External)
+                            .is_some(),
                     }
                 }
                 n @ ("comb_mem_d4" | "seq_mem_d4") => {
@@ -622,6 +632,9 @@ impl CellPrototype {
                             d2_idx_size: d2_idx_size.try_into().unwrap(),
                             d3_idx_size: d3_idx_size.try_into().unwrap(),
                         },
+                        is_external: cell
+                            .get_attribute(BoolAttr::External)
+                            .is_some(),
                     }
                 }
                 n @ ("std_unsyn_mult" | "std_unsyn_div" | "std_unsyn_smult"

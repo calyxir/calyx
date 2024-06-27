@@ -8,7 +8,7 @@ pub fn convert_to_data_dump(json: &JsonData) -> DataDump {
     let mut data_dump = DataDump::new_empty();
 
     for (name, entry) in json.0.iter() {
-        let width = &entry.format.width;
+        let width = &entry.format.get_width();
         let data: Box<dyn Iterator<Item = u8>> = match &entry.data {
             DataVec::Id1(v1) => Box::new(v1.iter().flat_map(|val| {
                 // chopping off the upper bits
@@ -133,10 +133,11 @@ mod tests {
     prop_compose! {
         fn arb_format_info()(width in 1_u64..=64) -> FormatInfo {
             FormatInfo {
-                width,
+                width: Some(width),
                 is_signed: false,
                 numeric_type: NumericType::Bitnum,
                 int_width: None,
+                frac_width: None,
             }
         }
     }
@@ -173,7 +174,7 @@ mod tests {
         let arb_format_info = arb_format_info();
         let dim = dim_generator();
         (arb_format_info, dim).prop_flat_map(|(format, dimensions)| {
-            arb_data(format.width, dimensions).prop_map(move |x| {
+            arb_data(format.get_width(), dimensions).prop_map(move |x| {
                 JsonDataEntry {
                     data: x,
                     format: format.clone(),

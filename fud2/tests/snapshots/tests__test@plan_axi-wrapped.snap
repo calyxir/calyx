@@ -1,0 +1,40 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: axi-wrapped"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+
+yxi = $calyx-base/target/debug/yxi
+rule yxi
+  command = $yxi -l $calyx-base $in > $out
+
+axi-generator = $calyx-base/yxi/axi-calyx/axi-generator.py
+python = python3
+rule gen-axi
+  command = $python $axi-generator $in > $out
+rule combine
+  command = cat $in > $out
+rule remove-imports
+  command = sed '1,/component main/{/component main/!d; }' $in > $out
+
+build input.yxi: yxi /input.ext
+build refified_input.futil: calyx-pass /input.ext
+  pass = external-to-ref
+build axi_wrapper.futil: gen-axi input.yxi
+build no_imports_refified_input.futil: remove-imports refified_input.futil
+build /output.ext: combine axi_wrapper.futil no_imports_refified_input.futil
+
+default /output.ext

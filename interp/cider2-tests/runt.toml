@@ -1,0 +1,238 @@
+ver = "0.4.1"
+
+# Check basic functionality of the interpreter
+[[tests]]
+name = "unit"
+paths = ["../tests/unit/*.futil"]
+cmd = """
+  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+timeout = 10
+expect_dir = "unit"
+
+[[tests]]
+name = "multi-comp"
+paths = ["multi-comp/*.futil"]
+cmd = """
+  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+timeout = 10
+
+# [[tests]]
+# name = "errors"
+# paths = ["tests/errors/*.futil"]
+
+# cmd = """
+# ../target/debug/cider {}
+# """
+# timeout = 10
+
+[[tests]]
+name = "complex"
+paths = ["../tests/complex/*.futil"]
+
+cmd = """
+  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+timeout = 10
+expect_dir = "complex"
+
+[[tests]]
+name = "primitives"
+paths = ["../tests/primitives/*.futil"]
+cmd = """
+../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq  --sort-keys
+"""
+timeout = 10
+expect_dir = "primitives"
+
+[[tests]]
+name = "par to seq"
+paths = ["../tests/control/par_reg.futil", "../tests/control/par_mem.futil"]
+cmd = """
+../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+timeout = 10
+expect_dir = "par-to-seq"
+
+[[tests]]
+name = "control"
+paths = ["../tests/control/*.futil", "../tests/control/iteration/*.futil"]
+cmd = """
+../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+timeout = 10
+expect_dir = "control"
+
+[[tests]]
+name = "invoke"
+paths = ["../tests/control/invoke/*.futil"]
+cmd = """
+fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
+"""
+timeout = 10
+expect_dir = "invoke"
+
+[[tests]]
+name = "invoke comp"
+paths = ["../tests/control/invoke/*.futil"]
+cmd = """
+fud2 {} --from calyx --to dat --through cider -s calyx.flags=" -p compile-invoke" -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
+"""
+expect_dir = "invoke"
+
+[[tests]]
+name = "fully structural"
+paths = [
+  "../tests/control/*.futil",
+  # Disabled iteration tests due to bug
+  "../tests/control/iteration/*.futil",
+]
+cmd = """
+../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+"""
+expect_dir = "control"
+# timeout = 10
+
+[[tests]]
+name = "fully structural static"
+paths = ["tests/control/static*.futil"]
+cmd = """
+../target/debug/calyx {} -d pre-opt -d post-opt  -l ../ | ../target/debug/cider | jq .memories --sort-keys
+"""
+expect_dir = "tests/lowered/"
+# timeout = 10
+
+[[tests]]
+name = "correctness dynamic"
+paths = ["../../tests/correctness/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
+
+[[tests]]
+name = "correctness ref cells"
+paths = ["../../tests/correctness/ref-cells/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
+
+[[tests]]
+name = "correctness ref cells compiled"
+paths = ["../../tests/correctness/ref-cells/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         -s calyx.flags=" -p compile-invoke" \
+         {} | jq --sort-keys
+"""
+
+[[tests]]
+name = "numeric types correctness and parsing"
+paths = [
+  "../../tests/correctness/numeric-types/parsing/*.futil",
+  "../../tests/correctness/numeric-types/bitnum/*.futil",
+  "../../tests/correctness/numeric-types/fixed-point/*.futil",
+]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
+
+[[tests]]
+name = "[frontend] tcam testing"
+paths = ["../../tests/correctness/tcam/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+      --through cider \
+      -s calyx.args="--log off" \
+      -s sim.data={}.data \
+      {} | jq --sort-keys
+"""
+
+[[tests]]
+name = "benchmark misc"
+paths = ["benchmarks/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
+
+[[tests]]
+name = "benchmark polybench"
+paths = ["benchmarks/polybench/*.fuse"]
+cmd = """
+fud2 --from dahlia --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
+
+# [[tests]]
+# name = "[frontend] systolic array correctness"
+# paths = ["../tests/correctness/systolic/*.systolic"]
+# cmd = """
+# fud e --from systolic --to jq \
+#       --through interpreter-out \
+#       -s interpreter.flags "--raw " \
+#       -s verilog.data {}.data \
+#       -s jq.expr ".main" \
+#       {} -q
+# """
+
+# [[tests]]
+# name = "[frontend] NTT pipeline correctness"
+# paths = ["../tests/correctness/ntt-pipeline/*.txt"]
+# cmd = """
+# fud e --from ntt --to jq \
+#       --through interpreter-out \
+#       -s interpreter.flags "--raw " \
+#       -s verilog.data {}.data \
+#       -s jq.expr ".main" \
+#       -s jq.flags "--sort-keys " \
+#       {} -q
+# """
+# expect_dir = "tests/ntt-results/"
+
+
+# The MRXL tests cannot run because their data is in a different format than the
+# others and there is no tool to convert it
+# [[tests]]
+# name = "[frontend] mrxl correctness"
+# paths = ["../../frontends/mrxl/test/*.mrxl"]
+# cmd = """
+# fud2 {} --from mrxl --to dat \
+#             --through cider \
+#             -s sim.data={}.data \
+#             -s calyx.args="--log off" \
+#        | jq --sort-keys
+# """
+
+# [[tests]]
+# name = "[frontend] relay correctness"
+# paths = ["../tests/correctness/relay/*.relay"]
+# cmd = """
+# fud e -q {} --from relay --to jq \
+#             --through interpreter-out \
+#             -s interpreter.flags "--raw " \
+#             -s verilog.data {}.data \
+#             -s jq.flags "--sort-keys " \
+#             -s jq.expr ".main"
+# """

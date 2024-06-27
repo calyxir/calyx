@@ -11,11 +11,6 @@ pub use primitive_uses::PrimitiveUsesBackend;
 pub use traits::Backend;
 pub use verilog::VerilogBackend;
 
-#[cfg(feature = "yxi")]
-mod yxi;
-#[cfg(feature = "yxi")]
-pub use yxi::YxiBackend;
-
 #[cfg(feature = "mlir")]
 mod mlir;
 #[cfg(feature = "mlir")]

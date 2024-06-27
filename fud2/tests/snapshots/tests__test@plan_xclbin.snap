@@ -1,0 +1,25 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: xclbin"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+vivado-dir = /test/xilinx/vivado
+vitis-dir = /test/xilinx/vitis
+build gen_xo.tcl: get-rsrc
+build get-ports.py: get-rsrc
+python = python3
+rule gen-xo
+  command = $vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`
+  pool = console
+xilinx-mode = hw_emu
+platform = xilinx_u50_gen3x16_xdma_201920_3
+rule compile-xclbin
+  command = $vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in
+  pool = console
+
+build /output.ext: compile-xclbin /input.ext
+
+default /output.ext

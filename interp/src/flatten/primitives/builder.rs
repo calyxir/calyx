@@ -1,6 +1,6 @@
-use super::{
-    combinational::*, prim_trait::DummyPrimitive, stateful::*, Primitive,
-};
+use ahash::HashSet;
+
+use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
@@ -19,6 +19,7 @@ pub fn build_primitive(
     // extras for memory initialization
     ctx: &Context,
     dump: &Option<DataDump>,
+    memories_initialized: &mut HashSet<String>,
 ) -> Box<dyn Primitive> {
     match &prim.prototype {
         CellPrototype::Constant {
@@ -61,11 +62,22 @@ pub fn build_primitive(
             PrimType1::SignedLe => Box::new(StdSle::new(base_port)),
             PrimType1::SignedLsh => Box::new(StdSlsh::new(base_port)),
             PrimType1::SignedRsh => Box::new(StdSrsh::new(base_port)),
-            PrimType1::MultPipe => Box::new(DummyPrimitive),
-            PrimType1::SignedMultPipe => todo!(),
-            PrimType1::DivPipe => todo!(),
-            PrimType1::SignedDivPipe => todo!(),
-            PrimType1::Sqrt => todo!(),
+            PrimType1::MultPipe => {
+                Box::new(StdMultPipe::<2>::new(base_port, *width))
+            }
+            PrimType1::SignedMultPipe => {
+                // todo: Check if this is actually okay
+                Box::new(StdMultPipe::<2>::new(base_port, *width))
+            }
+            PrimType1::DivPipe => {
+                Box::new(StdDivPipe::<2, false>::new(base_port, *width))
+            }
+            PrimType1::SignedDivPipe => {
+                Box::new(StdDivPipe::<2, true>::new(base_port, *width))
+            }
+            PrimType1::Sqrt => {
+                Box::new(Sqrt::<false>::new(base_port, *width, None))
+            }
             PrimType1::UnsynMult => {
                 Box::new(StdUnsynMult::new(base_port, *width))
             }
@@ -90,7 +102,7 @@ pub fn build_primitive(
             width: _,
             int_width: _,
             frac_width: _,
-        } => todo!(),
+        } => todo!("Fixed point implementations not available yet"),
         CellPrototype::Slice {
             in_width: _, // Not actually needed, should probably remove
             out_width,
@@ -110,6 +122,7 @@ pub fn build_primitive(
             mem_type,
             width,
             dims,
+            is_external: _,
         } => {
             let data = dump.as_ref().and_then(|data| {
                 let string = ctx.lookup_string(prim.name);
@@ -118,11 +131,15 @@ pub fn build_primitive(
 
             match mem_type {
                 MemType::Seq => Box::new(if let Some(data) = data {
+                    memories_initialized
+                        .insert(ctx.lookup_string(prim.name).clone());
                     SeqMem::new_with_init(base_port, *width, false, dims, data)
                 } else {
                     SeqMemD1::new(base_port, *width, false, dims)
                 }),
                 MemType::Std => Box::new(if let Some(data) = data {
+                    memories_initialized
+                        .insert(ctx.lookup_string(prim.name).clone());
                     CombMem::new_with_init(base_port, *width, false, dims, data)
                 } else {
                     CombMem::new(base_port, *width, false, dims)

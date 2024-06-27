@@ -174,7 +174,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all-features --manifest-path /home/calyx/Cargo.toml
+        args: --workspace --manifest-path /home/calyx/Cargo.toml
 
 #    - name: Source code doc tests
 #      uses: actions-rs/cargo@v1
@@ -182,16 +182,16 @@ jobs:
 #        command: test
 #        args: --manifest-path /home/calyx/calyx/Cargo.toml --doc lib
 
-    - name: Runt tests
-      working-directory: /home/calyx
-      run: |
-        runt -x 'cocotb' -d -o fail -j 1 --max-futures 5
-
     # Run these sequentially because they might fail intermittently
     - name: Cocotb tests
       working-directory: /home/calyx
       run: |
         runt -i 'cocotb' -d -o fail -j 1 --max-futures 1
+    
+    - name: Runt tests
+      working-directory: /home/calyx
+      run: |
+        runt -x 'cocotb' -d -o fail -j 1 --max-futures 5
 
     - name: Run Python Tests
       working-directory: /home/calyx

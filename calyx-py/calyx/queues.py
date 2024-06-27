@@ -1,7 +1,6 @@
-from dataclasses import dataclass
-from typing import List
-from typing import Optional
-from calyx import queue_util
+from dataclasses import dataclass, field
+from typing import Any, List, Optional
+import heapq
 
 
 class QueueError(Exception):
@@ -14,39 +13,28 @@ class Fifo:
     Supports the operations `push`, `pop`, and `peek`.
     Inherent to the queue is its `max_len`,
     which is given at initialization and cannot be exceeded.
-
-    If initialized with "error mode" turned on, the queue raises errors in case
-    of underflow or overflow and stops the simulation.
-    Otherwise, it allows those commands to fail silently but continues the simulation.
     """
 
-    def __init__(self, data: List[int], error_mode=True, max_len: int = None):
-        self.data = data
-        self.max_len = max_len or queue_util.QUEUE_SIZE
-        self.error_mode = error_mode
+    def __init__(self, max_len: int):
+        self.data = []
+        self.max_len = max_len
 
     def push(self, val: int) -> None:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
-            if self.error_mode:
-                raise QueueError("Cannot push to full FIFO.")
-            return
+            raise QueueError("Cannot push to full FIFO.")
         self.data.append(val)
 
     def pop(self) -> Optional[int]:
         """Pops the FIFO."""
         if len(self.data) == 0:
-            if self.error_mode:
-                raise QueueError("Cannot pop from empty FIFO.")
-            return None
+            raise QueueError("Cannot pop from empty FIFO.")
         return self.data.pop(0)
 
     def peek(self) -> Optional[int]:
         """Peeks into the FIFO."""
         if len(self.data) == 0:
-            if self.error_mode:
-                raise QueueError("Cannot peek into empty FIFO.")
-            return None
+            raise QueueError("Cannot peek into empty FIFO.")
         return self.data[0]
 
     def __len__(self) -> int:
@@ -96,13 +84,18 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary, error_mode=True, max_len=None):
+    def __init__(
+        self,
+        queue_1,
+        queue_2,
+        boundary,
+        max_len: int,
+    ):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
-        self.max_len = max_len or queue_util.QUEUE_SIZE
-        self.error_mode = error_mode
+        self.max_len = max_len
         assert (
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
@@ -110,9 +103,7 @@ class Pifo:
     def push(self, val: int):
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
-            if self.error_mode:
-                raise QueueError("Cannot push to full PIFO.")
-            return
+            raise QueueError("Cannot push to full PIFO.")
         if val <= self.boundary:
             self.data[0].push(val)
         else:
@@ -122,9 +113,7 @@ class Pifo:
     def pop(self) -> Optional[int]:
         """Pops the PIFO."""
         if self.pifo_len == 0:
-            if self.error_mode:
-                raise QueueError("Cannot pop from empty PIFO.")
-            return None
+            raise QueueError("Cannot pop from empty PIFO.")
         self.pifo_len -= 1  # We decrement `pifo_len` by 1.
         if self.hot == 0:
             try:
@@ -144,9 +133,7 @@ class Pifo:
     def peek(self) -> Optional[int]:
         """Peeks into the PIFO."""
         if self.pifo_len == 0:
-            if self.error_mode:
-                raise QueueError("Cannot peek into empty PIFO.")
-            return None
+            raise QueueError("Cannot peek into empty PIFO.")
         if self.hot == 0:
             try:
                 return self.data[0].peek()
@@ -162,35 +149,84 @@ class Pifo:
         return self.pifo_len
 
 
-def operate_queue(commands, values, queue):
+@dataclass(order=True)
+class RankValue:
+    priority: int
+    value: Any=field(compare=False)
+
+
+@dataclass
+class Binheap:
+    """A minimum Binary Heap data structure.
+    Supports the operations `push`, `pop`, and `peek`.
+    """
+
+    def __init__(self, max_len):
+        self.heap = []
+        self.len = 0
+        self.counter = 0
+        self.max_len = max_len
+
+    def push(self, rnk, val):
+        """Pushes `(rnk, val)` to the Binary Heap."""
+        if self.len == self.max_len:
+            raise QueueError("Cannot push to full Binary Heap.")
+        self.counter += 1
+        self.len += 1
+        heapq.heappush(self.heap, RankValue((rnk << 32) + self.counter, val))
+
+    def pop(self) -> Optional[int]:
+        """Pops the Binary Heap."""
+        if self.len == 0:
+            raise QueueError("Cannot pop from empty Binary Heap.")
+        self.len -= 1
+        return heapq.heappop(self.heap).value
+
+    def peek(self) -> Optional[int]:
+        """Peeks into the Binary Heap."""
+        if self.len == 0:
+            raise QueueError("Cannot peek from empty Binary Heap.")
+        return self.heap[0].value
+
+    def __len__(self) -> int:
+        return self.len
+
+
+def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False):
     """Given the two lists, one of commands and one of values.
     Feed these into our queue, and return the answer memory.
     """
 
     ans = []
-    for cmd, val in zip(commands, values):
+    ranks_or_values = values if ranks == None else ranks
+    for cmd, val, rnk in zip(commands, values, ranks_or_values):
         if cmd == 0:
             try:
-                result = queue.pop()
-                if result:
-                    ans.append(result)
+                ans.append(queue.pop())
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
         elif cmd == 1:
             try:
-                result = queue.peek()
-                if result:
-                    ans.append(queue.peek())
+                ans.append(queue.peek())
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
         elif cmd == 2:
             try:
-                queue.push(val)
+                if ranks == None:
+                    queue.push(val)
+                else:
+                    queue.push(rnk, val)
             except QueueError:
+                if keepgoing:
+                    continue
                 break
 
-    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (queue_util.MAX_CMDS - len(ans))
+    # Pad the answer memory with zeroes until it is of length `max_cmds`.
+    ans += [0] * (max_cmds - len(ans))
     return ans

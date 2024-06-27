@@ -1,0 +1,93 @@
+import "primitives/core.futil";
+component small_comp(in_1: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out_1: 64, @done done: 1) {
+  cells {
+    add = std_add(32);
+    pad = std_pad(32, 64);
+    my_reg = std_reg(64);
+  }
+  wires {
+    group double {
+      my_reg.write_en = 1'd1;
+      add.right = in_1;
+      add.left = in_1;
+      pad.in = add.out;
+      my_reg.in = pad.out;
+      double[done] = my_reg.done;
+    }
+    out_1 = my_reg.out;
+  }
+  control {
+    double;
+  }
+}
+component big_comp(in_1: 32, in_2: 1, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out_1: 64, out_2: 2, @done done: 1) {
+  cells {
+    add = std_add(32);
+    pad = std_pad(32, 64);
+    my_reg = std_reg(64);
+    add2 = std_add(2);
+    pad2 = std_pad(1, 2);
+    reg2 = std_reg(2);
+  }
+  wires {
+    group double {
+      my_reg.write_en = 1'd1;
+      add.right = in_1;
+      add.left = in_1;
+      pad.in = add.out;
+      my_reg.in = pad.out;
+      double[done] = my_reg.done;
+    }
+    group incr {
+      reg2.write_en = 1'd1;
+      add2.right = 2'd1;
+      pad2.in = in_2;
+      add2.left = pad2.out;
+      reg2.in = add2.out;
+      incr[done] = reg2.done;
+    }
+    out_2 = reg2.out;
+    out_1 = my_reg.out;
+  }
+  control {
+    seq {
+      incr;
+      double;
+    }
+  }
+}
+component ref_comp(@go go: 1, @clk clk: 1, @reset reset: 1, small_ref_cell_out_1: 64, small_ref_cell_done: 1) -> (out_ref: 64, @done done: 1, small_ref_cell_in_1: 32, small_ref_cell_go: 1) {
+  cells {
+  }
+  wires {
+    group invoke0 {
+      small_ref_cell_go = 1'd1;
+      invoke0[done] = small_ref_cell_done;
+      small_ref_cell_in_1 = 32'd10;
+      out_ref = small_ref_cell_out_1;
+    }
+  }
+  control {
+    invoke0;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out_main: 64, @done done: 1) {
+  cells {
+    my_ref_cell = ref_comp();
+    big_cell = big_comp();
+  }
+  wires {
+    group invoke0 {
+      big_cell.in_1 = my_ref_cell.small_ref_cell_in_1;
+      my_ref_cell.small_ref_cell_out_1 = big_cell.out_1;
+      big_cell.go = my_ref_cell.small_ref_cell_go;
+      my_ref_cell.small_ref_cell_done = big_cell.done;
+      my_ref_cell.go = 1'd1;
+      invoke0[done] = my_ref_cell.done;
+      out_main = my_ref_cell.out_ref;
+    }
+  }
+  control {
+    invoke0;
+  }
+}

@@ -2,7 +2,10 @@ use smallvec::SmallVec;
 
 use crate::flatten::{
     flat_ir::prelude::*,
-    structures::{index_trait::impl_index, indexed_map::IndexedMap},
+    structures::{
+        index_trait::{impl_index, IndexRange},
+        indexed_map::IndexedMap,
+    },
 };
 
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd)]
@@ -158,9 +161,32 @@ impl While {
     }
 }
 
+#[derive(Debug)]
+pub struct InvokeSignature {
+    /// The ports attached to the input of the invoked cell, an association list
+    /// of the port ref in the **PARENT** context, and the port connected
+    /// to it in the parent context i.e. (dst, src)
+    pub inputs: SmallVec<[(PortRef, PortRef); 1]>,
+    /// The ports attached to the outputs of the invoked cell, an association list
+    /// of the port ref in the **PARENT** context, and the port connected
+    /// to it in the parent context. i.e. (src, dst)
+    pub outputs: SmallVec<[(PortRef, PortRef); 1]>,
+}
+
+impl InvokeSignature {
+    // TODO Griffin: fix this it's stupid
+    pub fn iter(&self) -> impl Iterator<Item = (&PortRef, &PortRef)> {
+        self.inputs
+            .iter()
+            .map(|x| (&x.0, &x.1))
+            // need to reverse the outputs because invoke is confusing
+            .chain(self.outputs.iter().map(|(src, dest)| (dest, src)))
+    }
+}
+
 /// Invoke control node
 ///
-/// TODO Griffin: Consider making this smaller?
+/// TODO Griffin: Consider making this smaller? Move ref_cells into signature box?
 #[derive(Debug)]
 pub struct Invoke {
     /// The cell being invoked
@@ -172,14 +198,12 @@ pub struct Invoke {
     /// association list of the refcell offset in the invoked context, and the
     /// cell realizing it in the parent context
     pub ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
-    /// The ports attached to the input of the invoked cell, an association list
-    /// of the port ref in the **PARENT** context, and the port connected
-    /// to it in the parent context i.e. (dst, src)
-    pub inputs: SmallVec<[(PortRef, PortRef); 1]>,
-    /// The ports attached to the outputs of the invoked cell, an association list
-    /// of the port ref in the **PARENT** context, and the port connected
-    /// to it in the parent context. i.e. (dst, src)
-    pub outputs: SmallVec<[(PortRef, PortRef); 1]>,
+    /// The signature (behind a box for space reasons)
+    pub signature: Box<InvokeSignature>,
+
+    pub go: PortRef,
+    pub done: PortRef,
+    pub assignments: IndexRange<AssignmentIdx>,
 }
 
 impl Invoke {
@@ -189,6 +213,8 @@ impl Invoke {
         ref_cells: R,
         inputs: I,
         outputs: O,
+        go: PortRef,
+        done: PortRef,
     ) -> Self
     where
         R: IntoIterator<Item = (LocalRefCellOffset, CellRef)>,
@@ -199,9 +225,26 @@ impl Invoke {
             cell,
             comb_group,
             ref_cells: ref_cells.into_iter().collect(),
-            inputs: inputs.into_iter().collect(),
-            outputs: outputs.into_iter().collect(),
+            signature: Box::new(InvokeSignature {
+                inputs: inputs.into_iter().collect(),
+                outputs: outputs.into_iter().collect(),
+            }),
+            go,
+            done,
+            assignments: IndexRange::empty_interval(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Repeat {
+    pub body: ControlIdx,
+    pub num_repeats: u64,
+}
+
+impl Repeat {
+    pub fn new(body: ControlIdx, num_repeats: u64) -> Self {
+        Self { body, num_repeats }
     }
 }
 
@@ -214,6 +257,7 @@ pub enum ControlNode {
     Par(Par),
     If(If),
     While(While),
+    Repeat(Repeat),
     Invoke(Invoke),
 }
 
@@ -221,6 +265,7 @@ impl ControlNode {
     pub fn is_leaf(&self) -> bool {
         match self {
             ControlNode::While(_)
+            | ControlNode::Repeat(_)
             | ControlNode::Seq(_)
             | ControlNode::Par(_)
             | ControlNode::If(_) => false,
