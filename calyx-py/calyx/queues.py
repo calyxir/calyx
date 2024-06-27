@@ -268,12 +268,8 @@ class RRQueue:
                 return val
             else:
                 self.increment_hot()
-                # if self.hot == original_hot:
-                #     return None
         except QueueError:
             self.increment_hot()
-            # if self.hot == original_hot:
-            #         return None
 
 
    def peek(self) -> Optional[int]:
@@ -290,12 +286,8 @@ class RRQueue:
                     return val
                 else:
                     self.increment_hot()
-                    # if self.hot == original_hot:
-                    #     return None
             except QueueError:
                 self.increment_hot()
-                # if self.hot == original_hot:
-                #     return None
 
 
    def __len__(self) -> int:
