@@ -200,15 +200,21 @@ class RRQueue:
    remaining flows will take their turns. That flow effectively skips its turn.
 
    Supports the operations `push`, `pop`, and `peek`.
-   It takes in a list `boundaries` that must be of length `n`, the user can
-   divide the flows however they like.
+   It takes in a list `boundaries` that must be of length `n`, the client can
+   divide the flows however they like. For example, if n = 3, the client can
+   pass in [133, 266, 400] to evenly divide up the flows. 
 
    - Push works analagously to that of the PIFO, except it checks the `boundaries`
-   list to determine which flow to push to.
+   list to determine which flow to push to. Take the boundaries example given 
+   earlier, [133, 266, 400]. If we push the value 89, it will end up in flow 0 
+   becuase 89 <= 133, and 305 would end up in flow 2 since 266 <= 305 <= 400.
    - Pop first tries to pop from `hot`, given the length is not 0. If this fails, 
-   it continues to check all flows after. It then increments hot at the end and
-   decreases the length.
-   - Peek works the same as `pop`, except `hot` remains unchanged.
+   it continues to check all flows after in round robin fashion. It pops from the 
+   first nonempty one and then increments hot at by one the end and decreases 
+   the length.
+   - Peek allows the client to see which element is at the head of the queue
+   without removing it. Thus, peek works in a similar fashion as `pop`, except 
+   `hot` remains unchanged and nothing is dequeued.
    """
 
    def __init__(self, n, boundaries, max_len: int):
@@ -262,12 +268,12 @@ class RRQueue:
                 return val
             else:
                 self.increment_hot()
-                if self.hot == original_hot:
-                    return None
+                # if self.hot == original_hot:
+                #     return None
         except QueueError:
             self.increment_hot()
-            if self.hot == original_hot:
-                return None
+            # if self.hot == original_hot:
+            #         return None
 
 
    def peek(self) -> Optional[int]:
@@ -284,12 +290,12 @@ class RRQueue:
                     return val
                 else:
                     self.increment_hot()
-                    if self.hot == original_hot:
-                        return None
+                    # if self.hot == original_hot:
+                    #     return None
             except QueueError:
                 self.increment_hot()
-                if self.hot == original_hot:
-                    return None
+                # if self.hot == original_hot:
+                #     return None
 
 
    def __len__(self) -> int:

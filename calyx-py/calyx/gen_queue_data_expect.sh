@@ -26,3 +26,8 @@ done
 # use binheap_oracle to generate the expected output
 python3 queue_data_gen.py $num_cmds --use-rank > ../test/correctness/queues/binheap/stable_binheap.data
 cat ../test/correctness/queues/binheap/stable_binheap.data | python3 binheap_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/binheap/stable_binheap.expect
+
+# For the Round Robin queues, we drop piezo mode as well and use rrqueue_oracle to
+# generate the expected output
+python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/rr_queues/rr_queue.data 
+cat ../test/correctness/queues/rr_queues/rr_queue.data | python3 rrqueue_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/rr_queues/rr_queue.expect

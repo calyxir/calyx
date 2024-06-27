@@ -1029,7 +1029,7 @@ class ComponentBuilder:
     def ge_store_in_reg(
         self, left, right, ans_reg=None, cellname=None, width=None, signed=False
     ):
-        """Inserts wiring into `self` to perform `reg := left <= right`."""
+        """Inserts wiring into `self` to perform `reg := left >= right`."""
         width = width or self.try_infer_width(width, left, right)
         cell = self.ge(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)

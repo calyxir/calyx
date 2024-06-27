@@ -30,7 +30,7 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
        ref_err=err,
    )
 
-def insert_pifo(
+def insert_rr_pifo(
    prog,
    name,
    fifos,
@@ -101,22 +101,21 @@ def insert_pifo(
    len_incr = pifo.incr(length)  # len++
    len_decr = pifo.decr(length)  # len--
 
-   handles = []
+   # This is a list of handles that serves to check which subqueue is hot and invoke
+   # the command (push or pop) on that subqueue. This is to get around the fact that
+   # one cannot index fifo_cells by hot.out, since that does not convert to an
+   # integer.
+   hot_handles = []
    for n in range(n_flows):
        handle = cb.if_with(pifo.eq_use(hot.out, cb.const(32, n)),
        invoke_subqueue(fifo_cells[n], cmd, value, ans, err))
-       handles.append(handle)
+       hot_handles.append(handle)
 
    flow_handles = []
    for b in range(n_flows):
-    #    _ , val_lt_cell = pifo.le_store_in_reg(value, boundaries[b+1])
-    #    _ , val_gt_cell = pifo.ge_store_in_reg(value, boundaries[b])
-    #    #val_add = pifo.add_store_in_reg(val_lt_cell.out, val_gt_cell.out, val_add_cell)
-    #    _ , flow_reg = pifo.eq_store_in_reg(val_lt_cell.out, val_gt_cell.out)
-       handle1 = cb.if_with(pifo.le_use(value, boundaries[b+1]), 
+       handle = cb.if_with(pifo.le_use(value, boundaries[b+1]), 
        cb.if_with(pifo.ge_use(value, boundaries[b]), invoke_subqueue(fifo_cells[b], cmd, value, ans, err)))
-
-       flow_handles.append(handle1)
+       flow_handles.append(handle)
 
    # The main logic.
    pifo.control += cb.par(
@@ -127,7 +126,7 @@ def insert_pifo(
            cb.if_with( len_eq_0, raise_err,  # The queue is empty: underflow.
                [  # The queue is not empty. Proceed.
                    lower_err,
-                   [ handles,
+                   [ hot_handles,
                        # Our next step depends on whether `fifos[hot]` raised the error flag.
                        cb.while_with( err_neq_0,
                            [  # `fifo_cells[hot]` raised an error.
@@ -135,11 +134,11 @@ def insert_pifo(
                                # We'll pass it a lowered err
                                lower_err,
                                cb.if_with(hot_eq_n, reset_hot, incr_hot),
-                               handles, #TODO handles is the problem?!?!
+                               hot_handles,
                            ], # `queue[hot+n]` succeeded. Its answer is our answer.
                        ),                             
                    ],
-                   cb.if_with(hot_eq_n, reset_hot, incr_hot), # are reset_hot anf incr_hot in the right order?
+                   cb.if_with(hot_eq_n, reset_hot, incr_hot),
                    len_decr, 
                ],
            ),
@@ -151,7 +150,7 @@ def insert_pifo(
                [  # The queue is not empty. Proceed.
                    lower_err,
                    copy_hot,
-                   [ handles,
+                   [ hot_handles,
                        cb.while_with(
                            err_neq_0,
                            [  # `fifo_cells[hot]` raised an error.
@@ -159,7 +158,7 @@ def insert_pifo(
                                # We'll pass it a lowered `err`.
                                lower_err,
                                cb.if_with(hot_eq_n, reset_hot, incr_hot), # increment hot and invoke_subqueue on the next one
-                               handles
+                               hot_handles
                            ],
                        ),
                        # Peeking does not affect `hot`.
@@ -214,7 +213,7 @@ def build():
        sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
        sub_fifos.append(sub_fifo)
 
-   pifo = insert_pifo(prog, "pifo", sub_fifos, [0, 200, 400], n_flows)
+   pifo = insert_rr_pifo(prog, "pifo", sub_fifos, [0, 200, 400], n_flows)
    qc.insert_main(prog, pifo, 20)
    return prog.program
 
