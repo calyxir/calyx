@@ -62,8 +62,6 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=Fals
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - Optional memories `ranks` and `times` are included for queues primed for non-work-conserving algorithms.
     - The `commands` memory has `num_cmds` items, which range from 0-4. They are as follows:
-    
-      0: pop, 1: peek, 2: push
 
         0 : pop (for non-work-conserving algorithms, pop by predicate)
         1 : peek (for non-work-conserving algorithms, peek by predicate)
@@ -80,7 +78,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=Fals
     commands = {
         "commands": {
             "data": (
-                # The `commands` memory has `num_cmds` items, which are all 0, 1, or 2
+                # The `commands` memory has `num_cmds` items, which are all 0, 1, or 2 (or 3 and 4, for nwc policies)
                 no_err_cmds_list(queue_size, num_cmds)
                 if no_err
                 # If the `no_err` flag is set, then we use the special helper
@@ -122,7 +120,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=Fals
 
     times = {
         "times": {
-            "data": [random.randint(0, 400) for _ in range(num_cmds)],
+            "data": [random.randint(0, 50) for _ in range(num_cmds)],
             # The `values` memory has `num_cmds` items, which are all
             # random values between 0 and 400.
             "format": format_gen(32),

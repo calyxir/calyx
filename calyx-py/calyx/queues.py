@@ -185,10 +185,28 @@ class Pieo:
         self.max_len = max_len
         self.data = []
 
-    def ripe(val, time):
+    def ripe(self, val, time):
         """Check that a value is 'ripe' – i.e. its ready time has passed"""
         return val[1] <= time
     
+    def binsert(self, val, time, rank, l, r):
+        """Inserts element into list such that rank ordering is preserved
+        Uses variant of binary search algorithm
+        """
+        if l == r:
+            return self.data.insert(l, (val, time, rank))
+
+        mid = (l + r) // 2
+
+        if rank == self.data[mid][2]:
+            return self.data.insert(mid, (val, time, rank))
+
+        if rank > self.data[mid][2]:
+            return self.binsert(val, time, rank, mid+1, r)
+
+        if rank < self.data[mid][2]:
+            return self.binsert(val, time, rank, l, mid)
+        
     def push(self, val, time=0, rank=0) -> None:
         """Pushes to a PIEO.
         Inserts element such that rank ordering is preserved
@@ -196,12 +214,19 @@ class Pieo:
         if len(self.data) == self.max_len:
             raise QueueError("Cannot push to full PIEO")
         
+        if len(self.data) == 0 or rank >= self.data[len(self.data)-1][2]:
+            self.data.append((val, time, rank))
+
+        elif rank <= self.data[0][2]:
+            self.data.insert(0, (val, time, rank))
+
         else:
             for x in range(len(self.data)):
-                if self.ranks[x] >= rank:
+                if rank <= self.data[x][2]:
                     continue
                 else:
                     self.data.insert(x, (val, time, rank))
+                    break
      
     def query(self, time=0, val=None, remove=False, return_rank=False) -> Optional[int]:
         """Queries a PIEO. Returns matching value and rank.
@@ -213,22 +238,22 @@ class Pieo:
         """
 
         if len(self.data) == 0:
-            raise QueueError("Cannot pop from empty PIEO.")
+            raise QueueError("Cannot query an empty PIEO.")
         
         if val == None:
-            try:
-                #Find all eligible elements and return the lowest-ranked.
-                return [x for x in self.data if self.ripe(x[1], time)][0]
-            except IndexError:
-                raise QueueError("No elements are eligibile.")
+            for x in range(len(self.data)):
+                if self.ripe(self.data[x], time):
+                    if return_rank:
+                        return self.data.pop(x) if remove else self.data[x]
+                    return self.data.pop(x)[0] if remove else self.data[x][0]
+            return None
             
         for x in range(len(self.data)):
             #Find the first value that matches the query who is 'ripe'
-            if self.data[x][0] == val and self.ripe(self.data[x][1], time):
+            if self.data[x][0] == val and self.ripe(self.data[x], time):
                 if return_rank:
                     return self.data.pop(x) if remove else self.data[x]
-                else:
-                    return self.data.pop(x)[0] if remove else self.data[x][0]
+                return self.data.pop(x)[0] if remove else self.data[x][0]
         return None
     
     def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
@@ -238,7 +263,7 @@ class Pieo:
 
     def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Peeks a PIEO. See query() for specifics."""
-        return self.query(time, val, return_rank)
+        return self.query(time, val, False, return_rank)
 
 @dataclass
 class PCQ:
@@ -331,6 +356,8 @@ class PCQ:
                     
             except QueueError:
                 self.rotate()
+            except TypeError:
+                self.rotate()
     
     def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Pops a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
@@ -373,7 +400,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
             try:
                 result = queue.peek(time)
                 if result:
-                    ans.append(queue.peek())
+                    ans.append(result)
             except QueueError:
                 if keepgoing:
                     continue
