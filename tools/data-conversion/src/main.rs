@@ -4,6 +4,7 @@ use std::error::Error;
 use std::fmt;
 use std::fs::read_to_string;
 use std::fs::File;
+use std::io::stdout;
 use std::io::{self, Write};
 use std::str::FromStr;
 
@@ -75,12 +76,28 @@ struct Arguments {
     /// optional exponent for fixed_to_binary -> default is -1
     #[argh(option, default = "-1")]
     exp: i32,
+
+    /// optional for fixed_to_binary using bit slicing. If choosen, will use bit slicing.
+    #[argh(switch, short = 'b')]
+    bits: bool,
+
+    /// when used, will send results to a file. Default is sending to standardout
+    #[argh(switch, short = 'o')]
+    out: bool,
 }
 
 fn main() {
     let args: Arguments = argh::from_env();
 
-    convert(&args.from, &args.to, args.ftype, args.totype, args.exp);
+    convert(
+        &args.from,
+        &args.to,
+        args.ftype,
+        args.totype,
+        args.exp,
+        args.bits,
+        args.out,
+    );
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
@@ -106,6 +123,8 @@ fn convert(
     convert_from: NumType,
     convert_to: NumType,
     exponent: i32,
+    bits: bool,
+    out: bool,
 ) {
     // Create the output file
     let mut converted = File::create(filepath_send).expect("creation failed");
@@ -113,38 +132,45 @@ fn convert(
     match (convert_from, convert_to) {
         (NumType::Hex, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                hex_to_binary(line, &mut converted)
+                hex_to_binary(line, &mut converted, out)
                     .expect("Failed to write binary to file");
             }
         }
         (NumType::Float, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                float_to_binary(line, &mut converted)
+                float_to_binary(line, &mut converted, out)
                     .expect("Failed to write binary to file");
             }
         }
         (NumType::Fixed, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                fixed_to_binary(line, &mut converted, exponent)
+                fixed_to_binary(line, &mut converted, exponent, out)
                     .expect("Failed to write binary to file");
             }
         }
         (NumType::Binary, NumType::Hex) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                binary_to_hex(line, &mut converted)
+                binary_to_hex(line, &mut converted, out)
                     .expect("Failed to write hex to file");
             }
         }
         (NumType::Binary, NumType::Float) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                binary_to_float(line, &mut converted)
+                binary_to_float(line, &mut converted, out)
                     .expect("Failed to write float to file");
             }
         }
         (NumType::Binary, NumType::Fixed) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                binary_to_fixed(line, &mut converted, exponent)
-                    .expect("Failed to write fixed-point to file");
+            if !bits {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    binary_to_fixed(line, &mut converted, exponent, out)
+                        .expect("Failed to write fixed-point to file");
+                }
+            } else {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    binary_to_fixed_bit_slice(line, &mut converted, exponent, out)
+                        .expect("Failed to write fixed-point to file");
+                }
             }
         }
         _ => panic!(
@@ -153,7 +179,6 @@ fn convert(
             convert_to.to_string()
         ),
     }
-
     eprintln!(
         "Successfully converted from {} to {} in {}",
         convert_from.to_string(),
@@ -202,6 +227,7 @@ fn format_hex(to_format: u32) -> String {
 fn float_to_binary(
     float_string: &str,
     filepath_send: &mut File,
+    out: bool,
 ) -> std::io::Result<()> {
     let float_of_string: f32;
     // Convert string to float
@@ -216,9 +242,14 @@ fn float_to_binary(
     let binary_of_float = float_of_string.to_bits();
     let formatted_binary_str = format_binary(binary_of_float);
 
-    // Write binary string to the file
-    filepath_send.write_all(formatted_binary_str.as_bytes())?;
-    filepath_send.write_all(b"\n")?;
+    if out {
+        // Write binary string to the file
+        filepath_send.write_all(formatted_binary_str.as_bytes())?;
+        filepath_send.write_all(b"\n")?;
+    } else {
+        stdout().write_all(formatted_binary_str.as_bytes())?;
+        stdout().write_all(b"\n")?;
+    }
 
     Ok(())
 }
@@ -245,7 +276,11 @@ fn float_to_binary(
 /// # Error
 ///
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
-fn hex_to_binary(hex_string: &str, filepath_send: &mut File) -> io::Result<()> {
+fn hex_to_binary(
+    hex_string: &str,
+    filepath_send: &mut File,
+    out: bool,
+) -> io::Result<()> {
     // Convert hex to binary
     let binary_of_hex = u32::from_str_radix(hex_string, 16)
         .expect("Failed to parse hex string");
@@ -254,8 +289,15 @@ fn hex_to_binary(hex_string: &str, filepath_send: &mut File) -> io::Result<()> {
     let formatted_binary_str = format!("{:b}", binary_of_hex);
 
     // Write binary string to the file
-    filepath_send.write_all(formatted_binary_str.as_bytes())?;
-    filepath_send.write_all(b"\n")?;
+
+    if out {
+        // Write binary string to the file
+        filepath_send.write_all(formatted_binary_str.as_bytes())?;
+        filepath_send.write_all(b"\n")?;
+    } else {
+        stdout().write_all(formatted_binary_str.as_bytes())?;
+        stdout().write_all(b"\n")?;
+    }
 
     Ok(())
 }
@@ -285,14 +327,21 @@ fn hex_to_binary(hex_string: &str, filepath_send: &mut File) -> io::Result<()> {
 fn binary_to_hex(
     binary_string: &str,
     filepath_send: &mut File,
+    out: bool,
 ) -> io::Result<()> {
     let hex_of_binary = u32::from_str_radix(binary_string, 2)
         .expect("Failed to parse binary string");
 
     let formatted_hex_str = format_hex(hex_of_binary);
 
-    filepath_send.write_all(formatted_hex_str.as_bytes())?;
-    filepath_send.write_all(b"\n")?;
+    if out {
+        // Write binary string to the file
+        filepath_send.write_all(formatted_hex_str.as_bytes())?;
+        filepath_send.write_all(b"\n")?;
+    } else {
+        stdout().write_all(formatted_hex_str.as_bytes())?;
+        stdout().write_all(b"\n")?;
+    }
 
     Ok(())
 }
@@ -323,6 +372,7 @@ fn binary_to_hex(
 fn binary_to_float(
     binary_string: &str,
     filepath_send: &mut File,
+    out: bool,
 ) -> io::Result<()> {
     let binary_value = u32::from_str_radix(binary_string, 2)
         .expect("Failed to parse binary string");
@@ -332,8 +382,14 @@ fn binary_to_float(
 
     let formated_float_str = format!("{:?}", float_value);
 
-    filepath_send.write_all(formated_float_str.as_bytes())?;
-    filepath_send.write_all(b"\n")?;
+    if out {
+        // Write binary string to the file
+        filepath_send.write_all(formated_float_str.as_bytes())?;
+        filepath_send.write_all(b"\n")?;
+    } else {
+        stdout().write_all(formated_float_str.as_bytes())?;
+        stdout().write_all(b"\n")?;
+    }
 
     Ok(())
 }
@@ -366,7 +422,7 @@ fn fixed_to_binary(
     fixed_string: &str,
     filepath_send: &mut File,
     exp_int: i32,
-    // scale: usize,
+    out: bool, // scale: usize,
 ) -> io::Result<()> {
     // Convert fixed value from string to int
     let fixed_value: f32;
@@ -389,9 +445,14 @@ fn fixed_to_binary(
     // Convert to a binary string with 32 bits
     let binary_of_fixed = format!("{:032b}", multiplied_fixed_as_i32);
 
-    // Write binary string to the file
-    filepath_send.write_all(binary_of_fixed.as_bytes())?;
-    filepath_send.write_all(b"\n")?;
+    if out {
+        // Write binary string to the file
+        filepath_send.write_all(binary_of_fixed.as_bytes())?;
+        filepath_send.write_all(b"\n")?;
+    } else {
+        stdout().write_all(binary_of_fixed.as_bytes())?;
+        stdout().write_all(b"\n")?;
+    }
 
     Ok(())
 }
@@ -426,14 +487,10 @@ fn binary_to_fixed(
     binary_string: &str,
     filepath_send: &mut File,
     exp_int: i32,
+    out: bool,
 ) -> io::Result<()> {
-    // Create an array with the elements of fixed_string
-    let words: Vec<&str> = binary_string.split_whitespace().collect();
-    let binary_str: &&str =
-        words.first().unwrap_or(&"There is not a binary number");
-
     // Convert binary value from string to int
-    let binary_value = match u32::from_str_radix(binary_str, 2) {
+    let binary_value = match u32::from_str_radix(binary_string, 2) {
         Ok(parsed_num) => parsed_num,
         Err(_) => panic!("Bad binary value input"),
     };
@@ -449,9 +506,66 @@ fn binary_to_fixed(
 
     let string_of_divided = divided.to_string();
 
-    // filepath_send.write_all(divided)?;
-    filepath_send.write_all(string_of_divided.as_bytes())?;
-    filepath_send.write_all(b"\n")?;
+    if out {
+        // Write binary string to the file
+        filepath_send.write_all(string_of_divided.as_bytes())?;
+        filepath_send.write_all(b"\n")?;
+    } else {
+        stdout().write_all(string_of_divided.as_bytes())?;
+        stdout().write_all(b"\n")?;
+    }
+
+    Ok(())
+}
+
+fn binary_to_fixed_bit_slice(
+    binary_string: &str,
+    filepath_send: &mut File,
+    exp_int: i32,
+    out: bool,
+) -> io::Result<()> {
+    // Parse the binary string to an integer
+    let binary =
+        i32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+
+    // Get bitmask from exponent
+    let shift_amount = -exp_int;
+    let int_mask = !((1 << shift_amount) - 1);
+    let frac_mask = (1 << shift_amount) - 1;
+
+    // Apply bit mask and shift integer part
+    // Apply bit masks and shift to get the integer and fractional parts
+    let integer_part = (binary & int_mask) >> shift_amount;
+    let fractional_part = binary & frac_mask;
+
+    // Convert the integer part to its binary string representation
+    let int_part_binary = format!("{:b}", integer_part);
+
+    // Convert the fractional part to its binary string representation
+    let mut frac_part_binary = String::new();
+    let mut frac = fractional_part;
+    for _ in 0..shift_amount {
+        frac <<= 1;
+        if frac & (1 << shift_amount) != 0 {
+            frac_part_binary.push('1');
+            frac -= 1 << shift_amount;
+        } else {
+            frac_part_binary.push('0');
+        }
+    }
+
+    // Append the integer and fractional parts
+    let combined_binary_representation =
+        format!("{}.{}", int_part_binary, frac_part_binary);
+
+    if out {
+        // Write binary string to the file
+        filepath_send.write_all(combined_binary_representation.as_bytes())?;
+        filepath_send.write_all(b"\n")?;
+    } else {
+        stdout().write_all(combined_binary_representation.as_bytes())?;
+        stdout().write_all(b"\n")?;
+    }
 
     Ok(())
 }
