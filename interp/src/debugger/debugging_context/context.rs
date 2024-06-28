@@ -23,57 +23,57 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-enum BreakPointStatus {
+enum PointStatus {
     /// this breakpoint is active
     Enabled,
     /// this breakpoint is inactive
     Disabled,
 }
 
-impl BreakPointStatus {
+impl PointStatus {
     pub fn enabled(&self) -> bool {
-        matches!(self, BreakPointStatus::Enabled)
+        matches!(self, PointStatus::Enabled)
     }
 }
 
 #[derive(Clone, Debug)]
 struct BreakPoint {
     group: GroupIdx,
-    state: BreakPointStatus,
+    state: PointStatus,
 }
 
 impl BreakPoint {
     pub fn enable(&mut self) {
-        self.state = BreakPointStatus::Enabled;
+        self.state = PointStatus::Enabled;
     }
 
     pub fn disable(&mut self) {
-        self.state = BreakPointStatus::Disabled;
+        self.state = PointStatus::Disabled;
     }
 
     pub fn is_disabled(&self) -> bool {
-        matches!(self.state, BreakPointStatus::Disabled)
+        matches!(self.state, PointStatus::Disabled)
     }
 }
 
 #[derive(Debug, Clone)]
 struct WatchPoint {
     group: GroupIdx,
-    state: BreakPointStatus,
+    state: PointStatus,
     print_details: PrintTuple,
 }
 
 impl WatchPoint {
     pub fn enable(&mut self) {
-        self.state = BreakPointStatus::Enabled;
+        self.state = PointStatus::Enabled;
     }
 
     pub fn disable(&mut self) {
-        self.state = BreakPointStatus::Disabled;
+        self.state = PointStatus::Disabled;
     }
 
     pub fn is_disabled(&self) -> bool {
-        matches!(self.state, BreakPointStatus::Disabled)
+        matches!(self.state, PointStatus::Disabled)
     }
 }
 
@@ -118,16 +118,17 @@ impl<T: std::cmp::Eq + std::hash::Hash> GroupExecutionInfo<T> {
     }
 }
 
-enum BreakpointAction {
+#[derive(Debug, Clone, Copy)]
+enum PointAction {
     Enable,
     Disable,
 }
 
-impl BreakpointAction {
+impl PointAction {
     fn take_action(&self, breakpoint: &mut BreakPoint) {
         match self {
-            BreakpointAction::Enable => breakpoint.enable(),
-            BreakpointAction::Disable => breakpoint.disable(),
+            PointAction::Enable => breakpoint.enable(),
+            PointAction::Disable => breakpoint.disable(),
         }
     }
 
@@ -136,8 +137,8 @@ impl BreakpointAction {
         println!(
             "{} '{:?}'",
             match self {
-                BreakpointAction::Enable => "enabled",
-                BreakpointAction::Disable => "disabled",
+                PointAction::Enable => "enabled",
+                PointAction::Disable => "disabled",
             },
             &breakpoint.group
         )
@@ -259,6 +260,16 @@ impl WatchPointIndices {
             Self::Both { before, .. } => Some(&before),
         }
     }
+
+    fn iter(&self) -> Box<dyn Iterator<Item = &WatchpointIdx> + '_> {
+        match self {
+            Self::Before(idx) => Box::new(idx.iter()),
+            Self::After(idx) => Box::new(idx.iter()),
+            Self::Both { before, after } => {
+                Box::new(before.iter().chain(after.iter()))
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -318,6 +329,13 @@ impl WatchpointMap {
 
     fn get_by_group(&self, group: GroupIdx) -> Option<&WatchPointIndices> {
         self.group_idx_map.get(&group)
+    }
+
+    fn get_by_group_mut(
+        &mut self,
+        group: GroupIdx,
+    ) -> Option<&mut WatchPointIndices> {
+        self.group_idx_map.get_mut(&group)
     }
 
     fn get_by_idx_mut(
@@ -393,7 +411,7 @@ impl DebuggingContext {
         if !self.breakpoints.breakpoint_exists(target) {
             let br = BreakPoint {
                 group: target,
-                state: BreakPointStatus::Enabled,
+                state: PointStatus::Enabled,
             };
             self.breakpoints.insert(br)
         } else {
@@ -418,18 +436,14 @@ impl DebuggingContext {
     {
         let watchpoint = WatchPoint {
             group,
-            state: BreakPointStatus::Enabled,
+            state: PointStatus::Enabled,
             print_details: print.into(),
         };
         // TODO griffin: Check if watchpoint already exists and avoid adding duplicates
         self.watchpoints.insert(watchpoint, position);
     }
 
-    fn act_breakpoint(
-        &mut self,
-        target: BreakpointID,
-        action: BreakpointAction,
-    ) {
+    fn act_breakpoint(&mut self, target: BreakpointID, action: PointAction) {
         let target_opt = match target {
             BreakpointID::Name(group) => {
                 self.breakpoints.get_by_group_mut(group)
@@ -439,10 +453,10 @@ impl DebuggingContext {
 
         if let Some(breakpoint) = target_opt {
             match action {
-                BreakpointAction::Enable => {
+                PointAction::Enable => {
                     breakpoint.enable();
                 }
-                BreakpointAction::Disable => {
+                PointAction::Disable => {
                     breakpoint.disable();
                 }
             }
@@ -462,10 +476,10 @@ impl DebuggingContext {
     }
 
     pub fn enable_breakpoint(&mut self, target: BreakpointID) {
-        self.act_breakpoint(target, BreakpointAction::Enable)
+        self.act_breakpoint(target, PointAction::Enable)
     }
     pub fn disable_breakpoint(&mut self, target: BreakpointID) {
-        self.act_breakpoint(target, BreakpointAction::Disable)
+        self.act_breakpoint(target, PointAction::Disable)
     }
     pub fn remove_breakpoint(&mut self, target: BreakpointID) {
         match target {
@@ -487,6 +501,64 @@ impl DebuggingContext {
 
     fn remove_watchpoint_by_number(&mut self, target: WatchpointIdx) {
         self.watchpoints.delete_by_idx(target)
+    }
+
+    fn act_watchpoint(&mut self, target: WatchID, action: PointAction) {
+        fn act(target: &mut WatchPoint, action: PointAction) {
+            match action {
+                PointAction::Enable => {
+                    target.enable();
+                }
+                PointAction::Disable => {
+                    target.disable();
+                }
+            }
+        }
+
+        match target {
+            WatchID::Name(name) => {
+                if let Some(points) = self.watchpoints.get_by_group_mut(name) {
+                    // mutability trickery
+                    let points_actual = std::mem::replace(
+                        points,
+                        WatchPointIndices::Before(SmallVec::new()),
+                    );
+
+                    for point_idx in points_actual.iter() {
+                        if let Some(point) =
+                            self.watchpoints.get_by_idx_mut(*point_idx)
+                        {
+                            act(point, action);
+                        }
+                    }
+
+                    *self.watchpoints.get_by_group_mut(name).unwrap() =
+                        points_actual;
+                } else {
+                    println!(
+                        "Error: There are no watchpoints for specified group",
+                    )
+                }
+            }
+            WatchID::Number(num) => {
+                if let Some(point) = self.watchpoints.get_by_idx_mut(num) {
+                    act(point, action);
+                } else {
+                    println!(
+                        "Error: There is no watchpoint numbered {}",
+                        num.red().bold().strikethrough()
+                    )
+                }
+            }
+        }
+    }
+
+    pub fn enable_watchpoint(&mut self, target: WatchID) {
+        self.act_watchpoint(target, PointAction::Enable)
+    }
+
+    pub fn disable_watchpoint(&mut self, target: WatchID) {
+        self.act_watchpoint(target, PointAction::Disable)
     }
 
     pub fn hit_breakpoints(&self) -> Vec<&GroupName> {

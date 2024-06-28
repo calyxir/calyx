@@ -29,7 +29,13 @@ impl_index!(BreakpointIdx);
 /// Identifier for watchpoints
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
 pub struct WatchpointIdx(u32);
+
 impl_index!(WatchpointIdx);
+impl Display for WatchpointIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug)]
 pub struct ParsedGroupName {
