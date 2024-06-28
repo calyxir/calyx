@@ -296,7 +296,7 @@ class StrictPifo:
        self.data = []
        self.order = order # list of the strict order of the flows from highest priority to least
        self.priority = 0
-       self.n_flows = n
+       self.n = n
        self.pifo_len = 0
        self.boundaries = boundaries
        for i in range(n):
@@ -309,18 +309,17 @@ class StrictPifo:
         """Works the same as in RRQueue. Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
            raise QueueError("Cannot push to full PIFO.")
-        for b in range(self.n_flows):
+        for b in range(self.n):
            if val <= self.boundaries[b]:
                 idx = self.order.index(b)
                 self.data[idx].push(val)
                 self.pifo_len += 1
                 for fifo in self.data:
-                    print(fifo)
                 break
 
     def next_priority(self):
        """Increments hot, taking into account wrap around."""
-       if self.priority == (self.n_flows - 1): # handle wrap around when updating hot
+       if self.priority == (self.n - 1): # handle wrap around when updating hot
            self.priority = 0
        else:
            self.priority = self.priority + 1

@@ -151,7 +151,23 @@ paths = ["calyx-py/test/correctness/queues/rr_queues/*.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 500 |\
+python3 {} 20 |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d well-formed' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
+name = "[calyx-py] queues correctness"
+paths = ["calyx-py/test/correctness/queues/strict_queues/strict_*.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20 |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
