@@ -7,7 +7,29 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{flatten::flat_ir::prelude::GroupIdx, serialization::PrintCode};
+use crate::{
+    debugger::debugging_context::context,
+    flatten::{
+        flat_ir::prelude::GroupIdx, structures::index_trait::impl_index,
+    },
+    serialization::PrintCode,
+};
+
+/// Identifier for breakpoints
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
+pub struct BreakpointIdx(u32);
+
+impl Display for BreakpointIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl_index!(BreakpointIdx);
+
+/// Identifier for watchpoints
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
+pub struct WatchpointIdx(u32);
+impl_index!(WatchpointIdx);
 
 #[derive(Debug)]
 pub struct ParsedGroupName {
@@ -81,7 +103,52 @@ impl From<u64> for ParsedBreakPointID {
 
 pub enum BreakpointID {
     Name(GroupIdx),
-    Number(u64),
+    Number(BreakpointIdx),
+}
+
+impl BreakpointID {
+    #[must_use]
+    pub fn as_number(&self) -> Option<&BreakpointIdx> {
+        if let Self::Number(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_name(&self) -> Option<&GroupIdx> {
+        if let Self::Name(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+pub enum WatchID {
+    Name(GroupIdx),
+    Number(WatchpointIdx),
+}
+
+impl WatchID {
+    #[must_use]
+    pub fn as_name(&self) -> Option<&GroupIdx> {
+        if let Self::Name(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_number(&self) -> Option<&WatchpointIdx> {
+        if let Self::Number(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

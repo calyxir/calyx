@@ -1,5 +1,9 @@
 use crate::{
-    debugger::commands::BreakpointID, flatten::flat_ir::prelude::GroupIdx,
+    debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
+    flatten::{
+        flat_ir::prelude::GroupIdx,
+        structures::{index_trait::impl_index, indexed_map::IndexedMap},
+    },
 };
 
 use super::super::{
@@ -10,25 +14,13 @@ use super::super::{
     },
 };
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use calyx_ir::Id;
 use owo_colors::OwoColorize;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use smallvec::{smallvec, SmallVec};
+
 use std::fmt::Display;
 use std::rc::Rc;
-
-#[derive(Debug, Clone)]
-pub struct Counter(u64);
-
-impl Counter {
-    pub fn next(&mut self) -> u64 {
-        self.0 += 1;
-        self.0
-    }
-    pub fn new() -> Self {
-        Self(0)
-    }
-}
 
 #[derive(Debug, Clone)]
 enum BreakPointStatus {
@@ -36,8 +28,6 @@ enum BreakPointStatus {
     Enabled,
     /// this breakpoint is inactive
     Disabled,
-    /// This breakpoint has been deleted, but has yet to be cleaned up
-    Deleted,
 }
 
 impl BreakPointStatus {
@@ -46,9 +36,8 @@ impl BreakPointStatus {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct BreakPoint {
-    id: u64,
     group: GroupIdx,
     state: BreakPointStatus,
 }
@@ -62,42 +51,37 @@ impl BreakPoint {
         self.state = BreakPointStatus::Disabled;
     }
 
-    pub fn delete(&mut self) {
-        self.state = BreakPointStatus::Deleted
-    }
-
-    pub fn is_deleted(&self) -> bool {
-        matches!(self.state, BreakPointStatus::Deleted)
+    pub fn is_disabled(&self) -> bool {
+        matches!(self.state, BreakPointStatus::Disabled)
     }
 }
 
 #[derive(Debug, Clone)]
 struct WatchPoint {
-    id: u64,
+    group: GroupIdx,
+    state: BreakPointStatus,
     print_details: PrintTuple,
 }
 
-impl Display for WatchPoint {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.  {}", self.id, self.print_details.blue().bold())
+impl WatchPoint {
+    pub fn enable(&mut self) {
+        self.state = BreakPointStatus::Enabled;
+    }
+
+    pub fn disable(&mut self) {
+        self.state = BreakPointStatus::Disabled;
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        matches!(self.state, BreakPointStatus::Disabled)
     }
 }
 
-impl std::fmt::Debug for BreakPoint {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}.  {:?}  {}",
-            &self.id,
-            &self.group,
-            match &self.state {
-                BreakPointStatus::Enabled => "enabled",
-                BreakPointStatus::Disabled => "disabled",
-                BreakPointStatus::Deleted => "deleted",
-            }
-        )
-    }
-}
+// impl Display for WatchPoint {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "{}.  {}", self.id, self.print_details.blue().bold())
+//     }
+// }
 
 struct GroupExecutionInfo<T: std::cmp::Eq + std::hash::Hash> {
     previous: HashSet<T>,
@@ -137,7 +121,6 @@ impl<T: std::cmp::Eq + std::hash::Hash> GroupExecutionInfo<T> {
 enum BreakpointAction {
     Enable,
     Disable,
-    Delete,
 }
 
 impl BreakpointAction {
@@ -145,7 +128,6 @@ impl BreakpointAction {
         match self {
             BreakpointAction::Enable => breakpoint.enable(),
             BreakpointAction::Disable => breakpoint.disable(),
-            BreakpointAction::Delete => breakpoint.delete(),
         }
     }
 
@@ -156,45 +138,273 @@ impl BreakpointAction {
             match self {
                 BreakpointAction::Enable => "enabled",
                 BreakpointAction::Disable => "disabled",
-                BreakpointAction::Delete => "deleted",
             },
             &breakpoint.group
         )
     }
 }
 
-#[derive(Debug, Clone)]
-pub(super) struct DebuggingContext {
-    breakpoints: HashMap<GroupIdx, BreakPoint>,
-    watchpoints_before: HashMap<GroupIdx, (BreakPointStatus, Vec<WatchPoint>)>,
-    watchpoints_after: HashMap<GroupIdx, (BreakPointStatus, Vec<WatchPoint>)>,
-    break_count: Counter,
-    watch_count: Counter,
+#[derive(Debug)]
+struct BreakpointMap {
+    group_idx_map: HashMap<GroupIdx, BreakpointIdx>,
+    breakpoints: HashMap<BreakpointIdx, BreakPoint>,
+    breakpoint_counter: IndexedMap<BreakpointIdx, ()>,
+}
+
+impl BreakpointMap {
+    fn new() -> Self {
+        Self {
+            group_idx_map: HashMap::new(),
+            breakpoints: HashMap::new(),
+            breakpoint_counter: IndexedMap::new(),
+        }
+    }
+
+    fn insert(&mut self, breakpoint: BreakPoint) {
+        let idx = self.breakpoint_counter.next_key();
+        self.group_idx_map.insert(breakpoint.group, idx);
+        self.breakpoints.insert(idx, breakpoint);
+    }
+
+    fn get_by_idx(&self, idx: BreakpointIdx) -> Option<&BreakPoint> {
+        self.breakpoints.get(&idx)
+    }
+
+    fn get_by_group(&self, group: GroupIdx) -> Option<&BreakPoint> {
+        self.group_idx_map
+            .get(&group)
+            .and_then(|idx| self.get_by_idx(*idx))
+    }
+
+    fn get_by_group_mut(&mut self, group: GroupIdx) -> Option<&mut BreakPoint> {
+        self.group_idx_map
+            .get(&group)
+            .and_then(|idx| self.breakpoints.get_mut(idx))
+    }
+
+    fn get_by_idx_mut(
+        &mut self,
+        idx: BreakpointIdx,
+    ) -> Option<&mut BreakPoint> {
+        self.breakpoints.get_mut(&idx)
+    }
+
+    fn breakpoint_exists(&self, group: GroupIdx) -> bool {
+        self.group_idx_map.contains_key(&group)
+    }
+
+    fn delete_by_idx(&mut self, idx: BreakpointIdx) {
+        let br = self.breakpoints.remove(&idx);
+        if let Some(br) = br {
+            self.group_idx_map.remove(&br.group);
+        }
+    }
+
+    fn delete_by_group(&mut self, group: GroupIdx) {
+        if let Some(idx) = self.group_idx_map.remove(&group) {
+            self.breakpoints.remove(&idx);
+        }
+    }
+}
+
+#[derive(Debug)]
+enum WatchPointIndices {
+    Before(SmallVec<[WatchpointIdx; 8]>),
+    After(SmallVec<[WatchpointIdx; 8]>),
+    Both {
+        before: SmallVec<[WatchpointIdx; 4]>,
+        after: SmallVec<[WatchpointIdx; 4]>,
+    },
+}
+
+impl WatchPointIndices {
+    fn insert_before(&mut self, idx: WatchpointIdx) {
+        match self {
+            Self::Before(b) => b.push(idx),
+            Self::Both { before: b, .. } => b.push(idx),
+            Self::After(aft) => {
+                *self = Self::Both {
+                    before: smallvec![idx],
+                    after: SmallVec::from_iter(aft.drain(..)),
+                }
+            }
+        }
+    }
+
+    fn insert_after(&mut self, idx: WatchpointIdx) {
+        match self {
+            Self::Before(bef) => {
+                *self = Self::Both {
+                    before: SmallVec::from_iter(bef.drain(..)),
+                    after: smallvec![idx],
+                }
+            }
+            Self::After(a) => a.push(idx),
+            Self::Both { after: a, .. } => a.push(idx),
+        }
+    }
+
+    fn get_before(&self) -> Option<&[WatchpointIdx]> {
+        match self {
+            Self::Before(idx) => Some(&idx),
+            Self::Both { after, .. } => Some(&after),
+            Self::After(_) => None,
+        }
+    }
+
+    fn get_after(&self) -> Option<&[WatchpointIdx]> {
+        match self {
+            Self::Before(_) => None,
+            Self::After(idx) => Some(&idx),
+            Self::Both { before, .. } => Some(&before),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct WatchpointMap {
+    group_idx_map: HashMap<GroupIdx, WatchPointIndices>,
+    watchpoints_before: HashMap<WatchpointIdx, WatchPoint>,
+    watchpoints_after: HashMap<WatchpointIdx, WatchPoint>,
+    watchpoint_counter: IndexedMap<WatchpointIdx, ()>,
+}
+
+impl WatchpointMap {
+    fn new() -> Self {
+        Self {
+            group_idx_map: HashMap::new(),
+            watchpoints_before: HashMap::new(),
+            watchpoints_after: HashMap::new(),
+            watchpoint_counter: IndexedMap::new(),
+        }
+    }
+
+    fn insert(&mut self, watchpoint: WatchPoint, position: WatchPosition) {
+        let idx = self.watchpoint_counter.next_key();
+        if let Some(current) = self.group_idx_map.get_mut(&watchpoint.group) {
+            match position {
+                WatchPosition::Before => current.insert_before(idx),
+                WatchPosition::After => current.insert_after(idx),
+            }
+        } else {
+            self.group_idx_map.insert(
+                watchpoint.group,
+                match position {
+                    WatchPosition::Before => {
+                        WatchPointIndices::Before(smallvec![idx])
+                    }
+                    WatchPosition::After => {
+                        WatchPointIndices::After(smallvec![idx])
+                    }
+                },
+            );
+        }
+
+        match position {
+            WatchPosition::Before => {
+                self.watchpoints_before.insert(idx, watchpoint)
+            }
+            WatchPosition::After => {
+                self.watchpoints_after.insert(idx, watchpoint)
+            }
+        };
+    }
+
+    fn get_by_idx(&self, idx: WatchpointIdx) -> Option<&WatchPoint> {
+        self.watchpoints_before
+            .get(&idx)
+            .or_else(|| self.watchpoints_after.get(&idx))
+    }
+
+    fn get_by_group(&self, group: GroupIdx) -> Option<&WatchPointIndices> {
+        self.group_idx_map.get(&group)
+    }
+
+    fn get_by_idx_mut(
+        &mut self,
+        idx: WatchpointIdx,
+    ) -> Option<&mut WatchPoint> {
+        self.watchpoints_before
+            .get_mut(&idx)
+            .or_else(|| self.watchpoints_after.get_mut(&idx))
+    }
+
+    fn delete_by_idx(&mut self, idx: WatchpointIdx) {
+        let point = self
+            .watchpoints_before
+            .remove(&idx)
+            .or_else(|| self.watchpoints_after.remove(&idx));
+
+        if let Some(point) = point {
+            self.group_idx_map
+                .get_mut(&point.group)
+                .map(|idxs| match idxs {
+                    WatchPointIndices::Before(b) => b.retain(|i| *i != idx),
+                    WatchPointIndices::After(a) => a.retain(|i| *i != idx),
+                    WatchPointIndices::Both { before, after } => {
+                        before.retain(|i| *i != idx);
+                        after.retain(|i| *i != idx);
+                    }
+                });
+        }
+    }
+
+    fn delete_by_group(&mut self, group: GroupIdx) {
+        if let Some(idx) = self.group_idx_map.remove(&group) {
+            match idx {
+                WatchPointIndices::Before(before) => {
+                    for point in before {
+                        self.watchpoints_before.remove(&point);
+                    }
+                }
+                WatchPointIndices::After(after) => {
+                    for point in after {
+                        self.watchpoints_after.remove(&point);
+                    }
+                }
+                WatchPointIndices::Both { before, after } => {
+                    for point in before {
+                        self.watchpoints_before.remove(&point);
+                    }
+                    for point in after {
+                        self.watchpoints_after.remove(&point);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct DebuggingContext {
+    breakpoints: BreakpointMap,
+    watchpoints: WatchpointMap,
 }
 
 impl DebuggingContext {
     pub fn new() -> Self {
         Self {
-            break_count: Counter::new(),
-            watch_count: Counter::new(),
-            breakpoints: HashMap::new(),
-            watchpoints_before: HashMap::new(),
-            watchpoints_after: HashMap::new(),
+            breakpoints: BreakpointMap::new(),
+            watchpoints: WatchpointMap::new(),
         }
     }
 
     pub fn add_breakpoint<N>(&mut self, target: GroupIdx) {
-        if let std::collections::hash_map::Entry::Vacant(e) =
-            self.breakpoints.entry(target)
-        {
+        if !self.breakpoints.breakpoint_exists(target) {
             let br = BreakPoint {
-                id: self.break_count.next(),
                 group: target,
                 state: BreakPointStatus::Enabled,
             };
-            e.insert(br);
+            self.breakpoints.insert(br)
         } else {
-            println!("A breakpoint already exists",)
+            print!("A breakpoint already exists for this group",);
+            let br = self.breakpoints.get_by_group_mut(target).unwrap();
+            if br.is_disabled() {
+                br.enable();
+                println!(" but it was disabled. It has been re-enabled.");
+            } else {
+                println!(".");
+            }
         }
     }
 
@@ -206,18 +416,13 @@ impl DebuggingContext {
     ) where
         P: Into<PrintTuple>,
     {
-        let map = match position {
-            WatchPosition::Before => &mut self.watchpoints_before,
-            WatchPosition::After => &mut self.watchpoints_after,
+        let watchpoint = WatchPoint {
+            group,
+            state: BreakPointStatus::Enabled,
+            print_details: print.into(),
         };
-
-        map.entry(group)
-            .or_insert((BreakPointStatus::Enabled, Vec::with_capacity(1)))
-            .1
-            .push(WatchPoint {
-                id: self.watch_count.next(),
-                print_details: print.into(),
-            });
+        // TODO griffin: Check if watchpoint already exists and avoid adding duplicates
+        self.watchpoints.insert(watchpoint, position);
     }
 
     fn act_breakpoint(
@@ -225,33 +430,34 @@ impl DebuggingContext {
         target: BreakpointID,
         action: BreakpointAction,
     ) {
-        match target {
-            BreakpointID::Name(target) => {
-                if let Some(breakpoint) = self.breakpoints.get_mut(&target) {
-                    action.take_action_with_feedback(breakpoint);
-                } else {
-                    println!(
-                        "Error: There is no breakpoint named '{:?}'",
-                        target.red().bold().strikethrough()
-                    )
-                };
+        let target_opt = match target {
+            BreakpointID::Name(group) => {
+                self.breakpoints.get_by_group_mut(group)
             }
-            BreakpointID::Number(target) => {
-                let mut found = false;
-                for x in self.breakpoints.values_mut() {
-                    if x.id == target {
-                        action.take_action_with_feedback(x);
-                        found = true;
-                        break;
-                    }
+            BreakpointID::Number(idx) => self.breakpoints.get_by_idx_mut(idx),
+        };
+
+        if let Some(breakpoint) = target_opt {
+            match action {
+                BreakpointAction::Enable => {
+                    breakpoint.enable();
                 }
-                if !found {
-                    println!(
-                        "Error: There is no breakpoint numbered {}",
-                        target.red().bold().strikethrough()
-                    )
-                };
+                BreakpointAction::Disable => {
+                    breakpoint.disable();
+                }
             }
+        } else if matches!(target, BreakpointID::Name(_)) {
+            let name = target.as_name().unwrap();
+            println!(
+                "Error: There is no breakpoint named '{:?}'",
+                name.red().bold().strikethrough()
+            )
+        } else {
+            let num = target.as_number().unwrap();
+            println!(
+                "Error: There is no breakpoint numbered {}",
+                num.red().bold().strikethrough()
+            )
         }
     }
 
@@ -262,36 +468,25 @@ impl DebuggingContext {
         self.act_breakpoint(target, BreakpointAction::Disable)
     }
     pub fn remove_breakpoint(&mut self, target: BreakpointID) {
-        self.act_breakpoint(target, BreakpointAction::Delete);
-        self.cleanup_deleted_breakpoints()
-    }
-
-    pub fn remove_watchpoint(&mut self, target: BreakpointID) {
         match target {
-            BreakpointID::Name(name) => self.remove_watchpoint_by_name(name),
-            BreakpointID::Number(num) => self.remove_watchpoint_by_number(num),
+            BreakpointID::Name(name) => self.breakpoints.delete_by_group(name),
+            BreakpointID::Number(num) => self.breakpoints.delete_by_idx(num),
         }
     }
 
-    fn cleanup_deleted_breakpoints(&mut self) {
-        self.breakpoints.retain(|_k, x| !x.is_deleted());
+    pub fn remove_watchpoint(&mut self, target: WatchID) {
+        match target {
+            WatchID::Name(name) => self.remove_watchpoint_by_name(name),
+            WatchID::Number(num) => self.remove_watchpoint_by_number(num),
+        }
     }
 
     fn remove_watchpoint_by_name(&mut self, target: GroupIdx) {
-        self.watchpoints_before.remove(&target);
-        self.watchpoints_after.remove(&target);
+        self.watchpoints.delete_by_group(target);
     }
 
-    fn remove_watchpoint_by_number(&mut self, target: u64) {
-        // TODO (Griffin): Make this less inefficient, if it becomes a problem
-        // probably add a reverse lookup table or something
-        for watchpoints in self
-            .watchpoints_before
-            .values_mut()
-            .chain(self.watchpoints_after.values_mut())
-        {
-            watchpoints.1.retain(|x| x.id != target);
-        }
+    fn remove_watchpoint_by_number(&mut self, target: WatchpointIdx) {
+        self.watchpoints.delete_by_idx(target)
     }
 
     pub fn hit_breakpoints(&self) -> Vec<&GroupName> {
