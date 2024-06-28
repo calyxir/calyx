@@ -50,11 +50,7 @@ def insert_rr_pifo(
     # If it is 2, we push `value` to the queue.
     value = pifo.input("value", 32)  # The value to push to the queue
 
-    fifo_cells = []
-    for num in range(len(fifos)):
-        name = "queue_" + str(num)
-        cell = pifo.cell(name, fifos[num])
-        fifo_cells.append(cell)
+    fifo_cells = [pifo.cell(f"queue_{i}", fifo_i) for i, fifo_i in enumerate(fifos)]
 
     # If a stats component was provided, declare it as a cell of this component.
     if stats:
@@ -80,148 +76,148 @@ def insert_rr_pifo(
 
     max_queue_len = 2**queue_len_factor
 
-    adder = pifo.add(32, "adder_reg")
-    div_reg = pifo.div_pipe(32, "div_reg")
-    i = pifo.reg(32, "i")
-
     # Some equality checks.
-    hot_eq_n = pifo.eq_use(
-        hot.out, numflows - 1, cellname="hot_eq_n"
-    )  # bc 0-based indexing
-    len_eq_0 = pifo.eq_use(length.out, 0, cellname="len_eq_0")
-    len_eq_max_queue_len = pifo.eq_use(
-        length.out, max_queue_len, cellname="len_eq_maxq"
-    )
-    cmd_eq_0 = pifo.eq_use(cmd, 0, cellname="cmd_eq_0")
-    cmd_eq_1 = pifo.eq_use(cmd, 1, cellname="cmd_eq_1")
-    cmd_eq_2 = pifo.eq_use(cmd, 2, cellname="cmd_eq_2")
-    err_eq_0 = pifo.eq_use(err.out, 0, cellname="err_eq_0")
-    err_neq_0 = pifo.neq_use(err.out, 0, cellname="err_neq_0")
+    len_eq_0 = pifo.eq_use(length.out, 0)
+    len_eq_max_queue_len = pifo.eq_use(length.out, max_queue_len)
+    err_eq_0 = pifo.eq_use(err.out, 0)
+    err_neq_0 = pifo.neq_use(err.out, 0)
 
-    incr_hot = pifo.incr(hot)
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
-    reset_hot = pifo.reg_store(hot, 0, "reset_hot")  # hot := 0
 
     len_incr = pifo.incr(length)  # len++
     len_decr = pifo.decr(length)  # len--
 
-    # This is a list of handles that serves to check which subqueue is hot and invoke
-    # the command (push or pop) on that subqueue. This is to get around the fact that
-    # one cannot index fifo_cells by hot.out, since that does not convert to an
-    # integer.
-    hot_handles = []
-    for n in range(numflows):
-        handle = cb.if_with(
-            pifo.eq_use(hot.out, cb.const(32, n)),
+    # We first create a list of invoke-statement handles.
+    # Each invoke is guarded by an equality check on the hot register,
+    # and each guard is unique to the subqueue it is associated with.
+    # This means we can eventually execute all of these invokes in parallel.
+    invoke_subqueues_hot_guard_seq = [
+        cb.if_with(
+            pifo.eq_use(hot.out, n),
             invoke_subqueue(fifo_cells[n], cmd, value, ans, err),
         )
-        hot_handles.append(handle)
+        for n in range(numflows)
+    ]
+    invoke_subqueues_hot_guard = cb.par(
+        invoke_subqueues_hot_guard_seq
+    )  # Execute in parallel.
 
-    flow_handles = []
-    for b in range(numflows):
-        handle = cb.if_with(
+    # We create a list of invoke-statement handles.
+    # Each invoke is guarded by a pair of inequality checks on the value register,
+    # and each pair of guards is unique to the subqueue it is associated with.
+    # This means we can eventually execute all of these invokes in parallel.
+    invoke_subqueues_value_guard_seq = [
+        cb.if_with(
             pifo.le_use(value, boundaries[b + 1]),
             cb.if_with(
                 pifo.ge_use(value, boundaries[b]),
                 invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
             ),
         )
-        flow_handles.append(handle)
+        for b in range(numflows)
+    ]
+    invoke_subqueues_value_guard = cb.par(
+        invoke_subqueues_value_guard_seq
+    )  # Execute in parallel.
 
-    # The main logic.
-    pifo.control += cb.par(
-        # Was it a pop, peek, or a push? We can do all cases in parallel.
-        cb.if_with(
-            # Did the user call pop?
-            cmd_eq_0,
-            cb.if_with(
-                len_eq_0,
-                raise_err,  # The queue is empty: underflow.
-                [  # The queue is not empty. Proceed.
-                    lower_err,
-                    [
-                        hot_handles,
-                        # Our next step depends on whether `fifos[hot]` raised the error flag.
-                        cb.while_with(
-                            err_neq_0,
-                            [  # `fifo_cells[hot]` raised an error.
-                                # We'll try to pop from `fifo_cells[hot+1]`.
-                                # We'll pass it a lowered err
-                                lower_err,
-                                cb.if_with(hot_eq_n, reset_hot, incr_hot),
-                                hot_handles,
-                            ],  # `queue[hot+n]` succeeded. Its answer is our answer.
-                        ),
+    incr_hot_wraparound = cb.if_with(
+        # If hot = numflows - 1, we need to wrap around to 0. Otherwise, we increment.
+        pifo.eq_use(hot.out, numflows - 1),
+        pifo.reg_store(hot, 0, "reset_hot"),
+        pifo.incr(hot),
+    )
+
+    pop_logic = cb.if_with(
+        len_eq_0,
+        raise_err,  # The queue is empty: underflow.
+        [  # The queue is not empty. Proceed.
+            lower_err,
+            [
+                invoke_subqueues_hot_guard,
+                # Our next step depends on whether `fifos[hot]` raised the error flag.
+                cb.while_with(
+                    err_neq_0,
+                    [  # `fifo_cells[hot]` raised an error.
+                        # We'll try to pop from `fifo_cells[hot+1]`.
+                        # We'll pass it a lowered err
+                        lower_err,
+                        incr_hot_wraparound,
+                        invoke_subqueues_hot_guard,
+                    ],  # `queue[hot+n]` succeeded. Its answer is our answer.
+                ),
+            ],
+            incr_hot_wraparound,
+            len_decr,
+        ],
+    )
+
+    peek_logic = cb.if_with(
+        len_eq_0,
+        raise_err,  # The queue is empty: underflow.
+        [  # The queue is not empty. Proceed.
+            lower_err,
+            copy_hot,
+            [
+                invoke_subqueues_hot_guard,
+                cb.while_with(
+                    err_neq_0,
+                    [  # `fifo_cells[hot]` raised an error.
+                        # We'll try to peek from `fifo_cells[hot+1]`.
+                        # We'll pass it a lowered `err`.
+                        lower_err,
+                        incr_hot_wraparound,
+                        # increment hot and invoke_subqueue on the next one
+                        invoke_subqueues_hot_guard,
                     ],
-                    cb.if_with(hot_eq_n, reset_hot, incr_hot),
-                    len_decr,
-                ],
-            ),
-        ),
-        cb.if_with(
-            # Did the user call peek?
-            cmd_eq_1,
+                ),
+                # Peeking does not affect `hot`.
+                # Peeking does not affect the length.
+            ],
+            restore_hot,
+        ],
+    )
+
+    push_logic = cb.if_with(
+        len_eq_max_queue_len,
+        raise_err,  # The queue is full: overflow.
+        [  # The queue is not full. Proceed.
+            lower_err,
+            # We need to check which flow this value should be pushed to.
+            invoke_subqueues_value_guard,
             cb.if_with(
-                len_eq_0,
-                raise_err,  # The queue is empty: underflow.
-                [  # The queue is not empty. Proceed.
-                    lower_err,
-                    copy_hot,
-                    [
-                        hot_handles,
-                        cb.while_with(
-                            err_neq_0,
-                            [  # `fifo_cells[hot]` raised an error.
-                                # We'll try to peek from `fifo_cells[hot+1]`.
-                                # We'll pass it a lowered `err`.
-                                lower_err,
-                                cb.if_with(
-                                    hot_eq_n, reset_hot, incr_hot
-                                ),  # increment hot and invoke_subqueue on the next one
-                                hot_handles,
-                            ],
-                        ),
-                        # Peeking does not affect `hot`.
-                        # Peeking does not affect the length.
-                    ],
-                    restore_hot,
-                ],
-            ),
-        ),
-        cb.if_with(
-            # Did the user call push?
-            cmd_eq_2,
-            cb.if_with(
-                len_eq_max_queue_len,
-                raise_err,  # The queue is full: overflow.
-                [  # The queue is not full. Proceed.
-                    lower_err,
-                    # We need to check which flow this value should be pushed to.
-                    flow_handles,
-                    cb.if_with(
-                        err_eq_0,
-                        # If no stats component is provided,
-                        # just increment the active length.
+                err_eq_0,
+                # If no stats component is provided,
+                # just increment the active length.
+                (
+                    len_incr
+                    if not stats
+                    else cb.par(
+                        # If a stats component is provided,
+                        # Increment the active length and also
+                        # tell the stats component what flow we pushed.
+                        len_incr,
                         (
-                            len_incr
-                            if not stats
-                            else cb.par(
-                                # If a stats component is provided,
-                                # Increment the active length and also
-                                # tell the stats component what flow we pushed.
-                                len_incr,
-                                (
-                                    cb.static_invoke(stats, in_flow=flow.out)
-                                    if static
-                                    else cb.invoke(stats, in_flow=flow.out)
-                                ),
-                            )
+                            cb.static_invoke(stats, in_flow=flow.out)
+                            if static
+                            else cb.invoke(stats, in_flow=flow.out)
                         ),
-                    ),
-                ],
+                    )
+                ),
             ),
-        ),
+        ],
+    )
+
+    # Was it a pop, peek, push, or an invalid command?
+    # We can do those four cases in parallel.
+    pifo.control += pifo.case(
+        cmd,
+        {
+            0: pop_logic,
+            1: peek_logic,
+            2: push_logic,
+            3: raise_err,
+        },
     )
 
     return pifo
