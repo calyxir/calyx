@@ -212,7 +212,7 @@ class Pieo:
         Inserts element such that rank ordering is preserved
         """
         if len(self.data) == self.max_len:
-            raise QueueError("Cannot push to full PIEO")
+            raise QueueError("Overflow")
         
         if len(self.data) == 0 or rank >= self.data[len(self.data)-1][2]:
             self.data.append((val, time, rank))
@@ -238,7 +238,7 @@ class Pieo:
         """
 
         if len(self.data) == 0:
-            raise QueueError("Cannot query an empty PIEO.")
+            raise QueueError("Underflow")
         
         if val == None:
             for x in range(len(self.data)):
@@ -246,7 +246,7 @@ class Pieo:
                     if return_rank:
                         return self.data.pop(x) if remove else self.data[x]
                     return self.data.pop(x)[0] if remove else self.data[x][0]
-            return None
+            raise QueueError("Underflow")
             
         for x in range(len(self.data)):
             #Find the first value that matches the query who is 'ripe'
@@ -254,7 +254,7 @@ class Pieo:
                 if return_rank:
                     return self.data.pop(x) if remove else self.data[x]
                 return self.data.pop(x)[0] if remove else self.data[x][0]
-        return None
+        raise QueueError("Underflow")
     
     def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Pops a PIEO. See query() for specifics."""
@@ -313,51 +313,51 @@ class PCQ:
         self.bucket_ranges[self.day] = (buckettop, buckettop + self.width)
         self.day = (self.day + 1) % len(self.data)
 
-    def push(self, val: int, rank: int, time=0) -> None:
+    def push(self, val: int, time=0, rank=0) -> None:
         """Pushes a value with some rank/priority to a PCQ"""
         if self.num_elements == self.max_len:
             raise QueueError("Overflow")
 
         location = (rank * self.width) % len(self.data)
-        self.data[location].push(val, time, rank)
-        self.num_elements += 1
+        try:
+            self.data[location].push(val, time, rank)
+            self.num_elements += 1
+        except QueueError:
+            raise QueueError("Overflow")
     
     def query(self, remove=False, time=0, val=None, return_rank=False) -> Optional[int]:
         """Queries a PCQ."""
 
-        visited = []
         cached_day = self.day
         cached_ranges = self.bucket_ranges[:]
-        current_day = self.day
         
-        while True:
-            #Cycle found (iterated through all buckets)
-            if current_day in visited:
-                self.day = cached_day
-                self.bucket_ranges = cached_ranges[:]
-                raise QueueError("Underflow")
-            
-            bucket = self.data[current_day]
-            top = self.bucket_ranges[current_day][1]
-            visited.append(current_day)
+        for _ in range(len(self.data)):            
+            bucket = self.data[self.day]
+            top = self.bucket_ranges[self.day][1]
 
             try:
-                result, rank = bucket.peek(time, val, True)
+                #Peek the lowest-rank bucket matching the time stamp
+                result, _, rank = bucket.peek(time, val, True)
                 if rank > top:
+                    #No eligible elements in bucket, keep rotating
                     self.rotate()
                 else:
                     self.day = cached_day
                     self.bucket_ranges = cached_ranges[:]
+
                     if remove:
+                        return_val = bucket.pop(time, val, return_rank)
+                        if len(bucket) == 0:
+                            self.rotate()
                         self.num_elements -= 1
-                        return bucket.pop(time, val, return_rank)
+                        return return_val
                     else:
                         return (result, rank) if return_rank else result
                     
-            except QueueError:
+            except (QueueError, TypeError):
                 self.rotate()
-            except TypeError:
-                self.rotate()
+        
+        raise QueueError("Underflow")
     
     def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Pops a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
