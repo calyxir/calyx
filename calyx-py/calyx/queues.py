@@ -39,6 +39,8 @@ class Fifo:
 
     def __len__(self) -> int:
         return len(self.data)
+    def __str__(self):
+        return str(self.data)
 
 
 @dataclass
@@ -292,6 +294,87 @@ class RRQueue:
 
    def __len__(self) -> int:
        return self.pifo_len
+
+@dataclass
+class StrictPifo:
+    """
+    It is the client's role to pass in a list of Fifos for subqueues in the strict
+    order that is desired. The first FIFO is the one with the highest priority,
+    from there it is descending priority.
+    """
+    def __init__(self, n, boundaries, order, max_len: int):
+       self.data = []
+       self.order = order # list of the strict order of the flows from highest priority to least
+       self.priority = 0
+       self.n_flows = n
+       self.pifo_len = 0
+       self.boundaries = boundaries
+       for i in range(n):
+           queue = Fifo(max_len)
+           self.data.append(queue)
+
+       self.max_len = max_len
+
+    def push(self,  val: int):
+        """Works the same as in RRQueue. Pushes `val` to the PIFO."""
+        if self.pifo_len == self.max_len:
+           raise QueueError("Cannot push to full PIFO.")
+        for b in range(self.n_flows):
+           if val <= self.boundaries[b]:
+                idx = self.order.index(b)
+                self.data[idx].push(val)
+                self.pifo_len += 1
+                for fifo in self.data:
+                    print(fifo)
+                break
+
+    def next_priority(self):
+       """Increments hot, taking into account wrap around."""
+       if self.priority == (self.n_flows - 1): # handle wrap around when updating hot
+           self.priority = 0
+       else:
+           self.priority = self.priority + 1
+        
+    def pop(self):
+        """Pops the PIFO."""
+        if self.pifo_len == 0:
+           raise QueueError("Cannot pop from empty PIFO.")
+
+        original_priority = self.priority
+
+        while True:
+            try:
+                val = self.data[self.priority].pop()
+                if val is not None: 
+                    self.pifo_len -= 1  
+                    self.priority = original_priority            
+                    return val
+                else:
+                    self.next_priority()
+            except QueueError:
+                self.next_priority()
+
+    def peek(self) -> Optional[int]:
+       """Peeks into the PIFO."""
+       if self.pifo_len == 0:
+           raise QueueError("Cannot peek into empty PIFO.")
+
+       original_priority = self.priority
+       while True:
+            try:
+                val = self.data[self.priority].peek()
+                if val is not None:
+                    self.priority = original_priority
+                    return val
+                else:
+                    self.next_priority()
+            except QueueError:
+                self.next_priority()
+
+
+    def __len__(self) -> int:
+       return self.pifo_len
+
 
 def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False):
     """Given the two lists, one of commands and one of values.
