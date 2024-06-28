@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Optional
 import heapq
 
 
@@ -154,7 +154,7 @@ class Pifo:
 @dataclass(order=True)
 class RankValue:
     priority: int
-    value: Any=field(compare=False)
+    value: Any = field(compare=False)
 
 
 @dataclass
@@ -196,104 +196,94 @@ class Binheap:
 
 @dataclass
 class RRQueue:
-   """
-   This is a version of a PIFO generalized to n flows, with a round robin policy
-   that is work conserving. Just as with the PIFO, if a flow falls silent, the 
-   remaining flows will take their turns. That flow effectively skips its turn.
+    """
+    This is a version of a PIFO generalized to `n` flows, with a work conserving
+    round robin policy. If a flow is silent when it is its turn, that flow
+    simply skips its turn and the next flow is offered service.
 
-   Supports the operations `push`, `pop`, and `peek`.
-   It takes in a list `boundaries` that must be of length `n`, the client can
-   divide the flows however they like. For example, if n = 3, the client can
-   pass in [133, 266, 400] to evenly divide up the flows. 
+    Supports the operations `push`, `pop`, and `peek`.
+    It takes in a list `boundaries` that must be of length `n`, using which the
+    client can divide the incoming traffic into `n` flows.
+    For example, if n = 3 and the client passes boundaries [133, 266, 400],
+    packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
 
-   - Push works analagously to that of the PIFO, except it checks the `boundaries`
-   list to determine which flow to push to. Take the boundaries example given 
-   earlier, [133, 266, 400]. If we push the value 89, it will end up in flow 0 
-   becuase 89 <= 133, and 305 would end up in flow 2 since 266 <= 305 <= 400.
-   - Pop first tries to pop from `hot`, given the length is not 0. If this fails, 
-   it continues to check all flows after in round robin fashion. It pops from the 
-   first nonempty one and then increments hot at by one the end and decreases 
-   the length.
-   - Peek allows the client to see which element is at the head of the queue
-   without removing it. Thus, peek works in a similar fashion as `pop`, except 
-   `hot` remains unchanged and nothing is dequeued.
-   """
+    - At push, we check the `boundaries` list to determine which flow to push to.
+    Take the boundaries example given earlier, [133, 266, 400].
+    If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
+    and 305 would end up in flow 2 since 266 <= 305 <= 400.
+    - Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
+    it increments `hot` and therefore continues to check all other flows
+    in round robin fashion.
+    - Peek allows the client to see which element is at the head of the queue
+    without removing it. Thus, peek works in a similar fashion to `pop`, except
+    `hot` is restored to its original value at the every end.
+    Further, nothing is actually dequeued.
+    """
 
-   def __init__(self, n, boundaries, max_len: int):
-       self.data = []
-       self.hot = 0
-       self.n_flows = n
-       self.pifo_len = 0
-       self.boundaries = boundaries
-       for i in range(n):
-           queue = Fifo(max_len)
-           self.data.append(queue)
+    def __init__(self, n, boundaries, max_len: int):
+        self.hot = 0
+        self.n = n
+        self.pifo_len = 0
+        self.boundaries = boundaries
+        self.data = [Fifo(max_len) for _ in range(n)]
 
-       self.max_len = max_len
-       assert (
-           self.pifo_len <= self.max_len
-       )  # We can't be initialized with a PIFO that is too long.
+        self.max_len = max_len
+        assert (
+            self.pifo_len <= self.max_len
+        )  # We can't be initialized with a PIFO that is too long.
 
-
-   def push(self, val: int):
-       """Pushes `val` to the PIFO."""
-       if self.pifo_len == self.max_len:
+    def push(self, val: int):
+        """Pushes `val` to the PIFO."""
+        if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
-       for b in range(len(self.boundaries)):
-          if val <= self.boundaries[b]:
-            self.data[b].push(val)
-            self.pifo_len += 1
-            break
+        for fifo, boundary in zip(self.data, self.boundaries):
+            if val <= boundary:
+                fifo.push(val)
+                self.pifo_len += 1
+                break
 
+    def increment_hot(self):
+        """Increments `hot`, taking into account wraparound."""
+        self.hot = 0 if self.hot == (self.n - 1) else self.hot + 1
 
-   def increment_hot(self):
-       """Increments hot, taking into account wrap around."""
-       if self.hot == (self.n_flows - 1): # handle wrap around when updating hot
-            self.hot = 0
-       else:
-            self.hot = self.hot + 1
+    def pop(self) -> Optional[int]:
+        """Pops the PIFO by popping some internal FIFO.
+        Updates `hot` to be one more than the index of the internal FIFO that
+        we did pop.
+        """
+        if self.pifo_len == 0:
+            raise QueueError("Cannot pop from empty PIFO.")
 
-        
-   def pop(self) -> Optional[int]:
-       """Pops the PIFO. Updates `hot`."""
-       if self.pifo_len == 0:
-        raise QueueError("Cannot pop from empty PIFO.")
-       
-       original_hot = self.hot
-
-       while True:
-        try:
-            val = self.data[self.hot].pop()
-            if val is not None:
-                self.increment_hot() 
-                self.pifo_len -= 1              
-                return val
-            else:
+        while True:
+            try:
+                val = self.data[self.hot].pop()
+                if val is not None:
+                    self.increment_hot()
+                    self.pifo_len -= 1
+                    return val
                 self.increment_hot()
-        except QueueError:
-            self.increment_hot()
+            except QueueError:
+                self.increment_hot()
 
+    def peek(self) -> Optional[int]:
+        """Peeks into the PIFO. Does not affect what `hot` is."""
+        if self.pifo_len == 0:
+            raise QueueError("Cannot peek into empty PIFO.")
 
-   def peek(self) -> Optional[int]:
-       """Peeks into the PIFO. Does not affect what `hot` is."""
-       if self.pifo_len == 0:
-           raise QueueError("Cannot peek into empty PIFO.")
-
-       original_hot = self.hot
-       while True:
+        original_hot = self.hot
+        while True:
             try:
                 val = self.data[self.hot].peek()
                 if val is not None:
                     self.hot = original_hot
                     return val
-                else:
-                    self.increment_hot()
+                self.increment_hot()
             except QueueError:
                 self.increment_hot()
 
+    def __len__(self) -> int:
+        return self.pifo_len
 
-   def __len__(self) -> int:
-       return self.pifo_len
 
 @dataclass
 class StrictPifo:
@@ -382,7 +372,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False
     """
 
     ans = []
-    ranks_or_values = values if ranks == None else ranks
+    ranks_or_values = values if ranks is None else ranks
     for cmd, val, rnk in zip(commands, values, ranks_or_values):
         if cmd == 0:
             try:
@@ -402,7 +392,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=False
 
         elif cmd == 2:
             try:
-                if ranks == None:
+                if ranks is None:
                     queue.push(val)
                 else:
                     queue.push(rnk, val)
