@@ -317,20 +317,61 @@ impl CompileStatic {
         }
     }
 
+    fn get_max_num_repeats(sgroup: ir::Id, tree_objects: &Vec<FSMTree>) -> u64 {
+        let mut cur_max = 1;
+        for tree in tree_objects {
+            cur_max = std::cmp::max(
+                cur_max,
+                tree.get_max_value(&sgroup, &(|tree| tree.num_repeats)),
+            )
+        }
+        cur_max
+    }
+    fn get_max_num_states(sgroup: ir::Id, tree_objects: &Vec<FSMTree>) -> u64 {
+        let mut cur_max = 1;
+        for tree in tree_objects {
+            cur_max = std::cmp::max(
+                cur_max,
+                tree.get_max_value(&sgroup, &(|tree| tree.num_states)),
+            )
+        }
+        cur_max
+    }
+
     pub fn get_coloring(
         tree_objects: &Vec<FSMTree>,
         sgroups: &[ir::RRC<ir::StaticGroup>],
         control: &mut ir::Control,
     ) -> HashMap<ir::Id, ir::Id> {
-        // `sgroup_uses_map` builds a mapping of static groups -> groups that
-        // it (even indirectly) triggers the `go` port of.
-        // let sgroup_uses_map = Self::build_sgroup_uses_map(sgroups);
-        // Build conflict graph and get coloring.
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
+        // Necessary conflicts to ensure correctness
         Self::add_par_conflicts(control, tree_objects, &mut conflict_graph);
         for tree in tree_objects {
             tree.add_conflicts(&mut conflict_graph);
+        }
+        // Optional conflicts to improve QoR
+        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
+            let max_num_states1 =
+                Self::get_max_num_states(sgroup1.borrow().name(), tree_objects);
+            let max_num_repeats1 = Self::get_max_num_repeats(
+                sgroup1.borrow().name(),
+                tree_objects,
+            );
+            let max_num_states2 =
+                Self::get_max_num_states(sgroup2.borrow().name(), tree_objects);
+            let max_num_repeats2 = Self::get_max_num_repeats(
+                sgroup2.borrow().name(),
+                tree_objects,
+            );
+            if ((max_num_states1 == 1) != (max_num_states2 == 1))
+                || ((max_num_repeats1) != (max_num_repeats2))
+            {
+                conflict_graph.insert_conflict(
+                    &sgroup1.borrow().name(),
+                    &sgroup2.borrow().name(),
+                );
+            }
         }
         conflict_graph.color_greedy(None, true)
     }
@@ -339,32 +380,6 @@ impl CompileStatic {
         coloring: &HashMap<ir::Id, ir::Id>,
         tree_objects: &Vec<FSMTree>,
     ) -> HashMap<ir::Id, (u64, u64)> {
-        fn get_max_num_repeats(
-            sgroup: ir::Id,
-            tree_objects: &Vec<FSMTree>,
-        ) -> u64 {
-            let mut cur_max = 1;
-            for tree in tree_objects {
-                cur_max = std::cmp::max(
-                    cur_max,
-                    tree.get_max_value(&sgroup, &(|tree| tree.num_repeats)),
-                )
-            }
-            cur_max
-        }
-        fn get_max_num_states(
-            sgroup: ir::Id,
-            tree_objects: &Vec<FSMTree>,
-        ) -> u64 {
-            let mut cur_max = 1;
-            for tree in tree_objects {
-                cur_max = std::cmp::max(
-                    cur_max,
-                    tree.get_max_value(&sgroup, &(|tree| tree.num_states)),
-                )
-            }
-            cur_max
-        }
         let mut colors_to_sgroups: HashMap<ir::Id, Vec<ir::Id>> =
             HashMap::new();
         for (group_name, color) in coloring {
@@ -378,12 +393,14 @@ impl CompileStatic {
             .map(|(name, colors_sgroups)| {
                 let max_num_states = colors_sgroups
                     .iter()
-                    .map(|gname| get_max_num_states(*gname, tree_objects))
+                    .map(|gname| Self::get_max_num_states(*gname, tree_objects))
                     .max()
                     .expect("color is empty");
                 let max_num_repeats = colors_sgroups
                     .iter()
-                    .map(|gname| get_max_num_repeats(*gname, tree_objects))
+                    .map(|gname| {
+                        Self::get_max_num_repeats(*gname, tree_objects)
+                    })
                     .max()
                     .expect("color is empty");
                 (name, (max_num_states, max_num_repeats))
