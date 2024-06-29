@@ -1,0 +1,34 @@
+// This file was generated
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+// dummy main
+component main() -> () {
+  cells {}
+  wires {}
+  control {}
+}
+
+$define ADDRESS_WIDTH 16
+$define EXTRA_BITS 2
+
+$define L1_TAG_BITS 8
+$define L1_INDEX_BITS 6
+$define L1_BLOCKS_PER_SET 4
+$define L1_BLOCK_SIZE 4
+
+// entry = [ valid bit | dirty bit | tag bits | block bits ]
+$define L1_ENTRY_BITS EXTRA_BITS + L1_TAG_BITS + L1_INDEX_BITS + L1_BLOCKS_PER_SET * L1_BLOCK_SIZE * 8
+$define L1_NUM_ENTRIES 2 ^ L1_INDEX_BITS 
+
+component cache_level_L1(@go(1) read_go: 1, @go(2) write_go: 1) -> (
+  @done(1) read_done: 1,
+  @done(2) write_done: 1
+) {
+  cells {
+    entries = seq_mem_d1($L1_ENTRY_BITS, $L1_NUM_ENTRIES, $L1_INDEX_BITS);
+  }
+  wires {}
+  control {} 
+}
+

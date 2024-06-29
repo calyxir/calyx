@@ -1,0 +1,46 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+    cells {
+        @external m = comb_mem_d1(32, 1, 32);
+        i0 = std_reg(32);
+        add = std_add(32);
+    }
+    wires {
+        static<1> group init {
+            i0.in = 32'd0;
+            i0.write_en = 1'b1;
+        }
+        group dyn_inc {
+            add.left = i0.out;
+            add.right = 32'd1;
+            i0.in = add.out;
+            i0.write_en = 1'b1;
+            dyn_inc[done] = i0.done;
+        }
+        static<1> group static_inc {
+            add.left = i0.out;
+            add.right = 32'd1;
+            i0.in = add.out;
+            i0.write_en = 1'b1;
+        }
+        group write {
+            m.write_data = i0.out;
+            m.write_en = 1'b1;
+            write[done] = m.done;
+        }
+    }
+    control {
+        @fast seq {
+            init;
+            dyn_inc;
+            static_inc;
+            dyn_inc;
+            static_inc;
+            dyn_inc;
+            static_inc;
+            write;
+        }
+    }
+}

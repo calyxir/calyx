@@ -69,7 +69,11 @@ pub enum BoolAttr {
     #[strum(serialize = "promoted")]
     /// denotes a static component or control promoted from dynamic
     Promoted,
+    #[strum(serialize = "fast")]
+    /// https://github.com/calyxir/calyx/issues/1828
+    Fast,
 }
+
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {
         Attribute::Bool(attr)
