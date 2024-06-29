@@ -209,23 +209,6 @@ impl CompileStatic {
         )
     }
 
-    // Given an input static_group `sgroup`, finds the names of all of the groups
-    // that it triggers through their go hole.
-    // E.g., if `sgroup` has assignments that write to `sgroup1[go]` and `sgroup2[go]`
-    // then return `{sgroup1, sgroup2}`
-    // Assumes that static groups will only write the go holes of other static
-    // groups, and never dynamic groups (which seems like a reasonable assumption).
-    fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
-        let mut uses = HashSet::new();
-        for asgn in &sgroup.borrow().assignments {
-            let dst = asgn.dst.borrow();
-            if dst.is_hole() && dst.name == "go" {
-                uses.insert(dst.get_parent_name());
-            }
-        }
-        uses
-    }
-
     // Gets all of the triggered static groups within `c`, and adds it to `cur_names`.
     // Relies on sgroup_uses_map to take into account groups that are triggered through
     // their `go` hole.
@@ -258,13 +241,7 @@ impl CompileStatic {
         }
     }
 
-    /// Given control `c`, adds conflicts to `conflict_graph` between all
-    /// static groups that are executed in separate threads of the same par block.
-    /// `sgroup_uses_map` maps:
-    /// static group names -> all of the static groups that it triggers the go ports
-    /// of (even recursively).
-    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
-    /// Would map: A -> {B,C} and B -> {C}
+    /// XXX(Caleb): Todo.
     fn add_par_conflicts(
         c: &ir::Control,
         fsm_trees: &Vec<FSMTree>,
@@ -340,113 +317,6 @@ impl CompileStatic {
         }
     }
 
-    /// Given an `sgroup_uses_map`, which maps:
-    /// static group names -> all of the static groups that it triggers the go ports
-    /// of (even recursively).
-    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
-    /// Would map: A -> {B,C} and B -> {C}
-    /// Adds conflicts between any groups triggered at the same time based on
-    /// `go` port triggering.
-    fn add_go_port_conflicts(
-        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
-        conflict_graph: &mut GraphColoring<ir::Id>,
-    ) {
-        for (sgroup, sgroup_uses) in sgroup_uses_map {
-            for sgroup_use in sgroup_uses {
-                conflict_graph.insert_conflict(sgroup_use, sgroup);
-            }
-            // If multiple groups are triggered by the same group, then
-            // we conservatively add a conflict between such groups
-            for (sgroup_use1, sgroup_use2) in
-                sgroup_uses.iter().tuple_combinations()
-            {
-                conflict_graph.insert_conflict(sgroup_use1, sgroup_use2);
-            }
-        }
-    }
-
-    /// Adds conflicts between static groups that require different encodings.
-    /// For example: if one group is one-hot and another is binary, then
-    /// we insert a conflict between those two groups.
-    fn add_encoding_conflicts(
-        sgroups: &[ir::RRC<ir::StaticGroup>],
-        conflict_graph: &mut GraphColoring<ir::Id>,
-    ) {
-        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
-            if sgroup1.borrow().attributes.has(ir::BoolAttr::OneHot)
-                != sgroup2.borrow().attributes.has(ir::BoolAttr::OneHot)
-            {
-                conflict_graph.insert_conflict(
-                    &sgroup1.borrow().name(),
-                    &sgroup2.borrow().name(),
-                );
-            }
-        }
-    }
-
-    // helper to `build_sgroup_uses_map`
-    // `parent_group` is the group that we are "currently" analyzing
-    // `full_group_ancestry` is the "ancestry of the group we are analyzing"
-    // Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}, and `parent_group`
-    // is B, then ancestry would be B and A.
-    // `cur_mapping` is the current_mapping for `sgroup_uses_map`
-    // `group_names` is a vec of group_names. Once we analyze a group, we should
-    // remove it from group_names
-    // `sgroups` is a vec of static groups.
-    fn update_sgroup_uses_map(
-        parent_group: &ir::Id,
-        full_group_ancestry: &mut HashSet<ir::Id>,
-        cur_mapping: &mut HashMap<ir::Id, HashSet<ir::Id>>,
-        group_names: &mut HashSet<ir::Id>,
-        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
-    ) {
-        let group_uses = Self::get_go_writes(&Self::find_static_group(
-            parent_group,
-            sgroups,
-        ));
-        for group_use in group_uses {
-            for ancestor in full_group_ancestry.iter() {
-                cur_mapping.entry(*ancestor).or_default().insert(group_use);
-            }
-            full_group_ancestry.insert(group_use);
-            Self::update_sgroup_uses_map(
-                &group_use,
-                full_group_ancestry,
-                cur_mapping,
-                group_names,
-                sgroups,
-            );
-            full_group_ancestry.remove(&group_use);
-        }
-        group_names.remove(parent_group);
-    }
-
-    /// Builds an `sgroup_uses_map`, which maps:
-    /// static group names -> all of the static groups that it triggers the go ports
-    /// of (even recursively).
-    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
-    /// Would map: A -> {B,C} and B -> {C}
-    fn build_sgroup_uses_map(
-        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
-    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
-        let mut names: HashSet<ir::Id> = sgroups
-            .iter()
-            .map(|sgroup| sgroup.borrow().name())
-            .collect();
-        let mut cur_mapping = HashMap::new();
-        while !names.is_empty() {
-            let random_group = *names.iter().next().unwrap();
-            Self::update_sgroup_uses_map(
-                &random_group,
-                &mut HashSet::from([random_group]),
-                &mut cur_mapping,
-                &mut names,
-                sgroups,
-            )
-        }
-        cur_mapping
-    }
-
     pub fn get_coloring(
         tree_objects: &Vec<FSMTree>,
         sgroups: &[ir::RRC<ir::StaticGroup>],
@@ -462,10 +332,63 @@ impl CompileStatic {
         for tree in tree_objects {
             tree.add_conflicts(&mut conflict_graph);
         }
-        // for (tree1, tree2) in tree_objects.iter().tuple_combinations() {
-
-        // }
         conflict_graph.color_greedy(None, true)
+    }
+
+    pub fn get_color_max_values(
+        coloring: &HashMap<ir::Id, ir::Id>,
+        tree_objects: &Vec<FSMTree>,
+    ) -> HashMap<ir::Id, (u64, u64)> {
+        fn get_max_num_repeats(
+            sgroup: ir::Id,
+            tree_objects: &Vec<FSMTree>,
+        ) -> u64 {
+            let mut cur_max = 1;
+            for tree in tree_objects {
+                cur_max = std::cmp::max(
+                    cur_max,
+                    tree.get_max_value(&sgroup, &(|tree| tree.num_repeats)),
+                )
+            }
+            cur_max
+        }
+        fn get_max_num_states(
+            sgroup: ir::Id,
+            tree_objects: &Vec<FSMTree>,
+        ) -> u64 {
+            let mut cur_max = 1;
+            for tree in tree_objects {
+                cur_max = std::cmp::max(
+                    cur_max,
+                    tree.get_max_value(&sgroup, &(|tree| tree.num_states)),
+                )
+            }
+            cur_max
+        }
+        let mut colors_to_sgroups: HashMap<ir::Id, Vec<ir::Id>> =
+            HashMap::new();
+        for (group_name, color) in coloring {
+            colors_to_sgroups
+                .entry(*color)
+                .or_default()
+                .push(*group_name);
+        }
+        colors_to_sgroups
+            .into_iter()
+            .map(|(name, colors_sgroups)| {
+                let max_num_states = colors_sgroups
+                    .iter()
+                    .map(|gname| get_max_num_states(*gname, tree_objects))
+                    .max()
+                    .expect("color is empty");
+                let max_num_repeats = colors_sgroups
+                    .iter()
+                    .map(|gname| get_max_num_repeats(*gname, tree_objects))
+                    .max()
+                    .expect("color is empty");
+                (name, (max_num_states, max_num_repeats))
+            })
+            .collect()
     }
 }
 
@@ -785,6 +708,7 @@ impl CompileStatic {
         static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
@@ -813,7 +737,12 @@ impl CompileStatic {
             );
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
-            fsm_tree.instantiate_fsms(builder, coloring, colors_to_fsm);
+            fsm_tree.instantiate_fsms(
+                builder,
+                coloring,
+                colors_to_max_values,
+                colors_to_fsm,
+            );
             fsm_tree.count_to_n(builder, Some(comp_go));
             fsm_tree.realize(
                 static_groups,
@@ -916,6 +845,8 @@ impl Visitor for CompileStatic {
             &sgroups,
             &mut builder.component.control.borrow_mut(),
         );
+        let colors_to_max_values =
+            Self::get_color_max_values(&coloring, &tree_objects);
         let mut colors_to_fsms: HashMap<
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
@@ -959,6 +890,7 @@ impl Visitor for CompileStatic {
                     &mut sgroups,
                     &mut group_rewrites,
                     &coloring,
+                    &colors_to_max_values,
                     &mut colors_to_fsms,
                     &mut builder,
                 )?;
@@ -966,6 +898,7 @@ impl Visitor for CompileStatic {
                 tree.instantiate_fsms(
                     &mut builder,
                     &coloring,
+                    &colors_to_max_values,
                     &mut colors_to_fsms,
                 );
                 tree.count_to_n(&mut builder, None);

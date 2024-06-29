@@ -256,18 +256,25 @@ impl FSMTree {
         &mut self,
         builder: &mut ir::Builder,
         coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
         >,
     ) {
         match self {
-            FSMTree::Tree(tree_struct) => {
-                tree_struct.instantiate_fsms(builder, coloring, colors_to_fsm)
-            }
-            FSMTree::Par(par_struct) => {
-                par_struct.instantiate_fsms(builder, coloring, colors_to_fsm)
-            }
+            FSMTree::Tree(tree_struct) => tree_struct.instantiate_fsms(
+                builder,
+                coloring,
+                colors_to_max_values,
+                colors_to_fsm,
+            ),
+            FSMTree::Par(par_struct) => par_struct.instantiate_fsms(
+                builder,
+                coloring,
+                colors_to_max_values,
+                colors_to_fsm,
+            ),
         }
     }
 
@@ -425,6 +432,16 @@ impl FSMTree {
             }
         }
     }
+
+    pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
+    where
+        F: Fn(&Tree) -> u64,
+    {
+        match self {
+            FSMTree::Tree(tree_struct) => tree_struct.get_max_value(name, f),
+            FSMTree::Par(par_struct) => par_struct.get_max_value(name, f),
+        }
+    }
 }
 
 /// Helpful for translating queries, e.g., %[2:20].
@@ -452,6 +469,7 @@ impl Tree {
         &mut self,
         builder: &mut ir::Builder,
         coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
@@ -462,19 +480,22 @@ impl Tree {
             None => {
                 let mut fsm_opt = None;
                 let mut repeat_opt = None;
-                if self.num_states != 1 {
+                let (num_states, num_repeats) = colors_to_max_values
+                    .get(color)
+                    .expect("couldn't find color");
+                if *num_states != 1 {
                     // Build parent FSM for the "root" of the tree.
                     let fsm_cell = ir::rrc(StaticFSM::from_basic_info(
-                        self.num_states,
+                        *num_states,
                         FSMEncoding::Binary, // XXX(Caleb): change this
                         builder,
                     ));
                     fsm_opt = Some(Rc::clone(&fsm_cell));
                     self.fsm_cell = Some(fsm_cell);
                 }
-                if self.num_repeats != 1 {
+                if *num_repeats != 1 {
                     let repeat_counter = ir::rrc(StaticFSM::from_basic_info(
-                        self.num_repeats,
+                        *num_repeats,
                         FSMEncoding::Binary, // XXX(Caleb): change this
                         builder,
                     ));
@@ -492,12 +513,18 @@ impl Tree {
                     None => None,
                     Some(x) => Some(Rc::clone(x)),
                 };
-                colors_to_fsm.insert(*color, (fsm_opt_new, repeat_opt_new));
+                self.fsm_cell = fsm_opt_new;
+                self.iter_count_cell = repeat_opt_new;
             }
         }
 
         for (child, _) in &mut self.children {
-            child.instantiate_fsms(builder, coloring, colors_to_fsm);
+            child.instantiate_fsms(
+                builder,
+                coloring,
+                &colors_to_max_values,
+                colors_to_fsm,
+            );
         }
     }
 
@@ -1240,6 +1267,20 @@ impl Tree {
             child.add_conflicts(conflict_graph);
         }
     }
+
+    pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
+    where
+        F: Fn(&Tree) -> u64,
+    {
+        let mut cur_max = 1;
+        if self.root.0 == name {
+            cur_max = std::cmp::max(cur_max, f(self));
+        }
+        for (child, _) in &self.children {
+            cur_max = std::cmp::max(cur_max, child.get_max_value(name, f));
+        }
+        cur_max
+    }
 }
 
 pub struct ParTree {
@@ -1254,13 +1295,19 @@ impl ParTree {
         &mut self,
         builder: &mut ir::Builder,
         coloring: &HashMap<ir::Id, ir::Id>,
+        colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
         >,
     ) {
         for (child, _) in &mut self.threads {
-            child.instantiate_fsms(builder, coloring, colors_to_fsm);
+            child.instantiate_fsms(
+                builder,
+                coloring,
+                &colors_to_max_values,
+                colors_to_fsm,
+            );
         }
     }
 
@@ -1481,6 +1528,17 @@ impl ParTree {
             thread1.add_conflicts(conflict_graph);
             thread2.add_conflicts(conflict_graph);
         }
+    }
+
+    pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
+    where
+        F: Fn(&Tree) -> u64,
+    {
+        let mut cur_max = 1;
+        for (thread, _) in &self.threads {
+            cur_max = std::cmp::max(cur_max, thread.get_max_value(name, f));
+        }
+        cur_max
     }
 }
 

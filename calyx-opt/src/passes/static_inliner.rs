@@ -1,6 +1,5 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use calyx_ir::guard;
 use calyx_ir::structure;
 use calyx_ir::LibrarySignatures;
 use ir::build_assignments;
