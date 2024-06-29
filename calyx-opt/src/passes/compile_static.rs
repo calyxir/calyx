@@ -462,6 +462,9 @@ impl CompileStatic {
         for tree in tree_objects {
             tree.add_conflicts(&mut conflict_graph);
         }
+        // for (tree1, tree2) in tree_objects.iter().tuple_combinations() {
+
+        // }
         conflict_graph.color_greedy(None, true)
     }
 }
