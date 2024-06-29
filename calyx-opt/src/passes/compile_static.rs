@@ -351,28 +351,29 @@ impl CompileStatic {
             tree.add_conflicts(&mut conflict_graph);
         }
         // Optional conflicts to improve QoR
-        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
-            let max_num_states1 =
-                Self::get_max_num_states(sgroup1.borrow().name(), tree_objects);
-            let max_num_repeats1 = Self::get_max_num_repeats(
-                sgroup1.borrow().name(),
-                tree_objects,
-            );
-            let max_num_states2 =
-                Self::get_max_num_states(sgroup2.borrow().name(), tree_objects);
-            let max_num_repeats2 = Self::get_max_num_repeats(
-                sgroup2.borrow().name(),
-                tree_objects,
-            );
-            if ((max_num_states1 == 1) != (max_num_states2 == 1))
-                || ((max_num_repeats1) != (max_num_repeats2))
-            {
-                conflict_graph.insert_conflict(
-                    &sgroup1.borrow().name(),
-                    &sgroup2.borrow().name(),
-                );
-            }
-        }
+        // for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
+        //     let max_num_states1 =
+        //         Self::get_max_num_states(sgroup1.borrow().name(), tree_objects);
+        //     let max_num_repeats1 = Self::get_max_num_repeats(
+        //         sgroup1.borrow().name(),
+        //         tree_objects,
+        //     );
+        //     let max_num_states2 =
+        //         Self::get_max_num_states(sgroup2.borrow().name(), tree_objects);
+        //     let max_num_repeats2 = Self::get_max_num_repeats(
+        //         sgroup2.borrow().name(),
+        //         tree_objects,
+        //     );
+        //     if ((max_num_states1 == 1) != (max_num_states2 == 1))
+        //         || ((max_num_repeats1) != (max_num_repeats2))
+        //     {
+        //         conflict_graph.insert_conflict(
+        //             &sgroup1.borrow().name(),
+        //             &sgroup2.borrow().name(),
+        //         );
+        //     }
+        // }
+
         conflict_graph.color_greedy(None, true)
     }
 
