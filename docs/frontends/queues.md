@@ -6,10 +6,10 @@ Because of the total order, some element of the queue is the _most favorably ran
 We can read this element using the `peek` operation.
 We can also remove this element from the queue using the `dequeue` operation, which is also known as `pop` or `remove` in some contexts.
 
-We provision three types of queues in Calyx, which follow the same interface for ease of use.
+We provision four types of queues in Calyx. The first three follow the same shared interface, while the fourth follows a slightly extended interface.
 The frontend is implemented using the [Calyx builder library][builder], and the source code is heavily commented.
 
-We first describe the shared interface and then detail the three types of queues.
+We first describe the shared interface and their associated testing harness and then detail the four types of queues.
 
 ## Shared Interface
 
@@ -19,7 +19,7 @@ Selects the operation to perform:
   - `0`: `pop`.
   - `1`: `peek`.
   - `2`: `push`.
-- Input port `value`, a 32-bit integer
+- Input port `value`, a 32-bit integer.
 The value to push.
 - Register `ans`, a 32-bit integer that is passed to the queue by reference.
 If `peek` or `pop` is selected, the queue writes the result to this register.
@@ -40,8 +40,8 @@ The Python code is in [`queue_data_gen.py`][queue_data_gen.py].
 
 #### Oracles
 Next, we have a Python module _for each kind of queue_ that reads the `.data` file, simulates the queue in Python, and dumps the expected result out in a Calyx `.expect` file.
-This Python code is aware of our [shared iterface](#shared-interface).
-The oracles are in [`fifo_oracle.py`][fifo_oracle.py], [`pifo_oracle.py`][pifo_oracle.py], and [`pifo_tree_oracle.py`][pifo_tree_oracle.py].
+This Python code is aware of our [shared interface](#shared-interface).
+The oracles are in [`fifo_oracle.py`][fifo_oracle.py], [`pifo_oracle.py`][pifo_oracle.py], [`pifo_tree_oracle.py`][pifo_tree_oracle.py], and [`binheap_oracle.py`][binheap_oracle.py].
 They all appeal to pure-Python implementations of the queues, which are found in [`queues.py`][queues.py].
 Each oracle also requires, as command line arguments, the number of operations being simulated and the queue's length.
 
@@ -123,10 +123,28 @@ Internally, our PIFO tree is implemented by leveraging the PIFO frontend.
 The PIFO frontend seeks to orchestrate two queues, which in the simple case will just be two FIFOs.
 However, it is easy to generalize those two queues: instead of being FIFOs, they can be PIFOs or even PIFO trees.
 
+## Minimum Binary Heap
+
+A binary heap is another tree-shaped data structure, where each node has at most two children.
+However, unlike the previous queues, a heap exposes an extended interface: 
+in addition to our previous input ports and reference registers, a heap has an additional input `rank`.
+The `push` operation now accepts both a `value` and its associated `rank`. 
+Consequently, a heap maintains an ordering of elements by `rank`, with the `pop` and `peek` operations removing and reading an element with minimal rank.
+
+To maintain this ordering efficiently, a heap stores `(rank, value)` pairs in each node and takes special care to uphold the following invariant:
+> **Min-Heap Property**: for any given node `C`, if `P` is a parent node of `C`, then the rank of `P` is less than or equal to the rank of `C`.
+
+This allows `peek` to be constant time and `push` and `pop` to be logarithmic in the size of the heap.
+
+Our frontend allows for the creation minimum binary heaps of any height, that operate on values and ranks of any width, in Calyx. 
+  - See [here][binheap.py] for an example heap of height four, operating on 32-bit values and 64-bit ranks.
+  - See [here][stable_binheap.py] for a thin layer over our heap that breaks rank ties via insertion order. 
 
 [builder]: ../builder/calyx-py.md
 [fifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/fifo.py
 [pifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/pifo.py
+[binheap.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/binheap/binheap.py
+[stable_binheap.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/binheap/stable_binheap.py
 [pifo_tree.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/pifo_tree.py
 [sivaraman16]: https://dl.acm.org/doi/10.1145/2934872.2934899
 [mohan23]: https://dl.acm.org/doi/10.1145/3622845
@@ -135,6 +153,7 @@ However, it is easy to generalize those two queues: instead of being FIFOs, they
 [fifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/fifo_oracle.py
 [pifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/pifo_oracle.py
 [pifo_tree_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/pifo_tree_oracle.py
+[binheap_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/binheap_oracle.py
 [gen_queue_data_expect.sh]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/gen_queue_data_expect.sh
 [queue_call.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queue_call.py
 [runt-queues]: https://github.com/calyxir/calyx/blob/a4c2442675d3419be6d2f5cf912aa3f804b3c4ab/runt.toml#L131-L144
