@@ -19,7 +19,7 @@ members = [
     "tools/cider-data-converter",
     "tools/calyx-pass-explorer",
     "tools/yxi",
-    "tools/calyx-writer",
+    "tools/calyx-writer", "tools/tb",
 ]
 exclude = ["site"]
 

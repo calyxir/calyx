@@ -546,13 +546,13 @@ impl<W: Write> Emitter<W> {
         }
     }
 
-    /// Emit a Ninja variable declaration for `name` based on the configured value for `key`.
+    /// Emit a Ninja variable declaration that sets `name` to the value bound by `key` in the config file.
     pub fn config_var(&mut self, name: &str, key: &str) -> EmitResult {
         self.var(name, &self.config_val(key)?)?;
         Ok(())
     }
 
-    /// Emit a Ninja variable declaration for `name` based on the configured value for `key`, or a
+    /// Emit a Ninja variable declaration that sets `name` to the value bound by `key` in the config file, or a
     /// default value if it's missing.
     pub fn config_var_or(
         &mut self,
@@ -563,7 +563,7 @@ impl<W: Write> Emitter<W> {
         self.var(name, &self.config_or(key, default))
     }
 
-    /// Emit a Ninja variable declaration.
+    /// Emit a Ninja variable declaration `name = value`.
     pub fn var(&mut self, name: &str, value: &str) -> std::io::Result<()> {
         writeln!(self.out, "{} = {}", name, value)
     }
