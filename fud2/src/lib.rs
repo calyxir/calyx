@@ -83,6 +83,17 @@ fn setup_mrxl(
     (mrxl, mrxl_setup)
 }
 
+fn setup_tb(bld: &mut DriverBuilder, calyx: StateRef) {
+    let tb = bld.state("tb", &[]);
+    let tb_setup = bld.setup("Testbench executable", |e| {
+        e.var("calyx-tb-exe", "calyx-tb")?;
+        e.config_var("calyx-tb-tests", "tb.tests")?;
+        e.rule("calyx-to-tb", "$calyx-tb-exe ")?;
+        Ok(())
+    });
+    bld.rule(&[tb_setup], calyx, tb, "calyx-to-tb");
+}
+
 pub fn build_driver(bld: &mut DriverBuilder) {
     // The verilog state
     let verilog = bld.state("verilog", &["sv", "v"]);
@@ -92,6 +103,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     setup_dahlia(bld, calyx);
     // MrXL.
     setup_mrxl(bld, calyx);
+
+    setup_tb(bld, calyx);
 
     // Shared machinery for RTL simulators.
     let dat = bld.state("dat", &["json"]);
