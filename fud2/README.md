@@ -25,3 +25,12 @@ base = "<path to calyx repo>"
 ```
 
 [fud]: https://docs.calyxir.org/fud/index.html
+
+### CLI
+
+- You can pass/override config variables by passing one or more options of the form `--set variable=value`.
+
+### Writing a new state
+
+Given a `bld: &mut DriverBuilder`, call `bld.state`, and define appropriate rules via `bld.rule`. 
+Each rule may require one or more setups; a setup can be obtained through `bld.setup` and may in addition define variables (including those mapped to config file keys) or rules.

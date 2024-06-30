@@ -1,0 +1,17 @@
+component main() -> () {
+  cells {}
+  wires {
+    static<1> group a {
+
+    }
+  }
+  control {
+    seq {
+        seq {
+            seq {
+                a;
+            }
+        }
+    }
+  }
+}
