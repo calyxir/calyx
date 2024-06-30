@@ -86,9 +86,12 @@ fn setup_mrxl(
 fn setup_tb(bld: &mut DriverBuilder, calyx: StateRef) {
     let tb = bld.state("tb", &[]);
     let tb_setup = bld.setup("Testbench executable", |e| {
-        e.var("calyx-tb-exe", "calyx-tb")?;
-        e.config_var("calyx-tb-tests", "tb.tests")?;
-        e.rule("calyx-to-tb", "$calyx-tb-exe ")?;
+        e.var("calyx-tb-exe", "tb")?;
+        e.config_var("calyx-tb-test", "tb.test")?; // todo multi input op
+        e.rule(
+            "calyx-to-tb",
+            "$calyx-tb-exe $in --test $calyx-tb-test --using cocotb",
+        )?;
         Ok(())
     });
     bld.rule(&[tb_setup], calyx, tb, "calyx-to-tb");
