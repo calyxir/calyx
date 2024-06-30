@@ -83,7 +83,7 @@ fn setup_mrxl(
     (mrxl, mrxl_setup)
 }
 
-fn setup_tb(bld: &mut DriverBuilder, calyx: StateRef) {
+fn setup_tb(bld: &mut DriverBuilder, verilog: StateRef) {
     let tb = bld.state("tb", &[]);
     let tb_setup = bld.setup("Testbench executable", |e| {
         e.var("calyx-tb-exe", "tb")?;
@@ -94,7 +94,7 @@ fn setup_tb(bld: &mut DriverBuilder, calyx: StateRef) {
         )?;
         Ok(())
     });
-    bld.rule(&[tb_setup], calyx, tb, "calyx-to-tb");
+    bld.rule(&[tb_setup], verilog, tb, "calyx-to-tb");
 }
 
 pub fn build_driver(bld: &mut DriverBuilder) {
@@ -107,7 +107,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     // MrXL.
     setup_mrxl(bld, calyx);
 
-    setup_tb(bld, calyx);
+    setup_tb(bld, verilog);
 
     // Shared machinery for RTL simulators.
     let dat = bld.state("dat", &["json"]);
