@@ -132,13 +132,24 @@ The `push` operation now accepts both a `value` and its associated `rank`.
 Consequently, a heap maintains an ordering of elements by `rank`, with the `pop` and `peek` operations removing and reading an element with minimal rank.
 
 To maintain this ordering efficiently, a heap stores `(rank, value)` pairs in each node and takes special care to uphold the following invariant:
-> **Min-Heap Property**: for any given node `C`, if `P` is a parent node of `C`, then the rank of `P` is less than or equal to the rank of `C`.
+> **Min-Heap Property**: for any given node `C`, if `P` is a parent of `C`, then the rank of `P` is less than or equal to the rank of `C`.
 
 This allows `peek` to be constant time and `push` and `pop` to be logarithmic in the size of the heap.
 
-Our frontend allows for the creation minimum binary heaps of any height, that operate on values and ranks of any width, in Calyx. 
-  - See [here][binheap.py] for an example heap of height four, operating on 32-bit values and 64-bit ranks.
-  - See [here][stable_binheap.py] for a thin layer over our heap that breaks rank ties via insertion order. 
+Our frontend allows for the creation of minimum binary heaps in Calyx; the source code is available in [`binheap.py`][binheap.py].
+
+One quirk of our heap is its ambiguous behavior in the case of rank ties. 
+More specifically, if values `a` and then later `b` are pushed to the heap with the same rank, it's unclear which will be popped first. 
+Often, it's desirable to break such ties in FIFO order: that is we'd like a guarantee that `a` will be popped first. 
+We provide a thin layer over our heap that precisely this! 
+
+`stable_binheap` is a heap accepting 32-bit ranks and values. 
+It uses a counter `i` and a binary heap, accepting 64-bit ranks and 32-bit values, `below`.
+- To push a pair `(r, v)` to `stable_binheap`, we push `(r << 32 + i, v)` to `below` and increment `i`
+- To pop `stable_binheap`, we pop `below` 
+- To peek `stable_binheap`, we peek `below`
+
+The source code is available in [`stable_binheap.py`][stable_binheap.py].
 
 [builder]: ../builder/calyx-py.md
 [fifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/fifo.py
