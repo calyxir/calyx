@@ -1,5 +1,6 @@
+use makemake::makefile::Makefile;
+
 use super::Testbench;
-use crate::gen_makefile::Makefile;
 use std::{fs, io::Write, path::PathBuf};
 
 /// v1.8.1 cocotb
