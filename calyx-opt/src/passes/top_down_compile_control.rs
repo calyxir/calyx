@@ -517,7 +517,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                         let num_registers: u64 =
                             fsms.len().try_into().unwrap();
                         let reg_to_query : usize = (state * num_registers
-                            / (fsm_rep.last_state + 1)).try_into().unwrap();
+                            / (fsm_rep.last_state)).try_into().unwrap();
 
                         (
                             fsms.get(reg_to_query).expect("the register at this index does not exist"),
@@ -1068,8 +1068,8 @@ pub struct TopDownCompileControl {
     fsm_groups: HashSet<ProfilingInfo>,
     /// How many states the dynamic FSM must have before picking binary over one-hot
     one_hot_cutoff: u64,
-    /// Dictates the spread of the FSM across registers
-    spread: RegisterSpread,
+    /// Number of states the dynamic FSM must have before picking duplicate over single register
+    duplicate_cutoff: u64,
 }
 
 impl TopDownCompileControl {
@@ -1091,7 +1091,12 @@ impl TopDownCompileControl {
                     (false, false) => RegisterEncoding::Binary,
                 }
             },
-            spread: self.spread,
+            spread: {
+                match (last_state + 1) <= self.duplicate_cutoff {
+                    true => RegisterSpread::Single,
+                    false => RegisterSpread::Duplicate,
+                }
+            },
             last_state,
         }
     }
@@ -1112,13 +1117,9 @@ impl ConstructVisitor for TopDownCompileControl {
             one_hot_cutoff: opts[&"one-hot-cutoff"]
                 .pos_num()
                 .expect("requires non-negative OHE cutoff parameter"),
-            spread: {
-                match opts[&"spread"].string().as_str() {
-                    "single" => RegisterSpread::Single,
-                    "duplicate" => RegisterSpread::Duplicate,
-                    _ => panic!("invalid fsm representation option"),
-                }
-            },
+            duplicate_cutoff: opts[&"duplicate-cutoff"]
+                .pos_num()
+                .expect("requires non-negative duplicate cutoff parameter"),
         })
     }
 
@@ -1163,12 +1164,11 @@ impl Named for TopDownCompileControl {
                 PassOpt::parse_num,
             ),
             PassOpt::new(
-                "spread",
-                "'single': FSMs represented by one register; 
-                'duplicate': features several identical FSMs to control the schedule; 
-                'split' can spread the fsm encoding across several registers", 
-                ParseVal::String("single".to_string()), PassOpt::parse_string
-            )
+                "duplicate-cutoff",
+                "FSM state threshold above which the fsm is split into two identical registers",
+                ParseVal::Num(i64::MAX),
+                PassOpt::parse_num,
+            ),
         ]
     }
 }
