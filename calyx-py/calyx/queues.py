@@ -221,12 +221,8 @@ class Pieo:
             self.data.insert(0, (val, time, rank))
 
         else:
-            for x in range(len(self.data)):
-                if rank <= self.data[x][2]:
-                    continue
-                else:
-                    self.data.insert(x, (val, time, rank))
-                    break
+            self.binsert(val, time, rank, 0, len(self.data))
+        # print(self.data)
      
     def query(self, time=0, val=None, remove=False, return_rank=False) -> Optional[int]:
         """Queries a PIEO. Returns matching value and rank.
@@ -242,6 +238,7 @@ class Pieo:
         
         if val == None:
             for x in range(len(self.data)):
+                # print(self.data[x])
                 if self.ripe(self.data[x], time):
                     if return_rank:
                         return self.data.pop(x) if remove else self.data[x]
@@ -263,6 +260,9 @@ class Pieo:
 
     def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Peeks a PIEO. See query() for specifics."""
+
+        # print("PEEKING!")
+        # print(time)
         return self.query(time, val, False, return_rank)
 
 @dataclass
