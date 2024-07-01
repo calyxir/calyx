@@ -1,9 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Failed to parse `tests/errors/parser/invalid-width4.futil`:  --> 4:12
-  |
-4 |     r.in = 2'd4;
-  |            ^--^
-  |
-  = Cannot represent given literal '4' in 2 bits
+Error: tests/errors/parser/invalid-width4.futil
+4 |    r.in = 2'd4;
+  |           ^^^^ Parse error
+Cannot represent given literal '4' in 2 bits

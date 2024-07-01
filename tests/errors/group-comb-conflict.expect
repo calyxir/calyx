@@ -1,10 +1,12 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Structure: Obviously conflicting assignments found:
-14 |      w1.in = r.out;
+Error: tests/errors/group-comb-conflict.futil
 11 |      w1.in = 32'd10;
-
-tests/errors/group-comb-conflict.futil
+   |      ^^^^^^^^^^^^^^^ Malformed Structure: Obviously conflicting assignments found
+...
+14 |      w1.in = r.out;
+   |      ^^^^^^^^^^^^^^ `w1.in` is also written to here
+...
 22 |      do_r;
-   |      ^^^^^ Assigments activated by group enable
+   |      ^^^^^ Assignments activated by group enable, causing the conflict

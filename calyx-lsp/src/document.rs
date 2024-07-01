@@ -66,12 +66,12 @@ pub enum Context {
     Control,
 }
 
-/// Transform an iterator of `treesit::Node` to `Range`.
-pub trait NodeRangesIter<'a>: Iterator<Item = ts::Node<'a>> + Sized {
-    fn ranges(self) -> impl Iterator<Item = Range> {
-        self.map(Range::from)
-    }
-}
+// /// Transform an iterator of `treesit::Node` to `Range`.
+// pub trait NodeRangesIter<'a>: Iterator<Item = ts::Node<'a>> + Sized {
+//     fn ranges(self) -> impl Iterator<Item = Range> {
+//         self.map(Range::from)
+//     }
+// }
 
 impl Document {
     /// Create an empty document for `url`.
@@ -124,6 +124,17 @@ impl Document {
         } else {
             None
         }
+    }
+
+    pub fn bytes_to_range(
+        &self,
+        start_offset: usize,
+        end_offset: usize,
+    ) -> Option<Range> {
+        self.byte_to_point(start_offset).and_then(|start| {
+            self.byte_to_point(end_offset)
+                .map(|end| Range::new(start, end))
+        })
     }
 
     /// Compile `pattern` into a treesit query, run the query,

@@ -1,9 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Failed to parse `tests/errors/multiple-attr-vals.futil`:  --> 5:5
-  |
-5 |     @external(1) @external(2) r = std_reg(32);
-  |     ^-----------------------^
-  |
-  = Malformed Structure: Multiple entries for attribute: external
+Error: tests/errors/multiple-attr-vals.futil
+5 |    @external(1) @external(2) r = std_reg(32);
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^ Parse error
+Malformed Structure: Multiple entries for attribute: external

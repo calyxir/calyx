@@ -1,4 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: [Papercut] Only reads performed on memory `mem'. Synthesis tools will remove this memory. Add @external to cell to turn this into an interface memory.
+Error: tests/errors/mem-only-reads.futil
+5 |    mem = comb_mem_d1(32, 4, 4);
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ [Papercut] Only reads performed on memory `mem'. Synthesis tools will remove this memory. Add @external to cell to turn this into an interface memory.

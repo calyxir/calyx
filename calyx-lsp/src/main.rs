@@ -12,7 +12,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
-use convert::{Point, Range};
+use convert::Point;
 use diagnostic::Diagnostic;
 use document::Document;
 use goto_definition::DefinitionProvider;
@@ -127,7 +127,6 @@ impl Backend {
 
     /// Publish diagnostics for document `url`.
     async fn publish_diagnostics(&self, url: &lspt::Url) {
-        // TODO: factor the bulk of this method somewhere else
         let lib_path: PathBuf =
             self.config.read().unwrap().calyx_lsp.library_paths[0]
                 .to_string()
@@ -140,24 +139,7 @@ impl Backend {
                         &lib_path,
                     )
                     .into_iter()
-                    .filter_map(|diag| {
-                        doc.byte_to_point(diag.pos_start).and_then(|s| {
-                            doc.byte_to_point(diag.pos_end)
-                                .map(|e| (Range::new(s, e), diag.msg))
-                        })
-                    })
-                    .map(|(range, message)| lspt::Diagnostic {
-                        range: range.into(),
-                        severity: Some(lspt::DiagnosticSeverity::ERROR),
-                        code: None,
-                        code_description: None,
-                        source: Some("calyx".to_string()),
-                        message,
-                        related_information: None,
-                        tags: None,
-                        data: None,
-                    })
-                    .inspect(|diag| log::stdout!("{diag:#?}"))
+                    .flat_map(|diag| diag.into_lspt_diagnostics(doc))
                     .collect(),
                 )
             })

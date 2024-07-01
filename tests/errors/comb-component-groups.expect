@@ -4,3 +4,7 @@
 Error: tests/errors/comb-component-groups.futil
 8 |    comb group g {
   |    ^^^^^^^^^^^^^^ Malformed Structure: Component `custom_lt` is marked combinational but contains a group `g`
+
+tests/errors/comb-component-groups.futil
+8 |    comb group g {
+  |    ^^^^^^^^^^^^^^ Unused combinational group `g'

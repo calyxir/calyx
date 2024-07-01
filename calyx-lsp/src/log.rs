@@ -16,7 +16,7 @@ impl Debug {
             let mut file = OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open(format!("/tmp/calyx-lsp-debug.log"))
+                .open("/tmp/calyx-lsp-debug.log")
                 .unwrap();
             writeln!(file, "{}", msg.as_ref()).expect("Unable to write file");
         }
@@ -33,7 +33,7 @@ impl Debug {
                 .create(true)
                 .write(true)
                 .truncate(true)
-                .open(format!("/tmp/calyx-lsp-debug.log"))
+                .open("/tmp/calyx-lsp-debug.log")
                 .unwrap();
             writeln!(file, "{} {}", msg.as_ref(), Local::now().to_rfc2822())
                 .expect("Unable to write file");
@@ -60,7 +60,7 @@ impl Debug {
 
 macro_rules! stdout {
     ($($t:tt)*) => {{
-        log::Debug::stdout(format!($($t)*))
+        crate::Debug::stdout(format!($($t)*))
     }};
 }
 

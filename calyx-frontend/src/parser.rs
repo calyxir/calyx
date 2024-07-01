@@ -6,7 +6,7 @@ use super::ast::{
 };
 use super::Attributes;
 use crate::{Attribute, Direction, PortDef, Primitive, Width};
-use calyx_utils::{self, CalyxResult, Id};
+use calyx_utils::{self, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
@@ -66,25 +66,16 @@ impl CalyxParser {
             CalyxParser::parse_with_userdata(Rule::file, content, user_data)
                 .map_err(|e| e.with_path(&path.to_string_lossy()))
                 .map_err(|e| {
-                    calyx_utils::Error::misc(format!(
-                        "Failed to parse `{}`: {err}",
-                        path.to_string_lossy(),
-                        err = e
-                    ))
+                    calyx_utils::Error::parse_error(e.variant.message())
+                        .with_pos(&Self::error_span(&e, file))
                 })?;
         let input = inputs.single().map_err(|e| {
-            calyx_utils::Error::misc(format!(
-                "Failed to parse `{}`: {err}",
-                path.to_string_lossy(),
-                err = e
-            ))
+            calyx_utils::Error::parse_error(e.variant.message())
+                .with_pos(&Self::error_span(&e, file))
         })?;
         let out = CalyxParser::file(input).map_err(|e| {
-            calyx_utils::Error::misc(format!(
-                "Failed to parse `{}`: {err}",
-                path.to_string_lossy(),
-                err = e
-            ))
+            calyx_utils::Error::parse_error(e.variant.message())
+                .with_pos(&Self::error_span(&e, file))
         })?;
         log::info!(
             "Parsed `{}` in {}ms",
@@ -110,15 +101,16 @@ impl CalyxParser {
         let inputs =
             CalyxParser::parse_with_userdata(Rule::file, contents, user_data)
                 .map_err(|e| {
-                calyx_utils::Error::misc(
-                    format!("Failed to parse buffer: {e}",),
-                )
+                calyx_utils::Error::parse_error(e.variant.message())
+                    .with_pos(&Self::error_span(&e, file))
             })?;
         let input = inputs.single().map_err(|e| {
-            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}",))
+            calyx_utils::Error::parse_error(e.variant.message())
+                .with_pos(&Self::error_span(&e, file))
         })?;
         let out = CalyxParser::file(input).map_err(|e| {
-            calyx_utils::Error::misc(format!("Failed to parse buffer: {e}",))
+            calyx_utils::Error::parse_error(e.variant.message())
+                .with_pos(&Self::error_span(&e, file))
         })?;
         Ok(out)
     }
@@ -131,6 +123,15 @@ impl CalyxParser {
             sp.start(),
             sp.end(),
         );
+        GPosIdx(pos)
+    }
+
+    fn error_span(error: &pest::error::Error<Rule>, file: FileIdx) -> GPosIdx {
+        let (start, end) = match error.location {
+            pest::error::InputLocation::Pos(off) => (off, off + 1),
+            pest::error::InputLocation::Span((start, end)) => (start, end),
+        };
+        let pos = GlobalPositionTable::as_mut().add_pos(file, start, end);
         GPosIdx(pos)
     }
 
@@ -188,7 +189,7 @@ impl CalyxParser {
 
 #[allow(clippy::large_enum_variant)]
 enum ExtOrComp {
-    Ext((Option<String>, Vec<Primitive>)),
+    Ext((Option<PosString>, Vec<Primitive>)),
     Comp(ComponentDef),
     PrimInline(Primitive),
 }
@@ -350,10 +351,11 @@ impl CalyxParser {
         Ok(input.as_str())
     }
 
-    fn string_lit(input: Node) -> ParseResult<String> {
+    fn string_lit(input: Node) -> ParseResult<PosString> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [char(c)..] => c.collect::<Vec<_>>().join("")
+            [char(c)..] => PosString::new(c.collect::<Vec<_>>().join(""), span)
         ))
     }
 
@@ -361,7 +363,7 @@ impl CalyxParser {
     fn attribute(input: Node) -> ParseResult<(Attribute, u64)> {
         match_nodes!(
             input.clone().into_children();
-            [string_lit(key), bitwidth(num)] => Attribute::from_str(&key).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
+            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
         )
     }
     fn attributes(input: Node) -> ParseResult<Attributes> {
@@ -1199,14 +1201,14 @@ impl CalyxParser {
         )
     }
 
-    fn imports(input: Node) -> ParseResult<Vec<String>> {
+    fn imports(input: Node) -> ParseResult<Vec<PosString>> {
         Ok(match_nodes!(
             input.into_children();
             [string_lit(path)..] => path.collect()
         ))
     }
 
-    fn ext(input: Node) -> ParseResult<(Option<String>, Vec<Primitive>)> {
+    fn ext(input: Node) -> ParseResult<(Option<PosString>, Vec<Primitive>)> {
         Ok(match_nodes!(
             input.into_children();
             [string_lit(file), primitive(prims)..] => (Some(file), prims.collect())

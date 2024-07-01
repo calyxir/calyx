@@ -1,7 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-[WARN  calyx_opt::passes::well_formed] tests/errors/comb-port-in-condition.futil
+[WARN  well-formed] tests/errors/comb-port-in-condition.futil
     9 |    if le.out { seq {} }
       |    ^^^^^^^^^^^^^^^^^^^^ If statement has no comb group and its condition port le.out is unstable
 Error: tests/errors/comb-port-in-condition.futil

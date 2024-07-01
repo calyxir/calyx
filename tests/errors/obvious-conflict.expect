@@ -1,7 +1,9 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Structure: Obviously conflicting assignments found:
-11 |    r.in = w1.out;
+Error: tests/errors/obvious-conflict.futil
 12 |    r.in = w2.out;
-
+   |    ^^^^^^^^^^^^^^ Malformed Structure: Obviously conflicting assignments found
+...
+11 |    r.in = w1.out;
+   |    ^^^^^^^^^^^^^^ `r.in` is also written to here

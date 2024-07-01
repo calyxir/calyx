@@ -2,18 +2,18 @@
 use super::parser;
 use crate::{Attributes, PortDef, Primitive};
 use atty::Stream;
-use calyx_utils::{CalyxResult, Error, GPosIdx, Id};
+use calyx_utils::{CalyxResult, Error, GPosIdx, Id, PosString};
 use std::{num::NonZeroU64, path::PathBuf};
 
 /// Corresponds to an individual Calyx file.
 #[derive(Debug)]
 pub struct NamespaceDef {
     /// Path to extern files.
-    pub imports: Vec<String>,
+    pub imports: Vec<PosString>,
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
-    pub externs: Vec<(Option<String>, Vec<Primitive>)>,
+    pub externs: Vec<(Option<PosString>, Vec<Primitive>)>,
     /// Optional opaque metadata
     pub metadata: Option<String>,
 }

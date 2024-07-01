@@ -184,14 +184,13 @@ impl GPosIdx {
         (buf, out_idx, out_line)
     }
 
-    /// Format this position with a the error message `err_msg`
-    pub fn format<S: AsRef<str>>(&self, err_msg: S) -> String {
+    /// Format this position with the error message `err_msg`
+    pub fn format_raw<S: AsRef<str>>(&self, err_msg: S) -> String {
         let table = GlobalPositionTable::as_ref();
         let pos_d = table.get_pos(self.0);
-        let name = &table.get_file_data(pos_d.file).name;
 
         let (lines, pos, linum) = self.get_lines();
-        let mut buf = name.to_string();
+        let mut buf = String::new();
 
         let l = lines[0];
         let linum_text = format!("{} ", linum);
@@ -201,7 +200,6 @@ impl GPosIdx {
             l.len() - (pos_d.start - pos),
         ));
         let space: String = " ".repeat(pos_d.start - pos);
-        writeln!(buf).unwrap();
         writeln!(buf, "{}|{}", linum_text, l).unwrap();
         write!(
             buf,
@@ -215,6 +213,18 @@ impl GPosIdx {
         buf
     }
 
+    /// Format this position with filename header and the error message `err_msg`
+    pub fn format<S: AsRef<str>>(&self, err_msg: S) -> String {
+        let table = GlobalPositionTable::as_ref();
+        let pos_d = table.get_pos(self.0);
+        let name = &table.get_file_data(pos_d.file).name;
+
+        let mut buf = name.to_string();
+        writeln!(buf).unwrap();
+        write!(buf, "{}", self.format_raw(err_msg)).unwrap();
+        buf
+    }
+
     pub fn get_location(&self) -> (&str, usize, usize) {
         let table = GlobalPositionTable::as_ref();
         let pos_d = table.get_pos(self.0);
@@ -222,7 +232,7 @@ impl GPosIdx {
         (name, pos_d.start, pos_d.end)
     }
 
-    /// Visualizes the span without any message or mkaring
+    /// Visualizes the span without any message or marking
     pub fn show(&self) -> String {
         let (lines, _, linum) = self.get_lines();
         let l = lines[0];
@@ -235,4 +245,10 @@ impl GPosIdx {
 pub trait WithPos {
     /// Copy the span associated with this node.
     fn copy_span(&self) -> GPosIdx;
+}
+
+impl WithPos for GPosIdx {
+    fn copy_span(&self) -> GPosIdx {
+        *self
+    }
 }
