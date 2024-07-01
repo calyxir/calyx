@@ -140,12 +140,12 @@ impl Driver {
         };
 
         // make sure we have correct input/output filenames and mark if we read from stdio
-        if req.start_state.contains(&state_ref)
+        if req.start_states.contains(&state_ref)
             && !used_as_input.contains(&state_ref)
         {
             used_as_input.insert(state_ref);
-            let idx = req.start_state.partition_point(|&r| r == state_ref) - 1;
-            if let Some(start_file) = req.start_file.get(idx) {
+            let idx = req.start_states.partition_point(|&r| r == state_ref) - 1;
+            if let Some(start_file) = req.start_files.get(idx) {
                 return IO::File(utils::relative_path(
                     start_file,
                     &req.workdir,
@@ -165,9 +165,9 @@ impl Driver {
             }
         }
 
-        if req.end_state.contains(&state_ref) {
-            let idx = req.end_state.partition_point(|&r| r == state_ref) - 1;
-            if let Some(end_file) = req.end_file.get(idx) {
+        if req.end_states.contains(&state_ref) {
+            let idx = req.end_states.partition_point(|&r| r == state_ref) - 1;
+            if let Some(end_file) = req.end_files.get(idx) {
                 return IO::File(utils::relative_path(end_file, &req.workdir));
             } else {
                 return IO::StdIO(
@@ -203,7 +203,7 @@ impl Driver {
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
         let path =
-            self.find_path(&req.start_state, &req.end_state, &req.through)?;
+            self.find_path(&req.start_states, &req.end_states, &req.through)?;
 
         // Generate filenames for each step.
         let mut used_as_input = HashSet::new();
@@ -230,7 +230,7 @@ impl Driver {
                             &mut used_as_input,
                         );
                         if used_states.contains(&state)
-                            && req.end_state.contains(&state)
+                            && req.end_states.contains(&state)
                         {
                             results.push(name.clone());
                         }
@@ -534,12 +534,26 @@ impl DriverBuilder {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, Clone)]
 pub enum IO {
-    // we order these so when they are sorted, StdIO comes first
-    // the u32 is a rank used to know which files should be read from stdin first
     StdIO(usize, Utf8PathBuf),
     File(Utf8PathBuf),
+}
+
+impl IO {
+    /// Returns the filename of the file `self` represents
+    pub fn filename(&self) -> &Utf8PathBuf {
+        match self {
+            Self::StdIO(_, p) => p,
+            Self::File(p) => p,
+        }
+    }
+}
+
+impl Display for IO {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.filename())
+    }
 }
 
 #[derive(Debug)]
@@ -552,4 +566,46 @@ pub struct Plan {
 
     /// The directory that the build will happen in.
     pub workdir: Utf8PathBuf,
+}
+
+impl Plan {
+    /// Returns the filenames of temperary files which will be read from stdin.
+    /// The vector is ordered according to the order states were specified by the user.
+    pub fn stdin_files(&self) -> Vec<&Utf8PathBuf> {
+        let mut stdin_files: Vec<_> = self
+            .steps
+            .iter()
+            .flat_map(|step| {
+                step.1.iter().filter_map(|io| match io {
+                    IO::StdIO(rank, filename) => Some((*rank, filename)),
+                    IO::File(_) => None,
+                })
+            })
+            .collect();
+        stdin_files.sort();
+        stdin_files
+            .iter()
+            .map(|&(_, filename)| filename)
+            .collect::<Vec<_>>()
+    }
+
+    /// Returns the filenames of temperary files which will be written to stdout.
+    /// The vector is ordered according to the order states were specified by the user.
+    pub fn stdout_files(&self) -> Vec<&Utf8PathBuf> {
+        let mut stdout_files: Vec<_> = self
+            .steps
+            .iter()
+            .flat_map(|step| {
+                step.2.iter().filter_map(|io| match io {
+                    IO::StdIO(rank, filename) => Some((rank, filename)),
+                    IO::File(_) => None,
+                })
+            })
+            .collect();
+        stdout_files.sort();
+        stdout_files
+            .iter()
+            .map(|&(_, filename)| filename)
+            .collect::<Vec<_>>()
+    }
 }

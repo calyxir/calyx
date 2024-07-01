@@ -1,5 +1,5 @@
 use crate::config;
-use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef, IO};
+use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
 use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
 use itertools::Itertools;
@@ -154,18 +154,12 @@ impl<'a> Run<'a> {
                 self.driver.ops[op].name,
                 files_in
                     .into_iter()
-                    .map(|f| match f {
-                        IO::StdIO(_, p) => p.to_string(),
-                        IO::File(p) => p.to_string(),
-                    })
+                    .map(|f| f.to_string())
                     .collect::<Vec<_>>()
                     .join(", "),
                 files_out
                     .into_iter()
-                    .map(|f| match f {
-                        IO::StdIO(_, p) => p.to_string(),
-                        IO::File(p) => p.to_string(),
-                    })
+                    .map(|f| f.to_string())
                     .collect::<Vec<_>>()
                     .join(", "),
             );
@@ -184,17 +178,11 @@ impl<'a> Run<'a> {
         for (op_ref, files_in, files_out) in &self.plan.steps {
             let op = &self.driver.ops[*op_ref];
             for (s, f) in op.input.iter().zip(files_in.iter()) {
-                let filename = match f {
-                    IO::StdIO(_, p) => p,
-                    IO::File(p) => p,
-                };
+                let filename = f.to_string();
                 states.insert(*s, filename.to_string());
             }
             for (s, f) in op.output.iter().zip(files_out.iter()) {
-                let filename = match f {
-                    IO::StdIO(_, p) => p,
-                    IO::File(p) => p,
-                };
+                let filename = format!("{f}");
                 states.insert(*s, filename.to_string());
             }
             ops.insert(*op_ref);
@@ -250,17 +238,8 @@ impl<'a> Run<'a> {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 
-        let mut stdin_files = vec![];
-        for step in &self.plan.steps {
-            for io in &step.1 {
-                if let IO::StdIO(rank, filename) = io {
-                    stdin_files.push((rank, filename));
-                }
-            }
-        }
-        stdin_files.sort();
-
-        for (_, filename) in stdin_files {
+        //Capture stdin.
+        for filename in self.plan.stdin_files() {
             let stdin_file =
                 std::fs::File::create(self.plan.workdir.join(filename))?;
             std::io::copy(
@@ -284,18 +263,9 @@ impl<'a> Run<'a> {
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
         let status = cmd.status()?;
 
+        // Emit to stdout, only when Ninja succeeded.
         if status.success() {
-            let mut stdout_files = vec![];
-            for step in &self.plan.steps {
-                for io in &step.2 {
-                    if let IO::StdIO(rank, filename) = io {
-                        stdout_files.push((rank, filename));
-                    }
-                }
-            }
-            stdout_files.sort();
-
-            for (_, filename) in stdout_files {
+            for filename in self.plan.stdout_files() {
                 let stdout_files =
                     std::fs::File::open(self.plan.workdir.join(filename))?;
                 std::io::copy(
@@ -342,18 +312,12 @@ impl<'a> Run<'a> {
                 &mut emitter,
                 in_files
                     .iter()
-                    .map(|io| match io {
-                        IO::StdIO(_, filename) => filename.as_str(),
-                        IO::File(filename) => filename.as_str(),
-                    })
+                    .map(|io| io.filename().as_str())
                     .collect::<Vec<_>>()
                     .as_slice(),
                 out_files
                     .iter()
-                    .map(|io| match io {
-                        IO::StdIO(_, filename) => filename.as_str(),
-                        IO::File(filename) => filename.as_str(),
-                    })
+                    .map(|io| io.filename().as_str())
                     .collect::<Vec<_>>()
                     .as_slice(),
             )?;
@@ -362,11 +326,7 @@ impl<'a> Run<'a> {
 
         // Mark the last file as the default target.
         for result in &self.plan.results {
-            let p = match result {
-                IO::StdIO(_, p) => p,
-                IO::File(p) => p,
-            };
-            writeln!(emitter.out, "default {}", p)?;
+            writeln!(emitter.out, "default {}", result.filename())?;
         }
 
         Ok(())

@@ -97,11 +97,15 @@ struct FakeArgs {
     #[argh(option, short = 'o')]
     output: Vec<Utf8PathBuf>,
 
-    /// the state to start from
+    /// the states to start from.
+    /// The ith state is applied to the ith input file.
+    /// If more states are specified than files, files for these states are read from stdin.
     #[argh(option)]
     from: Vec<String>,
 
     /// the state to produce
+    /// The ith state is applied to the ith output file.
+    /// If more states are specified than files, files for these states are written to stdout
     #[argh(option)]
     to: Vec<String>,
 
@@ -134,47 +138,57 @@ struct FakeArgs {
     pub log_level: log::LevelFilter,
 }
 
-fn from_state(
+fn get_states_with_errors(
+    driver: &Driver,
+    explicit_states: &[String],
+    files: &[Utf8PathBuf],
+    unknown_state: &str,
+    uninferable_file: &str,
+    no_states: &str,
+) -> anyhow::Result<Vec<StateRef>> {
+    let explicit_states = explicit_states.iter().map(|state_str| {
+        driver
+            .get_state(state_str)
+            .ok_or(anyhow!("{unknown_state}"))
+    });
+    let inferred_states =
+        files.iter().skip(explicit_states.len()).map(|input_str| {
+            driver
+                .guess_state(input_str)
+                .ok_or(anyhow!("{uninferable_file}"))
+        });
+    let states = explicit_states
+        .chain(inferred_states)
+        .collect::<Result<Vec<_>, _>>()?;
+    if states.is_empty() {
+        bail!("{no_states}");
+    }
+    Ok(states)
+}
+
+fn from_states(
     driver: &Driver,
     args: &FakeArgs,
 ) -> anyhow::Result<Vec<StateRef>> {
-    let mut res = vec![];
-    for state_str in &args.from {
-        let state = driver
-            .get_state(state_str)
-            .ok_or(anyhow!("unknown --from state"))?;
-        res.push(state);
-    }
-    for input_str in args.input.iter().skip(args.from.len()) {
-        let input = driver
-            .guess_state(input_str)
-            .ok_or(anyhow!("could not infer input state"))?;
-        res.push(input);
-    }
-    if res.is_empty() {
-        bail!("specify an input file or use --from");
-    }
-    Ok(res)
+    get_states_with_errors(
+        driver,
+        &args.from,
+        &args.input,
+        "unknown --from state",
+        "could not infer input state",
+        "specify and input file or use --from",
+    )
 }
 
 fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
-    let mut res = vec![];
-    for state_str in &args.to {
-        let state = driver
-            .get_state(state_str)
-            .ok_or(anyhow!("unknown --to state"))?;
-        res.push(state);
-    }
-    for output_str in args.output.iter().skip(args.to.len()) {
-        let state = driver
-            .guess_state(output_str)
-            .ok_or(anyhow!("could not infer output state"))?;
-        res.push(state);
-    }
-    if res.is_empty() {
-        bail!("specify an output file or use --to");
-    }
-    Ok(res)
+    get_states_with_errors(
+        driver,
+        &args.to,
+        &args.output,
+        "unknown --to state",
+        "could no infer output state",
+        "specify an output file or use --to",
+    )
 }
 
 fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
@@ -202,10 +216,10 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         .collect();
 
     Ok(Request {
-        start_file: args.input.clone(),
-        start_state: from_state(driver, args)?,
-        end_file: args.output.clone(),
-        end_state: to_state(driver, args)?,
+        start_files: args.input.clone(),
+        start_states: from_states(driver, args)?,
+        end_files: args.output.clone(),
+        end_states: to_state(driver, args)?,
         through: through?,
         workdir,
     })
