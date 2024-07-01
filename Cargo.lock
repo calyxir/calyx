@@ -1574,15 +1574,14 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.36.0"
+version = "1.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a508bf83e6f6f2aa438588ae7ceb558a81030c5762cbfe838180a861cf5dc110"
+checksum = "810ae6042d48e2c9e9215043563a58a80b877bc863228a74cf10c49d4620a6f5"
 dependencies = [
  "console",
  "lazy_static",
  "linked-hash-map",
  "similar",
- "yaml-rust",
 ]
 
 [[package]]
@@ -1758,6 +1757,16 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "url",
+]
+
+[[package]]
+name = "makemake"
+version = "0.1.2-patch1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cb6004ede2d908eb7146261b7a357b2ef31f446bc3b7e5ef1f62f720de0abff"
+dependencies = [
+ "insta",
+ "paste",
 ]
 
 [[package]]
@@ -2003,6 +2012,12 @@ dependencies = [
  "smallvec",
  "windows-targets 0.48.5",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pathdiff"
@@ -2913,6 +2928,7 @@ name = "tb"
 version = "0.7.1"
 dependencies = [
  "argh",
+ "makemake",
  "tempdir",
 ]
 
@@ -3674,15 +3690,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
-]
-
-[[package]]
-name = "yaml-rust"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
-dependencies = [
- "linked-hash-map",
 ]
 
 [[package]]
