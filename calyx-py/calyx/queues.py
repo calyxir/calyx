@@ -277,6 +277,8 @@ class PCQ:
     At initialization we take in a set of `(int, int)` tuple lists `data` which stores
     lists of values and their ranks, each representing a bucket.
 
+    We store the highest rank of any element in the queue, such that we can upper bound the set of ranks.
+
     When asked to push:
     - We compute the bucket to push to as the rank of the new element multiplied by bucket width,
     wrapped around to be within the size of the queue.
@@ -295,13 +297,14 @@ class PCQ:
     optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
 
-    def __init__(self, max_len: int, num_buckets=200, width=4, initial_day=0):
+    def __init__(self, max_len: int, num_buckets=200, width=10, initial_day=0):
         self.width = width
         self.day = initial_day
         self.max_len = max_len
         self.num_elements = 0
         self.data = []
         self.bucket_ranges = []
+        self.highest_rank = 0
         for i in range(num_buckets):
             self.data.append(Pieo(200))
             self.bucket_ranges.append((i*width, (i+1)*width))
@@ -315,57 +318,55 @@ class PCQ:
 
     def push(self, val: int, time=0, rank=0) -> None:
         """Pushes a value with some rank/priority to a PCQ"""
+
         if self.num_elements == self.max_len:
             raise QueueError("Overflow")
 
         location = (rank * self.width) % len(self.data)
+
         try:
             self.data[location].push(val, time, rank)
             self.num_elements += 1
+            if rank > self.highest_rank:
+                self.highest_rank = rank
         except QueueError:
             raise QueueError("Overflow")
+
     
-    def query(self, remove=False, time=0, val=None, return_rank=False) -> Optional[int]:
+    def query(self, remove=False, time=0, val=None) -> Optional[int]:
         """Queries a PCQ."""
 
-        cached_day = self.day
-        cached_ranges = self.bucket_ranges[:]
-        
-        for _ in range(len(self.data)):            
-            bucket = self.data[self.day]
-            top = self.bucket_ranges[self.day][1]
+        if self.num_elements == 0:
+            raise QueueError("Underflow")
+    
+        possible_values = []
 
+        for bucket in self.data:
             try:
-                #Peek the lowest-rank bucket matching the time stamp
-                result, _, rank = bucket.peek(time, val, True)
-                if rank > top:
-                    #No eligible elements in bucket, keep rotating
-                    self.rotate()
-                else:
-                    self.day = cached_day
-                    self.bucket_ranges = cached_ranges[:]
-
-                    if remove:
-                        return_val = bucket.pop(time, val, return_rank)
-                        if len(bucket) == 0:
-                            self.rotate()
-                        self.num_elements -= 1
-                        return return_val
-                    else:
-                        return (result, rank) if return_rank else result
-                    
-            except (QueueError, TypeError):
-                self.rotate()
-        
+                peeked_val, peeked_time, peeked_rank = bucket.peek(time, val, True)
+                possible_values.append((bucket, peeked_val, peeked_time, peeked_rank))
+            except QueueError:
+                continue
+        if len(possible_values) > 0:
+            possible_values.sort(key = lambda x : x[3])
+            bucket, val, time, rank  = possible_values[0]
+            if remove:
+                return bucket.pop(time, val, False)
+            else:
+                return val
+    
         raise QueueError("Underflow")
     
-    def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
+    def pop(self, time=0, val=None) -> Optional[int]:
         """Pops a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
-        return self.query(True, time, val, return_rank)
+        result = self.query(True, time, val)
+        if result:
+            self.num_elements -= 1
+            return result
     
-    def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
+    def peek(self, time=0, val=None) -> Optional[int]:
         """Peeks a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
-        return self.query(False, time, val, return_rank)
+        return self.query(False, time, val)
 
 
 def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None, times=None):
