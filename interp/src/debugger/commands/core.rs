@@ -10,7 +10,11 @@ use std::{
 use crate::{
     debugger::debugging_context::context,
     flatten::{
-        flat_ir::prelude::GroupIdx, structures::index_trait::impl_index,
+        flat_ir::prelude::GroupIdx,
+        structures::{
+            context::Context,
+            index_trait::{impl_index, IndexRef},
+        },
     },
     serialization::PrintCode,
 };
@@ -82,6 +86,23 @@ impl ParsedGroupName {
             None
         }
     }
+
+    pub fn lookup_group(&self, context: &Context) -> Result<GroupIdx, String> {
+        let comp = if let Some(c) = &self.component {
+            context
+                .lookup_comp_by_name(c.as_ref())
+                .map_or(Err(format!("No component named {c}")), |c| Ok(c))?
+        } else {
+            context.entry_point
+        };
+
+        context
+            .lookup_group_by_name(self.group.as_ref(), comp)
+            .map_or(
+                Err(format!("No group named {} in component", self.group)),
+                |g| Ok(g),
+            )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -92,18 +113,50 @@ pub struct GroupName {
 
 pub enum ParsedBreakPointID {
     Name(ParsedGroupName),
-    Number(u64),
+    Number(u32),
+}
+
+impl ParsedBreakPointID {
+    pub fn parse_to_break_ids(
+        &self,
+        context: &Context,
+    ) -> Result<BreakpointID, String> {
+        match self {
+            ParsedBreakPointID::Name(name) => {
+                let group = name.lookup_group(context)?;
+                Ok(BreakpointID::Name(group))
+            }
+            ParsedBreakPointID::Number(v) => {
+                Ok(BreakpointID::Number(BreakpointIdx::from(*v)))
+            }
+        }
+    }
+
+    pub fn parse_to_watch_ids(
+        &self,
+        context: &Context,
+    ) -> Result<WatchID, String> {
+        match self {
+            ParsedBreakPointID::Name(v) => {
+                let group = v.lookup_group(context)?;
+                Ok(WatchID::Name(group))
+            }
+            ParsedBreakPointID::Number(v) => {
+                Ok(WatchID::Number(WatchpointIdx::from(*v)))
+            }
+        }
+    }
+}
+
+impl From<u32> for ParsedBreakPointID {
+    fn from(v: u32) -> Self {
+        Self::Number(v)
+    }
 }
 
 impl From<ParsedGroupName> for ParsedBreakPointID {
     fn from(v: ParsedGroupName) -> Self {
         Self::Name(v)
-    }
-}
-
-impl From<u64> for ParsedBreakPointID {
-    fn from(n: u64) -> Self {
-        Self::Number(n)
     }
 }
 
@@ -169,7 +222,7 @@ impl Default for WatchPosition {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum PrintMode {
     State,
     Port,
@@ -224,7 +277,7 @@ impl Display for PrintTuple {
 }
 
 pub enum Command {
-    Step(u64), // Step execution
+    Step(u32), // Step execution
     Continue,  // Execute until breakpoint
     Empty,     // Empty command, does nothing
     Display,   // Display full environment contents

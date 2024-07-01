@@ -1,24 +1,27 @@
 use super::{
     commands::{Command, PrintMode},
-    context::DebuggingContext,
+    debugging_context::context::DebuggingContext,
     interactive_errors::DebuggerError,
     io_utils::Input,
     source::structures::NewSourceMap,
 };
 use crate::{
-    debugger::source::SourceMap,
+    debugger::{source::SourceMap, unwrap_error_message},
     errors::{InterpreterError, InterpreterResult},
-    flatten::structures::{context::Context, environment::Simulator},
-    serialization::{PrintCode, Serializable},
+    flatten::{
+        flat_ir::prelude::GroupIdx,
+        structures::{context::Context, environment::Simulator},
+    },
+    serialization::PrintCode,
 };
 
 use std::collections::HashSet;
 
-use calyx_ir::{Id, RRC};
+use calyx_ir::Id;
 
 use owo_colors::OwoColorize;
 use std::path::Path;
-use std::{cell::Ref, collections::HashMap, rc::Rc};
+use std::rc::Rc;
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
@@ -52,15 +55,17 @@ impl ProgramStatus {
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [Debugger::main_loop] function while this struct holds auxilliary
 /// information used to coordinate the debugging process.
-pub struct Debugger<'a> {
-    simulator: Simulator<'a>,
+pub struct Debugger<C: AsRef<Context> + Clone> {
+    interpreter: Simulator<C>,
     // this is technically redundant but is here for mutability reasons
-    program_context: &'a Context,
+    program_context: C,
     debugging_context: DebuggingContext,
     source_map: Option<SourceMap>,
 }
 
-impl<'a> Debugger<'a> {
+pub type OwnedDebugger = Debugger<Rc<Context>>;
+
+impl OwnedDebugger {
     /// construct a debugger instance from the target calyx file
     pub fn from_file(
         file: &Path,
@@ -78,17 +83,19 @@ impl<'a> Debugger<'a> {
         // ))
         todo!();
     }
+}
 
+impl<C: AsRef<Context> + Clone> Debugger<C> {
     pub fn new(
-        program_context: &'a Context,
+        program_context: C,
         source_map: Option<SourceMap>,
         data_file: Option<std::path::PathBuf>,
     ) -> InterpreterResult<Self> {
-        let simulator =
-            Simulator::build_simulator(&program_context, &data_file)?;
+        let interpreter =
+            Simulator::build_simulator(program_context.clone(), &data_file)?;
 
         Ok(Self {
-            simulator,
+            interpreter,
             program_context,
             debugging_context: todo!(),
             source_map,
@@ -100,17 +107,14 @@ impl<'a> Debugger<'a> {
     }
 
     // Go to next step
-    pub fn step(&mut self, n: u64) -> InterpreterResult<ProgramStatus> {
+    pub fn step(&mut self, n: u32) -> InterpreterResult<ProgramStatus> {
         self.do_step(n)?;
 
         Ok(self.status())
     }
 
     #[inline]
-    fn do_step(
-        &mut self,
-        n: u64,
-    ) -> Result<(), crate::errors::BoxedInterpreterError> {
+    fn do_step(&mut self, n: u32) -> InterpreterResult<()> {
         for _ in 0..n {
             self.interpreter.step()?;
         }
@@ -118,47 +122,50 @@ impl<'a> Debugger<'a> {
         Ok(())
     }
 
-    pub fn cont(&mut self) -> InterpreterResult<()> {
-        self.debugging_ctx
-            .set_current_time(self.interpreter.currently_executing_group());
+    fn do_continue(&mut self) -> InterpreterResult<()> {
+        self.debugging_context
+            .set_current_time(self.interpreter.get_currently_running_groups());
 
-        let mut ctx = std::mem::replace(
-            &mut self.debugging_ctx,
-            DebuggingContext::new(&self._context, &self.main_component.name),
-        );
+        // let mut ctx = std::mem::replace(
+        //     &mut self.debugging_context,
+        //     DebuggingContext::new(&self._context, &self.main_component.name),
+        // );
 
-        let mut breakpoints: Vec<CompGroupName> = vec![];
+        let mut breakpoints: Vec<GroupIdx> = vec![];
 
         while breakpoints.is_empty() && !self.interpreter.is_done() {
             self.interpreter.step()?;
-            let current_exec = self.interpreter.currently_executing_group();
+            self.debugging_context
+                .advance_time(self.interpreter.get_currently_running_groups());
 
-            ctx.advance_time(current_exec);
-
-            for watch in ctx.process_watchpoints() {
-                for target in watch.target() {
-                    if let Ok(msg) = Self::do_print(
-                        self.main_component.name,
-                        target,
-                        watch.print_code(),
-                        self.interpreter.get_env(),
-                        watch.print_mode(),
-                    ) {
-                        println!("{}", msg.on_black().yellow().bold());
-                    }
-                }
+            for watch in self.debugging_context.process_watchpoints() {
+                // for target in watch.target() {
+                //     if let Ok(msg) = Self::do_print(
+                //         self.main_component.name,
+                //         target,
+                //         watch.print_code(),
+                //         self.interpreter.get_env(),
+                //         watch.print_mode(),
+                //     ) {
+                //         println!("{}", msg.on_black().yellow().bold());
+                //     }
+                // }
             }
 
-            breakpoints = ctx.hit_breakpoints().into_iter().cloned().collect();
+            breakpoints.extend(self.debugging_context.hit_breakpoints());
         }
 
-        self.debugging_ctx = ctx;
+        // self.debugging_context = ctx;
 
         if !self.interpreter.is_done() {
-            for breakpoint in breakpoints {
+            for group in breakpoints {
                 println!(
                     "Hit breakpoint: {}",
-                    breakpoint.bright_purple().underline()
+                    self.program_context
+                        .as_ref()
+                        .lookup_name(group)
+                        .bright_purple()
+                        .underline()
                 );
             }
             self.interpreter.converge()?;
@@ -189,243 +196,96 @@ impl<'a> Debugger<'a> {
             };
 
             match comm {
-                Command::Step(n) => {
-                    for _ in 0..n {
-                        self.interpreter.step()?;
-                    }
-                    self.interpreter.converge()?;
+                Command::Step(n) => self.do_step(n)?,
+                Command::StepOver(target) => {
+                    self.do_step_over(target)?;
                 }
-                Command::Continue => {
-                    self.debugging_ctx.set_current_time(
-                        self.interpreter.currently_executing_group(),
-                    );
-
-                    let mut ctx = std::mem::replace(
-                        &mut self.debugging_ctx,
-                        DebuggingContext::new(
-                            &self._context,
-                            &self.main_component.name,
-                        ),
-                    );
-
-                    let mut breakpoints: Vec<CompGroupName> = vec![];
-
-                    while breakpoints.is_empty() && !self.interpreter.is_done()
-                    {
-                        self.interpreter.step()?;
-                        let current_exec =
-                            self.interpreter.currently_executing_group();
-
-                        ctx.advance_time(current_exec);
-
-                        for watch in ctx.process_watchpoints() {
-                            for target in watch.target() {
-                                if let Ok(msg) = Self::do_print(
-                                    self.main_component.name,
-                                    target,
-                                    watch.print_code(),
-                                    self.interpreter.get_env(),
-                                    watch.print_mode(),
-                                ) {
-                                    println!(
-                                        "{}",
-                                        msg.on_black().yellow().bold()
-                                    );
-                                }
-                            }
-                        }
-
-                        breakpoints = ctx
-                            .hit_breakpoints()
-                            .into_iter()
-                            .cloned()
-                            .collect();
-                    }
-
-                    self.debugging_ctx = ctx;
-
-                    if !self.interpreter.is_done() {
-                        for breakpoint in breakpoints {
-                            println!(
-                                "Hit breakpoint: {}",
-                                breakpoint.bright_purple().underline()
-                            );
-                        }
-                        self.interpreter.converge()?;
-                    }
-                }
+                Command::Continue => self.do_continue()?,
                 Command::Empty => {}
                 Command::Display => {
-                    let state = self.interpreter.get_env();
-                    println!("{}", state.state_as_str().green().bold());
+                    todo!()
                 }
                 Command::Print(print_lists, code, print_mode) => {
-                    for target in print_lists {
-                        match Self::do_print(
-                            self.main_component.name,
-                            &target,
-                            &code,
-                            self.interpreter.get_env(),
-                            &print_mode,
-                        ) {
-                            Ok(msg) => println!("{}", msg.magenta()),
-                            Err(e) => println!("{}", e.bright_red().bold()),
-                        }
-                    }
+                    self.do_print(print_lists, code, print_mode);
                 }
                 Command::Help => {
                     print!("{}", Command::get_help_string().cyan())
                 }
-                Command::Break(targets) => {
-                    if targets.is_empty() {
-                        println!("Error: command requires a target");
-                        continue;
-                    }
+                Command::Break(targets) => self.create_breakpoints(targets),
 
-                    for target in targets {
-                        let currently_executing =
-                            self.interpreter.currently_executing_group();
-                        let target =
-                            self.debugging_ctx.concretize_group_name(target);
+                // breakpoints
+                comm @ (Command::Delete(_)
+                | Command::Enable(_)
+                | Command::Disable(_)) => self.manipulate_breakpoint(comm),
 
-                        if self
-                            .debugging_ctx
-                            .is_group_running(currently_executing, &target)
-                        {
-                            println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.", &target.yellow().italic())
-                        }
-
-                        self.debugging_ctx.add_breakpoint(target);
-                    }
-                }
                 Command::Exit => return Err(InterpreterError::Exit.into()),
-                Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
-                Command::Delete(targets) => {
-                    if targets.is_empty() {
-                        println!("Error: command requires a target");
-                        continue;
-                    }
-                    for t in targets {
-                        self.debugging_ctx.remove_breakpoint(t)
-                    }
-                }
-                Command::DeleteWatch(targets) => {
-                    if targets.is_empty() {
-                        println!("Error: command requires a target");
-                        continue;
-                    }
-                    for target in targets {
-                        self.debugging_ctx.remove_watchpoint(target)
-                    }
-                }
-                Command::Disable(targets) => {
-                    if targets.is_empty() {
-                        println!("Error: command requires a target");
-                        continue;
-                    }
-                    for t in targets {
-                        self.debugging_ctx.disable_breakpoint(t)
-                    }
-                }
-                Command::Enable(targets) => {
-                    if targets.is_empty() {
-                        println!("Error: command requires a target");
-                        continue;
-                    }
-                    for t in targets {
-                        self.debugging_ctx.enable_breakpoint(t)
-                    }
-                }
-                Command::StepOver(target) => {
-                    let mut current =
-                        self.interpreter.currently_executing_group();
-                    let target =
-                        self.debugging_ctx.concretize_group_name(target);
 
-                    if !self.debugging_ctx.is_group_running(current, &target) {
-                        println!("Group is not running")
-                    } else {
-                        self.interpreter.step()?;
-                        current = self.interpreter.currently_executing_group();
-                        while self
-                            .debugging_ctx
-                            .is_group_running(current, &target)
-                        {
-                            self.interpreter.step()?;
-                            current =
-                                self.interpreter.currently_executing_group();
-                        }
+                Command::InfoBreak => {
+                    self.debugging_context.print_breakpoints()
+                }
+
+                Command::DeleteWatch(targets) => {
+                    for target in targets {
+                        let target = target
+                            .parse_to_watch_ids(self.program_context.as_ref());
+                        unwrap_error_message!(target);
+                        self.debugging_context.remove_watchpoint(target)
                     }
                 }
+
                 Command::Watch(
                     group,
                     watch_pos,
                     print_target,
                     print_code,
                     print_mode,
-                ) => {
-                    let mut error_occurred = false;
-
-                    for target in print_target.iter() {
-                        if let Err(e) = Self::do_print(
-                            self.main_component.name,
-                            target,
-                            &print_code,
-                            self.interpreter.get_env(),
-                            &print_mode,
-                        ) {
-                            error_occurred = true;
-                            println!("{}", e.red().bold());
-                        }
-                    }
-
-                    if error_occurred {
-                        continue;
-                    }
-
-                    self.debugging_ctx.add_watchpoint(
-                        group,
-                        watch_pos,
-                        (print_target, print_code, print_mode),
-                    )
+                ) => self.create_watchpoint(
+                    print_target,
+                    print_code,
+                    print_mode,
+                    group,
+                    watch_pos,
+                ),
+                Command::InfoWatch => {
+                    self.debugging_context.print_watchpoints()
                 }
-                Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC(override_flag) => {
-                    if self.source_map.is_some() && !override_flag {
-                        let map = self.source_map.as_ref().unwrap();
-                        let mut printed = false;
-                        for x in self
-                            .interpreter
-                            .get_active_tree()
-                            .remove(0)
-                            .flat_set()
-                            .into_iter()
-                        {
-                            if let Some(output) = map.lookup(x) {
-                                printed = true;
-                                println!("{}", output);
-                            }
-                        }
+                    // if self.source_map.is_some() && !override_flag {
+                    //     let map = self.source_map.as_ref().unwrap();
+                    //     let mut printed = false;
+                    //     for x in self
+                    //         .interpreter
+                    //         .get_active_tree()
+                    //         .remove(0)
+                    //         .flat_set()
+                    //         .into_iter()
+                    //     {
+                    //         if let Some(output) = map.lookup(x) {
+                    //             printed = true;
+                    //             println!("{}", output);
+                    //         }
+                    //     }
 
-                        if !printed {
-                            println!("Falling back to Calyx");
-                            print!(
-                                "{}",
-                                self.interpreter
-                                    .get_active_tree()
-                                    .remove(0)
-                                    .format_tree::<true>(0)
-                            );
-                        }
-                    } else {
-                        print!(
-                            "{}",
-                            self.interpreter
-                                .get_active_tree()
-                                .remove(0)
-                                .format_tree::<true>(0)
-                        );
-                    }
+                    //     if !printed {
+                    //         println!("Falling back to Calyx");
+                    //         print!(
+                    //             "{}",
+                    //             self.interpreter
+                    //                 .get_active_tree()
+                    //                 .remove(0)
+                    //                 .format_tree::<true>(0)
+                    //         );
+                    //     }
+                    // } else {
+                    //     print!(
+                    //         "{}",
+                    //         self.interpreter
+                    //             .get_active_tree()
+                    //             .remove(0)
+                    //             .format_tree::<true>(0)
+                    //     );
+                    // }
+                    todo!()
                 }
 
                 Command::Explain => {
@@ -433,8 +293,6 @@ impl<'a> Debugger<'a> {
                 }
             }
         }
-
-        let final_env = self.interpreter.deconstruct()?;
 
         println!("Main component has finished executing. Debugger is now in inspection mode.");
 
@@ -456,23 +314,25 @@ impl<'a> Debugger<'a> {
             match comm {
                 Command::Empty => {}
                 Command::Display => {
-                    let state = final_env.as_state_view();
-                    println!("{}", state.state_as_str().purple());
+                    // let state = final_env.as_state_view();
+                    // println!("{}", state.state_as_str().purple());
+                    todo!()
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
-                        match Self::do_print(
-                            self.main_component.name,
-                            &target,
-                            &code,
-                            final_env.as_state_view(),
-                            &print_mode,
-                        ) {
-                            Ok(msg) => println!("{}", msg.green()),
-                            Err(e) => {
-                                println!("{}", e.red().underline().bold())
-                            }
-                        }
+                        // match Self::do_print(
+                        //     self.main_component.name,
+                        //     &target,
+                        //     &code,
+                        //     final_env.as_state_view(),
+                        //     &print_mode,
+                        // ) {
+                        //     Ok(msg) => println!("{}", msg.green()),
+                        //     Err(e) => {
+                        //         println!("{}", e.red().underline().bold())
+                        //     }
+                        // }
+                        todo!()
                     }
                 }
 
@@ -490,6 +350,130 @@ impl<'a> Debugger<'a> {
                 }
             }
         }
+    }
+
+    fn create_watchpoint(
+        &mut self,
+        print_target: Vec<Vec<Id>>,
+        print_code: Option<PrintCode>,
+        print_mode: PrintMode,
+        group: super::commands::ParsedGroupName,
+        watch_pos: super::commands::WatchPosition,
+    ) {
+        let mut error_occurred = false;
+        for target in print_target.iter() {
+            if let Err(e) =
+                self.construct_print_string(target, print_code, print_mode)
+            {
+                error_occurred = true;
+                println!("{}", e.red().bold());
+            }
+        }
+
+        if error_occurred {
+            return;
+        }
+
+        let watch_target =
+            match group.lookup_group(self.program_context.as_ref()) {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("Error: {}", owo_colors::OwoColorize::red(&e));
+                    return;
+                }
+            };
+
+        self.debugging_context.add_watchpoint(
+            watch_target,
+            watch_pos,
+            (print_target, print_code, print_mode),
+        );
+    }
+
+    fn do_step_over(
+        &mut self,
+        target: super::commands::ParsedGroupName,
+    ) -> Result<(), crate::errors::BoxedInterpreterError> {
+        let target = match target.lookup_group(self.program_context.as_ref()) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Error: {}", owo_colors::OwoColorize::red(&e));
+                return Ok(());
+            }
+        };
+
+        Ok(if !self.interpreter.is_group_running(target) {
+            println!("Group is not currently running")
+        } else {
+            while self.interpreter.is_group_running(target) {
+                self.interpreter.step()?;
+            }
+        })
+    }
+
+    fn create_breakpoints(
+        &mut self,
+        targets: Vec<super::commands::ParsedGroupName>,
+    ) {
+        for target in targets {
+            let target = target.lookup_group(self.program_context.as_ref());
+            unwrap_error_message!(target);
+
+            if self.interpreter.is_group_running(target) {
+                println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
+                        self.program_context.as_ref().lookup_name(target).yellow().italic())
+            }
+
+            self.debugging_context.add_breakpoint(target);
+        }
+    }
+
+    fn do_print(
+        &self,
+        print_lists: Vec<Vec<Id>>,
+        code: Option<PrintCode>,
+        print_mode: PrintMode,
+    ) {
+        for target in print_lists {
+            todo!()
+        }
+    }
+
+    fn manipulate_breakpoint(&mut self, command: Command) {
+        match &command {
+            Command::Disable(targets)
+            | Command::Enable(targets)
+            | Command::Delete(targets) => {
+                for t in targets {
+                    let target =
+                        t.parse_to_break_ids(self.program_context.as_ref());
+                    unwrap_error_message!(target);
+
+                    match &command {
+                        Command::Disable(_) => {
+                            self.debugging_context.disable_breakpoint(target)
+                        }
+                        Command::Enable(_) => {
+                            self.debugging_context.enable_breakpoint(target)
+                        }
+                        Command::Delete(_) => {
+                            self.debugging_context.remove_breakpoint(target)
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn construct_print_string(
+        &self,
+        print_list: &Vec<Id>,
+        code: Option<PrintCode>,
+        print_mode: PrintMode,
+    ) -> Result<String, DebuggerError> {
+        todo!()
     }
 
     // fn do_print(

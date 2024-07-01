@@ -54,6 +54,10 @@ impl BreakPoint {
     pub fn is_disabled(&self) -> bool {
         matches!(self.state, PointStatus::Disabled)
     }
+
+    pub fn is_enabled(&self) -> bool {
+        matches!(self.state, PointStatus::Enabled)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +87,7 @@ impl WatchPoint {
 //     }
 // }
 
+#[derive(Debug)]
 struct GroupExecutionInfo<T: std::cmp::Eq + std::hash::Hash> {
     previous: HashSet<T>,
     current: HashSet<T>,
@@ -122,27 +127,6 @@ impl<T: std::cmp::Eq + std::hash::Hash> GroupExecutionInfo<T> {
 enum PointAction {
     Enable,
     Disable,
-}
-
-impl PointAction {
-    fn take_action(&self, breakpoint: &mut BreakPoint) {
-        match self {
-            PointAction::Enable => breakpoint.enable(),
-            PointAction::Disable => breakpoint.disable(),
-        }
-    }
-
-    fn take_action_with_feedback(&self, breakpoint: &mut BreakPoint) {
-        self.take_action(breakpoint);
-        println!(
-            "{} '{:?}'",
-            match self {
-                PointAction::Enable => "enabled",
-                PointAction::Disable => "disabled",
-            },
-            &breakpoint.group
-        )
-    }
 }
 
 #[derive(Debug)]
@@ -397,17 +381,21 @@ impl WatchpointMap {
 pub(crate) struct DebuggingContext {
     breakpoints: BreakpointMap,
     watchpoints: WatchpointMap,
+    // Emulating the original behavior for the time being, but this could be
+    // shifted to use individual control points or full control nodes instead.
+    group_info: GroupExecutionInfo<GroupIdx>,
 }
 
 impl DebuggingContext {
     pub fn new() -> Self {
         Self {
+            group_info: GroupExecutionInfo::new(),
             breakpoints: BreakpointMap::new(),
             watchpoints: WatchpointMap::new(),
         }
     }
 
-    pub fn add_breakpoint<N>(&mut self, target: GroupIdx) {
+    pub fn add_breakpoint(&mut self, target: GroupIdx) {
         if !self.breakpoints.breakpoint_exists(target) {
             let br = BreakPoint {
                 group: target,
@@ -561,17 +549,30 @@ impl DebuggingContext {
         self.act_watchpoint(target, PointAction::Disable)
     }
 
-    pub fn hit_breakpoints(&self) -> Vec<&GroupName> {
-        // self.group_exec_info
-        //     .groups_new_on()
-        //     .filter(|x| {
-        //         if let Some(brk) = self.breakpoints.get(x) {
-        //             return brk.state.enabled();
-        //         }
-        //         false
-        //     })
-        //     .collect()
-        todo!()
+    pub fn hit_breakpoints(&self) -> impl Iterator<Item = GroupIdx> + '_ {
+        self.group_info
+            .groups_new_on()
+            .filter(|&&x| {
+                self.breakpoints
+                    .get_by_group(x)
+                    .map(|x| x.is_enabled())
+                    .unwrap_or_default()
+            })
+            .copied()
+    }
+
+    pub fn set_current_time<I: Iterator<Item = GroupIdx>>(
+        &mut self,
+        groups: I,
+    ) {
+        let group_map: HashSet<_> = groups.collect();
+        self.group_info.shift_current(group_map.clone());
+        self.group_info.shift_current(group_map);
+    }
+
+    pub fn advance_time<I: Iterator<Item = GroupIdx>>(&mut self, groups: I) {
+        let group_map: HashSet<_> = groups.collect();
+        self.group_info.shift_current(group_map);
     }
 
     pub fn process_watchpoints(&self) -> Vec<&'_ PrintTuple> {
@@ -609,18 +610,6 @@ impl DebuggingContext {
 
         // output_vec
 
-        todo!()
-    }
-
-    pub fn is_group_running(
-        &self,
-        current_executing: HashSet<GroupIdx>,
-        target: &GroupName,
-    ) -> bool {
-        // let current: HashSet<GroupName> =
-        //     current_executing.into_iter().map(|x| x.into()).collect();
-
-        // current.contains(target)
         todo!()
     }
 

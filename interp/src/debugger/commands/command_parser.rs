@@ -126,10 +126,10 @@ impl CommandParser {
         ))
     }
 
-    fn num(input: Node) -> ParseResult<u64> {
+    fn num(input: Node) -> ParseResult<u32> {
         input
             .as_str()
-            .parse::<u64>()
+            .parse::<u32>()
             .map_err(|_| input.error("Expected non-negative number"))
     }
 

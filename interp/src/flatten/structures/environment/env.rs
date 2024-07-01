@@ -15,8 +15,8 @@ use crate::{
                 CellDefinitionRef::{Local, Ref},
                 CellRef, CombGroupIdx, ComponentIdx, ControlNode,
                 GlobalCellIdx, GlobalCellRef, GlobalPortIdx, GlobalPortRef,
-                GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx, Identifier, If,
-                Invoke, PortRef, PortValue, While,
+                GlobalRefCellIdx, GlobalRefPortIdx, GroupIdx, GuardIdx,
+                Identifier, If, Invoke, PortRef, PortValue, While,
             },
             wires::guards::Guard,
         },
@@ -232,6 +232,8 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     pc: ProgramCounter,
 
     /// The immutable context. This is retained for ease of use.
+    /// This value should have a cheap clone implementation, such as &Context
+    /// or RC<Context>.
     ctx: C,
 }
 
@@ -433,6 +435,28 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     #[inline]
     pub fn get_root(&self) -> GlobalCellIdx {
         GlobalCellIdx::new(0)
+    }
+
+    pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
+        self.pc.iter().any(|point| {
+            let point = &self.ctx.as_ref().primary[point.control_node_idx];
+            match point {
+                ControlNode::Enable(x) => x.group() == group_idx,
+                _ => false,
+            }
+        })
+    }
+
+    pub fn get_currently_running_groups(
+        &self,
+    ) -> impl Iterator<Item = GroupIdx> + '_ {
+        self.pc.iter().filter_map(|point| {
+            let point = &self.ctx.as_ref().primary[point.control_node_idx];
+            match point {
+                ControlNode::Enable(x) => Some(x.group()),
+                _ => None,
+            }
+        })
     }
 }
 
@@ -732,8 +756,17 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // flip to a result of an option
             .map_or(Ok(None), |res| res.map(Some))?;
 
-        let mut sim = Simulator::new(Environment::new(ctx, data_dump));
-        Ok(sim)
+        Ok(Simulator::new(Environment::new(ctx, data_dump)))
+    }
+
+    pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
+        self.env.is_group_running(group_idx)
+    }
+
+    pub fn get_currently_running_groups(
+        &self,
+    ) -> impl Iterator<Item = GroupIdx> + '_ {
+        self.env.get_currently_running_groups()
     }
 }
 
@@ -805,42 +838,34 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     ) -> Vec<ScheduledAssignments> {
         control_points
             .iter()
-            .map(|node| {
+            .filter_map(|node| {
                 match &self.ctx().primary[node.control_node_idx] {
                     ControlNode::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
 
-                        ScheduledAssignments::new(
+                        Some(ScheduledAssignments::new(
                             node.comp,
                             group.assignments,
                             Some(GroupInterfacePorts {
                                 go: group.go,
                                 done: group.done,
                             }),
-                        )
+                        ))
                     }
 
-                    ControlNode::Invoke(i) => ScheduledAssignments::new(
+                    ControlNode::Invoke(i) => Some(ScheduledAssignments::new(
                         node.comp,
                         i.assignments,
                         None,
-                    ),
+                    )),
 
-                    ControlNode::Empty(_) => {
-                        unreachable!(
-                            "called `get_assignments` with an empty node"
-                        )
-                    }
+                    ControlNode::Empty(_) => None,
                     // non-leaf nodes
                     ControlNode::If(_)
                     | ControlNode::While(_)
                     | ControlNode::Repeat(_)
                     | ControlNode::Seq(_)
-                    | ControlNode::Par(_) => {
-                        unreachable!(
-                            "Called `get_assignments` with non-leaf nodes"
-                        )
-                    }
+                    | ControlNode::Par(_) => None,
                 }
             })
             .chain(
@@ -963,6 +988,11 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 self.env.ref_ports[port_idx] = None;
             }
         }
+    }
+
+    //
+    pub fn converge(&mut self) -> InterpreterResult<()> {
+        todo!()
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
@@ -1524,7 +1554,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
 
         let mut dump = DataDump::new_empty_with_top_level(
-            ctx.lookup_string(entrypoint_secondary.name).clone(),
+            ctx.resolve_id(entrypoint_secondary.name).clone(),
         );
 
         let root = self.get_root_component();
@@ -1532,7 +1562,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
             let cell_info = &ctx.secondary[*idx];
             let cell_index = &root.index_bases + offset;
-            let name = ctx.lookup_string(cell_info.name).clone();
+            let name = ctx.resolve_id(cell_info.name).clone();
             match &cell_info.prototype {
                 CellPrototype::Memory {
                     width,

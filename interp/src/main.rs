@@ -6,12 +6,9 @@ use calyx_utils::OutputFile;
 use interp::{
     configuration,
     debugger::{source::SourceMap, Debugger},
-    environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
     flatten::structures::environment::{Environment, Simulator},
-    interpreter::ComponentInterpreter,
-    interpreter_ir as iir,
-    serialization::data_dump::DataDump,
+    serialization::DataDump,
 };
 use rustyline::error::ReadlineError;
 use slog::warn;
@@ -94,30 +91,30 @@ struct CommandInterpret {}
 /// Interpret the given program with the interactive debugger
 struct CommandDebug {}
 
-#[inline]
-fn print_res(
-    res: InterpreterResult<InterpreterState>,
-    raw: bool,
-) -> InterpreterResult<()> {
-    match res {
-        Ok(env) => {
-            if raw {
-                env.print_env_raw()
-            } else {
-                env.print_env()
-            };
-            Ok(())
-        }
-        Err(e) => match *e {
-            InterpreterError::Exit
-            | InterpreterError::ReadlineError(ReadlineError::Eof) => {
-                println!("Exiting.");
-                Ok(())
-            }
-            _ => Err(e),
-        },
-    }
-}
+// #[inline]
+// fn print_res(
+//     res: InterpreterResult<InterpreterState>,
+//     raw: bool,
+// ) -> InterpreterResult<()> {
+//     match res {
+//         Ok(env) => {
+//             if raw {
+//                 env.print_env_raw()
+//             } else {
+//                 env.print_env()
+//             };
+//             Ok(())
+//         }
+//         Err(e) => match *e {
+//             InterpreterError::Exit
+//             | InterpreterError::ReadlineError(ReadlineError::Eof) => {
+//                 println!("Exiting.");
+//                 Ok(())
+//             }
+//             _ => Err(e),
+//         },
+//     }
+// }
 
 /// Interpret a group from a Calyx program
 fn main() -> InterpreterResult<()> {
@@ -156,7 +153,7 @@ fn main() -> InterpreterResult<()> {
 
     match &command {
         Command::Interpret(_) => {
-            let mut sim = Simulator::build_simulator(&i_ctx, opts)?;
+            let mut sim = Simulator::build_simulator(&i_ctx, &opts.data_file)?;
 
             sim.run_program()?;
 

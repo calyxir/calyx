@@ -270,10 +270,7 @@ impl Context {
     pub fn printer(&self) -> Printer {
         Printer::new(self)
     }
-}
 
-// Internal helper functions
-impl Context {
     pub fn lookup_port_def(
         &self,
         comp: &ComponentIdx,
@@ -326,6 +323,25 @@ impl Context {
         }
     }
 
+    pub fn lookup_comp_by_name(&self, name: &str) -> Option<ComponentIdx> {
+        self.primary
+            .components
+            .keys()
+            .find(|c| self.resolve_id(self.secondary[*c].name) == name)
+    }
+
+    pub fn lookup_group_by_name(
+        &self,
+        name: &str,
+        comp: ComponentIdx,
+    ) -> Option<GroupIdx> {
+        self.secondary[comp]
+            .definitions
+            .groups()
+            .iter()
+            .find(|x| self.resolve_id(self.primary[*x].name()) == name)
+    }
+
     /// This is a wildly inefficient search, only used for debugging right now.
     /// TODO Griffin: if relevant, replace with something more efficient.
     pub(crate) fn find_parent_cell(
@@ -369,7 +385,31 @@ impl Context {
         }
     }
 
-    pub fn lookup_string(&self, id: Identifier) -> &String {
-        self.secondary.string_table.lookup_string(&id).unwrap()
+    pub fn lookup_name<T: LookupName>(&self, id: T) -> &String {
+        id.lookup_name(self)
+    }
+}
+
+impl AsRef<Context> for &Context {
+    fn as_ref(&self) -> &Context {
+        self
+    }
+}
+
+pub trait LookupName {
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String;
+}
+
+impl LookupName for GroupIdx {
+    #[inline]
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.resolve_id(ctx.primary[*self].name())
+    }
+}
+
+impl LookupName for ComponentIdx {
+    #[inline]
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.resolve_id(ctx.secondary[*self].name)
     }
 }

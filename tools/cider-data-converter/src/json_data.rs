@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use interp::serialization::data_dump::Dimensions;
+use interp::serialization::Dimensions;
 use serde::{self, Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
