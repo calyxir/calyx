@@ -172,12 +172,8 @@ fn convert(
                 }
             } else {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    binary_to_fixed_bit_slice(
-                        line,
-                        &mut converted,
-                        exponent,
-                    )
-                    .expect("Failed to write fixed-point to file");
+                    binary_to_fixed_bit_slice(line, &mut converted, exponent)
+                        .expect("Failed to write fixed-point to file");
                 }
             }
         }
@@ -513,7 +509,7 @@ fn binary_to_fixed(
     // Exponent math
     let divided: f32 = int_of_binary / 2_f32.powf(-exponent);
 
-    let string_of_divided = divided.to_string();
+    let string_of_divided = format!("{:.8e}", divided);
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
@@ -532,46 +528,30 @@ fn binary_to_fixed_bit_slice(
     filepath_send: &mut Option<File>,
     exp_int: i32,
 ) -> io::Result<()> {
-    // Parse the binary string to an integer
-    let binary =
-        i32::from_str_radix(binary_string, 2).expect("Bad binary value input");
+    // Convert binary string to an integer (assuming binary_string is a valid binary representation)
+    let binary_int = u32::from_str_radix(binary_string, 2).unwrap();
 
-    // Get bitmask from exponent
-    let shift_amount = -exp_int;
-    let int_mask = !((1 << shift_amount) - 1);
-    let frac_mask = (1 << shift_amount) - 1;
-
-    // Apply bit mask and shift integer part
-    // Apply bit masks and shift to get the integer and fractional parts
-    let integer_part = (binary & int_mask) >> shift_amount;
-    let fractional_part = binary & frac_mask;
-
-    // Convert the integer part to its binary string representation
-    let int_part_binary = format!("{:b}", integer_part);
-
-    // Convert the fractional part to its binary string representation
-    let mut frac_part_binary = String::new();
-    let mut frac = fractional_part;
-    for _ in 0..shift_amount {
-        frac <<= 1;
-        if frac & (1 << shift_amount) != 0 {
-            frac_part_binary.push('1');
-            frac -= 1 << shift_amount;
-        } else {
-            frac_part_binary.push('0');
-        }
+    // Adjust the binary point based on the exponent
+    let mut result = binary_int;
+    if exp_int < 0 {
+        // If exponent is negative, shift right (multiply by 2^(-exp_int))
+        result >>= -exp_int as u32;
+    } else {
+        // If exponent is positive, shift left (multiply by 2^(exp_int))
+        result <<= exp_int as u32;
     }
 
-    // Append the integer and fractional parts
-    let combined_binary_representation =
-        format!("{}.{}", int_part_binary, frac_part_binary);
+    // Convert result to a fixed-point decimal representation
+    let fixed_value = result as f32;
+
+    let string_of_fixed = format!("{:.8e}", fixed_value);
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
-        file.write_all(combined_binary_representation.as_bytes())?;
+        file.write_all(string_of_fixed.as_bytes())?;
         file.write_all(b"\n")?;
     } else {
-        stdout().write_all(combined_binary_representation.as_bytes())?;
+        stdout().write_all(string_of_fixed.as_bytes())?;
         stdout().write_all(b"\n")?;
     }
 

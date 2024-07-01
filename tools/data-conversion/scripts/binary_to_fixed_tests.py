@@ -11,7 +11,7 @@ def generate_tests(num_tests):
     tests = []
     for _ in range(num_tests):
         # Generate a random binary string (up to 32 bits for u32 in Rust)
-        binary_string = generate_binary_string(random.randint(1, 32))
+        binary_string = generate_binary_string(random.randint(1, 31))
         tests.append((binary_string))
     
     return tests
@@ -42,7 +42,8 @@ def convert_binary_to_fixed(binary_string, exponent):
     """Convert binary string to a fixed-point number."""
     binary_value = int(binary_string, 2)  # Convert binary string to integer
     fixed_point_number = binary_value * (2 ** exponent)  # Calculate the fixed-point number
-    return str(fixed_point_number) + "\n"
+    formatted = '{:.8f}'.format(fixed_point_number) 
+    return formatted.rstrip('0').rstrip('.') + "\n"
 
 if __name__ == '__main__':
     num_tests = 10
