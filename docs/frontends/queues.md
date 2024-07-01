@@ -146,7 +146,7 @@ A binary heap that provides this guarantee is called a _stable binary heap_, and
 
 Our `stable_binheap` is a heap accepting 32-bit ranks and values.
 It uses a counter `i` and instantiates, in turn, a binary heap that accepts 64-bit ranks and 32-bit values.
-- To push a pair `(r, v)` into `stable_binheap`, we craft a new 64-bit rank that incorporates the counter `i` (specifically, we compute `r << 32 + i`), and we push `v` into our underlying binary heap with this new 64-bit rank.
+- To push a pair `(r, v)` into `stable_binheap`, we craft a new 64-bit rank that incorporates the counter `i` (specifically, we compute `r << 32 + i`), and we push `v` into our underlying binary heap with this new 64-bit rank. We also increment the counter `i`.
 - To pop `stable_binheap`, we pop the underlying binary heap.
 - To peek `stable_binheap`, we peek the underlying binary heap.
 
