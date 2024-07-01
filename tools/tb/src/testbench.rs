@@ -7,10 +7,10 @@ pub mod verilator;
 pub type TestbenchResult = std::io::Result<()>;
 
 fn testbench_error_unknown_tb<S: AsRef<str>>(tb: S) -> TestbenchResult {
-    TestbenchResult::Err(std::io::Error::other(format!(
-        "Unknown testbench '{}'",
-        tb.as_ref()
-    )))
+    TestbenchResult::Err(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        format!("Unknown testbench '{}'", tb.as_ref()),
+    ))
 }
 
 pub trait Testbench {
@@ -55,10 +55,10 @@ impl TestbenchManager {
     ) -> TestbenchResult {
         if let Some(tb) = self.tbs.get(name.as_ref()) {
             let work_dir = TempDir::new(".tb")?;
-            let input = copy_into(&input, &work_dir)?;
+            let input = copy_into(input, &work_dir)?;
             let mut test_basenames = vec![];
             for test in tests {
-                test_basenames.push(copy_into(&test, &work_dir)?);
+                test_basenames.push(copy_into(test, &work_dir)?);
             }
             tb.run(input, &test_basenames, work_dir)
         } else {
