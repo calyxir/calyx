@@ -11,7 +11,7 @@ if __name__ == "__main__":
     # Our Round Robin Queue (formerly known as generalized pifo) is simple: it 
     # just orchestrates n FIFOs, in this case 3. It takes in a list of
     # boundaries of length n (in this case 3).
-    pifo = queues.RRQueue(2, [200, 400], len)
+    pifo = queues.RRQueue(7, [50, 100, 150, 200, 250, 300, 400], len)
 
     ans = queues.operate_queue(pifo, max_cmds, commands, values, keepgoing=keepgoing)
 

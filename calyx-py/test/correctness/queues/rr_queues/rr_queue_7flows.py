@@ -226,15 +226,15 @@ def insert_rr_pifo(
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    numflows = 2
+    numflows = 7
     sub_fifos = []
     for n in range(numflows):
         name = "fifo" + str(n)
         sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
         sub_fifos.append(sub_fifo)
 
-    pifo = insert_rr_pifo(prog, "pifo", sub_fifos, [0, 200, 400], numflows)
-    qc.insert_main(prog, pifo, 2000)
+    pifo = insert_rr_pifo(prog, "pifo", sub_fifos, [0, 50, 100, 150, 200, 250, 300, 400], numflows)
+    qc.insert_main(prog, pifo, 50)
     return prog.program
 
 
