@@ -238,7 +238,6 @@ class Pieo:
         
         if val == None:
             for x in range(len(self.data)):
-                # print(self.data[x])
                 if self.ripe(self.data[x], time):
                     if return_rank:
                         return self.data.pop(x) if remove else self.data[x]
@@ -261,8 +260,6 @@ class Pieo:
     def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Peeks a PIEO. See query() for specifics."""
 
-        # print("PEEKING!")
-        # print(time)
         return self.query(time, val, False, return_rank)
 
 @dataclass
@@ -393,6 +390,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(result)
             except QueueError:
+                print("Error popping with predicate")
                 if keepgoing:
                     continue
                 break
@@ -403,6 +401,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(result)
             except QueueError:
+                print("Error peeking with predicate")
                 if keepgoing:
                     continue
                 break
@@ -421,6 +420,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(result)
             except QueueError:
+                print("Error popping with value")
                 if keepgoing:
                     continue
                 break
@@ -431,6 +431,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                 if result:
                     ans.append(result)
             except QueueError:
+                print("Error peeking with value")
                 if keepgoing:
                     continue
                 break

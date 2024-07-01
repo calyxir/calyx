@@ -8,4 +8,4 @@ if __name__ == "__main__":
     keepgoing = "--keepgoing" in sys.argv
     pcq = queues.PCQ(len)
     ans = queues.operate_queue(pcq, max_cmds, commands, values, ranks, keepgoing=keepgoing, times=times)
-    queue_util.dump_json(commands, values, ans)
+    queue_util.dump_json(commands, values, ans, ranks, times)
