@@ -147,11 +147,11 @@ python3 {} 20000 --keepgoing |\
 
 [[tests]]
 name = "[calyx-py] queues correctness"
-paths = ["calyx-py/test/correctness/queues/rr_queues/*.py"]
+paths = ["calyx-py/test/correctness/queues/rr_queues/rr_queue*.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 100 |\
+python3 {} 2000 |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
