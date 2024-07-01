@@ -1,0 +1,31 @@
+import "primitives/compile.futil";
+import "primitives/memories/comb.futil";
+
+component main<"toplevel"=1,>(@clk clk: 1, @reset reset: 1, @go go: 1) -> (@done done: 1) {
+  cells {
+    reg0 = std_reg(32);
+    @external mem_read = comb_mem_d1(32, 1, 1);
+    @external mem_write = comb_mem_d1(32, 1, 1);
+  }
+  wires {
+    group read {
+        mem_read.addr0 = 1'b0;
+        reg0.in = mem_read.read_data;
+        reg0.write_en = 1'b1;
+        read[done] = reg0.done;
+    }
+
+    group write {
+        mem_write.addr0 = 1'b0;
+        mem_write.write_en = 1'b1;
+        mem_write.write_data = reg0.out;
+        write[done] = mem_write.done;
+    }
+  }
+  control {
+    seq {
+        read;
+        write;
+    }
+  }
+}
