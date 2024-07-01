@@ -10,6 +10,6 @@ dahlia-exe = /test/bin/dahlia
 rule dahlia-to-calyx
   command = $dahlia-exe -b calyx --lower -l error $in -o $out
 
-build stdin.futil: dahlia-to-calyx stdin
+build _to_stdout_calyx.futil: dahlia-to-calyx _from_stdin_dahlia.fuse
 
-default stdin.futil
+default _to_stdout_calyx.futil

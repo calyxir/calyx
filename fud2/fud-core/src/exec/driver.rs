@@ -1,15 +1,14 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
-use cranelift_entity::{PrimaryMap, SecondaryMap};
+use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
-use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
-
-#[derive(PartialEq)]
-enum Destination {
-    State(StateRef),
-    Op(OpRef),
-}
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    ffi::OsStr,
+    fmt::Display,
+};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
@@ -25,104 +24,176 @@ pub struct Driver {
 }
 
 impl Driver {
-    /// Find a chain of Operations from the `start` state to the `end`, which may be a state or the
-    /// final operation in the chain.
-    fn find_path_segment(
+    const MAX_PATH_LEN: u32 = 6;
+
+    fn try_paths_of_length<F>(
         &self,
-        start: StateRef,
-        end: Destination,
-    ) -> Option<Vec<OpRef>> {
-        // Our start state is the input.
-        let mut visited = SecondaryMap::<StateRef, bool>::new();
-        visited[start] = true;
-
-        // Build the incoming edges for each vertex.
-        let mut breadcrumbs = SecondaryMap::<StateRef, Option<OpRef>>::new();
-
-        // Breadth-first search.
-        let mut state_queue: Vec<StateRef> = vec![start];
-        while !state_queue.is_empty() {
-            let cur_state = state_queue.remove(0);
-
-            // Finish when we reach the goal vertex.
-            if end == Destination::State(cur_state) {
-                break;
-            }
-
-            // Traverse any edge from the current state to an unvisited state.
-            for (op_ref, op) in self.ops.iter() {
-                if op.input == cur_state && !visited[op.output] {
-                    state_queue.push(op.output);
-                    visited[op.output] = true;
-                    breadcrumbs[op.output] = Some(op_ref);
-                }
-
-                // Finish when we reach the goal edge.
-                if end == Destination::Op(op_ref) {
-                    break;
-                }
-            }
+        plan: &mut Vec<(OpRef, Vec<StateRef>)>,
+        len: u32,
+        start: &[StateRef],
+        end: &[StateRef],
+        good: &F,
+    ) -> Option<Vec<(OpRef, Vec<StateRef>)>>
+    where
+        F: Fn(&[(OpRef, Vec<StateRef>)]) -> bool,
+    {
+        // check if the plan of given length is valid
+        if len == 0 {
+            return if good(plan) { Some(plan.clone()) } else { None };
         }
 
-        // Traverse the breadcrumbs backward to build up the path back from output to input.
-        let mut op_path: Vec<OpRef> = vec![];
-        let mut cur_state = match end {
-            Destination::State(state) => state,
-            Destination::Op(op) => {
-                op_path.push(op);
-                self.ops[op].input
-            }
-        };
-        while cur_state != start {
-            match breadcrumbs[cur_state] {
-                Some(op) => {
-                    op_path.push(op);
-                    cur_state = self.ops[op].input;
+        // generate new plans over every loop
+        for op_ref in self.ops.keys() {
+            // make sure this op has its inputs created at some point
+            // that op is also marked as used, later added ops prefered
+            // TODO: consider just gening names here, might be easier
+            let mut all_generated = true;
+            for input in &self.ops[op_ref].input {
+                let mut input_generated = false;
+                for (o, outs) in plan.iter_mut().rev() {
+                    if self.ops[*o].output.contains(input) {
+                        input_generated = true;
+                        if !outs.contains(input) {
+                            outs.push(*input);
+                        }
+                        break;
+                    }
                 }
-                None => return None,
+                all_generated &= input_generated || start.contains(input);
             }
-        }
-        op_path.reverse();
+            if !all_generated {
+                continue;
+            }
 
-        Some(op_path)
+            // insert the op
+            let outputs = self.ops[op_ref].output.clone().into_iter();
+            let used_outputs =
+                outputs.filter(|s| end.contains(s)).collect::<Vec<_>>();
+            plan.push((op_ref, used_outputs));
+            if let Some(plan) =
+                self.try_paths_of_length(plan, len - 1, start, end, good)
+            {
+                return Some(plan);
+            }
+            plan.pop();
+        }
+
+        None
     }
 
-    /// Find a chain of operations from the `start` state to the `end` state, passing through each
-    /// `through` operation in order.
+    /// creates a sequence of ops and used states from each op
+    /// each element of end and through are associated based on their index
+    /// currently we assume the amount of items passed is no greater than the states in end
     pub fn find_path(
         &self,
-        start: StateRef,
-        end: StateRef,
+        start: &[StateRef],
+        end: &[StateRef],
         through: &[OpRef],
-    ) -> Option<Vec<OpRef>> {
-        let mut cur_state = start;
-        let mut op_path: Vec<OpRef> = vec![];
+    ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
+        let good = |plan: &[(OpRef, Vec<StateRef>)]| {
+            let end_created = end.iter().all(|s| {
+                for (_, states) in plan {
+                    if states.contains(s) {
+                        return true;
+                    }
+                }
+                false
+            });
+            let through_used = through.iter().all(|t| {
+                for (op, used_states) in plan {
+                    if op == t {
+                        // TODO: figure out how to chain this so it check more than one level deep
+                        // required ops not being used
+                        return !used_states.is_empty();
+                    }
+                }
+                false
+            });
+            end_created && through_used
+        };
 
-        // Build path segments through each through required operation.
-        for op in through {
-            let segment =
-                self.find_path_segment(cur_state, Destination::Op(*op))?;
-            op_path.extend(segment);
-            cur_state = self.ops[*op].output;
+        for len in 1..Self::MAX_PATH_LEN {
+            if let Some(plan) =
+                self.try_paths_of_length(&mut vec![], len, start, end, &good)
+            {
+                return Some(plan);
+            }
         }
-
-        // Build the final path segment to the destination state.
-        let segment =
-            self.find_path_segment(cur_state, Destination::State(end))?;
-        op_path.extend(segment);
-
-        Some(op_path)
+        None
     }
 
     /// Generate a filename with an extension appropriate for the given State.
-    fn gen_name(&self, stem: &str, state: StateRef) -> Utf8PathBuf {
-        let state = &self.states[state];
-        if state.is_pseudo() {
-            Utf8PathBuf::from(format!("_pseudo_{}", state.name))
+    /// This function assumes all input states are unique and all output states are unique.
+    /// Additionally, it assume all non-input/output states are unique.
+    fn gen_name(
+        &self,
+        state_ref: StateRef,
+        used: bool,
+        req: &Request,
+        used_as_input: &mut HashSet<StateRef>,
+    ) -> IO {
+        let state = &self.states[state_ref];
+        let extension = if !state.extensions.is_empty() {
+            &state.extensions[0]
+        } else {
+            ""
+        };
+
+        // make sure we have correct input/output filenames and mark if we read from stdio
+        if req.start_state.contains(&state_ref)
+            && !used_as_input.contains(&state_ref)
+        {
+            used_as_input.insert(state_ref);
+            let idx = req.start_state.partition_point(|&r| r == state_ref) - 1;
+            if let Some(start_file) = req.start_file.get(idx) {
+                return IO::File(utils::relative_path(
+                    start_file,
+                    &req.workdir,
+                ));
+            } else {
+                return IO::StdIO(
+                    idx,
+                    utils::relative_path(
+                        &Utf8PathBuf::from(format!(
+                            "_from_stdin_{}",
+                            state.name,
+                        ))
+                        .with_extension(extension),
+                        &req.workdir,
+                    ),
+                );
+            }
+        }
+
+        if req.end_state.contains(&state_ref) {
+            let idx = req.end_state.partition_point(|&r| r == state_ref) - 1;
+            if let Some(end_file) = req.end_file.get(idx) {
+                return IO::File(utils::relative_path(end_file, &req.workdir));
+            } else {
+                return IO::StdIO(
+                    idx,
+                    utils::relative_path(
+                        &Utf8PathBuf::from(format!(
+                            "_to_stdout_{}",
+                            state.name
+                        ))
+                        .with_extension(extension),
+                        &req.workdir,
+                    ),
+                );
+            }
+        }
+
+        // okay, wild west filename time (make them unique and hopefully helpful)
+        let prefix = if !used { "_unused_" } else { "" };
+        IO::File(if state.is_pseudo() {
+            Utf8PathBuf::from(format!("{}from_stdin_{}", prefix, state.name))
+                .with_extension(extension)
         } else {
             // TODO avoid collisions in case we reuse extensions...
-            Utf8PathBuf::from(stem).with_extension(&state.extensions[0])
-        }
+            Utf8PathBuf::from(format!("{}{}", prefix, state.name))
+                .with_extension(extension)
+        })
     }
 
     /// Concoct a plan to carry out the requested build.
@@ -132,40 +203,48 @@ impl Driver {
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
         let path =
-            self.find_path(req.start_state, req.end_state, &req.through)?;
-
-        let mut steps: Vec<(OpRef, Utf8PathBuf)> = vec![];
-
-        // Get the initial input filename and the stem to use to generate all intermediate filenames.
-        let (stdin, start_file) = match req.start_file {
-            Some(path) => (false, utils::relative_path(&path, &req.workdir)),
-            None => (true, "stdin".into()),
-        };
-        let stem = start_file.file_stem().unwrap();
+            self.find_path(&req.start_state, &req.end_state, &req.through)?;
 
         // Generate filenames for each step.
-        steps.extend(path.into_iter().map(|op| {
-            let filename = self.gen_name(stem, self.ops[op].output);
-            (op, filename)
-        }));
-
-        // If we have a specified output filename, use that instead of the generated one.
-        let stdout = if let Some(end_file) = req.end_file {
-            // TODO Can we just avoid generating the unused filename in the first place?
-            let last_step = steps.last_mut().expect("no steps");
-            last_step.1 = utils::relative_path(&end_file, &req.workdir);
-            false
-        } else {
-            // Print to stdout if the last state is a real (non-pseudo) state.
-            !self.states[req.end_state].is_pseudo()
-        };
+        let mut used_as_input = HashSet::new();
+        // collect filenames of outputs
+        let mut results = vec![];
+        let steps = path
+            .into_iter()
+            .map(|(op, used_states)| {
+                let input_filenames = self.ops[op]
+                    .input
+                    .iter()
+                    .map(|&state| {
+                        self.gen_name(state, true, &req, &mut used_as_input)
+                    })
+                    .collect::<Vec<_>>();
+                let output_filenames = self.ops[op]
+                    .output
+                    .iter()
+                    .map(|&state| {
+                        let name = self.gen_name(
+                            state,
+                            used_states.contains(&state),
+                            &req,
+                            &mut used_as_input,
+                        );
+                        if used_states.contains(&state)
+                            && req.end_state.contains(&state)
+                        {
+                            results.push(name.clone());
+                        }
+                        name
+                    })
+                    .collect();
+                (op, input_filenames, output_filenames)
+            })
+            .collect::<Vec<_>>();
 
         Some(Plan {
-            start: start_file,
             steps,
+            results,
             workdir: req.workdir,
-            stdin,
-            stdout,
         })
     }
 
@@ -240,8 +319,8 @@ impl Driver {
             println!(
                 "  {}: {} -> {}{}",
                 op.name,
-                self.states[op.input].name,
-                self.states[op.output].name,
+                self.states[op.input[0]].name,
+                self.states[op.output[0]].name,
                 dev_info
             );
         }
@@ -341,15 +420,15 @@ impl DriverBuilder {
         &mut self,
         name: &str,
         setups: &[SetupRef],
-        input: StateRef,
-        output: StateRef,
+        input: &[StateRef],
+        output: &[StateRef],
         emit: T,
     ) -> OpRef {
         self.ops.push(Operation {
             name: name.into(),
             setups: setups.into(),
-            input,
-            output,
+            input: input.into(),
+            output: output.into(),
             emit: Box::new(emit),
             source: None,
         })
@@ -363,7 +442,7 @@ impl DriverBuilder {
         output: StateRef,
         build: run::EmitBuildFn,
     ) -> OpRef {
-        self.add_op(name, setups, input, output, build)
+        self.add_op(name, setups, &[input], &[output], build)
     }
 
     pub fn op_source<S: ToString>(&mut self, op: OpRef, src: S) {
@@ -380,8 +459,8 @@ impl DriverBuilder {
         self.add_op(
             rule_name,
             setups,
-            input,
-            output,
+            &[input],
+            &[output],
             run::EmitRuleBuild {
                 rule_name: rule_name.to_string(),
             },
@@ -455,29 +534,22 @@ impl DriverBuilder {
     }
 }
 
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub enum IO {
+    // we order these so when they are sorted, StdIO comes first
+    // the u32 is a rank used to know which files should be read from stdin first
+    StdIO(usize, Utf8PathBuf),
+    File(Utf8PathBuf),
+}
+
 #[derive(Debug)]
 pub struct Plan {
-    /// The input to the first step.
-    pub start: Utf8PathBuf,
+    /// The chain of operations to run and each step's input and output files.
+    pub steps: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
 
-    /// The chain of operations to run and each step's output file.
-    pub steps: Vec<(OpRef, Utf8PathBuf)>,
+    // The final resulting files of the plan.
+    pub results: Vec<IO>,
 
     /// The directory that the build will happen in.
     pub workdir: Utf8PathBuf,
-
-    /// Read the first input from stdin.
-    pub stdin: bool,
-
-    /// Write the final output to stdout.
-    pub stdout: bool,
-}
-
-impl Plan {
-    pub fn end(&self) -> &Utf8Path {
-        match self.steps.last() {
-            Some((_, path)) => path,
-            None => &self.start,
-        }
-    }
 }

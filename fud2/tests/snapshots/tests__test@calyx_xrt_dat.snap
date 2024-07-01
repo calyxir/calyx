@@ -60,17 +60,17 @@ build pre_sim.tcl: echo  |
 build post_sim.tcl: echo  | 
   contents = close_vcd\\n
 
-build main.sv: calyx stdin
+build main.sv: calyx _from_stdin_calyx.futil
   backend = verilog
   args = --synthesis -p external
-build toplevel.v: calyx stdin
+build toplevel.v: calyx _from_stdin_calyx.futil
   backend = xilinx
-build kernel.xml: calyx stdin
+build kernel.xml: calyx _from_stdin_calyx.futil
   backend = xilinx-xml
-build stdin.xo: gen-xo | main.sv toplevel.v kernel.xml gen_xo.tcl get-ports.py
-build stdin.xclbin: compile-xclbin stdin.xo
+build xo.xo: gen-xo | main.sv toplevel.v kernel.xml gen_xo.tcl get-ports.py
+build xclbin.xclbin: compile-xclbin xo.xo
 build xrt.ini: get-rsrc
-build stdin.json: xclrun stdin.xclbin $sim_data | emconfig.json xrt.ini
+build _to_stdout_dat.json: xclrun xclbin.xclbin $sim_data | emconfig.json xrt.ini
   xrt_ini = xrt.ini
 
-default stdin.json
+default _to_stdout_dat.json

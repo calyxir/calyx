@@ -5,16 +5,16 @@ use camino::Utf8PathBuf;
 #[derive(Debug)]
 pub struct Request {
     /// The input format.
-    pub start_state: StateRef,
+    pub start_state: Vec<StateRef>,
 
     /// The output format to produce.
-    pub end_state: StateRef,
+    pub end_state: Vec<StateRef>,
 
     /// The filename to read the input from, or None to read from stdin.
-    pub start_file: Option<Utf8PathBuf>,
+    pub start_file: Vec<Utf8PathBuf>,
 
     /// The filename to write the output to, or None to print to stdout.
-    pub end_file: Option<Utf8PathBuf>,
+    pub end_file: Vec<Utf8PathBuf>,
 
     /// A sequence of operators to route the conversion through.
     pub through: Vec<OpRef>,
