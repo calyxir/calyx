@@ -534,9 +534,12 @@ impl DriverBuilder {
     }
 }
 
+/// A file tagged with it's input source.
 #[derive(Debug, Clone)]
 pub enum IO {
+    /// A file at a given path which is to be read from stdin or output to stdout.
     StdIO(usize, Utf8PathBuf),
+    /// A file at a given path which need not be read from stdin or output ot stdout.
     File(Utf8PathBuf),
 }
 
