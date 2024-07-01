@@ -7,19 +7,19 @@ component main(@go go: 1) -> (@done done: 1) {
         @external mem_read_a = comb_mem_d1(32, 1, 1);
         @external mem_read_b = comb_mem_d1(32, 1, 1);
         @external mem_write = comb_mem_d1(32, 1, 1);
-        addFN0 = addFN(8, 24, 32);
+        addFN0 = std_addFN(8, 24, 32);
     }
 
     wires {
         group add_std_format {
             mem_read_a.addr0 = 1'b0;
-            addFN0.a = mem_read_a.read_data;
+            addFN0.left = mem_read_a.read_data;
             
             mem_read_b.addr0 = 1'b0;
-            addFN0.b = mem_read_b.read_data;
+            addFN0.right = mem_read_b.read_data;
 
-            addFN0.val = 1'b1;
-
+            addFN0.go = 1'b1;
+            addFN0.subOp = 1'b0;
             addFN0.control = 1'b0;
             addFN0.roundingMode = 3'b0;
 

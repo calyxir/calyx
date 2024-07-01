@@ -1,6 +1,6 @@
 import simplejson as sjson
 import numpy as np
-from calyx.numeric_types import FixedPoint, Bitnum, InvalidNumericType
+from calyx.numeric_types import FixedPoint, Bitnum, FloatingPoint, InvalidNumericType
 from pathlib import Path
 from fud.errors import Malformed
 import logging as log
@@ -14,7 +14,7 @@ def float_to_fixed(value: float, N: int) -> float:
     return round(value * w) / float(w)
 
 
-def parse_dat(path, args):
+def parse_dat(path, is_bn, args):
     """Parses a number with the given numeric type
     arguments from the array at the given `path`.
     """
@@ -34,12 +34,15 @@ def parse_dat(path, args):
         hex_value = f"0x{hex_value}"
         if "int_width" in args:
             return FixedPoint(hex_value, **args).str_value()
-        else:
+        elif is_bn:
             bn = Bitnum(hex_value, **args)
             if bn.is_undef:
                 return bn.str_value()
             else:
                 return int(bn.str_value())
+        else:
+            fp = FloatingPoint(hex_value, **args)
+            return fp.to_dec(round_place=2)
 
     with path.open("r") as f:
         lines = []
@@ -90,11 +93,14 @@ def parse_fp_widths(format):
         )
 
 
-def convert(x, round: bool, is_signed: bool, width: int, int_width=None):
+def convert(x, round: bool, is_signed: bool, width: int, is_bn: bool, int_width=None):
     with_prefix = False
     # If `int_width` is not defined, then this is a `Bitnum`
     if int_width is None:
-        return Bitnum(x, width, is_signed).hex_string(with_prefix)
+        if is_bn:
+            return Bitnum(x, width, is_signed).hex_string(with_prefix)
+        else:
+            return FloatingPoint(x, width, is_signed).hex_string(with_prefix)
 
     try:
         return FixedPoint(x, width, int_width, is_signed).hex_string(with_prefix)
@@ -154,7 +160,8 @@ def convert2dat(output_dir, data, extension, round: bool):
 
         with path.open("w") as f:
             for v in arr.flatten():
-                f.write(convert(v, round, is_signed, width, int_width) + "\n")
+                is_bn=numeric_type == "bitnum"
+                f.write(convert(v, round, is_signed, width, is_bn, int_width) + "\n")
 
         shape[k]["shape"] = list(arr.shape)
         shape[k]["numeric_type"] = numeric_type
@@ -185,8 +192,9 @@ def convert2json(input_dir, extension):
         # for building the FixedPoint or Bitnum classes.
         args = form.copy()
         del args["shape"]
+        is_bn = args["numeric_type"] == "bitnum"
         del args["numeric_type"]
-        arr = parse_dat(path, args)
+        arr = parse_dat(path, is_bn, args)
         if form["shape"] == [0]:
             raise Malformed(
                 "Data format shape",

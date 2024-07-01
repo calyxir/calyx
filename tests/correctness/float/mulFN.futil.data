@@ -1,6 +1,6 @@
 {
   "mem_read_a": {
-    "data": [1082549862],
+    "data": [4.2],
     "format": {
       "numeric_type": "floating_point",
       "is_signed": false,
@@ -8,7 +8,7 @@
     }
   },
   "mem_read_b": {
-    "data": [1080033280],
+    "data": [3.5],
     "format": {
       "numeric_type": "floating_point",
       "is_signed": false,
