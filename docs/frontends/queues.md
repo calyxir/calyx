@@ -125,29 +125,30 @@ However, it is easy to generalize those two queues: instead of being FIFOs, they
 
 ## Minimum Binary Heap
 
-A binary heap is another tree-shaped data structure, where each node has at most two children.
-However, unlike the previous queues, a heap exposes an extended interface: 
-in addition to our previous input ports and reference registers, a heap has an additional input `rank`.
-The `push` operation now accepts both a `value` and its associated `rank`. 
-Consequently, a heap maintains an ordering of elements by `rank`, with the `pop` and `peek` operations removing and reading an element with minimal rank.
+A minimum binary heap is another tree-shaped data structure where each node has at most two children.
+However, unlike the queues discussed above, a heap exposes an extended interface:
+in addition to the input ports and reference registers discussed above, a heap has an additional input `rank`.
+The `push` operation now accepts both a `value` and the `rank` that the user wishes to associate with that value.
+Consequently, a heap _orders_ its elements by `rank`, with the `pop` (resp. `peek`) operation set to remove (resp. read) the element with minimal rank.
 
-To maintain this ordering efficiently, a heap stores `(rank, value)` pairs in each node and takes special care to uphold the following invariant:
+To maintain this ordering efficiently, a heap stores `(rank, value)` pairs in each node and takes special care to maintain the following invariant:
 > **Min-Heap Property**: for any given node `C`, if `P` is a parent of `C`, then the rank of `P` is less than or equal to the rank of `C`.
 
-This allows `peek` to be constant time and `push` and `pop` to be logarithmic in the size of the heap.
+To `push` or `pop` an element is easy at the top level: write to or read from the correct node, and then massage the tree to restore the Min-Heap Property.
+The `peek` operation is constant-time and `push` and `pop` are logarithmic in the size of the heap.
 
 Our frontend allows for the creation of minimum binary heaps in Calyx; the source code is available in [`binheap.py`][binheap.py].
 
-One quirk of our heap is its ambiguous behavior in the case of rank ties. 
-More specifically, if values `a` and then later `b` are pushed to the heap with the same rank, it's unclear which will be popped first. 
-Often, it's desirable to break such ties in FIFO order: that is we'd like a guarantee that `a` will be popped first. 
-We provide a thin layer over our heap that precisely this! 
+One quirk of any minimum binary heap is its ambiguous behavior in the case of rank ties.
+More specifically, if the value `a` is pushed with some rank, and then later value `b` is pushed with the same rank, it's unclear which will be popped first.
+Often, it's desirable to break such ties in FIFO order: that is we'd like a guarantee that `a` will be popped first.
+A binary heap that provides this guarantee is called a _stable binary heap_, and our frontend provides a thin layer over our heap that enforces this property.
 
-`stable_binheap` is a heap accepting 32-bit ranks and values. 
-It uses a counter `i` and a binary heap, accepting 64-bit ranks and 32-bit values, `below`.
-- To push a pair `(r, v)` to `stable_binheap`, we push `(r << 32 + i, v)` to `below` and increment `i`
-- To pop `stable_binheap`, we pop `below` 
-- To peek `stable_binheap`, we peek `below`
+Our `stable_binheap` is a heap accepting 32-bit ranks and values.
+It uses a counter `i` and instantiates, in turn, a binary heap that accepts 64-bit ranks and 32-bit values.
+- To push a pair `(r, v)` into `stable_binheap`, we craft a new 64-bit rank that incorporates the counter `i` (specifically, we compute `r << 32 + i`), and we push `v` into our underlying binary heap with this new 64-bit rank.
+- To pop `stable_binheap`, we pop the underlying binary heap.
+- To peek `stable_binheap`, we peek the underlying binary heap.
 
 The source code is available in [`stable_binheap.py`][stable_binheap.py].
 
