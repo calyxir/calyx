@@ -184,6 +184,17 @@ impl GPosIdx {
         (buf, out_idx, out_line)
     }
 
+    /// returns:
+    /// 1. the name of the file the span is in
+    /// 2. the starting line of a span
+    pub fn get_line_num(&self) -> (&String, usize) {
+        let table = GlobalPositionTable::as_ref();
+        let pos_data = table.get_pos(self.0);
+        let file_name = &table.get_file_data(pos_data.file).name;
+        let tup = self.get_lines();
+        (file_name, tup.2)
+    }
+
     /// Format this position with a the error message `err_msg`
     pub fn format<S: AsRef<str>>(&self, err_msg: S) -> String {
         let table = GlobalPositionTable::as_ref();

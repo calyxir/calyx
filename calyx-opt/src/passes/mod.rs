@@ -38,6 +38,7 @@ mod add_guard;
 mod data_path_infer;
 mod default_assigns;
 mod discover_external;
+mod metadata_table_gen;
 mod simplify_with_control;
 mod synthesis_papercut;
 mod top_down_compile_control;
