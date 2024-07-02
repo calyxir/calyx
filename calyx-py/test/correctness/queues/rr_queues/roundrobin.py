@@ -86,16 +86,13 @@ def insert_rr_pifo(
     # Each invoke is guarded by an equality check on the hot register,
     # and each guard is unique to the subqueue it is associated with.
     # This means we can eventually execute all of these invokes in parallel.
-    invoke_subqueues_hot_guard_seq = [
-        cb.if_with(
-            pifo.eq_use(hot.out, n),
-            invoke_subqueue(fifo_cells[n], cmd, value, ans, err),
-        )
-        for n in range(numflows)
-    ]
-    invoke_subqueues_hot_guard = cb.par(
-        invoke_subqueues_hot_guard_seq
-    )  # Execute in parallel.
+    invoke_subqueues_hot_guard = pifo.case(
+        hot.out,
+        {
+            n: invoke_subqueue(fifo_cells[n], cmd, value, ans, err)
+            for n in range(numflows)
+        },
+    )
 
     # We create a list of invoke-statement handles.
     # Each invoke is guarded by a pair of inequality checks on the value register,
@@ -107,7 +104,7 @@ def insert_rr_pifo(
             (
                 invoke_subqueue(fifo_cells[b], cmd, value, ans, err)
                 # In the specical case when b = 0,
-                # we don't need to check the lower bound and we can just `invoke`
+                # we don't need to check the lower bound and we can just `invoke`.
                 if b == 0
                 # Otherwise, we need to check the lower bound and `invoke`
                 # only if the value is in the interval.
@@ -121,7 +118,7 @@ def insert_rr_pifo(
     ]
     invoke_subqueues_value_guard = cb.par(
         invoke_subqueues_value_guard_seq
-    )  # Execute in parallel.
+    )  # Execute the above in parallel.
 
     incr_hot_wraparound = cb.if_with(
         # If hot = numflows - 1, we need to wrap around to 0. Otherwise, we increment.
