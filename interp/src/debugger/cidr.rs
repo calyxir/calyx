@@ -10,18 +10,19 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::prelude::GroupIdx,
+        setup_simulation, setup_simulation_with_metadata,
         structures::{context::Context, environment::Simulator},
     },
     serialization::PrintCode,
 };
 
-use std::collections::HashSet;
+use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
 use calyx_ir::Id;
 
 use owo_colors::OwoColorize;
 use std::path::Path;
-use std::rc::Rc;
+
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
@@ -53,7 +54,7 @@ impl ProgramStatus {
 }
 
 /// The interactive Calyx debugger. The debugger itself is run with the
-/// [Debugger::main_loop] function while this struct holds auxilliary
+/// [Debugger::main_loop] function while this struct holds auxiliary
 /// information used to coordinate the debugging process.
 pub struct Debugger<C: AsRef<Context> + Clone> {
     interpreter: Simulator<C>,
@@ -67,21 +68,21 @@ pub type OwnedDebugger = Debugger<Rc<Context>>;
 
 impl OwnedDebugger {
     /// construct a debugger instance from the target calyx file
+    /// todo: add support for data files
     pub fn from_file(
         file: &Path,
         lib_path: &Path,
     ) -> InterpreterResult<(Self, NewSourceMap)> {
-        // Make NewSourceMap, if we can't then we explode
-        // let mapping = ctx
-        //     .metadata
-        //     .map(|metadata| parse_metadata(&metadata))
-        //     .unwrap_or_else(|| Err(InterpreterError::MissingMetaData.into()))?;
+        let (ctx, map) = setup_simulation_with_metadata(
+            &Some(PathBuf::from(file)),
+            lib_path,
+            false,
+        )?;
 
-        // Ok((
-        //     Debugger::new(&components, main_component, None, env).unwrap(),
-        //     mapping,
-        // ))
-        todo!();
+        let debugger: Debugger<Rc<Context>> =
+            Self::new(Rc::new(ctx), None, None)?;
+
+        Ok((debugger, map))
     }
 }
 
@@ -97,7 +98,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(Self {
             interpreter,
             program_context,
-            debugging_context: todo!(),
+            debugging_context: DebuggingContext::new(),
             source_map,
         })
     }
@@ -126,11 +127,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.debugging_context
             .set_current_time(self.interpreter.get_currently_running_groups());
 
-        // let mut ctx = std::mem::replace(
-        //     &mut self.debugging_context,
-        //     DebuggingContext::new(&self._context, &self.main_component.name),
-        // );
-
         let mut breakpoints: Vec<GroupIdx> = vec![];
 
         while breakpoints.is_empty() && !self.interpreter.is_done() {
@@ -154,8 +150,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
             breakpoints.extend(self.debugging_context.hit_breakpoints());
         }
-
-        // self.debugging_context = ctx;
 
         if !self.interpreter.is_done() {
             for group in breakpoints {
@@ -402,13 +396,14 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
         };
 
-        Ok(if !self.interpreter.is_group_running(target) {
+        if !self.interpreter.is_group_running(target) {
             println!("Group is not currently running")
         } else {
             while self.interpreter.is_group_running(target) {
                 self.interpreter.step()?;
             }
-        })
+        };
+        Ok(())
     }
 
     fn create_breakpoints(
@@ -463,7 +458,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     }
                 }
             }
-            _ => unreachable!(),
+            _ => unreachable!("improper use of manipulate_breakpoint"),
         }
     }
 

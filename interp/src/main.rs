@@ -137,19 +137,12 @@ fn main() -> InterpreterResult<()> {
         warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
     }
 
-    // Construct IR
-    let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
-    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
-    let pm = PassManager::default_passes()?;
-
-    if !opts.skip_verification {
-        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], &[], false)?;
-    }
-
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
-
-    // general setup
-    let i_ctx = interp::flatten::flat_ir::translate(&ctx);
+    let i_ctx = interp::flatten::setup_simulation(
+        &opts.file,
+        &opts.lib_path,
+        opts.skip_verification,
+    )?;
 
     match &command {
         Command::Interpret(_) => {
