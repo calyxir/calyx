@@ -24,7 +24,7 @@ impl State {
         self.extensions.iter().any(|e| e == ext)
     }
 
-    /// Is this a "pseudo-state": doesn't correspond to an actual file, and must be an output state?
+    /// Is this a "pseudo-state": doesn't correspond to an actual file
     pub fn is_pseudo(&self) -> bool {
         self.extensions.is_empty()
     }
