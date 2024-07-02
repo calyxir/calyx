@@ -159,7 +159,7 @@ def insert_rr_pifo(
         raise_err,  # The queue is empty: underflow.
         [  # The queue is not empty. Proceed.
             lower_err,
-            copy_hot,
+            copy_hot,  # We remember `hot` so we can restore it later.
             [
                 invoke_subqueues_hot_guard,
                 cb.while_with(
@@ -173,10 +173,8 @@ def insert_rr_pifo(
                         invoke_subqueues_hot_guard,
                     ],
                 ),
-                # Peeking does not affect `hot`.
-                # Peeking does not affect the length.
             ],
-            restore_hot,
+            restore_hot,  # Peeking must not affect `hot`, so we restore it.
         ],
     )
 
