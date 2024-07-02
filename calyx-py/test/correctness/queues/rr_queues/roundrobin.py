@@ -82,10 +82,10 @@ def insert_rr_pifo(
     len_incr = pifo.incr(length)  # len++
     len_decr = pifo.decr(length)  # len--
 
-    # We first create a list of invoke-statement handles.
-    # Each invoke is guarded by an equality check on the hot register,
-    # and each guard is unique to the subqueue it is associated with.
-    # This means we can eventually execute all of these invokes in parallel.
+    # We create a dictionary of invokes handles and pass it to the case construct.
+    # Each invoke is uniquely guarded by an equality check on the hot register.
+    # This means we can execute all of these invokes in parallel and know that
+    # only one will succeed.
     invoke_subqueues_hot_guard = pifo.case(
         hot.out,
         {
