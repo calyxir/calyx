@@ -564,7 +564,7 @@ pub struct Plan {
     /// The chain of operations to run and each step's input and output files.
     pub steps: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
 
-    // The final resulting files of the plan.
+    /// The resulting files of the plan.
     pub results: Vec<IO>,
 
     /// The directory that the build will happen in.
