@@ -1,4 +1,4 @@
-use super::{OpRef, StateRef};
+use super::{path::FindPath, OpRef, StateRef};
 use camino::Utf8PathBuf;
 
 /// A request to the Driver directing it what to build.
@@ -23,4 +23,7 @@ pub struct Request {
 
     /// The working directory for the build.
     pub workdir: Utf8PathBuf,
+
+    /// The algorithm used to find a plan to turn start states into end states
+    pub path_finder: Box<dyn FindPath>,
 }

@@ -1,7 +1,11 @@
-use fud_core::DriverBuilder;
+use fud_core::{
+    exec::{EnumeratePathFinder, FindPath},
+    DriverBuilder,
+};
 
 #[test]
 fn find_path_simple_graph_test() {
+    let path_finder = EnumeratePathFinder {};
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let s2 = bld.state("s2", &[]);
@@ -9,13 +13,14 @@ fn find_path_simple_graph_test() {
     let driver = bld.build();
     assert_eq!(
         Some(vec![(t1, vec![s2])]),
-        driver.find_path(&[s1], &[s2], &[])
+        path_finder.find_path(&[s1], &[s2], &[], &driver.ops)
     );
-    assert_eq!(None, driver.find_path(&[s1], &[s1], &[]));
+    assert_eq!(None, path_finder.find_path(&[s1], &[s1], &[], &driver.ops));
 }
 
 #[test]
 fn find_path_multi_op_graph() {
+    let path_finder = EnumeratePathFinder {};
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let s2 = bld.state("s2", &[]);
@@ -25,12 +30,13 @@ fn find_path_multi_op_graph() {
     let driver = bld.build();
     assert_eq!(
         Some(vec![(t1, vec![s3])]),
-        driver.find_path(&[s1], &[s3], &[])
+        path_finder.find_path(&[s1], &[s3], &[], &driver.ops)
     );
 }
 
 #[test]
 fn find_path_multi_path_graph() {
+    let path_finder = EnumeratePathFinder {};
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let s2 = bld.state("s2", &[]);
@@ -48,38 +54,44 @@ fn find_path_multi_path_graph() {
     let driver = bld.build();
     assert_eq!(
         Some(vec![(t1, vec![s3]), (t4, vec![s5])]),
-        driver.find_path(&[s1], &[s5], &[])
+        path_finder.find_path(&[s1], &[s5], &[], &driver.ops)
     );
     assert_eq!(
         Some(vec![(t1, vec![s3]), (t5, vec![s5])]),
-        driver.find_path(&[s1], &[s5], &[t5])
+        path_finder.find_path(&[s1], &[s5], &[t5], &driver.ops)
     );
-    assert_eq!(None, driver.find_path(&[s6], &[s5], &[]));
-    assert_eq!(None, driver.find_path(&[s1], &[s5], &[t2]));
+    assert_eq!(None, path_finder.find_path(&[s6], &[s5], &[], &driver.ops));
+    assert_eq!(
+        None,
+        path_finder.find_path(&[s1], &[s5], &[t2], &driver.ops)
+    );
 }
 
 #[test]
 fn find_path_only_state_graph() {
+    let path_finder = EnumeratePathFinder {};
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let driver = bld.build();
-    assert_eq!(None, driver.find_path(&[s1], &[s1], &[]));
+    assert_eq!(None, path_finder.find_path(&[s1], &[s1], &[], &driver.ops));
 }
 
 #[test]
 fn find_path_self_loop() {
+    let path_finder = EnumeratePathFinder {};
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let t1 = bld.op("t1", &[], s1, s1, |_, _, _| Ok(()));
     let driver = bld.build();
     assert_eq!(
         Some(vec![(t1, vec![s1])]),
-        driver.find_path(&[s1], &[s1], &[t1])
+        path_finder.find_path(&[s1], &[s1], &[t1], &driver.ops)
     );
 }
 
 #[test]
 fn find_path_cycle_graph() {
+    let path_finder = EnumeratePathFinder {};
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let s2 = bld.state("s2", &[]);
@@ -88,20 +100,21 @@ fn find_path_cycle_graph() {
     let driver = bld.build();
     assert_eq!(
         Some(vec![(t1, vec![s2]), (t2, vec![s1])]),
-        driver.find_path(&[s1], &[s1], &[])
+        path_finder.find_path(&[s1], &[s1], &[], &driver.ops)
     );
     assert_eq!(
         Some(vec![(t1, vec![s2])]),
-        driver.find_path(&[s1], &[s2], &[])
+        path_finder.find_path(&[s1], &[s2], &[], &driver.ops)
     );
     assert_eq!(
         Some(vec![(t2, vec![s1])]),
-        driver.find_path(&[s2], &[s1], &[])
+        path_finder.find_path(&[s2], &[s1], &[], &driver.ops)
     );
 }
 
 #[test]
 fn find_path_nontrivial_cycle() {
+    let path_finder = EnumeratePathFinder {};
     let mut bld = DriverBuilder::new("fud2");
     let s1 = bld.state("s1", &[]);
     let s2 = bld.state("s2", &[]);
@@ -112,6 +125,6 @@ fn find_path_nontrivial_cycle() {
     let driver = bld.build();
     assert_eq!(
         Some(vec![(t2, vec![s2]), (t3, vec![s3])]),
-        driver.find_path(&[s1], &[s3], &[])
+        path_finder.find_path(&[s1], &[s3], &[], &driver.ops)
     );
 }

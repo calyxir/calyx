@@ -19,98 +19,6 @@ pub struct Driver {
 }
 
 impl Driver {
-    const MAX_PATH_LEN: u32 = 6;
-
-    fn try_paths_of_length<F>(
-        &self,
-        plan: &mut Vec<(OpRef, Vec<StateRef>)>,
-        len: u32,
-        start: &[StateRef],
-        end: &[StateRef],
-        good: &F,
-    ) -> Option<Vec<(OpRef, Vec<StateRef>)>>
-    where
-        F: Fn(&[(OpRef, Vec<StateRef>)]) -> bool,
-    {
-        // check if the plan of given length is valid
-        if len == 0 {
-            return if good(plan) { Some(plan.clone()) } else { None };
-        }
-
-        // generate new plans over every loop
-        for op_ref in self.ops.keys() {
-            // make sure this op has its inputs created at some point
-            // that op is also marked as used, later added ops prefered
-            // TODO: consider just gening names here, might be easier
-            let mut all_generated = true;
-            for input in &self.ops[op_ref].input {
-                let mut input_generated = false;
-                for (o, outs) in plan.iter_mut().rev() {
-                    if self.ops[*o].output.contains(input) {
-                        input_generated = true;
-                        if !outs.contains(input) {
-                            outs.push(*input);
-                        }
-                        break;
-                    }
-                }
-                all_generated &= input_generated || start.contains(input);
-            }
-            if !all_generated {
-                continue;
-            }
-
-            // insert the op
-            let outputs = self.ops[op_ref].output.clone().into_iter();
-            let used_outputs =
-                outputs.filter(|s| end.contains(s)).collect::<Vec<_>>();
-            plan.push((op_ref, used_outputs));
-            if let Some(plan) =
-                self.try_paths_of_length(plan, len - 1, start, end, good)
-            {
-                return Some(plan);
-            }
-            plan.pop();
-        }
-
-        None
-    }
-
-    /// creates a sequence of ops and used states from each op
-    /// each element of end and through are associated based on their index
-    /// currently we assume the amount of items passed is no greater than the states in end
-    pub fn find_path(
-        &self,
-        start: &[StateRef],
-        end: &[StateRef],
-        through: &[OpRef],
-    ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
-        let good = |plan: &[(OpRef, Vec<StateRef>)]| {
-            let end_created = end
-                .iter()
-                .all(|s| plan.iter().any(|(_, states)| states.contains(s)));
-
-            // FIXME: Currently this checks that an outputs of an op specified by though is used.
-            // However, it's possible that the only use of this output by another op whose outputs
-            // are all unused. This means the plan doesn't actually use the specified op. but this
-            // code reports it would.
-            let through_used = through.iter().all(|t| {
-                plan.iter()
-                    .any(|(op, used_states)| op == t && !used_states.is_empty())
-            });
-            end_created && through_used
-        };
-
-        for len in 1..Self::MAX_PATH_LEN {
-            if let Some(plan) =
-                self.try_paths_of_length(&mut vec![], len, start, end, &good)
-            {
-                return Some(plan);
-            }
-        }
-        None
-    }
-
     /// Generate a filename with an extension appropriate for the given State, `state_ref` relative
     /// to `workdir`.
     ///
@@ -242,8 +150,12 @@ impl Driver {
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
-        let path =
-            self.find_path(&req.start_states, &req.end_states, &req.through)?;
+        let path = req.path_finder.find_path(
+            &req.start_states,
+            &req.end_states,
+            &req.through,
+            &self.ops,
+        )?;
 
         // Generate filenames for each step.
         let steps = path
