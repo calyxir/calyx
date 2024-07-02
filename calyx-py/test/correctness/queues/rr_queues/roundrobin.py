@@ -1,7 +1,19 @@
 # pylint: disable=import-error
 """Common code factored out, to be imported by the different flow implementations."""
+# pylint: disable=import-error
+import os
+import sys
+import inspect
 
+# Hackery to import `fifo` from the parent directory.
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
+
+import fifo
 import calyx.builder as cb
+import calyx.queue_call as qc
+
 
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
@@ -226,3 +238,33 @@ def insert_rr_pifo(
     )
 
     return pifo
+
+
+def build(numflows):
+    """Top-level function to build the program."""
+
+    if numflows == 2:
+        boundaries = [200, 400]
+    elif numflows == 3:
+        boundaries = [133, 266, 400]
+    elif numflows == 4:
+        boundaries = [100, 200, 300, 400]
+    elif numflows == 5:
+        boundaries = [80, 160, 240, 320, 400]
+    elif numflows == 6:
+        boundaries = [66, 100, 200, 220, 300, 400]
+    elif numflows == 7:
+        boundaries = [50, 100, 150, 200, 250, 300, 400]
+    else:
+        raise ValueError("Unsupported number of flows")
+
+    prog = cb.Builder()
+    sub_fifos = []
+    for n in range(numflows):
+        name = "fifo" + str(n)
+        sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
+        sub_fifos.append(sub_fifo)
+
+    pifo = insert_rr_pifo(prog, "pifo", sub_fifos, boundaries, numflows)
+    qc.insert_main(prog, pifo, 20000)
+    return prog.program
