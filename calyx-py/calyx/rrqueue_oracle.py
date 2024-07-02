@@ -4,7 +4,7 @@ import calyx.queues as queues
 from calyx import queue_util
 
 if __name__ == "__main__":
-    max_cmds, len, numflows = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
+    num_cmds, len, numflows = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
     keepgoing = "--keepgoing" in sys.argv
     commands, values, _ = queue_util.parse_json()
 
@@ -30,6 +30,6 @@ if __name__ == "__main__":
     # a command line argument. It orchestrates the FIFOs in a round-robin fashion.
     pifo = queues.RRQueue(numflows, boundaries, len)
 
-    ans = queues.operate_queue(pifo, max_cmds, commands, values, keepgoing=keepgoing)
+    ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)
 
     queue_util.dump_json(ans, commands, values)

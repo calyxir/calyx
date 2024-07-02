@@ -258,6 +258,8 @@ def build(numflows):
     else:
         raise ValueError("Unsupported number of flows")
 
+    num_cmds = int(sys.argv[1])
+
     prog = cb.Builder()
     sub_fifos = []
     for n in range(numflows):
@@ -266,5 +268,5 @@ def build(numflows):
         sub_fifos.append(sub_fifo)
 
     pifo = insert_rr_pifo(prog, "pifo", sub_fifos, boundaries, numflows)
-    qc.insert_main(prog, pifo, 20000)
+    qc.insert_main(prog, pifo, num_cmds)
     return prog.program
