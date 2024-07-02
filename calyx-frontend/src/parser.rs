@@ -294,6 +294,13 @@ impl CalyxParser {
         u64::from_str_radix(input.as_str(), 2)
             .map_err(|_| input.error("Expected binary number"))
     }
+    fn float(input: Node) -> ParseResult<f64> {
+        let float_str = input.as_str();
+        let float_val: f64 = float_str
+            .parse()
+            .map_err(|_| input.error("Expected valid floating-point number"))?;
+        Ok(float_val)
+    }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
         let span = Self::get_span(&input);
@@ -323,6 +330,21 @@ impl CalyxParser {
                     val,
                     span
                 },
+            [bitwidth(width), float(val)] => {
+                let bit_pattern = if width == 32 {
+                    (val as f32).to_bits() as u64
+                } else if width == 64 {
+                    val.to_bits()
+                } else {
+                    return Err(input.error("Unsupported bitwidth for floating-point number"));
+                };
+                BitNum {
+                    width,
+                    num_type: NumType::Hex,
+                    val: bit_pattern,
+                    span
+                }
+            },
 
         );
 
