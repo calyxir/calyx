@@ -319,7 +319,7 @@ class StrictPifo:
     """
     def __init__(self, n, boundaries, order, max_len: int):
        self.data = []
-       self.order = order # list of the strict order of the flows from highest priority to least
+       self.order = order
        self.priority = 0
        self.n = n
        self.pifo_len = 0
