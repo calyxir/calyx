@@ -32,5 +32,5 @@ cat ../test/correctness/queues/binheap/stable_binheap.data | python3 binheap_ora
 
 for n in {2..7}; do
     python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data
-    cat ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data | python3 rrqueue_oracle.py $num_cmds $queue_size $n > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.expect
+    cat ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data | python3 rrqueue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.expect
 done
