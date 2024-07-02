@@ -150,6 +150,7 @@ fn all_ops() {
                 vec![IO::File("/output.ext".into())],
             )],
             workdir: ".".into(),
+            inputs: vec![IO::File("/input.ext".into())],
             results: vec![IO::File("/output.ext".into())],
         };
         plan.test(&driver);

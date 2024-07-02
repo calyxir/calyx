@@ -238,8 +238,14 @@ impl<'a> Run<'a> {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 
-        //Capture stdin.
-        for filename in self.plan.stdin_files() {
+        // Capture stdin.
+        for filename in self.plan.inputs.iter().filter_map(|f| {
+            if f.is_from_stdio() {
+                Some(f.filename())
+            } else {
+                None
+            }
+        }) {
             let stdin_file =
                 std::fs::File::create(self.plan.workdir.join(filename))?;
             std::io::copy(
@@ -265,7 +271,14 @@ impl<'a> Run<'a> {
 
         // Emit to stdout, only when Ninja succeeded.
         if status.success() {
-            for filename in self.plan.stdout_files() {
+            // Outputs results to stdio if tagged as such.
+            for filename in self.plan.results.iter().filter_map(|f| {
+                if f.is_from_stdio() {
+                    Some(f.filename())
+                } else {
+                    None
+                }
+            }) {
                 let stdout_files =
                     std::fs::File::open(self.plan.workdir.join(filename))?;
                 std::io::copy(

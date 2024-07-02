@@ -175,18 +175,65 @@ impl Driver {
             if let Some(filename) = files.get(idx) {
                 IO::File(utils::relative_path(&filename.clone(), workdir))
             } else {
-                IO::StdIO(
-                    idx,
-                    utils::relative_path(
-                        &Utf8PathBuf::from(stdio_name)
-                            .with_extension(extension),
-                        workdir,
-                    ),
-                )
+                IO::StdIO(utils::relative_path(
+                    &Utf8PathBuf::from(stdio_name).with_extension(extension),
+                    workdir,
+                ))
             }
         } else {
             self.gen_name(state_ref, used, workdir)
         }
+    }
+
+    /// Generates a vector contianing filenames for files of each state in `states`.
+    ///
+    /// `req` is used to generate filenames as inputs and outputs may want to takes names from
+    /// `req.end_files` or `req.start_files`.
+    ///
+    /// `input` is true if all states in `states` are an input to an op.
+    /// `used` is the states in `states` which are an input to another op or in `req.end_states`.
+    fn gen_names(
+        &self,
+        states: &[StateRef],
+        req: &Request,
+        input: bool,
+        used: &[StateRef],
+    ) -> Vec<IO> {
+        // Inputs cannot be results, so look at starting states, else look at ending states.
+        let req_states = if input {
+            &req.start_states
+        } else {
+            &req.end_states
+        };
+
+        // Inputs cannot be results, so look at starting files, else look at ending files.
+        let req_files = if input {
+            &req.start_files
+        } else {
+            &req.end_files
+        };
+        // The above lists can't be the concatination of the two branches because start and end
+        // states are not necessarily disjoint, but they could still have different files assigned
+        // to each state.
+
+        states
+            .iter()
+            .map(|&state| {
+                let stdio_name = if input {
+                    format!("_from_stdin_{}", self.states[state].name)
+                } else {
+                    format!("_to_stdout_{}", self.states[state].name)
+                };
+                self.gen_name_or_use_given(
+                    state,
+                    req_states,
+                    req_files,
+                    &stdio_name,
+                    input || used.contains(&state),
+                    &req.workdir,
+                )
+            })
+            .collect()
     }
 
     /// Concoct a plan to carry out the requested build.
@@ -199,62 +246,26 @@ impl Driver {
             self.find_path(&req.start_states, &req.end_states, &req.through)?;
 
         // Generate filenames for each step.
-
-        // Collect filenames of inputs and outputs
-        let mut results = vec![];
-        let mut inputs = vec![];
-
         let steps = path
             .into_iter()
-            .map(|(op, used_states)| {
-                let input_filenames = self.ops[op]
-                    .input
-                    .iter()
-                    .map(|&state| {
-                        // If the state is in `req.start_states`, use the filename in
-                        // `req.end_files`, else read from stdin.
-                        let name = self.gen_name_or_use_given(
-                            state,
-                            &req.start_states,
-                            &req.start_files,
-                            format!("_from_stdin_{}", self.states[state].name)
-                                .as_str(),
-                            true,
-                            &req.workdir,
-                        );
-                        if req.start_states.contains(&state) {
-                            inputs.push(name.clone());
-                        }
-                        name
-                    })
-                    .collect::<Vec<_>>();
-                let output_filenames = self.ops[op]
-                    .output
-                    .iter()
-                    .map(|&state| {
-                        // If the state is in `req.end_states`, use the filename in
-                        // `req.end_files`, else write to stdout.
-                        let name = self.gen_name_or_use_given(
-                            state,
-                            &req.end_states,
-                            &req.end_files,
-                            format!("_to_stdout_{}", self.states[state].name)
-                                .as_str(),
-                            used_states.contains(&state),
-                            &req.workdir,
-                        );
-                        if req.end_states.contains(&state) {
-                            results.push(name.clone());
-                        }
-                        name
-                    })
-                    .collect();
+            .map(|(op, used)| {
+                let input_filenames =
+                    self.gen_names(&self.ops[op].input, &req, true, &used);
+                let output_filenames =
+                    self.gen_names(&self.ops[op].output, &req, false, &used);
                 (op, input_filenames, output_filenames)
             })
             .collect::<Vec<_>>();
 
+        // Collect filenames of inputs and outputs
+        let results =
+            self.gen_names(&req.end_states, &req, false, &req.end_states);
+        let inputs =
+            self.gen_names(&req.start_states, &req, true, &req.start_states);
+
         Some(Plan {
             steps,
+            inputs,
             results,
             workdir: req.workdir,
         })
@@ -550,7 +561,7 @@ impl DriverBuilder {
 #[derive(Debug, Clone)]
 pub enum IO {
     /// A file at a given path which is to be read from stdin or output to stdout.
-    StdIO(usize, Utf8PathBuf),
+    StdIO(Utf8PathBuf),
     /// A file at a given path which need not be read from stdin or output ot stdout.
     File(Utf8PathBuf),
 }
@@ -559,8 +570,16 @@ impl IO {
     /// Returns the filename of the file `self` represents
     pub fn filename(&self) -> &Utf8PathBuf {
         match self {
-            Self::StdIO(_, p) => p,
+            Self::StdIO(p) => p,
             Self::File(p) => p,
+        }
+    }
+
+    /// Returns if `self` is a `StdIO`.
+    pub fn is_from_stdio(&self) -> bool {
+        match self {
+            Self::StdIO(_) => true,
+            Self::File(_) => false,
         }
     }
 }
@@ -576,51 +595,14 @@ pub struct Plan {
     /// The chain of operations to run and each step's input and output files.
     pub steps: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
 
+    /// The inputs used to generate the results.
+    /// Earlier elements of inputs should be read before later ones.
+    pub inputs: Vec<IO>,
+
     /// The resulting files of the plan.
+    /// Earlier elements of inputs should be written before later ones.
     pub results: Vec<IO>,
 
     /// The directory that the build will happen in.
     pub workdir: Utf8PathBuf,
-}
-
-impl Plan {
-    /// Returns the filenames of temperary files which will be read from stdin.
-    /// The vector is ordered according to the order states were specified by the user.
-    pub fn stdin_files(&self) -> Vec<&Utf8PathBuf> {
-        let mut stdin_files: Vec<_> = self
-            .steps
-            .iter()
-            .flat_map(|step| {
-                step.1.iter().filter_map(|io| match io {
-                    IO::StdIO(rank, filename) => Some((*rank, filename)),
-                    IO::File(_) => None,
-                })
-            })
-            .collect();
-        stdin_files.sort();
-        stdin_files
-            .iter()
-            .map(|&(_, filename)| filename)
-            .collect::<Vec<_>>()
-    }
-
-    /// Returns the filenames of temperary files which will be written to stdout.
-    /// The vector is ordered according to the order states were specified by the user.
-    pub fn stdout_files(&self) -> Vec<&Utf8PathBuf> {
-        let mut stdout_files: Vec<_> = self
-            .steps
-            .iter()
-            .flat_map(|step| {
-                step.2.iter().filter_map(|io| match io {
-                    IO::StdIO(rank, filename) => Some((rank, filename)),
-                    IO::File(_) => None,
-                })
-            })
-            .collect();
-        stdout_files.sort();
-        stdout_files
-            .iter()
-            .map(|&(_, filename)| filename)
-            .collect::<Vec<_>>()
-    }
 }
