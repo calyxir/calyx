@@ -20,6 +20,9 @@ members = [
     "tools/calyx-pass-explorer",
     "tools/yxi",
     "tools/calyx-writer",
+    "tools/tb",
+    "tools/tb/plugins/cocotb",
+    "tools/tb/plugins/verilator",
 ]
 exclude = ["site"]
 
@@ -58,6 +61,8 @@ calyx-ir = { path = "calyx-ir", version = "0.7.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
 calyx-opt = { path = "calyx-opt", version = "0.7.1" }
 calyx-backend = { path = "calyx-backend", version = "0.7.1" }
+figment = { version = "0.10.12", features = ["toml"] }
+semver = "1.0.23"
 
 [workspace.dependencies.petgraph]
 version = "0.6"

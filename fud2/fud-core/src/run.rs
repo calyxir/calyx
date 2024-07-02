@@ -4,6 +4,7 @@ use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::io::Write;
 use std::process::{Command, ExitStatus};
 
@@ -280,6 +281,10 @@ impl<'a> Run<'a> {
         // Emit preamble.
         emitter.var("build-tool", &self.global_config.exe)?;
         emitter.rule("get-rsrc", "$build-tool get-rsrc $out")?;
+        emitter.var(
+            "caller-dir",
+            &env::current_dir()?.to_string_lossy().to_string(),
+        )?;
         writeln!(emitter.out)?;
 
         // Emit the setup for each operation used in the plan, only once.
@@ -413,13 +418,13 @@ impl<W: Write> Emitter<W> {
         }
     }
 
-    /// Emit a Ninja variable declaration for `name` based on the configured value for `key`.
+    /// Emit a Ninja variable declaration that sets `name` to the value bound by `key` in the config file.
     pub fn config_var(&mut self, name: &str, key: &str) -> EmitResult {
         self.var(name, &self.config_val(key)?)?;
         Ok(())
     }
 
-    /// Emit a Ninja variable declaration for `name` based on the configured value for `key`, or a
+    /// Emit a Ninja variable declaration that sets `name` to the value bound by `key` in the config file, or a
     /// default value if it's missing.
     pub fn config_var_or(
         &mut self,
@@ -430,7 +435,7 @@ impl<W: Write> Emitter<W> {
         self.var(name, &self.config_or(key, default))
     }
 
-    /// Emit a Ninja variable declaration.
+    /// Emit a Ninja variable declaration `name = value`.
     pub fn var(&mut self, name: &str, value: &str) -> std::io::Result<()> {
         writeln!(self.out, "{} = {}", name, value)
     }

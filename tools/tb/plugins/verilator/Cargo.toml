@@ -1,0 +1,11 @@
+[package]
+name = "verilator-tb-plugin"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+tb = { path = "../..", version = "0.0.0" }
+makemake = "0.1.2-patch2"

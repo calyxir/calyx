@@ -60,3 +60,5 @@ tools/profiler/tmp/
 tools/profiler/logs
 
 temp/
+tools/tb/**/*.so
+tools/tb/**/*.dylib

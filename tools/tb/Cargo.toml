@@ -1,0 +1,21 @@
+[package]
+name = "tb"
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+readme.workspace = true
+description.workspace = true
+categories.workspace = true
+homepage.workspace = true
+edition.workspace = true
+version = "0.0.0"
+rust-version.workspace = true
+
+[dependencies]
+argh.workspace = true
+tempdir = "0.3.7"
+figment.workspace = true
+serde.workspace = true
+semver.workspace = true
+libloading = "0.8.4"
