@@ -41,10 +41,8 @@ def insert_rr_pifo(
     name,
     fifos,
     boundaries,
-    numflows,  # the number of flows
+    numflows,
     queue_len_factor=QUEUE_LEN_FACTOR,
-    stats=None,
-    static=False,
 ):
     """Inserts the component `pifo` into the program."""
 
@@ -55,14 +53,6 @@ def insert_rr_pifo(
     value = pifo.input("value", 32)  # The value to push to the queue
 
     fifo_cells = [pifo.cell(f"queue_{i}", fifo_i) for i, fifo_i in enumerate(fifos)]
-
-    # If a stats component was provided, declare it as a cell of this component.
-    if stats:
-        stats = pifo.cell("stats", stats, is_ref=True)
-
-    flow = pifo.reg(32, "flow")  # The flow to push to: 0 to n.
-    # We will infer this using a separate component;
-    # it is a function of the value being pushed.
 
     ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -202,26 +192,7 @@ def insert_rr_pifo(
             # We need to check which flow this value should be pushed to.
             invoke_subqueues_value_guard,
             invoke_zero_edge_case,
-            cb.if_with(
-                err_eq_0,
-                # If no stats component is provided,
-                # just increment the active length.
-                (
-                    len_incr
-                    if not stats
-                    else cb.par(
-                        # If a stats component is provided,
-                        # Increment the active length and also
-                        # tell the stats component what flow we pushed.
-                        len_incr,
-                        (
-                            cb.static_invoke(stats, in_flow=flow.out)
-                            if static
-                            else cb.invoke(stats, in_flow=flow.out)
-                        ),
-                    )
-                ),
-            ),
+            cb.if_with(err_eq_0, len_incr),
         ],
     )
 
