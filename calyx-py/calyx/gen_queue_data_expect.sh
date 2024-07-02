@@ -21,6 +21,11 @@ for queue_kind in fifo pifo pifo_tree; do
     [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.expect ../test/correctness/queues/binheap/$queue_kind.expect
 done
 
+# Finally, we test the queues for non-work-conserving algorithms,
+# which are the following:
+# - pieo_oracle.py
+# - pcq_oracle.py
+
 for queue_kind in pieo pcq; do
     python3 queue_data_gen.py $num_cmds 1 > ../test/correctness/queues/$queue_kind.data
     cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/$queue_kind.expect
