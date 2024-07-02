@@ -16,6 +16,7 @@ binary =  @{ ASCII_HEX_DIGIT+ }
 decimal = @{ ASCII_HEX_DIGIT+ }
 octal =   @{ ASCII_HEX_DIGIT+ }
 hex =     @{ ASCII_HEX_DIGIT+ }
+float =   @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 
 // `$` creates a compound rule which ignores whitespace while allowing for
 // inner rules (`@` makes inner rules silent).
@@ -26,7 +27,8 @@ num_lit = ${
       ~ ( "d" ~ decimal
         | "b" ~ binary
         | "x" ~ hex
-        | "o" ~ octal )
+        | "o" ~ octal
+        | "f" ~ float)
 }
 
 char = { !"\"" ~ ANY }
