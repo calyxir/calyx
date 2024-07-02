@@ -18,15 +18,15 @@ QUEUE_LEN_FACTOR = 4
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    numflows = 4
+    numflows = 3
     sub_fifos = []
     for n in range(numflows):
         name = "fifo" + str(n)
         sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
         sub_fifos.append(sub_fifo)
 
-    pifo = strict.insert_strict_pifo(prog, "pifo", sub_fifos, [0, 100, 200, 300, 400], numflows, [3, 0, 2, 1])
-    qc.insert_main(prog, pifo, 20)
+    pifo = strict.insert_strict_pifo(prog, "pifo", sub_fifos, [0, 133, 266, 400], numflows, [1, 2, 0])
+    qc.insert_main(prog, pifo, 20000)
     return prog.program
 
 

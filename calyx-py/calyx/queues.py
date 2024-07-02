@@ -288,9 +288,34 @@ class RRQueue:
 @dataclass
 class StrictPifo:
     """
-    It is the client's role to pass in a list of Fifos for subqueues in the strict
-    order that is desired. The first FIFO is the one with the highest priority,
-    from there it is descending priority.
+    This is a version of a PIFO generalized to `n` flows, with a strict policy. 
+    Flows have a strict order of priority, which determines popping and peeking 
+    order. If the highest priority flow is silent when it is its turn, that flow 
+    simply skips its turn and the next flow is offered service. If a higher 
+    priority flow get pushed to in the interim, the next call to pop/peek will 
+    return from that flow.
+
+    Supports the operations `push`, `pop`, and `peek`.
+    It takes in a list `boundaries` that must be of length `n`, using which the
+    client can divide the incoming traffic into `n` flows.
+    For example, if n = 3 and the client passes boundaries [133, 266, 400],
+    packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+
+    It takes a list `order` that must be of length `n`, which specifies the order
+    of priority of the flows. For example, if n = 3 and the client passes order
+    [1, 2, 0], flow 1 (packets in range [134, 266]) is first priority, flow 2 
+    (packets in range [267, 400]) is second priority, and flow 0 (packets in range
+    [0, 133]) is last priority.
+
+    - At push, we check the `boundaries` list to determine which flow to push to.
+    Take the boundaries example given earlier, [133, 266, 400].
+    If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
+    and 305 would end up in flow 2 since 266 <= 305 <= 400.
+    - Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
+    it tries `order[1]`, etc.
+    - Peek allows the client to see which element is at the head of the queue
+    without removing it. Thus, peek works in a similar fashion to `pop`. Further, 
+    nothing is actually dequeued.
     """
     def __init__(self, n, boundaries, order, max_len: int):
        self.data = []
@@ -314,15 +339,11 @@ class StrictPifo:
                 idx = self.order.index(b)
                 self.data[idx].push(val)
                 self.pifo_len += 1
-                for fifo in self.data:
                 break
 
     def next_priority(self):
-       """Increments hot, taking into account wrap around."""
-       if self.priority == (self.n - 1): # handle wrap around when updating hot
-           self.priority = 0
-       else:
-           self.priority = self.priority + 1
+       """Increments priority, taking into account wrap around."""
+       self.priority = 0 if self.priority == (self.n - 1) else self.priority + 1
         
     def pop(self):
         """Pops the PIFO."""

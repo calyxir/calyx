@@ -26,7 +26,7 @@ def build():
         sub_fifos.append(sub_fifo)
 
     pifo = strict.insert_strict_pifo(prog, "pifo", sub_fifos, [0, 200, 400], numflows, [1, 0])
-    qc.insert_main(prog, pifo, 20)
+    qc.insert_main(prog, pifo, 20000)
     return prog.program
 
 

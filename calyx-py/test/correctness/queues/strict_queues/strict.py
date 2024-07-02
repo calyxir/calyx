@@ -112,7 +112,7 @@ def insert_strict_pifo(
         cb.if_with(
             pifo.le_use(value, boundaries[b + 1]),
             cb.if_with(
-                pifo.ge_use(value, boundaries[b]),
+                pifo.gt_use(value, boundaries[b]),
                 invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err), #PUSH
             ),
         )
@@ -121,6 +121,16 @@ def insert_strict_pifo(
     invoke_subqueues_value_guard = cb.par(
         invoke_subqueues_value_guard_seq
     )  # Execute in parallel.
+
+    # Edge case of pushing the value 0
+    invoke_zero_edge_case = [
+        cb.if_with( 
+            pifo.eq_use(value, 0), 
+            cb.if_with(
+                pifo.eq_use(cmd, 2),
+                invoke_subqueue(fifo_cells[order.index(0)], cmd, value, ans, err)),
+            )
+    ]
 
     incr_hot_wraparound = cb.if_with(
         # If hot = numflows - 1, we need to wrap around to 0. Otherwise, we increment.
@@ -187,6 +197,7 @@ def insert_strict_pifo(
             lower_err,
             # We need to check which flow this value should be pushed to.
             invoke_subqueues_value_guard,
+            invoke_zero_edge_case,
             cb.if_with(
                 err_eq_0,
                 # If no stats component is provided,
