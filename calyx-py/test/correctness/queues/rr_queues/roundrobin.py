@@ -244,17 +244,17 @@ def build(numflows):
     """Top-level function to build the program."""
 
     if numflows == 2:
-        boundaries = [200, 400]
+        boundaries = [0, 200, 400]
     elif numflows == 3:
-        boundaries = [133, 266, 400]
+        boundaries = [0, 133, 266, 400]
     elif numflows == 4:
-        boundaries = [100, 200, 300, 400]
+        boundaries = [0, 100, 200, 300, 400]
     elif numflows == 5:
-        boundaries = [80, 160, 240, 320, 400]
+        boundaries = [0, 80, 160, 240, 320, 400]
     elif numflows == 6:
-        boundaries = [66, 100, 200, 220, 300, 400]
+        boundaries = [0, 66, 100, 200, 220, 300, 400]
     elif numflows == 7:
-        boundaries = [50, 100, 150, 200, 250, 300, 400]
+        boundaries = [0, 50, 100, 150, 200, 250, 300, 400]
     else:
         raise ValueError("Unsupported number of flows")
 
