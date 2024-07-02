@@ -179,11 +179,11 @@ class Pieo:
     optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
     
-    def __init__(self, max_len: int, printer=True):
+    def __init__(self, max_len: int):
         """Initialize structure."""
         self.max_len = max_len
         self.data = []
-        self.printer = printer
+        self.insertion_count = 0
 
     def __repr__(self):
         return str(self.data)
@@ -210,13 +210,13 @@ class Pieo:
         if rank < self.data[mid][2]:
             return self.binsert(val, time, rank, l, mid)
         
-    def push(self, val, time=0, rank=0) -> None:
+    def push(self, val, time=0, rank=0, insertion_count=None) -> None:
         """Pushes to a PIEO.
         Inserts element such that rank ordering is preserved
         """
-        # if self.printer:
-        #     print(f"Pushing!")
-        #     print(self.data)
+        
+        #Breaks ties and maintains FIFO order (can pass either custom insertion order or use PIEO intenral one)
+        rank = (rank << 32) + (insertion_count or self.insertion_count)
 
         if len(self.data) == self.max_len:
             raise QueueError("Overflow")
@@ -229,6 +229,8 @@ class Pieo:
 
         else:
             self.binsert(val, time, rank, 0, len(self.data))
+        
+        self.insertion_count += 1
      
     def query(self, time=0, val=None, remove=False, return_rank=False) -> Optional[int]:
         """Queries a PIEO. Returns matching value and rank.
@@ -261,17 +263,11 @@ class Pieo:
     
     def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Pops a PIEO. See query() for specifics."""
-        # if self.printer:
-        #     print("Popping!")
-        #     print(self.data)
 
         return self.query(time, val, True, return_rank)
 
     def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
         """Peeks a PIEO. See query() for specifics."""
-        # if self.printer:
-        #     print(f"Peeking with time {time}!")
-        #     print(self.data)
 
         return self.query(time, val, False, return_rank)
 
@@ -315,10 +311,19 @@ class PCQ:
         self.data = []
         self.bucket_ranges = []
         self.highest_rank = 0
+        self.insertion_count = 0
         for i in range(num_buckets):
-            self.data.append(Pieo(16, False))
+            self.data.append(Pieo(16))
             self.bucket_ranges.append((i*width, (i+1)*width))
 
+    
+    def __repr__(self):
+        final = []
+        for x in self.data:
+            if len(x.data) != 0:
+                final += x.data
+        final.sort(key = lambda k : k[2])
+        return str(final)
     
     def rotate(self) -> None:
         """Rotates a PCQ and changes the 'top' parameter of the previous bucket."""
@@ -329,17 +334,15 @@ class PCQ:
     def push(self, val: int, time=0, rank=0) -> None:
         """Pushes a value with some rank/priority to a PCQ"""
 
-        # print(f"Pushing {val} with time {time}!")
-        # print(self.data)
-
         if self.num_elements == self.max_len:
             raise QueueError("Overflow")
 
         location = (rank * self.width) % len(self.data)
 
         try:
-            self.data[location].push(val, time, rank)
+            self.data[location].push(val, time, rank, self.insertion_count)
             self.num_elements += 1
+            self.insertion_count += 1
             if rank > self.highest_rank:
                 self.highest_rank = rank
         except QueueError:
@@ -374,15 +377,11 @@ class PCQ:
     
     def pop(self, time=0, val=None) -> Optional[int]:
         """Pops a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
-        # print("Popping!")
-        # print(self.data)
 
         return self.query(True, time, val)
     
     def peek(self, time=0, val=None) -> Optional[int]:
         """Peeks a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
-        # print(f"Peeking with time {time}!")
-        # print(self.data)
 
         return self.query(False, time, val)
 
@@ -409,7 +408,6 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
             try:
                 ans.append(queue.pop(time))
             except QueueError:
-                # print("Error popping time")
                 if keepgoing:
                     continue
                 break
@@ -417,8 +415,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
         elif cmd == 1: #Peek with time predicate
             try:
                 ans.append(queue.peek(time))
-            except QueueError as e:
-                # print("Error peeking time")
+            except QueueError:
                 if keepgoing:
                     continue
                 break
@@ -427,7 +424,6 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
             try:
                 queue.push(val, time, rank)
             except QueueError:
-                # print("Error pushing")
                 if keepgoing:
                     continue
                 break
@@ -436,7 +432,6 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
             try:
                 ans.append(queue.pop(time, val))
             except QueueError:
-                # print("Error popping value")
                 if keepgoing:
                     continue
                 break
@@ -445,7 +440,6 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
             try:
                 ans.append(queue.peek(time, val))
             except QueueError:
-                # print("Error peeking value")
                 if keepgoing:
                     continue
                 break
