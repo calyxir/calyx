@@ -61,5 +61,8 @@ tools/profiler/logs
 
 temp/
 
+tools/tb/**/*.so
+tools/tb/**/*.dylib
+
 # for running a venv
 .venv

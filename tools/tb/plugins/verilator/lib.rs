@@ -1,16 +1,27 @@
-use super::Testbench;
-use crate::{
+use tb::{
     config::{Config, ConfigVarValidator},
+    declare_plugin,
     error::LocalResult,
+    plugin::Plugin,
+    semver, tempdir,
 };
 
 mod config_keys {
     pub const EXE: &str = "verilator-exe";
 }
 
+#[derive(Default)]
 pub struct Verilator;
 
-impl Testbench for Verilator {
+impl Plugin for Verilator {
+    fn name(&self) -> &'static str {
+        "verilator"
+    }
+
+    fn version(&self) -> semver::Version {
+        semver::Version::new(0, 0, 0)
+    }
+
     fn setup(&self, config: &mut Config) -> LocalResult<()> {
         config.require(
             config_keys::EXE,
@@ -31,3 +42,5 @@ impl Testbench for Verilator {
         todo!("verilator not yet impl")
     }
 }
+
+declare_plugin!(Verilator, Verilator::default);

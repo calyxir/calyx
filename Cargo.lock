@@ -711,6 +711,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cocotb-tb-plugin"
+version = "0.0.0"
+dependencies = [
+ "makemake",
+ "tb",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1693,9 +1701,9 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libloading"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
+checksum = "e310b3a6b5907f99202fcdb4960ff45b93735d7c7d96b760fcff8db2dc0e103d"
 dependencies = [
  "cfg-if",
  "windows-targets 0.52.4",
@@ -2560,6 +2568,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "semver"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
+
+[[package]]
 name = "serde"
 version = "1.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2929,7 +2943,8 @@ version = "0.0.0"
 dependencies = [
  "argh",
  "figment",
- "makemake",
+ "libloading",
+ "semver",
  "serde",
  "tempdir",
 ]
@@ -3387,6 +3402,14 @@ checksum = "1adaa4ed0e71c5eb614cf42563dbfedb47c0e343b9c7c710bdc092c918e08e32"
 dependencies = [
  "itertools 0.10.5",
  "pretty",
+]
+
+[[package]]
+name = "verilator-tb-plugin"
+version = "0.0.0"
+dependencies = [
+ "makemake",
+ "tb",
 ]
 
 [[package]]

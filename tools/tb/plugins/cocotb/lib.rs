@@ -1,13 +1,17 @@
-use super::Testbench;
-use crate::{
-    config::{Config, ConfigVarValidator},
-    error::{LocalError, LocalResult},
-};
 use makemake::{emitter::Emitter, makefile::Makefile};
 use std::process::Command;
 use std::{fs, io::Write, path::Path};
+use tb::declare_plugin;
+use tb::error::LocalError;
+use tb::{
+    config::{Config, ConfigVarValidator},
+    error::LocalResult,
+    plugin::Plugin,
+    semver, tempdir,
+};
 
 /// v1.8.1 cocotb
+#[derive(Default)]
 pub struct CocoTB;
 
 mod config_keys {
@@ -22,7 +26,15 @@ fn filestem(path_str: &str) -> &str {
         .expect("invalid unicode")
 }
 
-impl Testbench for CocoTB {
+impl Plugin for CocoTB {
+    fn name(&self) -> &'static str {
+        "cocotb"
+    }
+
+    fn version(&self) -> semver::Version {
+        semver::Version::new(0, 0, 0)
+    }
+
     fn setup(&self, config: &mut Config) -> LocalResult<()> {
         config.require(
             config_keys::EXE,
@@ -99,3 +111,5 @@ impl Testbench for CocoTB {
         Ok(())
     }
 }
+
+declare_plugin!(CocoTB, CocoTB::default);

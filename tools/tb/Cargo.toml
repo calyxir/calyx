@@ -15,6 +15,7 @@ rust-version.workspace = true
 [dependencies]
 argh.workspace = true
 tempdir = "0.3.7"
-makemake = "0.1.2-patch2"
 figment.workspace = true
 serde.workspace = true
+semver.workspace = true
+libloading = "0.8.4"
