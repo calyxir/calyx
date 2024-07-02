@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import List
 from typing import Optional
-from calyx import queue_util
 
 
 class QueueError(Exception):
@@ -386,22 +385,18 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
 
         if cmd == 0: #Pop with time predicate
             try:
-                result = queue.pop(time)
-                if result:
-                    ans.append(result)
+                ans.append(queue.pop(time))
             except QueueError:
-                print("Error popping with predicate")
+                # print("Error popping with predicate")
                 if keepgoing:
                     continue
                 break
             
         elif cmd == 1: #Peek with time predicate
             try:
-                result = queue.peek(time)
-                if result:
-                    ans.append(result)
+                ans.append(queue.peek(time))
             except QueueError:
-                print("Error peeking with predicate")
+                # print("Error peeking with predicate")
                 if keepgoing:
                     continue
                 break
@@ -416,22 +411,16 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
 
         elif cmd == 3: #Pop with value parameter
             try:
-                result = queue.pop(time, val)
-                if result:
-                    ans.append(result)
+                ans.append(queue.pop(time, val))
             except QueueError:
-                print("Error popping with value")
                 if keepgoing:
                     continue
                 break
 
         elif cmd == 4: #Peek with value parameter
             try:
-                result = queue.peek(time, val)
-                if result:
-                    ans.append(result)
+                ans.append(queue.peek(time, val))
             except QueueError:
-                print("Error peeking with value")
                 if keepgoing:
                     continue
                 break
