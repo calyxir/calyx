@@ -59,11 +59,11 @@ def buf_to_mem(fmt, buf):
 
         convert_to_fp(buf)
         return list(buf)
-    elif fmt["numeric_type"] == "bitnum":
-        return list([int(e) for e in buf])
+    elif fmt["numeric_type"] in {"bitnum", "floating_point"}:
+        return [int(value) if isinstance(value, np.integer) else float(value) for value in buf]
 
     else:
-        raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
+        raise InvalidNumericType('Fud only supports "fixed_point", "bitnum", and "floating_point.')
 
 
 def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
@@ -90,15 +90,36 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
     # XXX(nathanielnrn) 2022-07-19: timeout is not currently used anywhere in
     # generated verilog code, passed in because kernel.xml is generated to
     # expect it as an argument
-    timeout = 1000
+    timeout = 8000
     kernel.call(timeout, *buffers)
 
+    # Modify this section to ensure the kernel processes all data
+    # If the kernel can only handle chunks, process in a loop
+    chunk_size = 16  # Example chunk size, adjust as needed
+    num_chunks = len(buffers[0]) // chunk_size + (len(buffers[0]) % chunk_size != 0)
+
+    for i in range(num_chunks):
+        start = i * chunk_size
+        end = min(start + chunk_size, len(buffers[0]))
+
+        # Call the kernel with the appropriate chunk
+        kernel.call(timeout, *[buf[start:end] for buf in buffers])
+
+        # Synchronize each chunk from device
+        for buf in buffers:
+            buf.sync_from_device()
+
     # Collect the output data.
-    for buf in buffers:
-        buf.sync_from_device()
     mems = {
         name: buf_to_mem(data[name]["format"], buf) for name, buf in zip(data, buffers)
     }
+
+    # # Collect the output data.
+    # for buf in buffers:
+    #     buf.sync_from_device()
+    # mems = {
+    #     name: buf_to_mem(data[name]["format"], buf) for name, buf in zip(data, buffers)
+    # }
 
     # PYNQ recommends explicitly freeing its resources.
     del buffers
@@ -110,7 +131,10 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
 def _dtype(fmt) -> np.dtype:
     # See https://numpy.org/doc/stable/reference/arrays.dtypes.html for typing
     # details
-    type_string = "i" if fmt["is_signed"] else "u"
+    if (fmt["numeric_type"] == "floating_point"):
+        type_string = "f"
+    else:
+        type_string = "i" if fmt["is_signed"] else "u"
     byte_size = int(fmt["width"] / 8)
     type_string = type_string + str(byte_size)
     return np.dtype(type_string)
