@@ -134,22 +134,20 @@ def insert_rr_pifo(
         len_eq_0,
         raise_err,  # The queue is empty: underflow.
         [  # The queue is not empty. Proceed.
-            lower_err,
-            [
-                invoke_subqueues_hot_guard,
-                # Our next step depends on whether `fifos[hot]` raised the error flag.
-                cb.while_with(
-                    err_is_high,
-                    [  # `fifo_cells[hot]` raised an error.
-                        # We'll try to pop from `fifo_cells[hot+1]`.
-                        # We'll pass it a lowered err
-                        lower_err,
-                        incr_hot_wraparound,
-                        invoke_subqueues_hot_guard,
-                    ],  # `queue[hot+n]` succeeded. Its answer is our answer.
-                ),
-            ],
-            incr_hot_wraparound,
+            raise_err,  # We raise err so we enter the loop body at least once.
+            cb.while_with(
+                err_is_high,
+                [  # We have entered the loop body because `err` is high.
+                    # Either we are here for the first time,
+                    # or we are here because the previous iteration raised an error
+                    # and incremented `hot` for us.
+                    # We'll try to pop from `fifo_cells[hot]`.
+                    # We'll pass it a lowered `err`.
+                    lower_err,
+                    invoke_subqueues_hot_guard,
+                    incr_hot_wraparound,  # Increment hot
+                ],  # Some pop succeeded. Its answer is our answer.
+            ),
             len_decr,
         ],
     )
