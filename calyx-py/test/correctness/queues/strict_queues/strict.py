@@ -39,9 +39,7 @@ def insert_strict_pifo(
     boundaries,
     numflows,
     order,
-    queue_len_factor=QUEUE_LEN_FACTOR,
-    stats=None,
-    static=False,
+    queue_len_factor=QUEUE_LEN_FACTOR
 ):
     """Inserts the component `pifo` into the program."""
 
@@ -52,14 +50,6 @@ def insert_strict_pifo(
     value = pifo.input("value", 32)  # The value to push to the queue
 
     fifo_cells = [pifo.cell(f"queue_{i}", fifo_i) for i, fifo_i in enumerate(fifos)]
-
-    # If a stats component was provided, declare it as a cell of this component.
-    if stats:
-        stats = pifo.cell("stats", stats, is_ref=True)
-
-    flow = pifo.reg(32, "flow")  # The flow to push to: 0 to n.
-    # We will infer this using a separate component;
-    # it is a function of the value being pushed.
 
     ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -80,8 +70,8 @@ def insert_strict_pifo(
     # Some equality checks.
     len_eq_0 = pifo.eq_use(length.out, 0)
     len_eq_max_queue_len = pifo.eq_use(length.out, max_queue_len)
-    err_eq_0 = pifo.eq_use(err.out, 0)
-    err_neq_0 = pifo.neq_use(err.out, 0)
+    err_is_low = pifo.eq_use(err.out, 0)
+    err_is_high = pifo.neq_use(err.out, 0)
 
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
@@ -110,10 +100,18 @@ def insert_strict_pifo(
     # This means we can eventually execute all of these invokes in parallel.
     invoke_subqueues_value_guard_seq = [
         cb.if_with(
-            pifo.le_use(value, boundaries[b + 1]),
-            cb.if_with(
-                pifo.gt_use(value, boundaries[b]),
-                invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err), #PUSH
+            pifo.le_use(value, boundaries[b + 1]),  # value <= boundaries[b+1]
+            (
+                invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err)
+                # In the specical case when b = 0,
+                # we don't need to check the lower bound and we can just `invoke`.
+                if b == 0
+                # Otherwise, we need to check the lower bound and `invoke`
+                # only if the value is in the interval.
+                else cb.if_with(
+                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                    invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err),
+                )
             ),
         )
         for b in range(numflows)
@@ -121,16 +119,6 @@ def insert_strict_pifo(
     invoke_subqueues_value_guard = cb.par(
         invoke_subqueues_value_guard_seq
     )  # Execute in parallel.
-
-    # Edge case of pushing the value 0
-    invoke_zero_edge_case = [
-        cb.if_with( 
-            pifo.eq_use(value, 0), 
-            cb.if_with(
-                pifo.eq_use(cmd, 2),
-                invoke_subqueue(fifo_cells[order.index(0)], cmd, value, ans, err)),
-            )
-    ]
 
     incr_hot_wraparound = cb.if_with(
         # If hot = numflows - 1, we need to wrap around to 0. Otherwise, we increment.
@@ -149,7 +137,7 @@ def insert_strict_pifo(
                 invoke_subqueues_hot_guard,
                 # Our next step depends on whether `fifos[hot]` raised the error flag.
                 cb.while_with(
-                    err_neq_0,
+                    err_is_high,
                     [  # `fifo_cells[hot]` raised an error.
                         # We'll try to pop from `fifo_cells[hot+1]`.
                         # We'll pass it a lowered err
@@ -169,11 +157,11 @@ def insert_strict_pifo(
         raise_err,  # The queue is empty: underflow.
         [  # The queue is not empty. Proceed.
             lower_err,
-            copy_hot,
+            copy_hot, # We remember `hot` so we can restore it later.
             [
                 invoke_subqueues_hot_guard,
                 cb.while_with(
-                    err_neq_0,
+                    err_is_high,
                     [  # `fifo_cells[hot]` raised an error.
                         # We'll try to peek from `fifo_cells[hot+1]`.
                         # We'll pass it a lowered `err`.
@@ -186,7 +174,7 @@ def insert_strict_pifo(
                 # Peeking does not affect `hot`.
                 # Peeking does not affect the length.
             ],
-            restore_hot,
+            restore_hot, # Peeking must not affect `hot`, so we restore it.
         ],
     )
 
@@ -195,29 +183,10 @@ def insert_strict_pifo(
         raise_err,  # The queue is full: overflow.
         [  # The queue is not full. Proceed.
             lower_err,
-            # We need to check which flow this value should be pushed to.
+            # We'll push to the subqueue that the value belongs to.
             invoke_subqueues_value_guard,
-            invoke_zero_edge_case,
-            cb.if_with(
-                err_eq_0,
-                # If no stats component is provided,
-                # just increment the active length.
-                (
-                    len_incr
-                    if not stats
-                    else cb.par(
-                        # If a stats component is provided,
-                        # Increment the active length and also
-                        # tell the stats component what flow we pushed.
-                        len_incr,
-                        (
-                            cb.static_invoke(stats, in_flow=flow.out)
-                            if static
-                            else cb.invoke(stats, in_flow=flow.out)
-                        ),
-                    )
-                ),
-            ),
+            # If all went well, we'll increment the length of the queue.
+            cb.if_with(err_is_low, len_incr),
         ],
     )
 
@@ -234,3 +203,34 @@ def insert_strict_pifo(
     )
 
     return pifo
+
+def build(numflows):
+    """Top-level function to build the program."""
+
+    if numflows == 2:
+        boundaries = [0, 200, 400]
+        order = [1, 0]
+    elif numflows == 3:
+        boundaries = [0, 133, 266, 400]
+        order = [1, 2, 0]
+    elif numflows == 4:
+        boundaries = [0, 100, 200, 300, 400]
+        order = [3, 0, 2, 1]
+    elif numflows == 5:
+        boundaries = [0, 80, 160, 240, 320, 400]
+        order = [0, 1, 2, 3, 4]
+    elif numflows == 6:
+        boundaries = [0, 66, 100, 200, 220, 300, 400]
+        order = [3, 1, 5, 2, 4, 0]
+    else:
+        raise ValueError("Unsupported number of flows")
+
+    num_cmds = int(sys.argv[1])
+
+    prog = cb.Builder()
+    sub_fifos = [
+        fifo.insert_fifo(prog, f"fifo{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
+    ]
+    pifo = insert_strict_pifo(prog, "pifo", sub_fifos, boundaries, numflows, order)
+    qc.insert_main(prog, pifo, num_cmds)
+    return prog.program
