@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use argh::FromArgs;
 
 #[derive(FromArgs)]
@@ -14,6 +16,10 @@ pub struct CLI {
     #[argh(option, short = 'u')]
     /// the testbench to invoke
     pub using: String,
+
+    /// path to the config file
+    #[argh(option, short = 'c')]
+    pub config: Option<PathBuf>,
 
     #[argh(switch)]
     /// displays version information
