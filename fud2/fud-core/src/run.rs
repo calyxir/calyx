@@ -4,6 +4,7 @@ use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::io::Write;
 use std::process::{Command, ExitStatus};
 
@@ -405,6 +406,10 @@ impl<'a> Run<'a> {
         // Emit preamble.
         emitter.var("build-tool", &self.global_config.exe)?;
         emitter.rule("get-rsrc", "$build-tool get-rsrc $out")?;
+        emitter.var(
+            "caller-dir",
+            &env::current_dir()?.to_string_lossy().to_string(),
+        )?;
         writeln!(emitter.out)?;
 
         // Emit the setup for each operation used in the plan, only once.

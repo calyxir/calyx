@@ -36,8 +36,7 @@ macro_rules! declare_plugin {
     ($plugin_type:ty, $constructor:path) => {
         #[no_mangle]
         pub extern "C" fn _plugin_create() -> *mut dyn $crate::plugin::Plugin {
-            let boxed: $crate::plugin::PluginRef = Box::new($constructor());
-            Box::into_raw(boxed)
+            Box::into_raw(Box::new($constructor()))
         }
     };
 }
