@@ -1,34 +1,74 @@
-use tempdir::TempDir;
-
 use crate::{
     config::Config,
     error::{LocalError, LocalResult},
-    testbench::{cocotb, verilator, TestbenchRef},
+    plugin::{PluginCreate, PluginRef},
 };
+use libloading::{Library, Symbol};
 use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
+use tempdir::TempDir;
 
 #[derive(Default)]
 pub struct Driver {
-    tbs: HashMap<String, TestbenchRef>,
+    plugins: HashMap<String, PluginRef>,
+    loaded_libraries: Vec<Library>,
 }
 
 impl Driver {
-    pub fn new() -> Self {
+    pub fn load(library_dirs: &[PathBuf]) -> LocalResult<Self> {
         let mut new_self = Self::default();
-        new_self.register("cocotb", Box::new(cocotb::CocoTB));
-        new_self.register("verilator", Box::new(verilator::Verilator));
-        new_self
+        for library_dir in library_dirs {
+            library_dir
+                .read_dir()
+                .map_err(LocalError::from)
+                .and_then(|library_paths| {
+                    for library_path in library_paths {
+                        let library_path =
+                            library_path.map_err(LocalError::from)?.path();
+                        if library_path
+                            .extension()
+                            .map(|e| e == "so" || e == "dylib")
+                            .unwrap_or_default()
+                        {
+                            let library =
+                                unsafe { Library::new(&library_path).unwrap() };
+                            new_self.load_plugin(&library_path, library)?;
+                        }
+                    }
+                    Ok(())
+                })
+                .map_err(LocalError::from)?;
+        }
+        Ok(new_self)
     }
 
-    pub fn register<S: AsRef<str>>(&mut self, name: S, tb: TestbenchRef) {
+    pub fn register<S: AsRef<str>>(&mut self, name: S, tb: PluginRef) {
         assert!(
-            self.tbs.insert(name.as_ref().to_string(), tb).is_none(),
+            self.plugins.insert(name.as_ref().to_string(), tb).is_none(),
             "cannot re-register the same testbench name for a different testbench"
         );
+    }
+
+    fn load_plugin(
+        &mut self,
+        path: &Path,
+        library: Library,
+    ) -> LocalResult<()> {
+        let create_plugin: Symbol<PluginCreate> =
+            unsafe { library.get(b"_plugin_create") }.map_err(|_| {
+                LocalError::other(format!(
+                    "Plugin '{}' must `declare_plugin!`.",
+                    extract_plugin_name(path)
+                ))
+            })?;
+        let boxed_raw = unsafe { create_plugin() };
+        let plugin = unsafe { Box::from_raw(boxed_raw) };
+        self.register(plugin.name(), plugin);
+        self.loaded_libraries.push(library);
+        Ok(())
     }
 
     pub fn run<S: AsRef<str>, P: AsRef<Path>>(
@@ -38,7 +78,7 @@ impl Driver {
         input: String,
         tests: &[String],
     ) -> LocalResult<()> {
-        if let Some(tb) = self.tbs.get(name.as_ref()) {
+        if let Some(plugin) = self.plugins.get(name.as_ref()) {
             let work_dir =
                 TempDir::new(".calyx-tb").map_err(LocalError::from)?;
             let mut config = Config::from(path, name)?;
@@ -50,9 +90,9 @@ impl Driver {
                     copy_into(test, &work_dir).map_err(LocalError::from)?,
                 );
             }
-            tb.setup(&mut config)?;
+            plugin.setup(&mut config)?;
             config.doctor()?;
-            tb.run(input, &test_basenames, work_dir, &config)
+            plugin.run(input, &test_basenames, work_dir, &config)
         } else {
             Err(LocalError::Other(format!(
                 "Unknown testbench '{}'",
@@ -77,4 +117,13 @@ fn copy_into<S: AsRef<str>>(
     to_path.push(&basename);
     fs::copy(from_path, to_path)?;
     Ok(basename)
+}
+
+fn extract_plugin_name(path: &Path) -> &str {
+    let stem = path
+        .file_stem()
+        .expect("invalid library path")
+        .to_str()
+        .expect("invalid unicode");
+    stem.strip_prefix("lib").unwrap_or(stem)
 }
