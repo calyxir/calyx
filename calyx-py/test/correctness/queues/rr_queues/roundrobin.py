@@ -103,26 +103,22 @@ def insert_rr_pifo(
     # This means we can eventually execute all of these invokes in parallel.
     invoke_subqueues_value_guard_seq = [
         cb.if_with(
-            pifo.le_use(value, boundaries[b + 1]),
-            cb.if_with(
-                pifo.gt_use(value, boundaries[b]),
-                invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
+            pifo.le_use(value, boundaries[b + 1]),  # value <= boundaries[b+1]
+            (
+                invoke_subqueue(fifo_cells[b], cmd, value, ans, err)
+                # In the specical case when b = 0,
+                # we don't need to check the lower bound and we can just `invoke`
+                if b == 0
+                # Otherwise, we need to check the lower bound and `invoke`
+                # only if the value is in the interval.
+                else cb.if_with(
+                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                    invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
+                )
             ),
         )
         for b in range(numflows)
     ]
-
-    # Edge case of pushing the value 0
-    invoke_zero_edge_case = [
-        cb.if_with(
-            pifo.eq_use(value, 0),
-            cb.if_with(
-                pifo.eq_use(cmd, 2),
-                invoke_subqueue(fifo_cells[0], cmd, value, ans, err),
-            ),
-        )
-    ]
-
     invoke_subqueues_value_guard = cb.par(
         invoke_subqueues_value_guard_seq
     )  # Execute in parallel.
@@ -191,7 +187,7 @@ def insert_rr_pifo(
             lower_err,
             # We need to check which flow this value should be pushed to.
             invoke_subqueues_value_guard,
-            invoke_zero_edge_case,
+            # invoke_zero_edge_case,
             cb.if_with(err_eq_0, len_incr),
         ],
     )
