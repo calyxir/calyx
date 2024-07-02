@@ -1,8 +1,6 @@
 #!/usr/bin/bash
 
 num_cmds=20000
-
-num_cmds_cass=1050
 queue_size=16
 
 # For SDN, we use piezo mode when making the data file and
@@ -30,7 +28,7 @@ python3 queue_data_gen.py $num_cmds --use-rank > ../test/correctness/queues/binh
 cat ../test/correctness/queues/binheap/stable_binheap.data | python3 binheap_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/binheap/stable_binheap.expect
 
 # For the Round Robin queues, we drop piezo mode as well and use rrqueue_oracle to
-# generate the expected output
+# generate the expected output for queues with 2..7 flows. This generates 6 data expect file pairs.
 
 for n in {2..7}; do
     python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data

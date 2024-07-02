@@ -118,19 +118,10 @@ def insert_rr_pifo(
         )
         for b in range(numflows)
     ]
-    # invoke_subqueues_value_guard_seq = [
-    #     cb.if_with(
-    #         pifo.le_use(value, boundaries[b + 1]),
-    #         cb.if_with(
-    #             pifo.gt_use(value, boundaries[b]),
-    #             invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
-    #         ),
-    #     )
-    #     for b in range(numflows)
-    # ]
 
+    # Edge case of pushing the value 0
     invoke_zero_edge_case = [
-        cb.if_with( #edge case of pushing the value 0
+        cb.if_with( 
             pifo.eq_use(value, 0), 
             cb.if_with(
                 pifo.eq_use(cmd, 2),
