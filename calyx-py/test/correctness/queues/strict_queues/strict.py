@@ -79,20 +79,17 @@ def insert_strict_pifo(
     len_incr = pifo.incr(length)  # len++
     len_decr = pifo.decr(length)  # len--
 
-    # We first create a list of invoke-statement handles.
-    # Each invoke is guarded by an equality check on the hot register,
-    # and each guard is unique to the subqueue it is associated with.
-    # This means we can eventually execute all of these invokes in parallel.
-    invoke_subqueues_hot_guard_seq = [
-        cb.if_with(
-            pifo.eq_use(hot.out, n),
-            invoke_subqueue(fifo_cells[n], cmd, value, ans, err),
-        )
-        for n in range(numflows)
-    ]
-    invoke_subqueues_hot_guard = cb.par(
-        invoke_subqueues_hot_guard_seq
-    )  # Execute in parallel.
+    # We create a dictionary of invokes handles and pass it to the case construct.
+    # Each invoke is uniquely guarded by an equality check on the hot register.
+    # This means we can execute all of these invokes in parallel and know that
+    # only one will succeed.
+    invoke_subqueues_hot_guard = pifo.case(
+        hot.out,
+        {
+            n: invoke_subqueue(fifo_cells[n], cmd, value, ans, err)
+            for n in range(numflows)
+        },
+    )
 
     # We create a list of invoke-statement handles.
     # Each invoke is guarded by a pair of inequality checks on the value register,
@@ -131,24 +128,25 @@ def insert_strict_pifo(
         len_eq_0,
         raise_err,  # The queue is empty: underflow.
         [  # The queue is not empty. Proceed.
-            lower_err,
-            copy_hot,
-            [
-                invoke_subqueues_hot_guard,
-                # Our next step depends on whether `fifos[hot]` raised the error flag.
-                cb.while_with(
-                    err_is_high,
-                    [  # `fifo_cells[hot]` raised an error.
-                        # We'll try to pop from `fifo_cells[hot+1]`.
-                        # We'll pass it a lowered err
-                        lower_err,
-                        incr_hot_wraparound,
-                        invoke_subqueues_hot_guard,
-                    ],  # `queue[hot+n]` succeeded. Its answer is our answer.
-                ),
-            ],
-            restore_hot,
+            copy_hot,  # We remember `hot` so we can restore it later.
+            raise_err, # We raise err so we enter the loop body at least once.
+            cb.while_with(
+                err_is_high,
+                [  # We have entered the loop body because `err` is high.
+                    # Either we are here for the first time,
+                    # or we are here because the previous iteration raised an error
+                    # and incremented `hot` for us.
+                    # We'll try to peek from `fifo_cells[hot]`.
+                    # We'll pass it a lowered `err`.
+                    lower_err,
+                    invoke_subqueues_hot_guard,
+                    incr_hot_wraparound,  # Increment hot: this will be used
+                    # only if the current subqueue raised an error,
+                    # and another iteration is needed.
+                ],
+            ),
             len_decr,
+            restore_hot,  # Peeking must not affect `hot`, so we restore it.
         ],
     )
 
@@ -156,25 +154,26 @@ def insert_strict_pifo(
         len_eq_0,
         raise_err,  # The queue is empty: underflow.
         [  # The queue is not empty. Proceed.
-            lower_err,
-            copy_hot, # We remember `hot` so we can restore it later.
+            raise_err,  # We raise err so we enter the loop body at least once.
+            copy_hot,  # We remember `hot` so we can restore it later.
             [
-                invoke_subqueues_hot_guard,
                 cb.while_with(
                     err_is_high,
-                    [  # `fifo_cells[hot]` raised an error.
-                        # We'll try to peek from `fifo_cells[hot+1]`.
+                    [  # We have entered the loop body because `err` is high.
+                        # Either we are here for the first time,
+                        # or we are here because the previous iteration raised an error
+                        # and incremented `hot` for us.
+                        # We'll try to peek from `fifo_cells[hot]`.
                         # We'll pass it a lowered `err`.
                         lower_err,
-                        incr_hot_wraparound,
-                        # increment hot and invoke_subqueue on the next one
                         invoke_subqueues_hot_guard,
+                        incr_hot_wraparound,  # Increment hot: this will be used
+                        # only if the current subqueue raised an error,
+                        # and another iteration is needed.
                     ],
                 ),
-                # Peeking does not affect `hot`.
-                # Peeking does not affect the length.
             ],
-            restore_hot, # Peeking must not affect `hot`, so we restore it.
+            restore_hot,  # Peeking must not affect `hot`, so we restore it.
         ],
     )
 
