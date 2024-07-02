@@ -49,6 +49,7 @@ Then build the compiler:
 ```
 cargo build
 ```
+Make sure to setup the git hooks via `/bin/sh setup_hooks.sh`.
 
 You can build and run the compiler with:
 ```
