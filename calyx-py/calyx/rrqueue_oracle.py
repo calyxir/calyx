@@ -23,6 +23,8 @@ if __name__ == "__main__":
         boundaries = [66, 100, 200, 220, 300, 400]
     elif numflows == 7:
         boundaries = [50, 100, 150, 200, 250, 300, 400]
+    else:
+        raise ValueError("Unsupported number of flows")
 
     # Our Round Robin Queue orchestrates n FIFOs, in this case provided as
     # a command line argument. It orchestrates the FIFOs in a round-robin fashion.
