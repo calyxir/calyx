@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{config, run, script};
+use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -111,11 +111,17 @@ impl Driver {
         None
     }
 
-    /// Generate a filename with an extension appropriate for the given State, `state_ref`.
+    /// Generate a filename with an extension appropriate for the given State, `state_ref` relative
+    /// to `workdir`.
     ///
     /// If `used` is false, the state is neither an output to the user, or used as input an op. In
     /// this case, the filename associated with the state will be prefixed by `_unused_`.
-    fn gen_name(&self, state_ref: StateRef, used: bool) -> IO {
+    fn gen_name(
+        &self,
+        state_ref: StateRef,
+        used: bool,
+        workdir: &Utf8PathBuf,
+    ) -> IO {
         let state = &self.states[state_ref];
 
         let prefix = if !used { "_unused_" } else { "" };
@@ -126,15 +132,22 @@ impl Driver {
         };
 
         IO::File(if state.is_pseudo() {
-            Utf8PathBuf::from(format!("{}pseudo_{}", prefix, state.name))
+            utils::relative_path(
+                &Utf8PathBuf::from(format!("{}pseudo_{}", prefix, state.name)),
+                workdir,
+            )
         } else {
             // TODO avoid collisions in case of reused extensions...
-            Utf8PathBuf::from(format!("{}{}", prefix, state.name))
-                .with_extension(extension)
+            utils::relative_path(
+                &Utf8PathBuf::from(format!("{}{}", prefix, state.name))
+                    .with_extension(extension),
+                workdir,
+            )
         })
     }
 
-    /// Generates a filename for a state tagged with if the file should be read from StdIO.
+    /// Generates a filename for a state tagged with if the file should be read from StdIO and path
+    /// name relative to `workdir`.
     ///
     /// The state is searched for in `states`. If it is found, the name at the same index in `files` is
     /// returned, else `stdio_name` is returned.
@@ -149,6 +162,7 @@ impl Driver {
         files: &[Utf8PathBuf],
         stdio_name: &str,
         used: bool,
+        workdir: &Utf8PathBuf,
     ) -> IO {
         let state = &self.states[state_ref];
         let extension = if !state.extensions.is_empty() {
@@ -159,15 +173,19 @@ impl Driver {
 
         if let Some(idx) = states.iter().position(|&s| s == state_ref) {
             if let Some(filename) = files.get(idx) {
-                IO::File(filename.clone())
+                IO::File(utils::relative_path(&filename.clone(), workdir))
             } else {
                 IO::StdIO(
                     idx,
-                    Utf8PathBuf::from(stdio_name).with_extension(extension),
+                    utils::relative_path(
+                        &Utf8PathBuf::from(stdio_name)
+                            .with_extension(extension),
+                        workdir,
+                    ),
                 )
             }
         } else {
-            self.gen_name(state_ref, used)
+            self.gen_name(state_ref, used, workdir)
         }
     }
 
@@ -202,6 +220,7 @@ impl Driver {
                             format!("_from_stdin_{}", self.states[state].name)
                                 .as_str(),
                             true,
+                            &req.workdir,
                         );
                         if req.start_states.contains(&state) {
                             inputs.push(name.clone());
@@ -222,6 +241,7 @@ impl Driver {
                             format!("_to_stdout_{}", self.states[state].name)
                                 .as_str(),
                             used_states.contains(&state),
+                            &req.workdir,
                         );
                         if req.end_states.contains(&state) {
                             results.push(name.clone());
