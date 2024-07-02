@@ -9,10 +9,12 @@ description.workspace = true
 categories.workspace = true
 homepage.workspace = true
 edition.workspace = true
-version.workspace = true
+version = "0.0.0"
 rust-version.workspace = true
 
 [dependencies]
 argh.workspace = true
 tempdir = "0.3.7"
-makemake = "0.1.2-patch1"
+makemake = "0.1.2-patch2"
+figment.workspace = true
+serde.workspace = true

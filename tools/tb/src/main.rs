@@ -1,9 +1,13 @@
+use std::{env, path::PathBuf};
 use tb::{
     cli::CLI,
-    testbench::{TestbenchManager, TestbenchResult},
+    driver::Driver,
+    error::{LocalError, LocalResult},
 };
 
-fn main() -> TestbenchResult {
+const CONFIG_FILE_NAME: &str = "calyx-tb.toml";
+
+fn main() -> LocalResult<()> {
     let args: CLI = argh::from_env();
 
     if args.version {
@@ -18,6 +22,24 @@ fn main() -> TestbenchResult {
         return Ok(());
     }
 
-    let tbm = TestbenchManager::new();
-    tbm.run(args.using, args.input, &args.tests)
+    let config_path = match args.config {
+        Some(config_path) => config_path,
+        None => {
+            let mut config_path =
+                PathBuf::from(env::var("HOME").expect("user has no $HOME :("));
+            config_path.push(".config");
+            config_path.push(CONFIG_FILE_NAME);
+            config_path
+        }
+    };
+
+    if !config_path.exists() {
+        return Err(LocalError::other(format!(
+            "missing config file {}",
+            config_path.to_string_lossy()
+        )));
+    }
+
+    let driver = Driver::new();
+    driver.run(args.using, config_path, args.input, &args.tests)
 }

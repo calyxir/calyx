@@ -1761,9 +1761,9 @@ dependencies = [
 
 [[package]]
 name = "makemake"
-version = "0.1.2-patch1"
+version = "0.1.2-patch2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cb6004ede2d908eb7146261b7a357b2ef31f446bc3b7e5ef1f62f720de0abff"
+checksum = "8adf7ddede5f0086f7b56de8bb01946a5ac6438a92c4ae9c1e7a963e263a01f3"
 dependencies = [
  "insta",
  "paste",
@@ -2925,10 +2925,12 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "tb"
-version = "0.7.1"
+version = "0.0.0"
 dependencies = [
  "argh",
+ "figment",
  "makemake",
+ "serde",
  "tempdir",
 ]
 
