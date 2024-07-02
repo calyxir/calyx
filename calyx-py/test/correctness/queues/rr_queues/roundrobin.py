@@ -261,12 +261,9 @@ def build(numflows):
     num_cmds = int(sys.argv[1])
 
     prog = cb.Builder()
-    sub_fifos = []
-    for n in range(numflows):
-        name = "fifo" + str(n)
-        sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
-        sub_fifos.append(sub_fifo)
-
+    sub_fifos = [
+        fifo.insert_fifo(prog, f"fifo{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
+    ]
     pifo = insert_rr_pifo(prog, "pifo", sub_fifos, boundaries, numflows)
     qc.insert_main(prog, pifo, num_cmds)
     return prog.program
