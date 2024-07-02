@@ -1,0 +1,93 @@
+suite:
+  cases:
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_1.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '1.1875
+
+        '
+    name: Test Case 1
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_2.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '0.125
+
+        '
+    name: Test Case 2
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_3.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '15820057.5
+
+        '
+    name: Test Case 3
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_4.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '668072.0
+
+        '
+    name: Test Case 4
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_5.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '4368369.3125
+
+        '
+    name: Test Case 5
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_6.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '643.875
+
+        '
+    name: Test Case 6
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_7.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '2489.3125
+
+        '
+    name: Test Case 7
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_8.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '49753537.875
+
+        '
+    name: Test Case 8
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_9.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '5.4375
+
+        '
+    name: Test Case 9
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  - command: cargo run -- --from /Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs/test_10.in
+      --ftype "binary" --totype "fixed" --exp -4
+    expect:
+      exit_code: 0
+      stdout: '10.0
+
+        '
+    name: Test Case 10
+    working_directory: /Users/Angelica/Desktop/calyx/tools/data-conversion/scripts
+  name: Rust Tests
