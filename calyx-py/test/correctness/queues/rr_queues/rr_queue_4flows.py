@@ -27,7 +27,7 @@ def build():
        sub_fifos.append(sub_fifo)
 
    pifo = roundrobin.insert_rr_pifo(prog, "pifo", sub_fifos, [0, 100, 200, 300, 400], n_flows)
-   qc.insert_main(prog, pifo, 20)
+   qc.insert_main(prog, pifo, 20000)
    return prog.program
 
 if __name__ == "__main__":

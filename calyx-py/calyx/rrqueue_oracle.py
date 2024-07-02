@@ -14,6 +14,10 @@ if __name__ == "__main__":
         boundaries = [133, 266, 400]
     elif numflows == 4:
         boundaries = [100, 200, 300, 400]
+    elif numflows == 5:
+        boundaries = [80, 160, 240, 320, 400]
+    elif numflows ==6:
+        boundaries = [66, 100, 200, 220, 300, 400]
     elif numflows == 7:
         boundaries = [50, 100, 150, 200, 250, 300, 400]
 

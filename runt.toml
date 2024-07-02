@@ -151,7 +151,7 @@ paths = ["calyx-py/test/correctness/queues/rr_queues/rr_queue*.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 2000 |\
+python3 {} 20000 |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \

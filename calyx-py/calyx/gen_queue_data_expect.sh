@@ -4,7 +4,6 @@ num_cmds=20000
 
 num_cmds_cass=1050
 queue_size=16
-numflows=2
 
 # For SDN, we use piezo mode when making the data file and
 # use pifotree_oracle to generate the expected output
@@ -33,6 +32,7 @@ cat ../test/correctness/queues/binheap/stable_binheap.data | python3 binheap_ora
 # For the Round Robin queues, we drop piezo mode as well and use rrqueue_oracle to
 # generate the expected output
 
-#numflows = 2..7
-python3 queue_data_gen.py $num_cmds_cass > ../test/correctness/queues/rr_queues/rr_queue.data
-cat ../test/correctness/queues/rr_queues/rr_queue.data | python3 rrqueue_oracle.py $num_cmds_cass $queue_size $numflows > ../test/correctness/queues/rr_queues/rr_queue.expect
+for n in {2..7}; do
+    python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data
+    cat ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data | python3 rrqueue_oracle.py $num_cmds $queue_size $n > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.expect
+done
