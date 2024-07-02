@@ -47,15 +47,15 @@ In order to be able to actually write to our register, we need to drive our `res
 
 ```python
 # Required for all cocotb testbenches. Included for completeness.
-cocotb.start_soon(Clock(module.clk, 2, units="ns").start()) 
+cocotb.start_soon(Clock(main.clk, 2, units="ns").start()) 
 
 # Reset Calyx-generated control registers
 main.reset.value = 1
 await ClockCycles(main.clk, 5) #wait a bit
-module.reset.value = 0
+main.reset.value = 0
 
 # Start execution of control sequence
-module.go.value = 1
+main.go.value = 1
 
 #At this point our Calyx program is done
 await RisingEdge(main.done)
