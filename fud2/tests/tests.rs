@@ -93,8 +93,8 @@ impl InstaTest for Request {
     fn desc(&self, driver: &Driver) -> String {
         let mut desc = format!(
             "emit request: {} -> {}",
-            driver.states[self.start_state[0]].name,
-            driver.states[self.end_state[0]].name
+            driver.states[self.start_states[0]].name,
+            driver.states[self.end_states[0]].name
         );
         if !self.through.is_empty() {
             desc.push_str(" through");
@@ -107,13 +107,13 @@ impl InstaTest for Request {
     }
 
     fn slug(&self, driver: &Driver) -> String {
-        let mut desc = driver.states[self.start_state[0]].name.to_string();
+        let mut desc = driver.states[self.start_states[0]].name.to_string();
         for op in &self.through {
             desc.push('_');
             desc.push_str(&driver.ops[*op].name);
         }
         desc.push('_');
-        desc.push_str(&driver.states[self.end_state[0]].name);
+        desc.push_str(&driver.states[self.end_states[0]].name);
         desc
     }
 
@@ -130,10 +130,10 @@ fn request(
     through: &[&str],
 ) -> Request {
     fud_core::exec::Request {
-        start_file: vec![],
-        start_state: vec![driver.get_state(start).unwrap()],
-        end_file: vec![],
-        end_state: vec![driver.get_state(end).unwrap()],
+        start_files: vec![],
+        start_states: vec![driver.get_state(start).unwrap()],
+        end_files: vec![],
+        end_states: vec![driver.get_state(end).unwrap()],
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
     }

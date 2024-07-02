@@ -1,14 +1,9 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{config, run, script, utils};
+use crate::{config, run, script};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
-use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
-    ffi::OsStr,
-    fmt::Display,
-};
+use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
@@ -116,15 +111,44 @@ impl Driver {
         None
     }
 
-    /// Generate a filename with an extension appropriate for the given State.
-    /// This function assumes all input states are unique and all output states are unique.
-    /// Additionally, it assume all non-input/output states are unique.
-    fn gen_name(
+    /// Generate a filename with an extension appropriate for the given State, `state_ref`.
+    ///
+    /// If `used` is false, the state is neither an output to the user, or used as input an op. In
+    /// this case, the filename associated with the state will be prefixed by `_unused_`.
+    fn gen_name(&self, state_ref: StateRef, used: bool) -> IO {
+        let state = &self.states[state_ref];
+
+        let prefix = if !used { "_unused_" } else { "" };
+        let extension = if !state.extensions.is_empty() {
+            &state.extensions[0]
+        } else {
+            ""
+        };
+
+        IO::File(if state.is_pseudo() {
+            Utf8PathBuf::from(format!("{}pseudo_{}", prefix, state.name))
+        } else {
+            // TODO avoid collisions in case of reused extensions...
+            Utf8PathBuf::from(format!("{}{}", prefix, state.name))
+                .with_extension(extension)
+        })
+    }
+
+    /// Generates a filename for a state tagged with if the file should be read from StdIO.
+    ///
+    /// The state is searched for in `states`. If it is found, the name at the same index in `files` is
+    /// returned, else `stdio_name` is returned.
+    ///
+    /// If the state is not in states, new name is generated.
+    /// This name will be prefixed by `_unused_` if unused is `true`. This signifies the file is
+    /// neither requested as an output by the user nor used as input to any op.
+    fn gen_name_or_use_given(
         &self,
         state_ref: StateRef,
+        states: &[StateRef],
+        files: &[Utf8PathBuf],
+        stdio_name: &str,
         used: bool,
-        req: &Request,
-        used_as_input: &mut HashSet<StateRef>,
     ) -> IO {
         let state = &self.states[state_ref];
         let extension = if !state.extensions.is_empty() {
@@ -133,61 +157,18 @@ impl Driver {
             ""
         };
 
-        // make sure we have correct input/output filenames and mark if we read from stdio
-        if req.start_states.contains(&state_ref)
-            && !used_as_input.contains(&state_ref)
-        {
-            used_as_input.insert(state_ref);
-            let idx = req.start_states.partition_point(|&r| r == state_ref) - 1;
-            if let Some(start_file) = req.start_files.get(idx) {
-                return IO::File(utils::relative_path(
-                    start_file,
-                    &req.workdir,
-                ));
+        if let Some(idx) = states.iter().position(|&s| s == state_ref) {
+            if let Some(filename) = files.get(idx) {
+                IO::File(filename.clone())
             } else {
-                return IO::StdIO(
+                IO::StdIO(
                     idx,
-                    utils::relative_path(
-                        &Utf8PathBuf::from(format!(
-                            "_from_stdin_{}",
-                            state.name,
-                        ))
-                        .with_extension(extension),
-                        &req.workdir,
-                    ),
-                );
+                    Utf8PathBuf::from(stdio_name).with_extension(extension),
+                )
             }
-        }
-
-        if req.end_states.contains(&state_ref) {
-            let idx = req.end_states.partition_point(|&r| r == state_ref) - 1;
-            if let Some(end_file) = req.end_files.get(idx) {
-                return IO::File(utils::relative_path(end_file, &req.workdir));
-            } else {
-                return IO::StdIO(
-                    idx,
-                    utils::relative_path(
-                        &Utf8PathBuf::from(format!(
-                            "_to_stdout_{}",
-                            state.name
-                        ))
-                        .with_extension(extension),
-                        &req.workdir,
-                    ),
-                );
-            }
-        }
-
-        // okay, wild west filename time (make them unique and hopefully helpful)
-        let prefix = if !used { "_unused_" } else { "" };
-        IO::File(if state.is_pseudo() {
-            Utf8PathBuf::from(format!("{}from_stdin_{}", prefix, state.name))
-                .with_extension(extension)
         } else {
-            // TODO avoid collisions in case we reuse extensions...
-            Utf8PathBuf::from(format!("{}{}", prefix, state.name))
-                .with_extension(extension)
-        })
+            self.gen_name(state_ref, used)
+        }
     }
 
     /// Concoct a plan to carry out the requested build.
@@ -200,9 +181,11 @@ impl Driver {
             self.find_path(&req.start_states, &req.end_states, &req.through)?;
 
         // Generate filenames for each step.
-        let mut used_as_input = HashSet::new();
-        // collect filenames of outputs
+
+        // Collect filenames of inputs and outputs
         let mut results = vec![];
+        let mut inputs = vec![];
+
         let steps = path
             .into_iter()
             .map(|(op, used_states)| {
@@ -210,22 +193,37 @@ impl Driver {
                     .input
                     .iter()
                     .map(|&state| {
-                        self.gen_name(state, true, &req, &mut used_as_input)
+                        // If the state is in `req.start_states`, use the filename in
+                        // `req.end_files`, else read from stdin.
+                        let name = self.gen_name_or_use_given(
+                            state,
+                            &req.start_states,
+                            &req.start_files,
+                            format!("_from_stdin_{}", self.states[state].name)
+                                .as_str(),
+                            true,
+                        );
+                        if req.start_states.contains(&state) {
+                            inputs.push(name.clone());
+                        }
+                        name
                     })
                     .collect::<Vec<_>>();
                 let output_filenames = self.ops[op]
                     .output
                     .iter()
                     .map(|&state| {
-                        let name = self.gen_name(
+                        // If the state is in `req.end_states`, use the filename in
+                        // `req.end_files`, else write to stdout.
+                        let name = self.gen_name_or_use_given(
                             state,
+                            &req.end_states,
+                            &req.end_files,
+                            format!("_to_stdout_{}", self.states[state].name)
+                                .as_str(),
                             used_states.contains(&state),
-                            &req,
-                            &mut used_as_input,
                         );
-                        if used_states.contains(&state)
-                            && req.end_states.contains(&state)
-                        {
+                        if req.end_states.contains(&state) {
                             results.push(name.clone());
                         }
                         name
