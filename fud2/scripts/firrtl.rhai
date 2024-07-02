@@ -31,8 +31,7 @@ fn calyx_to_firrtl_helper(e, input, output, firrtl_primitives) {
     e.build_cmd([only_refs_calyx], "external-to-ref", [input], []);
 
     // Get YXI to generate JSON for testbench generation
-    e.build_cmd([memories_json], "calyx", [only_externals_calyx], []);
-    e.arg("backend", "yxi");
+    e.build_cmd([memories_json], "yxi", [only_externals_calyx], []);
     // generate custom testbench
     e.build_cmd(
         [testbench],

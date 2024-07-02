@@ -1,0 +1,24 @@
+---
+source: fud2/tests/tests.rs
+---
+[
+    "calyx",
+    "cider",
+    "cocotb-axi",
+    "dahlia",
+    "dat",
+    "debug",
+    "firrtl",
+    "firrtl-with-primitives",
+    "mrxl",
+    "primitive-uses-json",
+    "sim",
+    "vcd",
+    "verilog",
+    "verilog-noverify",
+    "verilog-refmem",
+    "verilog-refmem-noverify",
+    "xclbin",
+    "xo",
+    "yxi",
+]

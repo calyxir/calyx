@@ -47,3 +47,5 @@ This tool was designed and developed by [Ethan Uppal](https://www.ethanuppal.com
 
 - ANSI escape sequences aren't processed correctly -- they need to be parsed and ignored when computing column width.
 
+![Example running of the tool](example_v0.2.1.png)
+> Running v0.2.1 on the same example shown previously.

@@ -172,6 +172,12 @@ impl SearchPath {
                         return Some(*node);
                     }
 
+                    ControlNode::Repeat(_) => {
+                        // we need to re-check the loop count, so this is our
+                        // next node
+                        return Some(*node);
+                    }
+
                     // none of these three should be possible as a non-leaf node
                     // which is what we are currently searching through on the
                     // path, so this is definitely an error
@@ -293,6 +299,17 @@ impl SearchPath {
                         })
                     }
                 }
+                ControlNode::Repeat(rep) => {
+                    if node.search_index.is_some() {
+                        current_path.path.pop();
+                    } else {
+                        node.search_index = Some(SearchIndex::new(0));
+                        current_path.path.push(SearchNode {
+                            node: rep.body,
+                            search_index: None,
+                        })
+                    }
+                }
             }
         }
 
@@ -339,9 +356,23 @@ pub(crate) struct ProgramCounter {
     par_map: HashMap<ControlPoint, ChildCount>,
     continuous_assigns: Vec<ContinuousAssignments>,
     with_map: HashMap<ControlPoint, CombGroupIdx>,
+    repeat_map: HashMap<ControlPoint, u64>,
 }
 
 // we need a few things from the program counter
+
+pub type PcFields = (
+    Vec<ControlPoint>,
+    HashMap<ControlPoint, ChildCount>,
+    HashMap<ControlPoint, CombGroupIdx>,
+    HashMap<ControlPoint, u64>,
+);
+
+pub type PcMaps<'a> = (
+    &'a mut HashMap<ControlPoint, ChildCount>,
+    &'a mut HashMap<ControlPoint, CombGroupIdx>,
+    &'a mut HashMap<ControlPoint, u64>,
+);
 
 impl ProgramCounter {
     pub(crate) fn new_empty() -> Self {
@@ -350,6 +381,7 @@ impl ProgramCounter {
             par_map: HashMap::new(),
             continuous_assigns: Vec::new(),
             with_map: HashMap::new(),
+            repeat_map: HashMap::new(),
         }
     }
 
@@ -373,29 +405,21 @@ impl ProgramCounter {
         &self.par_map
     }
 
-    pub fn take_fields(
-        &mut self,
-    ) -> (
-        Vec<ControlPoint>,
-        HashMap<ControlPoint, ChildCount>,
-        HashMap<ControlPoint, CombGroupIdx>,
-    ) {
+    pub fn take_fields(&mut self) -> PcFields {
         (
             std::mem::take(&mut self.vec),
             std::mem::take(&mut self.par_map),
             std::mem::take(&mut self.with_map),
+            std::mem::take(&mut self.repeat_map),
         )
     }
 
-    pub fn restore_fields(
-        &mut self,
-        vec: Vec<ControlPoint>,
-        par_map: HashMap<ControlPoint, ChildCount>,
-        with_map: HashMap<ControlPoint, CombGroupIdx>,
-    ) {
+    pub fn restore_fields(&mut self, fields: PcFields) {
+        let (vec, par_map, with_map, repeat_map) = fields;
         self.vec = vec;
         self.par_map = par_map;
         self.with_map = with_map;
+        self.repeat_map = repeat_map;
     }
 
     pub(crate) fn push_continuous_assigns(
