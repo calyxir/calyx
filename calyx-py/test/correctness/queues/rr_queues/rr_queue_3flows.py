@@ -3,9 +3,10 @@ import os
 import sys
 import inspect
 
+# Hackery to import `fifo` from the parent directory.
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir) 
+sys.path.insert(0, parentdir)
 
 import fifo
 import calyx.builder as cb
@@ -18,18 +19,21 @@ QUEUE_LEN_FACTOR = 4
 
 
 def build():
-   """Top-level function to build the program."""
-   prog = cb.Builder()
-   n_flows = 3
-   sub_fifos = []
-   for n in range(n_flows):
-       name = "fifo" + str(n)
-       sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
-       sub_fifos.append(sub_fifo)
+    """Top-level function to build the program."""
+    prog = cb.Builder()
+    n_flows = 3
+    sub_fifos = []
+    for n in range(n_flows):
+        name = "fifo" + str(n)
+        sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
+        sub_fifos.append(sub_fifo)
 
-   pifo = roundrobin.insert_rr_pifo(prog, "pifo", sub_fifos, [0, 133, 266, 400], n_flows)
-   qc.insert_main(prog, pifo, 20000)
-   return prog.program
+    pifo = roundrobin.insert_rr_pifo(
+        prog, "pifo", sub_fifos, [0, 133, 266, 400], n_flows
+    )
+    qc.insert_main(prog, pifo, 20000)
+    return prog.program
+
 
 if __name__ == "__main__":
-   build().emit()
+    build().emit()

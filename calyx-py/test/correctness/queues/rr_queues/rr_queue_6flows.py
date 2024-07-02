@@ -3,6 +3,7 @@ import os
 import sys
 import inspect
 
+# Hackery to import `fifo` from the parent directory.
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
@@ -27,7 +28,9 @@ def build():
         sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
         sub_fifos.append(sub_fifo)
 
-    pifo = roundrobin.insert_rr_pifo(prog, "pifo", sub_fifos, [0, 66, 100, 200, 220, 300, 400], numflows)
+    pifo = roundrobin.insert_rr_pifo(
+        prog, "pifo", sub_fifos, [0, 66, 100, 200, 220, 300, 400], numflows
+    )
     qc.insert_main(prog, pifo, 20000)
     return prog.program
 

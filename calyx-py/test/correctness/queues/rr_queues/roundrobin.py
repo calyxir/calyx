@@ -1,16 +1,7 @@
 # pylint: disable=import-error
 """Common code factored out, to be imported by the different flow implementations."""
-import os
-import sys
-import inspect
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
-
-import fifo
 import calyx.builder as cb
-import calyx.queue_call as qc
 
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
@@ -121,12 +112,13 @@ def insert_rr_pifo(
 
     # Edge case of pushing the value 0
     invoke_zero_edge_case = [
-        cb.if_with( 
-            pifo.eq_use(value, 0), 
+        cb.if_with(
+            pifo.eq_use(value, 0),
             cb.if_with(
                 pifo.eq_use(cmd, 2),
-                invoke_subqueue(fifo_cells[0], cmd, value, ans, err)),
-            )
+                invoke_subqueue(fifo_cells[0], cmd, value, ans, err),
+            ),
+        )
     ]
 
     invoke_subqueues_value_guard = cb.par(
