@@ -73,8 +73,8 @@ def insert_rr_pifo(
     # Some equality checks.
     len_eq_0 = pifo.eq_use(length.out, 0)
     len_eq_max_queue_len = pifo.eq_use(length.out, max_queue_len)
-    err_eq_0 = pifo.eq_use(err.out, 0)
-    err_neq_0 = pifo.neq_use(err.out, 0)
+    err_is_low = pifo.eq_use(err.out, 0)
+    err_is_high = pifo.neq_use(err.out, 0)
 
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
@@ -139,7 +139,7 @@ def insert_rr_pifo(
                 invoke_subqueues_hot_guard,
                 # Our next step depends on whether `fifos[hot]` raised the error flag.
                 cb.while_with(
-                    err_neq_0,
+                    err_is_high,
                     [  # `fifo_cells[hot]` raised an error.
                         # We'll try to pop from `fifo_cells[hot+1]`.
                         # We'll pass it a lowered err
@@ -162,7 +162,7 @@ def insert_rr_pifo(
             copy_hot,  # We remember `hot` so we can restore it later.
             [
                 cb.while_with(
-                    err_neq_0,
+                    err_is_high,
                     [  # We have entered the loop body because `err` is high.
                         # Either we are here for the first time,
                         # or we are here because the previous iteration raised an error
@@ -186,10 +186,10 @@ def insert_rr_pifo(
         raise_err,  # The queue is full: overflow.
         [  # The queue is not full. Proceed.
             lower_err,
-            # We need to check which flow this value should be pushed to.
+            # We'll push to the subqueue that the value belongs to.
             invoke_subqueues_value_guard,
-            # invoke_zero_edge_case,
-            cb.if_with(err_eq_0, len_incr),
+            # If all went well, we'll increment the length of the queue.
+            cb.if_with(err_is_low, len_incr),
         ],
     )
 
