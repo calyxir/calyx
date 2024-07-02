@@ -40,6 +40,11 @@ fn main() -> LocalResult<()> {
         )));
     }
 
-    let driver = Driver::new();
+    let default_loc = {
+        let mut default_loc = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        default_loc.push("plugins");
+        default_loc
+    };
+    let driver = Driver::load(&[default_loc])?;
     driver.run(args.using, config_path, args.input, &args.tests)
 }
