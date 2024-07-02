@@ -91,23 +91,17 @@ impl Driver {
         through: &[OpRef],
     ) -> Option<Vec<(OpRef, Vec<StateRef>)>> {
         let good = |plan: &[(OpRef, Vec<StateRef>)]| {
-            let end_created = end.iter().all(|s| {
-                for (_, states) in plan {
-                    if states.contains(s) {
-                        return true;
-                    }
-                }
-                false
-            });
+            let end_created = end
+                .iter()
+                .all(|s| plan.iter().any(|(_, states)| states.contains(s)));
+
+            // FIXME: Currently this checks that an outputs of an op specified by though is used.
+            // However, it's possible that the only use of this output by another op whose outputs
+            // are all unused. This means the plan doesn't actually use the specified op. but this
+            // code reports it would.
             let through_used = through.iter().all(|t| {
-                for (op, used_states) in plan {
-                    if op == t {
-                        // TODO: figure out how to chain this so it check more than one level deep
-                        // required ops not being used
-                        return !used_states.is_empty();
-                    }
-                }
-                false
+                plan.iter()
+                    .any(|(op, used_states)| op == t && !used_states.is_empty())
             });
             end_created && through_used
         };
