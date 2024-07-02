@@ -1,78 +1,64 @@
-import * as vscode from "vscode";
-import cp = require("child_process");
-import net = require("net");
+import * as vscode from 'vscode';
+import * as cp from "child_process"
 
 // Hold the debug adapter instance
 let debugAdapter = null;
-let programName = null; // Store the program name
 // Create output channel
-let outputChannel = vscode.window.createOutputChannel("Cider dap");
+const outputChannel = vscode.window.createOutputChannel("Cider dap");
+const r = new String(vscode.workspace.workspaceFolders[0].uri)
+const root = r.substring(r.indexOf("://") + 3).toString()
+
+const disposables: vscode.Disposable[] = []
 
 function logToPanel(message) {
-  console.log("inside logPanel");
   outputChannel.appendLine(message);
 }
 
-// Function to get the program name from the user
-async function getProgramName() {
-  const fileName = await vscode.window.showInputBox({
-    placeHolder:
-      "Please enter the name of a futil file in the workspace folder",
-    value: "default.futil",
-  });
+class CiderDebugAdapterDescriptorFactoryServer implements vscode.DebugAdapterDescriptorFactory {
+  private adapter: CiderDebugAdapter
 
-  if (fileName) {
-    if (!fileName.startsWith("/")) {
-      const path = require("path");
-      return path.join(
-        vscode.workspace.workspaceFolders[0].uri.fsPath,
-        fileName
-      );
-    }
-    return fileName;
-  } else {
-    return null;
-  }
-}
-
-// Factory for multi-session
-class CiderDebugAdapterDescriptorFactoryServer {
-  adapter: CiderDebugAdapter;
-  adapterPath: string;
-  stdPath: string;
-  workspace: string;
-  outputChannel: object;
-
-  constructor(adapterPath, stdPath, workspace, outputChannel) {
-    logToPanel("inside constructor");
-    this.adapter = new CiderDebugAdapter(adapterPath, stdPath, workspace, outputChannel);
-    this.stdPath = stdPath;
-    this.adapterPath = adapterPath;
-    this.workspace = workspace;
-    this.outputChannel = outputChannel;
-  }
-
-  createDebugAdapterDescriptor(session) {
-    // Return a new debug adapter descriptor
-    logToPanel("creating adapter descriptor");
-
-    return new vscode.DebugAdapterServer(this._startDebugServer(session));
-  }
-
-  _startDebugServer(session) {
-    logToPanel("start of startDebugServer");
-    // default port: 8888
+  createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+    let stdPath = vscode.workspace.getConfiguration("cider-dap").std_lib;
+    let adapterPath = vscode.workspace.getConfiguration("cider-dap").path //tried just using the executable.command but that doesnt work idk why
     const port = vscode.workspace.getConfiguration("cider-dap").port;
-    if (!this.adapter.isServerRunning()) {
-      logToPanel("server is not running");
-      this.adapter.start(port);
-      logToPanel("started dap-server");
-    }
 
-    logToPanel("exiting startDebugging");
-    return port;
+    this.adapter = new CiderDebugAdapter(adapterPath, stdPath, root, outputChannel);
+
+    if (!this.adapter.isServerRunning()) {
+      logToPanel("adapter descripter: calling adapter.start(port)")
+      let adapterPromise = this.adapter.start(port)
+      return adapterPromise.then((res) => {
+        return new vscode.DebugAdapterServer(res);
+      }, () => { throw "Failed to start debug server" })
+    }
+    else {
+      return new vscode.DebugAdapterServer(port)
+    }
+  }
+  dispose() {
+    logToPanel("disposed multi session factory")
+    if (this.adapter) {
+      this.adapter.stop()
+    }
   }
 }
+
+// Factory for single-session
+class CiderDebugAdapterDescriptorFactoryExecutable implements vscode.DebugAdapterDescriptorFactory {
+  createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+    // Use the DebugAdapterExecutable as the debug adapter descriptor
+
+    return new vscode.DebugAdapterExecutable(
+      vscode.workspace.getConfiguration("cider-dap").path,
+      [],
+      { cwd: root }
+    );
+  }
+  dispose() {
+    logToPanel("disposed single session factory")
+  }
+}
+
 class CiderDebugAdapter {
   adapterPath: string;
   stdPath: string;
@@ -82,43 +68,43 @@ class CiderDebugAdapter {
   isRunning: boolean;
 
   constructor(adapterPath, stdPath, cwd, outputChannel) {
-    logToPanel("inside CiderDebugAdapter");
     this.adapterPath = adapterPath;
     this.stdPath = stdPath;
     this.cwd = cwd;
     this.outputChannel = outputChannel;
     this.adapterProcess = null;
-    logToPanel("at the end of ciderDebugAdapter");
   }
   isServerRunning() {
-    logToPanel("checking if server is running");
     return this.adapterProcess != null && this.adapterProcess.exitCode == null;
   }
   // Start the debug adapter process
   start(port) {
-    logToPanel("beginning of start");
-
     // Spawn a new child process for the debug adapter
     // Include the port as a command line argument
-    this.adapterProcess = cp.spawn(
-      this.adapterPath,
-      ["--port", port, "--tcp", "-l", this.stdPath],
-      { cwd: this.cwd }
-    );
+    return new Promise<number>((resolve, reject) => {
+      this.adapterProcess = cp.spawn(
+        this.adapterPath,
+        ["--port", port, "--tcp", "-l", this.stdPath],
+        { cwd: this.cwd }
+      );
+      // Attach event listener to capture standard output of the adapter process and log it to the output channel
+      this.adapterProcess.stdout.on("data", (data) => {
+        logToPanel(data.toString());
+      });
 
-    // Attach event listener to capture standard output of the adapter process and log it to the output channel
-    this.adapterProcess.stdout.on("data", (data) => {
-      logToPanel(data.toString());
-    });
-
-    // Attach event listener to capture standard error of the adapter process and log it to the output channel
-    this.adapterProcess.stderr.on("data", (data) => {
-      logToPanel(data.toString());
-    });
-
-    this.adapterProcess.on("spawn", () => {
-      logToPanel("Debugger started on port " + port + "!");
-    });
+      // Attach event listener to capture standard error of the adapter process and log it to the output channel
+      this.adapterProcess.stderr.on("data", (data) => {
+        logToPanel(data.toString());
+      });
+      this.adapterProcess.on("spawn", () => {
+        logToPanel("Debugger started on port " + port + "!");
+        setTimeout(() => resolve(port), 200) //short wait to let the thing start running 
+      });
+      this.adapterProcess.on("error", () => {
+        logToPanel("Debugger failed to start");
+        reject(-1)
+      });
+    })
   }
 
   stop() {
@@ -133,38 +119,17 @@ class CiderDebugAdapter {
   }
 }
 
-// Factory for single-session
-class CiderDebugAdapterDescriptorFactoryExecutable {
-  createDebugAdapterDescriptor(_session) {
-    // Use the DebugAdapterExecutable as the debug adapter descriptor
-    console.log("inside adapter factory");
-    console.log(vscode.workspace.getConfiguration("cider-dap").path);
-
-    return new vscode.DebugAdapterExecutable(
-      vscode.workspace.getConfiguration("cider-dap").path,
-      [],
-      { cwd: vscode.workspace.rootPath }
-    );
-  }
-}
-
 function activate(context) {
   logToPanel("Extension activated!");
 
   let factory: vscode.DebugAdapterDescriptorFactory;
 
   // Get session type (multi or single) from package.json configuration
-
   logToPanel("setting up with configuration '" + vscode.workspace.getConfiguration("cider-dap").sessionType + "'. You will need to reload after changing the settings if a different mode is desired.")
 
   switch (vscode.workspace.getConfiguration("cider-dap").sessionType) {
     case "Multi-Session":
-      factory = new CiderDebugAdapterDescriptorFactoryServer(
-        vscode.workspace.getConfiguration("cider-dap").path,
-        vscode.workspace.getConfiguration("cider-dap").std_lib,
-        vscode.workspace.rootPath,
-        outputChannel
-      );
+      factory = new CiderDebugAdapterDescriptorFactoryServer();
       break;
 
     case "Single-Session":
@@ -176,10 +141,8 @@ function activate(context) {
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory)
   );
-  logToPanel("after start server");
-
-  // Update the adapter path with the serverPort and use it for starting the debug adapter
-  logToPanel("before startDebugging");
+  disposables.push(vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory))
+  // Update the adapter path with the serverPort and use it for starting the debug adapter - ??
   logToPanel("Hello, your extension is now activated!");
 }
 
@@ -192,7 +155,10 @@ function stopDebugging() {
 }
 
 function deactivate() {
+  //kill server 
+  // when is this called i don't see it on the output logs
   logToPanel("deactivate");
+  disposables.forEach(d => d.dispose())
 }
 
 module.exports = {

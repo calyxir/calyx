@@ -156,7 +156,6 @@ python3 {} 20000 |\
        --through verilog \
        --through dat \
        -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d well-formed' \
        -s jq.expr ".memories" \
        -q
 """
