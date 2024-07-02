@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+"""Common code factored out, to be imported by the different flow implementations."""
 import os
 import sys
 import inspect
@@ -111,12 +112,23 @@ def insert_rr_pifo(
         cb.if_with(
             pifo.le_use(value, boundaries[b + 1]),
             cb.if_with(
-                pifo.ge_use(value, boundaries[b]),
+                pifo.gt_use(value, boundaries[b]),
                 invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
             ),
         )
         for b in range(numflows)
     ]
+
+    # Edge case of pushing the value 0
+    invoke_zero_edge_case = [
+        cb.if_with( 
+            pifo.eq_use(value, 0), 
+            cb.if_with(
+                pifo.eq_use(cmd, 2),
+                invoke_subqueue(fifo_cells[0], cmd, value, ans, err)),
+            )
+    ]
+
     invoke_subqueues_value_guard = cb.par(
         invoke_subqueues_value_guard_seq
     )  # Execute in parallel.
@@ -185,6 +197,7 @@ def insert_rr_pifo(
             lower_err,
             # We need to check which flow this value should be pushed to.
             invoke_subqueues_value_guard,
+            invoke_zero_edge_case,
             cb.if_with(
                 err_eq_0,
                 # If no stats component is provided,
@@ -221,22 +234,3 @@ def insert_rr_pifo(
     )
 
     return pifo
-
-
-def build():
-    """Top-level function to build the program."""
-    prog = cb.Builder()
-    numflows = 2
-    sub_fifos = []
-    for n in range(numflows):
-        name = "fifo" + str(n)
-        sub_fifo = fifo.insert_fifo(prog, name, QUEUE_LEN_FACTOR)
-        sub_fifos.append(sub_fifo)
-
-    pifo = insert_rr_pifo(prog, "pifo", sub_fifos, [0, 200, 400], numflows)
-    qc.insert_main(prog, pifo, 500)
-    return prog.program
-
-
-if __name__ == "__main__":
-    build().emit()
