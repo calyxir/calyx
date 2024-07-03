@@ -7,7 +7,7 @@ from calyx import queue_util
 if __name__ == "__main__":
     max_cmds, len = int(sys.argv[1]), int(sys.argv[2])
     keepgoing = "--keepgoing" in sys.argv
-    commands, values, _ = queue_util.parse_json()
+    commands, values = queue_util.parse_json()
 
     # Our PIFO is simple: it just orchestrates two FIFOs. The boundary is 200.
     pifo = queues.Pifo(queues.Fifo(len), queues.Fifo(len), 200, len)

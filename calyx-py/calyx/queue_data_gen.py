@@ -63,7 +63,7 @@ def no_err_cmds_list(queue_size, num_cmds):
     return commands
 
 
-def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=False):
+def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False, use_ranks=False):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
@@ -97,7 +97,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=Fals
                     [random.randint(0, 2) for _ in range(num_cmds)]
                 )
             ),
-            "format": format_gen(2),
+            "format": format_gen(3 if nwc else 2),
         }
     }
     values = {
@@ -144,6 +144,8 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=Fals
 
     if nwc:
         print(json.dumps(commands | values | ranks | times | ans_mem, indent=2))
+    elif use_rank:
+        print(json.dumps(commands | values | ranks | ans_mem, indent=2))
     else:
         print(json.dumps(commands | values | ans_mem, indent=2))
 
@@ -153,9 +155,9 @@ if __name__ == "__main__":
     # This says whether we should use the special no_err helper.
     random.seed(5)
     num_cmds = int(sys.argv[1])
-    nwc = int(sys.argv[2]) == 1
+    nwc = "--nwc-en" in sys.argv
     no_err = "--no-err" in sys.argv
     use_rank = "--use-rank" in sys.argv
     if no_err:
-        queue_size = int(sys.argv[4])
-    dump_json(num_cmds, no_err, queue_size if no_err else None, nwc)
+        queue_size = int(sys.argv[3])
+    dump_json(num_cmds, no_err, queue_size if no_err else None, nwc, use_rank)

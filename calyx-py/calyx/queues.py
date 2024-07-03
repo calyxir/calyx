@@ -22,7 +22,7 @@ class Fifo:
         self.data = []
         self.max_len = max_len
 
-    def push(self, val: int, time=0, rank=None) -> None:
+    def push(self, val: int, rank=None, time=0) -> None:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
             raise QueueError("Cannot push to full FIFO.")
@@ -93,7 +93,7 @@ class Pifo:
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int, time=0, rank=None) -> None:
+    def push(self, val: int, rank=None, time=0) -> None:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
@@ -210,7 +210,7 @@ class Pieo:
         if rank < self.data[mid][2]:
             return self.binsert(val, time, rank, l, mid)
         
-    def push(self, val, time=0, rank=0, insertion_count=None) -> None:
+    def push(self, val, rank=0, time=0, insertion_count=None) -> None:
         """Pushes to a PIEO.
         Inserts element such that rank ordering is preserved
         """
@@ -331,7 +331,7 @@ class PCQ:
         self.bucket_ranges[self.day] = (buckettop, buckettop + self.width)
         self.day = (self.day + 1) % len(self.data)
 
-    def push(self, val: int, time=0, rank=0) -> None:
+    def push(self, val: int, rank=0, time=0) -> None:
         """Pushes a value with some rank/priority to a PCQ"""
 
         if self.num_elements == self.max_len:
@@ -340,7 +340,7 @@ class PCQ:
         location = (rank * self.width) % len(self.data)
 
         try:
-            self.data[location].push(val, time, rank, self.insertion_count)
+            self.data[location].push(val, rank, time, self.insertion_count)
             self.num_elements += 1
             self.insertion_count += 1
             if rank > self.highest_rank:
@@ -403,22 +403,22 @@ class Binheap:
         self.counter = 0
         self.max_len = max_len
 
-    def push(self, rnk, val):
+    def push(self, val: int, rank, time=0) -> None:
         """Pushes `(rnk, val)` to the Binary Heap."""
         if self.len == self.max_len:
             raise QueueError("Cannot push to full Binary Heap.")
         self.counter += 1
         self.len += 1
-        heapq.heappush(self.heap, RankValue((rnk << 32) + self.counter, val))
+        heapq.heappush(self.heap, RankValue((rank << 32) + self.counter, val))
 
-    def pop(self) -> Optional[int]:
+    def pop(self, time=0) -> Optional[int]:
         """Pops the Binary Heap."""
         if self.len == 0:
             raise QueueError("Cannot pop from empty Binary Heap.")
         self.len -= 1
         return heapq.heappop(self.heap).value
 
-    def peek(self) -> Optional[int]:
+    def peek(self, time=0) -> Optional[int]:
         """Peeks into the Binary Heap."""
         if self.len == 0:
             raise QueueError("Cannot peek from empty Binary Heap.")
@@ -466,7 +466,7 @@ class RRQueue:
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int):
+    def push(self, val: int, time=0, rank=0):
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
@@ -480,7 +480,7 @@ class RRQueue:
         """Increments `hot`, taking into account wraparound."""
         self.hot = 0 if self.hot == (self.n - 1) else self.hot + 1
 
-    def pop(self) -> Optional[int]:
+    def pop(self, time=0) -> Optional[int]:
         """Pops the PIFO by popping some internal FIFO.
         Updates `hot` to be one more than the index of the internal FIFO that
         we did pop.
@@ -499,7 +499,7 @@ class RRQueue:
             except QueueError:
                 self.increment_hot()
 
-    def peek(self) -> Optional[int]:
+    def peek(self, time=0) -> Optional[int]:
         """Peeks into the PIFO. Does not affect what `hot` is."""
         if self.pifo_len == 0:
             raise QueueError("Cannot peek into empty PIFO.")
