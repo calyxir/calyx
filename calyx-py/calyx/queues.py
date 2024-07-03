@@ -22,19 +22,19 @@ class Fifo:
         self.data = []
         self.max_len = max_len
 
-    def push(self, val: int, rank=None, time=0) -> None:
+    def push(self, val: int, *_) -> None:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
             raise QueueError("Cannot push to full FIFO.")
         self.data.append(val)
 
-    def pop(self, time=0) -> Optional[int]:
+    def pop(self, *_) -> Optional[int]:
         """Pops the FIFO."""
         if len(self.data) == 0:
             raise QueueError("Cannot pop from empty FIFO.")
         return self.data.pop(0)
 
-    def peek(self, time=0) -> Optional[int]:
+    def peek(self, *_) -> Optional[int]:
         """Peeks into the FIFO."""
         if len(self.data) == 0:
             raise QueueError("Cannot peek into empty FIFO.")
@@ -93,7 +93,7 @@ class Pifo:
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int, rank=None, time=0) -> None:
+    def push(self, val: int, *_) -> None:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
@@ -103,7 +103,7 @@ class Pifo:
             self.data[1].push(val)
         self.pifo_len += 1
 
-    def pop(self, time=0) -> Optional[int]:
+    def pop(self, *_) -> Optional[int]:
         """Pops the PIFO."""
         if self.pifo_len == 0:
             raise QueueError("Cannot pop from empty PIFO.")
@@ -123,7 +123,7 @@ class Pifo:
                 self.hot = 1
                 return self.data[0].pop()
 
-    def peek(self, time=0) -> Optional[int]:
+    def peek(self, *_) -> Optional[int]:
         """Peeks into the PIFO."""
         if self.pifo_len == 0:
             raise QueueError("Cannot peek into empty PIFO.")
@@ -145,6 +145,19 @@ class Pifo:
 @dataclass
 class Pieo:
     """A PIEO data structure.
+    PIEOs function as generalized PIFOs, but popping and pushing supports the 'extract-out' idea
+    rather than exclusively a 'first-out' operation. Elements can either be extracted by value
+    (pass in a value and obtain the lowest-rank element matching it), or by an eligibility predicate
+    (find the lowest-rank element matching the predicate).
+    
+    In our implementation, we support time-based 'ripeness' predicates,
+    which check that an element's encoded 'readiness time' is earlier than the specified current time.
+
+    The term 'ripe', as defined above, takes in an element (which has some encoded readiness time),
+    and a specified 'current time'. It checks that the element's readiness time is <= the current time.
+    
+    For more info, consult https://dl.acm.org/doi/pdf/10.1145/3341302.3342090.
+
     Supports the operations `push`, `pop`, and `peek`.
 
     Stores elements ordered increasingly by a totally ordered `rank` attribute (for
@@ -420,7 +433,7 @@ class Binheap:
         self.counter = 0
         self.max_len = max_len
 
-    def push(self, val: int, rank, time=0) -> None:
+    def push(self, val: int, rank, *_) -> None:
         """Pushes `(rnk, val)` to the Binary Heap."""
         if self.len == self.max_len:
             raise QueueError("Cannot push to full Binary Heap.")
@@ -428,14 +441,14 @@ class Binheap:
         self.len += 1
         heapq.heappush(self.heap, RankValue((rank << 32) + self.counter, val))
 
-    def pop(self, time=0) -> Optional[int]:
+    def pop(self, *_) -> Optional[int]:
         """Pops the Binary Heap."""
         if self.len == 0:
             raise QueueError("Cannot pop from empty Binary Heap.")
         self.len -= 1
         return heapq.heappop(self.heap).value
 
-    def peek(self, time=0) -> Optional[int]:
+    def peek(self, *_) -> Optional[int]:
         """Peeks into the Binary Heap."""
         if self.len == 0:
             raise QueueError("Cannot peek from empty Binary Heap.")
@@ -483,7 +496,7 @@ class RRQueue:
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int, time=0, rank=0):
+    def push(self, val: int, *_):
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
@@ -497,7 +510,7 @@ class RRQueue:
         """Increments `hot`, taking into account wraparound."""
         self.hot = 0 if self.hot == (self.n - 1) else self.hot + 1
 
-    def pop(self, time=0) -> Optional[int]:
+    def pop(self, *_) -> Optional[int]:
         """Pops the PIFO by popping some internal FIFO.
         Updates `hot` to be one more than the index of the internal FIFO that
         we did pop.
@@ -516,7 +529,7 @@ class RRQueue:
             except QueueError:
                 self.increment_hot()
 
-    def peek(self, time=0) -> Optional[int]:
+    def peek(self, *_) -> Optional[int]:
         """Peeks into the PIFO. Does not affect what `hot` is."""
         if self.pifo_len == 0:
             raise QueueError("Cannot peek into empty PIFO.")

@@ -21,6 +21,8 @@ def no_err_cmds_list(queue_size, num_cmds):
     - No underflows.
     - `num_cmds`/2 pushes and `num_cmds`/2 pops.
     A combination of the above means that no packet is left unpopped.
+    This is specifically catered for work-conserving algorithms,
+    and not for non-work-conserving algorithms.
     """
     running_count = 0  # The current size of the queue.
     push_goal = int(num_cmds / 2)  # How many pushes we want overall.
@@ -63,22 +65,38 @@ def no_err_cmds_list(queue_size, num_cmds):
     return commands
 
 
-def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False, use_ranks=False):
+def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False, use_ranks=False, always_true=False):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - Optional memories `ranks` and `times` are included for queues primed for non-work-conserving algorithms.
-    - The `commands` memory has `num_cmds` items, which range from 0-4. They are as follows:
+    - The `commands` memory has `num_cmds` items, which range from 0-2 for work-conserving policies,
+        and from 0-4 for non-work-conserving. They are as follows:
 
-        0 : pop (for non-work-conserving algorithms, pop by predicate)
-        1 : peek (for non-work-conserving algorithms, peek by predicate)
+    FOR WORK-CONSERVING POLICIES
+        0 : pop
+        1 : peek
         2 : push
-        3 : pop by value (for non-work-conserving algorithms)
-        4 : peek by value (for non-work-conserving algorithms)
+    
+    FOR NON-WORK-CONSERVING POLICIES
+        0 : pop by predicate
+        1 : peek by predicate
+        2 : push
+        3 : pop by value
+        4 : peek by value
 
-      If the `no_err` flag is set, then items are chosen from 0 and 2 using a helper.
+    If the `no_err` flag is set and the policy of work-conserving,
+    then items are chosen from 0 and 2 using a helper.
+
+    If the `always-true` flag is set to True for non-work-conserving policies,
+    then the predicate is treated as though always true.
+
     - The `values` memory has `num_cmds` items:
     random values between 0 and 400.
+    - The `ranks` memory has `num_cmds` items:
+    random values between 0 and 400.
+    - The `times` memory has `num_cmds` items:
+    random values between 0 and 50.
     - The `ans_mem` memory has `num_cmds` items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
@@ -116,30 +134,20 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
             "format": format_gen(32),
         }
     }
+    times = {
+        "times": {
+            "data": [0 if always_true else random.randint(0, 50) for _ in range(num_cmds)],
+            # The `times` memory has `num_cmds` items, which are all
+            # random values between 0 and 50.
+            "format": format_gen(32),
+        }        
+    }
     ans_mem = {
         "ans_mem": {
             "data": [0] * num_cmds,
             # The `ans_mem` memory has `num_cmds` items, all zeroes.
             "format": format_gen(32),
         }
-    }
-
-    ranks = {
-        "ranks": {
-            "data": [random.randint(0, 400) for _ in range(num_cmds)],
-            # The `values` memory has `num_cmds` items, which are all
-            # random values between 0 and 400.
-            "format": format_gen(32),
-        }
-    }
-
-    times = {
-        "times": {
-            "data": [random.randint(0, 50) for _ in range(num_cmds)],
-            # The `values` memory has `num_cmds` items, which are all
-            # random values between 0 and 400.
-            "format": format_gen(32),
-        }        
     }
 
     if nwc:
@@ -158,6 +166,7 @@ if __name__ == "__main__":
     nwc = "--nwc-en" in sys.argv
     no_err = "--no-err" in sys.argv
     use_rank = "--use-rank" in sys.argv
+    always_true = "--always-true" in sys.argv
     if no_err:
         queue_size = int(sys.argv[3])
-    dump_json(num_cmds, no_err, queue_size if no_err else None, nwc, use_rank)
+    dump_json(num_cmds, no_err, queue_size if no_err else None, nwc, use_rank, always_true)

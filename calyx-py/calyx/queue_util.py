@@ -18,13 +18,8 @@ def parse_json(parse_ranks=False, parse_times=False):
     if parse_times:
         times = data["times"]["data"]
 
-    if parse_ranks and parse_times:
-        return commands, values, ranks, times
-    if parse_times:
-        return commands, values, times
-    if parse_ranks:
-        return commands, values, ranks
-    return commands, values
+    #Return tuple of data
+    return commands, values, (ranks if parse_ranks else None), (times if parse_times else None)
 
 
 def dump_json(commands, values, ans_mem, ranks=None, times=None):
