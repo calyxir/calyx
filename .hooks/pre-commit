@@ -14,11 +14,11 @@ check cargo clippy
 staged_py_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
 
 if [ -n "$staged_py_files" ]; then
-    flake8_executable=$(which flake8 || which flake)
-    if [ -z "$flake8_executable" ]; then
+    flake=$(which flake8 || which flake)
+    if [ -z "$flake" ]; then
         echo "flake is not installed"
         exit 1
     else
-        check "$flake8_executable" $staged_py_files
+        check "$flake" $staged_py_files
     fi
 fi
