@@ -2,6 +2,7 @@ use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::Id;
 use calyx_utils::WithPos;
 use linked_hash_map::LinkedHashMap;
+use std::fmt;
 use std::path::PathBuf;
 
 /// Metadata stores a Map between each group name and data used in the metadata table (specified in PR #2022)
@@ -19,22 +20,22 @@ impl Metadata {
         table
     }
     /// Return this metadata table as a properly formatted string (see #2022 in git PRs)
-    fn to_string(&self) -> String {
-        let grps = &self.groups;
-        let mut text = String::new();
-        for (name, (line_num, file)) in grps {
-            let name = name.to_string();
-            let file = file.to_str();
-            let file = match file {
-                None => "x",
-                Some(f) => f,
-            };
-            let line = format!("    {name}: {file} {line_num}\n");
-            text.push_str(line.as_str());
-        }
-        //text.push_str("}#");
-        text
-    }
+    // fn to_string(&self) -> String {
+    //     let grps = &self.groups;
+    //     let mut text = String::new();
+    //     for (name, (line_num, file)) in grps {
+    //         let name = name.to_string();
+    //         let file = file.to_str();
+    //         let file = match file {
+    //             None => "x",
+    //             Some(f) => f,
+    //         };
+    //         let line = format!("    {name}: {file} {line_num}\n");
+    //         text.push_str(line.as_str());
+    //     }
+    //     //text.push_str("}#");
+    //     text
+    // }
     /// Add a new entry to the metadata table
     fn add_entry(&mut self, name: Id, line: usize, path: PathBuf) -> &mut Self {
         let ins = self.groups.insert(name, (line, path));
@@ -45,6 +46,26 @@ impl Metadata {
                 self
             }
         }
+    }
+}
+
+impl fmt::Display for Metadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let grps = &self.groups;
+        let mut text = String::new();
+
+        for (name, (line_num, file)) in grps {
+            let file = file.to_str();
+            let file = match file {
+                None => "x",
+                Some(f) => f,
+            };
+            text.push_str(format!("    {name}: {file} {line_num}\n").as_str());
+        }
+
+        write!(f, "{}", text)
+
+        //this seems dumb
     }
 }
 
