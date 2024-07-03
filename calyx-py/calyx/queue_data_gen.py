@@ -52,7 +52,14 @@ def no_err_cmds_list(queue_size, num_cmds):
             commands += (push_goal - total_pop_count) * [0]
             break
 
-    assert len(commands) == num_cmds
+    # If the total number of commands is not `num_cmds`, pad it with `peek`s.
+    # This is because the `commands` list must have `num_cmds` items.
+    commands += (num_cmds - len(commands)) * [1]
+    # The above command will add either zero or one `peek` command to the end.
+
+    assert (
+        len(commands) == num_cmds
+    ), f"Length of commands list was {len(commands)}, expected {num_cmds}"
     return commands
 
 
@@ -109,6 +116,7 @@ def dump_json(num_cmds, use_rank: bool, no_err: bool, queue_size: Optional[int] 
         print(json.dumps(commands | values | ranks | ans_mem, indent=2))
     else:
         print(json.dumps(commands | values | ans_mem, indent=2))
+
 
 if __name__ == "__main__":
     # Accept a flag that we pass to dump_json.
