@@ -1,3 +1,5 @@
+//! Author: Ethan Uppal
+
 pub mod cli;
 pub mod config;
 pub mod driver;

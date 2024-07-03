@@ -7,7 +7,20 @@ use tb::{
 
 const CONFIG_FILE_NAME: &str = "calyx-tb.toml";
 
+fn setup_logging() {
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "warn");
+    }
+    if env::var("NO_COLOR").is_err() {
+        env::set_var("RUST_LOG_STYLE", "always");
+    }
+
+    env_logger::builder().format_target(false).init();
+}
+
 fn main() -> LocalResult<()> {
+    setup_logging();
+
     let args = CLI::from_env();
 
     if args.version {
@@ -18,6 +31,10 @@ fn main() -> LocalResult<()> {
     let config_path = match args.config {
         Some(config_path) => config_path,
         None => {
+            log::info!(
+                "No config file specified, using default: {}",
+                CONFIG_FILE_NAME
+            );
             let mut config_path =
                 PathBuf::from(env::var("HOME").expect("user has no $HOME :("));
             config_path.push(".config");

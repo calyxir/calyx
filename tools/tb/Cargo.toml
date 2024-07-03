@@ -19,3 +19,5 @@ figment.workspace = true
 serde.workspace = true
 semver.workspace = true
 libloading = "0.8.4"
+log.workspace = true
+env_logger.workspace = true

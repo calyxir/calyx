@@ -2,20 +2,52 @@ use crate::error::{LocalError, LocalResult};
 use figment::providers::Format;
 use figment::value::Value;
 use figment::Figment;
+use std::fmt::Debug;
 use std::path::Path;
+use std::rc::Rc;
 
-#[derive(Debug, Clone)]
-pub struct ConfigVarValidator(fn(&Value) -> LocalResult<()>);
+pub type ConfigVarValidatorPredicate = fn(&Value) -> LocalResult<()>;
+
+pub struct ConfigVarValidator {
+    predicates: Vec<ConfigVarValidatorPredicate>,
+}
 
 impl ConfigVarValidator {
-    pub fn new(predicate: fn(&Value) -> LocalResult<()>) -> Self {
-        Self(predicate)
+    pub fn when(predicate: ConfigVarValidatorPredicate) -> Self {
+        Self {
+            predicates: vec![predicate],
+        }
+    }
+
+    pub fn and(mut self, predicate: ConfigVarValidatorPredicate) -> Self {
+        self.predicates.push(predicate);
+        self
+    }
+
+    pub(crate) fn run(&self, value: &Value) -> LocalResult<()> {
+        self.predicates
+            .iter()
+            .try_for_each(|predicate| predicate(value))
     }
 }
 
 impl Default for ConfigVarValidator {
     fn default() -> Self {
-        Self(|_| Ok(()))
+        Self::when(|_| Ok(()))
+    }
+}
+
+impl Debug for ConfigVarValidator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ConfigVarValidator {{ predicates: vec![{}] }}",
+            self.predicates
+                .iter()
+                .map(|p| format!("{:p}", p))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 
@@ -23,7 +55,7 @@ impl Default for ConfigVarValidator {
 pub struct ConfigVar {
     key: String,
     description: String,
-    validator: ConfigVarValidator,
+    validator: Rc<ConfigVarValidator>,
 }
 
 impl ConfigVar {
@@ -35,7 +67,7 @@ impl ConfigVar {
         Self {
             key: key.as_ref().to_string(),
             description: description.as_ref().to_string(),
-            validator,
+            validator: Rc::new(validator),
         }
     }
 
@@ -48,7 +80,7 @@ impl ConfigVar {
     }
 
     pub fn validate(&self, value: &Value) -> LocalResult<()> {
-        self.validator.0(value)
+        self.validator.run(value)
     }
 }
 
