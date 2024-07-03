@@ -12,3 +12,10 @@ pub fn relative_path(path: &Utf8Path, base: &Utf8Path) -> Utf8PathBuf {
             .expect("could not get absolute path"),
     }
 }
+
+/// Get the basename of a file as designated in a &str.
+pub fn basename(path: &str) -> &str {
+    Utf8Path::new(path)
+        .file_stem()
+        .expect("Failed to get a basename from the path.")
+}

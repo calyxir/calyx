@@ -1,3 +1,5 @@
+use linked_hash_map::LinkedHashMap;
+
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
 use std::borrow::BorrowMut;
@@ -10,7 +12,7 @@ pub type RewriteMap<T> = HashMap<ir::Id, RRC<T>>;
 
 /// Map to rewrite port uses. Maps the canonical name of an old port (generated using
 /// [ir::Port::canonical]) to the new [ir::Port] instance.
-pub type PortRewriteMap = HashMap<ir::Canonical, RRC<ir::Port>>;
+pub type PortRewriteMap = LinkedHashMap<ir::Canonical, RRC<ir::Port>>;
 
 #[derive(Default)]
 /// A structure to track rewrite maps for ports. Stores both cell rewrites and direct port

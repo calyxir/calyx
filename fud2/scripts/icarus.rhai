@@ -2,6 +2,7 @@ import "calyx" as c;
 import "rtl_sim" as sim;
 import "testbench" as tb;
 
+export let icarus_setup = icarus_setup;
 fn icarus_setup(e) {
     e.var_("iverilog", "iverilog");
     e.rule(

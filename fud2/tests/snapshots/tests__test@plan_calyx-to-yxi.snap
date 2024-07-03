@@ -1,0 +1,26 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: calyx-to-yxi"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+
+yxi = $calyx-base/target/debug/yxi
+rule yxi
+  command = $yxi -l $calyx-base $in > $out
+
+build /output.ext: yxi /input.ext
+
+default /output.ext
