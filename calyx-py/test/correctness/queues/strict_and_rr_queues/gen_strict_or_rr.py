@@ -33,10 +33,18 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
     )
 
 
-def insert_strict_pifo(
+def insert_queue(
     prog, name, fifos, boundaries, numflows, order, round_robin, queue_len_factor=QUEUE_LEN_FACTOR
 ):
-    """Inserts the component `pifo` into the program."""
+    """
+    Inserts the component `pifo` into the program. If round_robin is true, it
+    inserts a round robin queue, otherwise it inserts a strict queue. `numflows`
+    is the number of flows, which must be an integer greater than 0. Boundaries
+    must be of length `numflows` + 1, where the first boundary is the smallest 
+    number a value can take (eg. 0). `order` is used for strict queues to determine
+    the order of priority of the subqueues. `order` must be a list of length 
+    `numflows`.
+    """
 
     pifo: cb.ComponentBuilder = prog.component(name)
     cmd = pifo.input("cmd", 2)  # the size in bits is 2
@@ -102,11 +110,11 @@ def insert_strict_pifo(
                 else
                 invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err)
 
-                if b == 0 and (not round_robin)
+                if b == 0 and not round_robin
                 else cb.if_with(
                     pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
                     invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err),)
-                if (not round_robin) 
+                if not round_robin 
                 # Otherwise, we need to check the lower bound and `invoke`
                 # only if the value is in the interval.
                 else cb.if_with(
@@ -239,6 +247,6 @@ def build(numflows, roundrobin):
     sub_fifos = [
         fifo.insert_fifo(prog, f"fifo{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
     ]
-    pifo = insert_strict_pifo(prog, "pifo", sub_fifos, boundaries, numflows, order, roundrobin)
+    pifo = insert_queue(prog, "pifo", sub_fifos, boundaries, numflows, order, roundrobin)
     qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
