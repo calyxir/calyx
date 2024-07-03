@@ -33,13 +33,7 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
 
 
 def insert_strict_pifo(
-    prog,
-    name,
-    fifos,
-    boundaries,
-    numflows,
-    order,
-    queue_len_factor=QUEUE_LEN_FACTOR
+    prog, name, fifos, boundaries, numflows, order, queue_len_factor=QUEUE_LEN_FACTOR
 ):
     """Inserts the component `pifo` into the program."""
 
@@ -129,7 +123,7 @@ def insert_strict_pifo(
         raise_err,  # The queue is empty: underflow.
         [  # The queue is not empty. Proceed.
             copy_hot,  # We remember `hot` so we can restore it later.
-            raise_err, # We raise err so we enter the loop body at least once.
+            raise_err,  # We raise err so we enter the loop body at least once.
             cb.while_with(
                 err_is_high,
                 [  # We have entered the loop body because `err` is high.
@@ -203,6 +197,7 @@ def insert_strict_pifo(
 
     return pifo
 
+
 def build(numflows):
     """Top-level function to build the program."""
 
@@ -225,11 +220,12 @@ def build(numflows):
         raise ValueError("Unsupported number of flows")
 
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
 
     prog = cb.Builder()
     sub_fifos = [
         fifo.insert_fifo(prog, f"fifo{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
     ]
     pifo = insert_strict_pifo(prog, "pifo", sub_fifos, boundaries, numflows, order)
-    qc.insert_main(prog, pifo, num_cmds)
+    qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program

@@ -222,11 +222,12 @@ def build(numflows):
         raise ValueError("Unsupported number of flows")
 
     num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
 
     prog = cb.Builder()
     sub_fifos = [
         fifo.insert_fifo(prog, f"fifo{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
     ]
     pifo = insert_rr_pifo(prog, "pifo", sub_fifos, boundaries, numflows)
-    qc.insert_main(prog, pifo, num_cmds)
+    qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
