@@ -52,7 +52,14 @@ def no_err_cmds_list(queue_size, num_cmds):
             commands += (push_goal - total_pop_count) * [0]
             break
 
-    assert len(commands) == num_cmds
+    # If the total number of commands is not `num_cmds`, pad it with `peek`s.
+    # This is because the `commands` list must have `num_cmds` items.
+    commands += (num_cmds - len(commands)) * [1]
+    # The above command will add either zero or one `peek` command to the end.
+
+    assert (
+        len(commands) == num_cmds
+    ), f"Length of commands list was {len(commands)}, expected {num_cmds}"
     return commands
 
 
@@ -101,6 +108,14 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=Fals
             "format": format_gen(32),
         }
     }
+    ranks = {
+        "ranks": {
+            "data": [random.randint(0, 400) for _ in range(num_cmds)],
+            # The `ranks` memory has `num_cmds` items, which are all
+            # random values between 0 and 400.
+            "format": format_gen(32),
+        }
+    }
     ans_mem = {
         "ans_mem": {
             "data": [0] * num_cmds,
@@ -140,6 +155,7 @@ if __name__ == "__main__":
     num_cmds = int(sys.argv[1])
     nwc = int(sys.argv[2]) == 1
     no_err = "--no-err" in sys.argv
+    use_rank = "--use-rank" in sys.argv
     if no_err:
         queue_size = int(sys.argv[4])
     dump_json(num_cmds, no_err, queue_size if no_err else None, nwc)

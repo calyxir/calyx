@@ -1,0 +1,28 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component my_comp(in_1: 8) -> (out_1: 16) {
+  cells {
+    comp_reg = std_reg(1);
+    in_1_eq_1 = std_eq(8);
+    in_1_eq_2 = std_eq(8);
+  }
+  wires {
+    group my_group {
+
+    }
+    in_1_eq_1.left = in_1;
+    in_1_eq_1.right = 8'd1;
+    in_1_eq_2.left = in_1;
+    in_1_eq_2.right = 8'd2;
+  }
+  control {
+    par {
+      if in_1_eq_1.out {
+        my_group;
+      }
+      if in_1_eq_2.out {
+        invoke comp_reg(in=1'd1)();
+      }
+    }
+  }
+}

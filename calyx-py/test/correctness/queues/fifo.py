@@ -40,18 +40,31 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     len = fifo.reg(bits_needed(max_queue_len))  # The active length of the FIFO.
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
-    # The user called pop/peek.
+    # The user called pop.
     # If the queue is empty, we should raise an error.
     # Otherwise, we should proceed with the core logic
-    pop_peek_logic = cb.if_with(
+    pop_logic = cb.if_with(
         fifo.eq_use(len.out, 0),
         raise_err,
         [
-            # `pop` or `peek` has been called, and the queue is not empty.
-            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem"),
+            # `pop` has been called, and the queue is not empty.
+            # Write the answer to the answer register, increment `read`, and decrement `len`.
+            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_pop"),
+            fifo.incr(read),
+            fifo.decr(len),
+        ],
+    )
+
+    # The user called peek.
+    # If the queue is empty, we should raise an error.
+    # Otherwise, we should proceed with the core logic
+    peek_logic = cb.if_with(
+        fifo.eq_use(len.out, 0),
+        raise_err,
+        [
+            # `peek` has been called, and the queue is not empty.
             # Write the answer to the answer register.
-            # If the user called pop, increment `read` and decrement `len`.
-            cb.if_with(fifo.eq_use(cmd, 0), [fifo.incr(read), fifo.decr(len)]),
+            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_peek"),
         ],
     )
 
@@ -69,15 +82,16 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
         ],
     )
 
-    fifo.control += cb.par(
-        # Was it a (pop/peek), or a push? We can do those two cases in parallel.
-        # The logic is shared for pops and peeks, with just a few differences.
-        # Did the user call pop/peek?
-        cb.if_with(fifo.lt_use(cmd, 2), pop_peek_logic),
-        # Did the user call push?
-        cb.if_with(fifo.eq_use(cmd, 2), push_logic),
-        # Did the user call an invalid command?
-        cb.if_with(fifo.eq_use(cmd, 3), raise_err),
+    # Was it a pop, peek, push, or an invalid command?
+    # We can do those four cases in parallel.
+    fifo.control += fifo.case(
+        cmd,
+        {
+            0: pop_logic,
+            1: peek_logic,
+            2: push_logic,
+            3: raise_err,
+        },
     )
 
     return fifo

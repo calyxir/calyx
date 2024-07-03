@@ -21,7 +21,7 @@ for queue_kind in fifo pifo pifo_tree; do
     [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.expect ../test/correctness/queues/binheap/$queue_kind.expect
 done
 
-# Finally, we test the queues for non-work-conserving algorithms,
+# Here, we test the queues for non-work-conserving algorithms,
 # which are the following:
 # - pieo_oracle.py
 # - pcq_oracle.py
@@ -30,3 +30,16 @@ for queue_kind in pieo pcq; do
     python3 queue_data_gen.py $num_cmds 1 > ../test/correctness/queues/$queue_kind.data
     cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/$queue_kind.expect
 done  
+
+# For the Binary Heap, we drop piezo mode and enable ranks for data gen and
+# use binheap_oracle to generate the expected output
+python3 queue_data_gen.py $num_cmds --use-rank > ../test/correctness/queues/binheap/stable_binheap.data
+cat ../test/correctness/queues/binheap/stable_binheap.data | python3 binheap_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/binheap/stable_binheap.expect
+
+# For the Round Robin queues, we drop piezo mode as well and use rrqueue_oracle to
+# generate the expected output for queues with 2..7 flows. This generates 6 data expect file pairs.
+
+for n in {2..7}; do
+    python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data
+    cat ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data | python3 rrqueue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.expect
+done
