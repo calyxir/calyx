@@ -133,8 +133,10 @@ name = "[calyx-py] queues correctness"
 paths = [
     "calyx-py/test/correctness/queues/*.py",
     "calyx-py/test/correctness/queues/binheap/*.py",
-    "calyx-py/test/correctness/queues/rr_queues/rr_queue*.py"
+    "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
+    "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"
 ]
+
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&

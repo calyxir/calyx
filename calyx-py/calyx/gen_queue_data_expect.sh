@@ -34,3 +34,12 @@ for n in {2..7}; do
     python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data
     cat ../test/correctness/queues/rr_queues/rr_queue_${n}flows.data | python3 rrqueue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/rr_queues/rr_queue_${n}flows.expect
 done
+
+# For Strict queues, we use strict_queue_oracle.py to generate the expected output
+# for queues with 2..6 flows, each with a different strict ordering. This generates 5
+# expect file pairs.
+
+for n in {2..6}; do
+    python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/strict_queues/strict_${n}flows.data
+    cat ../test/correctness/queues/strict_queues/strict_${n}flows.data | python3 strict_queue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/strict_queues/strict_${n}flows.expect
+done
