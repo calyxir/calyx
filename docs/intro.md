@@ -49,12 +49,16 @@ Then build the compiler:
 ```
 cargo build
 ```
-Make sure to setup the git hooks via `/bin/sh setup_hooks.sh`.
 
 You can build and run the compiler with:
 ```
 cargo build # Builds the compiler
 ./target/debug/calyx --help # Executes the compiler binary
+```
+
+We recommend installing the git hooks to run linting and formatting checks before each commit:
+```shell
+/bin/sh setup_hooks.sh
 ```
 
 ## Running Core Tests
