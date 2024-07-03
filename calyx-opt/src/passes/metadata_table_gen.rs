@@ -19,23 +19,7 @@ impl Metadata {
         };
         table
     }
-    /// Return this metadata table as a properly formatted string (see #2022 in git PRs)
-    // fn to_string(&self) -> String {
-    //     let grps = &self.groups;
-    //     let mut text = String::new();
-    //     for (name, (line_num, file)) in grps {
-    //         let name = name.to_string();
-    //         let file = file.to_str();
-    //         let file = match file {
-    //             None => "x",
-    //             Some(f) => f,
-    //         };
-    //         let line = format!("    {name}: {file} {line_num}\n");
-    //         text.push_str(line.as_str());
-    //     }
-    //     //text.push_str("}#");
-    //     text
-    // }
+
     /// Add a new entry to the metadata table
     fn add_entry(&mut self, name: Id, line: usize, path: PathBuf) -> &mut Self {
         let ins = self.groups.insert(name, (line, path));
