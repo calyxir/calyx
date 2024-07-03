@@ -14,10 +14,9 @@ pub struct Metadata {
 impl Metadata {
     /// Create an empty metadata table
     pub fn new() -> Self {
-        let table = Metadata {
+        Metadata {
             groups: LinkedHashMap::new(),
-        };
-        table
+        }
     }
 
     /// Add a new entry to the metadata table
