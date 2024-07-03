@@ -71,6 +71,7 @@ pub use infer_share::InferShare;
 pub use lower_guards::LowerGuards;
 pub use math_utilities::get_bit_width_from;
 pub use merge_assign::MergeAssign;
+pub use metadata_table_gen::Metadata;
 pub use papercut::Papercut;
 pub use par_to_seq::ParToSeq;
 pub use register_unsharing::RegisterUnsharing;

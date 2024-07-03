@@ -1,12 +1,13 @@
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::Id;
+use calyx_utils::WithPos;
 use linked_hash_map::LinkedHashMap;
 use std::path::PathBuf;
 
-/// visit each group and collect necessary data (name and line num)
-/// construct metadata table and append to file
-struct Metadata {
-    groups: LinkedHashMap<Id, (u32, PathBuf)>,
+/// Metadata stores a Map between each group name and data used in the metadata table (specified in PR #2022)
+#[derive(Default)]
+pub struct Metadata {
+    groups: LinkedHashMap<Id, (usize, PathBuf)>,
 }
 
 impl Metadata {
@@ -18,9 +19,9 @@ impl Metadata {
         table
     }
     /// Return this metadata table as a properly formatted string (see #2022 in git PRs)
-    pub fn to_string(&self) -> String {
+    fn to_string(&self) -> String {
         let grps = &self.groups;
-        let mut text = String::from("metadata #{\n");
+        let mut text = String::new();
         for (name, (line_num, file)) in grps {
             let name = name.to_string();
             let file = file.to_str();
@@ -31,23 +32,54 @@ impl Metadata {
             let line = format!("    {name}: {file} {line_num}\n");
             text.push_str(line.as_str());
         }
-        text.push_str("}#");
+        //text.push_str("}#");
         text
     }
     /// Add a new entry to the metadata table
-    pub fn add_entry(
-        &mut self,
-        name: Id,
-        line: u32,
-        path: PathBuf,
-    ) -> &mut Self {
+    fn add_entry(&mut self, name: Id, line: usize, path: PathBuf) -> &mut Self {
         let ins = self.groups.insert(name, (line, path));
         match ins {
             None => self,
-            Some(v) => {
+            Some(_v) => {
                 println!("Found two of same group name");
                 self
             }
+        }
+    }
+}
+
+impl Named for Metadata {
+    fn name() -> &'static str {
+        "metadata-table-generation"
+    }
+    fn description() -> &'static str {
+        "generates metadata table for a file not containing one"
+    }
+}
+
+impl Visitor for Metadata {
+    //iterate over all groups in all components and collect metadata
+    fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
+        match &ctx.metadata {
+            None => {
+                let mut table = Metadata::new();
+                for component in &mut ctx.components {
+                    let cmpt_iter = component.groups.into_iter();
+                    for rcc_grp in cmpt_iter {
+                        let grp = rcc_grp.borrow_mut();
+                        let pos_data = grp.attributes.copy_span();
+                        let (file, line_num) = pos_data.get_line_num();
+                        table.add_entry(
+                            grp.name(),
+                            line_num,
+                            PathBuf::from(file),
+                        );
+                    }
+                }
+                ctx.metadata = Some(table.to_string());
+                Ok(Action::Stop)
+            }
+            Some(_data) => Ok(Action::Stop),
         }
     }
 }
@@ -60,7 +92,7 @@ mod tests {
 
     use crate::passes::metadata_table_gen::Metadata;
     #[test]
-    fn test_metadata_string() {
+    fn test_metadata() {
         let mut data = Metadata::new();
         let empt_string = data.to_string();
         println!("empty metadata string: \n{empt_string}");

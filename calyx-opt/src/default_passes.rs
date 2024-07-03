@@ -5,8 +5,8 @@ use crate::passes::{
     CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
     DiscoverExternal, ExternalToRef, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Metadata,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
     SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
     UnrollBounded, WellFormed, WireInliner, WrapMain,
@@ -75,6 +75,9 @@ impl PassManager {
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
+
+        //add metadata
+        pm.register_pass::<Metadata>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
