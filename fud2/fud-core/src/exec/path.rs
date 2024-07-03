@@ -5,6 +5,8 @@ use super::{OpRef, Operation, StateRef};
 /// `Step` is an op paired with its used outputs.
 type Step = (OpRef, Vec<StateRef>);
 
+/// A reified function for finding a sequence of operations taking a start set of states to an end
+/// set of states while guaranteing a set of "though" operations is used in the sequence.
 pub trait FindPath: std::fmt::Debug {
     /// Returns a sequence of `Step`s to transform `start` to `end`. The `Step`s are guaranteed to
     /// contain all ops in `through`. If no such sequence exists, `None` is returned.
