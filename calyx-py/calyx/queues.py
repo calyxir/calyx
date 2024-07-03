@@ -159,17 +159,19 @@ class Pieo:
     When asked to push:
     - If the PIEO is at length `max_len`, we raise an error.
     - Otherwise, we insert the element into the PIEO such that the rank order stays increasing.
+    - To avoid ties between ranks, we left-shift the rank and then add either a custom buffer,
+        or an internal element count tracker.
 
     When asked to pop:
     - If the length of `data` is 0, we raise an error .
 
     - We can either pop based on value or based on eligibility.
-    - This implementation supports the most common eligibility predicate - whether an element is 'ripe'.
+    - This implementation supports the most common readiness predicate - whether an element is 'ripe', 
+        or time-ready (the inputted time is >= the element's specified readiness time).
 
-    - If a value is passed in, we pop the first (lowest-rank) instance of that value.
+    - If a value is passed in, we pop the first (lowest-rank) instance of that value which is 'ripe'.
     - If no value is passed in but a time is,
         we pop the first (lowest-rank) value that passes the predicate.
-    - Note that either a value or a bound must be passed in - both cannot be, nor can neither.
 
     When asked to peek:
     We do the same thing as `pop`, except:
@@ -189,12 +191,12 @@ class Pieo:
         return str(self.data)
 
     def ripe(self, val, time):
-        """Check that a value is 'ripe' – i.e. its ready time has passed"""
+        """Check that a value is 'ripe' - i.e. its ready time has passed"""
         return val[1] <= time
     
     def binsert(self, val, time, rank, l, r):
         """Inserts element into list such that rank ordering is preserved
-        Uses variant of binary search algorithm
+        Uses variant of binary search algorithm.
         """
         if l == r:
             return self.data.insert(l, (val, time, rank))
@@ -215,18 +217,23 @@ class Pieo:
         Inserts element such that rank ordering is preserved
         """
         
-        #Breaks ties and maintains FIFO order (can pass either custom insertion order or use PIEO intenral one)
+        # Breaks ties and maintains FIFO order (can pass either custom insertion order or use PIEO internal one).
+        # Left-shifts the rank 32 bits, before adding either a passed in `insertion_count` parameter or the internal one.
         rank = (rank << 32) + (insertion_count or self.insertion_count)
 
+        #If there is no room left in the queue, raise an Overflow error
         if len(self.data) == self.max_len:
             raise QueueError("Overflow")
         
+        #If there are no elements in the queue, or the latest rank is higher than all others, append to the end
         if len(self.data) == 0 or rank >= self.data[len(self.data)-1][2]:
             self.data.append((val, time, rank))
 
+        #If the latest rank is lower than all others, insert to the front
         elif rank <= self.data[0][2]:
             self.data.insert(0, (val, time, rank))
 
+        #Otherwise, use the log-time insertion function
         else:
             self.binsert(val, time, rank, 0, len(self.data))
         
@@ -244,17 +251,20 @@ class Pieo:
         if len(self.data) == 0:
             raise QueueError("Underflow")
         
-        if val == None:
+        #If there is only a time predicate
+        if val is None:
+            #Iterate until we find the first 'ripe' (time-ready) element
             for x in range(len(self.data)):
                 if self.ripe(self.data[x], time):
                     if return_rank:
                         return self.data.pop(x) if remove else self.data[x]
                     return self.data.pop(x)[0] if remove else self.data[x][0]
 
+            #No ripe elements
             raise QueueError("Underflow")
             
+        #Otherwise, the first element that matches the queried value & is 'ripe'
         for x in range(len(self.data)):
-            #Find the first value that matches the query who is 'ripe'
             if self.data[x][0] == val and self.ripe(self.data[x], time):
                 if return_rank:
                     return self.data.pop(x) if remove else self.data[x]
@@ -274,16 +284,24 @@ class Pieo:
 @dataclass
 class PCQ:
     """A Programmable Calendar Queue (PCQ) data structure.
-    Supports the operations `push`, `pop`, and `peek`.
+    Supports the operations `push`, `pop`, and `peek`, by time predicate and value.
 
-    Elements are stored in buckets within which they are ordered by priority.
-    Bucket priority is determined by the 'day pointer', which points to the current
-    bucket with highest priority. 
+    See the papers https://www.usenix.org/system/files/nsdi20-paper-sharma.pdf and 
+    https://dl.acm.org/doi/pdf/10.1145/63039.63045 for details.
 
-    At initialization we take in a set of `(int, int)` tuple lists `data` which stores
-    lists of values and their ranks, each representing a bucket.
+    Elements are stored in buckets within which they are ordered by priority. For our implementation,
+    each bucket takes on the form of a PIEO. Bucket priority is determined by the 'day pointer',
+    which points to the current bucket with highest priority. 
 
-    We store the highest rank of any element in the queue, such that we can upper bound the set of ranks.
+    At initialization we initialize `data` to be a list of empty buckets, each of which
+    has the form of a PIEO with max length 16.
+
+    We store the number of elements that have already been inserted into the queue, initialized at 0.
+    With each iteration, we increment this.
+    
+    When inserting elements into the queue, we pass in this parameter along with the specified rank,
+    so that it is factored into a modified rank calculation that removes all ties between ranks.
+    (See PIEO documentation for details of this modified rank calculation.)
 
     When asked to push:
     - We compute the bucket to push to as the rank of the new element multiplied by bucket width,
@@ -292,7 +310,7 @@ class PCQ:
 
     When asked to pop:
     - If the length of `data` is 0, we raise an error .
-    - Otherwise, we pop the lowest-rank element of the current day.
+    - Otherwise, we pop the lowest-rank element in the queue.
     - If, following our pop, the bucket is empty, we rotate to the next bucket.
 
     When asked to peek:
@@ -310,7 +328,6 @@ class PCQ:
         self.num_elements = 0
         self.data = []
         self.bucket_ranges = []
-        self.highest_rank = 0
         self.insertion_count = 0
         for i in range(num_buckets):
             self.data.append(Pieo(16))
@@ -343,8 +360,6 @@ class PCQ:
             self.data[location].push(val, rank, time, self.insertion_count)
             self.num_elements += 1
             self.insertion_count += 1
-            if rank > self.highest_rank:
-                self.highest_rank = rank
         except QueueError:
             raise QueueError("Overflow")
 
@@ -369,6 +384,8 @@ class PCQ:
             if remove:
                 result = bucket.pop(time, val, False)
                 self.num_elements -= 1
+                if len(bucket.data) == 0:
+                    self.rotate()
                 return result
             else:
                 return val
