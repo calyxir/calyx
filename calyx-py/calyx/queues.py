@@ -320,15 +320,12 @@ class StrictPifo:
     """
 
     def __init__(self, n, boundaries, order, max_len: int):
-        self.data = []
         self.order = order
         self.priority = 0
         self.n = n
         self.pifo_len = 0
         self.boundaries = boundaries
-        for i in range(n):
-            queue = Fifo(max_len)
-            self.data.append(queue)
+        self.data = [Fifo(max_len) for _ in range(n)]
 
         self.max_len = max_len
 
