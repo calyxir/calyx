@@ -18,7 +18,7 @@ pub trait FindPath: std::fmt::Debug {
     ) -> Option<Vec<Step>>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct EnumeratePathFinder {}
 impl EnumeratePathFinder {
     const MAX_PATH_LEN: u32 = 6;
@@ -132,11 +132,5 @@ impl FindPath for EnumeratePathFinder {
         ops: &PrimaryMap<OpRef, Operation>,
     ) -> Option<Vec<Step>> {
         Self::find_path(start, end, through, ops)
-    }
-}
-
-impl Default for EnumeratePathFinder {
-    fn default() -> Self {
-        Self::new()
     }
 }
