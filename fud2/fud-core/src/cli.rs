@@ -1,5 +1,7 @@
 use crate::config;
-use crate::exec::{Driver, EnumeratePathFinder, Request, StateRef};
+use crate::exec::{
+    Driver, EnumeratePathFinder, Request, SingleOpOutputPathFinder, StateRef,
+};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
@@ -136,6 +138,10 @@ struct FakeArgs {
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
+
+    /// use new enumeration algorithm for finding operation sequences
+    #[argh(switch)]
+    new_op_seq_algorithm: bool,
 }
 
 fn get_states_with_errors(
@@ -214,7 +220,6 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
                 .ok_or(anyhow!("unknown --through op {}", s))
         })
         .collect();
-
     Ok(Request {
         start_files: args.input.clone(),
         start_states: from_states(driver, args)?,
@@ -222,7 +227,11 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         end_states: to_state(driver, args)?,
         through: through?,
         workdir,
-        path_finder: Box::new(EnumeratePathFinder {}),
+        path_finder: if args.new_op_seq_algorithm {
+            Box::new(EnumeratePathFinder {})
+        } else {
+            Box::new(SingleOpOutputPathFinder {})
+        },
     })
 }
 
