@@ -40,7 +40,7 @@ impl Plugin for CocoTB {
             config_keys::EXE,
             Some("cocotb-config"),
             "path to cocotb-config executable",
-            ConfigVarValidator::new(|value| {
+            ConfigVarValidator::when(|value| {
                 if let Some(cmd) = value.as_str() {
                     let output = Command::new(cmd)
                         .arg("--version")

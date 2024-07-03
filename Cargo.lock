@@ -2942,8 +2942,10 @@ name = "tb"
 version = "0.0.0"
 dependencies = [
  "argh",
+ "env_logger",
  "figment",
  "libloading",
+ "log",
  "semver",
  "serde",
  "tempdir",

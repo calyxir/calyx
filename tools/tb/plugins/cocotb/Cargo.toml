@@ -1,6 +1,7 @@
 [package]
 name = "cocotb-tb-plugin"
-edition = "2021"
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 path = "lib.rs"

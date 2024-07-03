@@ -7,12 +7,5 @@ $(TARGET):
 	chmod u+x $@
 
 .PHONY: plugins
-plugins:
-	for dir in plugins/*; do \
-		if [ -d "$$dir" ]; then \
-			cargo build --manifest-path "$$dir/Cargo.toml" --release --target-dir "$$dir/target"; \
-			for file in "$$dir/build/release/"*.{dylib,so}; do \
-				[ -f "$$file" ] && mv "$$file" plugins; \
-			done \
-		fi \
-	done
+plugins: build_plugins.py
+	$(shell which python3 || which python || which pypy3 || which pypy)	$<

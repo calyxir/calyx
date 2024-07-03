@@ -4,6 +4,7 @@ use crate::{
     plugin::{PluginCreate, PluginRef},
 };
 use libloading::{Library, Symbol};
+use semver::VersionReq;
 use std::{
     collections::HashMap,
     fs,
@@ -18,29 +19,34 @@ pub struct Driver {
 }
 
 impl Driver {
-    pub fn load(library_dirs: &[PathBuf]) -> LocalResult<Self> {
+    pub fn load(plugin_dirs: &[PathBuf]) -> LocalResult<Self> {
         let mut new_self = Self::default();
-        for library_dir in library_dirs {
-            library_dir
-                .read_dir()
-                .map_err(LocalError::from)
-                .and_then(|library_paths| {
+        for plugin_dir in plugin_dirs {
+            match plugin_dir.read_dir().map_err(LocalError::from) {
+                Ok(library_paths) => {
                     for library_path in library_paths {
                         let library_path =
                             library_path.map_err(LocalError::from)?.path();
-                        if library_path
-                            .extension()
-                            .map(|e| e == "so" || e == "dylib")
-                            .unwrap_or_default()
+                        if library_path.is_file()
+                            && library_path
+                                .extension()
+                                .map(|e| e == "so" || e == "dylib")
+                                .unwrap_or_default()
                         {
                             let library =
                                 unsafe { Library::new(&library_path).unwrap() };
                             new_self.load_plugin(&library_path, library)?;
                         }
                     }
-                    Ok(())
-                })
-                .map_err(LocalError::from)?;
+                }
+                Err(error) => {
+                    log::warn!(
+                        "Error processing plugin directory {}: {}",
+                        plugin_dir.to_string_lossy(),
+                        error
+                    )
+                }
+            }
         }
         Ok(new_self)
     }
@@ -57,6 +63,11 @@ impl Driver {
         path: &Path,
         library: Library,
     ) -> LocalResult<()> {
+        // todo: better way to do this
+        let req =
+            VersionReq::parse(&format!(">={}", env!("CARGO_PKG_VERSION")))
+                .unwrap();
+
         let create_plugin: Symbol<PluginCreate> =
             unsafe { library.get(b"_plugin_create") }.map_err(|_| {
                 LocalError::other(format!(
@@ -66,6 +77,11 @@ impl Driver {
             })?;
         let boxed_raw = unsafe { create_plugin() };
         let plugin = unsafe { Box::from_raw(boxed_raw) };
+        let plugin_version = plugin.version();
+        if !req.matches(&plugin_version) {
+            log::warn!("Skipping loading {} because its version ({}) is not compatible with {}", plugin.name(), plugin_version, req);
+            return Ok(());
+        }
         self.register(plugin.name(), plugin);
         self.loaded_libraries.push(library);
         Ok(())
