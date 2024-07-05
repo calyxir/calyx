@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{GPosIdx, WithPos};
 
 /// A positioned string.
@@ -19,6 +21,12 @@ impl From<String> for PosString {
 impl From<PosString> for String {
     fn from(value: PosString) -> String {
         value.data
+    }
+}
+
+impl From<PosString> for PathBuf {
+    fn from(value: PosString) -> Self {
+        value.data.into()
     }
 }
 
