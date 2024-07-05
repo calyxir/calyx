@@ -185,7 +185,7 @@ impl ScriptRunner {
 
     fn reg_rule(&mut self, sctx: ScriptContext) {
         let bld = Rc::clone(&self.builder);
-        self.engine.register_fn::<_, 4, true, OpRef, true, _>(
+        self.engine.register_fn::<_, 4, true, OpRef, true>(
             "rule",
             move |ctx: rhai::NativeCallContext,
                   setups: rhai::Array,
@@ -208,7 +208,7 @@ impl ScriptRunner {
 
     fn reg_op(&mut self, sctx: ScriptContext) {
         let bld = Rc::clone(&self.builder);
-        self.engine.register_fn::<_, 5, true, OpRef, true, _>(
+        self.engine.register_fn::<_, 5, true, OpRef, true>(
             "op",
             move |ctx: rhai::NativeCallContext,
                   name: &str,
