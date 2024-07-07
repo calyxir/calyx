@@ -1,11 +1,11 @@
-use crate::config::ConfigVar;
+use crate::config::InvalidConfigVar;
 use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum LocalError {
     IO(std::io::Error),
     Figment(figment::Error),
-    MissingConfig(Vec<(ConfigVar, Box<LocalError>)>),
+    InvalidConfig(Vec<InvalidConfigVar>),
     Other(String),
 }
 
@@ -32,15 +32,27 @@ impl Display for LocalError {
         match self {
             LocalError::IO(io_err) => io_err.fmt(f),
             LocalError::Figment(figment_err) => figment_err.fmt(f),
-            LocalError::MissingConfig(errors) => {
+            LocalError::InvalidConfig(errors) => {
                 writeln!(f, "We detected some errors in your config:")?;
-                for (config_var, _) in errors {
-                    writeln!(
-                        f,
-                        "- missing key '{}': {}",
-                        config_var.key(),
-                        config_var.description()
-                    )?;
+                for error in errors {
+                    match error {
+                        InvalidConfigVar::Missing(config_var, _) => {
+                            writeln!(
+                                f,
+                                "- missing key '{}': {}",
+                                config_var.key(),
+                                config_var.description()
+                            )?;
+                        }
+                        InvalidConfigVar::Incorrect(config_var, error) => {
+                            writeln!(
+                                f,
+                                "- incorrect key '{}': {}",
+                                config_var.key(),
+                                error
+                            )?;
+                        }
+                    }
                 }
                 Ok(())
             }

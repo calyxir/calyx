@@ -84,6 +84,12 @@ impl ConfigVar {
     }
 }
 
+#[derive(Debug)]
+pub enum InvalidConfigVar {
+    Missing(ConfigVar, Box<LocalError>),
+    Incorrect(ConfigVar, Box<LocalError>),
+}
+
 pub struct Config {
     /// DO NOT USE DIRECTLY. use [`Config::get`] instead.
     figment: Figment,
@@ -133,16 +139,24 @@ impl Config {
         let mut errors = vec![];
         for required_key in &self.required {
             match self.get(&required_key.key) {
-                Ok(value) => required_key.validate(&value)?,
-                Err(error) => {
-                    errors.push((required_key.clone(), Box::new(error)))
+                Ok(value) => {
+                    if let Err(error) = required_key.validate(&value) {
+                        errors.push(InvalidConfigVar::Incorrect(
+                            required_key.clone(),
+                            Box::new(error),
+                        ))
+                    }
                 }
+                Err(error) => errors.push(InvalidConfigVar::Missing(
+                    required_key.clone(),
+                    Box::new(error),
+                )),
             }
         }
         if errors.is_empty() {
             Ok(())
         } else {
-            Err(LocalError::MissingConfig(errors))
+            Err(LocalError::InvalidConfig(errors))
         }
     }
 

@@ -1,4 +1,8 @@
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    io::{self, Write},
+    path::PathBuf,
+};
 use tb::{
     cli::CLI,
     driver::Driver,
@@ -18,16 +22,7 @@ fn setup_logging() {
     env_logger::builder().format_target(false).init();
 }
 
-fn main() -> LocalResult<()> {
-    setup_logging();
-
-    let args = CLI::from_env();
-
-    if args.version {
-        println!("{}", env!("CARGO_PKG_VERSION"));
-        return Ok(());
-    }
-
+fn run_app(args: CLI) -> LocalResult<()> {
     let config_path = match args.config {
         Some(config_path) => config_path,
         None => {
@@ -57,4 +52,21 @@ fn main() -> LocalResult<()> {
     };
     let driver = Driver::load(&[default_loc])?;
     driver.run(args.using, config_path, args.input, &args.tests)
+}
+
+fn main() -> io::Result<()> {
+    setup_logging();
+
+    let args = CLI::from_env();
+
+    if args.version {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
+    if let Err(error) = run_app(args) {
+        write!(&mut io::stderr(), "{}", error)?;
+    }
+
+    Ok(())
 }
