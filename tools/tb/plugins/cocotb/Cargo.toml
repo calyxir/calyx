@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 tb = { path = "../..", version = "0.0.0" }
-makemake = "0.1.2-patch2"
+makemake = "0.1.3"

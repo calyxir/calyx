@@ -1,6 +1,7 @@
 use makemake::{emitter::Emitter, makefile::Makefile};
+use std::io::{self, Write};
 use std::process::Command;
-use std::{fs, io::Write, path::Path};
+use std::{fs, path::Path};
 use tb::declare_plugin;
 use tb::error::LocalError;
 use tb::{
@@ -16,6 +17,7 @@ pub struct CocoTB;
 
 mod config_keys {
     pub const EXE: &str = "cocotb-config.exe";
+    pub const SIM: &str = "sim";
 }
 
 fn filestem(path_str: &str) -> &str {
@@ -60,6 +62,39 @@ impl Plugin for CocoTB {
                 }
             }),
         );
+
+        config.require(
+            config_keys::SIM,
+            Some("icarus"),
+            "cocotb simulator",
+            ConfigVarValidator::when(|value| {
+                if let Some(sim) = value.as_str() {
+                    let simulators = [
+                        "icarus",
+                        "verilator",
+                        "vcs",
+                        "riviera",
+                        "activehdl",
+                        "questa",
+                        "modelsim",
+                        "ius",
+                        "xcelium",
+                        "ghdl",
+                        "cvc",
+                    ];
+                    if simulators.contains(&sim) {
+                        Ok(())
+                    } else {
+                        Err(LocalError::other("unsupported simulator: see https://docs.cocotb.org/en/stable/simulator_support.html for details"))
+                    }
+                } else {
+                    Err(LocalError::other(
+                        "the cocotb simulator must be a string",
+                    ))
+                }
+            }),
+        );
+
         Ok(())
     }
 
@@ -90,9 +125,7 @@ impl Plugin for CocoTB {
             makefile.comment("MODULE is the basename of the Python test file");
             makefile.assign("MODULE", filestem(test));
             makefile.newline();
-            makefile.comment(
-            "include cocotb's make rules to take care of the simulator setup",
-        );
+            makefile.comment("include cocotb's make rules to take care of the simulator setup");
             makefile.include(format!(
                 "$(shell {} --makefiles)/Makefile.sim",
                 config.get(config_keys::EXE)?.as_str().unwrap()
@@ -104,8 +137,8 @@ impl Plugin for CocoTB {
 
             let output =
                 Command::new("make").current_dir(work_dir.path()).output()?;
-            std::io::stdout().write_all(&output.stdout)?;
-            std::io::stderr().write_all(&output.stderr)?;
+            io::stdout().write_all(&output.stdout)?;
+            io::stderr().write_all(&output.stderr)?;
         }
 
         Ok(())
