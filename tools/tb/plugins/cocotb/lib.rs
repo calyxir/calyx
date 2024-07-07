@@ -1,7 +1,8 @@
-use makemake::{emitter::Emitter, makefile::Makefile};
 use std::io::{self, Write};
 use std::process::Command;
 use std::{fs, path::Path};
+
+use makemake::{emitter::Emitter, makefile::Makefile};
 use tb::declare_plugin;
 use tb::error::LocalError;
 use tb::{

@@ -8,6 +8,9 @@ use std::rc::Rc;
 
 pub type ConfigVarValidatorPredicate = fn(&Value) -> LocalResult<()>;
 
+/// TODO: make this declarative, allow building complex things in some sort of
+/// eDSL fashion, with helpers for like "this must be a string", "this must be a
+/// command and running it yields this output", etc.
 pub struct ConfigVarValidator {
     predicates: Vec<ConfigVarValidatorPredicate>,
 }
@@ -126,9 +129,7 @@ impl Config {
     ) {
         if let Some(default) = default {
             if self.get(key.as_ref()).is_err() {
-                let new_figment = std::mem::take(&mut self.figment);
-                self.figment = new_figment
-                    .join((self.fix_key(key.as_ref()), default.into()));
+                self.set(&key, default);
             }
         }
         self.required
@@ -158,6 +159,16 @@ impl Config {
         } else {
             Err(LocalError::InvalidConfig(errors))
         }
+    }
+
+    pub(crate) fn set<S: AsRef<str>, V: Into<Value>>(
+        &mut self,
+        key: S,
+        value: V,
+    ) {
+        let new_figment = std::mem::take(&mut self.figment);
+        self.figment =
+            new_figment.join((self.fix_key(key.as_ref()), value.into()));
     }
 
     fn fix_key<S: AsRef<str>>(&self, key: S) -> String {
