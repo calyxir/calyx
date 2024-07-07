@@ -51,7 +51,7 @@ fn run_app(args: CLI) -> LocalResult<()> {
         default_loc
     };
     let driver = Driver::load(&[default_loc])?;
-    driver.run(args.using, config_path, args.input, &args.tests)
+    driver.run(args.using, config_path, args.set, args.input, &args.tests)
 }
 
 fn main() -> io::Result<()> {

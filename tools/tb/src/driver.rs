@@ -1,4 +1,5 @@
 use crate::{
+    cli::ConfigSet,
     config::Config,
     error::{LocalError, LocalResult},
     plugin::{PluginCreate, PluginRef},
@@ -90,14 +91,18 @@ impl Driver {
     pub fn run<S: AsRef<str>, P: AsRef<Path>>(
         &self,
         name: S,
-        path: P,
+        config_path: P,
+        config_sets: Vec<ConfigSet>,
         input: String,
         tests: &[String],
     ) -> LocalResult<()> {
         if let Some(plugin) = self.plugins.get(name.as_ref()) {
             let work_dir =
                 TempDir::new(".calyx-tb").map_err(LocalError::from)?;
-            let mut config = Config::from(path, name)?;
+            let mut config = Config::from(config_path, name)?;
+            for config_set in config_sets {
+                config.set(config_set.key, config_set.value);
+            }
             let input =
                 copy_into(input, &work_dir).map_err(LocalError::from)?;
             let mut test_basenames = vec![];
