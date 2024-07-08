@@ -487,7 +487,7 @@ impl Tree {
                     // Build parent FSM for the "root" of the tree.
                     let fsm_cell = ir::rrc(StaticFSM::from_basic_info(
                         *num_states,
-                        FSMEncoding::Binary, // XXX(Caleb): change this
+                        FSMEncoding::OneHot, // XXX(Caleb): change this
                         builder,
                     ));
                     fsm_opt = Some(Rc::clone(&fsm_cell));
@@ -496,7 +496,7 @@ impl Tree {
                 if *num_repeats != 1 {
                     let repeat_counter = ir::rrc(StaticFSM::from_basic_info(
                         *num_repeats,
-                        FSMEncoding::Binary, // XXX(Caleb): change this
+                        FSMEncoding::OneHot, // XXX(Caleb): change this
                         builder,
                     ));
                     repeat_opt = Some(Rc::clone(&repeat_counter));
