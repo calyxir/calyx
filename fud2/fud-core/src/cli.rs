@@ -1,6 +1,6 @@
 use crate::config;
 use crate::exec::{
-    Driver, EnumeratePathFinder, Request, SingleOpOutputPathFinder, StateRef,
+    Driver, EnumeratePlanner, Request, SingleOpOutputPlanner, StateRef,
 };
 use crate::run::Run;
 use anyhow::{anyhow, bail};
@@ -141,7 +141,7 @@ struct FakeArgs {
 
     /// use new enumeration algorithm for finding operation sequences
     #[argh(switch)]
-    new_op_seq_algorithm: bool,
+    planner: bool,
 }
 
 fn get_states_with_errors(
@@ -227,10 +227,10 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         end_states: to_state(driver, args)?,
         through: through?,
         workdir,
-        path_finder: if args.new_op_seq_algorithm {
-            Box::new(EnumeratePathFinder {})
+        planner: if args.planner {
+            Box::new(EnumeratePlanner {})
         } else {
-            Box::new(SingleOpOutputPathFinder {})
+            Box::new(SingleOpOutputPlanner {})
         },
     })
 }

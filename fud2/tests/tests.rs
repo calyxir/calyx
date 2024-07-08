@@ -1,6 +1,6 @@
 use fud_core::{
     config::default_config,
-    exec::{Plan, Request, SingleOpOutputPathFinder, IO},
+    exec::{Plan, Request, SingleOpOutputPlanner, IO},
     run::Run,
     Driver, DriverBuilder,
 };
@@ -136,7 +136,7 @@ fn request(
         end_states: vec![driver.get_state(end).unwrap()],
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
-        path_finder: Box::new(SingleOpOutputPathFinder {}),
+        path_finder: Box::new(SingleOpOutputPlanner {}),
     }
 }
 

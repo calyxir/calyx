@@ -7,12 +7,12 @@ type Step = (OpRef, Vec<StateRef>);
 
 /// A reified function for finding a sequence of operations taking a start set of states to an end
 /// set of states while guaranteing a set of "though" operations is used in the sequence.
-pub trait FindPath: std::fmt::Debug {
+pub trait FindPlan: std::fmt::Debug {
     /// Returns a sequence of `Step`s to transform `start` to `end`. The `Step`s are guaranteed to
     /// contain all ops in `through`. If no such sequence exists, `None` is returned.
     ///
     /// `ops` is a complete list of operations.
-    fn find_path(
+    fn find_plan(
         &self,
         start: &[StateRef],
         end: &[StateRef],
@@ -22,16 +22,16 @@ pub trait FindPath: std::fmt::Debug {
 }
 
 #[derive(Debug, Default)]
-pub struct EnumeratePathFinder {}
-impl EnumeratePathFinder {
+pub struct EnumeratePlanner {}
+impl EnumeratePlanner {
     pub fn new() -> Self {
-        EnumeratePathFinder {}
+        EnumeratePlanner {}
     }
     /// Returns a sequence of `Step`s to transform `start` to `end`. The `Step`s are guaranteed to
     /// contain all ops in `through`. If no such sequence exists, `None` is returned.
     ///
     /// `ops` is a complete list of operations.
-    fn find_path(
+    fn find_plan(
         _start: &[StateRef],
         _end: &[StateRef],
         _through: &[OpRef],
@@ -41,15 +41,15 @@ impl EnumeratePathFinder {
     }
 }
 
-impl FindPath for EnumeratePathFinder {
-    fn find_path(
+impl FindPlan for EnumeratePlanner {
+    fn find_plan(
         &self,
         start: &[StateRef],
         end: &[StateRef],
         through: &[OpRef],
         ops: &PrimaryMap<OpRef, Operation>,
     ) -> Option<Vec<Step>> {
-        Self::find_path(start, end, through, ops)
+        Self::find_plan(start, end, through, ops)
     }
 }
 
@@ -60,8 +60,8 @@ enum Destination {
 }
 
 #[derive(Debug, Default)]
-pub struct SingleOpOutputPathFinder {}
-impl SingleOpOutputPathFinder {
+pub struct SingleOpOutputPlanner {}
+impl SingleOpOutputPlanner {
     /// Find a chain of Operations from the `start` state to the `end`, which may be a state or the
     /// final operation in the chain.
     fn find_path_segment(
@@ -131,7 +131,7 @@ impl SingleOpOutputPathFinder {
 
     /// Find a chain of operations from the `start` state to the `end` state, passing through each
     /// `through` operation in order.
-    pub fn find_path(
+    pub fn find_plan(
         start: StateRef,
         end: StateRef,
         through: &[OpRef],
@@ -157,8 +157,8 @@ impl SingleOpOutputPathFinder {
     }
 }
 
-impl FindPath for SingleOpOutputPathFinder {
-    fn find_path(
+impl FindPlan for SingleOpOutputPlanner {
+    fn find_plan(
         &self,
         start: &[StateRef],
         end: &[StateRef],
@@ -166,6 +166,6 @@ impl FindPath for SingleOpOutputPathFinder {
         ops: &PrimaryMap<OpRef, Operation>,
     ) -> Option<Vec<Step>> {
         assert!(start.len() == 1 && end.len() == 1);
-        Self::find_path(start[0], end[0], through, ops)
+        Self::find_plan(start[0], end[0], through, ops)
     }
 }

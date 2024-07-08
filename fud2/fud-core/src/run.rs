@@ -337,7 +337,7 @@ impl<'a> Run<'a> {
         }
         writeln!(emitter.out)?;
 
-        // Mark the last file as the default target.
+        // Mark the last file as the default targets.
         for result in &self.plan.results {
             writeln!(emitter.out, "default {}", result.filename())?;
         }
