@@ -422,35 +422,33 @@ impl<'b, 'a> Schedule<'b, 'a> {
             }
         };
 
-        let fsms = match (fsm_rep.encoding, fsm_rep.spread) {
+        // for the given number of fsm registers to read from, add a primitive register to the design for each
+        let mut add_fsm_regs = |prim_name: &str, num_regs: u64| {
+            (0..num_regs)
+                .map(|n| {
+                    let fsm_name = format!("fsm{}", n);
+                    builder.add_primitive(
+                        fsm_name.as_str(),
+                        prim_name,
+                        &[fsm_size],
+                    )
+                })
+                .collect_vec()
+        };
+
+        let fsms: Vec<RRC<Cell>> = match (fsm_rep.encoding, fsm_rep.spread) {
             (RegisterEncoding::Binary, RegisterSpread::Single) => {
-                vec![builder.add_primitive("fsm", "std_reg", &[fsm_size])]
+                add_fsm_regs("std_reg", 1)
             }
             (RegisterEncoding::OneHot, RegisterSpread::Single) => {
-                vec![builder.add_primitive("fsm", "init_one_reg", &[fsm_size])]
+                add_fsm_regs("init_one_reg", 1)
             }
-            (RegisterEncoding::OneHot, RegisterSpread::Duplicate) => (0
-                ..DUPLICATE_NUM_REG)
-                .map(|n| {
-                    let fsm_name = format!("fsm{}", n);
-                    builder.add_primitive(
-                        fsm_name.as_str(),
-                        "init_one_reg",
-                        &[fsm_size],
-                    )
-                })
-                .collect(),
-            (RegisterEncoding::Binary, RegisterSpread::Duplicate) => (0
-                ..DUPLICATE_NUM_REG)
-                .map(|n| {
-                    let fsm_name = format!("fsm{}", n);
-                    builder.add_primitive(
-                        fsm_name.as_str(),
-                        "std_reg",
-                        &[fsm_size],
-                    )
-                })
-                .collect(),
+            (RegisterEncoding::Binary, RegisterSpread::Duplicate) => {
+                add_fsm_regs("std_reg", DUPLICATE_NUM_REG)
+            }
+            (RegisterEncoding::OneHot, RegisterSpread::Duplicate) => {
+                add_fsm_regs("init_one_reg", DUPLICATE_NUM_REG)
+            }
         };
 
         (fsms, first_state, fsm_size)
@@ -512,7 +510,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
-                    // find the register from which to query
+                    // find the register from which to query; try to split evenly among registers
                     let (fsm, used_slicers) = {
                         let num_registers: u64 =
                             fsms.len().try_into().unwrap();
@@ -1159,13 +1157,13 @@ impl Named for TopDownCompileControl {
             ),
             PassOpt::new(
                 "one-hot-cutoff",
-                "The threshold at and below which a one-hot encoding is used for dynamic group scheduling",
+                "Threshold at and below which a one-hot encoding is used for dynamic group scheduling",
                 ParseVal::Num(0),
                 PassOpt::parse_num,
             ),
             PassOpt::new(
                 "duplicate-cutoff",
-                "FSM state threshold above which the fsm is split into two identical registers",
+                "Threshold above which the dynamic fsm register is replicated into a second, identical register",
                 ParseVal::Num(i64::MAX),
                 PassOpt::parse_num,
             ),
