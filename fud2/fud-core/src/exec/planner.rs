@@ -84,17 +84,9 @@ impl EnumeratePlanner {
             let all_generated = ops[op_ref].input.iter().all(|input| {
                 // Check the outputs of ops earlier in the plan can be used as inputs to `op_ref`.
                 // `plan` is reversed so the latest versions of states are used.
-                plan.iter_mut().rev().any(|(o, used_outputs)| {
-                    // `op_ref`'s op now uses the input of the previous op in the plan.
-                    // This should be noted in `used_outputs`.
-                    if !used_outputs.contains(input)
-                        && ops[*o].output.contains(input)
-                    {
-                        used_outputs.push(*input);
-                    }
-
+                plan.iter_mut().rev().any(|(o, _used_outputs)|
                     ops[*o].output.contains(input)
-                })
+                )
                 // As well as being generated in `plan`, `input` could be given in `start`.
                 || start.contains(input)
             });
@@ -104,8 +96,30 @@ impl EnumeratePlanner {
                 continue;
             }
 
-            // Mark all outputs in `end` as used because they are used after being generated, just
-            // maybe not by other ops in `plan`.
+            // Mark all used outputs.
+            let used_outputs_idxs: Vec<_> = ops[op_ref]
+                .input
+                .iter()
+                .filter_map(|input| {
+                    // Get indicies of `Step`s whose `used_outputs` must be modified.
+                    plan.iter_mut()
+                        .rev()
+                        .position(|(o, used_outputs)| {
+                            // `op_ref`'s op now uses the input of the previous op in the plan.
+                            // This should be noted in `used_outputs`.
+                            !used_outputs.contains(input)
+                                && ops[*o].output.contains(input)
+                        })
+                        .map(|i| (input, i))
+                })
+                .collect();
+
+            for &(&input, i) in &used_outputs_idxs {
+                plan[i].1.push(input);
+            }
+
+            // Mark all outputs in `end` as used because they are used (or at least requested) by
+            // `end`.
             let outputs = ops[op_ref].output.clone().into_iter();
             let used_outputs =
                 outputs.filter(|s| end.contains(s)).collect::<Vec<_>>();
@@ -123,7 +137,15 @@ impl EnumeratePlanner {
             ) {
                 return Some(plan);
             }
+
+            // The investigated plan didn't work.
+            // Pop off the attempted element.
             plan.pop();
+
+            // Revert modifications to `used_outputs`.
+            for &(_, i) in &used_outputs_idxs {
+                plan[i].1.pop();
+            }
         }
 
         // No sequence of `Step`s found :(.
