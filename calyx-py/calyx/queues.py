@@ -141,6 +141,94 @@ class Pifo:
     def __len__(self) -> int:
         return self.pifo_len
 
+@dataclass(order=True)
+class RankValue:
+    priority: int
+    value: Any = field(compare=False)
+
+@dataclass
+class NWCSimple:
+    """A simple test oracle structure for non-work-conserving queues.
+    
+    This serves the same purpose as PIEOs and Calendar Queues (see Python implementation below),
+    representing an abstract implementation for any non-work-conserving, time-dependent structure.
+    
+    In our implementation, we support time-based 'ripeness' predicates,
+    which check that an element's encoded 'readiness time' is earlier than the specified current time.
+
+    The term 'ripe', as defined above, takes in an element (which has some encoded readiness time),
+    and a specified 'current time'. It checks that the element's readiness time is <= the current time.
+
+    Supports the operations `push`, `pop`, and `peek`.
+
+    Stores elements in the form of a heap (using the `heapq` library).
+    
+    At initialization, we take a `max_len` value to store the maximum possible
+    length of a queue.
+
+    When asked to push:
+    - If the queue is at length `max_len`, we raise an error.
+    - Otherwise, we insert the element into the PIEO such that the rank order stays increasing.
+    - To avoid ties between ranks, we left-shift the rank and then add either a custom buffer,
+        or an internal element count tracker.
+
+    When asked to pop:
+    - If the length of `data` is 0, we raise an error .
+
+    - We can either pop based on value or based on eligibility.
+    - This implementation supports the most common readiness predicate - whether an element is 'ripe', 
+        or time-ready (the inputted time is >= the element's specified readiness time).
+
+    - If a value is passed in, we pop the first (lowest-rank) instance of that value which is 'ripe'.
+    - If no value is passed in but a time is,
+        we pop the first (lowest-rank) value that passes the predicate.
+
+    When asked to peek:
+    We do the same thing as `pop`, except:
+    - We peek instead of popping - i.e. we don't remove any elements.
+
+    We compactly represent these similar operations through `query`, which takes in an additional
+    optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
+    """
+
+    def __init__(self, max_len: int):
+        self.data = []
+        self.max_len = max_len
+    
+    def push(self, val, rank=0, time=0, insertion_count=None) -> None:
+        if len(self.data) >= self.max_len:
+            raise QueueError("Overflow")
+
+        heapq.heappush(self.data, RankValue((rank << 32 + insertion_count), (val, time)))
+    
+    def ripe(self, time) -> bool:
+        return self.data[0].value[1] <= time
+
+    def query(self, time=0, val=None, remove=False) -> Optional[int]:
+        if len(self.data) == 0:
+            raise QueueError("Underflow")
+    
+        temp = []
+
+        while len(self.data) > 0:
+            if self.data[0].value[1] <= time and (val is None or self.data[0].value[0] == val):
+                result = heapq.heappop(self.data) if remove else self.data[0]
+
+                for elem in temp:
+                    heapq.heappush(self.data, elem)
+
+                return result.value[0]
+            
+            temp.push(heapq.heappop(self.data))
+
+        raise QueueError("Underflow")
+    
+    def peek(self, time=0, val=None) -> Optional[int]:
+        return self.query(time, val)
+
+    def pop(self, time=0, val=None) -> Optional[int]:
+        return self.query(time, val, True)
+
 
 @dataclass
 class Pieo:
@@ -162,11 +250,8 @@ class Pieo:
 
     Stores elements ordered increasingly by a totally ordered `rank` attribute (for
     simplicitly, our implementation is just using integers).
-
-    At initialization we take in a set of `(int, int, int)` triples `data` which stores
-    values, ready times, and their ranks, and is ordered by rank.
     
-    We also take at initialization a `max_len` value to store the maximum possible
+    At initialization, we take a `max_len` value to store the maximum possible
     length of a queue.
 
     When asked to push:
@@ -200,29 +285,26 @@ class Pieo:
         self.data = []
         self.insertion_count = 0
 
-    def __repr__(self):
-        return str(self.data)
-
-    def ripe(self, val, time):
-        """Check that a value is 'ripe' - i.e. its ready time has passed"""
-        return val[1] <= time
+    def ripe(self, element, time):
+        """Check that an element is 'ripe' - i.e. its ready time has passed"""
+        return element["time"] <= time
     
     def binsert(self, val, time, rank, l, r):
         """Inserts element into list such that rank ordering is preserved
         Uses variant of binary search algorithm.
         """
         if l == r:
-            return self.data.insert(l, (val, time, rank))
+            return self.data.insert(l, {"val": val, "time": time, "rank": rank})
 
         mid = (l + r) // 2
 
-        if rank == self.data[mid][2]:
-            return self.data.insert(mid, (val, time, rank))
+        if rank == self.data[mid]["rank"]:
+            return self.data.insert(mid, {"val": val, "time": time, "rank": rank})
 
-        if rank > self.data[mid][2]:
+        if rank > self.data[mid]["rank"]:
             return self.binsert(val, time, rank, mid+1, r)
 
-        if rank < self.data[mid][2]:
+        if rank < self.data[mid]["rank"]:
             return self.binsert(val, time, rank, l, mid)
         
     def push(self, val, rank=0, time=0, insertion_count=None) -> None:
@@ -239,12 +321,12 @@ class Pieo:
             raise QueueError("Overflow")
         
         #If there are no elements in the queue, or the latest rank is higher than all others, append to the end
-        if len(self.data) == 0 or rank >= self.data[len(self.data)-1][2]:
-            self.data.append((val, time, rank))
+        if len(self.data) == 0 or rank >= self.data[len(self.data)-1]["rank"]:
+            self.data.append({"val": val, "time": time, "rank": rank})
 
         #If the latest rank is lower than all others, insert to the front
-        elif rank <= self.data[0][2]:
-            self.data.insert(0, (val, time, rank))
+        elif rank <= self.data[0]["rank"]:
+            self.data.insert(0, {"val": val, "time": time, "rank": rank})
 
         #Otherwise, use the log-time insertion function
         else:
@@ -271,17 +353,19 @@ class Pieo:
                 if self.ripe(self.data[x], time):
                     if return_rank:
                         return self.data.pop(x) if remove else self.data[x]
-                    return self.data.pop(x)[0] if remove else self.data[x][0]
+                    return self.data.pop(x)["val"] if remove else self.data[x]["val"]
 
             #No ripe elements
             raise QueueError("Underflow")
             
         #Otherwise, the first element that matches the queried value & is 'ripe'
         for x in range(len(self.data)):
-            if self.data[x][0] == val and self.ripe(self.data[x], time):
+            if self.data[x]["val"] == val and self.ripe(self.data[x], time):
                 if return_rank:
                     return self.data.pop(x) if remove else self.data[x]
-                return self.data.pop(x)[0] if remove else self.data[x][0]
+                return self.data.pop(x)["val"] if remove else self.data[x]["val"]
+        
+        #No ripe elements matching value
         raise QueueError("Underflow")
     
     def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
@@ -345,15 +429,6 @@ class PCQ:
         for i in range(num_buckets):
             self.data.append(Pieo(16))
             self.bucket_ranges.append((i*width, (i+1)*width))
-
-    
-    def __repr__(self):
-        final = []
-        for x in self.data:
-            if len(x.data) != 0:
-                final += x.data
-        final.sort(key = lambda k : k[2])
-        return str(final)
     
     def rotate(self) -> None:
         """Rotates a PCQ and changes the 'top' parameter of the previous bucket."""
@@ -387,13 +462,14 @@ class PCQ:
 
         for bucket in self.data:
             try:
-                peeked_val, peeked_time, peeked_rank = bucket.peek(time, val, True)
-                possible_values.append((bucket, peeked_val, peeked_time, peeked_rank))
+                peeked = bucket.peek(time, val, True)
+                possible_values.append((bucket, peeked))
             except QueueError:
                 continue
         if len(possible_values) > 0:
-            possible_values.sort(key = lambda x : x[3])
-            bucket, val, time, _  = possible_values[0]
+            possible_values.sort(key = lambda x : x[1]["rank"])
+            bucket, element  = possible_values[0]
+            time, val = element["time"], element["val"]
             if remove:
                 result = bucket.pop(time, val, False)
                 self.num_elements -= 1
@@ -414,11 +490,6 @@ class PCQ:
         """Peeks a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
 
         return self.query(False, time, val)
-
-@dataclass(order=True)
-class RankValue:
-    priority: int
-    value: Any = field(compare=False)
 
 
 @dataclass
