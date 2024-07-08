@@ -23,6 +23,10 @@ members = [
     "tools/tb",
     "tools/tb/plugins/cocotb",
     "tools/tb/plugins/verilator",
+    "tools/tb/plugins/calyx",
+    "tools/calyx-ffi-macro",
+    "tools/calyx-ffi",
+    "tools/tb/examples/calyx",
 ]
 exclude = ["site"]
 

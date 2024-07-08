@@ -1,5 +1,5 @@
 [package]
-name = "tb"
+name = "calyx-ffi-example"
 authors.workspace = true
 license-file.workspace = true
 keywords.workspace = true
@@ -9,16 +9,11 @@ description.workspace = true
 categories.workspace = true
 homepage.workspace = true
 edition.workspace = true
-version = "0.0.0"
+version.workspace = true
 rust-version.workspace = true
 
+[lib]
+path = "test.rs"
+
 [dependencies]
-argh.workspace = true
-tempdir = "0.3.7"
-figment.workspace = true
-serde.workspace = true
-semver.workspace = true
-libloading = "0.8.4"
-log.workspace = true
-env_logger.workspace = true
-fs_extra = "1.3.0"
+calyx-ffi = { path = "../../../calyx-ffi" }

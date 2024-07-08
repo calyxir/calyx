@@ -1,3 +1,9 @@
+use std::{
+    collections::HashMap,
+    fs, io,
+    path::{Path, PathBuf},
+};
+
 use crate::{
     cli::ConfigSet,
     config::Config,
@@ -6,11 +12,6 @@ use crate::{
 };
 use libloading::{Library, Symbol};
 use semver::VersionReq;
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
-};
 use tempdir::TempDir;
 
 #[derive(Default)]
@@ -123,20 +124,36 @@ impl Driver {
     }
 }
 
-fn copy_into<S: AsRef<str>>(
-    file: S,
-    work_dir: &TempDir,
-) -> std::io::Result<String> {
+fn copy_into<S: AsRef<str>>(file: S, work_dir: &TempDir) -> io::Result<String> {
     let from_path = PathBuf::from(file.as_ref());
     let basename = from_path
         .file_name()
-        .expect("path ended with ..")
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "path ended with '..'")
+        })?
         .to_str()
-        .expect("invalid unicode")
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidData, "invalid unicode")
+        })?
         .to_string();
-    let mut to_path = work_dir.path().to_path_buf();
-    to_path.push(&basename);
-    fs::copy(from_path, to_path)?;
+    let to_path = work_dir.path().join(&basename);
+
+    if from_path.is_dir() {
+        fs_extra::dir::copy(
+            from_path,
+            work_dir.path(),
+            &fs_extra::dir::CopyOptions::new(),
+        )
+        .map_err(io::Error::other)?;
+    } else {
+        fs_extra::file::copy(
+            from_path,
+            to_path,
+            &fs_extra::file::CopyOptions::new(),
+        )
+        .map_err(io::Error::other)?;
+    }
+
     Ok(basename)
 }
 
