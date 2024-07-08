@@ -1,9 +1,9 @@
 use crate::config::InvalidConfigVar;
-use std::fmt::Display;
+use std::{fmt::Display, io};
 
 #[derive(Debug)]
 pub enum LocalError {
-    IO(std::io::Error),
+    IO(io::Error),
     Figment(figment::Error),
     InvalidConfig(Vec<InvalidConfigVar>),
     Other(String),
@@ -15,8 +15,8 @@ impl LocalError {
     }
 }
 
-impl From<std::io::Error> for LocalError {
-    fn from(value: std::io::Error) -> Self {
+impl From<io::Error> for LocalError {
+    fn from(value: io::Error) -> Self {
         Self::IO(value)
     }
 }
