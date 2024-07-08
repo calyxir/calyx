@@ -2,7 +2,9 @@ use crate::{
     debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
     flatten::{
         flat_ir::prelude::GroupIdx,
-        structures::{index_trait::impl_index, indexed_map::IndexedMap},
+        structures::{
+            context::Context, index_trait::impl_index, indexed_map::IndexedMap,
+        },
     },
 };
 
@@ -16,11 +18,12 @@ use super::super::{
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use calyx_ir::Id;
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use smallvec::{smallvec, SmallVec};
 
-use std::fmt::Display;
 use std::rc::Rc;
+use std::{fmt::Display, iter};
 
 #[derive(Debug, Clone)]
 enum PointStatus {
@@ -30,6 +33,15 @@ enum PointStatus {
     Disabled,
 }
 
+impl Display for PointStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PointStatus::Enabled => write!(f, "{}", "enabled".green()),
+            PointStatus::Disabled => write!(f, "{}", "disabled".red()),
+        }
+    }
+}
+
 impl PointStatus {
     pub fn enabled(&self) -> bool {
         matches!(self, PointStatus::Enabled)
@@ -37,7 +49,7 @@ impl PointStatus {
 }
 
 #[derive(Clone, Debug)]
-struct BreakPoint {
+pub struct BreakPoint {
     group: GroupIdx,
     state: PointStatus,
 }
@@ -58,10 +70,15 @@ impl BreakPoint {
     pub fn is_enabled(&self) -> bool {
         matches!(self.state, PointStatus::Enabled)
     }
+
+    pub fn format(&self, ctx: &Context) -> String {
+        let group_name = ctx.lookup_name(self.group);
+        format!("{}: {}", group_name, self.state)
+    }
 }
 
 #[derive(Debug, Clone)]
-struct WatchPoint {
+pub struct WatchPoint {
     group: GroupIdx,
     state: PointStatus,
     print_details: PrintTuple,
@@ -78,6 +95,18 @@ impl WatchPoint {
 
     pub fn is_disabled(&self) -> bool {
         matches!(self.state, PointStatus::Disabled)
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        matches!(self.state, PointStatus::Enabled)
+    }
+
+    pub fn group(&self) -> GroupIdx {
+        self.group
+    }
+
+    pub fn print_details(&self) -> &PrintTuple {
+        &self.print_details
     }
 }
 
@@ -189,6 +218,10 @@ impl BreakpointMap {
         if let Some(idx) = self.group_idx_map.remove(&group) {
             self.breakpoints.remove(&idx);
         }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&BreakpointIdx, &BreakPoint)> {
+        self.breakpoints.iter()
     }
 }
 
@@ -338,16 +371,16 @@ impl WatchpointMap {
             .or_else(|| self.watchpoints_after.remove(&idx));
 
         if let Some(point) = point {
-            self.group_idx_map
-                .get_mut(&point.group)
-                .map(|idxs| match idxs {
+            if let Some(idxs) = self.group_idx_map.get_mut(&point.group) {
+                match idxs {
                     WatchPointIndices::Before(b) => b.retain(|i| *i != idx),
                     WatchPointIndices::After(a) => a.retain(|i| *i != idx),
                     WatchPointIndices::Both { before, after } => {
                         before.retain(|i| *i != idx);
                         after.retain(|i| *i != idx);
                     }
-                });
+                }
+            }
         }
     }
 
@@ -374,6 +407,24 @@ impl WatchpointMap {
                 }
             }
         }
+    }
+
+    fn iter_before(
+        &self,
+    ) -> impl Iterator<Item = (&WatchpointIdx, &WatchPoint)> {
+        self.watchpoints_before.iter()
+    }
+
+    fn iter_after(
+        &self,
+    ) -> impl Iterator<Item = (&WatchpointIdx, &WatchPoint)> {
+        self.watchpoints_after.iter()
+    }
+
+    fn iter_groups(
+        &self,
+    ) -> impl Iterator<Item = (&GroupIdx, &WatchPointIndices)> {
+        self.group_idx_map.iter()
     }
 }
 
@@ -575,75 +626,108 @@ impl DebuggingContext {
         self.group_info.shift_current(group_map);
     }
 
-    pub fn process_watchpoints(&self) -> Vec<&'_ PrintTuple> {
-        // let mut output_vec: Vec<_> = vec![];
+    pub fn hit_watchpoints(
+        &self,
+    ) -> impl Iterator<Item = (WatchpointIdx, &WatchPoint)> + '_ {
+        let before_iter = self
+            .group_info
+            .groups_new_on()
+            .filter(|x| self.watchpoints.get_by_group(**x).is_some())
+            .flat_map(|&x| {
+                let watchpoint_indicies =
+                    self.watchpoints.get_by_group(x).unwrap();
+                match watchpoint_indicies {
+                    WatchPointIndices::Before(x) => return x.iter(),
+                    WatchPointIndices::Both { before, .. } => {
+                        return before.iter()
+                    }
+                    // this is stupid but works
+                    _ => [].iter(),
+                }
+            });
 
-        // let before_iter = self.group_exec_info.groups_new_on().filter(|x| {
-        //     if let Some((state, _)) = self.watchpoints_before.get(x) {
-        //         return state.enabled();
-        //     }
-        //     false
-        // });
+        let after_iter = self
+            .group_info
+            .groups_new_off()
+            .filter(|x| self.watchpoints.get_by_group(**x).is_some())
+            .flat_map(|&x| {
+                let watchpoint_indicies =
+                    self.watchpoints.get_by_group(x).unwrap();
+                match watchpoint_indicies {
+                    WatchPointIndices::After(x) => return x.iter(),
+                    WatchPointIndices::Both { after, .. } => {
+                        return after.iter()
+                    }
+                    // this is stupid but works
+                    _ => [].iter(),
+                }
+            });
 
-        // let after_iter = self.group_exec_info.groups_new_off().filter(|x| {
-        //     if let Some((state, _)) = self.watchpoints_after.get(x) {
-        //         return state.enabled();
-        //     }
-        //     false
-        // });
+        before_iter.chain(after_iter).filter_map(|watchpoint_idx| {
+            let watchpoint =
+                self.watchpoints.get_by_idx(*watchpoint_idx).unwrap();
 
-        // for target in before_iter {
-        //     if let Some(x) = self.watchpoints_before.get(target) {
-        //         for val in x.1.iter() {
-        //             output_vec.push(&val.print_details)
-        //         }
-        //     }
-        // }
-
-        // for target in after_iter {
-        //     if let Some(x) = self.watchpoints_after.get(target) {
-        //         for val in x.1.iter() {
-        //             output_vec.push(&val.print_details)
-        //         }
-        //     }
-        // }
-
-        // output_vec
-
-        todo!()
+            if watchpoint.is_disabled() {
+                None
+            } else {
+                Some((*watchpoint_idx, watchpoint))
+            }
+        })
     }
 
-    pub fn print_breakpoints(&self) {
-        // println!("{}Current breakpoints:", SPACING);
-        // for breakpoint in self.breakpoints.values() {
-        //     println!("{}{:?}", SPACING, breakpoint.red().bold())
-        // }
-
-        todo!()
+    pub fn print_breakpoints(&self, ctx: &Context) {
+        println!("{}Current breakpoints:", SPACING);
+        for (breakpoint_idx, breakpoint) in self.breakpoints.iter() {
+            println!("{SPACING}({breakpoint_idx}) {}", breakpoint.format(ctx))
+        }
     }
 
-    pub fn print_watchpoints(&self) {
-        todo!()
-        // println!("{}Current watchpoints:", SPACING);
-        // let inner_spacing = format!("{}    ", SPACING);
-        // let outer_spacing = format!("{}  ", SPACING);
+    pub fn print_watchpoints(&self, ctx: &Context) {
+        println!("{}Current watchpoints:", SPACING);
+        let inner_spacing = SPACING.to_string() + "    ";
+        let outer_spacing = SPACING.to_string() + "  ";
 
-        // for (group, (_brk, watchpoints)) in self.watchpoints_before.iter() {
-        //     println!("{}Before {}:", outer_spacing, group.magenta().bold());
-        //     for watchpoint in watchpoints.iter() {
-        //         println!("{}{}", inner_spacing, watchpoint.magenta());
-        //     }
-        // }
+        for (group, indicies) in self.watchpoints.iter_groups() {
+            let group_name = ctx.lookup_name(*group);
 
-        // println!();
+            if indicies.get_before().is_some() {
+                println!(
+                    "{outer_spacing}Before {}:",
+                    group_name.magenta().bold()
+                );
+            }
+            for watchpoint_idx in indicies
+                .get_before()
+                .map(|x| x.iter())
+                .unwrap_or_else(|| [].iter())
+            {
+                let watchpoint =
+                    self.watchpoints.get_by_idx(*watchpoint_idx).unwrap();
+                println!(
+                    "{inner_spacing} ({watchpoint_idx}): {} {}",
+                    &watchpoint.print_details, watchpoint.state
+                );
+            }
 
-        // for (group, (_brk, watchpoints)) in self.watchpoints_after.iter() {
-        //     if !watchpoints.is_empty() {
-        //         println!("{}After {}:", outer_spacing, group.green().bold());
-        //         for watchpoint in watchpoints.iter() {
-        //             println!("{}{}", inner_spacing, watchpoint.green());
-        //         }
-        //     }
-        // }
+            if indicies.get_after().is_some() {
+                println!(
+                    "{outer_spacing}After {}:",
+                    group_name.magenta().bold()
+                );
+            }
+
+            for watchpoint_idx in indicies
+                .get_after()
+                .map(|x| x.iter())
+                .unwrap_or_else(|| [].iter())
+            {
+                let watchpoint =
+                    self.watchpoints.get_by_idx(*watchpoint_idx).unwrap();
+                println!(
+                    "{inner_spacing} ({watchpoint_idx}): {} {}",
+                    &watchpoint.print_details, watchpoint.state
+                );
+            }
+        }
     }
 }

@@ -134,7 +134,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             self.debugging_context
                 .advance_time(self.interpreter.get_currently_running_groups());
 
-            for watch in self.debugging_context.process_watchpoints() {
+            for (idx, watch) in self.debugging_context.hit_watchpoints() {
                 // for target in watch.target() {
                 //     if let Ok(msg) = Self::do_print(
                 //         self.main_component.name,
@@ -214,9 +214,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
                 Command::Exit => return Err(InterpreterError::Exit.into()),
 
-                Command::InfoBreak => {
-                    self.debugging_context.print_breakpoints()
-                }
+                Command::InfoBreak => self
+                    .debugging_context
+                    .print_breakpoints(self.program_context.as_ref()),
 
                 Command::DeleteWatch(targets) => {
                     for target in targets {
@@ -240,9 +240,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     group,
                     watch_pos,
                 ),
-                Command::InfoWatch => {
-                    self.debugging_context.print_watchpoints()
-                }
+                Command::InfoWatch => self
+                    .debugging_context
+                    .print_watchpoints(self.program_context.as_ref()),
                 Command::PrintPC(override_flag) => {
                     // if self.source_map.is_some() && !override_flag {
                     //     let map = self.source_map.as_ref().unwrap();
