@@ -18,7 +18,7 @@ impl Metadata {
     }
 
     /// Add a new entry to the metadata table
-    fn add_entry(&mut self, name: Id, line: usize, path: PathBuf) -> () {
+    fn add_entry(&mut self, name: Id, line: usize, path: PathBuf) {
         let ins = self.groups.insert(name, (line, path));
         if let Some(_v) = ins {
             panic!("Two of same group name found")
