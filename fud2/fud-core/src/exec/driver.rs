@@ -149,7 +149,7 @@ impl Driver {
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: Request) -> Option<Plan> {
-        // Find a path through the states.
+        // Find a plan through the states.
         let path = req.planner.find_plan(
             &req.start_states,
             &req.end_states,
