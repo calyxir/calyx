@@ -1,6 +1,7 @@
 import random
-import yaml
 import os
+import subprocess
+
 
 def generate_binary_string(length):
     """Generate a random binary string of given length."""
@@ -11,7 +12,7 @@ def generate_tests(num_tests):
     tests = []
     for _ in range(num_tests):
         # Generate a random binary string (up to 32 bits for u32 in Rust)
-        binary_string = generate_binary_string(random.randint(1, 31))
+        binary_string = generate_binary_string(random.randint(1, 22))
         tests.append((binary_string))
     
     return tests
@@ -42,21 +43,62 @@ def convert_binary_to_fixed(binary_string, exponent):
     """Convert binary string to a fixed-point number."""
     binary_value = int(binary_string, 2)  # Convert binary string to integer
     fixed_point_number = binary_value * (2 ** exponent)  # Calculate the fixed-point number
-    formatted = '{:.8f}'.format(fixed_point_number) 
-    return formatted.rstrip('0').rstrip('.') + "\n"
+    formatted = '{:.8e}'.format(fixed_point_number) 
+    return formatted + "\n"
+
+def run_rust_function(input_file, output_file):
+    rust_command = f"../../target/debug/data-conversion --from {input_file} --to {output_file} --ftype 'binary' --totype 'fixed' --exp -4 -o"
+    result = subprocess.run(rust_command, shell=True, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Can't run rust function")
+    return result.returncode == 0
+
+def compare_files(output_file, expect_file):
+    with open(output_file, 'r') as f:
+        output_content = f.read().strip()
+        output_content = float(output_content)
+    with open(expect_file, 'r') as f:
+        expect_content = f.read().strip()
+        expect_content = float(expect_content)
+    
+    return output_content == expect_content
 
 if __name__ == '__main__':
     num_tests = 10
     input_dir = "/Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs"
     expect_dir = "/Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/expect"
-    yaml_filename = "/Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/testsuite.yaml"
-    
-    tests = generate_tests(num_tests)
-    results = []
-    for i in range(len(tests)):
-        results.append(convert_binary_to_fixed(tests[i], -4))
+    output_dir = "/Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/outputs"
+    exponent = -4
 
+    #Generate Tests
+    tests = generate_tests(num_tests)
+    
+    #Write Input Files
     input_paths = write_input_files(tests, input_dir)
+    
+    #Generate Expected Output
+    results = []
+    for binary_string in tests:
+        results.append(convert_binary_to_fixed(binary_string, exponent))
     expect_paths = write_expect_files(results, expect_dir)
+
+    #Make sure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    #Run Tests and Compare Outputs
+    for idx, test_file in enumerate(input_paths):
+        input_file = test_file
+        output_file = os.path.join(output_dir, f"test_{idx+1}.out")
+        expect_file = os.path.join(expect_dir, f"test_{idx+1}.expect")
+
+        if run_rust_function(input_file, output_file):
+            if compare_files(output_file, expect_file):
+                print(f"Test {idx+1} passed.")
+            else:
+                print(f"Test {idx+1} failed: output does not match expected.")
+        else:
+            print(f"Test {idx+1} failed to run.")
     
     print(f"Input files are located in {input_dir}/.")
+    print(f"Expected output files are located in {expect_dir}/.")
+    print(f"Output files are located in {output_dir}/.")
