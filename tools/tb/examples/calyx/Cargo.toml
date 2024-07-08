@@ -17,3 +17,5 @@ path = "test.rs"
 
 [dependencies]
 calyx-ffi = { path = "../../../calyx-ffi" }
+interp = { path = "../../../../interp" }
+calyx-ir.workspace = true

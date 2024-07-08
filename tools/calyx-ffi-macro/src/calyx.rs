@@ -16,7 +16,7 @@ impl CalyxComponent {
 }
 
 pub fn parse_calyx_file(
-    args: CalyxFFIMacroArgs,
+    args: &CalyxFFIMacroArgs,
 ) -> Result<CalyxComponent, TokenStream> {
     // there has to be a better way to find lib
     let home_dir = env::var("HOME").expect("user home not set");
