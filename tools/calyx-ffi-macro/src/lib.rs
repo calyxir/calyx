@@ -14,7 +14,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let name = item_struct.ident;
 
     // <sorry>
-    let comp = calyx::parse_calyx_file(args);
+    let comp = calyx::parse_calyx_file(&args);
     if let Err(error) = comp {
         return error;
     }
@@ -28,13 +28,16 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     ))
     .expect("failed to turn quoted name into string");
 
-    let mut fields = Vec::new();
-    let mut getters = Vec::new();
+    let backend_macro = args.backend;
+    let mut field_names = vec![];
+    let mut fields = vec![];
+    let mut getters = vec![];
 
     for port in comp.signature.borrow().ports() {
         let port_name_str = port.borrow().name.to_string();
         let port_name = syn::parse_str::<syn::Ident>(&port_name_str)
             .expect("failed to turn port name into identifier");
+        field_names.push(port_name.clone());
         // let port_width = port.borrow().width;
 
         // idk why input output ports are being flipped??
@@ -76,18 +79,24 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 #comp_name
             }
 
+            fn init(&mut self) {
+                #backend_macro!(init self; #(#field_names),*);
+            }
+
+            fn deinit(&mut self) {
+                #backend_macro!(deinit self; #(#field_names),*);
+            }
+
             fn reset(&mut self) {
-                self.reset = 1;
-                for _ in 0..5 {
-                    self.tick();
-                }
-                self.reset = 0;
+                #backend_macro!(reset self; #(#field_names),*);
             }
 
             fn tick(&mut self) {
-                self.clk = 1;
+                #backend_macro!(tick self; #(#field_names),*);
+            }
 
-                self.clk = 0;
+            fn go(&mut self) {
+                #backend_macro!(go self; #(#field_names),*);
             }
         }
     };
