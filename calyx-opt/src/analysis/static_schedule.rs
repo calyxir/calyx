@@ -120,7 +120,10 @@ impl StaticFSM {
     ) -> Vec<ir::Assignment<Nothing>> {
         let fsm_cell = Rc::clone(&self.fsm_cell);
         let signal_on = builder.add_constant(1, 1);
-        let const_0 = builder.add_constant(0, self.bitwidth);
+        let const_0 = match self.encoding {
+            FSMEncoding::Binary => builder.add_constant(0, self.bitwidth),
+            FSMEncoding::OneHot => builder.add_constant(1, self.bitwidth),
+        };
         let assigns = build_assignments!(
           builder;
           fsm_cell["in"] = guard ? const_0["out"];
