@@ -14,20 +14,14 @@ pub struct Metadata {
 impl Metadata {
     /// Create an empty metadata table
     pub fn new() -> Self {
-        Metadata {
-            groups: LinkedHashMap::new(),
-        }
+        Self::default()
     }
 
     /// Add a new entry to the metadata table
-    fn add_entry(&mut self, name: Id, line: usize, path: PathBuf) -> &mut Self {
+    fn add_entry(&mut self, name: Id, line: usize, path: PathBuf) -> () {
         let ins = self.groups.insert(name, (line, path));
-        match ins {
-            None => self,
-            Some(_v) => {
-                println!("Found two of same group name");
-                self
-            }
+        if let Some(_v) = ins {
+            panic!("Two of same group name found")
         }
     }
 }
@@ -35,20 +29,13 @@ impl Metadata {
 impl fmt::Display for Metadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let grps = &self.groups;
-        let mut text = String::new();
 
         for (name, (line_num, file)) in grps {
-            let file = file.to_str();
-            let file = match file {
-                None => "x",
-                Some(f) => f,
-            };
-            text.push_str(format!("    {name}: {file} {line_num}\n").as_str());
+            let file = file.to_str().unwrap();
+            writeln!(f, "    {name}: {file} {line_num}")?;
         }
 
-        write!(f, "{}", text)
-
-        //this seems dumb
+        Ok(())
     }
 }
 
@@ -64,27 +51,21 @@ impl Named for Metadata {
 impl Visitor for Metadata {
     //iterate over all groups in all components and collect metadata
     fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
-        match &ctx.metadata {
-            None => {
-                let mut table = Metadata::new();
-                for component in &mut ctx.components {
-                    let cmpt_iter = component.groups.into_iter();
-                    for rcc_grp in cmpt_iter {
-                        let grp = rcc_grp.borrow_mut();
-                        let pos_data = grp.attributes.copy_span();
-                        let (file, line_num) = pos_data.get_line_num();
-                        table.add_entry(
-                            grp.name(),
-                            line_num,
-                            PathBuf::from(file),
-                        );
-                    }
+        if ctx.metadata.is_none() {
+            let mut table = Metadata::new();
+            for component in &ctx.components {
+                let cmpt_iter = component.groups.into_iter();
+                for rcc_grp in cmpt_iter {
+                    let grp = rcc_grp.borrow_mut();
+                    let pos_data = grp.attributes.copy_span();
+                    let (file, line_num) = pos_data.get_line_num();
+                    table.add_entry(grp.name(), line_num, PathBuf::from(file));
                 }
+
                 ctx.metadata = Some(table.to_string());
-                Ok(Action::Stop)
             }
-            Some(_data) => Ok(Action::Stop),
         }
+        Ok(Action::Stop)
     }
 }
 
@@ -99,12 +80,12 @@ mod tests {
     fn test_metadata() {
         let mut data = Metadata::new();
         let empt_string = data.to_string();
-        println!("empty metadata string: \n{empt_string}");
+        assert_eq!(empt_string, "");
 
         let path = PathBuf::from("/temp/path/for/testing.futil");
         data.add_entry(Id::from("group_1"), 12, path.clone());
         data.add_entry(Id::from("group_2"), 23, path);
         let test_string = data.to_string();
-        println!("added 2 metadata string:\n{test_string}")
+        assert_eq!(test_string, "    group_1: /temp/path/for/testing.futil 12\n    group_2: /temp/path/for/testing.futil 23\n")
     }
 }

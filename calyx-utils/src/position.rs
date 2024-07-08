@@ -191,8 +191,8 @@ impl GPosIdx {
         let table = GlobalPositionTable::as_ref();
         let pos_data = table.get_pos(self.0);
         let file_name = &table.get_file_data(pos_data.file).name;
-        let tup = self.get_lines();
-        (file_name, tup.2)
+        let (_, _, line_num) = self.get_lines();
+        (file_name, line_num)
     }
 
     /// Format this position with a the error message `err_msg`
