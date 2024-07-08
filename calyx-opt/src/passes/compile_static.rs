@@ -15,7 +15,6 @@ use std::ops::Not;
 use std::rc::Rc;
 
 /// Compiles Static Islands
-#[derive(Default)]
 pub struct CompileStatic {
     /// maps original static group names to the corresponding group that has an FSM that reset early
     reset_early_map: HashMap<ir::Id, ir::Id>,
