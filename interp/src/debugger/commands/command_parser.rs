@@ -115,8 +115,8 @@ impl CommandParser {
 
     // ----------------------
 
-    fn identifier(input: Node) -> ParseResult<Id> {
-        Ok(Id::new(input.as_str()))
+    fn identifier(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_owned())
     }
 
     fn group(input: Node) -> ParseResult<ParsedGroupName> {
@@ -146,7 +146,7 @@ impl CommandParser {
         ))
     }
 
-    fn name(input: Node) -> ParseResult<Vec<Id>> {
+    fn name(input: Node) -> ParseResult<Vec<String>> {
         Ok(match_nodes!(input.into_children();
                 [identifier(ident)..] => ident.collect()
         ))

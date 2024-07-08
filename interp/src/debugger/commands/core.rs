@@ -43,22 +43,19 @@ impl Display for WatchpointIdx {
 
 #[derive(Debug)]
 pub struct ParsedGroupName {
-    component: Option<calyx_ir::Id>,
-    group: calyx_ir::Id,
+    component: Option<String>,
+    group: String,
 }
 
 impl ParsedGroupName {
-    pub fn from_group_name(group: calyx_ir::Id) -> Self {
+    pub fn from_group_name(group: String) -> Self {
         Self {
             component: None,
             group,
         }
     }
 
-    pub fn from_comp_and_group(
-        component: calyx_ir::Id,
-        group: calyx_ir::Id,
-    ) -> Self {
+    pub fn from_comp_and_group(component: String, group: String) -> Self {
         Self {
             component: Some(component),
             group,
@@ -69,18 +66,18 @@ impl ParsedGroupName {
         self.component.is_some()
     }
 
-    pub fn concretize(&self, component: calyx_ir::Id) -> GroupName {
+    pub fn concretize(&self, component: String) -> GroupName {
         GroupName {
-            component: self.component.unwrap_or(component),
-            group: self.group,
+            component: self.component.as_ref().cloned().unwrap_or(component),
+            group: self.group.clone(),
         }
     }
 
     pub fn get_concrete(&self) -> Option<GroupName> {
         if self.is_concrete() {
             Some(GroupName {
-                component: self.component.unwrap(),
-                group: self.group,
+                component: self.component.as_ref().cloned().unwrap(),
+                group: self.group.clone(),
             })
         } else {
             None
@@ -107,8 +104,8 @@ impl ParsedGroupName {
 
 #[derive(Debug, Clone)]
 pub struct GroupName {
-    pub component: Id,
-    pub group: Id,
+    pub component: String,
+    pub group: String,
 }
 
 pub enum ParsedBreakPointID {
@@ -228,10 +225,10 @@ pub enum PrintMode {
     Port,
 }
 #[derive(Debug, Clone)]
-pub struct PrintTuple(Vec<Vec<Id>>, Option<PrintCode>, PrintMode);
+pub struct PrintTuple(Vec<Vec<String>>, Option<PrintCode>, PrintMode);
 
 impl PrintTuple {
-    pub fn target(&self) -> &Vec<Vec<Id>> {
+    pub fn target(&self) -> &Vec<Vec<String>> {
         &self.0
     }
 
@@ -244,8 +241,8 @@ impl PrintTuple {
     }
 }
 
-impl From<(Vec<Vec<Id>>, Option<PrintCode>, PrintMode)> for PrintTuple {
-    fn from(val: (Vec<Vec<Id>>, Option<PrintCode>, PrintMode)) -> Self {
+impl From<(Vec<Vec<String>>, Option<PrintCode>, PrintMode)> for PrintTuple {
+    fn from(val: (Vec<Vec<String>>, Option<PrintCode>, PrintMode)) -> Self {
         PrintTuple(val.0, val.1, val.2)
     }
 }
@@ -277,15 +274,15 @@ impl Display for PrintTuple {
 }
 
 pub enum Command {
-    Step(u32), // Step execution
-    Continue,  // Execute until breakpoint
-    Empty,     // Empty command, does nothing
-    Display,   // Display full environment contents
-    Print(Vec<Vec<calyx_ir::Id>>, Option<PrintCode>, PrintMode), // Print something
+    Step(u32),                                             // Step execution
+    Continue, // Execute until breakpoint
+    Empty,    // Empty command, does nothing
+    Display,  // Display full environment contents
+    Print(Vec<Vec<String>>, Option<PrintCode>, PrintMode), // Print something
     Break(Vec<ParsedGroupName>), // Create a breakpoint
-    Help,                        // Help message
-    Exit,                        // Exit the debugger
-    InfoBreak,                   // List breakpoints
+    Help,     // Help message
+    Exit,     // Exit the debugger
+    InfoBreak, // List breakpoints
     InfoWatch,
     Disable(Vec<ParsedBreakPointID>),
     Enable(Vec<ParsedBreakPointID>),
@@ -295,7 +292,7 @@ pub enum Command {
     Watch(
         ParsedGroupName,
         WatchPosition,
-        Vec<Vec<calyx_ir::Id>>,
+        Vec<Vec<String>>,
         Option<PrintCode>,
         PrintMode,
     ),

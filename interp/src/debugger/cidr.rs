@@ -348,7 +348,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn create_watchpoint(
         &mut self,
-        print_target: Vec<Vec<Id>>,
+        print_target: Vec<Vec<String>>,
         print_code: Option<PrintCode>,
         print_mode: PrintMode,
         group: super::commands::ParsedGroupName,
@@ -423,9 +423,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
     }
 
+    fn parse_name(self, name: &str) {}
+
     fn do_print(
         &self,
-        print_lists: Vec<Vec<Id>>,
+        print_lists: Vec<Vec<String>>,
         code: Option<PrintCode>,
         print_mode: PrintMode,
     ) {
@@ -464,7 +466,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn construct_print_string(
         &self,
-        print_list: &Vec<Id>,
+        print_list: &Vec<String>,
         code: Option<PrintCode>,
         print_mode: PrintMode,
     ) -> Result<String, DebuggerError> {
