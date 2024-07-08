@@ -1,10 +1,12 @@
 use crate::analysis::{
     FSMTree, GraphColoring, ParTree, StateType, StaticFSM, Tree,
 };
-use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::{self as ir, Nothing, PortParent};
 use calyx_ir::{guard, structure, GetAttributes};
-use calyx_utils::Error;
+use calyx_utils::{CalyxResult, Error};
 use core::panic;
 use ir::{build_assignments, RRC};
 use itertools::Itertools;
@@ -24,6 +26,8 @@ pub struct CompileStatic {
     /// maps reset_early_group names to (fsm == 0, final_fsm_state);
     fsm_info_map:
         HashMap<ir::Id, (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>)>,
+    /// cutoff for one hot encoding
+    one_hot_cutoff: u64,
 }
 
 impl Named for CompileStatic {
@@ -43,6 +47,27 @@ impl Named for CompileStatic {
             ParseVal::Num(0),
             PassOpt::parse_num,
         )]
+    }
+}
+
+impl ConstructVisitor for CompileStatic {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
+        let opts = Self::get_opts(ctx);
+
+        Ok(CompileStatic {
+            one_hot_cutoff: opts["one-hot-cutoff"].pos_num().unwrap(),
+            reset_early_map: HashMap::new(),
+            wrapper_map: HashMap::new(),
+            signal_reg_map: HashMap::new(),
+            fsm_info_map: HashMap::new(),
+        })
+    }
+
+    fn clear_data(&mut self) {
+        self.reset_early_map = HashMap::new();
+        self.wrapper_map = HashMap::new();
+        self.signal_reg_map = HashMap::new();
+        self.fsm_info_map = HashMap::new();
     }
 }
 
@@ -760,6 +785,7 @@ impl CompileStatic {
                 coloring,
                 colors_to_max_values,
                 colors_to_fsm,
+                self.one_hot_cutoff,
             );
             fsm_tree.count_to_n(builder, Some(comp_go));
             fsm_tree.realize(
@@ -918,6 +944,7 @@ impl Visitor for CompileStatic {
                     &coloring,
                     &colors_to_max_values,
                     &mut colors_to_fsms,
+                    self.one_hot_cutoff,
                 );
                 tree.count_to_n(&mut builder, None);
                 tree.realize(

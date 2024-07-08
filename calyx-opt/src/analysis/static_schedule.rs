@@ -264,6 +264,7 @@ impl FSMTree {
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
         >,
+        one_hot_cutoff: u64,
     ) {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.instantiate_fsms(
@@ -271,12 +272,14 @@ impl FSMTree {
                 coloring,
                 colors_to_max_values,
                 colors_to_fsm,
+                one_hot_cutoff,
             ),
             FSMTree::Par(par_struct) => par_struct.instantiate_fsms(
                 builder,
                 coloring,
                 colors_to_max_values,
                 colors_to_fsm,
+                one_hot_cutoff,
             ),
         }
     }
@@ -477,6 +480,7 @@ impl Tree {
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
         >,
+        one_hot_cutoff: u64,
     ) {
         let color = coloring.get(&self.root.0).expect("couldn't find group");
         match colors_to_fsm.get(color) {
@@ -488,18 +492,28 @@ impl Tree {
                     .expect("couldn't find color");
                 if *num_states != 1 {
                     // Build parent FSM for the "root" of the tree.
+                    let encoding = if *num_states > one_hot_cutoff {
+                        FSMEncoding::Binary
+                    } else {
+                        FSMEncoding::OneHot
+                    };
                     let fsm_cell = ir::rrc(StaticFSM::from_basic_info(
                         *num_states,
-                        FSMEncoding::OneHot, // XXX(Caleb): change this
+                        encoding,
                         builder,
                     ));
                     fsm_opt = Some(Rc::clone(&fsm_cell));
                     self.fsm_cell = Some(fsm_cell);
                 }
                 if *num_repeats != 1 {
+                    let encoding = if *num_repeats > one_hot_cutoff {
+                        FSMEncoding::Binary
+                    } else {
+                        FSMEncoding::OneHot
+                    };
                     let repeat_counter = ir::rrc(StaticFSM::from_basic_info(
                         *num_repeats,
-                        FSMEncoding::OneHot, // XXX(Caleb): change this
+                        encoding,
                         builder,
                     ));
                     repeat_opt = Some(Rc::clone(&repeat_counter));
@@ -527,6 +541,7 @@ impl Tree {
                 coloring,
                 &colors_to_max_values,
                 colors_to_fsm,
+                one_hot_cutoff,
             );
         }
     }
@@ -1303,6 +1318,7 @@ impl ParTree {
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
         >,
+        one_hot_cutoff: u64,
     ) {
         for (child, _) in &mut self.threads {
             child.instantiate_fsms(
@@ -1310,6 +1326,7 @@ impl ParTree {
                 coloring,
                 &colors_to_max_values,
                 colors_to_fsm,
+                one_hot_cutoff,
             );
         }
     }
