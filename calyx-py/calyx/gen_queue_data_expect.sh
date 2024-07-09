@@ -33,7 +33,7 @@ done
 
 # For the Binary Heap, we drop piezo mode and enable ranks for data gen and
 # use binheap_oracle to generate the expected output
-python3 queue_data_gen.py $num_cmds 0 --use-rank > ../test/correctness/queues/binheap/stable_binheap.data
+python3 queue_data_gen.py $num_cmds --use-rank > ../test/correctness/queues/binheap/stable_binheap.data
 cat ../test/correctness/queues/binheap/stable_binheap.data | python3 binheap_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/binheap/stable_binheap.expect
 
 # For the Round Robin and Strict queues, we drop piezo mode as well, and use
