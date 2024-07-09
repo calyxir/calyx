@@ -129,7 +129,7 @@ impl StaticInliner {
                 let mut lat = cur_latency;
                 let mut res = vec![];
                 for stmt in stmts {
-                    res.extend(Self::get_offload_latencies(sc, lat));
+                    res.extend(Self::get_offload_latencies(stmt, lat));
                     lat += stmt.get_latency();
                 }
                 res
@@ -304,6 +304,7 @@ impl StaticInliner {
                     .iter()
                     .map(|stmt| Self::get_offload_latencies(stmt, 0))
                     .collect_vec();
+                dbg!(&offload_interval_info);
                 for (i, j) in (0..stmts.len()).tuple_combinations() {
                     let intervals1 = &offload_interval_info[i];
                     let intervals2 = &offload_interval_info[j];
@@ -350,7 +351,7 @@ impl StaticInliner {
                 for (index, stmt) in stmts.iter().enumerate() {
                     let stmt_latency = stmt.get_latency();
                     let color_latency = *colors_to_latencies
-                        .get(&index)
+                        .get(&threads_to_colors[&index])
                         .expect("coloring has gone wrong somehow");
                     // recursively turn each stmt in the par block into a group g
                     let stmt_group =
@@ -421,8 +422,8 @@ impl StaticInliner {
                         .borrow_mut()
                         .attributes
                         .insert(ir::BoolAttr::ParCtrl, 1);
-                    let par_wrapper =
-                        builder.add_static_group("static_par", *latency);
+                    let par_wrapper = builder
+                        .add_static_group("static_par_wrapper", *latency);
                     structure!( builder;
                         let signal_on = constant(1,1);
                     );
