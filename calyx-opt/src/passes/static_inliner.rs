@@ -124,7 +124,9 @@ impl StaticInliner {
         cur_latency: u64,
     ) -> Vec<(u64, u64)> {
         match sc {
-            ir::StaticControl::Enable(_) => vec![],
+            ir::StaticControl::Enable(_) | ir::StaticControl::Empty(_) => {
+                vec![]
+            }
             ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
                 let mut lat = cur_latency;
                 let mut res = vec![];
@@ -174,9 +176,6 @@ impl StaticInliner {
                 // }
                 res
             }
-            ir::StaticControl::Empty(_) => unreachable!(
-                "should not call inline_static_control on empty stmt"
-            ),
             ir::StaticControl::Invoke(inv) => {
                 dbg!(inv.comp.borrow().name());
                 todo!("implement static inlining for invokes")
@@ -186,7 +185,7 @@ impl StaticInliner {
 
     fn have_overlapping_offloads(sc: &ir::StaticControl) -> bool {
         match sc {
-            ir::StaticControl::Enable(_) => false,
+            ir::StaticControl::Enable(_) | ir::StaticControl::Empty(_) => false,
             ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
                 .iter()
                 .any(|stmt| Self::have_overlapping_offloads(stmt)),
@@ -225,9 +224,6 @@ impl StaticInliner {
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 Self::have_overlapping_offloads(&body)
             }
-            ir::StaticControl::Empty(_) => unreachable!(
-                "should not call inline_static_control on empty stmt"
-            ),
             ir::StaticControl::Invoke(inv) => {
                 dbg!(inv.comp.borrow().name());
                 todo!("implement static inlining for invokes")
