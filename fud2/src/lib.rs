@@ -800,7 +800,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         let generator_path = if FromStr::from_str(&dynamic)
             .expect("The dynamic flag should be either 'true' or 'false'.")
         {
-            "$calyx-base/yxi/axi-calyx/dynamic-axi-generator.py"
+            "$calyx-base/yxi/axi-calyx/dynamic_axi_generator.py"
         } else {
             "$calyx-base/yxi/axi-calyx/axi-generator.py"
         };
@@ -922,12 +922,12 @@ e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
             let waves = FromStr::from_str(&waves)
                 .expect("The 'waves' flag should be either 'true' or 'false'.");
 
-            let vcd_file_name = format!("{}.fst", basename(input));
+            let fst_file_name = format!("{}.fst", basename(input));
             let mut make_in = input;
             if waves {
                 make_in = "dumpvars.v";
                 e.build_cmd(&[make_in], "iverilog-fst-sed", &[input], &[])?;
-                e.arg("fst_file_name", &vcd_file_name)?;
+                e.arg("fst_file_name", &fst_file_name)?;
             }
             e.build_cmd(
                 &["tmp.dat"],
