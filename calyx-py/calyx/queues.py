@@ -43,6 +43,9 @@ class Fifo:
     def __len__(self) -> int:
         return len(self.data)
 
+    def __str__(self):
+        return str(self.data)
+
 
 @dataclass
 class Pifo:

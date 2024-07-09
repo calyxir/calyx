@@ -54,6 +54,6 @@ rule interp-to-dump
   command = $cider-converter --to json $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
-build _pseudo_debug: cider-debug stdin | data.json
+build _to_stdout_debug: cider-debug _from_stdin_calyx.futil | data.json
 
-default _pseudo_debug
+default _to_stdout_debug
