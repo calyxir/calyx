@@ -1,5 +1,5 @@
 use crate::{
-    exec::{OpRef, SetupRef, StateRef},
+    exec::{SetupRef, StateRef},
     DriverBuilder,
 };
 use std::{
