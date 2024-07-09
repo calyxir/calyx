@@ -111,6 +111,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
 #[derive(Default)]
 struct CalyxFFITestModuleVisitor {
+    pub wrappers: Vec<syn::ItemFn>,
     pub tests: Vec<syn::ItemFn>,
 }
 
@@ -122,20 +123,27 @@ impl syn::visit::Visit<'_> for CalyxFFITestModuleVisitor {
             .any(|attr| attr.path().is_ident("calyx_ffi_test"));
         if has_calyx_ffi_test {
             let fn_name = &i.sig.ident;
-            let gen_fn_name =
-                format_ident!("calyx_ffi_generated_wrapper_for_{}", fn_name);
             let dut_type = get_ffi_test_dut_type(i)
                 .expect("calyx_ffi_test should enforce this invariant");
 
-            self.tests.push(syn::parse_quote! {
-                unsafe fn #gen_fn_name(ffi: &mut CalyxFFI) {
-                    let dut = ffi.comp::<#dut_type>();
+            self.wrappers.push(syn::parse_quote! {
+                pub(crate) unsafe fn #fn_name(ffi: &mut CalyxFFI) {
+                    let dut = ffi.new_comp::<#dut_type>();
                     let dut_ref = &mut *dut.borrow_mut();
                     let dut_pointer = dut_ref as *mut dyn CalyxFFIComponent as *mut _ as *mut #dut_type;
                     let dut_concrete: &mut #dut_type = &mut *dut_pointer;
-                    #fn_name(dut_concrete);
+                    super::#fn_name(dut_concrete);
                 }
-            })
+            });
+            self.tests.push(syn::parse_quote! {
+                #[test]
+                pub(crate) fn #fn_name() {
+                    let mut ffi = CalyxFFI::new();
+                    unsafe {
+                        super::calyx_ffi_generated_wrappers::#fn_name(&mut ffi);
+                    }
+                }
+            });
         }
     }
 }
@@ -154,18 +162,34 @@ pub fn calyx_ffi_tests(args: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut visitor = CalyxFFITestModuleVisitor::default();
     syn::visit::visit_item_mod(&mut visitor, &module);
+    let wrappers = visitor.wrappers;
+    let tests = visitor.tests;
 
-    let test_names = visitor.tests.iter().map(|test| test.sig.ident.clone());
-    let test_array = quote! {
-        pub const CALYX_FFI_TESTS: &'static [unsafe fn(&mut CalyxFFI) -> ()] = &[
-            #(#test_names),*
-        ];
+    let test_names = wrappers.iter().map(|test| test.sig.ident.clone());
+    let generated_wrappers = quote! {
+        pub(crate) mod calyx_ffi_generated_wrappers {
+            use super::*;
+
+            pub(crate) const CALYX_FFI_TESTS: &'static [unsafe fn(&mut CalyxFFI) -> ()] = &[
+                #(#test_names),*
+            ];
+
+            #(#wrappers)*
+        }
     };
-    let test_array_item: syn::Item = syn::parse2(test_array).unwrap();
+    let generated_wrappers_item: syn::Item =
+        syn::parse2(generated_wrappers).unwrap();
 
-    let mut items_to_add = vec![test_array_item];
-    items_to_add.extend(visitor.tests.iter().cloned().map(syn::Item::Fn));
+    let generated_tests = quote! {
+        pub(crate) mod calyx_ffi_generated_tests {
+            use super::*;
 
+            #(#tests)*
+        }
+    };
+    let generated_tests_item: syn::Item = syn::parse2(generated_tests).unwrap();
+
+    let items_to_add = vec![generated_wrappers_item, generated_tests_item];
     if let Some((_, ref mut items)) = module.content {
         items.extend(items_to_add);
     } else {
@@ -175,9 +199,13 @@ pub fn calyx_ffi_tests(args: TokenStream, item: TokenStream) -> TokenStream {
     quote! {
         #module
 
-        pub unsafe fn calyx_ffi_test(ffi: &mut CalyxFFI) {
-            for test in #module_name::CALYX_FFI_TESTS {
-                test(ffi);
+        pub mod calyx_ffi_generated_top {
+            use super::*;
+
+            pub unsafe fn run_tests(ffi: &mut CalyxFFI) {
+                for test in #module_name::calyx_ffi_generated_wrappers::CALYX_FFI_TESTS {
+                    test(ffi);
+                }
             }
         }
     }

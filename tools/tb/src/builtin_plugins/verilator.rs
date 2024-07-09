@@ -3,9 +3,8 @@ use std::{
     process::Command,
 };
 
-use tb::{
+use crate::{
     config::{Config, ConfigVarValidator},
-    declare_plugin,
     error::{LocalError, LocalResult},
     plugin::Plugin,
     semver, tempdir,
@@ -135,5 +134,3 @@ impl Plugin for Verilator {
         Ok(())
     }
 }
-
-declare_plugin!(Verilator, Verilator::default);

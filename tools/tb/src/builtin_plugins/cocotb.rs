@@ -2,15 +2,13 @@ use std::io::{self, Write};
 use std::process::Command;
 use std::{fs, path::Path};
 
-use makemake::{emitter::Emitter, makefile::Makefile};
-use tb::declare_plugin;
-use tb::error::LocalError;
-use tb::{
+use crate::{
     config::{Config, ConfigVarValidator},
-    error::LocalResult,
+    error::{LocalError, LocalResult},
     plugin::Plugin,
     semver, tempdir,
 };
+use makemake::{emitter::Emitter, makefile::Makefile};
 
 /// v1.8.1 cocotb
 #[derive(Default)]
@@ -145,5 +143,3 @@ impl Plugin for CocoTB {
         Ok(())
     }
 }
-
-declare_plugin!(CocoTB, CocoTB::default);

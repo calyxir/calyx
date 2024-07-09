@@ -1,9 +1,9 @@
 use calyx_ffi::prelude::*;
-use test_crate::calyx_ffi_test;
+use test_crate::calyx_ffi_generated_top::run_tests;
 
 fn main() {
     let mut ffi = CalyxFFI::default();
     unsafe {
-        calyx_ffi_test(&mut ffi);
+        run_tests(&mut ffi);
     }
 }

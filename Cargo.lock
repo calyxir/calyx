@@ -527,14 +527,6 @@ name = "calyx-stdlib"
 version = "0.7.1"
 
 [[package]]
-name = "calyx-tb-plugin"
-version = "0.0.0"
-dependencies = [
- "tb",
- "toml",
-]
-
-[[package]]
 name = "calyx-utils"
 version = "0.7.1"
 dependencies = [
@@ -754,14 +746,6 @@ dependencies = [
  "error-code",
  "str-buf",
  "winapi",
-]
-
-[[package]]
-name = "cocotb-tb-plugin"
-version = "0.0.0"
-dependencies = [
- "makemake",
- "tb",
 ]
 
 [[package]]
@@ -3000,9 +2984,11 @@ dependencies = [
  "fs_extra",
  "libloading",
  "log",
+ "makemake",
  "semver",
  "serde",
  "tempdir",
+ "toml",
 ]
 
 [[package]]
@@ -3458,13 +3444,6 @@ checksum = "1adaa4ed0e71c5eb614cf42563dbfedb47c0e343b9c7c710bdc092c918e08e32"
 dependencies = [
  "itertools 0.10.5",
  "pretty",
-]
-
-[[package]]
-name = "verilator-tb-plugin"
-version = "0.0.0"
-dependencies = [
- "tb",
 ]
 
 [[package]]
