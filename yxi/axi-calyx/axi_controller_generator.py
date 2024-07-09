@@ -52,7 +52,7 @@ def create_axi_lite_channel_ports(prog, prefix: Literal["AW", "AR", "W", "B", "R
     elif x == "W":
         channel_inputs.append((f"WVALID", 1))
         channel_inputs.append((f"WDATA", 32))
-        channel_inputs.append((f"WSTRB", 2))
+        channel_inputs.append((f"WSTRB", int(32 / 8)))
         channel_outputs.append((f"WREADY", 1))
     elif x in ["B", "R"]:
         channel_inputs.append((f"{x}READY", 1))
@@ -87,7 +87,7 @@ def _add_s_to_m_address_channel(prog, prefix: Literal["AW", "AR"]):
 
     with s_to_m_address_channel.continuous:
         s_to_m_address_channel.this()[f"{x}READY"] = x_ready.out
-        x_addr.in_ = s_to_m_address_channel.this()[f"{x}ADDR"]
+        # x_addr.in_ = s_to_m_address_channel.this()[f"{x}ADDR"]
 
     with s_to_m_address_channel.group("block_transfer") as block_transfer:
         xVALID = s_to_m_address_channel.this()[f"{x}VALID"]
@@ -321,7 +321,7 @@ def add_write_controller(prog, mems):
     write_controller.control += [
         invoke(
             aw_channel,
-            ref_aw_addr=w_addr,
+            ref_w_addr=w_addr,
             in_ARESETn=write_controller.this()["ARESETn"],
             in_AWVALID=write_controller.this()["AWVALID"],
             in_AWADDR=write_controller.this()["AWADDR"],
@@ -349,9 +349,13 @@ def get_xrt_case_dict(invoke_function, controller, mems):
     args_addr = 0x10
     for mem in mems:
         case_dict[args_addr] = invoke_function(
-            controller.get_cell(f"{mem['name']}_base_addr")
+            controller.get_cell(f"{mem['name']}_base_addr_0_31")
         )
-        args_addr += 8  # 64 bit addr per kernel argument is 8 bytes
+        args_addr += 4 # 32 bit addr per kernel argument is 4 bytes
+        case_dict[args_addr] = invoke_function(
+            controller.get_cell(f"{mem['name']}_base_addr_32_63")
+        )
+        args_addr += 4
     return case_dict
 
 
@@ -372,8 +376,23 @@ def generate_control_registers(component, mems, as_refs : bool):
 
     # These hold the base address of the memory mappings on the host
     # Kernel Arguments
+    # We split these into 2 because it makes sense for the AXI-lite interface to be 32 bits
     for mem in mems:
-        control_regs.append(component.reg(64, f"{mem['name']}_base_addr", as_refs))
+        base_addr_right = component.reg(32, f"{mem['name']}_base_addr_0_31", as_refs)
+        base_addr_left = component.reg(32, f"{mem['name']}_base_addr_32_63", as_refs)
+        control_regs.append(base_addr_right)
+        control_regs.append(base_addr_left)
+
+        # We assume that the concrete control registers are in the `control_subordinate`
+        # components, which needs to output base addresses, so we want to create 64 bit std-cat
+        # and might as well hook them up?
+        if not as_refs:
+            base_addr_cat = component.cat(32, 32, f"{mem['name']}_base_addr_cat")
+            with component.continuous:
+                base_addr_cat.left = base_addr_left.out
+                base_addr_cat.right = base_addr_right.out
+
+
     return control_regs
 
 
@@ -408,6 +427,7 @@ def add_control_subordinate(prog, mems):
         ("BRESP", 2),  # No error detection, for now we just set to 0b00 = OKAY.
         ("ARREADY", 1),
         ("RDATA", 32),
+        ("RREADY", 1),
         ("RRESP", 2),  # No error detection, for now we just set to 0b00 = OKAY.
         ("ap_start", 1),
         ("ap_done_out", 1),
@@ -417,9 +437,10 @@ def add_control_subordinate(prog, mems):
         control_subordinate, control_subordinate_inputs, control_subordinate_outputs
     )
 
+    control_regs = generate_control_registers(control_subordinate, mems, as_refs=False)
+
     # Cells
     # Registers for control
-    control_regs = generate_control_registers(control_subordinate, mems, as_refs=False)
     # TODO: It could be nice to add to builder a way to access bits directly.
     # Currently: need to hook up these wires manually
     ap_start_slice = control_subordinate.bit_slice("ap_start_slice", 32, 0, 0, 1)
@@ -438,6 +459,12 @@ def add_control_subordinate(prog, mems):
     xrt_control_reg = control_subordinate.get_cell("control")
     
     with control_subordinate.continuous:
+
+        # output base addresses to memories
+        for mem in mems:
+            control_subordinate.output(f"{mem['name']}_base_addr", 64)
+            control_subordinate.this()[f"{mem['name']}_base_addr"] = control_subordinate.get_cell(f"{mem['name']}_base_addr_cat").out
+
         # NOTE (nate): There must be a better away of hooking up a components ports to
         # a cell's ports within the component. Unfortunately I don't think the builders existing
         # `build_connections` does exactly what we want here.
@@ -479,6 +506,7 @@ def add_control_subordinate(prog, mems):
     with control_subordinate.group("init_control_regs") as init_control_regs:
         for reg in control_regs:
             reg.in_ = 0
+            reg.write_en = 1
 
         init_control_regs.done = xrt_control_reg.done
 

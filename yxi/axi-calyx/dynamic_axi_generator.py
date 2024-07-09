@@ -508,6 +508,7 @@ def add_axi_dyn_mem(prog, mem):
         ("content_en", 1, [("write_together", 1), ("go", 1)]),
         ("write_en", 1, [("write_together", 2)]),
         ("write_data", data_width, [("write_together", 2), "data"]),
+        (f"base_address", 64),
         (f"ARESETn", 1),
         (f"ARREADY", 1),
         (f"RVALID", 1),
@@ -546,6 +547,8 @@ def add_axi_dyn_mem(prog, mem):
     address_translator = axi_dyn_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
     read_controller = axi_dyn_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
     write_controller = axi_dyn_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
+    base_addr_adder = axi_dyn_mem.add(64, f"base_addr_adder_{name}")
+    write_en_reg = axi_dyn_mem.reg(1, f"write_en_reg_{name}")
 
     # Wires
     this_component = axi_dyn_mem.this()
@@ -553,11 +556,18 @@ def add_axi_dyn_mem(prog, mem):
     with axi_dyn_mem.continuous:
         address_translator.calyx_mem_addr = this_component["addr0"]
         axi_dyn_mem.this()["read_data"] = read_controller.read_data
+        base_addr_adder.left = this_component["base_address"]
+        base_addr_adder.right = address_translator.axi_address
 
+    with axi_dyn_mem.group("latch_write_en") as latch_write_en:
+        write_en_reg.in_ = this_component["write_en"]
+        write_en_reg.write_en = 1
+        latch_write_en.done = write_en_reg.done
+    
     #Control
     read_controller_invoke = invoke(
             axi_dyn_mem.get_cell(f"read_controller_{name}"),
-            in_axi_address=address_translator.axi_address,
+            in_axi_address=base_addr_adder.out,
             in_ARESETn=this_component[f"ARESETn"],
             in_ARREADY=this_component[f"ARREADY"],
             in_RVALID=this_component[f"RVALID"],
@@ -576,7 +586,7 @@ def add_axi_dyn_mem(prog, mem):
 
     write_controller_invoke = invoke(
             axi_dyn_mem.get_cell(f"write_controller_{name}"),
-            in_axi_address=address_translator.axi_address,
+            in_axi_address=base_addr_adder.out,
             in_write_data=this_component["write_data"],
             in_ARESETn=this_component["ARESETn"],
             in_AWREADY=this_component["AWREADY"],
@@ -595,7 +605,8 @@ def add_axi_dyn_mem(prog, mem):
     )
     
     axi_dyn_mem.control += [
-      if_(axi_dyn_mem.this()["write_en"], write_controller_invoke, read_controller_invoke)
+        latch_write_en,
+        if_(write_en_reg.out, write_controller_invoke, read_controller_invoke)
     ]
 
     
@@ -648,6 +659,7 @@ def add_wrapper_comp(prog, mems):
         (f"{prefix}BVALID", 1),
         (f"{prefix}BRESP", 2),  
         (f"{prefix}ARREADY", 1),
+        (f"{prefix}RREADY", 1),
         (f"{prefix}RDATA", 32),
         (f"{prefix}RRESP", 2),  
         ("ap_start", 1),
@@ -782,7 +794,27 @@ def add_wrapper_comp(prog, mems):
     main_compute_invoke = invoke(
         main_compute, **ref_mem_kwargs
     )
-    control_subordinate_invoke = invoke(control_subordinate)
+    control_subordinate_invoke = invoke(
+        control_subordinate,
+        # in_ARESETn=wrapper_comp.this()[f"ARESETn"],
+        in_AWVALID = wrapper_comp.this()[f"s_axi_control_AWVALID"],
+        in_AWADDR = wrapper_comp.this()[f"s_axi_control_AWADDR"],
+        in_WVALID = wrapper_comp.this()[f"s_axi_control_WVALID"],
+        in_WDATA = wrapper_comp.this()[f"s_axi_control_WDATA"],
+        in_WSTRB = wrapper_comp.this()[f"s_axi_control_WSTRB"],
+        in_BREADY = wrapper_comp.this()[f"s_axi_control_BREADY"],
+        in_ARVALID = wrapper_comp.this()[f"s_axi_control_ARVALID"],
+        in_ARADDR = wrapper_comp.this()[f"s_axi_control_ARADDR"],
+        in_RVALID = wrapper_comp.this()[f"s_axi_control_RVALID"],
+        out_AWREADY = wrapper_comp.this()[f"s_axi_control_AWREADY"],
+        out_WREADY = wrapper_comp.this()[f"s_axi_control_WREADY"],
+        out_BVALID = wrapper_comp.this()[f"s_axi_control_BVALID"],
+        out_BRESP = wrapper_comp.this()[f"s_axi_control_BRESP"],
+        out_ARREADY = wrapper_comp.this()[f"s_axi_control_ARREADY"],
+        out_RDATA = wrapper_comp.this()[f"s_axi_control_RDATA"],
+        out_RREADY = wrapper_comp.this()[f"s_axi_control_RREADY"],
+        out_RRESP = wrapper_comp.this()[f"s_axi_control_RRESP"],
+        )
 
 
 
