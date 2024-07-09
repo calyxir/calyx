@@ -224,8 +224,13 @@ impl ScriptRunner {
                     ast: Rc::new(sctx.ast.clone_functions_only()),
                     name: build.fn_name().to_string(),
                 };
-                let op =
-                    bld.borrow_mut().add_op(name, &setups, input, output, rctx);
+                let op = bld.borrow_mut().add_op(
+                    name,
+                    &setups,
+                    &[input],
+                    &[output],
+                    rctx,
+                );
 
                 // try to set op source
                 #[cfg(debug_assertions)]
