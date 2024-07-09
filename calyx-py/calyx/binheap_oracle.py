@@ -10,4 +10,4 @@ if __name__ == "__main__":
     commands, values, ranks, _ = queue_util.parse_json(True)
     binheap = queues.Binheap(len)
     ans = queues.operate_queue(binheap, max_cmds, commands, values, ranks=ranks, keepgoing=keepgoing)
-    queue_util.dump_json(ans, commands, values, ranks=ranks)
+    queue_util.dump_json(commands, values, ans, ranks=ranks)

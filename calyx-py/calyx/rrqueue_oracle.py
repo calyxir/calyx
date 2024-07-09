@@ -32,4 +32,4 @@ if __name__ == "__main__":
 
     ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)
 
-    queue_util.dump_json(ans, commands, values)
+    queue_util.dump_json(commands, values, ans)

@@ -5,8 +5,8 @@ queue_size=16
 
 # For SDN, we use piezo mode when making the data file and
 # use pifotree_oracle to generate the expected output
-python3 queue_data_gen.py $num_cmds --no-err $queue_size > ../test/correctness/queues/sdn.data
-cat ../test/correctness/queues/sdn.data | python3 pifo_tree_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/sdn.expect
+# python3 queue_data_gen.py $num_cmds --no-err $queue_size > ../test/correctness/queues/sdn.data
+# cat ../test/correctness/queues/sdn.data | python3 pifo_tree_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/sdn.expect
 
 # For the others, we drop piezo mode for data gen, and we use the appropriate
 # oracle, which is one of the following:
@@ -26,7 +26,7 @@ done
 # - pieo_oracle.py
 # - pcq_oracle.py
 
-for queue_kind in pieo pcq; do
+for queue_kind in pieo pcq nwc_simple; do
     python3 queue_data_gen.py $num_cmds --nwc-en > ../test/correctness/queues/$queue_kind.data
     cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/$queue_kind.expect
 done  

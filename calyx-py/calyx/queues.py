@@ -194,12 +194,14 @@ class NWCSimple:
     def __init__(self, max_len: int):
         self.data = []
         self.max_len = max_len
+        self.insertion_count = 0
     
-    def push(self, val, rank=0, time=0, insertion_count=None) -> None:
+    def push(self, val, rank=0, time=0) -> None:
         if len(self.data) >= self.max_len:
             raise QueueError("Overflow")
 
-        heapq.heappush(self.data, RankValue((rank << 32 + insertion_count), (val, time)))
+        heapq.heappush(self.data, RankValue((rank << 32 + self.insertion_count), (val, time)))
+        self.insertion_count += 1
     
     def ripe(self, time) -> bool:
         return self.data[0].value[1] <= time
@@ -219,8 +221,10 @@ class NWCSimple:
 
                 return result.value[0]
             
-            temp.push(heapq.heappop(self.data))
+            temp.append(heapq.heappop(self.data))
 
+        for elem in temp:
+            heapq.heappush(self.data, elem)
         raise QueueError("Underflow")
     
     def peek(self, time=0, val=None) -> Optional[int]:
@@ -504,6 +508,7 @@ class Binheap:
         self.counter = 0
         self.max_len = max_len
 
+
     def push(self, val: int, rank, *_) -> None:
         """Pushes `(rnk, val)` to the Binary Heap."""
         if self.len == self.max_len:
@@ -622,14 +627,14 @@ class RRQueue:
 
 def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None, times=None):
     """Given the four lists:
-    - One of commands, one of values, one of ranks, one of bounds:
+    - One of commands, one of values, one of ranks, one of times:
     - Feed these into our queue, and return the answer memory.
     - Commands correspond to:
-        0 : pop by predicate
-        1 : peek by predicate
+        0 : pop (for non-work-conserving queues, pop by predicate)
+        1 : peek (for non-work-conserving queues, peek by predicate)
         2 : push
-        3 : pop by value
-        4 : peek by value
+        3 : pop by value (only for non-work-conserving queues)
+        4 : peek by value (only for non-work-conserving queues)
     """
     ans = []
     ranks = ranks or [0] * len(values)
