@@ -4,6 +4,7 @@ use super::{
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
     program_counter::{PcMaps, ProgramCounter},
+    traverser::{TraversalEnd, TraversalError},
 };
 use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
@@ -22,11 +23,14 @@ use crate::{
         },
         primitives::{self, prim_trait::UpdateStatus, Primitive},
         structures::{
-            environment::program_counter::ControlPoint, index_trait::IndexRef,
+            environment::{
+                program_counter::ControlPoint, traverser::Traverser,
+            },
+            index_trait::IndexRef,
         },
     },
     logging,
-    serialization::{DataDump, Dimensions},
+    serialization::{DataDump, Dimensions, PrintCode},
     values::Value,
 };
 use ahash::HashMap;
@@ -34,6 +38,7 @@ use ahash::HashSet;
 use ahash::HashSetExt;
 use itertools::Itertools;
 use slog::warn;
+use std::fmt::Write;
 use std::{fmt::Debug, iter::once};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
@@ -222,19 +227,19 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
     pub(crate) ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
-    cells: CellMap,
+    pub(super) cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
-    ref_cells: RefCellMap,
+    pub(super) ref_cells: RefCellMap,
     /// A map from global ref port IDs to the port they reference, if any.
-    ref_ports: RefPortMap,
+    pub(super) ref_ports: RefPortMap,
 
     /// The program counter for the whole program execution.
-    pc: ProgramCounter,
+    pub(super) pc: ProgramCounter,
 
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
-    ctx: C,
+    pub(super) ctx: C,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -429,11 +434,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     #[inline]
     pub fn get_root_done(&self) -> GlobalPortIdx {
-        self.get_comp_done(self.get_root())
+        self.get_comp_done(Self::get_root())
     }
 
     #[inline]
-    pub fn get_root(&self) -> GlobalCellIdx {
+    pub fn get_root() -> GlobalCellIdx {
         GlobalCellIdx::new(0)
     }
 
@@ -458,10 +463,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             }
         })
     }
-}
 
-// ===================== Environment print implementations =====================
-impl<C: AsRef<Context> + Clone> Environment<C> {
+    // ===================== Environment print implementations =====================
+
     pub fn _print_env(&self) {
         let root_idx = GlobalCellIdx::new(0);
         let mut hierarchy = Vec::new();
@@ -575,11 +579,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         def_info.name
     }
 
-    fn _get_name_from_cell(&self, cell: GlobalCellIdx) -> Identifier {
-        let parent = self._get_parent_cell_from_cell(cell);
-        self.get_name_from_cell_and_parent(parent.unwrap(), cell)
-    }
-
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
     fn _get_parent_cell_from_port(
@@ -628,7 +627,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
         target: GlobalCellIdx,
     ) -> Option<Vec<GlobalCellIdx>> {
-        let root = self.get_root();
+        let root = Self::get_root();
         if target == root {
             None
         } else {
@@ -691,28 +690,82 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             InterpreterError::UndefinedWrite(s)
             | InterpreterError::UndefinedWriteAddr(s)
             | InterpreterError::UndefinedReadAddr(s) => {
-                let root_comp = self.cells[self.get_root()].unwrap_comp();
-                let root_name =
-                    &self.ctx.as_ref().secondary[root_comp.comp_id].name;
-
-                let parent_path = self.get_parent_path_from_cell(cell).unwrap();
-                let name = parent_path
-                    .iter()
-                    .zip(parent_path.iter().skip(1).chain(once(&cell)))
-                    .fold(
-                        self.ctx.as_ref().secondary[*root_name].clone(),
-                        |acc, (a, b)| {
-                            let id = self.get_name_from_cell_and_parent(*a, *b);
-                            acc + "." + &self.ctx.as_ref().secondary[id]
-                        },
-                    );
-
-                *s = name;
+                *s = self.get_full_name(cell);
             }
             _ => {}
         }
 
         err
+    }
+
+    /// Traverses the given name, and returns the end of the traversal. For
+    /// paths with ref cells this will resolve the concrete cell **currently**
+    /// pointed to by the ref cell.
+    pub fn traverse_name_vec(
+        &self,
+        name: &[String],
+    ) -> Result<TraversalEnd, TraversalError> {
+        assert!(!name.is_empty(), "Name cannot be empty");
+
+        let ctx = self.ctx.as_ref();
+        let mut current = Traverser::new();
+
+        if name.len() == 1 && &name[0] == ctx.lookup_name(ctx.entry_point) {
+            Ok(TraversalEnd::Root)
+        } else {
+            let mut iter = name[0..name.len() - 2].iter();
+            if &name[0] == ctx.lookup_name(ctx.entry_point) {
+                // skip the main name
+                iter.next();
+            }
+
+            for name in iter {
+                current.next_cell(self, name)?;
+            }
+
+            let last = name.last().unwrap();
+            current.last_step(self, last)
+        }
+    }
+
+    pub fn get_ports_from_cell(
+        &self,
+        cell: GlobalCellIdx,
+        parent: GlobalCellIdx,
+    ) -> impl Iterator<Item = (Identifier, GlobalPortIdx)> + '_ {
+        let ledger = self.cells[parent].as_comp().unwrap();
+        let comp = &self.ctx.as_ref().secondary[ledger.comp_id];
+        let cell_offset = cell - &ledger.index_bases;
+
+        self.ctx.as_ref().secondary[comp.cell_offset_map[cell_offset]]
+            .ports
+            .iter()
+            .map(|x| {
+                (
+                    self.ctx.as_ref().secondary[comp.port_offset_map[x]].name,
+                    &ledger.index_bases + x,
+                )
+            })
+    }
+
+    pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String {
+        nameable.get_full_name(self)
+    }
+
+    pub fn format_path(&self, path: &[GlobalCellIdx]) -> String {
+        assert!(!path.is_empty(), "Path cannot be empty");
+        assert!(path[0] == Self::get_root(), "Path must start with root");
+
+        let root_name =
+            self.ctx.as_ref().lookup_name(self.ctx.as_ref().entry_point);
+
+        path.iter().zip(path.iter().skip(1)).fold(
+            root_name.clone(),
+            |acc, (a, b)| {
+                let id = self.get_name_from_cell_and_parent(*a, *b);
+                acc + "." + &self.ctx.as_ref().secondary[id]
+            },
+        )
     }
 }
 
@@ -768,6 +821,26 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     ) -> impl Iterator<Item = GroupIdx> + '_ {
         self.env.get_currently_running_groups()
     }
+
+    pub fn traverse_name_vec(
+        &self,
+        name: &[String],
+    ) -> Result<TraversalEnd, TraversalError> {
+        self.env.traverse_name_vec(name)
+    }
+
+    pub fn get_name_from_cell_and_parent(
+        &self,
+        parent: GlobalCellIdx,
+        cell: GlobalCellIdx,
+    ) -> Identifier {
+        self.env.get_name_from_cell_and_parent(parent, cell)
+    }
+
+    #[inline]
+    pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String {
+        self.env.get_full_name(nameable)
+    }
 }
 
 // =========================== simulation functions ===========================
@@ -813,13 +886,19 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     }
 
     #[inline]
-    fn get_value(&self, port: &PortRef, comp: GlobalCellIdx) -> &PortValue {
-        let port_idx = self.get_global_port_idx(port, comp);
+    fn get_value(
+        &self,
+        port: &PortRef,
+        parent_comp: GlobalCellIdx,
+    ) -> &PortValue {
+        let port_idx = self.get_global_port_idx(port, parent_comp);
         &self.env.ports[port_idx]
     }
 
     pub(crate) fn get_root_component(&self) -> &ComponentLedger {
-        self.env.cells[self.env.get_root()].as_comp().unwrap()
+        self.env.cells[Environment::<C>::get_root()]
+            .as_comp()
+            .unwrap()
     }
 
     /// Finds the root component of the simulation and sets its go port to high
@@ -1601,5 +1680,82 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
 
         dump
+    }
+
+    pub fn get_port_name(
+        &self,
+        port_idx: GlobalPortIdx,
+        parent: GlobalCellIdx,
+    ) -> &String {
+        let ledger = self.env.cells[parent].as_comp().unwrap();
+        let port_offset = port_idx - &ledger.index_bases;
+        let def_idx =
+            self.ctx().secondary[ledger.comp_id].port_offset_map[port_offset];
+        let name = self.ctx().secondary[def_idx].name;
+        self.ctx().lookup_name(name)
+    }
+
+    pub fn format_port_value(
+        &self,
+        port_idx: GlobalPortIdx,
+        print_code: PrintCode,
+    ) -> String {
+        self.env.ports[port_idx].format_value(print_code)
+    }
+
+    pub fn format_cell_ports(
+        &self,
+        cell_idx: GlobalCellIdx,
+        parent_comp: GlobalCellIdx,
+        print_code: PrintCode,
+    ) -> String {
+        let mut buf = String::new();
+
+        let cell_name = self.get_full_name(cell_idx);
+        writeln!(buf, "{cell_name}:").unwrap();
+        for (identifier, port_idx) in
+            self.env.get_ports_from_cell(cell_idx, parent_comp)
+        {
+            writeln!(
+                buf,
+                "  {}: {}",
+                self.ctx().lookup_name(identifier),
+                self.format_port_value(port_idx, print_code)
+            )
+            .unwrap();
+        }
+
+        buf
+    }
+
+    pub fn format_cell_state(
+        &self,
+        cell_idx: GlobalCellIdx,
+        print_code: PrintCode,
+    ) -> Option<String> {
+        let cell_name = self.get_full_name(cell_idx);
+        let cell = self.env.cells[cell_idx].unwrap_primitive();
+        let state = cell.serialize(Some(print_code));
+
+        if state.has_state() {
+            Some(format!("{cell_name}: {state}"))
+        } else {
+            None
+        }
+    }
+}
+
+pub trait GetFullName<C: AsRef<Context> + Clone> {
+    fn get_full_name(&self, env: &Environment<C>) -> String;
+}
+
+impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalCellIdx {
+    fn get_full_name(&self, env: &Environment<C>) -> String {
+        {
+            let mut parent_path = env.get_parent_path_from_cell(*self).unwrap();
+            parent_path.push(*self);
+
+            env.format_path(&parent_path)
+        }
     }
 }

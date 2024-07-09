@@ -7,6 +7,7 @@ use crate::{
     flatten::structures::index_trait::{
         impl_index, impl_index_nonzero, IndexRange, IndexRef,
     },
+    serialization::PrintCode,
     values::Value,
 };
 
@@ -275,6 +276,24 @@ impl GlobalCellRef {
             CellRef::Ref(r) => (base_info + r).into(),
         }
     }
+
+    #[must_use]
+    pub fn as_cell(&self) -> Option<&GlobalCellIdx> {
+        if let Self::Cell(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_ref(&self) -> Option<&GlobalRefCellIdx> {
+        if let Self::Ref(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 pub enum CellDefinitionRef {
@@ -460,6 +479,10 @@ impl PortValue {
     /// This is equivalent to [Option::take]
     pub fn set_undef(&mut self) -> Option<AssignedValue> {
         self.0.take()
+    }
+
+    pub fn format_value(&self, print_code: PrintCode) -> String {
+        todo!()
     }
 }
 

@@ -413,3 +413,10 @@ impl LookupName for ComponentIdx {
         ctx.resolve_id(ctx.secondary[*self].name)
     }
 }
+
+impl LookupName for Identifier {
+    #[inline]
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.resolve_id(*self)
+    }
+}

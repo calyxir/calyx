@@ -1,5 +1,5 @@
-mod cidr;
 pub mod commands;
+mod debugger_core;
 mod debugging_context;
 mod interactive_errors;
 mod io_utils;
@@ -7,8 +7,8 @@ mod macros;
 pub mod source;
 pub mod structures;
 
-pub use cidr::Debugger;
-pub use cidr::OwnedDebugger;
-pub use cidr::ProgramStatus;
+pub use debugger_core::Debugger;
+pub use debugger_core::OwnedDebugger;
+pub use debugger_core::ProgramStatus;
 
 pub(crate) use macros::unwrap_error_message;

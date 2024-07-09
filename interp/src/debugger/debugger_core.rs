@@ -9,9 +9,12 @@ use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
     errors::{InterpreterError, InterpreterResult},
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::prelude::{GlobalCellIdx, GlobalPortIdx, GroupIdx, PortValue},
         setup_simulation, setup_simulation_with_metadata,
-        structures::{context::Context, environment::Simulator},
+        structures::{
+            context::Context,
+            environment::{Simulator, TraversalEnd},
+        },
     },
     serialization::PrintCode,
 };
@@ -61,7 +64,7 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
     // this is technically redundant but is here for mutability reasons
     program_context: C,
     debugging_context: DebuggingContext,
-    source_map: Option<SourceMap>,
+    _source_map: Option<SourceMap>,
 }
 
 pub type OwnedDebugger = Debugger<Rc<Context>>;
@@ -79,8 +82,7 @@ impl OwnedDebugger {
             false,
         )?;
 
-        let debugger: Debugger<Rc<Context>> =
-            Self::new(Rc::new(ctx), None, None)?;
+        let debugger: Debugger<Rc<Context>> = Self::new(Rc::new(ctx), &None)?;
 
         Ok((debugger, map))
     }
@@ -89,17 +91,16 @@ impl OwnedDebugger {
 impl<C: AsRef<Context> + Clone> Debugger<C> {
     pub fn new(
         program_context: C,
-        source_map: Option<SourceMap>,
-        data_file: Option<std::path::PathBuf>,
+        data_file: &Option<std::path::PathBuf>,
     ) -> InterpreterResult<Self> {
         let interpreter =
-            Simulator::build_simulator(program_context.clone(), &data_file)?;
+            Simulator::build_simulator(program_context.clone(), data_file)?;
 
         Ok(Self {
             interpreter,
             program_context,
             debugging_context: DebuggingContext::new(),
-            source_map,
+            _source_map: None,
         })
     }
 
@@ -313,21 +314,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     todo!()
                 }
                 Command::Print(print_lists, code, print_mode) => {
-                    for target in print_lists {
-                        // match Self::do_print(
-                        //     self.main_component.name,
-                        //     &target,
-                        //     &code,
-                        //     final_env.as_state_view(),
-                        //     &print_mode,
-                        // ) {
-                        //     Ok(msg) => println!("{}", msg.green()),
-                        //     Err(e) => {
-                        //         println!("{}", e.red().underline().bold())
-                        //     }
-                        // }
-                        todo!()
-                    }
+                    self.do_print(print_lists, code, print_mode)
                 }
 
                 Command::Help => {
@@ -423,17 +410,75 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
     }
 
-    fn parse_name(self, name: &str) {}
-
     fn do_print(
         &self,
         print_lists: Vec<Vec<String>>,
         code: Option<PrintCode>,
         print_mode: PrintMode,
     ) {
+        let code = code.unwrap_or(PrintCode::Binary);
+
         for target in print_lists {
-            todo!()
+            let target_actual = self.interpreter.traverse_name_vec(&target);
+            match target_actual {
+                Ok(traversal_res) => match traversal_res {
+                    TraversalEnd::Root => {
+                        todo!()
+                    }
+                    TraversalEnd::Cell(c_info) => match print_mode {
+                        PrintMode::State => {
+                            if let Some(state) = self
+                                .interpreter
+                                .format_cell_state(c_info.cell, code)
+                            {
+                                println!("{}", state)
+                            } else {
+                                println!("{}","Target cell has no internal state, printing port information instead".red());
+                                println!(
+                                    "{}",
+                                    self.interpreter.format_cell_ports(
+                                        c_info.cell,
+                                        c_info.parent,
+                                        code
+                                    )
+                                )
+                            }
+                        }
+                        PrintMode::Port => {
+                            println!(
+                                "{}",
+                                self.interpreter.format_cell_ports(
+                                    c_info.cell,
+                                    c_info.parent,
+                                    code
+                                )
+                            )
+                        }
+                    },
+                    TraversalEnd::Port(info) => {
+                        let parent_name =
+                            self.interpreter.get_full_name(info.parent);
+                        let port_name = self
+                            .interpreter
+                            .get_port_name(info.port, info.parent);
+
+                        println!(
+                            "{parent_name}.{port_name} = {}",
+                            self.interpreter.format_port_value(info.port, code)
+                        )
+                    }
+                    TraversalEnd::RefCell(_) => todo!(),
+                    TraversalEnd::RefPort(_) => todo!(),
+                },
+                Err(e) => {
+                    println!("{}", owo_colors::OwoColorize::red(&e))
+                }
+            }
         }
+    }
+
+    fn format_value(&self, val: &PortValue, code: PrintCode) -> String {
+        todo!()
     }
 
     fn manipulate_breakpoint(&mut self, command: Command) {

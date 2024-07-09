@@ -157,7 +157,11 @@ fn main() -> InterpreterResult<()> {
             Ok(())
         }
         Command::Debug(_) => {
-            todo!()
+            let debugger = Debugger::new(&i_ctx, &opts.data_file)?;
+
+            debugger.main_loop()?;
+
+            Ok(())
         }
     }
 }

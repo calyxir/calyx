@@ -9,11 +9,11 @@ use crate::{
 };
 
 use super::super::{
-    cidr::SPACING,
     commands::{
         GroupName, ParsedBreakPointID, ParsedGroupName, PrintTuple,
         WatchPosition,
     },
+    debugger_core::SPACING,
 };
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
@@ -39,12 +39,6 @@ impl Display for PointStatus {
             PointStatus::Enabled => write!(f, "{}", "enabled".green()),
             PointStatus::Disabled => write!(f, "{}", "disabled".red()),
         }
-    }
-}
-
-impl PointStatus {
-    pub fn enabled(&self) -> bool {
-        matches!(self, PointStatus::Enabled)
     }
 }
 

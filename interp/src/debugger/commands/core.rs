@@ -88,7 +88,7 @@ impl ParsedGroupName {
         let comp = if let Some(c) = &self.component {
             context
                 .lookup_comp_by_name(c.as_ref())
-                .map_or(Err(format!("No component named {c}")), |c| Ok(c))?
+                .map_or(Err(format!("No component named {c}")), Ok)?
         } else {
             context.entry_point
         };
