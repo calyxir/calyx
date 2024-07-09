@@ -1,3 +1,4 @@
+/// Example FFI backend.
 #[macro_export]
 macro_rules! useless_ffi_backend {
     (init $dut:ident; $($port:ident),*) => {

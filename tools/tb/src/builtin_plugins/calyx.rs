@@ -1,17 +1,18 @@
+use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::Command;
-use std::{fs, path::Path};
 
-use tb::declare_plugin;
-use tb::{config::Config, error::LocalResult, plugin::Plugin, semver, tempdir};
+use crate::{
+    config::Config, error::LocalResult, plugin::Plugin, semver, tempdir,
+};
 
 #[derive(Default)]
 pub struct CalyxTB;
 
 mod config_keys {}
 
-const DRIVER_CODE: &str = include_str!("driver.rs");
+const DRIVER_CODE: &str = include_str!("resources/driver.rs");
 
 impl Plugin for CalyxTB {
     fn name(&self) -> &'static str {
@@ -22,7 +23,7 @@ impl Plugin for CalyxTB {
         semver::Version::new(0, 0, 0)
     }
 
-    fn setup(&self, config: &mut Config) -> LocalResult<()> {
+    fn setup(&self, _config: &mut Config) -> LocalResult<()> {
         Ok(())
     }
 
@@ -31,8 +32,11 @@ impl Plugin for CalyxTB {
         input: String,
         tests: &[String],
         work_dir: tempdir::TempDir,
-        config: &Config,
+        _config: &Config,
     ) -> LocalResult<()> {
+        println!(
+            "recommendation: Run the #[calyx_ffi_tests] as Rust tests directly"
+        );
         let mut calyx_ffi_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         calyx_ffi_path.push("../../../calyx-ffi");
 
@@ -44,7 +48,7 @@ impl Plugin for CalyxTB {
         manifest_path.push("Cargo.toml");
 
         let mut lib_path = PathBuf::from(work_dir.path());
-        lib_path.push("lib.rs");
+        lib_path.push(input);
 
         for test in tests {
             let mut test_path = PathBuf::from(work_dir.path());
@@ -99,5 +103,3 @@ impl Plugin for CalyxTB {
         Ok(())
     }
 }
-
-declare_plugin!(CalyxTB, CalyxTB::default);

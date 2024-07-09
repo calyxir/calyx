@@ -35,7 +35,7 @@ impl Parse for CalyxFFIMacroArgs {
         if !input.is_empty() {
             return Err(syn::Error::new_spanned(
                 input.parse::<TokenTree>()?,
-                "Invalid `calyx_ffi` argument syntax: expected 'src = \"...\", comp = \"...\", backend = ...",
+                "Invalid `calyx_ffi` argument syntax: expected 'src = \"...\", comp = \"...\", extern = ...",
             ));
         }
 

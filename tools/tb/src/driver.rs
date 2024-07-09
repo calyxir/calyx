@@ -5,10 +5,11 @@ use std::{
 };
 
 use crate::{
+    builtin_plugins::{calyx::CalyxTB, cocotb::CocoTB, verilator::Verilator},
     cli::ConfigSet,
     config::Config,
     error::{LocalError, LocalResult},
-    plugin::{PluginCreate, PluginRef},
+    plugin::{Plugin, PluginCreate, PluginRef},
 };
 use libloading::{Library, Symbol};
 use semver::VersionReq;
@@ -23,6 +24,14 @@ pub struct Driver {
 impl Driver {
     pub fn load(plugin_dirs: &[PathBuf]) -> LocalResult<Self> {
         let mut new_self = Self::default();
+
+        let cocotb = Box::new(CocoTB);
+        let verilator = Box::new(Verilator);
+        let calyx = Box::new(CalyxTB);
+        new_self.register(cocotb.name(), cocotb);
+        new_self.register(verilator.name(), verilator);
+        new_self.register(calyx.name(), calyx);
+
         for plugin_dir in plugin_dirs {
             match plugin_dir.read_dir().map_err(LocalError::from) {
                 Ok(library_paths) => {

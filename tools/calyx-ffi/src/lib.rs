@@ -28,7 +28,8 @@ pub type CalyxFFIComponentRef = Rc<RefCell<dyn CalyxFFIComponent>>;
 
 #[derive(Default)]
 pub struct CalyxFFI {
-    comps: HashMap<&'static str, CalyxFFIComponentRef>,
+    reuse: HashMap<&'static str, usize>,
+    comps: Vec<CalyxFFIComponentRef>,
 }
 
 impl CalyxFFI {
@@ -36,22 +37,34 @@ impl CalyxFFI {
         Self::default()
     }
 
+    /// Any component `T`.
     pub fn comp<T: CalyxFFIComponent + Default>(
         &mut self,
     ) -> CalyxFFIComponentRef {
         let name = T::default().name();
-        if !self.comps.contains_key(name) {
-            let comp_ref = Rc::new(RefCell::new(T::default()));
-            comp_ref.borrow_mut().init();
-            self.comps.insert(name, comp_ref);
+        if let Some(index) = self.reuse.get(name) {
+            self.comps[*index].clone()
+        } else {
+            self.new_comp::<T>()
         }
-        self.comps.get(name).unwrap().clone()
+    }
+
+    /// A new component `T`.
+    pub fn new_comp<T: CalyxFFIComponent + Default>(
+        &mut self,
+    ) -> CalyxFFIComponentRef {
+        let comp = Rc::new(RefCell::new(T::default()));
+        comp.borrow_mut().init();
+        self.comps.push(comp.clone());
+        self.reuse
+            .insert(comp.borrow().name(), self.comps.len() - 1);
+        comp
     }
 }
 
 impl Drop for CalyxFFI {
     fn drop(&mut self) {
-        for (_, comp) in &self.comps {
+        for comp in &self.comps {
             comp.borrow_mut().deinit();
         }
     }

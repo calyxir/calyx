@@ -7,6 +7,7 @@ use calyx_ffi::prelude::*;
 )]
 struct Adder;
 
+#[cfg(test)]
 #[calyx_ffi_tests]
 mod tests {
     use super::*;
