@@ -1,5 +1,5 @@
 use crate::{
-    exec::{OpRef, SetupRef, StateRef},
+    exec::{SetupRef, StateRef},
     DriverBuilder,
 };
 use std::{
@@ -185,13 +185,14 @@ impl ScriptRunner {
 
     fn reg_rule(&mut self, sctx: ScriptContext) {
         let bld = Rc::clone(&self.builder);
-        self.engine.register_fn::<_, 4, true, OpRef, true, _>(
+        self.engine.register_fn(
             "rule",
             move |ctx: rhai::NativeCallContext,
                   setups: rhai::Array,
                   input: StateRef,
                   output: StateRef,
-                  rule_name: &str| {
+                  rule_name: &str|
+                  -> RhaiResult<_> {
                 let setups = sctx.setups_array(&ctx, setups)?;
                 let op =
                     bld.borrow_mut().rule(&setups, input, output, rule_name);
@@ -208,14 +209,15 @@ impl ScriptRunner {
 
     fn reg_op(&mut self, sctx: ScriptContext) {
         let bld = Rc::clone(&self.builder);
-        self.engine.register_fn::<_, 5, true, OpRef, true, _>(
+        self.engine.register_fn(
             "op",
             move |ctx: rhai::NativeCallContext,
                   name: &str,
                   setups: rhai::Array,
                   input: StateRef,
                   output: StateRef,
-                  build: rhai::FnPtr| {
+                  build: rhai::FnPtr|
+                  -> RhaiResult<_> {
                 let setups = sctx.setups_array(&ctx, setups)?;
                 let rctx = RhaiSetupCtx {
                     path: sctx.path.clone(),
