@@ -5,7 +5,7 @@ from calyx import queue_util
 if __name__ == "__main__":
     num_cmds, len, numflows = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
     keepgoing = "--keepgoing" in sys.argv
-    commands, values, _ = queue_util.parse_json()
+    commands, values, _, _ = queue_util.parse_json()
 
     if numflows == 2:
         boundaries = [200, 400]
@@ -22,6 +22,9 @@ if __name__ == "__main__":
     elif numflows == 6:
         boundaries = [66, 100, 200, 220, 300, 400]
         order = [3, 1, 5, 2, 4, 0]
+    elif numflows == 7:
+        boundaries = [74, 90, 150, 228, 364, 400]
+        order = [4, 6, 1, 5, 2, 0, 3]
     else:
         raise ValueError("Unsupported number of flows")
 
