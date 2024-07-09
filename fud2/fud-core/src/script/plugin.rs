@@ -16,12 +16,18 @@ use super::{
     resolver::Resolver,
 };
 
+// The name, input states, and output states of an op
+type OpSig = (String, Vec<StateRef>, Vec<StateRef>);
+
 #[derive(Clone)]
 struct ScriptContext {
     builder: Rc<RefCell<DriverBuilder>>,
     path: Rc<PathBuf>,
     ast: Rc<rhai::AST>,
     setups: Rc<RefCell<HashMap<String, SetupRef>>>,
+
+    /// An op currently being built. `None` means no op is currently being built.
+    cur_op: Rc<RefCell<Option<OpSig>>>,
 }
 
 impl ScriptContext {
@@ -71,6 +77,47 @@ impl ScriptContext {
         }
 
         *self.setups.borrow().get(fnptr.fn_name()).unwrap()
+    }
+
+    /// Begins building an op. This fails if an op is already being built or `input` or `output`
+    /// are not arrays of `StateRef`.
+    fn begin_op(
+        &self,
+        ctx: &rhai::NativeCallContext,
+        name: &str,
+        inputs: rhai::Array,
+        outputs: rhai::Array,
+    ) -> RhaiResult<()> {
+        let inputs = inputs
+            .into_iter()
+            .map(|i| match i.clone().try_cast::<StateRef>() {
+                Some(state) => Ok(state),
+                None => Err(RhaiSystemError::state_ref(i)
+                    .with_pos(ctx.position())
+                    .into()),
+            })
+            .collect::<RhaiResult<Vec<_>>>()?;
+        let outputs = outputs
+            .into_iter()
+            .map(|i| match i.clone().try_cast::<StateRef>() {
+                Some(state) => Ok(state),
+                None => Err(RhaiSystemError::state_ref(i)
+                    .with_pos(ctx.position())
+                    .into()),
+            })
+            .collect::<RhaiResult<Vec<_>>>()?;
+        let mut cur_op = self.cur_op.borrow_mut();
+        match *cur_op {
+            None => {
+                *cur_op = Some((name.to_string(), inputs, outputs));
+                RhaiResult::Ok(())
+            }
+            Some((ref old_name, _, _)) => {
+                Err(RhaiSystemError::began_op(old_name, name)
+                    .with_pos(ctx.position())
+                    .into())
+            }
+        }
     }
 }
 
@@ -240,12 +287,28 @@ impl ScriptRunner {
         );
     }
 
+    /// Registers a Rhai function which starts the parser listening for shell commands, how an op
+    /// does its transformation.
+    fn reg_start_op_stmts(&mut self, sctx: ScriptContext) {
+        self.engine.register_fn(
+            "start_op_stmts",
+            move |ctx: rhai::NativeCallContext,
+                  name: &str,
+                  inputs: rhai::Array,
+                  outputs: rhai::Array|
+                  -> RhaiResult<_> {
+                sctx.begin_op(&ctx, name, inputs, outputs)
+            },
+        );
+    }
+
     fn script_context(&self, path: PathBuf) -> ScriptContext {
         ScriptContext {
             builder: Rc::clone(&self.builder),
             path: Rc::new(path),
             ast: Rc::new(self.rhai_functions.clone()),
             setups: Rc::clone(&self.setups),
+            cur_op: Rc::new(None.into()),
         }
     }
 
@@ -253,6 +316,7 @@ impl ScriptRunner {
         let sctx = self.script_context(path.to_path_buf());
         self.reg_rule(sctx.clone());
         self.reg_op(sctx.clone());
+        self.reg_start_op_stmts(sctx.clone());
 
         self.engine
             .module_resolver()
