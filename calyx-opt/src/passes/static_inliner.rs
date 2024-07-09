@@ -304,7 +304,6 @@ impl StaticInliner {
                     .iter()
                     .map(|stmt| Self::get_offload_latencies(stmt, 0))
                     .collect_vec();
-                dbg!(&offload_interval_info);
                 for (i, j) in (0..stmts.len()).tuple_combinations() {
                     let intervals1 = &offload_interval_info[i];
                     let intervals2 = &offload_interval_info[j];
