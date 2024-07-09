@@ -1,8 +1,11 @@
+use crate::analysis::GraphColoring;
 use crate::traversal::{Action, Named, VisResult, Visitor};
-use calyx_ir as ir;
 use calyx_ir::structure;
 use calyx_ir::LibrarySignatures;
+use calyx_ir::{self as ir, StaticTiming};
 use ir::build_assignments;
+use itertools::Itertools;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -116,6 +119,122 @@ impl StaticInliner {
         cond_assigns
     }
 
+    fn get_offload_latencies(
+        sc: &ir::StaticControl,
+        cur_latency: u64,
+    ) -> Vec<(u64, u64)> {
+        match sc {
+            ir::StaticControl::Enable(_) => vec![],
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+                let mut lat = cur_latency;
+                let mut res = vec![];
+                for stmt in stmts {
+                    res.extend(Self::get_offload_latencies(sc, lat));
+                    lat += stmt.get_latency();
+                }
+                res
+            }
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                let mut res = vec![];
+                if Self::have_overlapping_offloads(sc) {
+                    res.push((cur_latency, cur_latency + sc.get_latency()))
+                } else {
+                    for stmt in stmts {
+                        res.extend(Self::get_offload_latencies(
+                            stmt,
+                            cur_latency,
+                        ));
+                    }
+                }
+                res
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
+            }) => {
+                let mut res =
+                    Self::get_offload_latencies(&tbranch, cur_latency);
+                res.extend(Self::get_offload_latencies(&fbranch, cur_latency));
+                res
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat {
+                num_repeats,
+                body,
+                ..
+            }) => {
+                let res = vec![(
+                    cur_latency,
+                    cur_latency + num_repeats * body.get_latency(),
+                )];
+                // Ths commented code is unnecessary since we only care about
+                // intersections, and the above interval covers all intersections.
+                // let mut lat = cur_latency;
+                // for _ in 0..*num_repeats {
+                //     res.extend(Self::get_repeat_latencies(&body, lat));
+                //     lat += cur_latency;
+                // }
+                res
+            }
+            ir::StaticControl::Empty(_) => unreachable!(
+                "should not call inline_static_control on empty stmt"
+            ),
+            ir::StaticControl::Invoke(inv) => {
+                dbg!(inv.comp.borrow().name());
+                todo!("implement static inlining for invokes")
+            }
+        }
+    }
+
+    fn have_overlapping_offloads(sc: &ir::StaticControl) -> bool {
+        match sc {
+            ir::StaticControl::Enable(_) => false,
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+                .iter()
+                .any(|stmt| Self::have_overlapping_offloads(stmt)),
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                let intervals: Vec<_> = stmts
+                    .iter()
+                    .map(|stmt| Self::get_offload_latencies(stmt, 0))
+                    .collect();
+                for (intervals1, intervals2) in
+                    intervals.iter().tuple_combinations()
+                {
+                    for &(start1, end1) in intervals1.iter() {
+                        for &(start2, end2) in intervals2.iter() {
+                            if (start2 <= end1 && end1 <= end2)
+                                || (start1 <= end2 && end2 <= end1)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                false
+                // again we don't have to check because we will check this later
+                // on in inline_static_control
+                // stmts
+                //     .iter()
+                //     .any(|stmt| Self::have_overlapping_repeats(stmt))
+            }
+
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
+            }) => {
+                Self::have_overlapping_offloads(&tbranch)
+                    || Self::have_overlapping_offloads(&fbranch)
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                Self::have_overlapping_offloads(&body)
+            }
+            ir::StaticControl::Empty(_) => unreachable!(
+                "should not call inline_static_control on empty stmt"
+            ),
+            ir::StaticControl::Invoke(inv) => {
+                dbg!(inv.comp.borrow().name());
+                todo!("implement static inlining for invokes")
+            }
+        }
+    }
+
     // inlines the static control `sc` and returns an equivalent single static group
     fn inline_static_control(
         sc: &ir::StaticControl,
@@ -179,14 +298,60 @@ impl StaticInliner {
                 latency,
                 attributes,
             }) => {
-                // par_group triggers thread[go] for each thread in the par
-                let par_group =
-                    builder.add_static_group("static_par", *latency);
-                let mut par_group_assigns: Vec<
-                    ir::Assignment<ir::StaticTiming>,
-                > = vec![];
-                for stmt in stmts {
+                let mut conflict_graph: GraphColoring<usize> =
+                    GraphColoring::from(0..stmts.len());
+                let offload_interval_info = stmts
+                    .iter()
+                    .map(|stmt| Self::get_offload_latencies(stmt, 0))
+                    .collect_vec();
+                for (i, j) in (0..stmts.len()).tuple_combinations() {
+                    let intervals1 = &offload_interval_info[i];
+                    let intervals2 = &offload_interval_info[j];
+                    for &(start1, end1) in intervals1.iter() {
+                        for &(start2, end2) in intervals2.iter() {
+                            if (start2 <= end1 && end1 <= end2)
+                                || (start1 <= end2 && end2 <= end1)
+                            {
+                                conflict_graph.insert_conflict(&i, &j);
+                            }
+                        }
+                    }
+                }
+                let threads_to_colors = conflict_graph.color_greedy(None, true);
+                let mut colors_to_threads: BTreeMap<usize, Vec<_>> =
+                    BTreeMap::new();
+                for (thread, color) in &threads_to_colors {
+                    colors_to_threads.entry(*color).or_default().push(thread);
+                }
+                let colors_to_latencies: BTreeMap<usize, u64> =
+                    colors_to_threads
+                        .into_iter()
+                        .map(|(color, threads)| {
+                            (
+                                color,
+                                threads
+                                    .iter()
+                                    .map(|thread| {
+                                        stmts
+                                            .get(**thread)
+                                            .unwrap()
+                                            .get_latency()
+                                    })
+                                    .max()
+                                    .unwrap(),
+                            )
+                        })
+                        .collect();
+
+                let mut threads: BTreeMap<
+                    usize,
+                    Vec<ir::Assignment<ir::StaticTiming>>,
+                > = BTreeMap::new();
+                for (index, stmt) in stmts.iter().enumerate() {
                     let stmt_latency = stmt.get_latency();
+                    let color_latency = *colors_to_latencies
+                        .get(&index)
+                        .expect("coloring has gone wrong somehow");
                     // recursively turn each stmt in the par block into a group g
                     let stmt_group =
                         StaticInliner::inline_static_control(stmt, builder);
@@ -194,36 +359,80 @@ impl StaticInliner {
                         stmt_group.borrow().get_latency() == stmt_latency,
                         "static group latency doesn't match static stmt latency"
                     );
-                    // Assign par_group[go] = %[0:par_latency] ? 1'd1;
+                    let mut group_assigns =
+                        stmt_group.borrow().assignments.clone();
+                    if stmt_latency < color_latency {
+                        group_assigns.iter_mut().for_each(|assign| {
+                            assign.guard.add_interval(StaticTiming::new((
+                                0,
+                                stmt_latency,
+                            )))
+                        })
+                    }
+                    threads
+                        .entry(*threads_to_colors.get(&index).unwrap())
+                        .or_default()
+                        .extend(group_assigns);
+                }
+
+                let mut groups = threads
+                    .into_iter()
+                    .map(|(index, assigns)| {
+                        let thread_group = builder.add_static_group(
+                            "static_par_thread",
+                            *colors_to_latencies.get(&index).expect(
+                                "something has gone wrong merging par threads",
+                            ),
+                        );
+                        thread_group.borrow_mut().assignments = assigns;
+                        thread_group
+                    })
+                    .collect_vec();
+
+                if groups.len() == 1 {
+                    let par_group = groups.pop().unwrap();
+                    par_group.borrow_mut().attributes = attributes.clone();
+                    par_group
+                } else {
+                    let par_group =
+                        builder.add_static_group("static_par", *latency);
+                    let mut par_group_assigns: Vec<
+                        ir::Assignment<ir::StaticTiming>,
+                    > = vec![];
+                    for group in groups {
+                        // Assign par_group[go] = %[0:par_latency] ? 1'd1;
+                        structure!( builder;
+                            let signal_on = constant(1,1);
+                        );
+                        let stmt_guard =
+                            ir::Guard::Info(ir::StaticTiming::new((
+                                0,
+                                group.borrow().get_latency(),
+                            )));
+                        let trigger_body = build_assignments!(builder;
+                            group["go"] = stmt_guard ? signal_on["out"];
+                        );
+                        par_group_assigns.extend(trigger_body);
+                    }
+
+                    par_group.borrow_mut().assignments = par_group_assigns;
+                    par_group.borrow_mut().attributes = attributes.clone();
+                    par_group
+                        .borrow_mut()
+                        .attributes
+                        .insert(ir::BoolAttr::ParCtrl, 1);
+                    let par_wrapper =
+                        builder.add_static_group("static_par", *latency);
                     structure!( builder;
                         let signal_on = constant(1,1);
                     );
-                    let stmt_guard = ir::Guard::Info(ir::StaticTiming::new((
-                        0,
-                        stmt_latency,
-                    )));
                     let trigger_body = build_assignments!(builder;
-                        stmt_group["go"] = stmt_guard ? signal_on["out"];
+                        par_group["go"] = ? signal_on["out"];
                     );
-                    par_group_assigns.extend(trigger_body);
+                    // par_wrapper triggers par_group[go]
+                    par_wrapper.borrow_mut().assignments.extend(trigger_body);
+                    par_wrapper
                 }
-                par_group.borrow_mut().assignments = par_group_assigns;
-                par_group.borrow_mut().attributes = attributes.clone();
-                par_group
-                    .borrow_mut()
-                    .attributes
-                    .insert(ir::BoolAttr::ParCtrl, 1);
-                let par_wrapper =
-                    builder.add_static_group("static_par", *latency);
-                structure!( builder;
-                    let signal_on = constant(1,1);
-                );
-                let trigger_body = build_assignments!(builder;
-                    par_group["go"] = ? signal_on["out"];
-                );
-                // par_wrapper triggers par_group[go]
-                par_wrapper.borrow_mut().assignments.extend(trigger_body);
-                par_wrapper
             }
             ir::StaticControl::If(ir::StaticIf {
                 port,
