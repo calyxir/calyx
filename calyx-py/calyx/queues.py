@@ -203,7 +203,7 @@ class NWCSimple:
         if len(self.data) >= self.max_len:
             raise QueueError("Overflow")
 
-        heapq.heappush(self.data, RankValue((rank << 32 + self.insertion_count), (val, time)))
+        heapq.heappush(self.data, RankValue(((rank << 32) + self.insertion_count), (val, time)))
         self.insertion_count += 1
     
     def ripe(self, time) -> bool:
@@ -216,7 +216,7 @@ class NWCSimple:
         temp = []
 
         while len(self.data) > 0:
-            if self.data[0].value[1] <= time and (val is None or self.data[0].value[0] == val):
+            if self.ripe(time) and (val is None or self.data[0].value[0] == val):
                 result = heapq.heappop(self.data) if remove else self.data[0]
 
                 for elem in temp:
