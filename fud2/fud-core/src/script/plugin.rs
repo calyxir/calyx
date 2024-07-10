@@ -16,8 +16,8 @@ use super::{
     resolver::Resolver,
 };
 
-// The name, input states, and output states of an op
-type OpSig = (String, Vec<StateRef>, Vec<StateRef>);
+// The name, input states, output states, and shell commands to run of an op
+type OpSig = (String, Vec<StateRef>, Vec<StateRef>, Vec<String>);
 
 #[derive(Clone)]
 struct ScriptContext {
@@ -109,14 +109,32 @@ impl ScriptContext {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             None => {
-                *cur_op = Some((name.to_string(), inputs, outputs));
+                *cur_op = Some((name.to_string(), inputs, outputs, vec![]));
                 RhaiResult::Ok(())
             }
-            Some((ref old_name, _, _)) => {
+            Some((ref old_name, _, _, _)) => {
                 Err(RhaiSystemError::began_op(old_name, name)
                     .with_pos(ctx.position())
                     .into())
             }
+        }
+    }
+
+    /// Adds a shell command to the `cur_op` or returns an error if `cur_op` is `None`.
+    fn add_shell(
+        &self,
+        ctx: &rhai::NativeCallContext,
+        cmd: String,
+    ) -> RhaiResult<()> {
+        let mut cur_op = self.cur_op.borrow_mut();
+        match *cur_op {
+            Some(ref mut op_sig) => {
+                op_sig.3.push(cmd);
+                Ok(())
+            }
+            None => Err(RhaiSystemError::no_op(&cmd)
+                .with_pos(ctx.position())
+                .into()),
         }
     }
 }
@@ -302,6 +320,16 @@ impl ScriptRunner {
         );
     }
 
+    /// Registers a Rhai function which adds shell commands to be used by an op.
+    fn reg_shell(&mut self, sctx: ScriptContext) {
+        self.engine.register_fn(
+            "shell",
+            move |ctx: rhai::NativeCallContext, cmd: &str| -> RhaiResult<_> {
+                sctx.add_shell(&ctx, cmd.to_string())
+            },
+        );
+    }
+
     fn script_context(&self, path: PathBuf) -> ScriptContext {
         ScriptContext {
             builder: Rc::clone(&self.builder),
@@ -317,6 +345,7 @@ impl ScriptRunner {
         self.reg_rule(sctx.clone());
         self.reg_op(sctx.clone());
         self.reg_start_op_stmts(sctx.clone());
+        self.reg_shell(sctx.clone());
 
         self.engine
             .module_resolver()
