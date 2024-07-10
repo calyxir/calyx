@@ -27,12 +27,14 @@ def dump_json(commands, values, ans_mem, ranks=None, times=None):
 
     payload = {
         "ans_mem": ans_mem,
-        "commands": commands,
-        "values": values,
+        "commands": commands
     }
 
     if ranks:
         payload["ranks"] = ranks
+
+    payload["values"] = values
+
     if times:
         payload["times"] = times
         
