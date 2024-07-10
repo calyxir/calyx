@@ -16,9 +16,9 @@ cat ../test/correctness/queues/sdn.data | python3 pifo_tree_oracle.py $num_cmds 
 
 for queue_kind in fifo pifo pifo_tree; do
     python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/$queue_kind.data
-    # [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.data ../test/correctness/queues/binheap/$queue_kind.data
+    [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.data ../test/correctness/queues/binheap/$queue_kind.data
     cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/$queue_kind.expect
-    # [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.expect ../test/correctness/queues/binheap/$queue_kind.expect
+    [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.expect ../test/correctness/queues/binheap/$queue_kind.expect
 done
 
 # Here, we test the queues for non-work-conserving algorithms,
@@ -41,9 +41,9 @@ done
 # with 2..7 flows, with strict queues implementing a different strict ordering for each version.
 # This generates 6 data expect file pairs.
 
-for queue_kind in rr strict; do
-    for n in {2..7}; do
-        python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data
-        cat ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data | python3 $queue_kind\_queue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.expect
-    done
-done
+# for queue_kind in rr strict; do
+#     for n in {2..7}; do
+#         python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data
+#         cat ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data | python3 $queue_kind\_queue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.expect
+#     done
+# done
