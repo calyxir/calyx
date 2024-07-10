@@ -410,7 +410,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         builder: &mut ir::Builder,
         fsm_rep: &FSMRepresentation,
     ) -> (Vec<RRC<Cell>>, RRC<Cell>, u64) {
-        /* represent 0..final_state */
+        // get fsm bit width and build constant emitting fsm first state
         let (fsm_size, first_state) = match fsm_rep.encoding {
             RegisterEncoding::Binary => {
                 let fsm_size = get_bit_width_from(fsm_rep.last_state + 1);
@@ -426,7 +426,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let mut add_fsm_regs = |prim_name: &str, num_regs: u64| {
             (0..num_regs)
                 .map(|n| {
-                    let fsm_name = format!("fsm{}", n);
+                    let fsm_name = if num_regs == 1 {
+                        "fsm".to_string()
+                    } else {
+                        format!("fsm{}", n)
+                    };
                     builder.add_primitive(
                         fsm_name.as_str(),
                         prim_name,
@@ -436,7 +440,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .collect_vec()
         };
 
-        let fsms: Vec<RRC<Cell>> = match (fsm_rep.encoding, fsm_rep.spread) {
+        let fsms = match (fsm_rep.encoding, fsm_rep.spread) {
             (RegisterEncoding::Binary, RegisterSpread::Single) => {
                 add_fsm_regs("std_reg", 1)
             }
@@ -452,6 +456,30 @@ impl<'b, 'a> Schedule<'b, 'a> {
         };
 
         (fsms, first_state, fsm_size)
+    }
+
+    /// Given the state of the FSM, returns the index for the register in `fsms``
+    /// that should be queried.
+    ///
+    /// A query for each state must read from one of the `num_registers` registers.
+    /// For `r` registers and `n` states, we split into "buckets" as follows:
+    ///     `{0, ... , n/r - 1} -> reg. @ index 0`,
+    ///     `{n/r, ... , 2n/r - 1} -> reg. @ index 1`,
+    ///     ...,
+    ///     `{(r-1)n/r, ... , n - 1} -> reg. @ index n - 1`.
+    /// 
+    /// Note that dividing each state by the value `n/r`normalizes the state w.r.t.
+    /// the FSM register from which it should read. We can then take the floor of this value
+    /// (or, equivalently, use unsigned integer division) to get this register index.
+    fn register_to_query(
+        state: u64,
+        num_states: u64,
+        fsms: &Vec<RRC<ir::Cell>>,
+    ) -> usize {
+        let num_registers: u64 = fsms.len().try_into().unwrap();
+        let reg_to_query: usize =
+            (state * num_registers / (num_states)).try_into().unwrap();
+        reg_to_query
     }
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
@@ -512,11 +540,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .flat_map(|(state, mut assigns)| {
                     // find the register from which to query; try to split evenly among registers
                     let (fsm, used_slicers) = {
-                        let num_registers: u64 =
-                            fsms.len().try_into().unwrap();
-                        let reg_to_query : usize = (state * num_registers
-                            / (fsm_rep.last_state)).try_into().unwrap();
-
+                        let reg_to_query = Self::register_to_query(state, fsm_rep.last_state, &fsms);
                         (
                             fsms.get(reg_to_query).expect("the register at this index does not exist"),
                             used_slicers_vec.get_mut(reg_to_query).expect(
