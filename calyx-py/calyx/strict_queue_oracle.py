@@ -22,9 +22,9 @@ if __name__ == "__main__":
     elif numflows == 6:
         boundaries = [66, 100, 200, 220, 300, 400]
         order = [3, 1, 5, 2, 4, 0]
-    elif numflows == 7:
-        boundaries = [74, 90, 150, 228, 364, 400]
-        order = [4, 6, 1, 5, 2, 0, 3]
+    # elif numflows == 7:
+    #     boundaries = [74, 90, 150, 228, 364, 400]
+    #     order = [4, 6, 1, 5, 2, 0, 3]
     else:
         raise ValueError("Unsupported number of flows")
 
