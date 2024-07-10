@@ -1,9 +1,10 @@
 use crate::{
     exec::{OpRef, SetupRef, StateRef},
+    run::EmitBuildClosure,
     DriverBuilder,
 };
 use std::{
-    cell::RefCell,
+    cell::{RefCell, RefMut},
     collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
@@ -17,7 +18,12 @@ use super::{
 };
 
 // The name, input states, output states, and shell commands to run of an op
-type OpSig = (String, Vec<StateRef>, Vec<StateRef>, Vec<String>);
+type OpSig = (
+    String,
+    Vec<(String, StateRef)>,
+    Vec<(String, StateRef)>,
+    Vec<String>,
+);
 
 #[derive(Clone)]
 struct ScriptContext {
@@ -85,12 +91,23 @@ impl ScriptContext {
         &self,
         ctx: &rhai::NativeCallContext,
         name: &str,
+        input_names: rhai::Array,
         inputs: rhai::Array,
+        output_names: rhai::Array,
         outputs: rhai::Array,
     ) -> RhaiResult<()> {
         let inputs = inputs
             .into_iter()
             .map(|i| match i.clone().try_cast::<StateRef>() {
+                Some(state) => Ok(state),
+                None => Err(RhaiSystemError::state_ref(i)
+                    .with_pos(ctx.position())
+                    .into()),
+            })
+            .collect::<RhaiResult<Vec<_>>>()?;
+        let input_names = input_names
+            .into_iter()
+            .map(|i| match i.clone().try_cast::<String>() {
                 Some(state) => Ok(state),
                 None => Err(RhaiSystemError::state_ref(i)
                     .with_pos(ctx.position())
@@ -106,11 +123,28 @@ impl ScriptContext {
                     .into()),
             })
             .collect::<RhaiResult<Vec<_>>>()?;
+        let output_names = output_names
+            .into_iter()
+            .map(|i| match i.clone().try_cast::<String>() {
+                Some(state) => Ok(state),
+                None => Err(RhaiSystemError::state_ref(i)
+                    .with_pos(ctx.position())
+                    .into()),
+            })
+            .collect::<RhaiResult<Vec<_>>>()?;
+        let input_tuples = input_names.into_iter().zip(inputs).collect();
+        let output_tuples = output_names.into_iter().zip(outputs).collect();
+
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             None => {
-                *cur_op = Some((name.to_string(), inputs, outputs, vec![]));
-                RhaiResult::Ok(())
+                *cur_op = Some((
+                    name.to_string(),
+                    input_tuples,
+                    output_tuples,
+                    vec![],
+                ));
+                Ok(())
             }
             Some((ref old_name, _, _, _)) => {
                 Err(RhaiSystemError::began_op(old_name, name)
@@ -120,7 +154,8 @@ impl ScriptContext {
         }
     }
 
-    /// Adds a shell command to the `cur_op` or returns an error if `cur_op` is `None`.
+    /// Adds a shell command to the `cur_op`.Returns and error if `begin_op` has not been called
+    /// before this `end_op` and after any previous `end_op`
     fn add_shell(
         &self,
         ctx: &rhai::NativeCallContext,
@@ -132,9 +167,76 @@ impl ScriptContext {
                 op_sig.3.push(cmd);
                 Ok(())
             }
-            None => Err(RhaiSystemError::no_op(&cmd)
-                .with_pos(ctx.position())
-                .into()),
+            None => {
+                Err(RhaiSystemError::no_op().with_pos(ctx.position()).into())
+            }
+        }
+    }
+
+    /// If `{$ident}` is a substring of `cmd` and `("ident", "value")` is in `mapping`, returns a
+    /// string identical to `cmd` except for all instances `{$ident}` replaced with `value`.
+    fn substitute_shell_text(cmd: &str, mapping: &[(&str, &str)]) -> String {
+        let mut cur = cmd.to_string();
+        for (i, v) in mapping {
+            let substr = format!("{{${}}}", i);
+            cur = cur.replace(&substr, v);
+        }
+        cur
+    }
+
+    /// Collects an op currently being built and adds it to `bld`. Returns and error if `begin_op`
+    /// has not been called before this `end_op` and after any previous `end_op`.
+    fn end_op(
+        &self,
+        ctx: &rhai::NativeCallContext,
+        mut bld: RefMut<DriverBuilder>,
+    ) -> RhaiResult<()> {
+        let mut cur_op = self.cur_op.borrow_mut();
+        match *cur_op {
+            Some((ref name, ref input_tuples, ref output_tuples, ref cmds)) => {
+                // Create the emitter.
+                let input_tuples_c = input_tuples.clone();
+                let output_tuples_c = output_tuples.clone();
+                let cmds = cmds.clone();
+                let name_c = name.clone();
+                let f: EmitBuildClosure =
+                    Box::new(move |e, inputs, outputs| {
+                        // Subsitute variables in shell commands with actual values.
+                        let input_names = input_tuples_c.iter().map(|(s, _)| s);
+                        let output_names =
+                            output_tuples_c.iter().map(|(s, _)| s);
+                        let mapping: Vec<_> = input_names
+                            .into_iter()
+                            .chain(output_names)
+                            .map(|s| s.as_str())
+                            .zip(inputs.iter().chain(outputs.iter()).copied())
+                            .collect();
+                        let cmds: Vec<_> = cmds
+                            .iter()
+                            .map(|c| Self::substitute_shell_text(c, &mapping))
+                            .collect();
+
+                        // Write the Ninja file.
+                        let cmd = cmds.join(" && ");
+                        e.rule(&name_c, &cmd)?;
+                        e.build_cmd(inputs, &name_c, outputs, &[])?;
+                        Ok(())
+                    });
+
+                // Add the op.
+                let inputs: Vec<_> =
+                    input_tuples.iter().map(|(_, s)| *s).collect();
+                let outputs: Vec<_> =
+                    output_tuples.iter().map(|(_, s)| *s).collect();
+                bld.add_op(name, &[], &inputs, &outputs, f);
+
+                // Now no op is being built.
+                *cur_op = None;
+                Ok(())
+            }
+            None => {
+                Err(RhaiSystemError::no_op().with_pos(ctx.position()).into())
+            }
         }
     }
 }
@@ -312,10 +414,19 @@ impl ScriptRunner {
             "start_op_stmts",
             move |ctx: rhai::NativeCallContext,
                   name: &str,
+                  input_names: rhai::Array,
                   inputs: rhai::Array,
+                  output_names: rhai::Array,
                   outputs: rhai::Array|
                   -> RhaiResult<_> {
-                sctx.begin_op(&ctx, name, inputs, outputs)
+                sctx.begin_op(
+                    &ctx,
+                    name,
+                    input_names,
+                    inputs,
+                    output_names,
+                    outputs,
+                )
             },
         );
     }
@@ -326,6 +437,18 @@ impl ScriptRunner {
             "shell",
             move |ctx: rhai::NativeCallContext, cmd: &str| -> RhaiResult<_> {
                 sctx.add_shell(&ctx, cmd.to_string())
+            },
+        );
+    }
+
+    /// Registers a Rhai function which stops the parser listening to shell commands and adds the
+    /// created op to `self.builder`.
+    fn reg_end_op_stmts(&mut self, sctx: ScriptContext) {
+        let bld = Rc::clone(&self.builder);
+        self.engine.register_fn(
+            "end_op_stmts",
+            move |ctx: rhai::NativeCallContext| -> RhaiResult<_> {
+                sctx.end_op(&ctx, bld.borrow_mut())
             },
         );
     }
@@ -346,6 +469,7 @@ impl ScriptRunner {
         self.reg_op(sctx.clone());
         self.reg_start_op_stmts(sctx.clone());
         self.reg_shell(sctx.clone());
+        self.reg_end_op_stmts(sctx.clone());
 
         self.engine
             .module_resolver()

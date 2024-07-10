@@ -87,6 +87,20 @@ impl EmitBuild for EmitBuildFn {
     }
 }
 
+pub type EmitBuildClosure =
+    Box<dyn Fn(&mut StreamEmitter, &[&str], &[&str]) -> EmitResult>;
+
+impl EmitBuild for EmitBuildClosure {
+    fn build(
+        &self,
+        emitter: &mut StreamEmitter,
+        input: &[&str],
+        output: &[&str],
+    ) -> EmitResult {
+        self(emitter, input, output)
+    }
+}
+
 // TODO make this unnecessary...
 /// A simple `build` emitter that just runs a Ninja rule.
 pub struct EmitRuleBuild {

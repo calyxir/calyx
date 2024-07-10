@@ -13,7 +13,7 @@ pub(super) enum RhaiSystemErrorKind {
     SetupRef(String),
     StateRef(String),
     BeganOp(String, String),
-    NoOp(String),
+    NoOp,
 }
 
 impl RhaiSystemError {
@@ -41,9 +41,9 @@ impl RhaiSystemError {
         }
     }
 
-    pub(super) fn no_op(cmd: &str) -> Self {
+    pub(super) fn no_op() -> Self {
         Self {
-            kind: RhaiSystemErrorKind::NoOp(cmd.to_string()),
+            kind: RhaiSystemErrorKind::NoOp,
             position: rhai::Position::NONE,
         }
     }
@@ -66,8 +66,8 @@ impl Display for RhaiSystemError {
             RhaiSystemErrorKind::BeganOp(old_name, new_name) => {
                 write!(f, "Unable to build two ops at once: trying to build `{new_name:?}` but already building `{old_name:?}`")
             }
-            RhaiSystemErrorKind::NoOp(cmd) => {
-                write!(f, "No op exists: unable to add cmd `{cmd:?}`")
+            RhaiSystemErrorKind::NoOp => {
+                write!(f, "Unable to find current op being built. Consider calling start_op_stmts earlier in the program.")
             }
         }
     }
