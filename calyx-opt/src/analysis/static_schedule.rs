@@ -1027,6 +1027,9 @@ impl Tree {
         let fsm_cell: Rc<std::cell::RefCell<StaticFSM>> =
             Rc::clone(fsm_cell_opt.expect("just checked if None"));
 
+        let my_special_case = query == (1, 3)
+            && fsm_cell.borrow().fsm_cell.borrow().name() == "fsm0";
+
         let (query_beg, query_end) = query;
         let mut beg_interval = ir::Guard::True.not();
         let mut end_interval = ir::Guard::True.not();
@@ -1113,7 +1116,7 @@ impl Tree {
                         // would have been caught by the previous elif condition.
                         let child_query = child
                             .query_between((0, (query_end - beg)), builder);
-                        beg_interval = in_offload_state.and(child_query);
+                        end_interval = in_offload_state.and(child_query);
                     }
                 };
             }
@@ -1461,6 +1464,7 @@ impl ParTree {
             .clone()
             .into_iter()
             .map(|assign| {
+                dbg!("realizeing here for some reason");
                 longest_tree.make_assign_dyn(assign, true, false, builder)
             })
             .collect_vec();
