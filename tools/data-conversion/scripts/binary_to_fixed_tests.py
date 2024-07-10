@@ -12,7 +12,7 @@ def generate_tests(num_tests):
     tests = []
     for _ in range(num_tests):
         # Generate a random binary string (up to 32 bits for u32 in Rust)
-        binary_string = generate_binary_string(random.randint(1, 22))
+        binary_string = generate_binary_string(random.randint(1, 24))
         tests.append((binary_string))
     
     return tests
@@ -46,8 +46,8 @@ def convert_binary_to_fixed(binary_string, exponent):
     formatted = '{:.8e}'.format(fixed_point_number) 
     return formatted + "\n"
 
-def run_rust_function(input_file, output_file):
-    rust_command = f"../../target/debug/data-conversion --from {input_file} --to {output_file} --ftype 'binary' --totype 'fixed' --exp -4 -o"
+def run_rust_function(input_file, output_file, exponent):
+    rust_command = f"../../target/debug/data-conversion --from {input_file} --to {output_file} --ftype 'binary' --totype 'fixed' --exp {exponent}"
     result = subprocess.run(rust_command, shell=True, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Can't run rust function")
@@ -64,10 +64,10 @@ def compare_files(output_file, expect_file):
     return output_content == expect_content
 
 if __name__ == '__main__':
-    num_tests = 10
-    input_dir = "/Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/inputs"
-    expect_dir = "/Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/expect"
-    output_dir = "/Users/Angelica/Desktop/calyx/tools/data-conversion/testsuite/outputs"
+    num_tests = 100
+    input_dir = "../testsuite/inputs"
+    expect_dir = "../testsuite/expect"
+    output_dir = "../testsuite/outputs"
     exponent = -4
 
     #Generate Tests
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         output_file = os.path.join(output_dir, f"test_{idx+1}.out")
         expect_file = os.path.join(expect_dir, f"test_{idx+1}.expect")
 
-        if run_rust_function(input_file, output_file):
+        if run_rust_function(input_file, output_file, exponent):
             if compare_files(output_file, expect_file):
                 print(f"Test {idx+1} passed.")
             else:

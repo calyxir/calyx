@@ -62,8 +62,8 @@ struct Arguments {
     from: String,
 
     /// optional file to convery to
-    #[argh(option, default = "String::from(\"\")")]
-    to: String,
+    #[argh(option)]
+    to: Option<String>,
 
     /// type to convert from
     #[argh(option)]
@@ -80,10 +80,6 @@ struct Arguments {
     /// optional for fixed_to_binary using bit slicing. If choosen, will use bit slicing.
     #[argh(switch, short = 'b')]
     bits: bool,
-
-    /// when used, will send results to a file. Default is sending to standardout
-    #[argh(switch, short = 'o')]
-    out: bool,
 }
 
 fn main() {
@@ -96,7 +92,6 @@ fn main() {
         args.totype,
         args.exp,
         args.bits,
-        args.out,
     );
 }
 
@@ -119,19 +114,16 @@ fn main() {
 /// or an `Err` if an I/O error occurs during the process.
 fn convert(
     filepath_get: &String,
-    filepath_send: &String,
+    filepath_send: &Option<String>,
     convert_from: NumType,
     convert_to: NumType,
     exponent: i32,
     bits: bool,
-    out: bool,
 ) {
-    // Create the output file
-    let mut converted: Option<File> = if out {
-        Some(File::create(filepath_send).expect("creation failed"))
-    } else {
-        None
-    };
+    // Create the output file if filepath_send is Some
+    let mut converted: Option<File> = filepath_send.as_ref().map(|path| {
+        File::create(path).expect("creation failed")
+    });
 
     match (convert_from, convert_to) {
         (NumType::Hex, NumType::Binary) => {
@@ -183,15 +175,15 @@ fn convert(
             convert_to.to_string()
         ),
     }
-    if out {
+    if let Some(filepath) = filepath_send {
         eprintln!(
             "Successfully converted from {} to {} in {}",
             convert_from.to_string(),
             convert_to.to_string(),
-            filepath_send
+            filepath
         );
     } else {
-        (
+        eprintln!(
             "Successfully converted from {} to {}",
             convert_from.to_string(),
             convert_to.to_string(),
@@ -509,7 +501,7 @@ fn binary_to_fixed(
     // Exponent math
     let divided: f32 = int_of_binary / 2_f32.powf(-exponent);
 
-    let string_of_divided = format!("{:.8e}", divided);
+    let string_of_divided = format!("{:+.8e}", divided);
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
