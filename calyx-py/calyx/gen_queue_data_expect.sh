@@ -37,13 +37,13 @@ done
 # cat ../test/correctness/queues/binheap/stable_binheap.data | python3 binheap_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/binheap/stable_binheap.expect
 
 # For the Round Robin and Strict queues, we drop piezo mode as well, and use
-# rr_queue_oracle.py and strict_queuE_oracle.py to generate the expected output for queues
+# rr_queue_oracle.py and strict_queue_oracle.py to generate the expected output for queues
 # with 2..7 flows, with strict queues implementing a different strict ordering for each version.
 # This generates 6 data expect file pairs.
 
-# for queue_kind in rr strict; do
-#     for n in {2..7}; do
-#         python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data
-#         cat ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data | python3 $queue_kind\_queue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.expect
-#     done
-# done
+for queue_kind in rr strict; do
+    for n in {2..7}; do
+        python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data
+        cat ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.data | python3 $queue_kind\_queue_oracle.py $num_cmds $queue_size $n --keepgoing > ../test/correctness/queues/strict_and_rr_queues/$queue_kind\_queues/$queue_kind\_queue_${n}flows.expect
+    done
+done
