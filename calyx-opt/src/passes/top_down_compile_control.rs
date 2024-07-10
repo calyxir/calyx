@@ -460,14 +460,12 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
     /// Given the state of the FSM, returns the index for the register in `fsms``
     /// that should be queried.
-    ///
     /// A query for each state must read from one of the `num_registers` registers.
     /// For `r` registers and `n` states, we split into "buckets" as follows:
-    ///     `{0, ... , n/r - 1} -> reg. @ index 0`,
-    ///     `{n/r, ... , 2n/r - 1} -> reg. @ index 1`,
-    ///     ...,
-    ///     `{(r-1)n/r, ... , n - 1} -> reg. @ index n - 1`.
-    /// 
+    /// `{0, ... , n/r - 1} -> reg. @ index 0`,
+    /// `{n/r, ... , 2n/r - 1} -> reg. @ index 1`,
+    /// ...,
+    /// `{(r-1)n/r, ... , n - 1} -> reg. @ index n - 1`.
     /// Note that dividing each state by the value `n/r`normalizes the state w.r.t.
     /// the FSM register from which it should read. We can then take the floor of this value
     /// (or, equivalently, use unsigned integer division) to get this register index.
