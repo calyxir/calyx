@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
-from typing import Any, Optional
-import heapq
+from dataclasses import dataclass
+from typing import List
+from typing import Optional
 
 
 class QueueError(Exception):
@@ -22,19 +22,19 @@ class Fifo:
         self.data = []
         self.max_len = max_len
 
-    def push(self, val: int, *_) -> None:
+    def push(self, val: int, time=0, rank=None) -> None:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
             raise QueueError("Cannot push to full FIFO.")
         self.data.append(val)
 
-    def pop(self, *_) -> Optional[int]:
+    def pop(self, time=0) -> Optional[int]:
         """Pops the FIFO."""
         if len(self.data) == 0:
             raise QueueError("Cannot pop from empty FIFO.")
         return self.data.pop(0)
 
-    def peek(self, *_) -> Optional[int]:
+    def peek(self, time=0) -> Optional[int]:
         """Peeks into the FIFO."""
         if len(self.data) == 0:
             raise QueueError("Cannot peek into empty FIFO.")
@@ -42,9 +42,6 @@ class Fifo:
 
     def __len__(self) -> int:
         return len(self.data)
-
-    def __str__(self):
-        return str(self.data)
 
 
 @dataclass
@@ -96,7 +93,7 @@ class Pifo:
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int, *_) -> None:
+    def push(self, val: int, time=0, rank=None) -> None:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
@@ -106,7 +103,7 @@ class Pifo:
             self.data[1].push(val)
         self.pifo_len += 1
 
-    def pop(self, *_) -> Optional[int]:
+    def pop(self, time=0) -> Optional[int]:
         """Pops the PIFO."""
         if self.pifo_len == 0:
             raise QueueError("Cannot pop from empty PIFO.")
@@ -126,7 +123,7 @@ class Pifo:
                 self.hot = 1
                 return self.data[0].pop()
 
-    def peek(self, *_) -> Optional[int]:
+    def peek(self, time=0) -> Optional[int]:
         """Peeks into the PIFO."""
         if self.pifo_len == 0:
             raise QueueError("Cannot peek into empty PIFO.")
@@ -144,139 +141,35 @@ class Pifo:
     def __len__(self) -> int:
         return self.pifo_len
 
-@dataclass(order=True)
-class RankValue:
-    priority: int
-    value: Any = field(compare=False)
-
-@dataclass
-class NWCSimple:
-    """A simple test oracle structure for non-work-conserving queues.
-    
-    This serves the same purpose as PIEOs and Calendar Queues (see Python implementation below),
-    representing an abstract implementation for any non-work-conserving, time-dependent structure.
-    
-    In our implementation, we support time-based 'ripeness' predicates,
-    which check that an element's encoded 'readiness time' is earlier than the specified current time.
-
-    The term 'ripe', as defined above, takes in an element (which has some encoded readiness time),
-    and a specified 'current time'. It checks that the element's readiness time is <= the current time.
-
-    Supports the operations `push`, `pop`, and `peek`.
-
-    Stores elements in the form of a heap (using the `heapq` library).
-    
-    At initialization, we take a `max_len` value to store the maximum possible
-    length of a queue.
-
-    When asked to push:
-    - If the queue is at length `max_len`, we raise an error.
-    - Otherwise, we insert the element into the PIEO such that the rank order stays increasing.
-    - To avoid ties between ranks, we left-shift the rank and then add either a custom buffer,
-        or an internal element count tracker.
-
-    When asked to pop:
-    - If the length of `data` is 0, we raise an error .
-
-    - We can either pop based on value or based on eligibility.
-    - This implementation supports the most common readiness predicate - whether an element is 'ripe', 
-        or time-ready (the inputted time is >= the element's specified readiness time).
-
-    - If a value is passed in, we pop the first (lowest-rank) instance of that value which is 'ripe'.
-    - If no value is passed in but a time is,
-        we pop the first (lowest-rank) value that passes the predicate.
-
-    When asked to peek:
-    We do the same thing as `pop`, except:
-    - We peek instead of popping - i.e. we don't remove any elements.
-
-    We compactly represent these similar operations through `query`, which takes in an additional
-    optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
-    """
-
-    def __init__(self, max_len: int):
-        self.data = []
-        self.max_len = max_len
-        self.insertion_count = 0
-    
-    def push(self, val, rank=0, time=0) -> None:
-        if len(self.data) >= self.max_len:
-            raise QueueError("Overflow")
-
-        heapq.heappush(self.data, RankValue(((rank << 32) + self.insertion_count), (val, time)))
-        self.insertion_count += 1
-    
-    def ripe(self, time) -> bool:
-        return self.data[0].value[1] <= time
-
-    def query(self, time=0, val=None, remove=False) -> Optional[int]:
-        if len(self.data) == 0:
-            raise QueueError("Underflow")
-    
-        temp = []
-
-        while len(self.data) > 0:
-            if self.ripe(time) and (val is None or self.data[0].value[0] == val):
-                result = heapq.heappop(self.data) if remove else self.data[0]
-
-                for elem in temp:
-                    heapq.heappush(self.data, elem)
-
-                return result.value[0]
-            
-            temp.append(heapq.heappop(self.data))
-
-        for elem in temp:
-            heapq.heappush(self.data, elem)
-        raise QueueError("Underflow")
-    
-    def peek(self, time=0, val=None) -> Optional[int]:
-        return self.query(time, val)
-
-    def pop(self, time=0, val=None) -> Optional[int]:
-        return self.query(time, val, True)
-
 
 @dataclass
 class Pieo:
     """A PIEO data structure.
-    PIEOs function as generalized PIFOs, but popping and pushing supports the 'extract-out' idea
-    rather than exclusively a 'first-out' operation. Elements can either be extracted by value
-    (pass in a value and obtain the lowest-rank element matching it), or by an eligibility predicate
-    (find the lowest-rank element matching the predicate).
-    
-    In our implementation, we support time-based 'ripeness' predicates,
-    which check that an element's encoded 'readiness time' is earlier than the specified current time.
-
-    The term 'ripe', as defined above, takes in an element (which has some encoded readiness time),
-    and a specified 'current time'. It checks that the element's readiness time is <= the current time.
-    
-    For more info, consult https://dl.acm.org/doi/pdf/10.1145/3341302.3342090.
-
     Supports the operations `push`, `pop`, and `peek`.
 
     Stores elements ordered increasingly by a totally ordered `rank` attribute (for
     simplicitly, our implementation is just using integers).
+
+    At initialization we take in a set of `(int, int, int)` triples `data` which stores
+    values, ready times, and their ranks, and is ordered by rank.
     
-    At initialization, we take a `max_len` value to store the maximum possible
+    We also take at initialization a `max_len` value to store the maximum possible
     length of a queue.
 
     When asked to push:
     - If the PIEO is at length `max_len`, we raise an error.
     - Otherwise, we insert the element into the PIEO such that the rank order stays increasing.
-    - To avoid ties between ranks, we left-shift the rank and then add either a custom buffer,
-        or an internal element count tracker.
 
     When asked to pop:
     - If the length of `data` is 0, we raise an error .
 
     - We can either pop based on value or based on eligibility.
-    - This implementation supports the most common readiness predicate - whether an element is 'ripe', 
-        or time-ready (the inputted time is >= the element's specified readiness time).
+    - This implementation supports the most common eligibility predicate - whether an element is 'ripe'.
 
-    - If a value is passed in, we pop the first (lowest-rank) instance of that value which is 'ripe'.
+    - If a value is passed in, we pop the first (lowest-rank) instance of that value.
     - If no value is passed in but a time is,
         we pop the first (lowest-rank) value that passes the predicate.
+    - Note that either a value or a bound must be passed in - both cannot be, nor can neither.
 
     When asked to peek:
     We do the same thing as `pop`, except:
@@ -292,50 +185,48 @@ class Pieo:
         self.data = []
         self.insertion_count = 0
 
-    def ripe(self, element, time):
-        """Check that an element is 'ripe' - i.e. its ready time has passed"""
-        return element["time"] <= time
+    def __repr__(self):
+        return str(self.data)
+
+    def ripe(self, val, time):
+        """Check that a value is 'ripe' – i.e. its ready time has passed"""
+        return val[1] <= time
     
     def binsert(self, val, time, rank, l, r):
         """Inserts element into list such that rank ordering is preserved
-        Uses variant of binary search algorithm.
+        Uses variant of binary search algorithm
         """
         if l == r:
-            return self.data.insert(l, {"val": val, "time": time, "rank": rank})
+            return self.data.insert(l, (val, time, rank))
 
         mid = (l + r) // 2
 
-        if rank == self.data[mid]["rank"]:
-            return self.data.insert(mid, {"val": val, "time": time, "rank": rank})
+        if rank == self.data[mid][2]:
+            return self.data.insert(mid, (val, time, rank))
 
-        if rank > self.data[mid]["rank"]:
+        if rank > self.data[mid][2]:
             return self.binsert(val, time, rank, mid+1, r)
 
-        if rank < self.data[mid]["rank"]:
+        if rank < self.data[mid][2]:
             return self.binsert(val, time, rank, l, mid)
         
-    def push(self, val, rank=0, time=0, insertion_count=None) -> None:
+    def push(self, val, time=0, rank=0, insertion_count=None) -> None:
         """Pushes to a PIEO.
         Inserts element such that rank ordering is preserved
         """
         
-        # Breaks ties and maintains FIFO order (can pass either custom insertion order or use PIEO internal one).
-        # Left-shifts the rank 32 bits, before adding either a passed in `insertion_count` parameter or the internal one.
+        #Breaks ties and maintains FIFO order (can pass either custom insertion order or use PIEO intenral one)
         rank = (rank << 32) + (insertion_count or self.insertion_count)
 
-        #If there is no room left in the queue, raise an Overflow error
         if len(self.data) == self.max_len:
             raise QueueError("Overflow")
         
-        #If there are no elements in the queue, or the latest rank is higher than all others, append to the end
-        if len(self.data) == 0 or rank >= self.data[len(self.data)-1]["rank"]:
-            self.data.append({"val": val, "time": time, "rank": rank})
+        if len(self.data) == 0 or rank >= self.data[len(self.data)-1][2]:
+            self.data.append((val, time, rank))
 
-        #If the latest rank is lower than all others, insert to the front
-        elif rank <= self.data[0]["rank"]:
-            self.data.insert(0, {"val": val, "time": time, "rank": rank})
+        elif rank <= self.data[0][2]:
+            self.data.insert(0, (val, time, rank))
 
-        #Otherwise, use the log-time insertion function
         else:
             self.binsert(val, time, rank, 0, len(self.data))
         
@@ -353,26 +244,21 @@ class Pieo:
         if len(self.data) == 0:
             raise QueueError("Underflow")
         
-        #If there is only a time predicate
-        if val is None:
-            #Iterate until we find the first 'ripe' (time-ready) element
+        if val == None:
             for x in range(len(self.data)):
                 if self.ripe(self.data[x], time):
                     if return_rank:
                         return self.data.pop(x) if remove else self.data[x]
-                    return self.data.pop(x)["val"] if remove else self.data[x]["val"]
+                    return self.data.pop(x)[0] if remove else self.data[x][0]
 
-            #No ripe elements
             raise QueueError("Underflow")
             
-        #Otherwise, the first element that matches the queried value & is 'ripe'
         for x in range(len(self.data)):
-            if self.data[x]["val"] == val and self.ripe(self.data[x], time):
+            #Find the first value that matches the query who is 'ripe'
+            if self.data[x][0] == val and self.ripe(self.data[x], time):
                 if return_rank:
                     return self.data.pop(x) if remove else self.data[x]
-                return self.data.pop(x)["val"] if remove else self.data[x]["val"]
-        
-        #No ripe elements matching value
+                return self.data.pop(x)[0] if remove else self.data[x][0]
         raise QueueError("Underflow")
     
     def pop(self, time=0, val=None, return_rank=False) -> Optional[int]:
@@ -388,24 +274,16 @@ class Pieo:
 @dataclass
 class PCQ:
     """A Programmable Calendar Queue (PCQ) data structure.
-    Supports the operations `push`, `pop`, and `peek`, by time predicate and value.
+    Supports the operations `push`, `pop`, and `peek`.
 
-    See the papers https://www.usenix.org/system/files/nsdi20-paper-sharma.pdf and 
-    https://dl.acm.org/doi/pdf/10.1145/63039.63045 for details.
+    Elements are stored in buckets within which they are ordered by priority.
+    Bucket priority is determined by the 'day pointer', which points to the current
+    bucket with highest priority. 
 
-    Elements are stored in buckets within which they are ordered by priority. For our implementation,
-    each bucket takes on the form of a PIEO. Bucket priority is determined by the 'day pointer',
-    which points to the current bucket with highest priority. 
+    At initialization we take in a set of `(int, int)` tuple lists `data` which stores
+    lists of values and their ranks, each representing a bucket.
 
-    At initialization we initialize `data` to be a list of empty buckets, each of which
-    has the form of a PIEO with max length 16.
-
-    We store the number of elements that have already been inserted into the queue, initialized at 0.
-    With each iteration, we increment this.
-    
-    When inserting elements into the queue, we pass in this parameter along with the specified rank,
-    so that it is factored into a modified rank calculation that removes all ties between ranks.
-    (See PIEO documentation for details of this modified rank calculation.)
+    We store the highest rank of any element in the queue, such that we can upper bound the set of ranks.
 
     When asked to push:
     - We compute the bucket to push to as the rank of the new element multiplied by bucket width,
@@ -414,7 +292,7 @@ class PCQ:
 
     When asked to pop:
     - If the length of `data` is 0, we raise an error .
-    - Otherwise, we pop the lowest-rank element in the queue.
+    - Otherwise, we pop the lowest-rank element of the current day.
     - If, following our pop, the bucket is empty, we rotate to the next bucket.
 
     When asked to peek:
@@ -432,10 +310,20 @@ class PCQ:
         self.num_elements = 0
         self.data = []
         self.bucket_ranges = []
+        self.highest_rank = 0
         self.insertion_count = 0
         for i in range(num_buckets):
             self.data.append(Pieo(16))
             self.bucket_ranges.append((i*width, (i+1)*width))
+
+    
+    def __repr__(self):
+        final = []
+        for x in self.data:
+            if len(x.data) != 0:
+                final += x.data
+        final.sort(key = lambda k : k[2])
+        return str(final)
     
     def rotate(self) -> None:
         """Rotates a PCQ and changes the 'top' parameter of the previous bucket."""
@@ -443,7 +331,7 @@ class PCQ:
         self.bucket_ranges[self.day] = (buckettop, buckettop + self.width)
         self.day = (self.day + 1) % len(self.data)
 
-    def push(self, val: int, rank=0, time=0) -> None:
+    def push(self, val: int, time=0, rank=0) -> None:
         """Pushes a value with some rank/priority to a PCQ"""
 
         if self.num_elements == self.max_len:
@@ -452,9 +340,11 @@ class PCQ:
         location = (rank * self.width) % len(self.data)
 
         try:
-            self.data[location].push(val, rank, time, self.insertion_count)
+            self.data[location].push(val, time, rank, self.insertion_count)
             self.num_elements += 1
             self.insertion_count += 1
+            if rank > self.highest_rank:
+                self.highest_rank = rank
         except QueueError:
             raise QueueError("Overflow")
 
@@ -469,19 +359,16 @@ class PCQ:
 
         for bucket in self.data:
             try:
-                peeked = bucket.peek(time, val, True)
-                possible_values.append((bucket, peeked))
+                peeked_val, peeked_time, peeked_rank = bucket.peek(time, val, True)
+                possible_values.append((bucket, peeked_val, peeked_time, peeked_rank))
             except QueueError:
                 continue
         if len(possible_values) > 0:
-            possible_values.sort(key = lambda x : x[1]["rank"])
-            bucket, element  = possible_values[0]
-            time, val = element["time"], element["val"]
+            possible_values.sort(key = lambda x : x[3])
+            bucket, val, time, _  = possible_values[0]
             if remove:
                 result = bucket.pop(time, val, False)
                 self.num_elements -= 1
-                if len(bucket.data) == 0:
-                    self.rotate()
                 return result
             else:
                 return val
@@ -499,250 +386,25 @@ class PCQ:
         return self.query(False, time, val)
 
 
-@dataclass
-class Binheap:
-    """A minimum Binary Heap data structure.
-    Supports the operations `push`, `pop`, and `peek`.
-    """
-
-    def __init__(self, max_len):
-        self.heap = []
-        self.len = 0
-        self.counter = 0
-        self.max_len = max_len
-
-
-    def push(self, val: int, rank, *_) -> None:
-        """Pushes `(rnk, val)` to the Binary Heap."""
-        if self.len == self.max_len:
-            raise QueueError("Cannot push to full Binary Heap.")
-        self.counter += 1
-        self.len += 1
-        heapq.heappush(self.heap, RankValue((rank << 32) + self.counter, val))
-
-    def pop(self, *_) -> Optional[int]:
-        """Pops the Binary Heap."""
-        if self.len == 0:
-            raise QueueError("Cannot pop from empty Binary Heap.")
-        self.len -= 1
-        return heapq.heappop(self.heap).value
-
-    def peek(self, *_) -> Optional[int]:
-        """Peeks into the Binary Heap."""
-        if self.len == 0:
-            raise QueueError("Cannot peek from empty Binary Heap.")
-        return self.heap[0].value
-
-    def __len__(self) -> int:
-        return self.len
-
-
-@dataclass
-class RRQueue:
-    """
-    This is a version of a PIFO generalized to `n` flows, with a work conserving
-    round robin policy. If a flow is silent when it is its turn, that flow
-    simply skips its turn and the next flow is offered service.
-
-    Supports the operations `push`, `pop`, and `peek`.
-    It takes in a list `boundaries` that must be of length `n`, using which the
-    client can divide the incoming traffic into `n` flows.
-    For example, if n = 3 and the client passes boundaries [133, 266, 400],
-    packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
-
-    - At push, we check the `boundaries` list to determine which flow to push to.
-    Take the boundaries example given earlier, [133, 266, 400].
-    If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
-    and 305 would end up in flow 2 since 266 <= 305 <= 400.
-    - Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
-    it increments `hot` and therefore continues to check all other flows
-    in round robin fashion.
-    - Peek allows the client to see which element is at the head of the queue
-    without removing it. Thus, peek works in a similar fashion to `pop`, except
-    `hot` is restored to its original value at the every end.
-    Further, nothing is actually dequeued.
-    """
-
-    def __init__(self, n, boundaries, max_len: int):
-        self.hot = 0
-        self.n = n
-        self.pifo_len = 0
-        self.boundaries = boundaries
-        self.data = [Fifo(max_len) for _ in range(n)]
-
-        self.max_len = max_len
-        assert (
-            self.pifo_len <= self.max_len
-        )  # We can't be initialized with a PIFO that is too long.
-
-    def push(self, val: int, *_):
-        """Pushes `val` to the PIFO."""
-        if self.pifo_len == self.max_len:
-            raise QueueError("Cannot push to full PIFO.")
-        for fifo, boundary in zip(self.data, self.boundaries):
-            if val <= boundary:
-                fifo.push(val)
-                self.pifo_len += 1
-                break
-
-    def increment_hot(self):
-        """Increments `hot`, taking into account wraparound."""
-        self.hot = 0 if self.hot == (self.n - 1) else self.hot + 1
-
-    def pop(self, *_) -> Optional[int]:
-        """Pops the PIFO by popping some internal FIFO.
-        Updates `hot` to be one more than the index of the internal FIFO that
-        we did pop.
-        """
-        if self.pifo_len == 0:
-            raise QueueError("Cannot pop from empty PIFO.")
-
-        while True:
-            try:
-                val = self.data[self.hot].pop()
-                if val is not None:
-                    self.increment_hot()
-                    self.pifo_len -= 1
-                    return val
-                self.increment_hot()
-            except QueueError:
-                self.increment_hot()
-
-    def peek(self, *_) -> Optional[int]:
-        """Peeks into the PIFO. Does not affect what `hot` is."""
-        if self.pifo_len == 0:
-            raise QueueError("Cannot peek into empty PIFO.")
-
-        original_hot = self.hot
-        while True:
-            try:
-                val = self.data[self.hot].peek()
-                if val is not None:
-                    self.hot = original_hot
-                    return val
-                self.increment_hot()
-            except QueueError:
-                self.increment_hot()
-
-    def __len__(self) -> int:
-        return self.pifo_len
-
-@dataclass
-class StrictPifo:
-    """
-    This is a version of a PIFO generalized to `n` flows, with a strict policy.
-    Flows have a strict order of priority, which determines popping and peeking
-    order. If the highest priority flow is silent when it is its turn, that flow
-    simply skips its turn and the next flow is offered service. If a higher
-    priority flow get pushed to in the interim, the next call to pop/peek will
-    return from that flow.
-
-    Supports the operations `push`, `pop`, and `peek`.
-    It takes in a list `boundaries` that must be of length `n`, using which the
-    client can divide the incoming traffic into `n` flows.
-    For example, if n = 3 and the client passes boundaries [133, 266, 400],
-    packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
-
-    It takes a list `order` that must be of length `n`, which specifies the order
-    of priority of the flows. For example, if n = 3 and the client passes order
-    [1, 2, 0], flow 1 (packets in range [134, 266]) is first priority, flow 2
-    (packets in range [267, 400]) is second priority, and flow 0 (packets in range
-    [0, 133]) is last priority.
-
-    - At push, we check the `boundaries` list to determine which flow to push to.
-    Take the boundaries example given earlier, [133, 266, 400].
-    If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
-    and 305 would end up in flow 2 since 266 <= 305 <= 400.
-    - Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
-    it tries `order[1]`, etc.
-    - Peek allows the client to see which element is at the head of the queue
-    without removing it. Thus, peek works in a similar fashion to `pop`. Further,
-    nothing is actually dequeued.
-    """
-
-    def __init__(self, n, boundaries, order, max_len: int):
-        self.order = order
-        self.priority = 0
-        self.n = n
-        self.pifo_len = 0
-        self.boundaries = boundaries
-        self.data = [Fifo(max_len) for _ in range(n)]
-
-        self.max_len = max_len
-
-    def push(self, val: int, *_):
-        """Works the same as in RRQueue. Pushes `val` to the PIFO."""
-        if self.pifo_len == self.max_len:
-            raise QueueError("Cannot push to full PIFO.")
-        for b in range(self.n):
-            if val <= self.boundaries[b]:
-                idx = self.order.index(b)
-                self.data[idx].push(val)
-                self.pifo_len += 1
-                break
-
-    def next_priority(self):
-        """Increments priority, taking into account wrap around."""
-        self.priority = 0 if self.priority == (self.n - 1) else self.priority + 1
-
-    def pop(self,  *_):
-        """Pops the PIFO."""
-        if self.pifo_len == 0:
-            raise QueueError("Cannot pop from empty PIFO.")
-
-        original_priority = self.priority
-
-        while True:
-            try:
-                val = self.data[self.priority].pop()
-                if val is not None:
-                    self.pifo_len -= 1
-                    self.priority = original_priority
-                    return val
-                else:
-                    self.next_priority()
-            except QueueError:
-                self.next_priority()
-
-    def peek(self,  *_) -> Optional[int]:
-        """Peeks into the PIFO."""
-        if self.pifo_len == 0:
-            raise QueueError("Cannot peek into empty PIFO.")
-
-        original_priority = self.priority
-        while True:
-            try:
-                val = self.data[self.priority].peek()
-                if val is not None:
-                    self.priority = original_priority
-                    return val
-                else:
-                    self.next_priority()
-            except QueueError:
-                self.next_priority()
-
-    def __len__(self) -> int:
-        return self.pifo_len
-
-
 def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None, times=None):
     """Given the four lists:
-    - One of commands, one of values, one of ranks, one of times:
+    - One of commands, one of values, one of ranks, one of bounds:
     - Feed these into our queue, and return the answer memory.
     - Commands correspond to:
-        0 : pop (for non-work-conserving queues, pop by predicate)
-        1 : peek (for non-work-conserving queues, peek by predicate)
+        0 : pop by predicate
+        1 : peek by predicate
         2 : push
-        3 : pop by value (only for non-work-conserving queues)
-        4 : peek by value (only for non-work-conserving queues)
+        3 : pop by value
+        4 : peek by value
     """
+
     ans = []
     ranks = ranks or [0] * len(values)
     times = times or [0] * len(values)
 
     for cmd, val, rank, time in zip(commands, values, ranks, times):
- 
-        if cmd == 0: #Pop (with possible time predicate)
+
+        if cmd == 0: #Pop with time predicate
             try:
                 ans.append(queue.pop(time))
             except QueueError:
@@ -750,7 +412,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
                     continue
                 break
             
-        elif cmd == 1: #Peek (with possible time predicate)
+        elif cmd == 1: #Peek with time predicate
             try:
                 ans.append(queue.peek(time))
             except QueueError:
@@ -760,7 +422,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None,
 
         elif cmd == 2: #Push
             try:
-                queue.push(val, rank, time)
+                queue.push(val, time, rank)
             except QueueError:
                 if keepgoing:
                     continue
