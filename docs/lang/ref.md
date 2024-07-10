@@ -461,7 +461,7 @@ component update_memory() -> () {
 }
 ```
 
-When invoking[invoke] such a component, the calling component must provide a binding for each defined cell:
+When [invoking][invoke] such a component, the calling component must provide a binding for each defined cell:
 ```
 component main() -> () {
   cells {
