@@ -115,7 +115,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
                     [random.randint(0, 2) for _ in range(num_cmds)]
                 )
             ),
-            "format": format_gen(2),
+            "format": format_gen(3 if nwc else 2),
         }
     }
     values = {
