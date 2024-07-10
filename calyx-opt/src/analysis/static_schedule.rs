@@ -1027,9 +1027,6 @@ impl Tree {
         let fsm_cell: Rc<std::cell::RefCell<StaticFSM>> =
             Rc::clone(fsm_cell_opt.expect("just checked if None"));
 
-        let my_special_case = query == (1, 3)
-            && fsm_cell.borrow().fsm_cell.borrow().name() == "fsm0";
-
         let (query_beg, query_end) = query;
         let mut beg_interval = ir::Guard::True.not();
         let mut end_interval = ir::Guard::True.not();
