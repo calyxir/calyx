@@ -472,7 +472,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
     fn register_to_query(
         state: u64,
         num_states: u64,
-        fsms: &Vec<RRC<ir::Cell>>,
+        fsms: &[RRC<ir::Cell>],
     ) -> usize {
         let num_registers: u64 = fsms.len().try_into().unwrap();
         let reg_to_query: usize =
