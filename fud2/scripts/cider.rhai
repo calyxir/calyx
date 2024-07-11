@@ -43,7 +43,7 @@ fn cider_setup(e) {
 
    e.rule(
        "run-cider",
-       "$cider-exe -l $calyx-base --data data.dump $in flat > $out",
+       "$cider-exe -l $calyx-base --data data.dump $in > $out",
    );
 
    e.rule("dump-to-interp", "$cider-converter --to cider $in > $out");
