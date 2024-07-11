@@ -507,6 +507,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
         fsms: &[RRC<ir::Cell>],
     ) -> usize {
         let num_registers: u64 = fsms.len().try_into().unwrap();
+        // num_states+1 is needed to prevent error (the done condition needs
+        // to check past the number of states, i.e., will check fsm == 3 when
+        // num_states == 3).
         let reg_to_query: usize = (state * num_registers / (num_states + 1))
             .try_into()
             .unwrap();
