@@ -1126,7 +1126,7 @@ impl Tree {
                         // would have been caught by the previous elif condition.
                         let child_query = child
                             .query_between((0, (query_end - beg)), builder);
-                        beg_interval = in_offload_state.and(child_query);
+                        end_interval = in_offload_state.and(child_query);
                     }
                 };
             }
@@ -1474,6 +1474,7 @@ impl ParTree {
             .clone()
             .into_iter()
             .map(|assign| {
+                dbg!("realizeing here for some reason");
                 longest_tree.make_assign_dyn(assign, true, false, builder)
             })
             .collect_vec();
