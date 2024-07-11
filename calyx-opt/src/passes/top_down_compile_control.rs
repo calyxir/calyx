@@ -212,6 +212,27 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     }
 }
 
+/// Given the state of the FSM, returns the index for the register in `fsms``
+/// that should be queried.
+/// A query for each state must read from one of the `num_registers` registers.
+/// For `r` registers and `n` states, we split into "buckets" as follows:
+/// `{0, ... , n/r - 1} -> reg. @ index 0`,
+/// `{n/r, ... , 2n/r - 1} -> reg. @ index 1`,
+/// ...,
+/// `{(r-1)n/r, ... , n - 1} -> reg. @ index n - 1`.
+/// Note that dividing each state by the value `n/r`normalizes the state w.r.t.
+/// the FSM register from which it should read. We can then take the floor of this value
+/// (or, equivalently, use unsigned integer division) to get this register index.
+fn register_to_query(state: u64, num_states: u64, num_registers: u64) -> usize {
+    // num_states+1 is needed to prevent error (the done condition needs
+    // to check past the number of states, i.e., will check fsm == 3 when
+    // num_states == 3).
+    let reg_to_query: usize = (state * num_registers / (num_states + 1))
+        .try_into()
+        .unwrap();
+    reg_to_query
+}
+
 #[derive(Clone, Copy)]
 enum RegisterEncoding {
     Binary,
@@ -365,7 +386,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         fsm_size: &u64,
     ) -> ir::Guard<Nothing> {
         let (fsm, used_slicers) = {
-            let reg_to_query = Self::register_to_query(
+            let reg_to_query = register_to_query(
                 *state,
                 fsm_rep.last_state,
                 fsms.len().try_into().unwrap(),
@@ -679,31 +700,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
 type PredEdge = (u64, ir::Guard<Nothing>);
 
 impl Schedule<'_, '_> {
-    /// Given the state of the FSM, returns the index for the register in `fsms``
-    /// that should be queried.
-    /// A query for each state must read from one of the `num_registers` registers.
-    /// For `r` registers and `n` states, we split into "buckets" as follows:
-    /// `{0, ... , n/r - 1} -> reg. @ index 0`,
-    /// `{n/r, ... , 2n/r - 1} -> reg. @ index 1`,
-    /// ...,
-    /// `{(r-1)n/r, ... , n - 1} -> reg. @ index n - 1`.
-    /// Note that dividing each state by the value `n/r`normalizes the state w.r.t.
-    /// the FSM register from which it should read. We can then take the floor of this value
-    /// (or, equivalently, use unsigned integer division) to get this register index.
-    fn register_to_query(
-        state: u64,
-        num_states: u64,
-        num_registers: u64,
-    ) -> usize {
-        // num_states+1 is needed to prevent error (the done condition needs
-        // to check past the number of states, i.e., will check fsm == 3 when
-        // num_states == 3).
-        let reg_to_query: usize = (state * num_registers / (num_states + 1))
-            .try_into()
-            .unwrap();
-        reg_to_query
-    }
-
     /// Recursively build an dynamic finite state machine represented by a [Schedule].
     /// Does the following, given an [ir::Control]:
     ///     1. If needed, add transitions from predeccesors to the current state.
