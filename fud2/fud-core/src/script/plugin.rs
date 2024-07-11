@@ -161,12 +161,12 @@ impl ScriptContext {
         }
     }
 
-    /// If `{$ident}` is a substring of `cmd` and `("ident", "value")` is in `mapping`, returns a
-    /// string identical to `cmd` except for all instances `{$ident}` replaced with `value`.
+    /// If `#ident` is a substring of `cmd` and `("ident", "value")` is in `mapping`, returns a
+    /// string identical to `cmd` except for all instances `#ident` replaced with `value`.
     fn substitute_shell_text(cmd: &str, mapping: &[(&str, &str)]) -> String {
         let mut cur = cmd.to_string();
         for (i, v) in mapping {
-            let substr = format!("{{${}}}", i);
+            let substr = format!("#{}", i);
             cur = cur.replace(&substr, v);
         }
         cur
