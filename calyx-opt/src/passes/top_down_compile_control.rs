@@ -353,6 +353,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
             });
     }
 
+    /// Thin layer on top of `query_between` that first chooses
+    /// which register to query from (only relevant in the duplication case.)
     fn query_state(
         builder: &mut ir::Builder,
         used_slicers_vec: &mut Vec<HashMap<u64, RRC<Cell>>>,
@@ -384,7 +386,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         )
     }
 
-    // Queries the FSM by building a new slicer and corresponding assignments if
+    /// Queries the FSM by building a new slicer and corresponding assignments if
     /// the query hasn't yet been made. If this query has been made before with one-hot
     /// encoding, it reuses the old query, but always returns a new guard representing the query.
     fn build_query(
