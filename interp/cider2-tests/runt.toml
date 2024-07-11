@@ -5,7 +5,7 @@ ver = "0.4.1"
 name = "unit"
 paths = ["../tests/unit/*.futil"]
 cmd = """
-  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
 timeout = 10
 expect_dir = "unit"
@@ -14,7 +14,7 @@ expect_dir = "unit"
 name = "multi-comp"
 paths = ["multi-comp/*.futil"]
 cmd = """
-  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
 timeout = 10
 
@@ -32,7 +32,7 @@ name = "complex"
 paths = ["../tests/complex/*.futil"]
 
 cmd = """
-  ../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
 timeout = 10
 expect_dir = "complex"
@@ -41,7 +41,7 @@ expect_dir = "complex"
 name = "primitives"
 paths = ["../tests/primitives/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq  --sort-keys
+../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq  --sort-keys
 """
 timeout = 10
 expect_dir = "primitives"
@@ -50,7 +50,7 @@ expect_dir = "primitives"
 name = "par to seq"
 paths = ["../tests/control/par_reg.futil", "../tests/control/par_mem.futil"]
 cmd = """
-../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
 timeout = 10
 expect_dir = "par-to-seq"
@@ -59,7 +59,7 @@ expect_dir = "par-to-seq"
 name = "control"
 paths = ["../tests/control/*.futil", "../tests/control/iteration/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
 timeout = 10
 expect_dir = "control"
@@ -89,7 +89,7 @@ paths = [
   "../tests/control/iteration/*.futil",
 ]
 cmd = """
-../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../ flat --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
 expect_dir = "control"
 # timeout = 10
