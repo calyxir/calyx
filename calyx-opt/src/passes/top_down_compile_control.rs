@@ -374,8 +374,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
             });
     }
 
-    /// Thin layer on top of `query_between` that first chooses
-    /// which register to query from (only relevant in the duplication case.)
+    /// First chooses which register to query from (only relevant in the duplication case.)
+    /// Then queries the FSM by building a new slicer and corresponding assignments if
+    /// the query hasn't yet been made. If this query has been made before with one-hot
+    /// encoding, it reuses the old query, but always returns a new guard representing the query.
     fn query_state(
         builder: &mut ir::Builder,
         used_slicers_vec: &mut [HashMap<u64, RRC<Cell>>],
@@ -399,29 +401,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .expect("the used slicer map at this index does not exist"),
             )
         };
-        Self::build_query(
-            builder,
-            used_slicers,
-            fsm_rep,
-            fsm,
-            signal_on,
-            state,
-            fsm_size,
-        )
-    }
-
-    /// Queries the FSM by building a new slicer and corresponding assignments if
-    /// the query hasn't yet been made. If this query has been made before with one-hot
-    /// encoding, it reuses the old query, but always returns a new guard representing the query.
-    fn build_query(
-        builder: &mut ir::Builder,
-        used_slicers: &mut HashMap<u64, RRC<Cell>>,
-        fsm_rep: &FSMRepresentation,
-        fsm: &RRC<Cell>,
-        signal_on: &RRC<Cell>,
-        state: &u64,
-        fsm_size: &u64,
-    ) -> ir::Guard<Nothing> {
         match fsm_rep.encoding {
             RegisterEncoding::Binary => {
                 let state_const = builder.add_constant(*state, *fsm_size);
