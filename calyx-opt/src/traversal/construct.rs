@@ -12,6 +12,8 @@ pub enum ParseVal {
     Bool(bool),
     /// A number option.
     Num(i64),
+    /// A string option.
+    String(String),
     /// A list of values.
     List(Vec<ParseVal>),
     /// An output stream (stdout, stderr, file name)
@@ -31,6 +33,13 @@ impl ParseVal {
             panic!("Expected number, got {self}");
         };
         *n
+    }
+
+    pub fn string(&self) -> String {
+        let ParseVal::String(s) = self else {
+            panic!("Expected String, got {self}");
+        };
+        s.clone()
     }
 
     pub fn pos_num(&self) -> Option<u64> {
@@ -86,6 +95,7 @@ impl std::fmt::Display for ParseVal {
         match self {
             ParseVal::Bool(b) => write!(f, "{b}"),
             ParseVal::Num(n) => write!(f, "{n}"),
+            ParseVal::String(s) => write!(f, "{s}"),
             ParseVal::List(l) => {
                 write!(f, "[")?;
                 for (i, e) in l.iter().enumerate() {
@@ -164,6 +174,11 @@ impl PassOpt {
     /// Parse a number from a string.
     pub fn parse_num(s: &str) -> Option<ParseVal> {
         s.parse::<i64>().ok().map(ParseVal::Num)
+    }
+
+    /// Parse a String from a string.
+    pub fn parse_string(s: &str) -> Option<ParseVal> {
+        Some(ParseVal::String(s.to_string()))
     }
 
     /// Parse a list of numbers from a string.
