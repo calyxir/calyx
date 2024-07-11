@@ -1474,7 +1474,6 @@ impl ParTree {
             .clone()
             .into_iter()
             .map(|assign| {
-                dbg!("realizeing here for some reason");
                 longest_tree.make_assign_dyn(assign, true, false, builder)
             })
             .collect_vec();
