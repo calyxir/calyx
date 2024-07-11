@@ -507,8 +507,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
         fsms: &[RRC<ir::Cell>],
     ) -> usize {
         let num_registers: u64 = fsms.len().try_into().unwrap();
-        let reg_to_query: usize =
-            (state * num_registers / (num_states)).try_into().unwrap();
+        let reg_to_query: usize = (state * num_registers / (num_states + 1))
+            .try_into()
+            .unwrap();
         reg_to_query
     }
 
