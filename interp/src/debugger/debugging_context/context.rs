@@ -3,7 +3,8 @@ use crate::{
     flatten::{
         flat_ir::prelude::GroupIdx,
         structures::{
-            context::Context, index_trait::impl_index, indexed_map::IndexedMap,
+            context::Context, environment::Environment,
+            index_trait::impl_index, indexed_map::IndexedMap,
         },
     },
 };
@@ -676,13 +677,16 @@ impl DebuggingContext {
         }
     }
 
-    pub fn print_watchpoints(&self, ctx: &Context) {
+    pub fn print_watchpoints<C: AsRef<Context> + Clone>(
+        &self,
+        env: &Environment<C>,
+    ) {
         println!("{}Current watchpoints:", SPACING);
         let inner_spacing = SPACING.to_string() + "    ";
         let outer_spacing = SPACING.to_string() + "  ";
 
         for (group, indicies) in self.watchpoints.iter_groups() {
-            let group_name = ctx.lookup_name(*group);
+            let group_name = env.ctx().lookup_name(*group);
 
             if indicies.get_before().is_some() {
                 println!(
@@ -699,7 +703,8 @@ impl DebuggingContext {
                     self.watchpoints.get_by_idx(*watchpoint_idx).unwrap();
                 println!(
                     "{inner_spacing} ({watchpoint_idx}): {} {}",
-                    &watchpoint.print_details, watchpoint.state
+                    &watchpoint.print_details.format(env),
+                    watchpoint.state
                 );
             }
 
@@ -719,7 +724,8 @@ impl DebuggingContext {
                     self.watchpoints.get_by_idx(*watchpoint_idx).unwrap();
                 println!(
                     "{inner_spacing} ({watchpoint_idx}): {} {}",
-                    &watchpoint.print_details, watchpoint.state
+                    &watchpoint.print_details.format(env),
+                    watchpoint.state
                 );
             }
         }

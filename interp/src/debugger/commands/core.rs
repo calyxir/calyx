@@ -13,6 +13,7 @@ use crate::{
         flat_ir::prelude::GroupIdx,
         structures::{
             context::Context,
+            environment::{Environment, Path},
             index_trait::{impl_index, IndexRef},
         },
     },
@@ -225,10 +226,10 @@ pub enum PrintMode {
     Port,
 }
 #[derive(Debug, Clone)]
-pub struct PrintTuple(Vec<Vec<String>>, Option<PrintCode>, PrintMode);
+pub struct PrintTuple(Vec<Path>, Option<PrintCode>, PrintMode);
 
 impl PrintTuple {
-    pub fn target(&self) -> &Vec<Vec<String>> {
+    pub fn target(&self) -> &Vec<Path> {
         &self.0
     }
 
@@ -239,37 +240,45 @@ impl PrintTuple {
     pub fn print_mode(&self) -> &PrintMode {
         &self.2
     }
-}
 
-impl From<(Vec<Vec<String>>, Option<PrintCode>, PrintMode)> for PrintTuple {
-    fn from(val: (Vec<Vec<String>>, Option<PrintCode>, PrintMode)) -> Self {
-        PrintTuple(val.0, val.1, val.2)
-    }
-}
+    pub fn format<C: AsRef<Context> + Clone>(
+        &self,
+        env: &Environment<C>,
+    ) -> String {
+        let mut string = String::new();
 
-impl Display for PrintTuple {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
-            f,
+            string,
             "{}",
             match self.2 {
                 PrintMode::State => "print-state".green(),
                 PrintMode::Port => "print".green(),
             }
-        )?;
+        )
+        .unwrap();
         write!(
-            f,
+            string,
             " {}",
             match &self.1 {
                 Some(s) => format!("{}", s),
                 None => "".red().to_string(),
             }
-        )?;
-        write!(
-            f,
-            " {}",
-            &self.0.iter().map(|x| x.iter().join(".")).join(" "),
         )
+        .unwrap();
+        write!(
+            string,
+            " {}",
+            &self.0.iter().map(|x| x.as_string(env)).join(" "),
+        )
+        .unwrap();
+
+        string
+    }
+}
+
+impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
+    fn from(val: (Vec<Path>, Option<PrintCode>, PrintMode)) -> Self {
+        PrintTuple(val.0, val.1, val.2)
     }
 }
 

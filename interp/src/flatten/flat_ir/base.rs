@@ -173,7 +173,7 @@ impl From<GlobalPortIdx> for GlobalPortRef {
 
 impl GlobalPortRef {
     #[must_use]
-    pub fn _as_port(&self) -> Option<&GlobalPortIdx> {
+    pub fn as_port(&self) -> Option<&GlobalPortIdx> {
         if let Self::Port(v) = self {
             Some(v)
         } else {
@@ -293,6 +293,22 @@ impl GlobalCellRef {
         } else {
             None
         }
+    }
+
+    /// Returns `true` if the global cell ref is [`Cell`].
+    ///
+    /// [`Cell`]: GlobalCellRef::Cell
+    #[must_use]
+    pub fn is_cell(&self) -> bool {
+        matches!(self, Self::Cell(..))
+    }
+
+    /// Returns `true` if the global cell ref is [`Ref`].
+    ///
+    /// [`Ref`]: GlobalCellRef::Ref
+    #[must_use]
+    pub fn is_ref(&self) -> bool {
+        matches!(self, Self::Ref(..))
     }
 }
 
@@ -482,7 +498,18 @@ impl PortValue {
     }
 
     pub fn format_value(&self, print_code: PrintCode) -> String {
-        todo!()
+        if let Some(v) = self.0.as_ref() {
+            let v = &v.val;
+            match print_code {
+                PrintCode::Unsigned => format!("{}", v.as_unsigned()),
+                PrintCode::Signed => format!("{}", v.as_signed()),
+                PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
+                PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
+                PrintCode::Binary => format!("{}", v),
+            }
+        } else {
+            "undef".to_string()
+        }
     }
 }
 

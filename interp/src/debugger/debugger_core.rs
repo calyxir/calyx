@@ -13,7 +13,7 @@ use crate::{
         setup_simulation, setup_simulation_with_metadata,
         structures::{
             context::Context,
-            environment::{Simulator, TraversalEnd},
+            environment::{Path as ParsePath, PathError, Simulator},
         },
     },
     serialization::PrintCode,
@@ -24,7 +24,7 @@ use std::{collections::HashSet, path::PathBuf, rc::Rc};
 use calyx_ir::Id;
 
 use owo_colors::OwoColorize;
-use std::path::Path;
+use std::path::Path as FilePath;
 
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
@@ -73,8 +73,8 @@ impl OwnedDebugger {
     /// construct a debugger instance from the target calyx file
     /// todo: add support for data files
     pub fn from_file(
-        file: &Path,
-        lib_path: &Path,
+        file: &FilePath,
+        lib_path: &FilePath,
     ) -> InterpreterResult<(Self, NewSourceMap)> {
         let (ctx, map) = setup_simulation_with_metadata(
             &Some(PathBuf::from(file)),
@@ -135,18 +135,18 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             self.debugging_context
                 .advance_time(self.interpreter.get_currently_running_groups());
 
-            for (idx, watch) in self.debugging_context.hit_watchpoints() {
-                // for target in watch.target() {
-                //     if let Ok(msg) = Self::do_print(
-                //         self.main_component.name,
-                //         target,
-                //         watch.print_code(),
-                //         self.interpreter.get_env(),
-                //         watch.print_mode(),
-                //     ) {
-                //         println!("{}", msg.on_black().yellow().bold());
-                //     }
-                // }
+            for (_idx, watch) in self.debugging_context.hit_watchpoints() {
+                let print_tuple = watch.print_details();
+
+                for target in print_tuple.target() {
+                    if let Err(e) = self.print_from_path(
+                        target,
+                        print_tuple.print_code(),
+                        *print_tuple.print_mode(),
+                    ) {
+                        println!("{}", e.red().bold());
+                    };
+                }
             }
 
             breakpoints.extend(self.debugging_context.hit_breakpoints());
@@ -198,10 +198,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::Continue => self.do_continue()?,
                 Command::Empty => {}
                 Command::Display => {
-                    todo!()
+                    println!("COMMAND NOT YET IMPLEMENTED");
                 }
                 Command::Print(print_lists, code, print_mode) => {
-                    self.do_print(print_lists, code, print_mode);
+                    for target in print_lists {
+                        if let Err(e) = self.do_print(&target, code, print_mode)
+                        {
+                            println!("{}", e.red().bold());
+                        };
+                    }
                 }
                 Command::Help => {
                     print!("{}", Command::get_help_string().cyan())
@@ -243,44 +248,10 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 ),
                 Command::InfoWatch => self
                     .debugging_context
-                    .print_watchpoints(self.program_context.as_ref()),
-                Command::PrintPC(override_flag) => {
-                    // if self.source_map.is_some() && !override_flag {
-                    //     let map = self.source_map.as_ref().unwrap();
-                    //     let mut printed = false;
-                    //     for x in self
-                    //         .interpreter
-                    //         .get_active_tree()
-                    //         .remove(0)
-                    //         .flat_set()
-                    //         .into_iter()
-                    //     {
-                    //         if let Some(output) = map.lookup(x) {
-                    //             printed = true;
-                    //             println!("{}", output);
-                    //         }
-                    //     }
-
-                    //     if !printed {
-                    //         println!("Falling back to Calyx");
-                    //         print!(
-                    //             "{}",
-                    //             self.interpreter
-                    //                 .get_active_tree()
-                    //                 .remove(0)
-                    //                 .format_tree::<true>(0)
-                    //         );
-                    //     }
-                    // } else {
-                    //     print!(
-                    //         "{}",
-                    //         self.interpreter
-                    //             .get_active_tree()
-                    //             .remove(0)
-                    //             .format_tree::<true>(0)
-                    //     );
-                    // }
-                    todo!()
+                    .print_watchpoints(self.interpreter.env()),
+                Command::PrintPC(_override_flag) => {
+                    println!("{}", "PLACEHOLDER".bold().underline().italic());
+                    self.interpreter.print_pc();
                 }
 
                 Command::Explain => {
@@ -309,12 +280,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             match comm {
                 Command::Empty => {}
                 Command::Display => {
-                    // let state = final_env.as_state_view();
-                    // println!("{}", state.state_as_str().purple());
-                    todo!()
+                    println!("COMMAND NOT YET IMPLEMENTED");
                 }
                 Command::Print(print_lists, code, print_mode) => {
-                    self.do_print(print_lists, code, print_mode)
+                    for target in print_lists {
+                        if let Err(e) = self.do_print(&target, code, print_mode)
+                        {
+                            println!("{}", e.red().bold());
+                        };
+                    }
                 }
 
                 Command::Help => {
@@ -342,16 +316,22 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         watch_pos: super::commands::WatchPosition,
     ) {
         let mut error_occurred = false;
+        let mut paths = Vec::new();
         for target in print_target.iter() {
-            if let Err(e) =
-                self.construct_print_string(target, print_code, print_mode)
-            {
-                error_occurred = true;
-                println!("{}", e.red().bold());
+            match self.interpreter.traverse_name_vec(target) {
+                Ok(path) => {
+                    paths.push(path);
+                }
+                Err(e) => {
+                    error_occurred = true;
+                    println!("{}", e.red().bold());
+                    continue;
+                }
             }
         }
 
         if error_occurred {
+            println!("{}", "No watchpoints have been added.".red());
             return;
         }
 
@@ -367,7 +347,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.debugging_context.add_watchpoint(
             watch_target,
             watch_pos,
-            (print_target, print_code, print_mode),
+            (paths, print_code, print_mode),
         );
     }
 
@@ -412,73 +392,73 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_print(
         &self,
-        print_lists: Vec<Vec<String>>,
+        target: &[String],
         code: Option<PrintCode>,
         print_mode: PrintMode,
-    ) {
-        let code = code.unwrap_or(PrintCode::Binary);
+    ) -> Result<(), PathError> {
+        let traversal_res = self.interpreter.traverse_name_vec(target)?;
 
-        for target in print_lists {
-            let target_actual = self.interpreter.traverse_name_vec(&target);
-            match target_actual {
-                Ok(traversal_res) => match traversal_res {
-                    TraversalEnd::Root => {
-                        todo!()
-                    }
-                    TraversalEnd::Cell(c_info) => match print_mode {
-                        PrintMode::State => {
-                            if let Some(state) = self
-                                .interpreter
-                                .format_cell_state(c_info.cell, code)
-                            {
-                                println!("{}", state)
-                            } else {
-                                println!("{}","Target cell has no internal state, printing port information instead".red());
-                                println!(
-                                    "{}",
-                                    self.interpreter.format_cell_ports(
-                                        c_info.cell,
-                                        c_info.parent,
-                                        code
-                                    )
-                                )
-                            }
-                        }
-                        PrintMode::Port => {
-                            println!(
-                                "{}",
-                                self.interpreter.format_cell_ports(
-                                    c_info.cell,
-                                    c_info.parent,
-                                    code
-                                )
-                            )
-                        }
-                    },
-                    TraversalEnd::Port(info) => {
-                        let parent_name =
-                            self.interpreter.get_full_name(info.parent);
-                        let port_name = self
-                            .interpreter
-                            .get_port_name(info.port, info.parent);
+        self.print_from_path(&traversal_res, &code, print_mode)?;
 
-                        println!(
-                            "{parent_name}.{port_name} = {}",
-                            self.interpreter.format_port_value(info.port, code)
-                        )
-                    }
-                    TraversalEnd::RefCell(_) => todo!(),
-                    TraversalEnd::RefPort(_) => todo!(),
-                },
-                Err(e) => {
-                    println!("{}", owo_colors::OwoColorize::red(&e))
-                }
-            }
-        }
+        Ok(())
     }
 
-    fn format_value(&self, val: &PortValue, code: PrintCode) -> String {
-        todo!()
+    fn print_from_path(
+        &self,
+        path: &ParsePath,
+        code: &Option<PrintCode>,
+        mode: PrintMode,
+    ) -> Result<(), PathError> {
+        let code = code.unwrap_or(PrintCode::Binary);
+
+        let name_override = match path {
+            ParsePath::Cell(_) | ParsePath::Port(_) => None,
+            ParsePath::AbstractCell(_) | ParsePath::AbstractPort { .. } => {
+                Some(path.as_string(self.interpreter.env()))
+            }
+        };
+
+        let resolved = path.resolve_path(self.interpreter.env())?;
+        match resolved {
+            crate::flatten::structures::environment::PathResolution::Cell(
+                cell,
+            ) => {
+                if let PrintMode::State = mode {
+                    if let Some(state) = self.interpreter.format_cell_state(
+                        cell,
+                        code,
+                        name_override.as_deref(),
+                    ) {
+                        println!("{}", state);
+                        return Ok(());
+                    } else {
+                        println!("{}","Target cell has no internal state, printing port information instead".red());
+                    }
+                }
+
+                println!(
+                    "{}",
+                    self.interpreter.format_cell_ports(
+                        cell,
+                        code,
+                        name_override.as_deref()
+                    )
+                )
+            }
+            crate::flatten::structures::environment::PathResolution::Port(
+                port,
+            ) => {
+                let path_str = name_override
+                    .unwrap_or_else(|| self.interpreter.get_full_name(port));
+
+                println!(
+                    "{path_str} = {}",
+                    self.interpreter.format_port_value(port, code)
+                )
+            }
+        }
+
+        Ok(())
     }
 
     fn manipulate_breakpoint(&mut self, command: Command) {
@@ -508,210 +488,4 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             _ => unreachable!("improper use of manipulate_breakpoint"),
         }
     }
-
-    fn construct_print_string(
-        &self,
-        print_list: &Vec<String>,
-        code: Option<PrintCode>,
-        print_mode: PrintMode,
-    ) -> Result<String, DebuggerError> {
-        todo!()
-    }
-
-    // fn do_print(
-    //     main_comp_name: Id,
-    //     print_list: &[Id],
-    //     code: &Option<PrintCode>,
-    //     root: StateView,
-    //     print_mode: &PrintMode,
-    // ) -> Result<String, DebuggerError> {
-    //     let orig_string = print_list
-    //         .iter()
-    //         .map(|s| s.id.as_str())
-    //         .collect::<Vec<_>>()
-    //         .join(".");
-
-    //     let mut iter = print_list.iter();
-
-    //     let length = if main_comp_name == print_list[0] {
-    //         iter.next();
-    //         print_list.len() - 1
-    //     } else {
-    //         print_list.len()
-    //     };
-
-    //     let mut current_target = CurrentTarget::Env(&root);
-
-    //     for (idx, target) in iter.enumerate() {
-    //         let current_ref = current_target.borrow();
-    //         let current_env = current_ref.get_env().unwrap();
-
-    //         // lowest level
-    //         if idx == length - 1 {
-    //             // first look for cell
-    //             let cell = current_env.get_cell(*target);
-    //             if let Some(cell) = cell {
-    //                 return Ok(print_cell(
-    //                     &cell,
-    //                     &current_env,
-    //                     code,
-    //                     print_mode,
-    //                 ));
-    //             } else if idx != 0 {
-    //                 let prior = &print_list[idx - 1];
-
-    //                 if let Some(parent) = current_env.get_cell(*prior) {
-    //                     let parent_ref = parent.borrow();
-    //                     let pt = parent_ref
-    //                         .ports()
-    //                         .iter()
-    //                         .find(|x| x.borrow().name == target);
-    //                     if let Some(port) = pt {
-    //                         return Ok(print_port(
-    //                             port,
-    //                             &current_env,
-    //                             None,
-    //                             code,
-    //                         ));
-    //                     } else {
-    //                         return Err(DebuggerError::CannotFind(orig_string));
-    //                         // cannot find
-    //                     }
-    //                 } else if let Some(port) =
-    //                     current_env.get_comp().signature.borrow().find(target)
-    //                 {
-    //                     return Ok(print_port(
-    //                         &port,
-    //                         &current_env,
-    //                         Some(print_list[idx - 1]),
-    //                         code,
-    //                     ));
-    //                 } else {
-    //                     // cannot find
-    //                     return Err(DebuggerError::CannotFind(orig_string));
-    //                 }
-    //             } else {
-    //                 return Err(DebuggerError::CannotFind(orig_string));
-    //             }
-    //         }
-    //         // still walking
-    //         else {
-    //             let map = Rc::clone(current_env.get_cell_map());
-    //             let cell = current_env.get_cell(*target);
-    //             if let Some(rrc_cell) = cell {
-    //                 // need to release these references to replace current
-    //                 // target
-    //                 if map.borrow()[&rrc_cell.as_raw()].get_state().is_some() {
-    //                     drop(current_env);
-    //                     drop(current_ref);
-
-    //                     current_target = CurrentTarget::Target {
-    //                         name: rrc_cell.as_raw(),
-    //                         map,
-    //                     }
-    //                 }
-    //                 // otherwise leave the same
-    //             } else {
-    //                 // cannot find
-    //                 return Err(DebuggerError::CannotFind(orig_string));
-    //             }
-    //         }
-    //     }
-
-    //     unreachable!()
-    // }
 }
-
-// fn print_cell(
-//     target: &RRC<ir::Cell>,
-//     state: &StateView,
-//     code: &Option<PrintCode>,
-//     mode: &PrintMode,
-// ) -> String {
-//     let cell_ref = target.borrow();
-
-//     match mode {
-//         PrintMode::State => {
-//             let actual_code =
-//                 code.as_ref().copied().unwrap_or(PrintCode::Binary);
-//             let cell_state = state.get_cell_state(&cell_ref, &actual_code);
-//             if matches!(&cell_state, &Serializable::Empty) {
-//                 print_cell(target, state, code, &PrintMode::Port)
-//             } else {
-//                 format!(
-//                     "{}{} = {}",
-//                     SPACING,
-//                     cell_ref.name().green().bold(),
-//                     cell_state.blue().bold()
-//                 )
-//             }
-//         }
-
-//         PrintMode::Port => {
-//             let mut output: String = String::new();
-//             writeln!(output, "{}{}", SPACING, cell_ref.name().red())
-//                 .expect("Something went wrong trying to print the port");
-//             for port in cell_ref.ports.iter() {
-//                 let v = state.lookup(port.as_raw());
-//                 writeln!(
-//                     output,
-//                     "{}  {} = {}",
-//                     SPACING,
-//                     port.borrow().name.red(),
-//                     if let Some(code) = code {
-//                         match code {
-//                             PrintCode::Unsigned => {
-//                                 format!("{}", v.as_unsigned())
-//                             }
-//                             PrintCode::Signed => {
-//                                 format!("{}", v.as_signed().green())
-//                             }
-//                             PrintCode::UFixed(num) => {
-//                                 format!("{}", v.as_ufp(*num).blue())
-//                             }
-//                             PrintCode::SFixed(num) => {
-//                                 format!("{}", v.as_sfp(*num).purple())
-//                             }
-//                             PrintCode::Binary => format!("{}", v.cyan()),
-//                         }
-//                     } else {
-//                         format!("{}", &v.magenta())
-//                     }
-//                 )
-//                 .expect("Something went wrong trying to print the port");
-//             }
-//             output
-//         }
-//     }
-// }
-
-// fn print_port(
-//     target: &RRC<ir::Port>,
-//     state: &StateView,
-//     prior_name: Option<ir::Id>,
-//     code: &Option<PrintCode>,
-// ) -> String {
-//     let port_ref = target.borrow();
-//     let parent_name = if let Some(prior) = prior_name {
-//         prior
-//     } else {
-//         port_ref.get_parent_name()
-//     };
-
-//     let v = state.lookup(port_ref.as_raw());
-//     let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
-
-//     format!(
-//         "{}{}.{} = {}",
-//         SPACING,
-//         parent_name.red(),
-//         port_ref.name.green(),
-//         match code {
-//             PrintCode::Unsigned => format!("{}", v.as_unsigned()),
-//             PrintCode::Signed => format!("{}", v.as_signed()),
-//             PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
-//             PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
-//             PrintCode::Binary => format!("{}", v),
-//         }
-//     )
-// }

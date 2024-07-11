@@ -4,7 +4,7 @@ use super::{
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
     program_counter::{PcMaps, ProgramCounter},
-    traverser::{TraversalEnd, TraversalError},
+    traverser::{Path, PathResolution, TraversalError},
 };
 use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
@@ -243,6 +243,10 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
+    pub fn ctx(&self) -> &Context {
+        self.ctx.as_ref()
+    }
+
     pub fn new(ctx: C, data_map: Option<DataDump>) -> Self {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
@@ -561,7 +565,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         println!("  Ref Ports: {}", self.ref_ports.len());
     }
 
-    pub fn _print_pc(&self) {
+    pub fn print_pc(&self) {
         println!("{:?}", self.pc)
     }
 
@@ -622,14 +626,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         None
     }
 
-    /// returns the path from the root to the given cell, not including the cell itself
-    fn get_parent_path_from_cell(
+    /// returns the path from the root to the given cell, not including the cell
+    /// itself. If no such path exists, it returns None.
+    fn get_parent_path_from_cell<T: Into<GlobalCellRef>>(
         &self,
-        target: GlobalCellIdx,
+        target: T,
     ) -> Option<Vec<GlobalCellIdx>> {
+        let target: GlobalCellRef = target.into();
+
         let root = Self::get_root();
-        if target == root {
-            None
+        if target.is_cell() && *target.as_cell().unwrap() == root {
+            Some(vec![])
         } else {
             let mut path = vec![root];
 
@@ -642,41 +649,189 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 let comp_info =
                     &self.ctx.as_ref().secondary[current_comp_ledger.comp_id];
 
-                let possible_relative_offset =
-                    target - &current_comp_ledger.index_bases;
+                let possible_relative_offset: CellRef = match target {
+                    GlobalCellRef::Cell(target_c) => {
+                        (target_c - &current_comp_ledger.index_bases).into()
+                    }
+                    GlobalCellRef::Ref(target_r) => {
+                        (target_r - &current_comp_ledger.index_bases).into()
+                    }
+                };
 
                 // the target is a direct child
-                if comp_info.cell_offset_map.contains(possible_relative_offset)
-                {
+                if match possible_relative_offset {
+                    CellRef::Local(l) => comp_info.cell_offset_map.contains(l),
+                    CellRef::Ref(r) => {
+                        comp_info.ref_cell_offset_map.contains(r)
+                    }
+                } {
                     return Some(path);
                 }
                 // the target is a non-direct descendent
                 else {
-                    let mut highest_found = None;
-                    for offset in comp_info.cell_offset_map.keys() {
-                        let global_offset =
-                            &current_comp_ledger.index_bases + offset;
-                        if self.cells[global_offset].as_comp().is_some()
-                            && global_offset < target
-                        {
-                            highest_found = Some(global_offset);
-                        } else if global_offset > target {
-                            break;
+                    match target {
+                        GlobalCellRef::Cell(target) => {
+                            let mut highest_found = None;
+                            for offset in comp_info.cell_offset_map.keys() {
+                                let global_offset =
+                                    &current_comp_ledger.index_bases + offset;
+                                if self.cells[global_offset].as_comp().is_some()
+                                    && global_offset < target
+                                {
+                                    highest_found = Some(global_offset);
+                                } else if global_offset > target {
+                                    break;
+                                }
+                            }
+
+                            if let Some(highest_found) = highest_found {
+                                path.push(highest_found);
+                            } else {
+                                return None;
+                            }
+                        }
+                        GlobalCellRef::Ref(r) => {
+                            let mut highest_found = None;
+                            for offset in comp_info.cell_offset_map.keys() {
+                                let global_offset =
+                                    &current_comp_ledger.index_bases + offset;
+
+                                if let Some(ledger) =
+                                    self.cells[global_offset].as_comp()
+                                {
+                                    if ledger.index_bases.ref_cell_base <= r {
+                                        highest_found = Some(global_offset);
+                                    } else {
+                                        break;
+                                    }
+                                }
+
+                                if let Some(highest_found) = highest_found {
+                                    path.push(highest_found);
+                                } else {
+                                    return None;
+                                }
+                            }
                         }
                     }
-
-                    path.push(highest_found.unwrap());
                 }
             }
         }
     }
 
-    fn _get_parent_cell_from_cell(
+    // this is currently aggressively inefficient but is fine for the moment
+    fn get_parent_path_from_port<T: Into<GlobalPortRef>>(
+        &self,
+        target: T,
+    ) -> Option<(Vec<GlobalCellIdx>, Option<GlobalRefCellIdx>)> {
+        let target: GlobalPortRef = target.into();
+
+        let mut path = vec![Self::get_root()];
+
+        loop {
+            let current = path.last().unwrap();
+            let current_ledger = self.cells[*current].as_comp().unwrap();
+            let current_info =
+                &self.ctx.as_ref().secondary[current_ledger.comp_id];
+
+            if match target {
+                GlobalPortRef::Port(p) => {
+                    let candidate_offset = p - &current_ledger.index_bases;
+                    current_info.port_offset_map.contains(candidate_offset)
+                }
+                GlobalPortRef::Ref(r) => {
+                    let candidate_offset = r - &current_ledger.index_bases;
+                    current_info.ref_port_offset_map.contains(candidate_offset)
+                }
+            }
+            // The port is defined in this component
+            {
+                // first check whether our target is part of the component's
+                // signature ports
+                if let Some(local) = target.as_port() {
+                    let offset = local - &current_ledger.index_bases;
+                    if current_info.signature.contains(offset) {
+                        return Some((path, None));
+                    }
+                }
+
+                // now search through the component's cells
+                match target {
+                    GlobalPortRef::Port(target_idx) => {
+                        let target_offset =
+                            target_idx - &current_ledger.index_bases;
+
+                        for (offset, def_idx) in
+                            current_info.cell_offset_map.iter()
+                        {
+                            let def = &self.ctx.as_ref().secondary[*def_idx];
+                            if def.ports.contains(target_offset) {
+                                path.push(&current_ledger.index_bases + offset);
+                                return Some((path, None));
+                            }
+                        }
+                        // todo: handle group interface ports
+                        return None;
+                    }
+                    GlobalPortRef::Ref(target_idx) => {
+                        let target_offset =
+                            target_idx - &current_ledger.index_bases;
+                        for (offset, def_idx) in
+                            current_info.ref_cell_offset_map.iter()
+                        {
+                            let def = &self.ctx.as_ref().secondary[*def_idx];
+                            if def.ports.contains(target_offset) {
+                                return Some((
+                                    path,
+                                    Some(&current_ledger.index_bases + offset),
+                                ));
+                            }
+                        }
+                        return None;
+                    }
+                }
+            }
+            // non-direct child
+            else {
+                let mut highest_found = None;
+
+                for cell_offset in current_info.cell_offset_map.keys() {
+                    let cell_offset = &current_ledger.index_bases + cell_offset;
+                    if let Some(ledger) = self.cells[cell_offset].as_comp() {
+                        match target {
+                            GlobalPortRef::Port(target) => {
+                                if ledger.index_bases.port_base <= target {
+                                    highest_found = Some(cell_offset);
+                                } else {
+                                    break;
+                                }
+                            }
+                            GlobalPortRef::Ref(target) => {
+                                if ledger.index_bases.ref_port_base <= target {
+                                    highest_found = Some(cell_offset);
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let Some(highest_found) = highest_found {
+                    path.push(highest_found);
+                } else {
+                    return None;
+                }
+            }
+        }
+    }
+
+    pub(super) fn get_parent_cell_from_cell(
         &self,
         cell: GlobalCellIdx,
     ) -> Option<GlobalCellIdx> {
         self.get_parent_path_from_cell(cell)
-            .map(|x| *x.last().unwrap())
+            .and_then(|x| x.last().copied())
     }
 
     pub fn make_nice_error(
@@ -704,14 +859,14 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn traverse_name_vec(
         &self,
         name: &[String],
-    ) -> Result<TraversalEnd, TraversalError> {
+    ) -> Result<Path, TraversalError> {
         assert!(!name.is_empty(), "Name cannot be empty");
 
         let ctx = self.ctx.as_ref();
         let mut current = Traverser::new();
 
         if name.len() == 1 && &name[0] == ctx.lookup_name(ctx.entry_point) {
-            Ok(TraversalEnd::Root)
+            Ok(Path::Cell(Self::get_root()))
         } else {
             let mut iter = name[0..name.len() - 2].iter();
             if &name[0] == ctx.lookup_name(ctx.entry_point) {
@@ -731,21 +886,34 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn get_ports_from_cell(
         &self,
         cell: GlobalCellIdx,
-        parent: GlobalCellIdx,
-    ) -> impl Iterator<Item = (Identifier, GlobalPortIdx)> + '_ {
-        let ledger = self.cells[parent].as_comp().unwrap();
-        let comp = &self.ctx.as_ref().secondary[ledger.comp_id];
-        let cell_offset = cell - &ledger.index_bases;
+    ) -> Box<dyn Iterator<Item = (Identifier, GlobalPortIdx)> + '_> {
+        if let Some(parent) = self.get_parent_cell_from_cell(cell) {
+            let ledger = self.cells[parent].as_comp().unwrap();
+            let comp = &self.ctx.as_ref().secondary[ledger.comp_id];
+            let cell_offset = cell - &ledger.index_bases;
 
-        self.ctx.as_ref().secondary[comp.cell_offset_map[cell_offset]]
-            .ports
-            .iter()
-            .map(|x| {
-                (
-                    self.ctx.as_ref().secondary[comp.port_offset_map[x]].name,
-                    &ledger.index_bases + x,
-                )
-            })
+            Box::new(
+                self.ctx.as_ref().secondary[comp.cell_offset_map[cell_offset]]
+                    .ports
+                    .iter()
+                    .map(|x| {
+                        (
+                            self.ctx.as_ref().secondary
+                                [comp.port_offset_map[x]]
+                                .name,
+                            &ledger.index_bases + x,
+                        )
+                    }),
+            )
+        } else {
+            let ledger = self.cells[cell].as_comp().unwrap();
+            let comp = &self.ctx.as_ref().secondary[ledger.comp_id];
+            Box::new(comp.signature.iter().map(|x| {
+                let def_idx = comp.port_offset_map[x];
+                let def = &self.ctx.as_ref().secondary[def_idx];
+                (def.name, &ledger.index_bases + x)
+            }))
+        }
     }
 
     pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String {
@@ -781,6 +949,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let mut output = Self { env };
         output.set_root_go_high();
         output
+    }
+
+    pub(crate) fn env(&self) -> &Environment<C> {
+        &self.env
     }
 
     pub fn _print_env(&self) {
@@ -825,7 +997,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn traverse_name_vec(
         &self,
         name: &[String],
-    ) -> Result<TraversalEnd, TraversalError> {
+    ) -> Result<Path, TraversalError> {
         self.env.traverse_name_vec(name)
     }
 
@@ -840,6 +1012,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     #[inline]
     pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String {
         self.env.get_full_name(nameable)
+    }
+
+    pub fn print_pc(&self) {
+        self.env.print_pc()
     }
 }
 
@@ -1706,16 +1882,17 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn format_cell_ports(
         &self,
         cell_idx: GlobalCellIdx,
-        parent_comp: GlobalCellIdx,
         print_code: PrintCode,
+        name: Option<&str>,
     ) -> String {
         let mut buf = String::new();
 
-        let cell_name = self.get_full_name(cell_idx);
-        writeln!(buf, "{cell_name}:").unwrap();
-        for (identifier, port_idx) in
-            self.env.get_ports_from_cell(cell_idx, parent_comp)
-        {
+        if let Some(name_override) = name {
+            writeln!(buf, "{name_override}:").unwrap();
+        } else {
+            writeln!(buf, "{}:", self.get_full_name(cell_idx)).unwrap();
+        }
+        for (identifier, port_idx) in self.env.get_ports_from_cell(cell_idx) {
             writeln!(
                 buf,
                 "  {}: {}",
@@ -1732,13 +1909,23 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         &self,
         cell_idx: GlobalCellIdx,
         print_code: PrintCode,
+        name: Option<&str>,
     ) -> Option<String> {
-        let cell_name = self.get_full_name(cell_idx);
         let cell = self.env.cells[cell_idx].unwrap_primitive();
         let state = cell.serialize(Some(print_code));
 
+        let mut output = String::new();
+
         if state.has_state() {
-            Some(format!("{cell_name}: {state}"))
+            if let Some(name_override) = name {
+                write!(output, "{name_override}:").unwrap();
+            } else {
+                write!(output, "{}:", self.get_full_name(cell_idx)).unwrap();
+            }
+
+            writeln!(output, "{state}").unwrap();
+
+            Some(output)
         } else {
             None
         }
@@ -1749,6 +1936,12 @@ pub trait GetFullName<C: AsRef<Context> + Clone> {
     fn get_full_name(&self, env: &Environment<C>) -> String;
 }
 
+impl<C: AsRef<Context> + Clone, T: GetFullName<C>> GetFullName<C> for &T {
+    fn get_full_name(&self, env: &Environment<C>) -> String {
+        (*self).get_full_name(env)
+    }
+}
+
 impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalCellIdx {
     fn get_full_name(&self, env: &Environment<C>) -> String {
         {
@@ -1757,5 +1950,30 @@ impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalCellIdx {
 
             env.format_path(&parent_path)
         }
+    }
+}
+
+impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalPortIdx {
+    fn get_full_name(&self, env: &Environment<C>) -> String {
+        let (parent_path, _) = env.get_parent_path_from_port(*self).unwrap();
+        let path_str = env.format_path(&parent_path);
+
+        let immediate_parent = parent_path.last().unwrap();
+        let comp = if env.cells[*immediate_parent].as_comp().is_some() {
+            *immediate_parent
+        } else {
+            // get second-to-last parent
+            parent_path[parent_path.len() - 2]
+        };
+
+        let ledger = env.cells[comp].as_comp().unwrap();
+
+        let local_offset = *self - &ledger.index_bases;
+        let comp_def = &env.ctx().secondary[ledger.comp_id];
+        let port_def_idx = &comp_def.port_offset_map[local_offset];
+        let port_def = &env.ctx().secondary[*port_def_idx];
+        let name = env.ctx().lookup_name(port_def.name);
+
+        format!("{path_str}.{name}")
     }
 }
