@@ -1137,7 +1137,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// A helper function which inserts indicies for the ref cells and ports
     /// used in the invoke statement
-    fn intialize_ref_cells(
+    fn initialize_ref_cells(
         &mut self,
         parent_comp: GlobalCellIdx,
         invoke: &Invoke,
@@ -1319,7 +1319,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     self.env.ports[go] =
                         PortValue::new_implicit(Value::bit_high());
 
-                    self.intialize_ref_cells(node.comp, i);
+                    self.initialize_ref_cells(node.comp, i);
                 }
                 non_leaf => {
                     unreachable!("non-leaf node {:?} included in list of leaf nodes. This should never happen, please report it.", non_leaf)
