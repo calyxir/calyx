@@ -121,9 +121,9 @@ fn convert(
     bits: bool,
 ) {
     // Create the output file if filepath_send is Some
-    let mut converted: Option<File> = filepath_send.as_ref().map(|path| {
-        File::create(path).expect("creation failed")
-    });
+    let mut converted: Option<File> = filepath_send
+        .as_ref()
+        .map(|path| File::create(path).expect("creation failed"));
 
     match (convert_from, convert_to) {
         (NumType::Hex, NumType::Binary) => {
