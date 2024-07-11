@@ -352,6 +352,38 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .unwrap();
             });
     }
+
+    fn query_state(
+        builder: &mut ir::Builder,
+        used_slicers_vec: &mut Vec<HashMap<u64, RRC<Cell>>>,
+        fsm_rep: &FSMRepresentation,
+        fsms: &[RRC<ir::Cell>],
+        signal_on: &RRC<Cell>,
+        state: &u64,
+        fsm_size: &u64,
+    ) -> ir::Guard<Nothing> {
+        let (fsm, used_slicers) = {
+            let reg_to_query =
+                Self::register_to_query(*state, fsm_rep.last_state, fsms);
+            (
+                fsms.get(reg_to_query)
+                    .expect("the register at this index does not exist"),
+                used_slicers_vec
+                    .get_mut(reg_to_query)
+                    .expect("the used slicer map at this index does not exist"),
+            )
+        };
+        Self::build_query(
+            builder,
+            used_slicers,
+            fsm_rep,
+            fsm,
+            signal_on,
+            state,
+            fsm_size,
+        )
+    }
+
     // Queries the FSM by building a new slicer and corresponding assignments if
     /// the query hasn't yet been made. If this query has been made before with one-hot
     /// encoding, it reuses the old query, but always returns a new guard representing the query.
@@ -536,21 +568,12 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
-                    // find the register from which to query; try to split evenly among registers
-                    let (fsm, used_slicers) = {
-                        let reg_to_query = Self::register_to_query(state, fsm_rep.last_state, &fsms);
-                        (
-                            fsms.get(reg_to_query).expect("the register at this index does not exist"),
-                            used_slicers_vec.get_mut(reg_to_query).expect(
-                                "the used slicer map at this index does not exist",
-                            ),
-                        )};
                     // for every assignment dependent on current fsm state, `&` new guard with existing guard
-                    let state_guard = Self::build_query(
+                    let state_guard = Self::query_state(
                         self.builder,
-                        used_slicers,
+                        &mut used_slicers_vec,
                         &fsm_rep,
-                        fsm,
+                        &fsms,
                         &signal_on,
                         &state,
                         &fsm_size,
@@ -568,13 +591,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
                 // get a transition guard for the first fsm register, and apply it to every fsm register
-                let state_guard = Self::build_query(
+                let state_guard = Self::query_state(
                     self.builder,
-                    used_slicers_vec.get_mut(0).expect(
-                        "the used slicer map at this index 0 does not exist",
-                    ),
+                    &mut used_slicers_vec,
                     &fsm_rep,
-                    fsms.first().expect("register 0 does not exist"),
+                    &fsms,
                     &signal_on,
                     &s,
                     &fsm_size,
@@ -620,13 +641,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // done condition for group
         // arbitrarily look at first fsm register, since all are identical
-        let first_fsm_last_guard = Self::build_query(
+        let first_fsm_last_guard = Self::query_state(
             self.builder,
-            used_slicers_vec
-                .get_mut(0)
-                .expect("the used slicer map at this index does not exist"),
+            &mut used_slicers_vec,
             &fsm_rep,
-            fsm1,
+            &fsms,
             &signal_on,
             &fsm_rep.last_state,
             &fsm_size,
@@ -643,15 +662,12 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // Cleanup: Add a transition from last state to the first state for each register
         let reset_fsms = fsms
             .iter()
-            .enumerate()
-            .flat_map(|(i, fsm)| {
-                let fsm_last_guard = Self::build_query(
+            .flat_map(|fsm| {
+                let fsm_last_guard = Self::query_state(
                     self.builder,
-                    used_slicers_vec.get_mut(i).expect(
-                        "the used slicer map at this index does not exist",
-                    ),
+                    &mut used_slicers_vec,
                     &fsm_rep,
-                    fsm,
+                    &fsms,
                     &signal_on,
                     &fsm_rep.last_state,
                     &fsm_size,
