@@ -36,6 +36,9 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
+    // Get config values from cli.
+    bld = cli::override_config_from_cli(bld)?;
+
     #[cfg(feature = "migrate_to_scripts")]
     {
         bld = bld.load_plugins();
