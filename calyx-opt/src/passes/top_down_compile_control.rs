@@ -357,7 +357,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
     /// which register to query from (only relevant in the duplication case.)
     fn query_state(
         builder: &mut ir::Builder,
-        used_slicers_vec: &mut Vec<HashMap<u64, RRC<Cell>>>,
+        used_slicers_vec: &mut [HashMap<u64, RRC<Cell>>],
         fsm_rep: &FSMRepresentation,
         fsms: &[RRC<ir::Cell>],
         signal_on: &RRC<Cell>,
