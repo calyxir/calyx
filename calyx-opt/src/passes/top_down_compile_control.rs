@@ -365,8 +365,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
         fsm_size: &u64,
     ) -> ir::Guard<Nothing> {
         let (fsm, used_slicers) = {
-            let reg_to_query =
-                Self::register_to_query(*state, fsm_rep.last_state, fsms);
+            let reg_to_query = Self::register_to_query(
+                *state,
+                fsm_rep.last_state,
+                fsms.len().try_into().unwrap(),
+            );
             (
                 fsms.get(reg_to_query)
                     .expect("the register at this index does not exist"),
@@ -506,9 +509,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
     fn register_to_query(
         state: u64,
         num_states: u64,
-        fsms: &[RRC<ir::Cell>],
+        num_registers: u64,
     ) -> usize {
-        let num_registers: u64 = fsms.len().try_into().unwrap();
         // num_states+1 is needed to prevent error (the done condition needs
         // to check past the number of states, i.e., will check fsm == 3 when
         // num_states == 3).
