@@ -1,3 +1,5 @@
+use rhai::{Dynamic, ImmutableString, ParseError, Position};
+
 use crate::{
     exec::{OpRef, SetupRef, StateRef},
     run::EmitBuildClosure,
@@ -89,7 +91,7 @@ impl ScriptContext {
     /// are not arrays of `StateRef`.
     fn begin_op(
         &self,
-        ctx: &rhai::NativeCallContext,
+        pos: Position,
         name: &str,
         input_names: rhai::Array,
         inputs: rhai::Array,
@@ -100,36 +102,28 @@ impl ScriptContext {
             .into_iter()
             .map(|i| match i.clone().try_cast::<StateRef>() {
                 Some(state) => Ok(state),
-                None => Err(RhaiSystemError::state_ref(i)
-                    .with_pos(ctx.position())
-                    .into()),
+                None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
             })
             .collect::<RhaiResult<Vec<_>>>()?;
         let input_names = input_names
             .into_iter()
             .map(|i| match i.clone().try_cast::<String>() {
                 Some(state) => Ok(state),
-                None => Err(RhaiSystemError::state_ref(i)
-                    .with_pos(ctx.position())
-                    .into()),
+                None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
             })
             .collect::<RhaiResult<Vec<_>>>()?;
         let outputs = outputs
             .into_iter()
             .map(|i| match i.clone().try_cast::<StateRef>() {
                 Some(state) => Ok(state),
-                None => Err(RhaiSystemError::state_ref(i)
-                    .with_pos(ctx.position())
-                    .into()),
+                None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
             })
             .collect::<RhaiResult<Vec<_>>>()?;
         let output_names = output_names
             .into_iter()
             .map(|i| match i.clone().try_cast::<String>() {
                 Some(state) => Ok(state),
-                None => Err(RhaiSystemError::state_ref(i)
-                    .with_pos(ctx.position())
-                    .into()),
+                None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
             })
             .collect::<RhaiResult<Vec<_>>>()?;
         let input_tuples = input_names.into_iter().zip(inputs).collect();
@@ -148,7 +142,7 @@ impl ScriptContext {
             }
             Some((ref old_name, _, _, _)) => {
                 Err(RhaiSystemError::began_op(old_name, name)
-                    .with_pos(ctx.position())
+                    .with_pos(pos)
                     .into())
             }
         }
@@ -156,20 +150,14 @@ impl ScriptContext {
 
     /// Adds a shell command to the `cur_op`.Returns and error if `begin_op` has not been called
     /// before this `end_op` and after any previous `end_op`
-    fn add_shell(
-        &self,
-        ctx: &rhai::NativeCallContext,
-        cmd: String,
-    ) -> RhaiResult<()> {
+    fn add_shell(&self, pos: Position, cmd: String) -> RhaiResult<()> {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             Some(ref mut op_sig) => {
                 op_sig.3.push(cmd);
                 Ok(())
             }
-            None => {
-                Err(RhaiSystemError::no_op().with_pos(ctx.position()).into())
-            }
+            None => Err(RhaiSystemError::no_op().with_pos(pos).into()),
         }
     }
 
@@ -188,7 +176,7 @@ impl ScriptContext {
     /// has not been called before this `end_op` and after any previous `end_op`.
     fn end_op(
         &self,
-        ctx: &rhai::NativeCallContext,
+        pos: Position,
         mut bld: RefMut<DriverBuilder>,
     ) -> RhaiResult<()> {
         let mut cur_op = self.cur_op.borrow_mut();
@@ -234,9 +222,68 @@ impl ScriptContext {
                 *cur_op = None;
                 Ok(())
             }
-            None => {
-                Err(RhaiSystemError::no_op().with_pos(ctx.position()).into())
-            }
+            None => Err(RhaiSystemError::no_op().with_pos(pos).into()),
+        }
+    }
+}
+
+/// All nodes in the parsing state machine.
+#[derive(Copy, Clone)]
+enum ParseNode {
+    DefopS,
+    IdentS,
+    OpenParenS,
+    IdentP1,
+    ColonP1,
+    ExprP1,
+    CommaP1,
+    CloseParenP1,
+    ArrowS,
+    IdentP2,
+    ColonP2,
+    ExprP2,
+    CommaP2,
+    BlockS,
+}
+
+/// All of the state of the parser.
+#[derive(Clone)]
+struct ParseState {
+    node: ParseNode,
+    inputs: usize,
+    outputs: usize,
+}
+
+impl ParseState {
+    pub fn new() -> Self {
+        Self {
+            node: ParseNode::DefopS,
+            inputs: 0,
+            outputs: 0,
+        }
+    }
+
+    pub fn node(&self, node: ParseNode) -> Self {
+        Self {
+            node,
+            inputs: self.inputs,
+            outputs: self.outputs,
+        }
+    }
+
+    pub fn inputs(&self, inputs: usize) -> Self {
+        Self {
+            node: self.node,
+            inputs,
+            outputs: self.outputs,
+        }
+    }
+
+    pub fn outputs(&self, outputs: usize) -> Self {
+        Self {
+            node: self.node,
+            inputs: self.inputs,
+            outputs,
         }
     }
 }
@@ -261,6 +308,7 @@ impl ScriptRunner {
         this.reg_state();
         this.reg_get_state();
         this.reg_get_setup();
+        this.reg_defop_syntax_nop();
         this
     }
 
@@ -420,7 +468,7 @@ impl ScriptRunner {
                   outputs: rhai::Array|
                   -> RhaiResult<_> {
                 sctx.begin_op(
-                    &ctx,
+                    ctx.position(),
                     name,
                     input_names,
                     inputs,
@@ -436,7 +484,7 @@ impl ScriptRunner {
         self.engine.register_fn(
             "shell",
             move |ctx: rhai::NativeCallContext, cmd: &str| -> RhaiResult<_> {
-                sctx.add_shell(&ctx, cmd.to_string())
+                sctx.add_shell(ctx.position(), cmd.to_string())
             },
         );
     }
@@ -448,7 +496,164 @@ impl ScriptRunner {
         self.engine.register_fn(
             "end_op_stmts",
             move |ctx: rhai::NativeCallContext| -> RhaiResult<_> {
-                sctx.end_op(&ctx, bld.borrow_mut())
+                sctx.end_op(ctx.position(), bld.borrow_mut())
+            },
+        );
+    }
+
+    /// A parse function to add custom syntax for defining ops to rhai.
+    fn parse_defop(
+        symbols: &[ImmutableString],
+        look_ahead: &str,
+        state: &mut Dynamic,
+    ) -> Result<Option<ImmutableString>, ParseError> {
+        if symbols.len() == 1 {
+            *state = Dynamic::from(ParseState::new());
+        }
+        let s = state.clone_cast::<ParseState>();
+        match s.node {
+            ParseNode::DefopS => {
+                *state = Dynamic::from(s.node(ParseNode::IdentS));
+                Ok(Some("$ident$".into()))
+            }
+            ParseNode::IdentS => {
+                *state = Dynamic::from(s.node(ParseNode::OpenParenS));
+                Ok(Some("(".into()))
+            }
+            ParseNode::OpenParenS => {
+                *state = Dynamic::from(s.node(ParseNode::IdentP1));
+                Ok(Some("$ident$".into()))
+            }
+            ParseNode::IdentP1 => {
+                *state = Dynamic::from(
+                    s.node(ParseNode::ColonP1).inputs(s.inputs + 1),
+                );
+                Ok(Some(":".into()))
+            }
+            ParseNode::ColonP1 => {
+                *state = Dynamic::from(s.node(ParseNode::ExprP1));
+                Ok(Some("$expr$".into()))
+            }
+            ParseNode::ExprP1 => {
+                if look_ahead == "," {
+                    *state = Dynamic::from(s.node(ParseNode::CommaP1));
+                    Ok(Some(",".into()))
+                } else {
+                    *state = Dynamic::from(s.node(ParseNode::CloseParenP1));
+                    Ok(Some(")".into()))
+                }
+            }
+            ParseNode::CommaP1 => {
+                *state = Dynamic::from(s.node(ParseNode::IdentP1));
+                Ok(Some("$ident$".into()))
+            }
+            ParseNode::CloseParenP1 => {
+                *state = Dynamic::from(s.node(ParseNode::ArrowS));
+                Ok(Some(">>".into()))
+            }
+            ParseNode::ArrowS => {
+                *state = Dynamic::from(s.node(ParseNode::IdentP2));
+                Ok(Some("$ident$".into()))
+            }
+            ParseNode::IdentP2 => {
+                *state = Dynamic::from(
+                    s.node(ParseNode::ColonP2).outputs(s.outputs + 1),
+                );
+                Ok(Some(":".into()))
+            }
+            ParseNode::ColonP2 => {
+                *state = Dynamic::from(s.node(ParseNode::ExprP2));
+                Ok(Some("$expr$".into()))
+            }
+            ParseNode::ExprP2 => {
+                if look_ahead == "," {
+                    *state = Dynamic::from(s.node(ParseNode::CommaP2));
+                    Ok(Some(",".into()))
+                } else {
+                    *state = Dynamic::from(s.node(ParseNode::BlockS));
+                    Ok(Some("$block$".into()))
+                }
+            }
+            ParseNode::CommaP2 => {
+                *state = Dynamic::from(s.node(ParseNode::IdentP2));
+                Ok(Some("$ident$".into()))
+            }
+            ParseNode::BlockS => Ok(None),
+        }
+    }
+
+    /// Registers custom syntax for defining op without actually defining the op.
+    fn reg_defop_syntax_nop(&mut self) {
+        self.engine.register_custom_syntax_with_state_raw(
+            "defop",
+            Self::parse_defop,
+            false,
+            move |_context, _inputs, _state| Ok(().into()),
+        );
+    }
+
+    /// Registers a custom syntax for creating ops using `start_op_stmts` and `end_op_stmts`.
+    fn reg_defop_syntax(&mut self, sctx: ScriptContext) {
+        let bld = Rc::clone(&self.builder);
+        self.engine.register_custom_syntax_with_state_raw(
+            "defop",
+            Self::parse_defop,
+            false,
+            move |context, inputs, state| {
+                let state = state.clone_cast::<ParseState>();
+
+                // Collect name of op and input/output states.
+                let op_name =
+                    inputs.first().unwrap().get_string_value().unwrap();
+                let input_names: Vec<_> = inputs
+                    .iter()
+                    .skip(1)
+                    .step_by(2)
+                    .take(state.inputs)
+                    .map(|n| {
+                        Dynamic::from(n.get_string_value().unwrap().to_string())
+                    })
+                    .collect();
+                let input_states = inputs
+                    .iter()
+                    .skip(2)
+                    .step_by(2)
+                    .take(state.inputs)
+                    .map(|s| s.eval_with_context(context))
+                    .collect::<RhaiResult<Vec<_>>>()?;
+                let output_names: Vec<_> = inputs
+                    .iter()
+                    .skip(1 + 2 * state.inputs)
+                    .step_by(2)
+                    .take(state.inputs)
+                    .map(|n| {
+                        Dynamic::from(n.get_string_value().unwrap().to_string())
+                    })
+                    .collect();
+                let output_states: Vec<_> = inputs
+                    .iter()
+                    .skip(2 + 2 * state.inputs)
+                    .step_by(2)
+                    .take(state.inputs)
+                    .map(|s| s.eval_with_context(context))
+                    .collect::<RhaiResult<Vec<_>>>()?;
+                let body = inputs.last().unwrap();
+
+                // Position to note error.
+                let op_pos = inputs.first().unwrap().position();
+
+                // Begin listening for `shell` functions. Execute definition body and collect into
+                // an op.
+                sctx.begin_op(
+                    op_pos,
+                    op_name,
+                    input_names,
+                    input_states,
+                    output_names,
+                    output_states,
+                )?;
+                let _ = body.eval_with_context(context);
+                sctx.end_op(op_pos, bld.borrow_mut()).map(Dynamic::from)
             },
         );
     }
@@ -470,6 +675,7 @@ impl ScriptRunner {
         self.reg_start_op_stmts(sctx.clone());
         self.reg_shell(sctx.clone());
         self.reg_end_op_stmts(sctx.clone());
+        self.reg_defop_syntax(sctx.clone());
 
         self.engine
             .module_resolver()
