@@ -17,7 +17,7 @@ flags = -p none
 rule calyx-with-flags
   command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
-build stdin.sv: calyx stdin
+build _to_stdout_verilog.sv: calyx _from_stdin_calyx.futil
   backend = verilog
 
-default stdin.sv
+default _to_stdout_verilog.sv

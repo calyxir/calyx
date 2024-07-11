@@ -10,6 +10,6 @@ mrxl-exe = mrxl
 rule mrxl-to-calyx
   command = $mrxl-exe $in > $out
 
-build stdin.futil: mrxl-to-calyx stdin
+build _to_stdout_calyx.futil: mrxl-to-calyx _from_stdin_mrxl.mrxl
 
-default stdin.futil
+default _to_stdout_calyx.futil

@@ -1,7 +1,7 @@
 use crate::flatten::flat_ir::prelude::AssignedValue;
 use crate::values::Value;
 use calyx_ir::{self as ir, Assignment, Id};
-use calyx_utils::Error as CalyxError;
+use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -95,6 +95,10 @@ pub enum InterpreterError {
     /// Wrapper error for parsing & related compiler errors
     #[error("{0:?}")]
     CompilerError(Box<CalyxError>),
+
+    /// Wrapper error for compiler multi errors
+    #[error("{0:?}")]
+    CompilerMultiError(Box<CalyxMultiError>),
 
     /// There is no main component in the given program
     #[error("no main component")]
@@ -240,6 +244,12 @@ impl std::fmt::Debug for InterpreterError {
 impl From<CalyxError> for InterpreterError {
     fn from(e: CalyxError) -> Self {
         Self::CompilerError(Box::new(e))
+    }
+}
+
+impl From<CalyxMultiError> for InterpreterError {
+    fn from(e: CalyxMultiError) -> Self {
+        Self::CompilerMultiError(Box::new(e))
     }
 }
 

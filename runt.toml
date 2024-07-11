@@ -132,8 +132,11 @@ python3 {} |\
 name = "[calyx-py] queues correctness"
 paths = [
     "calyx-py/test/correctness/queues/*.py",
-    "calyx-py/test/correctness/queues/binheap/*.py"
+    "calyx-py/test/correctness/queues/binheap/*.py",
+    "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
+    "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"
 ]
+
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
@@ -235,6 +238,27 @@ fud exec --from calyx --to jq \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
          -s calyx.flags '-x tdcc:one-hot-cutoff=500 -d static-promotion' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+[[tests]]
+name = "correctness dynamic fsm register duplication"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil",
+  "tests/correctness/static-interface/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-x tdcc:spread=duplicate -d static-promotion' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \
