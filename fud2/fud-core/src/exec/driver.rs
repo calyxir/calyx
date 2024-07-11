@@ -16,6 +16,7 @@ pub struct Driver {
     pub ops: PrimaryMap<OpRef, Operation>,
     pub rsrc_dir: Option<Utf8PathBuf>,
     pub rsrc_files: Option<FileData>,
+    pub config_data: figment::Figment,
 }
 
 impl Driver {
@@ -271,6 +272,7 @@ pub struct DriverBuilder {
     rsrc_files: Option<FileData>,
     scripts_dir: Option<Utf8PathBuf>,
     script_files: Option<FileData>,
+    pub config_data: figment::Figment,
 }
 
 #[derive(Debug)]
@@ -305,6 +307,7 @@ impl DriverBuilder {
             rsrc_files: None,
             scripts_dir: None,
             script_files: None,
+            config_data: config::load_config(name),
         }
     }
 
@@ -465,6 +468,7 @@ impl DriverBuilder {
             ops: self.ops,
             rsrc_dir: self.rsrc_dir,
             rsrc_files: self.rsrc_files,
+            config_data: self.config_data,
         }
     }
 }

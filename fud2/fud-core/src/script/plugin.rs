@@ -309,6 +309,8 @@ impl ScriptRunner {
         this.reg_get_state();
         this.reg_get_setup();
         this.reg_defop_syntax_nop();
+        this.reg_config();
+        this.reg_config_or();
         this
     }
 
@@ -485,6 +487,37 @@ impl ScriptRunner {
             "shell",
             move |ctx: rhai::NativeCallContext, cmd: &str| -> RhaiResult<_> {
                 sctx.add_shell(ctx.position(), cmd.to_string())
+            },
+        );
+    }
+
+    /// Registers a Rhai function for getting values from the config file.
+    fn reg_config(&mut self) {
+        let bld = Rc::clone(&self.builder);
+        self.engine.register_fn(
+            "config",
+            move |ctx: rhai::NativeCallContext, key: &str| -> RhaiResult<_> {
+                bld.borrow()
+                    .config_data
+                    .extract_inner::<String>(key)
+                    .or(Err(RhaiSystemError::config_not_found(key)
+                        .with_pos(ctx.position())
+                        .into()))
+            },
+        );
+    }
+
+    /// Registers a Rhai function for getting values from the config file or using a provided
+    /// string if the key is not found.
+    fn reg_config_or(&mut self) {
+        let bld = Rc::clone(&self.builder);
+        self.engine.register_fn(
+            "config_or",
+            move |key: &str, default: &str| -> RhaiResult<_> {
+                bld.borrow()
+                    .config_data
+                    .extract_inner::<String>(key)
+                    .or(Ok(default.to_string()))
             },
         );
     }

@@ -14,6 +14,7 @@ pub(super) enum RhaiSystemErrorKind {
     StateRef(String),
     BeganOp(String, String),
     NoOp,
+    ConfigNotFound(String),
 }
 
 impl RhaiSystemError {
@@ -48,6 +49,13 @@ impl RhaiSystemError {
         }
     }
 
+    pub(super) fn config_not_found(key: &str) -> Self {
+        Self {
+            kind: RhaiSystemErrorKind::ConfigNotFound(key.to_string()),
+            position: rhai::Position::NONE,
+        }
+    }
+
     pub(super) fn with_pos(mut self, p: rhai::Position) -> Self {
         self.position = p;
         self
@@ -68,6 +76,9 @@ impl Display for RhaiSystemError {
             }
             RhaiSystemErrorKind::NoOp => {
                 write!(f, "Unable to find current op being built. Consider calling start_op_stmts earlier in the program.")
+            }
+            RhaiSystemErrorKind::ConfigNotFound(v) => {
+                write!(f, "Unable to find config value: `{v:?}`")
             }
         }
     }

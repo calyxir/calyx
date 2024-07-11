@@ -1,8 +1,8 @@
-use crate::config;
 use crate::exec::{
     Driver, EnumeratePlanner, Request, SingleOpOutputPlanner, StateRef,
 };
 use crate::run::Run;
+use crate::{config, DriverBuilder};
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
 use camino::Utf8PathBuf;
@@ -280,6 +280,27 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     bail!("unknown resource file {}", cmd.filename);
 }
 
+pub fn override_config_from_cli(
+    mut builder: DriverBuilder,
+) -> anyhow::Result<DriverBuilder> {
+    let args: FakeArgs = argh::from_env();
+
+    // Use `--set` arguments to override configuration values.
+    for set in args.set {
+        let mut parts = set.splitn(2, '=');
+        let key = parts.next().unwrap();
+        let value = parts
+            .next()
+            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
+        let dict = figment::util::nest(key, value.into());
+        builder.config_data = builder
+            .config_data
+            .merge(figment::providers::Serialized::defaults(dict));
+    }
+
+    Ok(builder)
+}
+
 pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
@@ -319,19 +340,6 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     }
     if let Some(verbose) = args.verbose {
         run.global_config.verbose = verbose;
-    }
-
-    // Use `--set` arguments to override configuration values.
-    for set in args.set {
-        let mut parts = set.splitn(2, '=');
-        let key = parts.next().unwrap();
-        let value = parts
-            .next()
-            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
-        let dict = figment::util::nest(key, value.into());
-        run.config_data = run
-            .config_data
-            .merge(figment::providers::Serialized::defaults(dict));
     }
 
     // Execute.
