@@ -609,7 +609,7 @@ impl Tree {
             {
                 // Increment parent when child is in final state.
                 // fsm.in = fsm == offload_state && child_fsm_in_final_state ? fsm + 1;
-                // fsm.write_en = .offload_state && child_fsm_in_final_state ? 1'd1;
+                // fsm.write_en == offload_state && child_fsm_in_final_state ? 1'd1;
                 // If the offload state is the last state (end == self.latency) then we don't
                 // increment, we need to reset to 0: we will handle that case separately.
                 // Also, if end = beg + 1 then the child takes one cycle and we can just
@@ -691,14 +691,27 @@ impl Tree {
             let final_fsm_state =
                 self.get_fsm_query((self.latency - 1, self.latency), builder);
             let not_final_state = final_fsm_state.clone().not();
-            res_vec.extend(
-                parent_fsm.borrow_mut().conditional_increment(
-                    not_offload_state
-                        .and(not_final_state.clone().and(other_incr_condition)),
-                    Rc::clone(&adder),
-                    builder,
-                ),
-            );
+
+            // Trying to reduce redundancy among gurads
+            let final_state_is_offload_state =
+                if let Some((_, (_, end_final_child))) = self.children.last() {
+                    *end_final_child == self.latency
+                } else {
+                    false
+                };
+
+            let incr_guard = if final_state_is_offload_state {
+                not_offload_state.and(other_incr_condition)
+            } else {
+                not_offload_state
+                    .and(not_final_state.clone().and(other_incr_condition))
+            };
+            res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
+                incr_guard,
+                Rc::clone(&adder),
+                builder,
+            ));
+
             // reset at final fsm_state.
             res_vec.extend(
                 parent_fsm
