@@ -107,7 +107,7 @@ def _add_s_to_m_address_channel(prog, prefix: Literal["AW", "AR"]):
 
         block_transfer.done = x_addr.done
 
-    s_to_m_address_channel.control += [block_transfer]
+    s_to_m_address_channel.control += [invoke(x_ready, in_in=0),block_transfer]
 
 
 def add_read_channel(prog):
@@ -171,7 +171,8 @@ def add_write_channel(prog):
 
         service_write_request.done = wdata.done
 
-    write_channel.control += [service_write_request]
+    
+    write_channel.control += [invoke(wready, in_in=0), service_write_request]
 
 
 def add_bresp_channel(prog):
@@ -536,7 +537,7 @@ def add_control_subordinate(prog, mems):
 
     control_subordinate.control += [
         init_control_regs,
-        while_with(n_ap_done, [par(read_controller_invoke, write_controller_invoke), check_ap_done]),
+        while_with(n_ap_done, [par(write_controller_invoke, read_controller_invoke), check_ap_done]),
     ]
 
 
