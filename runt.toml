@@ -258,7 +258,7 @@ fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x tdcc:spread=duplicate -d static-promotion' \
+         -s calyx.flags '-x tdcc:duplicate-cutoff=0 -d static-promotion' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \
