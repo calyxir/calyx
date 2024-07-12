@@ -67,8 +67,21 @@ impl BreakPoint {
     }
 
     pub fn format(&self, ctx: &Context) -> String {
+        let parent_comp = ctx
+            .primary
+            .components
+            .keys()
+            .find(|comp_id| {
+                ctx.secondary[*comp_id]
+                    .definitions
+                    .groups()
+                    .contains(self.group)
+            })
+            .unwrap();
+        let parent_name = ctx.lookup_name(parent_comp);
+
         let group_name = ctx.lookup_name(self.group);
-        format!("{}: {}", group_name, self.state)
+        format!("{parent_name}::{group_name}: {}", self.state)
     }
 }
 
@@ -672,7 +685,11 @@ impl DebuggingContext {
 
     pub fn print_breakpoints(&self, ctx: &Context) {
         println!("{}Current breakpoints:", SPACING);
-        for (breakpoint_idx, breakpoint) in self.breakpoints.iter() {
+        for (breakpoint_idx, breakpoint) in self
+            .breakpoints
+            .iter()
+            .sorted_by(|(a_idx, _), (b_idx, _)| a_idx.cmp(b_idx))
+        {
             println!("{SPACING}({breakpoint_idx}) {}", breakpoint.format(ctx))
         }
     }

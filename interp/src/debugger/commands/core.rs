@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// Identifier for breakpoints
-#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct BreakpointIdx(u32);
 
 impl Display for BreakpointIdx {
