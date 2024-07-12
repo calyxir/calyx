@@ -126,6 +126,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     fn do_continue(&mut self) -> InterpreterResult<()> {
+        // TODO griffin: figure out how to skip this convergence
+        self.interpreter.converge()?;
         self.debugging_context
             .set_current_time(self.interpreter.get_currently_running_groups());
 
@@ -133,6 +135,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
         while breakpoints.is_empty() && !self.interpreter.is_done() {
             self.interpreter.step()?;
+            // TODO griffin: figure out how to skip this convergence
+            self.interpreter.converge()?;
             self.debugging_context
                 .advance_time(self.interpreter.get_currently_running_groups());
 
