@@ -88,10 +88,11 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     If the `no_err` flag is set and the policy is work-conserving,
     then items are chosen from 0 and 2 using a helper.
 
-    If the `nwc` is set to False and the policy is set as work-conserving,
+    If the `nwc` flag is set to False (marking the policy as work-conserving),
     then the predicate is treated as though always true.
 
-    Otherwise, the user has the option to 
+    If `nwc` is set to True, then the user has the option to treat `always-true`
+    either way.
 
     - The `values` memory has `num_cmds` items:
     random values between 0 and 400.
