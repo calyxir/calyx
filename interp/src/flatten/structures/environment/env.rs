@@ -3,7 +3,7 @@ use super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    program_counter::{PcMaps, ProgramCounter},
+    program_counter::{PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, PathResolution, TraversalError},
 };
 use crate::{
@@ -1128,10 +1128,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     ScheduledAssignments::new(x.comp, x.assigns, None)
                 }),
             )
-            .chain(self.env.pc.with_map().iter().map(|(ctrl_pt, comb_grp)| {
-                let assigns = self.ctx().primary[*comb_grp].assignments;
-                ScheduledAssignments::new(ctrl_pt.comp, assigns, None)
-            }))
+            .chain(self.env.pc.with_map().iter().map(
+                |(ctrl_pt, with_entry)| {
+                    let assigns =
+                        self.ctx().primary[with_entry.group].assignments;
+                    ScheduledAssignments::new(ctrl_pt.comp, assigns, None)
+                },
+            ))
             .collect()
     }
 
@@ -1247,22 +1250,16 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     //
     pub fn converge(&mut self) -> InterpreterResult<()> {
-        todo!()
-    }
+        self.undef_all_ports();
+        self.set_root_go_high();
 
-    pub fn step(&mut self) -> InterpreterResult<()> {
-        // place to keep track of what groups we need to conclude at the end of
-        // this step. These are indices into the program counter
+        for comp in self.env.pc.finished_comps() {
+            let done_port = self.env.get_comp_done(*comp);
+            self.env.ports[done_port] =
+                PortValue::new_implicit(Value::bit_high());
+        }
 
-        // In the future it may be worthwhile to preallocate some space to these
-        // buffers. Can pick anything from zero to the number of nodes in the
-        // program counter as the size
-        let mut leaf_nodes = vec![];
-        let mut set_done_high = vec![];
-        let mut set_done_low: HashSet<GlobalPortIdx> = HashSet::new();
-
-        let mut new_nodes = vec![];
-        let (mut vecs, mut par_map, mut with_map, mut repeat_map) =
+        let (vecs, par_map, mut with_map, repeat_map) =
             self.env.pc.take_fields();
 
         // for mutability reasons, this should be a cheap clone, either an RC in
@@ -1270,40 +1267,19 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let ctx = self.env.ctx.clone();
         let ctx_ref = ctx.as_ref();
 
-        // TODO griffin: This has become an unwieldy mess and should really be
-        // refactored into a handful of internal functions
-        vecs.retain_mut(|node| {
-            self.evaluate_control_node(
-                node,
-                &mut set_done_low,
-                &mut new_nodes,
-                &mut leaf_nodes,
-                &mut set_done_high,
-                (&mut par_map, &mut with_map, &mut repeat_map),
-            )
-        });
+        for node in vecs.iter() {
+            let comp_done = self.env.get_comp_done(node.comp);
 
-        self.env
-            .pc
-            .restore_fields((vecs, par_map, with_map, repeat_map));
+            // if the done is not high & defined, we need to set it to low
+            if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
+                self.env.ports[comp_done] =
+                    PortValue::new_implicit(Value::bit_low());
+            }
 
-        // insert all the new nodes from the par into the program counter
-        self.env.pc.vec_mut().extend(new_nodes);
-
-        self.undef_all_ports();
-        self.set_root_go_high();
-        for port in set_done_high {
-            self.env.ports[port] = PortValue::new_implicit(Value::bit_high());
-        }
-
-        for port in set_done_low {
-            self.env.ports[port] = PortValue::new_implicit(Value::bit_low());
-        }
-
-        for node in &leaf_nodes {
             match &ctx_ref.primary[node.control_node_idx] {
-                ControlNode::Enable(e) => {
-                    let go_local = ctx_ref.primary[e.group()].go;
+                // actual nodes
+                ControlNode::Enable(enable) => {
+                    let go_local = ctx_ref.primary[enable.group()].go;
                     let index_bases = &self.env.cells[node.comp]
                         .as_comp()
                         .unwrap()
@@ -1314,22 +1290,62 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     self.env.ports[go_idx] =
                         PortValue::new_implicit(Value::bit_high());
                 }
-                ControlNode::Invoke(i) => {
-                    let go = self.get_global_port_idx(&i.go, node.comp);
+                ControlNode::Invoke(invoke) => {
+                    if invoke.comb_group.is_some()
+                        && !with_map.contains_key(node)
+                    {
+                        with_map.insert(
+                            node.clone(),
+                            WithEntry::new(invoke.comb_group.unwrap()),
+                        );
+                    }
+
+                    let go = self.get_global_port_idx(&invoke.go, node.comp);
                     self.env.ports[go] =
                         PortValue::new_implicit(Value::bit_high());
 
-                    self.initialize_ref_cells(node.comp, i);
+                    // TODO griffin: should make this skip initialization if
+                    // it's already initialized
+                    self.initialize_ref_cells(node.comp, invoke);
                 }
-                non_leaf => {
-                    unreachable!("non-leaf node {:?} included in list of leaf nodes. This should never happen, please report it.", non_leaf)
+                // with nodes
+                ControlNode::If(i) => {
+                    if i.cond_group().is_some() && !with_map.contains_key(node)
+                    {
+                        with_map.insert(
+                            node.clone(),
+                            WithEntry::new(i.cond_group().unwrap()),
+                        );
+                    }
                 }
+                ControlNode::While(w) => {
+                    if w.cond_group().is_some() && !with_map.contains_key(node)
+                    {
+                        with_map.insert(
+                            node.clone(),
+                            WithEntry::new(w.cond_group().unwrap()),
+                        );
+                    }
+                }
+                // --
+                ControlNode::Empty(_)
+                | ControlNode::Seq(_)
+                | ControlNode::Par(_)
+                | ControlNode::Repeat(_) => {}
             }
         }
 
-        let assigns_bundle = self.get_assignments(&leaf_nodes);
+        self.env
+            .pc
+            .restore_fields((vecs, par_map, with_map, repeat_map));
 
-        self.simulate_combinational(&assigns_bundle)?;
+        let assigns_bundle = self.get_assignments(self.env.pc.node_slice());
+
+        self.simulate_combinational(&assigns_bundle)
+    }
+
+    pub fn step(&mut self) -> InterpreterResult<()> {
+        self.converge()?;
 
         let out: Result<(), (GlobalCellIdx, BoxedInterpreterError)> = {
             let mut result = Ok(());
@@ -1348,16 +1364,36 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             result
         };
 
+        self.env.pc.clear_finished_comps();
+
+        let mut new_nodes = vec![];
+        let (mut vecs, mut par_map, mut with_map, mut repeat_map) =
+            self.env.pc.take_fields();
+
+        // TODO griffin: This has become an unwieldy mess and should really be
+        // refactored into a handful of internal functions
+        vecs.retain_mut(|node| {
+            self.evaluate_control_node(
+                node,
+                &mut new_nodes,
+                (&mut par_map, &mut with_map, &mut repeat_map),
+            )
+        });
+
+        self.env
+            .pc
+            .restore_fields((vecs, par_map, with_map, repeat_map));
+
+        // insert all the new nodes from the par into the program counter
+        self.env.pc.vec_mut().extend(new_nodes);
+
         out.map_err(|(idx, err)| self.env.make_nice_error(idx, err))
     }
 
     fn evaluate_control_node(
         &mut self,
         node: &mut ControlPoint,
-        set_done_low: &mut HashSet<GlobalPortIdx>,
         new_nodes: &mut Vec<ControlPoint>,
-        leaf_nodes: &mut Vec<ControlPoint>,
-        set_done_high: &mut Vec<GlobalPortIdx>,
         maps: PcMaps,
     ) -> bool {
         let (par_map, with_map, repeat_map) = maps;
@@ -1367,11 +1403,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         // mutability trick
         let ctx_clone = self.env.ctx.clone();
         let ctx = ctx_clone.as_ref();
-
-        // if the done is not high & defined, we need to set it to low
-        if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
-            set_done_low.insert(comp_done);
-        }
 
         if !self.env.ports[comp_go].as_bool().unwrap_or_default()
             || self.env.ports[comp_done].as_bool().unwrap_or_default()
@@ -1445,7 +1476,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         + done_local;
 
                 if !self.env.ports[done_idx].as_bool().unwrap_or_default() {
-                    leaf_nodes.push(node.clone());
                     true
                 } else {
                     // This group has finished running and may be removed
@@ -1460,11 +1490,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 let done = self.get_global_port_idx(&i.done, node.comp);
 
                 if i.comb_group.is_some() && !with_map.contains_key(node) {
-                    with_map.insert(node.clone(), i.comb_group.unwrap());
+                    with_map.insert(
+                        node.clone(),
+                        WithEntry::new(i.comb_group.unwrap()),
+                    );
                 }
 
                 if !self.env.ports[done].as_bool().unwrap_or_default() {
-                    leaf_nodes.push(node.clone());
                     true
                 } else {
                     self.cleanup_ref_cells(node.comp, i);
@@ -1482,10 +1514,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
          // either we are not a par node, or we are the last par node
          (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
         {
-            let done_port = self.env.get_comp_done(node.comp);
-            set_done_high.push(done_port);
-            // make sure we don't set this port low
-            set_done_low.remove(&done_port);
+            self.env.pc.set_finshed_comp(node.comp);
             let comp_ledger = self.env.cells[node.comp].unwrap_comp();
             *node = node.new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
@@ -1501,23 +1530,23 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     fn handle_while(
         &mut self,
         w: &While,
-        with_map: &mut HashMap<ControlPoint, CombGroupIdx>,
+        with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
     ) -> bool {
-        if w.cond_group().is_some() {
-            let comb_group = with_map
-                .entry(node.clone())
-                .or_insert(w.cond_group().unwrap());
-            let comb_assigns = ScheduledAssignments::new(
-                node.comp,
-                self.env.ctx.as_ref().primary[*comb_group].assignments,
-                None,
-            );
+        // if w.cond_group().is_some() {
+        //     let comb_group = with_map
+        //         .entry(node.clone())
+        //         .or_insert(w.cond_group().unwrap());
+        //     let comb_assigns = ScheduledAssignments::new(
+        //         node.comp,
+        //         self.env.ctx.as_ref().primary[*comb_group].assignments,
+        //         None,
+        //     );
 
-            // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
-            // HAVE NOT BEEN UNDEFINED YET
-            self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for while statement");
-        }
+        //     // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+        //     // HAVE NOT BEEN UNDEFINED YET
+        //     self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for while statement");
+        // }
 
         let target = GlobalPortRef::from_local(
             w.cond_port(),
@@ -1551,33 +1580,38 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     fn handle_if(
         &mut self,
-        with_map: &mut HashMap<ControlPoint, CombGroupIdx>,
+        with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
         i: &If,
     ) -> bool {
-        // this is bad but it works for now, what a headache
-        let contains_node = with_map.contains_key(node);
-        if i.cond_group().is_some() && !contains_node {
-            let comb_group = i.cond_group().unwrap();
-            let comb_assigns = ScheduledAssignments::new(
-                node.comp,
-                self.env.ctx.as_ref().primary[comb_group].assignments,
-                None,
-            );
+        // // this is bad but it works for now, what a headache
+        // let contains_node = with_map.contains_key(node);
+        // if i.cond_group().is_some() && !contains_node {
+        //     let comb_group = i.cond_group().unwrap();
+        //     let comb_assigns = ScheduledAssignments::new(
+        //         node.comp,
+        //         self.env.ctx.as_ref().primary[comb_group].assignments,
+        //         None,
+        //     );
 
-            with_map.insert(node.clone(), comb_group);
+        //     with_map.insert(node.clone(), comb_group);
 
-            // TODO griffin: Sort out a way to make this error less terrible
-            // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
-            // HAVE NOT BEEN UNDEFINED YET
-            self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
+        //     // TODO griffin: Sort out a way to make this error less terrible
+        //     // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+        //     // HAVE NOT BEEN UNDEFINED YET
+        //     self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
 
-            // now we fall through and proceed as normal
-        }
-        if i.cond_group().is_some() && contains_node {
+        //     // now we fall through and proceed as normal
+        // }
+
+        if i.cond_group().is_some() && with_map.get(node).unwrap().entered {
             with_map.remove(node);
             node.mutate_into_next(self.env.ctx.as_ref())
         } else {
+            if let Some(entry) = with_map.get_mut(node) {
+                entry.set_entered()
+            }
+
             let target = GlobalPortRef::from_local(
                 i.cond_port(),
                 &self.env.cells[node.comp].unwrap_comp().index_bases,
@@ -1609,7 +1643,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
-            // self._print_env();
+            // self.print_pc();
             self.step()?
         }
         Ok(())
