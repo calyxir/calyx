@@ -868,14 +868,16 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         if name.len() == 1 && &name[0] == ctx.lookup_name(ctx.entry_point) {
             Ok(Path::Cell(Self::get_root()))
         } else {
-            let mut iter = name[0..name.len() - 2].iter();
-            if &name[0] == ctx.lookup_name(ctx.entry_point) {
-                // skip the main name
-                iter.next();
-            }
+            if name.len() != 1 {
+                let mut iter = name[0..name.len() - 2].iter();
+                if &name[0] == ctx.lookup_name(ctx.entry_point) {
+                    // skip the main name
+                    iter.next();
+                }
 
-            for name in iter {
-                current.next_cell(self, name)?;
+                for name in iter {
+                    current.next_cell(self, name)?;
+                }
             }
 
             let last = name.last().unwrap();
