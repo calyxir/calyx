@@ -45,7 +45,7 @@ rule interp-to-dat
   command = $python interp-dat.py --from-interp $in $sim_data > $out
 build data.json: dat-to-interp $sim_data | interp-dat.py
 rule run-cider
-  command = $cider-exe -l $calyx-base --data data.dump $in flat > $out
+  command = $cider-exe -l $calyx-base --data data.dump $in > $out
 rule dump-to-interp
   command = $cider-converter --to cider $in > $out
 rule interp-to-dump
