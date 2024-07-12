@@ -447,22 +447,23 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
-        self.pc.iter().any(|point| {
-            let point = &self.ctx.as_ref().primary[point.control_node_idx];
-            match point {
-                ControlNode::Enable(x) => x.group() == group_idx,
-                _ => false,
-            }
-        })
+        self.get_currently_running_groups().any(|x| x == group_idx)
     }
 
     pub fn get_currently_running_groups(
         &self,
     ) -> impl Iterator<Item = GroupIdx> + '_ {
         self.pc.iter().filter_map(|point| {
-            let point = &self.ctx.as_ref().primary[point.control_node_idx];
-            match point {
-                ControlNode::Enable(x) => Some(x.group()),
+            let node = &self.ctx.as_ref().primary[point.control_node_idx];
+            match node {
+                ControlNode::Enable(x) => {
+                    let comp_go = self.get_comp_go(point.comp);
+                    if self.ports[comp_go].as_bool().unwrap_or_default() {
+                        Some(x.group())
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             }
         })
