@@ -1,7 +1,6 @@
 use super::{
     commands::{Command, PrintMode},
     debugging_context::context::DebuggingContext,
-    interactive_errors::DebuggerError,
     io_utils::Input,
     source::structures::NewSourceMap,
 };
@@ -9,8 +8,8 @@ use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
     errors::{InterpreterError, InterpreterResult},
     flatten::{
-        flat_ir::prelude::{GlobalCellIdx, GlobalPortIdx, GroupIdx, PortValue},
-        setup_simulation, setup_simulation_with_metadata,
+        flat_ir::prelude::GroupIdx,
+        setup_simulation_with_metadata,
         structures::{
             context::Context,
             environment::{Path as ParsePath, PathError, Simulator},

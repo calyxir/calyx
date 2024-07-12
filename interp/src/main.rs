@@ -1,21 +1,17 @@
 use argh::FromArgs;
-use calyx_frontend as frontend;
-use calyx_ir as ir;
-use calyx_opt::pass_manager::PassManager;
+
 use calyx_utils::OutputFile;
 use interp::{
     configuration,
-    debugger::{source::SourceMap, Debugger},
+    debugger::Debugger,
     errors::{InterpreterError, InterpreterResult},
-    flatten::structures::environment::{Environment, Simulator},
-    serialization::DataDump,
+    flatten::structures::environment::Simulator,
 };
-use rustyline::error::ReadlineError;
+
 use slog::warn;
 use std::{
     io::stdout,
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 #[derive(FromArgs)]

@@ -1,12 +1,8 @@
-use crate::{
-    errors::InterpreterResult,
-    flatten::{
-        flat_ir::prelude::{
-            CellDefinitionIdx, CellRef, GlobalCellIdx, GlobalPortIdx,
-            GlobalRefCellIdx, GlobalRefPortIdx, PortRef, RefCellDefinitionIdx,
-        },
-        structures::context::Context,
+use crate::flatten::{
+    flat_ir::prelude::{
+        CellRef, GlobalCellIdx, GlobalPortIdx, GlobalRefCellIdx, PortRef,
     },
+    structures::context::Context,
 };
 use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
@@ -383,8 +379,8 @@ impl Path {
         match self {
             Path::Cell(c) => env.get_full_name(c),
             Path::Port(p) => env.get_full_name(p),
-            Path::AbstractCell(c) => todo!("ref cells not supported yet"),
-            Path::AbstractPort { cell, port } => {
+            Path::AbstractCell(_) => todo!("ref cells not supported yet"),
+            Path::AbstractPort { .. } => {
                 todo!("ref ports not supported yet")
             }
         }

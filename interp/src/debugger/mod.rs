@@ -1,7 +1,6 @@
 pub mod commands;
 mod debugger_core;
 mod debugging_context;
-mod interactive_errors;
 mod io_utils;
 mod macros;
 pub mod source;

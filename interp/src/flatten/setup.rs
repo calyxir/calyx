@@ -28,7 +28,7 @@ fn do_setup(
         .metadata
         .as_ref()
         .map(|metadata| {
-            crate::debugger::source::new_parser::parse_metadata(&metadata)
+            crate::debugger::source::new_parser::parse_metadata(metadata)
         })
         .unwrap_or_else(|| {
             Err(crate::errors::InterpreterError::MissingMetaData.into())

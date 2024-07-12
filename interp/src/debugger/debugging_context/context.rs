@@ -1,30 +1,21 @@
+use super::super::{
+    commands::{PrintTuple, WatchPosition},
+    debugger_core::SPACING,
+};
 use crate::{
     debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
     flatten::{
         flat_ir::prelude::GroupIdx,
         structures::{
-            context::Context, environment::Environment,
-            index_trait::impl_index, indexed_map::IndexedMap,
+            context::Context, environment::Environment, indexed_map::IndexedMap,
         },
     },
 };
-
-use super::super::{
-    commands::{
-        GroupName, ParsedBreakPointID, ParsedGroupName, PrintTuple,
-        WatchPosition,
-    },
-    debugger_core::SPACING,
-};
-
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use calyx_ir::Id;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use smallvec::{smallvec, SmallVec};
-
-use std::rc::Rc;
-use std::{fmt::Display, iter};
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 enum PointStatus {
@@ -93,11 +84,11 @@ pub struct WatchPoint {
 }
 
 impl WatchPoint {
-    pub fn enable(&mut self) {
+    pub fn _enable(&mut self) {
         self.state = PointStatus::Enabled;
     }
 
-    pub fn disable(&mut self) {
+    pub fn _disable(&mut self) {
         self.state = PointStatus::Disabled;
     }
 
@@ -105,11 +96,11 @@ impl WatchPoint {
         matches!(self.state, PointStatus::Disabled)
     }
 
-    pub fn is_enabled(&self) -> bool {
+    pub fn _is_enabled(&self) -> bool {
         matches!(self.state, PointStatus::Enabled)
     }
 
-    pub fn group(&self) -> GroupIdx {
+    pub fn _group(&self) -> GroupIdx {
         self.group
     }
 
@@ -272,8 +263,8 @@ impl WatchPointIndices {
 
     fn get_before(&self) -> Option<&[WatchpointIdx]> {
         match self {
-            Self::Before(idx) => Some(&idx),
-            Self::Both { after, .. } => Some(&after),
+            Self::Before(idx) => Some(idx),
+            Self::Both { after, .. } => Some(after),
             Self::After(_) => None,
         }
     }
@@ -281,12 +272,12 @@ impl WatchPointIndices {
     fn get_after(&self) -> Option<&[WatchpointIdx]> {
         match self {
             Self::Before(_) => None,
-            Self::After(idx) => Some(&idx),
-            Self::Both { before, .. } => Some(&before),
+            Self::After(idx) => Some(idx),
+            Self::Both { before, .. } => Some(before),
         }
     }
 
-    fn iter(&self) -> Box<dyn Iterator<Item = &WatchpointIdx> + '_> {
+    fn _iter(&self) -> Box<dyn Iterator<Item = &WatchpointIdx> + '_> {
         match self {
             Self::Before(idx) => Box::new(idx.iter()),
             Self::After(idx) => Box::new(idx.iter()),
@@ -356,14 +347,14 @@ impl WatchpointMap {
         self.group_idx_map.get(&group)
     }
 
-    fn get_by_group_mut(
+    fn _get_by_group_mut(
         &mut self,
         group: GroupIdx,
     ) -> Option<&mut WatchPointIndices> {
         self.group_idx_map.get_mut(&group)
     }
 
-    fn get_by_idx_mut(
+    fn _get_by_idx_mut(
         &mut self,
         idx: WatchpointIdx,
     ) -> Option<&mut WatchPoint> {
@@ -417,13 +408,13 @@ impl WatchpointMap {
         }
     }
 
-    fn iter_before(
+    fn _iter_before(
         &self,
     ) -> impl Iterator<Item = (&WatchpointIdx, &WatchPoint)> {
         self.watchpoints_before.iter()
     }
 
-    fn iter_after(
+    fn _iter_after(
         &self,
     ) -> impl Iterator<Item = (&WatchpointIdx, &WatchPoint)> {
         self.watchpoints_after.iter()
@@ -550,36 +541,36 @@ impl DebuggingContext {
         self.watchpoints.delete_by_idx(target)
     }
 
-    fn act_watchpoint(&mut self, target: WatchID, action: PointAction) {
+    fn _act_watchpoint(&mut self, target: WatchID, action: PointAction) {
         fn act(target: &mut WatchPoint, action: PointAction) {
             match action {
                 PointAction::Enable => {
-                    target.enable();
+                    target._enable();
                 }
                 PointAction::Disable => {
-                    target.disable();
+                    target._disable();
                 }
             }
         }
 
         match target {
             WatchID::Name(name) => {
-                if let Some(points) = self.watchpoints.get_by_group_mut(name) {
+                if let Some(points) = self.watchpoints._get_by_group_mut(name) {
                     // mutability trickery
                     let points_actual = std::mem::replace(
                         points,
                         WatchPointIndices::Before(SmallVec::new()),
                     );
 
-                    for point_idx in points_actual.iter() {
+                    for point_idx in points_actual._iter() {
                         if let Some(point) =
-                            self.watchpoints.get_by_idx_mut(*point_idx)
+                            self.watchpoints._get_by_idx_mut(*point_idx)
                         {
                             act(point, action);
                         }
                     }
 
-                    *self.watchpoints.get_by_group_mut(name).unwrap() =
+                    *self.watchpoints._get_by_group_mut(name).unwrap() =
                         points_actual;
                 } else {
                     println!(
@@ -588,7 +579,7 @@ impl DebuggingContext {
                 }
             }
             WatchID::Number(num) => {
-                if let Some(point) = self.watchpoints.get_by_idx_mut(num) {
+                if let Some(point) = self.watchpoints._get_by_idx_mut(num) {
                     act(point, action);
                 } else {
                     println!(
@@ -600,12 +591,12 @@ impl DebuggingContext {
         }
     }
 
-    pub fn enable_watchpoint(&mut self, target: WatchID) {
-        self.act_watchpoint(target, PointAction::Enable)
+    pub fn _enable_watchpoint(&mut self, target: WatchID) {
+        self._act_watchpoint(target, PointAction::Enable)
     }
 
-    pub fn disable_watchpoint(&mut self, target: WatchID) {
-        self.act_watchpoint(target, PointAction::Disable)
+    pub fn _disable_watchpoint(&mut self, target: WatchID) {
+        self._act_watchpoint(target, PointAction::Disable)
     }
 
     pub fn hit_breakpoints(&self) -> impl Iterator<Item = GroupIdx> + '_ {

@@ -22,15 +22,6 @@ impl Shape {
         matches!(self, Shape::D1(_))
     }
 
-    pub(crate) fn dim_str(&self) -> String {
-        match self {
-            Shape::D1(_) => String::from("1D"),
-            Shape::D2(_, _) => String::from("2D"),
-            Shape::D3(_, _, _) => String::from("3D"),
-            Shape::D4(_, _, _, _) => String::from("4D"),
-        }
-    }
-
     /// returns the total number of entries in the memory, i.e. it's size based
     /// on the dimensions of it.
     pub fn size(&self) -> usize {

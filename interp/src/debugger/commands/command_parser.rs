@@ -1,7 +1,6 @@
 use super::core::{
     Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
 };
-use calyx_ir::Id;
 use pest_consume::{match_nodes, Error, Parser};
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;

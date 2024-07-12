@@ -4,7 +4,7 @@ use super::{
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
     program_counter::{PcMaps, ProgramCounter, WithEntry},
-    traverser::{Path, PathResolution, TraversalError},
+    traverser::{Path, TraversalError},
 };
 use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
@@ -14,10 +14,10 @@ use crate::{
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices,
                 CellDefinitionRef::{Local, Ref},
-                CellRef, CombGroupIdx, ComponentIdx, ControlNode,
-                GlobalCellIdx, GlobalCellRef, GlobalPortIdx, GlobalPortRef,
-                GlobalRefCellIdx, GlobalRefPortIdx, GroupIdx, GuardIdx,
-                Identifier, If, Invoke, PortRef, PortValue, While,
+                CellRef, ComponentIdx, ControlNode, GlobalCellIdx,
+                GlobalCellRef, GlobalPortIdx, GlobalPortRef, GlobalRefCellIdx,
+                GlobalRefPortIdx, GroupIdx, GuardIdx, Identifier, If, Invoke,
+                PortRef, PortValue, While,
             },
             wires::guards::Guard,
         },
@@ -38,8 +38,8 @@ use ahash::HashSet;
 use ahash::HashSetExt;
 use itertools::Itertools;
 use slog::warn;
+use std::fmt::Debug;
 use std::fmt::Write;
-use std::{fmt::Debug, iter::once};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 

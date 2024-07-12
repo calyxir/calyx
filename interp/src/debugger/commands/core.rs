@@ -1,4 +1,3 @@
-use calyx_ir::Id;
 use itertools::{self, Itertools};
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
@@ -8,13 +7,12 @@ use std::{
 };
 
 use crate::{
-    debugger::debugging_context::context,
     flatten::{
         flat_ir::prelude::GroupIdx,
         structures::{
             context::Context,
             environment::{Environment, Path},
-            index_trait::{impl_index, IndexRef},
+            index_trait::impl_index,
         },
     },
     serialization::PrintCode,
@@ -89,17 +87,14 @@ impl ParsedGroupName {
         let comp = if let Some(c) = &self.component {
             context
                 .lookup_comp_by_name(c.as_ref())
-                .map_or(Err(format!("No component named {c}")), Ok)?
+                .ok_or(format!("No component named {c}"))?
         } else {
             context.entry_point
         };
 
         context
             .lookup_group_by_name(self.group.as_ref(), comp)
-            .map_or(
-                Err(format!("No group named {} in component", self.group)),
-                |g| Ok(g),
-            )
+            .ok_or(format!("No group named {} in component", self.group))
     }
 }
 
