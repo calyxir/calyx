@@ -175,7 +175,14 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     pub fn main_loop(mut self) -> InterpreterResult<()> {
         let mut input_stream = Input::new()?;
 
-        println!("== Calyx Interactive Debugger ==");
+        println!(
+            "==== {}: The {}alyx {}nterpreter and {}bugge{} ====",
+            "Cider".bold(),
+            "C".underline(),
+            "I".underline(),
+            "De".underline(),
+            "r".underline()
+        );
 
         while !self.interpreter.is_done() {
             let comm = input_stream.next_command();
