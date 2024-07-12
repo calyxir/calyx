@@ -4,7 +4,6 @@ mod debugging_context;
 mod io_utils;
 mod macros;
 pub mod source;
-pub mod structures;
 
 pub use debugger_core::Debugger;
 pub use debugger_core::OwnedDebugger;
