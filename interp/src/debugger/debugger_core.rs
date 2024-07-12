@@ -369,6 +369,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             while self.interpreter.is_group_running(target) {
                 self.interpreter.step()?;
             }
+            self.interpreter.converge()?;
         };
         Ok(())
     }
