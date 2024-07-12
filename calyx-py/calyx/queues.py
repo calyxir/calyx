@@ -203,20 +203,27 @@ class NWCSimple:
         if len(self.data) >= self.max_len:
             raise QueueError("Overflow")
 
+        # Left-shift the rank by 32 and add in the insertion count.
+        # With every push, we modify the insertion count as to reduce any possible duplicate ranks.
+
         heapq.heappush(self.data, RankValue(((rank << 32) + self.insertion_count), (val, time)))
         self.insertion_count += 1
     
-    def ripe(self, time) -> bool:
+    def is_ripe(self, time) -> bool:
         return self.data[0].value[1] <= time
 
     def query(self, time=0, val=None, remove=False) -> Optional[int]:
         if len(self.data) == 0:
             raise QueueError("Underflow")
     
+        #Cache popped values from heap while searching for the first eligible one
         temp = []
 
         while len(self.data) > 0:
-            if self.ripe(time) and (val is None or self.data[0].value[0] == val):
+            #Check for eligibility
+            if self.is_ripe(time) and (val is None or self.data[0].value[0] == val):
+                
+                #If eligible, we pop the element and push all cached elements back into the heap
                 result = heapq.heappop(self.data) if remove else self.data[0]
 
                 for elem in temp:
@@ -224,8 +231,10 @@ class NWCSimple:
 
                 return result.value[0]
             
+            #After each iteration, pop the current element so we can scan down the heap
             temp.append(heapq.heappop(self.data))
 
+        #If no eligible elements are found, repopulate the data heap with cached elements
         for elem in temp:
             heapq.heappush(self.data, elem)
         raise QueueError("Underflow")
@@ -292,7 +301,7 @@ class Pieo:
         self.data = []
         self.insertion_count = 0
 
-    def ripe(self, element, time):
+    def is_ripe(self, element, time):
         """Check that an element is 'ripe' - i.e. its ready time has passed"""
         return element["time"] <= time
     
@@ -357,7 +366,7 @@ class Pieo:
         if val is None:
             #Iterate until we find the first 'ripe' (time-ready) element
             for x in range(len(self.data)):
-                if self.ripe(self.data[x], time):
+                if self.is_ripe(self.data[x], time):
                     if return_rank:
                         return self.data.pop(x) if remove else self.data[x]
                     return self.data.pop(x)["val"] if remove else self.data[x]["val"]
@@ -367,7 +376,7 @@ class Pieo:
             
         #Otherwise, the first element that matches the queried value & is 'ripe'
         for x in range(len(self.data)):
-            if self.data[x]["val"] == val and self.ripe(self.data[x], time):
+            if self.data[x]["val"] == val and self.is_ripe(self.data[x], time):
                 if return_rank:
                     return self.data.pop(x) if remove else self.data[x]
                 return self.data.pop(x)["val"] if remove else self.data[x]["val"]
@@ -725,9 +734,11 @@ class StrictPifo:
         return self.pifo_len
 
 
-def operate_queue(queue, max_cmds, commands, values, ranks=None, keepgoing=None, times=None):
-    """Given the four lists:
-    - One of commands, one of values, one of ranks, one of times:
+def operate_queue(queue, max_cmds, commands, values, ranks=None, times=None, keepgoing=None):
+    """Given the four lists
+    (One of commands, one of values, one of ranks, one of times):
+    - Note that `commands` and `values` are required,
+      while `ranks` and `times` are optional lists depending on the queue type.
     - Feed these into our queue, and return the answer memory.
     - Commands correspond to:
         0 : pop (for non-work-conserving queues, pop by predicate)

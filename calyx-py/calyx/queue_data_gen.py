@@ -85,11 +85,13 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
         3 : pop by value
         4 : peek by value
 
-    If the `no_err` flag is set and the policy of work-conserving,
+    If the `no_err` flag is set and the policy is work-conserving,
     then items are chosen from 0 and 2 using a helper.
 
-    If the `always-true` flag is set to True for non-work-conserving policies,
+    If the `nwc` is set to False and the policy is set as work-conserving,
     then the predicate is treated as though always true.
+
+    Otherwise, the user has the option to 
 
     - The `values` memory has `num_cmds` items:
     random values between 0 and 400.
@@ -100,6 +102,11 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     - The `ans_mem` memory has `num_cmds` items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
+    
+    #For work-conserving policies, the predicate should be set as though always true
+    if not nwc:
+        always_true = True
+        
     commands = {
         "commands": {
             "data": (
