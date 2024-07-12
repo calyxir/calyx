@@ -30,7 +30,7 @@ impl std::fmt::Debug for TraversalError {
         std::fmt::Display::fmt(self, f)
     }
 }
-
+#[derive(Debug)]
 pub struct Traverser {
     concrete_path: SmallVec<[GlobalCellIdx; 4]>,
     abstract_path: SmallVec<[CellRef; 2]>,
@@ -227,7 +227,11 @@ impl Traverser {
             let current_comp = *self.concrete_path.last().unwrap();
 
             let current_comp_ledger =
-                env.cells[current_comp].as_comp().unwrap();
+                env.cells[current_comp].as_comp().unwrap_or_else(|| {
+                    // we are in a primitive component so need to go up a level
+                    env.cells[self.concrete_path[self.concrete_path.len() - 2]]
+                        .unwrap_comp()
+                });
             let comp_def = &env.ctx().secondary[current_comp_ledger.comp_id];
 
             // check cells

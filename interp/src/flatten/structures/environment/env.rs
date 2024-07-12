@@ -870,7 +870,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             Ok(Path::Cell(Self::get_root()))
         } else {
             if name.len() != 1 {
-                let mut iter = name[0..name.len() - 2].iter();
+                let mut iter = name[0..name.len() - 1].iter();
                 if &name[0] == ctx.lookup_name(ctx.entry_point) {
                     // skip the main name
                     iter.next();
