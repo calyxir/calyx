@@ -1536,21 +1536,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
     ) -> bool {
-        // if w.cond_group().is_some() {
-        //     let comb_group = with_map
-        //         .entry(node.clone())
-        //         .or_insert(w.cond_group().unwrap());
-        //     let comb_assigns = ScheduledAssignments::new(
-        //         node.comp,
-        //         self.env.ctx.as_ref().primary[*comb_group].assignments,
-        //         None,
-        //     );
-
-        //     // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
-        //     // HAVE NOT BEEN UNDEFINED YET
-        //     self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for while statement");
-        // }
-
         let target = GlobalPortRef::from_local(
             w.cond_port(),
             &self.env.cells[node.comp].unwrap_comp().index_bases,
@@ -1587,26 +1572,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         node: &mut ControlPoint,
         i: &If,
     ) -> bool {
-        // // this is bad but it works for now, what a headache
-        // let contains_node = with_map.contains_key(node);
-        // if i.cond_group().is_some() && !contains_node {
-        //     let comb_group = i.cond_group().unwrap();
-        //     let comb_assigns = ScheduledAssignments::new(
-        //         node.comp,
-        //         self.env.ctx.as_ref().primary[comb_group].assignments,
-        //         None,
-        //     );
-
-        //     with_map.insert(node.clone(), comb_group);
-
-        //     // TODO griffin: Sort out a way to make this error less terrible
-        //     // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
-        //     // HAVE NOT BEEN UNDEFINED YET
-        //     self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
-
-        //     // now we fall through and proceed as normal
-        // }
-
         if i.cond_group().is_some() && with_map.get(node).unwrap().entered {
             with_map.remove(node);
             node.mutate_into_next(self.env.ctx.as_ref())
