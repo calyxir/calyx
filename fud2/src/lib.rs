@@ -512,8 +512,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
 
     // Interpreter.
-    let debug = bld.state("debug", &[]); // A pseudo-state.
-                                         // A pseudo-state for cider input
+    let debug = bld.state("cider-debug", &[]); // A pseudo-state.
+                                               // A pseudo-state for cider input
     let cider_state = bld.state("cider", &[]);
 
     let cider_setup = bld.setup("Cider interpreter", |e| {
@@ -528,29 +528,10 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             "$calyx-base/target/debug/cider-data-converter",
         )?;
         e.rule(
-            "cider",
-            "$cider-exe -l $calyx-base --raw --data data.json $in > $out",
-        )?;
-        e.rule(
-            "cider-debug",
-            "$cider-exe -l $calyx-base --data data.json $in debug || true",
+            "run-cider-debug",
+            "$cider-exe -l $calyx-base --data data.dump $in debug || true",
         )?;
         e.arg("pool", "console")?;
-
-        // TODO Can we reduce the duplication around and `$python`?
-        e.rsrc("interp-dat.py")?;
-        e.config_var_or("python", "python", "python3")?;
-        e.rule("dat-to-interp", "$python interp-dat.py --to-interp $in")?;
-        e.rule(
-            "interp-to-dat",
-            "$python interp-dat.py --from-interp $in $sim_data > $out",
-        )?;
-        e.build_cmd(
-            &["data.json"],
-            "dat-to-interp",
-            &["$sim_data"],
-            &["interp-dat.py"],
-        )?;
 
         e.rule(
             "run-cider",
@@ -585,28 +566,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
 
     bld.op(
-        "interp",
-        &[
-            sim_setup,
-            standalone_testbench_setup,
-            calyx_setup,
-            cider_setup,
-        ],
-        calyx,
-        dat,
-        |e, input, output| {
-            let out_file = "interp_out.json";
-            e.build_cmd(&[out_file], "cider", &[input[0]], &["data.json"])?;
-            e.build_cmd(
-                &[output[0]],
-                "interp-to-dat",
-                &[out_file],
-                &["$sim_data", "interp-dat.py"],
-            )?;
-            Ok(())
-        },
-    );
-    bld.op(
         "cider",
         &[sim_setup, calyx_setup, cider_setup],
         cider_state,
@@ -629,7 +588,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
     bld.op(
-        "debug",
+        "cider-debug",
         &[
             sim_setup,
             standalone_testbench_setup,
@@ -641,9 +600,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             e.build_cmd(
                 &[output[0]],
-                "cider-debug",
+                "run-cider-debug",
                 &[input[0]],
-                &["data.json"],
+                &["data.dump"],
             )?;
             Ok(())
         },
