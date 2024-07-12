@@ -159,7 +159,16 @@ fn main() -> InterpreterResult<()> {
         Command::Debug(_) => {
             let debugger = Debugger::new(&i_ctx, &opts.data_file)?;
 
-            debugger.main_loop()?;
+            match debugger.main_loop() {
+                Ok(_) => {}
+                Err(e) => {
+                    if let InterpreterError::Exit = *e {
+                        println!("Exiting.");
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
 
             Ok(())
         }
