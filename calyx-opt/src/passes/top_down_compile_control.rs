@@ -223,14 +223,23 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 /// Note that dividing each state by the value `n/r`normalizes the state w.r.t.
 /// the FSM register from which it should read. We can then take the floor of this value
 /// (or, equivalently, use unsigned integer division) to get this register index.
-fn register_to_query(state: u64, num_states: u64, num_registers: u64) -> usize {
-    // num_states+1 is needed to prevent error (the done condition needs
-    // to check past the number of states, i.e., will check fsm == 3 when
-    // num_states == 3).
-    let reg_to_query: usize = (state * num_registers / (num_states + 1))
-        .try_into()
-        .unwrap();
-    reg_to_query
+fn register_to_query(
+    state: u64,
+    num_states: u64,
+    num_registers: u64,
+    distribute: bool,
+) -> usize {
+    match distribute {
+        true => {
+            // num_states+1 is needed to prevent error (the done condition needs
+            // to check past the number of states, i.e., will check fsm == 3 when
+            // num_states == 3).
+            (state * num_registers / (num_states + 1))
+                .try_into()
+                .unwrap()
+        }
+        false => 0,
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -382,16 +391,18 @@ impl<'b, 'a> Schedule<'b, 'a> {
         builder: &mut ir::Builder,
         used_slicers_vec: &mut [HashMap<u64, RRC<Cell>>],
         fsm_rep: &FSMRepresentation,
-        fsms: &[RRC<ir::Cell>],
-        signal_on: &RRC<Cell>,
+        hardware: (&[RRC<ir::Cell>], &RRC<Cell>),
         state: &u64,
         fsm_size: &u64,
+        distribute: bool,
     ) -> ir::Guard<Nothing> {
+        let (fsms, signal_on) = hardware;
         let (fsm, used_slicers) = {
             let reg_to_query = register_to_query(
                 *state,
                 fsm_rep.last_state,
                 fsms.len().try_into().unwrap(),
+                distribute,
             );
             (
                 fsms.get(reg_to_query)
@@ -556,10 +567,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
                         self.builder,
                         &mut used_slicers_vec,
                         &fsm_rep,
-                        &fsms,
-                        &signal_on,
+                        (&fsms, &signal_on),
                         &state,
                         &fsm_size,
+                        true, // by default attempt to distribute across regs if >=2 exist
                     );
                     assigns.iter_mut().for_each(|asgn| {
                         asgn.guard.update(|g| g.and(state_guard.clone()))
@@ -578,10 +589,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     self.builder,
                     &mut used_slicers_vec,
                     &fsm_rep,
-                    &fsms,
-                    &signal_on,
+                    (&fsms, &signal_on),
                     &s,
                     &fsm_size,
+                    false, // by default do not distribute transition queries across regs; choose first
                 );
 
                 // add transitions for every fsm register to ensure consistency between each
@@ -628,10 +639,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
             self.builder,
             &mut used_slicers_vec,
             &fsm_rep,
-            &fsms,
-            &signal_on,
+            (&fsms, &signal_on),
             &fsm_rep.last_state,
             &fsm_size,
+            false,
         );
 
         let done_assign = self.builder.build_assignment(
@@ -646,14 +657,15 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let reset_fsms = fsms
             .iter()
             .flat_map(|fsm| {
+                // by default, query first register
                 let fsm_last_guard = Self::query_state(
                     self.builder,
                     &mut used_slicers_vec,
                     &fsm_rep,
-                    &fsms,
-                    &signal_on,
+                    (&fsms, &signal_on),
                     &fsm_rep.last_state,
                     &fsm_size,
+                    false,
                 );
                 let reset_fsm = build_assignments!(self.builder;
                     fsm["in"] = fsm_last_guard ? first_state["out"];
