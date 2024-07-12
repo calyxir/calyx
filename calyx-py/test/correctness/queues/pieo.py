@@ -3,7 +3,7 @@ import calyx.builder as cb
 import calyx.queue_call as qc
 from calyx.utils import bits_needed
 
-def insert_find_push_loc(prog, name, length, rank : int):
+def insert_find_push_loc(prog, name, length, rank):
     """Inserts component to find push location by rank"""
 
     comp = prog.component(name)
@@ -28,10 +28,10 @@ def insert_find_push_loc(prog, name, length, rank : int):
 
     #Guards
     length_lt, rank_neq, rank_gt, rank_lt = (
-        comp.lt_use(low, high),
-        comp.neq_use(rank, mid_element.out),
-        comp.gt_use(rank, mid_element.out),
-        comp.lt_use(rank, mid_element.out)
+        comp.lt_use(low.out, high.out),
+        comp.neq_use(rank.out, mid_element.out),
+        comp.gt_use(rank.out, mid_element.out),
+        comp.lt_use(rank.out, mid_element.out)
     )
 
     #Update indices after each iteration
@@ -99,7 +99,7 @@ def insert_push_loc(prog, name, length, data, idx):
         for i in range(3)
     ]
 
-    tracker = comp.gt_use(loc.out, idx)
+    tracker = comp.gt_use(loc.out, idx.out)
 
     comp.control += cb.seq (
         initialize_loc,
@@ -153,7 +153,7 @@ def insert_shift_backward(prog, name, length, idx):
         for i in range(3)
     ]
 
-    tracker = comp.gt_use(loc.out, idx)
+    tracker = comp.gt_use(loc.out, idx.out)
 
     comp.control += cb.seq (
         initialize_loc,
@@ -179,8 +179,8 @@ def query_time(prog, name, length, current_time):
     found = comp.reg(1, is_ref=True)
     
     load_time = comp.mem_load_d2(mem, idx, 1, ready_time, "load_time")
-    time_leq = comp.le_use(ready_time, current_time)
-    idx_leq = comp.lt_use(idx, length)
+    time_leq = comp.le_use(ready_time.out, current_time.out)
+    idx_leq = comp.lt_use(idx.out, length)
 
     comp.control += cb.seq (
         load_time,
@@ -205,9 +205,8 @@ def query_value(prog, name, length, value):
     found = comp.reg(1, is_ref=True)
     
     load_val = comp.mem_load_d2(mem, idx, 1, elem_value, "load_val")
-    val_eq = comp.eq_use(elem_value, value)
-    idx_leq = comp.lt_use(idx, length)
-    flip_found = comp.reg_store(found, 1)
+    val_eq = comp.eq_use(elem_value.out, value.out)
+    idx_leq = comp.lt_use(idx.out, length)
 
     comp.control += cb.seq (
         load_val,
@@ -216,7 +215,7 @@ def query_value(prog, name, length, value):
                 inc,
                 load_val
             )
-        ), cb.if_with(val_eq, flip_found)
+        ), cb.if_with(val_eq, comp.bitwise_flip_reg(found))
     )
 
     
@@ -228,19 +227,19 @@ def insert_pieo(prog, max_cmds, queue_size):
     input_dims = (32, max_cmds, 32, 32)
 
     #Memory read components
-    commands = pieo.seq_mem_d1("commands", *input_dims, is_external=True)
-    values = pieo.seq_mem_d1("values", *input_dims, is_external=True)
-    times = pieo.seq_mem_d1("times", *input_dims, is_external=True)
-    ranks = pieo.seq_mem_d1("ranks", *input_dims, is_external=True)
-    ans_mem = pieo.seq_mem_d1("ans_mem", *input_dims, is_external=True)
+    commands = pieo.seq_mem_d1("commands", *input_dims, True)
+    values = pieo.seq_mem_d1("values", *input_dims, True)
+    times = pieo.seq_mem_d1("times", *input_dims, True)
+    ranks = pieo.seq_mem_d1("ranks", *input_dims, True)
+    ans_mem = pieo.seq_mem_d1("ans_mem", *input_dims, True)
 
     #Queue memory component – stores values, times, and ranks
     queue = pieo.seq_mem_d2("queue", *queue_dim, 3, is_external=False)
 
     #Queue size trackers
     current_size = pieo.reg(32, "queue_size")
-    not_maxed = pieo.neq_use(current_size, queue_size)
-    not_minned = pieo.neq_use(current_size, 0)
+    not_maxed = pieo.neq_use(current_size.out, queue_size)
+    not_minned = pieo.neq_use(current_size.out, 0)
 
     #Location trackers
     cmd_idx = pieo.reg(32, "command_idx")
@@ -260,7 +259,6 @@ def insert_pieo(prog, max_cmds, queue_size):
     )
 
     #Load Data
-
     load_cmd = pieo.mem_load_d1(commands, cmd_idx.out, cmd, "load_cmd")
     pos_memories = [values, times, ranks]
     pos_registers = [value, time, rank]
@@ -274,6 +272,7 @@ def insert_pieo(prog, max_cmds, queue_size):
         for i in range(3)
     ]
 
+    #Write memory
     write = pieo.mem_store_d1(ans_mem, ans_index.out, result, "store_result")
 
     find_push_loc = insert_find_push_loc(prog, "find_push_loc", queue_dim, rank)
@@ -297,7 +296,8 @@ def insert_pieo(prog, max_cmds, queue_size):
                 cb.if_with(cmd_eqs[2] & not_maxed,
                     cb.seq(
                         cb.invoke(find_push_loc, ref_mem=queue, ref_mid=insert_pos),
-                        cb.invoke(push_loc, ref_mem=queue)
+                        cb.invoke(push_loc, ref_mem=queue),
+                        pieo.incr(current_size)
                     )
                 ),
 
@@ -316,10 +316,10 @@ def insert_pieo(prog, max_cmds, queue_size):
 
 def build():
     """Top-level function to build the program."""
-    num_cmds = int(sys.argv[1])
+    num_cmds = 20000
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
-    pieo = insert_pieo(prog, "pieo")
+    pieo = insert_pieo(prog, "pieo", 16)
     qc.insert_main(prog, pieo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
