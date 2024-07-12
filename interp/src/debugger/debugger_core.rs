@@ -93,8 +93,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         program_context: C,
         data_file: &Option<std::path::PathBuf>,
     ) -> InterpreterResult<Self> {
-        let interpreter =
+        let mut interpreter =
             Simulator::build_simulator(program_context.clone(), data_file)?;
+        interpreter.converge()?;
 
         Ok(Self {
             interpreter,
@@ -339,7 +340,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             match group.lookup_group(self.program_context.as_ref()) {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("Error: {}", owo_colors::OwoColorize::red(&e));
+                    println!("Error: {}", e.red());
                     return;
                 }
             };
@@ -358,7 +359,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         let target = match target.lookup_group(self.program_context.as_ref()) {
             Ok(v) => v,
             Err(e) => {
-                println!("Error: {}", owo_colors::OwoColorize::red(&e));
+                println!("Error: {}", e.red());
                 return Ok(());
             }
         };
