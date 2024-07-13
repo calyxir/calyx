@@ -36,16 +36,16 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       fsm0.write_en = fsm0.out == 2'd1 & B[done] ? 1'd1;
       fsm1.in = fsm0.out == 2'd1 & B[done] ? 2'd2;
       fsm1.write_en = fsm0.out == 2'd1 & B[done] ? 1'd1;
-      fsm0.in = fsm1.out == 2'd2 & C[done] ? 2'd3;
-      fsm0.write_en = fsm1.out == 2'd2 & C[done] ? 1'd1;
-      fsm1.in = fsm1.out == 2'd2 & C[done] ? 2'd3;
-      fsm1.write_en = fsm1.out == 2'd2 & C[done] ? 1'd1;
-      tdcc[done] = fsm1.out == 2'd3 ? 1'd1;
+      fsm0.in = fsm0.out == 2'd2 & C[done] ? 2'd3;
+      fsm0.write_en = fsm0.out == 2'd2 & C[done] ? 1'd1;
+      fsm1.in = fsm0.out == 2'd2 & C[done] ? 2'd3;
+      fsm1.write_en = fsm0.out == 2'd2 & C[done] ? 1'd1;
+      tdcc[done] = fsm0.out == 2'd3 ? 1'd1;
     }
-    fsm0.in = fsm1.out == 2'd3 ? 2'd0;
-    fsm0.write_en = fsm1.out == 2'd3 ? 1'd1;
-    fsm1.in = fsm1.out == 2'd3 ? 2'd0;
-    fsm1.write_en = fsm1.out == 2'd3 ? 1'd1;
+    fsm0.in = fsm0.out == 2'd3 ? 2'd0;
+    fsm0.write_en = fsm0.out == 2'd3 ? 1'd1;
+    fsm1.in = fsm0.out == 2'd3 ? 2'd0;
+    fsm1.write_en = fsm0.out == 2'd3 ? 1'd1;
   }
   control {
     tdcc;
