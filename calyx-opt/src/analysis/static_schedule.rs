@@ -1353,6 +1353,7 @@ impl ParTree {
             child.count_to_n(builder, incr_start_cond.clone());
         }
     }
+
     pub fn get_longest_tree(&mut self) -> &mut Tree {
         let max = self.threads.iter_mut().max_by_key(|(child, _)| {
             (child.get_latency() * child.get_num_repeats()) as i64

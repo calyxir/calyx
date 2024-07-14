@@ -1,4 +1,5 @@
 use crate::analysis::GraphColoring;
+use crate::passes::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::structure;
 use calyx_ir::LibrarySignatures;
@@ -231,6 +232,17 @@ impl StaticInliner {
         }
     }
 
+    fn increase_sgroup_latency(sg: ir::RRC<ir::StaticGroup>, new_lat: u64) {
+        assert!(
+            new_lat >= sg.borrow().get_latency(),
+            "New latency must be bigger than existing latency"
+        );
+        sg.borrow_mut().latency = new_lat;
+        sg.borrow_mut().assignments.iter_mut().for_each(|asssign| {
+            asssign.guard.add_interval(StaticTiming::new((0, new_lat)))
+        });
+    }
+
     // inlines the static control `sc` and returns an equivalent single static group
     fn inline_static_control(
         sc: &ir::StaticControl,
@@ -397,14 +409,28 @@ impl StaticInliner {
                     > = vec![];
                     for group in groups {
                         // Assign par_group[go] = %[0:par_latency] ? 1'd1;
+                        if get_bit_width_from(group.borrow().latency)
+                            == get_bit_width_from(*latency)
+                        {
+                            Self::increase_sgroup_latency(
+                                Rc::clone(&group),
+                                *latency,
+                            );
+                        }
+
                         structure!( builder;
                             let signal_on = constant(1,1);
                         );
-                        let stmt_guard =
+
+                        let stmt_guard = if group.borrow().latency == *latency {
+                            ir::Guard::True
+                        } else {
                             ir::Guard::Info(ir::StaticTiming::new((
                                 0,
                                 group.borrow().get_latency(),
-                            )));
+                            )))
+                        };
+
                         let trigger_body = build_assignments!(builder;
                             group["go"] = stmt_guard ? signal_on["out"];
                         );
