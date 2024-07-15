@@ -3,7 +3,7 @@ ver = "0.4.1"
 # Check basic functionality of the interpreter
 [[tests]]
 name = "unit"
-paths = ["../tests/unit/*.futil"]
+paths = ["unit/*.futil"]
 cmd = """
 ../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
@@ -29,7 +29,7 @@ timeout = 10
 
 [[tests]]
 name = "complex"
-paths = ["../tests/complex/*.futil"]
+paths = ["complex/*.futil"]
 
 cmd = """
 ../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
@@ -39,7 +39,7 @@ expect_dir = "complex"
 
 [[tests]]
 name = "primitives"
-paths = ["../tests/primitives/*.futil"]
+paths = ["primitives/*.futil"]
 cmd = """
 ../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq  --sort-keys
 """
@@ -48,7 +48,7 @@ expect_dir = "primitives"
 
 [[tests]]
 name = "par to seq"
-paths = ["../tests/control/par_reg.futil", "../tests/control/par_mem.futil"]
+paths = ["control/par_reg.futil", "control/par_mem.futil"]
 cmd = """
 ../../target/debug/calyx {} -p par-to-seq -l ../../ | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
@@ -57,7 +57,7 @@ expect_dir = "par-to-seq"
 
 [[tests]]
 name = "control"
-paths = ["../tests/control/*.futil", "../tests/control/iteration/*.futil"]
+paths = ["control/*.futil", "control/iteration/*.futil"]
 cmd = """
 ../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
@@ -66,28 +66,22 @@ expect_dir = "control"
 
 [[tests]]
 name = "invoke"
-paths = ["../tests/control/invoke/*.futil"]
+paths = ["control/invoke/*.futil"]
 cmd = """
 fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
 """
 timeout = 10
-expect_dir = "invoke"
 
 [[tests]]
-name = "invoke comp"
-paths = ["../tests/control/invoke/*.futil"]
+name = "invoke compiled"
+paths = ["control/invoke/*.futil"]
 cmd = """
 fud2 {} --from calyx --to dat --through cider -s calyx.flags=" -p compile-invoke" -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
 """
-expect_dir = "invoke"
 
 [[tests]]
 name = "fully structural"
-paths = [
-  "../tests/control/*.futil",
-  # Disabled iteration tests due to bug
-  "../tests/control/iteration/*.futil",
-]
+paths = ["control/*.futil", "control/iteration/*.futil"]
 cmd = """
 ../../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../../ --log off | ../../target/debug/cider -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
 """
@@ -187,7 +181,7 @@ fud2 --from dahlia --to dat \
 
 # [[tests]]
 # name = "[frontend] systolic array correctness"
-# paths = ["../tests/correctness/systolic/*.systolic"]
+# paths = ["correctness/systolic/*.systolic"]
 # cmd = """
 # fud e --from systolic --to jq \
 #       --through interpreter-out \
