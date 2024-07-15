@@ -11,7 +11,6 @@ from .registry import Registry
 from .stages import (
     dahlia,
     futil,
-    interpreter,
     relay,
     systolic,
     vcdump,
@@ -103,13 +102,6 @@ def register_stages(registry):
     )
     registry.register(
         futil.CalyxStage(
-            "interpreter",
-            "-p none",
-            "Compile Calyx for interpretation with CIDR",
-        )
-    )
-    registry.register(
-        futil.CalyxStage(
             "resources",
             "-b resources",
             "Generate a CSV that estimates a Calyx program's resource usage",
@@ -149,11 +141,6 @@ def register_stages(registry):
     # Xilinx
     registry.register(xilinx.XilinxStage())
     registry.register(xilinx.HwExecutionStage())
-
-    # Interpreter
-    registry.register(interpreter.InterpreterStage("", "", "Run the interpreter"))
-    registry.register(interpreter.InterpreterStage.debugger("", "", "Run the debugger"))
-    registry.register(interpreter.InterpreterStage.data_converter())
 
 
 def register_external_stages(cfg, registry):
