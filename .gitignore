@@ -60,3 +60,6 @@ tools/profiler/tmp/
 tools/profiler/logs
 
 temp/
+
+# for running a venv
+.venv
