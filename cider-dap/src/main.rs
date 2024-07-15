@@ -11,7 +11,9 @@ use error::MyAdapterError;
 
 use dap::prelude::*;
 use error::AdapterResult;
+use responses::VariablesResponse;
 use slog::{info, Drain};
+use std::default;
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
@@ -70,18 +72,15 @@ fn main() -> Result<(), MyAdapterError> {
         let read_stream = BufReader::new(stream.try_clone()?);
         let write_stream = BufWriter::new(stream);
         let mut server = Server::new(read_stream, write_stream);
-
         // Get the adapter from the init function
         let adapter = multi_session_init(&mut server, &logger, opts.path)?;
-
-        // Run the server using the adapter
         run_server(&mut server, adapter, &logger)?;
     } else {
         info!(logger, "running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
         let mut server = Server::new(read, write);
-        let adapter = multi_session_init(&mut server, &logger, opts.path)?;
+        let adapter = multi_session_init(&mut server, &logger, opts.path)?; //i dont think this is right
         run_server(&mut server, adapter, &logger)?;
     }
     info!(logger, "exited run_Server");
@@ -109,6 +108,7 @@ where
                     // Not sure if we need it
                     // Make VSCode send disassemble request
                     supports_stepping_granularity: Some(true),
+                    supports_single_thread_execution_requests: Some(true),
                     ..Default::default()
                 }));
             server.respond(rsp)?;
@@ -123,6 +123,7 @@ where
     }
 
     // handle the second request (Launch)
+    //seems like second request doesn't necessarily need to be a launch request
     let req = match server.poll_request()? {
         Some(req) => req,
         None => return Err(MyAdapterError::MissingCommandError),
@@ -174,6 +175,15 @@ fn run_server<R: Read, W: Write>(
     mut adapter: MyAdapter,
     logger: &slog::Logger,
 ) -> AdapterResult<()> {
+    let stopped = create_stopped(
+        types::StoppedEventReason::Entry,
+        String::from("Debugger has started"),
+        0,
+        true,
+    );
+    server.send_event(stopped)?;
+    info!(logger, "sent stopped event (initialization)");
+
     loop {
         // Start looping here
         let req = match server.poll_request()? {
@@ -182,12 +192,14 @@ fn run_server<R: Read, W: Write>(
         };
         match &req.command {
             Command::Launch(_) => {
+                //why is this listed a second time
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
             }
 
             Command::SetBreakpoints(args) => {
                 // Add breakpoints
+                info!(logger, "set breakpoint request");
                 if let Some(breakpoint) = &args.breakpoints {
                     let out =
                         adapter.set_breakpoint(args.source.clone(), breakpoint);
@@ -258,7 +270,12 @@ fn run_server<R: Read, W: Write>(
                 // Send response first
                 server.respond(rsp)?;
                 // Send event
-                let stopped = create_stopped(String::from("Paused"), thread_id);
+                let stopped = create_stopped(
+                    types::StoppedEventReason::Pause,
+                    String::from("Paused"),
+                    thread_id,
+                    false,
+                );
                 server.send_event(stopped)?;
             }
             // Step over
@@ -283,8 +300,12 @@ fn run_server<R: Read, W: Write>(
                 // Send response first
                 server.respond(rsp)?;
                 // Send event
-                let stopped =
-                    create_stopped(String::from("Continue"), thread_id);
+                let stopped = create_stopped(
+                    types::StoppedEventReason::Step,
+                    String::from("Continue"),
+                    thread_id,
+                    false,
+                );
                 server.send_event(stopped)?;
             }
             // Step in
@@ -295,8 +316,12 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::StepIn);
                 server.respond(rsp)?;
                 // Send event
-                let stopped =
-                    create_stopped(String::from("Paused on step"), thread_id);
+                let stopped = create_stopped(
+                    types::StoppedEventReason::Step,
+                    String::from("Paused on step"),
+                    thread_id,
+                    false,
+                );
                 server.send_event(stopped)?;
             }
             // Step out
@@ -307,14 +332,29 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::StepOut);
                 server.respond(rsp)?;
                 // Send event
-                let stopped =
-                    create_stopped(String::from("Paused on step"), thread_id);
+                let stopped = create_stopped(
+                    types::StoppedEventReason::Step,
+                    String::from("Paused on step"),
+                    thread_id,
+                    false,
+                );
                 server.send_event(stopped)?;
             }
             Command::Scopes(_) => {
+                //variables go in here most likely
+                //just get stuff displaying then figure out how to pretty it up
+                info!(logger, "scopes req");
                 let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
-                    scopes: vec![],
+                    scopes: adapter.get_scopes(),
                 }));
+                server.respond(rsp)?;
+            }
+            Command::Variables(_) => {
+                info!(logger, "variables req");
+                let rsp =
+                    req.success(ResponseBody::Variables(VariablesResponse {
+                        variables: adapter.get_variables(),
+                    }));
                 server.respond(rsp)?;
             }
 
@@ -327,15 +367,24 @@ fn run_server<R: Read, W: Write>(
     }
 }
 
-/// Helper function used to create a Stopped event
-fn create_stopped(reason: String, thread_id: i64) -> Event {
+///Helper function used to create a Stopped event
+fn create_stopped(
+    reason: types::StoppedEventReason,
+    desc: String,
+    thread_id: i64,
+    all_threads: bool,
+) -> Event {
+    let thread = match all_threads {
+        true => None,
+        false => Some(thread_id),
+    };
     Event::Stopped(StoppedEventBody {
-        reason: types::StoppedEventReason::Step,
-        description: Some(reason),
-        thread_id: Some(thread_id),
+        reason: reason,
+        description: Some(desc),
+        thread_id: thread,
         preserve_focus_hint: None,
         text: None,
-        all_threads_stopped: None,
+        all_threads_stopped: Some(all_threads),
         hit_breakpoint_ids: None,
     })
 }

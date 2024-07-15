@@ -1,5 +1,7 @@
 use crate::error::AdapterResult;
-use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
+use dap::types::{
+    Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread, Variable,
+};
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::Debugger;
 use std::path::PathBuf;
@@ -13,6 +15,8 @@ pub struct MyAdapter {
     breakpoints: Vec<(Source, i64)>, // This field is a placeholder
     stack_frames: Vec<StackFrame>,   // This field is a placeholder
     threads: Vec<Thread>,            // This field is a placeholder
+    variables: Vec<Variable>,
+    scopes: Vec<Scope>,
     source: String,
     ids: NewSourceMap,
 }
@@ -29,10 +33,13 @@ impl MyAdapter {
             breakpoints: Vec::new(),
             stack_frames: Vec::new(),
             threads: Vec::new(),
+            variables: Vec::new(),
+            scopes: Vec::new(),
             source: path.to_string(),
             ids: metadata,
         })
     }
+
     ///Set breakpoints for adapter
     pub fn set_breakpoint(
         &mut self,
@@ -42,7 +49,7 @@ impl MyAdapter {
         //Keep all the new breakpoints made
         let mut out_vec: Vec<Breakpoint> = vec![];
 
-        //Loop over all breakpoints
+        //Loop over all breakpoints - why do we need to loop over all of them? is it bc input vec isnt mutable?
         for source_point in source {
             self.breakpoints.push((path.clone(), source_point.line));
             //Create new Breakpoint instance
@@ -55,12 +62,13 @@ impl MyAdapter {
 
             out_vec.push(breakpoint);
         }
-
+        //push breakpoints to cider debugger once have go ahead
         out_vec
     }
 
     ///Creates a thread using the parameter name.
     pub fn create_thread(&mut self, name: String) -> Thread {
+        //how do we attach the thread to the program
         let thread = Thread {
             id: self.thread_count.increment(),
             name,
@@ -109,8 +117,9 @@ impl MyAdapter {
     }
 
     pub fn next_line(&mut self, _thread: i64) -> bool {
+        //return a more informative enum
         // Step through once
-        let status = self.debugger.step(1).unwrap();
+        let status = self.debugger.step(1).unwrap(); //need to unwrap a different way
 
         // Check if done:
         if status.get_done() {
@@ -130,6 +139,44 @@ impl MyAdapter {
             self.stack_frames[0].line = line_number as i64;
             false
         }
+    }
+
+    //display ports of each cell
+    pub fn get_variables(&self) -> Vec<Variable> {
+        let temp = Variable {
+            name: String::from("variable"),
+            value: String::from("12"),
+            type_field: None,
+            presentation_hint: None,
+            evaluate_name: None,
+            variables_reference: 0,
+            named_variables: None,
+            indexed_variables: None,
+            memory_reference: None,
+        };
+        vec![temp]
+    }
+    // display the cells in the current context
+    pub fn get_scopes(&self) -> Vec<Scope> {
+        let mut out_vec = vec![];
+        let names = vec![String::from("cell 1"), String::from("cell 2")]; //self.debugger.get_cells() or alt way of getting from debugger
+        for name in names {
+            let scope = Scope {
+                name,
+                presentation_hint: None,
+                variables_reference: 0,
+                named_variables: Some(1),
+                indexed_variables: None,
+                expensive: false,
+                source: None,
+                line: None,
+                column: None,
+                end_line: None,
+                end_column: None,
+            };
+            out_vec.push(scope)
+        }
+        out_vec
     }
 }
 
@@ -156,11 +203,13 @@ impl Counter {
 /// This function takes in relevant fields in Breakpoint that are used
 /// by the adapter. This is subject to change.
 pub fn make_breakpoint(
+    //probably add debugger call here?
     id: Option<i64>,
     verified: bool,
     source: Option<Source>,
     line: Option<i64>,
 ) -> Breakpoint {
+    println!("bkpt");
     Breakpoint {
         id,
         verified,
