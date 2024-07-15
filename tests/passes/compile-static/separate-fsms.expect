@@ -9,9 +9,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     d = std_reg(2);
     @generated fsm = std_reg(2);
     @generated fsm0 = std_reg(3);
-    @generated adder = std_add(3);
+    @generated adder = std_add(2);
     @generated adder0 = std_add(3);
-    @generated adder1 = std_add(2);
+    @generated adder1 = std_add(3);
     @generated ud = undef(1);
     @generated ud0 = undef(1);
     @generated ud1 = undef(1);
@@ -26,22 +26,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       early_reset_A[go] = fsm.out == 2'd0 ? 1'd1;
       early_reset_D[go] = fsm.out == 2'd1 ? 1'd1;
       early_reset_run_A_and_D[done] = ud.out;
-      adder1.left = fsm.out;
-      adder1.right = 2'd1;
-      fsm.in = fsm.out == 2'd0 & 1'b1 & fsm0.out == 3'd3 ? adder1.out;
-      fsm.write_en = fsm.out == 2'd0 & 1'b1 & fsm0.out == 3'd3 ? 1'd1;
-      fsm.in = !(fsm.out == 2'd0 | fsm.out == 2'd1) ? adder1.out;
+      adder.left = fsm.out;
+      adder.right = 2'd1;
+      fsm.in = !(fsm.out == 2'd0 | fsm.out == 2'd1) ? adder.out;
       fsm.write_en = !(fsm.out == 2'd0 | fsm.out == 2'd1) ? 1'd1;
       fsm.in = fsm.out == 2'd1 & 1'b1 & fsm0.out == 3'd1 ? 2'd0;
       fsm.write_en = fsm.out == 2'd1 & 1'b1 & fsm0.out == 3'd1 ? 1'd1;
+      fsm.in = fsm.out == 2'd0 & 1'b1 & fsm0.out == 3'd3 ? adder.out;
+      fsm.write_en = fsm.out == 2'd0 & 1'b1 & fsm0.out == 3'd3 ? 1'd1;
     }
     group early_reset_A {
       a.in = 2'd0;
       a.write_en = 1'd1;
       early_reset_A[done] = ud0.out;
-      adder.left = fsm0.out;
-      adder.right = 3'd1;
-      fsm0.in = fsm0.out != 3'd3 ? adder.out;
+      adder0.left = fsm0.out;
+      adder0.right = 3'd1;
+      fsm0.in = fsm0.out != 3'd3 ? adder0.out;
       fsm0.write_en = fsm0.out != 3'd3 ? 1'd1;
       fsm0.in = fsm0.out == 3'd3 ? 3'd0;
       fsm0.write_en = fsm0.out == 3'd3 ? 1'd1;
@@ -50,9 +50,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d.in = 2'd0;
       d.write_en = 1'd1;
       early_reset_D[done] = ud1.out;
-      adder0.left = fsm0.out;
-      adder0.right = 3'd1;
-      fsm0.in = fsm0.out != 3'd1 ? adder0.out;
+      adder1.left = fsm0.out;
+      adder1.right = 3'd1;
+      fsm0.in = fsm0.out != 3'd1 ? adder1.out;
       fsm0.write_en = fsm0.out != 3'd1 ? 1'd1;
       fsm0.in = fsm0.out == 3'd1 ? 3'd0;
       fsm0.write_en = fsm0.out == 3'd1 ? 1'd1;

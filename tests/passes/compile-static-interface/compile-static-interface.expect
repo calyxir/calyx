@@ -23,8 +23,8 @@ static<2> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset r
       adder.right = 2'd1;
       fsm.in = fsm.out == 2'd0 & go ? adder.out;
       fsm.write_en = fsm.out == 2'd0 & go ? 1'd1;
-      fsm.in = fsm.out != 2'd1 & fsm.out != 2'd0 ? adder.out;
-      fsm.write_en = fsm.out != 2'd1 & fsm.out != 2'd0 ? 1'd1;
+      fsm.in = fsm.out != 2'd0 & fsm.out != 2'd1 ? adder.out;
+      fsm.write_en = fsm.out != 2'd0 & fsm.out != 2'd1 ? 1'd1;
       fsm.in = fsm.out == 2'd1 ? 2'd0;
       fsm.write_en = fsm.out == 2'd1 ? 1'd1;
     }
@@ -40,8 +40,8 @@ static<2> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset r
     adder.right = 2'd1;
     fsm.in = fsm.out == 2'd0 & go ? adder.out;
     fsm.write_en = fsm.out == 2'd0 & go ? 1'd1;
-    fsm.in = fsm.out != 2'd1 & fsm.out != 2'd0 ? adder.out;
-    fsm.write_en = fsm.out != 2'd1 & fsm.out != 2'd0 ? 1'd1;
+    fsm.in = fsm.out != 2'd0 & fsm.out != 2'd1 ? adder.out;
+    fsm.write_en = fsm.out != 2'd0 & fsm.out != 2'd1 ? 1'd1;
     fsm.in = fsm.out == 2'd1 ? 2'd0;
     fsm.write_en = fsm.out == 2'd1 ? 1'd1;
   }
