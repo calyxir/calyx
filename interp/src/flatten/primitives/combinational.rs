@@ -42,7 +42,7 @@ impl Primitive for StdConst {
     }
 
     fn has_comb(&self) -> bool {
-        false
+        true
     }
 
     fn has_stateful(&self) -> bool {
@@ -548,3 +548,18 @@ comb_primitive!(StdUnsynSmod[WIDTH](left [0], right [1]) -> (out [2]) {
             &left.as_signed(),
             &right.as_signed()), WIDTH)))
 });
+
+pub struct StdUndef(GlobalPortIdx);
+
+impl StdUndef {
+    pub fn new(base_port: GlobalPortIdx, _width: u32) -> Self {
+        Self(base_port)
+    }
+}
+
+impl Primitive for StdUndef {
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+        port_map.write_undef(self.0)?;
+        Ok(UpdateStatus::Unchanged)
+    }
+}

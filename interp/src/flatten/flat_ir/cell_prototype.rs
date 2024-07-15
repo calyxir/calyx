@@ -59,6 +59,7 @@ pub enum PrimType1 {
     UnsynSMult,
     UnsynSDiv,
     UnsynSMod,
+    Undef,
 }
 
 /// An enum for encoding FP primitives operator types
@@ -650,6 +651,14 @@ impl CellPrototype {
                             "std_unsyn_mod" => PrimType1::UnsynMod,
                             _ => PrimType1::UnsynSMod,
                         },
+                        width: width.try_into().unwrap(),
+                    }
+                }
+
+                "undef" => {
+                    get_params![params; width: "WIDTH"];
+                    Self::SingleWidth {
+                        op: PrimType1::Undef,
                         width: width.try_into().unwrap(),
                     }
                 }

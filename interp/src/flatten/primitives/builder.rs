@@ -96,6 +96,7 @@ pub fn build_primitive(
             PrimType1::UnsynSMod => {
                 Box::new(StdUnsynSmod::new(base_port, *width))
             }
+            PrimType1::Undef => Box::new(StdUndef::new(base_port, *width)),
         },
         CellPrototype::FixedPoint {
             op: _,
