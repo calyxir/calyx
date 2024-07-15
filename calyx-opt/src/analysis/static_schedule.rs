@@ -508,6 +508,11 @@ impl FSMTree {
 ///      j the FSM is in state x.
 ///    - if (i,j) -> StateType::Delay(x) it means that for cycles i through j
 ///      the fsm is will be in state i-x to j-x (one state per cycle).
+///    Example delay_map map: (0,10) -> Delay(0)
+///                           (10,30) -> Offload(11)
+///                           (30,40) -> Delay(20)
+///                           (40,80) -> Offload(21)
+///                           (80,100)-> Delay(60).
 /// `children` = vec of (FSMTree Object, cycles for which that child is executing).
 /// `fsm_cell` and `iter_count_cell` keep track of `latency` and `num_repeats` respectively.
 pub struct Tree {
@@ -623,8 +628,8 @@ impl Tree {
         }
     }
 
-    /// count_to_n.
-    /// If `incr_start_cond` is_some(), then we will add it as an extra
+    /// Counts to n.
+    /// If `incr_start_cond.is_some()`, then we will add it as an extra
     /// guard guarding the 0->1 transition.
     fn count_to_n(
         &mut self,
@@ -632,8 +637,13 @@ impl Tree {
         incr_start_cond: Option<ir::Guard<Nothing>>,
     ) {
         let mut child_index = 0;
-        // offload_states are the fsm_states that last >1 cycles
-        // i.e., the same as the children.
+
+        // `offload_states` are the fsm_states that last >1 cycles (i.e., the children,
+        // except for the children that last one cycle).
+        // Maps: `child_index`, i.e. the index of the child among the children of
+        // this node.
+        // To: `offload_state`, i.e., the output of the `fsm` when this child is
+        // executing.
         let offload_states: BTreeMap<usize, u64> = self
             .delay_map
             .iter()
@@ -655,24 +665,17 @@ impl Tree {
         // res_vec will contain the assignments that count to n.
         let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
 
-        // Even if self.num_states == 1, self.latency might be greater than 1,
-        // if we're just offloading the computation for the entire time.
-        // In this case, we still need the children to count to n.
-        if self.latency > 1 {
-            for (child, (beg, end)) in self.children.iter_mut() {
-                // If beg == 0 and end > 1 then we need to "transfer" the incr_start_condition
-                // to the offload state.
-                let cond = if *beg == 0 && *end > 1 {
-                    incr_start_cond.clone()
-                } else {
-                    None
-                };
-                child.count_to_n(builder, cond);
-            }
-        }
-
-        // Only need an fsm if self.num_states > 1.
+        // Only need to count up to n if self.num_states > 1.
+        // Otherwise either a) we're just offloading the entire time or b)
+        // the latency 1 cycle. Either way, there's no real "counting" that
+        // needs to be done in either case.
         if self.num_states > 1 {
+            // There are two conditions under which we increment the FSM.
+            // 1) We are NOT in an offload state
+            // 2) We ARE in an offload state, but the child being offloaded
+            // is in its final state. (intuitively, we need to increment because
+            // we know the control is being passed to us in the next cycle).
+
             let parent_fsm = Rc::clone(
                 &self
                     .fsm_cell
@@ -683,25 +686,129 @@ impl Tree {
             let (adder_asssigns, adder) =
                 parent_fsm.borrow_mut().build_incrementer(builder);
             res_vec.extend(adder_asssigns);
-            // Now handle incrementing when we are offloading to a child (we should
-            // increment the parent on the final cycle the child is executing).
+
+            // If incr_start_cond.is_some(), then we have to specially take into
+            // account this scenario when incrementing the FSM.
+            // `special_first_transition_guard` = (fsm != 0) when we are specially
+            // guarding the 0->1 transition, so that other incrementations
+            // do not affect this.
+            // Otherwise `special_first_transition_guard` == True, so it won't
+            // affect anything.
+            let special_first_transition_guard = match incr_start_cond.clone() {
+                None => ir::Guard::True,
+                Some(g) => {
+                    // If we offload during the transition from cycle 0->1 transition
+                    // then we don't need a special first transition guard.
+                    // (the child will add this guard when it is counting to n.)
+                    if let Some(((beg, end), state_type)) =
+                        self.delay_map.iter().next()
+                    {
+                        if !(matches!(state_type, StateType::Offload(_))
+                            && *beg == 0
+                            && *end > 1)
+                        {
+                            let first_state =
+                                self.get_fsm_query((0, 1), builder);
+                            res_vec.extend(
+                                parent_fsm.borrow_mut().conditional_increment(
+                                    first_state.clone().and(g),
+                                    Rc::clone(&adder),
+                                    builder,
+                                ),
+                            );
+                            first_state.not()
+                        } else {
+                            ir::Guard::True
+                        }
+                    } else {
+                        ir::Guard::True
+                    }
+                }
+            };
+
+            // Handle situation 1): increment when we are NOT in an offload state
+            // if the offload states are 2, 4, and 6., then
+            // offload_state_guard = fsm == 2 | fsm == 4 | fsm == 6
+            // We should increment when !(offload_states), i.e.,
+            // !(fsm == 2 | fsm == 4 | fsm == 6).
+            let mut offload_state_guard: ir::Guard<Nothing> =
+                ir::Guard::Not(Box::new(ir::Guard::True));
+            for offload_state in offload_states.values() {
+                // Creating a guard that checks whether the parent fsm is
+                // in an offload state.
+                offload_state_guard.update(|g| {
+                    g.or(*parent_fsm.borrow_mut().query_between(
+                        builder,
+                        (*offload_state, offload_state + 1),
+                    ))
+                });
+            }
+            let not_offload_state = offload_state_guard.not();
+
+            let mut incr_guard =
+                not_offload_state.and(special_first_transition_guard);
+
+            // We shouldn't increment when we are in the final state
+            // (we should be resetting instead).
+            // So we need to `& !in_final_state` to the guard.
+            let final_fsm_state =
+                self.get_fsm_query((self.latency - 1, self.latency), builder);
+            let not_final_state = final_fsm_state.clone().not();
+
+            // However, if the final state is an offload state, then there's no need
+            // to make this extra check of not being in the last state.
+            if let Some((_, (_, end_final_child))) = self.children.last() {
+                // If the final state is not an offload state, then
+                // we need to add this check.
+                if !(*end_final_child == self.latency) {
+                    incr_guard = incr_guard.and(not_final_state);
+                }
+            } else {
+                // If no offloading, then we need to add this check.
+                incr_guard = incr_guard.and(not_final_state);
+            };
+
+            res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
+                incr_guard,
+                Rc::clone(&adder),
+                builder,
+            ));
+
+            // Reset the FSM when it is at its final fsm_state.
+            res_vec.extend(
+                parent_fsm
+                    .borrow_mut()
+                    .conditional_reset(final_fsm_state.clone(), builder),
+            );
+
+            // Now handle situation 2) We ARE in an offload state,
+            // but the child being offloaded is in its final state.
             for (i, (child, (beg, end))) in self.children.iter_mut().enumerate()
             {
                 // Increment parent when child is in final state.
-                // fsm.in = fsm == offload_state && child_fsm_in_final_state ? fsm + 1;
-                // fsm.write_en == offload_state && child_fsm_in_final_state ? 1'd1;
-                // If the offload state is the last state (end == self.latency) then we don't
-                // increment, we need to reset to 0: we will handle that case separately.
-                // Also, if end = beg + 1 then the child takes one cycle and we can just
-                // unconditionally increment: no need to do all this checking.
+                // For example, if the parent is offloading at state 5, then the
+                // guard would look like
+                // fsm.in = fsm == 5 && child_fsm_in_final_state ? fsm + 1;
+                // fsm.write_en == 5 && child_fsm_in_final_state ? 1'd1;
+
+                // There are two exceptions to this:
+                // 1) If the offload state is the last state (end == self.latency) then we don't
+                // increment, we need to reset to 0: we have handled that case separately.
+                // 2) Also, if end = beg + 1 then the child takes one cycle and we can just
+                // increment without checking (we have already handled this in situation
+                // 1 (increment when we are NOT in an offload state),
+                // since `offload_states` only includes children who take > 1 cycle).
                 if *end != self.latency && (*beg + 1 != *end) {
                     // We know each offload state corresponds to exactly one child.
                     let child_state = *offload_states.get(&i).expect(
                         "offload states should be a subset of children.",
                     );
+                    // Checking that we are in child state, e.g., `(fsm == 5)`
+                    // in the above example.
                     let in_child_state = parent_fsm
                         .borrow_mut()
                         .query_between(builder, (child_state, child_state + 1));
+                    // now we need to check `child_fsm_in_final_state`
                     let total_child_latency =
                         child.get_latency() * child.get_num_repeats();
                     let child_final_state = child.query_between(
@@ -717,119 +824,60 @@ impl Tree {
                     res_vec.extend(parent_fsm_incr);
                 }
             }
-
-            // If incr_start_cond.is_some(), then we have to specially take into
-            // account this scenario when incrementing the FSM.
-            let other_incr_condition = match incr_start_cond {
-                None => ir::Guard::True,
-                Some(g) => {
-                    // If we offload the 0->1 transition, then no need to do this.
-                    let offload_first_transition =
-                        if let Some(((beg, end), state_type)) =
-                            self.delay_map.iter().next()
-                        {
-                            matches!(state_type, StateType::Offload(_))
-                                && *beg == 0
-                                && *end > 1
-                        } else {
-                            false
-                        };
-                    // If we do not offload, then we need to guard this transition.
-                    if offload_first_transition {
-                        ir::Guard::True
-                    } else {
-                        let first_state = self.get_fsm_query((0, 1), builder);
-                        res_vec.extend(
-                            parent_fsm.borrow_mut().conditional_increment(
-                                first_state.clone().and(g),
-                                Rc::clone(&adder),
-                                builder,
-                            ),
-                        );
-                        first_state.not()
-                    }
-                }
-            };
-
-            // Increment when fsm is not in an offload state and not in final fsm state.
-            // (and must look at other_incr_condition, in case `incr_start_cond`
-            // is something).
-            let mut offload_state_guard: ir::Guard<Nothing> =
-                ir::Guard::Not(Box::new(ir::Guard::True));
-            for offload_state in offload_states.values() {
-                // Creating a guard that checks whether the parent fsm is
-                // in an offload state.
-                offload_state_guard.update(|g| {
-                    g.or(*parent_fsm.borrow_mut().query_between(
-                        builder,
-                        (*offload_state, offload_state + 1),
-                    ))
-                });
-            }
-            let not_offload_state = offload_state_guard.not();
-            // Getting final state for the parent fsm.
-            let final_fsm_state =
-                self.get_fsm_query((self.latency - 1, self.latency), builder);
-            let not_final_state = final_fsm_state.clone().not();
-
-            // Trying to reduce redundancy among gurads
-            let final_state_is_offload_state =
-                if let Some((_, (_, end_final_child))) = self.children.last() {
-                    *end_final_child == self.latency
-                } else {
-                    false
-                };
-
-            let incr_guard = if final_state_is_offload_state {
-                not_offload_state.and(other_incr_condition)
-            } else {
-                not_offload_state
-                    .and(not_final_state.clone().and(other_incr_condition))
-            };
-            res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
-                incr_guard,
-                Rc::clone(&adder),
-                builder,
-            ));
-
-            // reset at final fsm_state.
-            res_vec.extend(
-                parent_fsm
-                    .borrow_mut()
-                    .conditional_reset(final_fsm_state.clone(), builder),
-            );
         }
 
-        let final_fsm_state = if self.latency == 1 {
-            ir::Guard::True
-        } else {
-            // Getting final state for the parent fsm.
-            self.get_fsm_query((self.latency - 1, self.latency), builder)
-        };
+        // If self.num_states > 1, then it's guaranteed that self.latency > 1.
+        // However, even if self.num_states == 1, self.latency still be greater than 1,
+        // if we're just offloading the computation for the entire time.
+        // In this case, we still need the children to count to n.
+        if self.latency > 1 {
+            for (child, (beg, end)) in self.children.iter_mut() {
+                // If beg == 0 and end > 1 then we need to "transfer" the incr_start_condition
+                // to the offload state.
+                let cond = if *beg == 0 && *end > 1 {
+                    incr_start_cond.clone()
+                } else {
+                    None
+                };
+                child.count_to_n(builder, cond);
+            }
+        }
 
         // Handle repeats. (Should increment repeat when fsm is in final state.)
         if self.num_repeats != 1 {
+            // If self.latency == 10, then we should increment the self.iter_count_cell
+            // each time fsm == 9, i.e., `final_fsm_state`.
+            let final_fsm_state = if self.latency == 1 {
+                ir::Guard::True
+            } else {
+                // Getting final state for the parent fsm.
+                self.get_fsm_query((self.latency - 1, self.latency), builder)
+            };
+
             let repeat_fsm = Rc::clone(
                 &self
                     .iter_count_cell
                     .as_mut()
                     .expect("should have set self.iter_count_cell"),
             );
+            // Build an incrementer to increment `self.iter_count_cell`.
             let (repeat_adder_assigns, repeat_adder) =
                 repeat_fsm.borrow_mut().build_incrementer(builder);
+            // We shouldn't increment `self.iter_count_cell` in the final iteration:
+            // we should reset instead.
             let final_repeat_state = *repeat_fsm.borrow_mut().query_between(
                 builder,
                 (self.num_repeats - 1, self.num_repeats),
             );
             let not_final_repeat_state = final_repeat_state.clone().not();
             res_vec.extend(repeat_adder_assigns);
-            // repeat_fsm = fsm_in_final_state && not_final_repeat_state? repeat_fsm + 1
+            // Incrementing self.iter_count_cell when appropriate.
             res_vec.extend(repeat_fsm.borrow_mut().conditional_increment(
                 final_fsm_state.clone().and(not_final_repeat_state),
                 repeat_adder,
                 builder,
             ));
-            // repeat_fsm = fsm_in_final_state and final_repeat_state? 0
+            // Resetting self.iter_count_cell when appropriate.
             res_vec.extend(repeat_fsm.borrow_mut().conditional_reset(
                 final_fsm_state.clone().and(final_repeat_state),
                 builder,
@@ -840,6 +888,14 @@ impl Tree {
         self.root.1.extend(res_vec);
     }
 
+    /// `Realize` each static group in the tree into a dynamic group.
+    /// In particular, this involves converting %[i:j] guards into actual
+    /// fsm register queries (which can get complicated with out tree structure:
+    /// it's not just i <= fsm < j anymore).
+    ///
+    /// `reset_early_map`, `fsm_info_map`, and `group_rewrites` are all
+    /// metadata to make it more helpful for rewriting control, adding
+    /// wrapper groups when necessary, etc.
     fn realize(
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
@@ -851,7 +907,7 @@ impl Tree {
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         builder: &mut ir::Builder,
     ) {
-        // Get static grouo we are "realizing".
+        // Get static group we are "realizing".
         let static_group = Rc::clone(
             &static_groups
                 .iter()
@@ -863,7 +919,9 @@ impl Tree {
         let mut early_reset_name = static_group_name.to_string();
         early_reset_name.insert_str(0, "early_reset_");
         let early_reset_group = builder.add_group(early_reset_name);
-        // Realize the static %[i:j] guards to fsm checks.
+
+        // Realize the static %[i:j] guards to fsm queries.
+        // *This is where most of the difficult work of the function is done*.
         // This is significantly more complicated with a tree structure.
         let mut assigns = static_group
             .borrow()
@@ -1009,7 +1067,7 @@ impl Tree {
 
     // Restructure an (i,j) query into:
     // (beg, middle, end) query.
-    // This is best explained by examples: Sup
+    // This is best explained by example.
     // Suppose latency = 5, num repeats = 10.
     // Suppose we query %[3:32].
     // beg = Some(0, 3-5). 0 bc we are on the 0th iteration,
@@ -1091,6 +1149,8 @@ impl Tree {
         x
     }
 
+    // Checks whether the tree offloads its entire latency, and returns the
+    // appropriate `bool`.
     fn offload_entire_latency(&self) -> bool {
         self.children.len() == 1
             && self
@@ -1101,26 +1161,43 @@ impl Tree {
     }
 
     // Given query (i,j), get the fsm query for cycles (i,j).
-    // Complicated by the offloading to children.
-    // We use a similar resturcturing of the query to (beg, middle, end).
+    // This is greatly by the offloading to children.
+    // We use a resturcturing that organizes the query into (beg, middle, end),
+    // similar to self.restructure_query.
     fn get_fsm_query(
         &mut self,
         query: (u64, u64),
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
+        // If latency == 1, then return `true`.
         if self.latency == 1 {
             return ir::Guard::True;
         }
+
         let fsm_cell_opt = self.fsm_cell.as_ref();
         if fsm_cell_opt.is_none() {
+            // If there is no fsm cell even though latency > 1, then we must
+            // have offloaded the entire latency. Therefore we just need
+            // to query the child.
             assert!(self.offload_entire_latency());
             let (only_child, _) = self.children.iter_mut().next().unwrap();
             return only_child.query_between(query, builder);
         }
+
         let fsm_cell: Rc<std::cell::RefCell<StaticFSM>> =
             Rc::clone(fsm_cell_opt.expect("just checked if None"));
 
         let (query_beg, query_end) = query;
+        // Suppose delay_map map: (0,10) -> Delay(0)
+        //                        (10,30) -> Offload(10)
+        //                        (30,40) -> Delay(20)
+        //                        (40,80) -> Offload(20)
+        //                        (80,100)-> Delay(60).
+        // And query = (15,95).
+        // Then in the end we should want:
+        // `beg_interval` should be fsm == 10 && <child.query_between(5,20)>
+        // `middle_interval` should be (10, 20)
+        // `end_interval` should be 20 <= fsm < 35
         let mut beg_interval = ir::Guard::True.not();
         let mut end_interval = ir::Guard::True.not();
         let mut middle_interval = None;
@@ -1129,12 +1206,14 @@ impl Tree {
             // Check if the query encompasses the entire interval.
             // If so, we add it to the "middle" interval.
             if query_beg <= *beg && *end <= query_end {
+                // Get the interval we have to add, based on `state_type`.
                 let interval_to_add = match state_type {
                     StateType::Delay(delay) => (beg - delay, end - delay),
                     StateType::Offload(offload_state) => {
                         (*offload_state, offload_state + 1)
                     }
                 };
+                // Add `interval_to_add` to `middle_interval`.
                 match middle_interval {
                     None => middle_interval = Some(interval_to_add),
                     Some((cur_start, cur_end)) => {
@@ -1148,17 +1227,21 @@ impl Tree {
             else if *beg <= query_beg && query_beg < *end {
                 assert!(beg_interval.is_false());
                 match state_type {
+                    // If we are not offloading, then we can just produce a normal
+                    // query.
                     StateType::Delay(delay) => {
                         let translated_query = (
                             query_beg - delay,
                             // This query either stretches into another interval, or
-                            // ends within the interavl: we want to capture both of these choices.
+                            // ends within the interval: we want to capture both of these choices.
                             std::cmp::min(query_end - delay, end - delay),
                         );
                         beg_interval = *fsm_cell
                             .borrow_mut()
                             .query_between(builder, translated_query);
                     }
+                    // If we are not offloading, then we first check the state,
+                    // then we must query the corresponding child.
                     StateType::Offload(offload_state) => {
                         let in_offload_state =
                             *fsm_cell.borrow_mut().query_between(
@@ -1170,6 +1253,8 @@ impl Tree {
                         let child_query = child.query_between(
                             (
                                 query_beg - beg,
+                                // This query either stretches into another interval, or
+                                // ends within the interval: we want to capture both of these choices.
                                 std::cmp::min(
                                     query_end - beg,
                                     child.get_latency()
@@ -1181,12 +1266,20 @@ impl Tree {
                         beg_interval = in_offload_state.and(child_query);
                     }
                 };
-            } else if *beg < query_end && query_end <= *end {
+            }
+            // Check if the end of the query lies within the
+            // interval. This should only happen once.
+            else if *beg < query_end && query_end <= *end {
                 assert!(end_interval.is_false());
                 match state_type {
                     StateType::Delay(delay) => {
                         end_interval = *fsm_cell.borrow_mut().query_between(
                             builder,
+                            // This query must stretch backwards into a preiouvs interval
+                            // Otherwise it would have been caught by the
+                            // preceding elif statement.
+                            // Therefore, beg >= query_beg so I don't think
+                            // this check is necessary.
                             (
                                 std::cmp::max(query_beg, *beg) - delay,
                                 query_end - delay,
@@ -1201,9 +1294,10 @@ impl Tree {
                             );
                         let (child, _) =
                             self.children.get_mut(child_index).unwrap();
-                        // XXX(Caleb) I think we can do this. We know this must
-                        // stretch into a previous interval: otherwise, it
+                        // We know this must stretch backwards
+                        // into a previous interval: otherwise, it
                         // would have been caught by the previous elif condition.
+                        // therefore, we can start the child query at 0.
                         let child_query = child
                             .query_between((0, (query_end - beg)), builder);
                         end_interval = in_offload_state.and(child_query);
@@ -1215,6 +1309,7 @@ impl Tree {
             }
         }
 
+        // Turn `middle_interval` into an actual `ir::Guard`.
         let middle_query = match middle_interval {
             None => Box::new(ir::Guard::True.not()),
             Some((i, j)) => self
@@ -1228,11 +1323,13 @@ impl Tree {
         beg_interval.or(end_interval.or(*middle_query))
     }
 
+    // Produces a guard that checks whether query.0 <= self.iter_count_cell < query.1
     fn get_repeat_query(
         &mut self,
         query: (u64, u64),
         builder: &mut ir::Builder,
     ) -> Box<ir::Guard<Nothing>> {
+        // If self.num_repeats == 1, then no need for a complicated query.
         match self.num_repeats {
             1 => {
                 assert!(query.0 == 0 && query.1 == 1);
@@ -1247,17 +1344,23 @@ impl Tree {
         }
     }
 
-    fn check_iter_fsm_state(
+    // Produce a guard that checks:
+    //   - whether iteration == repeat_query AND
+    //   - whether fsm_query.0 <= cycle count < fsm_query.1
+    fn check_iteration_and_fsm_state(
         &mut self,
         (repeat_query, fsm_query): (u64, (u64, u64)),
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
+        // If fsm_query is just the entire latency, then no need to produce a
+        // check.
         let fsm_guard = if 0 == fsm_query.0 && self.latency == fsm_query.1 {
             ir::Guard::True
         } else {
             self.get_fsm_query(fsm_query, builder)
         };
 
+        // Checks `self.iter_count_cell`.
         let counter_guard =
             self.get_repeat_query((repeat_query, repeat_query + 1), builder);
         ir::Guard::And(Box::new(fsm_guard), counter_guard)
@@ -1268,14 +1371,19 @@ impl Tree {
         query: (u64, u64),
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
+        // See `restructure_query` to see what we're doing.
+        // But basically:
+        // query0 = Option(iteration number, cycles during that iteration the query is true).
+        // repeat_query = Option(iterations during which the query is true the entire iteration).
+        // query1 = Option(iteration number, cycles during that iteration the query is true).
         let (query0, repeat_query, query1) = self.restructure_query(query);
         let g0 = match query0 {
             None => ir::Guard::True.not(),
-            Some(q0) => self.check_iter_fsm_state(q0, builder),
+            Some(q0) => self.check_iteration_and_fsm_state(q0, builder),
         };
         let g1 = match query1 {
             None => ir::Guard::True.not(),
-            Some(q1) => self.check_iter_fsm_state(q1, builder),
+            Some(q1) => self.check_iteration_and_fsm_state(q1, builder),
         };
 
         let rep_query = match repeat_query {
@@ -1288,6 +1396,8 @@ impl Tree {
     // Takes in a static guard `guard`, and returns equivalent dynamic guard
     // The only thing that actually changes is the Guard::Info case
     // We need to turn static_timing to dynamic guards using `fsm`.
+    // See `make_assign_dyn` for explanations of `global_view` and `ignore_timing`
+    // variable.
     fn make_guard_dyn(
         &mut self,
         guard: ir::Guard<ir::StaticTiming>,
@@ -1316,11 +1426,13 @@ impl Tree {
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
             ir::Guard::Info(static_timing) => {
+                // If `ignore_timing` is true, then just return a true guard.
                 if ignore_timing {
                     assert!(static_timing.get_interval() == (0, 1));
                     return Box::new(ir::Guard::True);
                 }
                 if global_view {
+                    // For global_view we call `query_between`
                     Box::new(
                         self.query_between(
                             static_timing.get_interval(),
@@ -1328,6 +1440,7 @@ impl Tree {
                         ),
                     )
                 } else {
+                    // For local_view we call `get_fsm_query`
                     Box::new(
                         self.get_fsm_query(
                             static_timing.get_interval(),
@@ -1339,8 +1452,17 @@ impl Tree {
         }
     }
 
-    // Takes in static assignment `assign` and returns a dynamic assignments
-    // Mainly transforms the guards from %[2:3] -> fsm.out >= 2 & fsm.out <= 3
+    /// Takes in static assignment `assign` and returns a dynamic assignments
+    /// For example, it could transform the guard %[2:3] -> fsm.out >= 2 & fsm.out <= 3
+    /// `global_view`: are you just querying for a given iteration, or are
+    /// you querying for the entire tree's execution?
+    ///   - if `global_view` is true, then you have to include the iteration
+    ///     count register in the assignment's guard.
+    ///   - if `global_view` is false, then you dont' have to include it
+    /// `ignore_timing`: remove static timing guards instead of transforming them
+    /// into an FSM query. Note that in order to do this, the timing guard must
+    /// equal %[0:1], otherwise we will throw an error. This option is here
+    /// mainly to save resource usage.
     pub fn make_assign_dyn(
         &mut self,
         assign: ir::Assignment<ir::StaticTiming>,
