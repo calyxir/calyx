@@ -170,15 +170,18 @@ def insert_shift_backward(prog, name, length, idx):
 def query_time(prog, name, length, current_time):
     """Component for finding the lowest-rank element matching a time predicate"""
     comp = prog.component(name)
-    idx = comp.reg(32)
-    inc = comp.incr(idx)
-    ready_time = comp.reg(32)
 
     mem = comp.seq_mem_d2("queue", *length, 3, is_ref=True)
     idx = comp.reg(32, is_ref=True)
+    
+    #Register loads in the readiness time at each level
+    ready_time = comp.reg(32)
+    inc = comp.incr(idx)
+
     found = comp.reg(1, is_ref=True)
     
     load_time = comp.mem_load_d2(mem, idx, 1, ready_time, "load_time")
+    
     time_leq = comp.le_use(ready_time.out, current_time.out)
     idx_leq = comp.lt_use(idx.out, length)
 
@@ -246,10 +249,6 @@ def insert_pieo(prog, max_cmds, queue_size):
     incr_cmd_idx = pieo.add_store_in_reg(cmd_idx.out, 1, cmd_idx, "incr_cmd_idx")
     cmd_in_range = pieo.lt_use(cmd_idx.out, max_cmds)
 
-    ans_index = pieo.reg(32, "ans_index")
-    insert_pos = pieo.reg(32)
-    result = pieo.reg(32)
-
     #Data trackers (reading from external memory)
     cmd, value, time, rank = (
         pieo.reg(3, "cmd"),
@@ -272,11 +271,18 @@ def insert_pieo(prog, max_cmds, queue_size):
         for i in range(3)
     ]
 
-    #Write memory
-    write = pieo.mem_store_d1(ans_mem, ans_index.out, result, "store_result")
+    #Reference registers
+    ans_index = pieo.reg(32, "ans_index")
+    insert_pos = pieo.reg(32)
+    remove_pos = pieo.reg(32)
+    result = pieo.reg(32)
 
+    #Invoke cells
     find_push_loc = insert_find_push_loc(prog, "find_push_loc", queue_dim, rank)
-    push_loc = insert_push_loc(prog, "insert_push_loc", queue_dim, (value, time, rank), insert_pos)
+    push_loc = insert_push_loc(prog, "push_loc", queue_dim, (value, time, rank), insert_pos)
+    shift_backward = insert_shift_backward(prog, "shift_backward", )
+
+    write = pieo.mem_store_d1(ans_mem, ans_index.out, result, "store_result")
 
     #Check the type of command
     cmd_eqs = [pieo.eq_use(cmd.out, i) for i in range(5)]
@@ -286,7 +292,9 @@ def insert_pieo(prog, max_cmds, queue_size):
             load_cmd,
             cb.par (
                 cb.if_with(cmd_eqs[0] & not_minned,
-                    print("Peek by time")
+                    cb.seq(
+
+                    )
                 ),
 
                 cb.if_with(cmd_eqs[1] & not_minned,
@@ -319,7 +327,7 @@ def build():
     num_cmds = 20000
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
-    pieo = insert_pieo(prog, "pieo", 16)
+    pieo = insert_pieo(prog, 20000, 16)
     qc.insert_main(prog, pieo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
