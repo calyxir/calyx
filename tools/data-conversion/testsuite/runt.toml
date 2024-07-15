@@ -1,0 +1,11 @@
+ver = "0.4.1" 
+
+[suite]
+name = "Rust Tests"
+
+[[tests]]
+name = "Fixed-Point Conversion Tests"
+cmd = "../../../target/debug/data-conversion --from {} --to {} --ftype 'binary' --totype 'fixed' --exp -4"
+paths = ["inputs/test_*.in"]
+expect_dir = "expect"
+

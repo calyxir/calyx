@@ -35,15 +35,15 @@ build primitives-for-firrtl.sv: get-rsrc
 rule add-verilog-primitives
   command = cat primitives-for-firrtl.sv $in > $out
 
-build external.futil: ref-to-external stdin
-build ref.futil: external-to-ref stdin
+build external.futil: ref-to-external _from_stdin_calyx.futil
+build ref.futil: external-to-ref _from_stdin_calyx.futil
 build memory-info.json: yxi external.futil
 build tb.sv: generate-refmem-testbench memory-info.json
 build tmp-out.fir: calyx ref.futil
   backend = firrtl
   args = --emit-primitive-extmodules
-build stdin.fir: dummy tmp-out.fir tb.sv
-build partial.sv: firrtl stdin.fir
-build stdin.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
+build firrtl.fir: dummy tmp-out.fir tb.sv
+build partial.sv: firrtl firrtl.fir
+build _to_stdout_verilog-refmem.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
 
-default stdin.sv
+default _to_stdout_verilog-refmem.sv

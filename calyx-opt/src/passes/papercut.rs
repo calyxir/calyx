@@ -1,7 +1,10 @@
 use crate::analysis::{self, AssignmentAnalysis};
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, DiagnosticContext, DiagnosticPass, Named,
+    VisResult, Visitor,
+};
 use calyx_ir::{self as ir, LibrarySignatures};
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::{CalyxResult, Error, WithPos};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
@@ -11,6 +14,7 @@ type ReadTogether = (ir::Id, HashSet<ir::Id>);
 
 /// Pass to check for common errors such as missing assignments to `done` holes
 /// of groups.
+#[derive(Debug)]
 pub struct Papercut {
     /// Map from (primitive name) -> Vec<(set of ports)>
     /// When any of the ports in a set is driven, all ports in that set must
@@ -26,6 +30,9 @@ pub struct Papercut {
 
     /// The cells that are driven through continuous assignments
     cont_cells: HashSet<ir::Id>,
+
+    /// diagnostic context to accumulate multiple errors
+    diag: DiagnosticContext,
 }
 
 impl Papercut {
@@ -62,6 +69,7 @@ impl ConstructVisitor for Papercut {
             write_together,
             read_together,
             cont_cells: HashSet::new(),
+            diag: DiagnosticContext::default(),
         })
     }
 
@@ -96,6 +104,12 @@ fn port_information(
     None
 }
 
+impl DiagnosticPass for Papercut {
+    fn diagnostics(&self) -> &DiagnosticContext {
+        &self.diag
+    }
+}
+
 impl Visitor for Papercut {
     fn start(
         &mut self,
@@ -121,7 +135,7 @@ impl Visitor for Papercut {
                             assign.name == p.borrow().name && !assign.is_hole()
                         });
                     if done_use.is_none() {
-                        return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)));
+                        self.diag.err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.attributes))
                     }
                 }
             }
@@ -133,21 +147,18 @@ impl Visitor for Papercut {
         // driven.
         for group_ref in comp.get_groups().iter() {
             let group = group_ref.borrow();
-            self.check_specs(&group.assignments)
-                .map_err(|err| err.with_pos(&group.attributes))?;
+            self.check_specs(&group.assignments, &group.attributes);
         }
         for group_ref in comp.get_static_groups().iter() {
             let group = group_ref.borrow();
-            self.check_specs(&group.assignments)
-                .map_err(|err| err.with_pos(&group.attributes))?;
+            self.check_specs(&group.assignments, &group.attributes);
         }
         for cgr in comp.comb_groups.iter() {
             let cg = cgr.borrow();
-            self.check_specs(&cg.assignments)
-                .map_err(|err| err.with_pos(&cg.attributes))?;
+            self.check_specs(&cg.assignments, &cg.attributes);
         }
 
-        // Compute all cells that are driven in by the continuous assignments0
+        // Compute all cells that are driven in by the continuous assignments
         self.cont_cells = comp
             .continuous_assignments
             .iter()
@@ -181,9 +192,8 @@ impl Visitor for Papercut {
                     if *is_comb && !self.cont_cells.contains(&cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
-                        return Err(
-                            Error::papercut(msg).with_pos(&s.attributes)
-                        );
+                        self.diag
+                            .err(Error::papercut(msg).with_pos(&s.attributes));
                     }
                 }
             }
@@ -213,9 +223,8 @@ impl Visitor for Papercut {
                     if *is_comb && !self.cont_cells.contains(&cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
-                        return Err(
-                            Error::papercut(msg).with_pos(&s.attributes)
-                        );
+                        self.diag
+                            .err(Error::papercut(msg).with_pos(&s.attributes));
                     }
                 }
             }
@@ -225,7 +234,10 @@ impl Visitor for Papercut {
 }
 
 impl Papercut {
-    fn check_specs<T>(&mut self, assigns: &[ir::Assignment<T>]) -> VisResult {
+    fn check_specs<T, P>(&mut self, assigns: &[ir::Assignment<T>], pos: &P)
+    where
+        P: WithPos,
+    {
         let all_writes = assigns
             .iter()
             .analysis()
@@ -262,7 +274,7 @@ impl Papercut {
                                     read,
                                     missing,
                                     comp_type);
-                        return Err(Error::papercut(msg));
+                        self.diag.err(Error::papercut(msg).with_pos(pos));
                     }
                 }
             }
@@ -297,11 +309,9 @@ impl Papercut {
                                 first,
                                 missing,
                                 comp_type);
-                    return Err(Error::papercut(msg));
+                    self.diag.err(Error::papercut(msg).with_pos(pos));
                 }
             }
         }
-        // This return value is not used
-        Ok(Action::Continue)
     }
 }
