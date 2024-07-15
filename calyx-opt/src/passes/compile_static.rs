@@ -562,7 +562,6 @@ impl CompileStatic {
                 latency: target_group_ref.latency,
                 fsm_cell: None,
                 iter_count_cell: None,
-                incrementer: None,
                 root: (name, vec![]),
                 delay_map: delay_map,
                 children: children_vec,

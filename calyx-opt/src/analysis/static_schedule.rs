@@ -497,6 +497,19 @@ impl FSMTree {
     }
 }
 
+/// `Tree` struct.
+/// `latency` = latency of one iteration.
+/// `num_repeats` = number of repeats. (So "total" latency = `latency` x `num_repeats`).
+/// `num_states` = number of states in this node.
+/// `root` = (name of static group, assignments for corresponding dynamic group).
+/// `delay_map` = maps (i,j) -> what the state of the corresponding FSM is.
+///  For example:
+///    - if (i,j) -> StateType::Offload(x) it means that for cycles i through
+///      j the FSM is in state x.
+///    - if (i,j) -> StateType::Delay(x) it means that for cycles i through j
+///      the fsm is will be in state i-x to j-x (one state per cycle).
+/// `children` = vec of (FSMTree Object, cycles for which that child is executing).
+/// `fsm_cell` and `iter_count_cell` keep track of `latency` and `num_repeats` respectively.
 pub struct Tree {
     pub latency: u64,
     pub num_repeats: u64,
@@ -506,10 +519,28 @@ pub struct Tree {
     pub children: Vec<(FSMTree, (u64, u64))>,
     pub fsm_cell: Option<ir::RRC<StaticFSM>>,
     pub iter_count_cell: Option<ir::RRC<StaticFSM>>,
-    pub incrementer: Option<ir::RRC<ir::Cell>>,
 }
 
 impl Tree {
+    /// Instantiates the necessary registers.
+    /// Because we share FSM registers, it's possible that this register has already
+    /// been instantiated.
+    /// Therefore we take in:
+    ///   - `coloring` that maps group names -> colors,
+    ///   - `colors_to_max_values` which maps colors -> (max latency, max_num_repeats)
+    ///   (we need to make sure that when we instantiate a color,
+    ///   we give enough bits to support the maximum latency/num_repeats that will be
+    ///   used for that color)
+    ///   - `colors_to_fsm`
+    ///   which maps colors to (fsm_register, iter_count_register): fsm_register counts
+    ///   up for a single iteration, iter_count_register counts the number of iterations
+    ///   that have passed.
+    ///
+    /// Note that it is not always necessary to instantiate one or both registers (e.g.,
+    /// if num_repeats == 1 then you don't need an iter_count_register).
+    ///
+    /// One hot cutoff is the cutoff to choose between binary and one hot encoding.
+    /// Any number of states greater than the cutoff will get binary encoding.
     fn instantiate_fsms(
         &mut self,
         builder: &mut ir::Builder,
@@ -521,16 +552,17 @@ impl Tree {
         >,
         one_hot_cutoff: u64,
     ) {
+        // Get color assigned to this node.
         let color = coloring.get(&self.root.0).expect("couldn't find group");
+        // Check if we've already instantiated the registers for this color.
         match colors_to_fsm.get(color) {
             None => {
-                let mut fsm_opt = None;
-                let mut repeat_opt = None;
                 let (num_states, num_repeats) = colors_to_max_values
                     .get(color)
-                    .expect("couldn't find color");
+                    .expect("Couldn't find color");
+                // Only need a `self.fsm_cell` if num_states > 1.
                 if *num_states != 1 {
-                    // Build parent FSM for the "root" of the tree.
+                    // Choose encoding based on one_hot_cutoff.
                     let encoding = if *num_states > one_hot_cutoff {
                         FSMEncoding::Binary
                     } else {
@@ -541,9 +573,10 @@ impl Tree {
                         encoding,
                         builder,
                     ));
-                    fsm_opt = Some(Rc::clone(&fsm_cell));
+                    // fsm_opt = Some(Rc::clone(&fsm_cell));
                     self.fsm_cell = Some(fsm_cell);
                 }
+                // Only need a `self.iter_count_cell` if num_states > 1.
                 if *num_repeats != 1 {
                     let encoding = if *num_repeats > one_hot_cutoff {
                         FSMEncoding::Binary
@@ -555,25 +588,30 @@ impl Tree {
                         encoding,
                         builder,
                     ));
-                    repeat_opt = Some(Rc::clone(&repeat_counter));
+                    // repeat_opt = Some(Rc::clone(&repeat_counter));
                     self.iter_count_cell = Some(repeat_counter);
                 }
-                colors_to_fsm.insert(*color, (fsm_opt, repeat_opt));
+
+                // Insert into `colors_to_fsms` so the next time we call this method
+                // we see we've already instantiated the registers.
+                colors_to_fsm.insert(
+                    *color,
+                    (
+                        self.fsm_cell.as_ref().map(|x| Rc::clone(x)),
+                        self.iter_count_cell.as_ref().map(|x| Rc::clone(&x)),
+                    ),
+                );
             }
-            Some((fsm_opt, repeat_opt)) => {
-                let fsm_opt_new = match fsm_opt {
-                    None => None,
-                    Some(x) => Some(Rc::clone(x)),
-                };
-                let repeat_opt_new = match repeat_opt {
-                    None => None,
-                    Some(x) => Some(Rc::clone(x)),
-                };
-                self.fsm_cell = fsm_opt_new;
-                self.iter_count_cell = repeat_opt_new;
+            Some((fsm_option, repeat_option)) => {
+                // Trivially assign to `self.fsm_cell` and `self.iter_count_cell` since
+                // we've already created it.
+                self.fsm_cell = fsm_option.as_ref().map(|x| Rc::clone(&x));
+                self.iter_count_cell =
+                    repeat_option.as_ref().map(|x| Rc::clone(&x));
             }
         }
 
+        // Recursively instantiate fsms for all the children.
         for (child, _) in &mut self.children {
             child.instantiate_fsms(
                 builder,
@@ -585,6 +623,9 @@ impl Tree {
         }
     }
 
+    /// count_to_n.
+    /// If `incr_start_cond` is_some(), then we will add it as an extra
+    /// guard guarding the 0->1 transition.
     fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,
