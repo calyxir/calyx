@@ -249,12 +249,31 @@ impl StaticFSM {
     }
 }
 
+/// Helpful for translating queries for the FSMTree structure.
+/// Because of the tree structure, %[i:j] is no longer is always equal to i <= fsm < j.
+/// Offload(i) means the FSM is offloading when fsm == i, meaning that if the fsm == i,
+/// we need to look at the children to know what cycle we are in exactly.
+/// Delay(i) means the FSM has offloaded for i cycles, meaning that if the fsm == x,
+/// then we are actually in cycle i + x.
+#[derive(Debug)]
+pub enum StateType {
+    Delay(u64),
+    Offload(u64),
+}
+
+/// FSMTree can either be a Tree (i.e., a single node) or ParTree (i.e., a group of
+/// nodes that are executing in parallel).
 pub enum FSMTree {
     Tree(Tree),
     Par(ParTree),
 }
 
+// Most methods in `FSMTree` simply call the equivalent methods for each
+// of the two possible variants.
 impl FSMTree {
+    /// Instantiate the necessary registers.
+    /// The equivalent methods for the two variants contain more implementation
+    /// details.
     pub fn instantiate_fsms(
         &mut self,
         builder: &mut ir::Builder,
@@ -284,6 +303,9 @@ impl FSMTree {
         }
     }
 
+    /// Count to n. Need to call `instantiate_fsms` before calling `count_to_n`.
+    /// The equivalent methods for the two variants contain more implementation
+    /// details.
     pub fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,
@@ -299,6 +321,11 @@ impl FSMTree {
         }
     }
 
+    /// "Realize" the static groups into dynamic groups.
+    /// Mainly convert %[i:j] into fsm guards.
+    /// Need to call `instantiate_fsms` before calling `realize`.
+    /// The equivalent methods for the two variants contain more implementation
+    /// details.
     pub fn realize(
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
@@ -328,6 +355,10 @@ impl FSMTree {
         }
     }
 
+    /// Get the equivalent fsm guard when the tree is between cycles i and j, i.e.,
+    /// when i <= cycle_count < j.
+    /// The equivalent methods for the two variants contain more implementation
+    /// details.
     pub fn query_between(
         &mut self,
         query: (u64, u64),
@@ -343,6 +374,12 @@ impl FSMTree {
         }
     }
 
+    /// Transforms static assignments in `static_groups` to an equivalent dynamic
+    /// group.
+    /// Mostly involved realizing the %[i:j] static guards into equivalent static
+    /// guards.
+    /// `reset_early_map` and `group_rewrites` are simply data structures for
+    /// keeping track of the mapping between equivalent static and dynamic groups.
     pub fn transform_static_assigns(
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
@@ -366,6 +403,8 @@ impl FSMTree {
         }
     }
 
+    /// Take the assignments of the root of the tree and return them.
+    /// This only works on a single node (i.e., the `Tree`` variant).
     pub fn take_root_assigns(&mut self) -> Vec<ir::Assignment<Nothing>> {
         match self {
             FSMTree::Tree(tree_struct) => {
@@ -377,6 +416,8 @@ impl FSMTree {
         }
     }
 
+    /// Get the name of the root of the tree and return them.
+    /// This only works on a single node (i.e., the `Tree`` variant).
     pub fn get_root_name(&mut self) -> ir::Id {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.root.0,
@@ -386,6 +427,9 @@ impl FSMTree {
         }
     }
 
+    /// Get the name of the group at the root of the tree (if a `Tree` variant) or
+    /// of the equivalent `par` group (i.e., the name of the group that triggers
+    /// execution of all the trees) if a `Par` variant.
     pub fn get_group_name(&self) -> ir::Id {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.root.0,
@@ -393,6 +437,7 @@ impl FSMTree {
         }
     }
 
+    /// Gets latency of the overall tree.
     pub fn get_latency(&self) -> u64 {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.latency,
@@ -400,13 +445,9 @@ impl FSMTree {
         }
     }
 
-    pub fn get_id(&self) -> ir::Id {
-        match self {
-            FSMTree::Tree(tree_struct) => tree_struct.root.0,
-            FSMTree::Par(par_struct) => par_struct.group_name,
-        }
-    }
-
+    /// Gets the children of root of the tree (if a `Tree` variant) or
+    /// of the threads (i.e., trees) that are scheduled to execute (if a `Par`
+    /// variant.)
     pub fn get_children(&mut self) -> &mut Vec<(FSMTree, (u64, u64))> {
         match self {
             FSMTree::Tree(tree_struct) => &mut tree_struct.children,
@@ -414,6 +455,7 @@ impl FSMTree {
         }
     }
 
+    /// Get number of repeats.
     fn get_num_repeats(&self) -> u64 {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.num_repeats,
@@ -421,6 +463,8 @@ impl FSMTree {
         }
     }
 
+    /// Get the names of all nodes (i.e., the names of the groups for all
+    /// the `Tree` variants).
     pub fn get_all_nodes(&self) -> Vec<ir::Id> {
         match self {
             FSMTree::Tree(tree_struct) => tree_struct.get_all_nodes(),
@@ -428,6 +472,7 @@ impl FSMTree {
         }
     }
 
+    /// Adds conflicts between nodes in the tree that execute at the same time.
     pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
         match self {
             FSMTree::Tree(tree_struct) => {
@@ -439,6 +484,8 @@ impl FSMTree {
         }
     }
 
+    /// Get max value of all nodes in the tree, according to some function f.
+    /// `f` takes in a Tree (i.e., a node type) and returns a `u64`.
     pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
     where
         F: Fn(&Tree) -> u64,
@@ -450,14 +497,6 @@ impl FSMTree {
     }
 }
 
-/// Helpful for translating queries, e.g., %[2:20].
-/// Because of the tree structure,
-/// this no longer is always equivalent to 2 <= fsm < 20;
-#[derive(Debug)]
-pub enum StateType {
-    Delay(u64),
-    Offload(u64),
-}
 pub struct Tree {
     pub latency: u64,
     pub num_repeats: u64,

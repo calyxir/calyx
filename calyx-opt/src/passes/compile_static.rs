@@ -921,7 +921,9 @@ impl Visitor for CompileStatic {
                 None => false,
                 // For the top level group, sch.static_groups should really only
                 // have one group--the top level group.
-                Some(top_level_group) => tree.get_id() == top_level_group,
+                Some(top_level_group) => {
+                    tree.get_group_name() == top_level_group
+                }
             };
             // Static component/groups have different interfaces
             if static_component_interface {
