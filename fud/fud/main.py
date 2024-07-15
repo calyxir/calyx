@@ -153,7 +153,7 @@ def register_external_stages(cfg, registry):
     """
 
     # No externals to load.
-    if not ["externals"] in cfg:
+    if ["externals"] not in cfg:
         return
 
     for ext, location in cfg[["externals"]].items():
