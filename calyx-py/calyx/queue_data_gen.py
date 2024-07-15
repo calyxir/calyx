@@ -65,7 +65,7 @@ def no_err_cmds_list(queue_size, num_cmds):
     return commands
 
 
-def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False, use_ranks=False, always_true=False):
+def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False, use_ranks=False):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
@@ -91,9 +91,6 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     If the `nwc` flag is set to False (marking the policy as work-conserving),
     then the predicate is treated as though always true.
 
-    If `nwc` is set to True, then the user has the option to treat `always-true`
-    either way.
-
     - The `values` memory has `num_cmds` items:
     random values between 0 and 400.
     - The `ranks` memory has `num_cmds` items:
@@ -103,10 +100,6 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     - The `ans_mem` memory has `num_cmds` items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
-    
-    #For work-conserving policies, the predicate should be set as though always true
-    if not nwc:
-        always_true = True
         
     commands = {
         "commands": {
@@ -144,7 +137,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     }
     times = {
         "times": {
-            "data": [0 if always_true else random.randint(0, 50) for _ in range(num_cmds)],
+            "data": [0 if not nwc else random.randint(0, 50) for _ in range(num_cmds)],
             # The `times` memory has `num_cmds` items, which are all
             # random values between 0 and 50.
             "format": format_gen(32),
@@ -160,7 +153,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
 
     if nwc:
         print(json.dumps(commands | values | ranks | times | ans_mem, indent=2))
-    elif use_rank:
+    elif use_ranks:
         print(json.dumps(commands | values | ranks | ans_mem, indent=2))
     else:
         print(json.dumps(commands | values | ans_mem, indent=2))
@@ -174,7 +167,6 @@ if __name__ == "__main__":
     nwc = "--nwc-en" in sys.argv
     no_err = "--no-err" in sys.argv
     use_rank = "--use-rank" in sys.argv
-    always_true = "--always-true" in sys.argv
     if no_err:
         queue_size = int(sys.argv[3])
-    dump_json(num_cmds, no_err, queue_size if no_err else None, nwc, use_rank, always_true)
+    dump_json(num_cmds, no_err, queue_size if no_err else None, nwc, use_rank)
