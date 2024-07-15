@@ -87,31 +87,6 @@ struct CommandInterpret {}
 /// Open the program in the interactive debugger
 struct CommandDebug {}
 
-// #[inline]
-// fn print_res(
-//     res: InterpreterResult<InterpreterState>,
-//     raw: bool,
-// ) -> InterpreterResult<()> {
-//     match res {
-//         Ok(env) => {
-//             if raw {
-//                 env.print_env_raw()
-//             } else {
-//                 env.print_env()
-//             };
-//             Ok(())
-//         }
-//         Err(e) => match *e {
-//             InterpreterError::Exit
-//             | InterpreterError::ReadlineError(ReadlineError::Eof) => {
-//                 println!("Exiting.");
-//                 Ok(())
-//             }
-//             _ => Err(e),
-//         },
-//     }
-// }
-
 /// Interpret a group from a Calyx program
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
