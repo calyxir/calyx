@@ -120,7 +120,7 @@ jobs:
         fud c stages.interpreter.exec /home/calyx/target/debug/cider
 
     - name: Runt tests
-      working-directory: /home/calyx
+      working-directory: /home/calyx/interp/tests
       run: |
         # Run the remaining tests
         runt -x '(numeric types correctness and parsing)|(tcam testing)|(../../tests/correctness/pipelined-mac.futil)|(../../tests/correctness/std-bit-slice.futil)' -d -o fail
