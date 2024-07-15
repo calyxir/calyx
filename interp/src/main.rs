@@ -79,12 +79,12 @@ enum Command {
 
 #[derive(FromArgs)]
 #[argh(subcommand, name = "interpret")]
-/// tests the flattened interpreter
+/// [default] Run the given program directly and output the resulting memory dump
 struct CommandInterpret {}
 
 #[derive(FromArgs)]
 #[argh(subcommand, name = "debug")]
-/// Interpret the given program with the interactive debugger
+/// Open the program in the interactive debugger
 struct CommandDebug {}
 
 // #[inline]
