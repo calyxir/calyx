@@ -184,7 +184,6 @@ impl GPosIdx {
         (buf, out_idx, out_line)
     }
 
-
     /// returns:
     /// 1. the name of the file the span is in
     /// 2. the starting line of a span
