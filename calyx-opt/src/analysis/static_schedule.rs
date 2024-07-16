@@ -594,11 +594,20 @@ pub struct SingleNode {
     ///      j the FSM is in state x.
     ///    - if (i,j) -> StateType::Delay(x) it means that for cycles i through j
     ///      the fsm is will be in state i-x to j-x (one state per cycle).
-    ///    Example delay_map map: (0,10) -> Delay(0)
-    ///                           (10,30) -> Offload(11)
-    ///                           (30,40) -> Delay(20)
+    ///   Suppose that we had the following FSM schedule:
+    ///                           Cycles     FSM State (i.e., `fsm.out`)
+    ///                           (0..10) ->  [0,10)
+    ///                           (10..30) -> 10 // Offloading to child
+    ///                           (30..40) -> [11, 21)
+    ///                           (40,80) ->  21
+    ///                           (80,100)->  [22, 42)
+    ///   Then the delay_map is: (0,10) -> Delay(0)
+    ///                           (10,30) -> Offload(10)
+    ///                           (30,40) -> Delay(19)
     ///                           (40,80) -> Offload(21)
-    ///                           (80,100)-> Delay(60).
+    ///                           (80,100)-> Delay(58).
+    ///   In other words, the delay_map is essentially a more comapct way
+    ///   of storing the FSM schedule.
     pub delay_map: BTreeMap<(u64, u64), StateType>,
     /// vec of (Node Object, cycles for which that child is executing).
     pub children: Vec<(Node, (u64, u64))>,
@@ -721,33 +730,6 @@ impl SingleNode {
         builder: &mut ir::Builder,
         incr_start_cond: Option<ir::Guard<Nothing>>,
     ) {
-        // The following `map` will be useful for building the guareds that
-        // help us count to n.
-        // `offload_states` are the fsm_states that last >1 cycles (i.e., states
-        // where children are executing, except for the children that last one cycle).
-        // This particular data structure maps:
-        // `child_index`, i.e. the index of the child among the children of this node.
-        // To:
-        // `offload_state`, i.e., the output of the `fsm` when this child is executing.
-        let mut child_index = 0;
-        let offload_states: BTreeMap<usize, u64> = self
-            .delay_map
-            .iter()
-            .filter_map(|((beg, end), state_type)| match state_type {
-                StateType::Delay(_) => None,
-                StateType::Offload(offload_state) => {
-                    // Only need to include the children that last more than one cycle.
-                    let res = if beg + 1 == *end {
-                        None
-                    } else {
-                        Some((child_index, *offload_state))
-                    };
-                    child_index += 1;
-                    res
-                }
-            })
-            .collect();
-
         // res_vec will contain the assignments that count to n.
         let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
 
@@ -757,6 +739,25 @@ impl SingleNode {
         // Either way, there's no need to instantiate a self.fsm_cell to count up
         // to n.
         if self.num_states > 1 {
+            // `offload_states` are the fsm_states that last >1 cycles (i.e., states
+            // where children are executing, unless the child only lasts one cycle---
+            // then we can discount it as an "offload" state).
+            let offload_states: Vec<u64> = self
+                .delay_map
+                .iter()
+                .filter_map(|((beg, end), state_type)| match state_type {
+                    StateType::Delay(_) => None,
+                    StateType::Offload(offload_state) => {
+                        // Only need to include the children that last more than one cycle.
+                        if beg + 1 == *end {
+                            None
+                        } else {
+                            Some(*offload_state)
+                        }
+                    }
+                })
+                .collect();
+
             // There are two conditions under which we increment the FSM.
             // 1) We are NOT in an offload state
             // 2) We ARE in an offload state, but the child being offloaded
@@ -781,7 +782,7 @@ impl SingleNode {
             // !(fsm == 2 | fsm == 4 | fsm == 6).
             let mut offload_state_guard: ir::Guard<Nothing> =
                 ir::Guard::Not(Box::new(ir::Guard::True));
-            for offload_state in offload_states.values() {
+            for offload_state in &offload_states {
                 // Creating a guard that checks whether the parent fsm is
                 // in an offload state.
                 offload_state_guard.update(|g| {
@@ -864,7 +865,14 @@ impl SingleNode {
 
             // Now handle situation 2):
             // We ARE in an offload state, but the child being offloaded is in its final state.
-            for (i, (child, (beg, end))) in self.children.iter_mut().enumerate()
+            for (i, (child, (_, end))) in self
+                .children
+                .iter_mut()
+                // If child only lasts a single cycle, then we can just unconditionally increment.
+                // We handle that case above (since `offload_states` only includes children that
+                // last more than one cycle).
+                .filter(|(_, (beg, end))| beg + 1 != *end)
+                .enumerate()
             {
                 // We need to increment parent when child is in final state.
                 // For example, if the parent is offloading at state 5, then the
@@ -872,18 +880,12 @@ impl SingleNode {
                 // fsm.in = fsm == 5 && child_fsm_in_final_state ? fsm + 1;
                 // fsm.write_en == 5 && child_fsm_in_final_state ? 1'd1;
 
-                // There are two exceptions to this:
-                // 1) If the offload state is the last state (end == self.latency) then we don't
+                // The one exception:
+                // If the offload state is the last state (end == self.latency) then we don't
                 // increment, we need to reset to 0: we have already handled that case above.
-                // 2) Also, if end = beg + 1 then the child takes one cycle and we can just
-                // increment without checking (we have already handled this in situation
-                // 1 (increment when we are NOT in an offload state),
-                // since `offload_states` only includes children who take > 1 cycle).
-                if *end != self.latency && (*beg + 1 != *end) {
+                if *end != self.latency {
                     // We know each offload state corresponds to exactly one child.
-                    let child_state = *offload_states.get(&i).expect(
-                        "offload states should be a subset of children.",
-                    );
+                    let child_state = offload_states[i];
                     // Checking that we are in child state, e.g., `(fsm == 5)`
                     // in the above example.
                     let in_child_state = parent_fsm
@@ -1171,7 +1173,7 @@ impl SingleNode {
         Option<(u64, u64)>,
         Option<(u64, (u64, u64))>,
     ) {
-        // Splitting query into the fsm query and the iteration query.
+        // Splitting the query into an fsm query and and iteration query.
         // (beg_iter_query, end_iter_query) is an inclusive (both sides) query
         // on the iterations we are active for.
         // (beg_fsm_query, end_fsm_query) is the fsm query we should be supporting.
@@ -1185,7 +1187,9 @@ impl SingleNode {
         }
 
         // Scenario 1: the query spans only a single iteration.
-        // We only have to check beg_query. The middle and end queries can be None.
+        // In this case, we set beg_query to
+        // `Some(<that single iteration>, (beg_fsm_query->end_fsm_query))``
+        // and set middle and end to None.
         if beg_iter_query == end_iter_query {
             let repeat_query = beg_iter_query;
             let fsm_query = (beg_fsm_query, end_fsm_query);
@@ -1199,23 +1203,16 @@ impl SingleNode {
             let middle_res = None;
 
             let repeat_query0 = beg_iter_query;
+            // We know the beg_query stretches into the next iteration,
+            // so we can end it at self.latency.
             let fsm_query0 = (beg_fsm_query, self.latency);
             let beg_res = Some((repeat_query0, fsm_query0));
-            // if beg_fsm_query == 0 {
-            //     beg_res = None;
-            //     middle_res = Some((beg_iter_query, beg_iter_query + 1));
-            // }
 
             let repeat_query1 = end_iter_query;
+            // We know the end_query stretches backwards into the previous iteration,
+            // so we can start it at 0.
             let fsm_query1 = (0, end_fsm_query);
             let end_res = Some((repeat_query1, fsm_query1));
-            // if end_fsm_query == self.latency {
-            //     end_res = None;
-            //     middle_res = match middle_res {
-            //         Some((i, _)) => Some((i, end_iter_query + 1)),
-            //         None => Some((end_iter_query, end_iter_query + 1)),
-            //     }
-            // }
 
             (beg_res, middle_res, end_res)
         }
@@ -1228,11 +1225,11 @@ impl SingleNode {
                 (beg_iter_query + 1, end_iter_query);
 
             let repeat_query0 = beg_iter_query;
-            // we know the beg_fsm_query stretches into the nexgt iteration,
+            // We know the beg_query stretches into the next iteration,
             // so we can end it at self.latency.
             let fsm_query0 = (beg_fsm_query, self.latency);
             let mut beg_res = Some((repeat_query0, fsm_query0));
-            // if beg_fsm_query == 0, then beg_res spans the entire iterations,
+            // if beg_fsm_query == 0, then beg_query spans the entire iterations,
             // so we can just add it the unconditional_repeat_query (i.e., the middle_query).
             if beg_fsm_query == 0 {
                 beg_res = None;
@@ -1240,11 +1237,11 @@ impl SingleNode {
             }
 
             let repeat_query1 = end_iter_query;
-            // we know the end_fsm_query stretches into the previous iteration,
+            // We know the end_query stretches backwards into the previous iteration,
             // so we can start it at 0.
             let fsm_query1 = (0, end_fsm_query);
             let mut end_res = Some((repeat_query1, fsm_query1));
-            // if end_fsm_query == self.latency, then end_res spans the entire iterations,
+            // If end_fsm_query == self.latency, then end_res spans the entire iterations,
             // so we can just add it the unconditional_repeat_query (i.e., the middle_query).
             if end_fsm_query == self.latency {
                 end_res = None;
@@ -1255,7 +1252,8 @@ impl SingleNode {
         }
     }
 
-    // Checks whether the tree offloads its entire latency, and returns the
+    // Helper function: checks
+    // whether the tree offloads its entire latency, and returns the
     // appropriate `bool`.
     fn offload_entire_latency(&self) -> bool {
         self.children.len() == 1
@@ -1295,16 +1293,16 @@ impl SingleNode {
             Rc::clone(fsm_cell_opt.expect("just checked if None"));
 
         let (query_beg, query_end) = query;
-        // Suppose delay_map map: (0,10) -> Delay(0)
-        //                        (10,30) -> Offload(10)
-        //                        (30,40) -> Delay(20)
-        //                        (40,80) -> Offload(20)
-        //                        (80,100)-> Delay(60).
+        // Suppose delay_map is:    (0,10) -> Delay(0)
+        //                          (10,30) -> Offload(10)
+        //                          (30,40) -> Delay(19)
+        //                          (40,80) -> Offload(21)
+        //                          (80,100)-> Delay(58).
         // And query = (15,95).
-        // Then in the end we should want:
+        // Then at the end of the following `for` loop we should want:
         // `beg_interval` should be fsm == 10 && <child.query_between(5,20)>
-        // `middle_interval` should be (10, 20)
-        // `end_interval` should be 20 <= fsm < 35
+        // `middle_interval` should be (11, 21)
+        // `end_interval` should be 22 <= fsm < 37
         let mut beg_interval = ir::Guard::True.not();
         let mut end_interval = ir::Guard::True.not();
         let mut middle_interval = None;
