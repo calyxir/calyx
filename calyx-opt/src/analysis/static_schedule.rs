@@ -1369,8 +1369,9 @@ impl SingleNode {
             // Check if the end of the query lies within the
             // interval. This should only happen once.
             else if *beg < query_end && query_end <= *end {
-                // This is the query, but relativized to the start of the current interval.
-                let relative_query = (query_beg - beg, query_end - beg);
+                // We only need the end of the relative query.
+                // If we try to get the beginning then we could get overflow error.
+                let relative_query_end = query_end - beg;
                 assert!(end_interval.is_false());
                 match state_type {
                     StateType::Normal((beg_fsm_interval, _)) => {
@@ -1381,7 +1382,7 @@ impl SingleNode {
                             // So beg_fsm_interval is a safe start.
                             (
                                 *beg_fsm_interval,
-                                beg_fsm_interval + relative_query.1,
+                                beg_fsm_interval + relative_query_end,
                             ),
                         );
                     }
@@ -1397,8 +1398,8 @@ impl SingleNode {
                         // into a previous interval: otherwise, it
                         // would have been caught by the previous elif condition.
                         // therefore, we can start the child query at 0.
-                        let child_query =
-                            child.query_between((0, relative_query.1), builder);
+                        let child_query = child
+                            .query_between((0, relative_query_end), builder);
                         end_interval = in_offload_state.and(child_query);
                     }
                 };
