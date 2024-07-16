@@ -19,6 +19,7 @@ pub enum FSMEncoding {
 }
 
 #[derive(Debug)]
+/// Represents a static FSM (i.e., the actual register in hardware that counts)
 pub struct StaticFSM {
     fsm_cell: ir::RRC<ir::Cell>,
     encoding: FSMEncoding,
@@ -61,9 +62,9 @@ impl StaticFSM {
 
     // Builds an incrementer, and returns the assignments and incrementer cell itself.
     // assignments are:
-    // incrementer.left = fsm.out; incrementer.right = 1;
+    // adder.left = fsm.out; adder.right = 1;
     // cell is:
-    // incrementer
+    // adder
     pub fn build_incrementer(
         &self,
         builder: &mut ir::Builder,
@@ -92,7 +93,10 @@ impl StaticFSM {
     }
 
     // Returns the assignments that conditionally increment the fsm,
-    // but only if guard is true.
+    // based on guard.
+    // The assignments are:
+    // fsm.in = guard ? adder.out;
+    // fsm.write_en = guard ? 1'd1;
     pub fn conditional_increment(
         &self,
         guard: ir::Guard<Nothing>,
@@ -113,6 +117,9 @@ impl StaticFSM {
 
     // Returns the assignments that conditionally resets the fsm to 0,
     // but only if guard is true.
+    // The assignments are:
+    // fsm.in = guard ? 0;
+    // fsm.write_en = guard ? 1'd1;
     pub fn conditional_reset(
         &self,
         guard: ir::Guard<Nothing>,
@@ -261,15 +268,17 @@ pub enum StateType {
     Offload(u64),
 }
 
-/// FSMTree can either be a Tree (i.e., a single node) or ParTree (i.e., a group of
+/// Node can either be a SingleNode (i.e., a single node) or ParNodes (i.e., a group of
 /// nodes that are executing in parallel).
 pub enum Node {
     Single(SingleNode),
     Par(ParNodes),
 }
 
-// Most methods in `FSMTree` simply call the equivalent methods for each
+// Most methods in `Node` simply call the equivalent methods for each
 // of the two possible variants.
+// The following methods are used to actually instantiate the FSMTree structure
+// and compile static groups/control to dynamic groups/control.
 impl Node {
     /// Instantiate the necessary registers.
     /// The equivalent methods for the two variants contain more implementation
@@ -322,7 +331,7 @@ impl Node {
     }
 
     /// "Realize" the static groups into dynamic groups.
-    /// Mainly convert %[i:j] into fsm guards.
+    /// The main challenge is converting %[i:j] into fsm guards.
     /// Need to call `instantiate_fsms` before calling `realize`.
     /// The equivalent methods for the two variants contain more implementation
     /// details.
@@ -373,12 +382,13 @@ impl Node {
     }
 
     /// Transforms static assignments in `static_groups` to an equivalent dynamic
-    /// group.
-    /// Mostly involved realizing the %[i:j] static guards into equivalent static
-    /// guards.
+    /// assignments.
+    /// Only changes the type of the assignment: does *not* do query translation.
+    /// Therefore, you should only call this method if you know it is safe
+    /// to ignore all %[i:j] assignments.
     /// `reset_early_map` and `group_rewrites` are simply data structures for
     /// keeping track of the mapping between equivalent static and dynamic groups.
-    pub fn transform_static_assigns(
+    pub fn convert_assignments_type(
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
@@ -386,13 +396,13 @@ impl Node {
         builder: &mut ir::Builder,
     ) {
         match self {
-            Node::Single(single_node) => single_node.transform_static_assigns(
+            Node::Single(single_node) => single_node.convert_assignments_type(
                 static_groups,
                 reset_early_map,
                 group_rewrites,
                 builder,
             ),
-            Node::Par(par_nodes) => par_nodes.transform_static_assigns(
+            Node::Par(par_nodes) => par_nodes.convert_assignments_type(
                 static_groups,
                 reset_early_map,
                 group_rewrites,
@@ -400,7 +410,113 @@ impl Node {
             ),
         }
     }
+}
 
+/// The following methods are used to help build the conflict graph for coloring
+/// to share FSMs
+impl Node {
+    /// Get the names of all nodes (i.e., the names of the groups for all
+    /// the `Tree` variants).
+    pub fn get_all_nodes(&self) -> Vec<ir::Id> {
+        match self {
+            Node::Single(single_node) => single_node.get_all_nodes(),
+            Node::Par(par_nodes) => par_nodes.get_all_nodes(),
+        }
+    }
+
+    /// Adds conflicts between nodes in the tree that execute at the same time.
+    pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
+        match self {
+            Node::Single(single_node) => {
+                single_node.add_conflicts(conflict_graph)
+            }
+            Node::Par(par_nodes) => par_nodes.add_conflicts(conflict_graph),
+        }
+    }
+
+    /// Get max value of all nodes in the tree, according to some function f.
+    /// `f` takes in a Tree (i.e., a node type) and returns a `u64`. Note that this
+    /// function assumes a minimum value of 1. ** This is a weird assumption**.
+    pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
+    where
+        F: Fn(&SingleNode) -> u64,
+    {
+        match self {
+            Node::Single(single_node) => single_node.get_max_value(name, f),
+            Node::Par(par_nodes) => par_nodes.get_max_value(name, f),
+        }
+    }
+}
+
+// Used to compile static interface
+impl Node {
+    // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
+    fn preprocess_static_interface_guard(
+        guard: ir::Guard<ir::StaticTiming>,
+        comp_sig: ir::RRC<ir::Cell>,
+    ) -> ir::Guard<ir::StaticTiming> {
+        match guard {
+            ir::Guard::Info(st) => {
+                let (beg, end) = st.get_interval();
+                if beg == 0 {
+                    // Replace %[0:n] -> (%0 & comp.go) | %[1:n]
+                    // Cannot just do comp.go | %[1:n] because we want
+                    // clients to be able to assert `comp.go` even after the first
+                    // cycle w/o affecting correctness.
+                    let first_cycle =
+                        ir::Guard::Info(ir::StaticTiming::new((0, 1)));
+                    let comp_go = guard!(comp_sig["go"]);
+                    let first_and_go = ir::Guard::and(comp_go, first_cycle);
+                    if end == 1 {
+                        return first_and_go;
+                    } else {
+                        let after =
+                            ir::Guard::Info(ir::StaticTiming::new((1, end)));
+                        let cong = ir::Guard::or(first_and_go, after);
+                        return cong;
+                    }
+                }
+                guard
+            }
+            ir::Guard::And(l, r) => {
+                let left = Self::preprocess_static_interface_guard(
+                    *l,
+                    Rc::clone(&comp_sig),
+                );
+                let right =
+                    Self::preprocess_static_interface_guard(*r, comp_sig);
+                ir::Guard::and(left, right)
+            }
+            ir::Guard::Or(l, r) => {
+                let left = Self::preprocess_static_interface_guard(
+                    *l,
+                    Rc::clone(&comp_sig),
+                );
+                let right =
+                    Self::preprocess_static_interface_guard(*r, comp_sig);
+                ir::Guard::or(left, right)
+            }
+            ir::Guard::Not(g) => {
+                let a = Self::preprocess_static_interface_guard(*g, comp_sig);
+                ir::Guard::Not(Box::new(a))
+            }
+            _ => guard,
+        }
+    }
+
+    // Looks recursively thru assignment's guard to %[0:n] into %0 | %[1:n].
+    pub fn preprocess_static_interface_assigns(
+        assign: &mut ir::Assignment<ir::StaticTiming>,
+        comp_sig: ir::RRC<ir::Cell>,
+    ) {
+        assign
+            .guard
+            .update(|g| Self::preprocess_static_interface_guard(g, comp_sig));
+    }
+}
+
+// The following are just standard `getter` methods.
+impl Node {
     /// Take the assignments of the root of the tree and return them.
     /// This only works on a single node (i.e., the `Tree`` variant).
     pub fn take_root_assigns(&mut self) -> Vec<ir::Assignment<Nothing>> {
@@ -460,65 +576,35 @@ impl Node {
             Node::Par(par_nodes) => par_nodes.num_repeats,
         }
     }
-
-    /// Get the names of all nodes (i.e., the names of the groups for all
-    /// the `Tree` variants).
-    pub fn get_all_nodes(&self) -> Vec<ir::Id> {
-        match self {
-            Node::Single(single_node) => single_node.get_all_nodes(),
-            Node::Par(par_nodes) => par_nodes.get_all_nodes(),
-        }
-    }
-
-    /// Adds conflicts between nodes in the tree that execute at the same time.
-    pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
-        match self {
-            Node::Single(single_node) => {
-                single_node.add_conflicts(conflict_graph)
-            }
-            Node::Par(par_nodes) => par_nodes.add_conflicts(conflict_graph),
-        }
-    }
-
-    /// Get max value of all nodes in the tree, according to some function f.
-    /// `f` takes in a Tree (i.e., a node type) and returns a `u64`.
-    pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
-    where
-        F: Fn(&SingleNode) -> u64,
-    {
-        match self {
-            Node::Single(single_node) => single_node.get_max_value(name, f),
-            Node::Par(par_nodes) => par_nodes.get_max_value(name, f),
-        }
-    }
 }
 
-/// `Tree` struct.
-/// `latency` = latency of one iteration.
-/// `num_repeats` = number of repeats. (So "total" latency = `latency` x `num_repeats`).
-/// `num_states` = number of states in this node.
-/// `root` = (name of static group, assignments for corresponding dynamic group).
-/// `delay_map` = maps (i,j) -> what the state of the corresponding FSM is.
-///  For example:
-///    - if (i,j) -> StateType::Offload(x) it means that for cycles i through
-///      j the FSM is in state x.
-///    - if (i,j) -> StateType::Delay(x) it means that for cycles i through j
-///      the fsm is will be in state i-x to j-x (one state per cycle).
-///    Example delay_map map: (0,10) -> Delay(0)
-///                           (10,30) -> Offload(11)
-///                           (30,40) -> Delay(20)
-///                           (40,80) -> Offload(21)
-///                           (80,100)-> Delay(60).
-/// `children` = vec of (FSMTree Object, cycles for which that child is executing).
-/// `fsm_cell` and `iter_count_cell` keep track of `latency` and `num_repeats` respectively.
+/// `SingleNode` struct.
 pub struct SingleNode {
+    /// latency of one iteration.
     pub latency: u64,
+    /// number of repeats. (So "total" latency = `latency` x `num_repeats`)
     pub num_repeats: u64,
+    /// number of states in this node
     pub num_states: u64,
+    /// (name of static group, assignments for corresponding dynamic group)
     pub root: (ir::Id, Vec<ir::Assignment<Nothing>>),
+    ///  maps (i,j) -> what the state of the corresponding FSM is.
+    ///  For example:
+    ///    - if (i,j) -> StateType::Offload(x) it means that for cycles i through
+    ///      j the FSM is in state x.
+    ///    - if (i,j) -> StateType::Delay(x) it means that for cycles i through j
+    ///      the fsm is will be in state i-x to j-x (one state per cycle).
+    ///    Example delay_map map: (0,10) -> Delay(0)
+    ///                           (10,30) -> Offload(11)
+    ///                           (30,40) -> Delay(20)
+    ///                           (40,80) -> Offload(21)
+    ///                           (80,100)-> Delay(60).
     pub delay_map: BTreeMap<(u64, u64), StateType>,
+    /// vec of (Node Object, cycles for which that child is executing).
     pub children: Vec<(Node, (u64, u64))>,
+    /// keep track of where we are within a single iteration
     pub fsm_cell: Option<ir::RRC<StaticFSM>>,
+    /// keep track of which iteration we are on
     pub iter_count_cell: Option<ir::RRC<StaticFSM>>,
 }
 
@@ -557,7 +643,10 @@ impl SingleNode {
         let color = coloring.get(&self.root.0).expect("couldn't find group");
         // Check if we've already instantiated the registers for this color.
         match colors_to_fsm.get(color) {
+            // We need to create the registers for the colors.
             None => {
+                // First we get the maximum num_states and num_repeats
+                // for this color so we know how many bits each register needs.
                 let (num_states, num_repeats) = colors_to_max_values
                     .get(color)
                     .expect("Couldn't find color");
@@ -632,14 +721,15 @@ impl SingleNode {
         builder: &mut ir::Builder,
         incr_start_cond: Option<ir::Guard<Nothing>>,
     ) {
+        // The following `map` will be useful for building the guareds that
+        // help us count to n.
+        // `offload_states` are the fsm_states that last >1 cycles (i.e., states
+        // where children are executing, except for the children that last one cycle).
+        // This particular data structure maps:
+        // `child_index`, i.e. the index of the child among the children of this node.
+        // To:
+        // `offload_state`, i.e., the output of the `fsm` when this child is executing.
         let mut child_index = 0;
-
-        // `offload_states` are the fsm_states that last >1 cycles (i.e., the children,
-        // except for the children that last one cycle).
-        // Maps: `child_index`, i.e. the index of the child among the children of
-        // this node.
-        // To: `offload_state`, i.e., the output of the `fsm` when this child is
-        // executing.
         let offload_states: BTreeMap<usize, u64> = self
             .delay_map
             .iter()
@@ -662,15 +752,16 @@ impl SingleNode {
         let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
 
         // Only need to count up to n if self.num_states > 1.
-        // Otherwise either a) we're just offloading the entire time or b)
-        // the latency 1 cycle. Either way, there's no real "counting" that
-        // needs to be done in either case.
+        // Otherwise either a) latency is 1 cycle or b)
+        // we're just offloading the etnire time.
+        // Either way, there's no need to instantiate a self.fsm_cell to count up
+        // to n.
         if self.num_states > 1 {
             // There are two conditions under which we increment the FSM.
             // 1) We are NOT in an offload state
             // 2) We ARE in an offload state, but the child being offloaded
             // is in its final state. (intuitively, we need to increment because
-            // we know the control is being passed to us in the next cycle).
+            // we know the control is being passed to the parent in the next cycle).
 
             let parent_fsm = Rc::clone(
                 &self
@@ -682,45 +773,6 @@ impl SingleNode {
             let (adder_asssigns, adder) =
                 parent_fsm.borrow_mut().build_incrementer(builder);
             res_vec.extend(adder_asssigns);
-
-            // If incr_start_cond.is_some(), then we have to specially take into
-            // account this scenario when incrementing the FSM.
-            // `special_first_transition_guard` = (fsm != 0) when we are specially
-            // guarding the 0->1 transition, so that other incrementations
-            // do not affect this.
-            // Otherwise `special_first_transition_guard` == True, so it won't
-            // affect anything.
-            let special_first_transition_guard = match incr_start_cond.clone() {
-                None => ir::Guard::True,
-                Some(g) => {
-                    // If we offload during the transition from cycle 0->1 transition
-                    // then we don't need a special first transition guard.
-                    // (the child will add this guard when it is counting to n.)
-                    if let Some(((beg, end), state_type)) =
-                        self.delay_map.iter().next()
-                    {
-                        if !(matches!(state_type, StateType::Offload(_))
-                            && *beg == 0
-                            && *end > 1)
-                        {
-                            let first_state =
-                                self.get_fsm_query((0, 1), builder);
-                            res_vec.extend(
-                                parent_fsm.borrow_mut().conditional_increment(
-                                    first_state.clone().and(g),
-                                    Rc::clone(&adder),
-                                    builder,
-                                ),
-                            );
-                            first_state.not()
-                        } else {
-                            ir::Guard::True
-                        }
-                    } else {
-                        ir::Guard::True
-                    }
-                }
-            };
 
             // Handle situation 1): increment when we are NOT in an offload state
             // if the offload states are 2, 4, and 6., then
@@ -741,8 +793,40 @@ impl SingleNode {
             }
             let not_offload_state = offload_state_guard.not();
 
-            let mut incr_guard =
-                not_offload_state.and(special_first_transition_guard);
+            let mut incr_guard = not_offload_state;
+
+            // If incr_start_cond.is_some(), then we have to specially take into
+            // account this scenario when incrementing the FSM.
+            if let Some(g) = incr_start_cond.clone() {
+                // If we offload during the transition from cycle 0->1 transition
+                // then we don't need a special first transition guard.
+                // (we will make sure the child will add this guard when
+                // it is counting to n.)
+                if let Some(((beg, end), state_type)) =
+                    self.delay_map.iter().next()
+                {
+                    if !(matches!(state_type, StateType::Offload(_))
+                        && *beg == 0
+                        && *end > 1)
+                    {
+                        let first_state = self.get_fsm_query((0, 1), builder);
+                        // We must handle the 0->1 transition separately.
+                        // fsm.in = fsm == 0 & incr_start_cond ? fsm + 1;
+                        // fsm.write_en = fsm == 0 & incr_start_cond ? 1'd1;
+                        res_vec.extend(
+                            parent_fsm.borrow_mut().conditional_increment(
+                                first_state.clone().and(g),
+                                Rc::clone(&adder),
+                                builder,
+                            ),
+                        );
+                        // We also have to add fsm != 0 to incr_guard since
+                        // we have just added assignments to handle this situation
+                        // separately
+                        incr_guard = incr_guard.and(first_state.not())
+                    }
+                }
+            };
 
             // We shouldn't increment when we are in the final state
             // (we should be resetting instead).
@@ -760,10 +844,11 @@ impl SingleNode {
                     incr_guard = incr_guard.and(not_final_state);
                 }
             } else {
-                // If no offloading, then we need to add this check.
+                // Also, if there is just no offloading, then we need to add this check.
                 incr_guard = incr_guard.and(not_final_state);
             };
 
+            // Conditionally increment based on `incr_guard`
             res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
                 incr_guard,
                 Rc::clone(&adder),
@@ -777,11 +862,11 @@ impl SingleNode {
                     .conditional_reset(final_fsm_state.clone(), builder),
             );
 
-            // Now handle situation 2) We ARE in an offload state,
-            // but the child being offloaded is in its final state.
+            // Now handle situation 2):
+            // We ARE in an offload state, but the child being offloaded is in its final state.
             for (i, (child, (beg, end))) in self.children.iter_mut().enumerate()
             {
-                // Increment parent when child is in final state.
+                // We need to increment parent when child is in final state.
                 // For example, if the parent is offloading at state 5, then the
                 // guard would look like
                 // fsm.in = fsm == 5 && child_fsm_in_final_state ? fsm + 1;
@@ -789,7 +874,7 @@ impl SingleNode {
 
                 // There are two exceptions to this:
                 // 1) If the offload state is the last state (end == self.latency) then we don't
-                // increment, we need to reset to 0: we have handled that case separately.
+                // increment, we need to reset to 0: we have already handled that case above.
                 // 2) Also, if end = beg + 1 then the child takes one cycle and we can just
                 // increment without checking (we have already handled this in situation
                 // 1 (increment when we are NOT in an offload state),
@@ -811,6 +896,7 @@ impl SingleNode {
                         (total_child_latency - 1, total_child_latency),
                         builder,
                     );
+                    // Conditionally increment when `fsm==5 & child_final_state`
                     let parent_fsm_incr =
                         parent_fsm.borrow_mut().conditional_increment(
                             in_child_state.and(child_final_state),
@@ -823,23 +909,24 @@ impl SingleNode {
         }
 
         // If self.num_states > 1, then it's guaranteed that self.latency > 1.
-        // However, even if self.num_states == 1, self.latency still be greater than 1,
-        // if we're just offloading the computation for the entire time.
+        // However, even if self.num_states == 1, self.latency might still be
+        // greater than 1 if we're just offloading the computation for the entire time.
         // In this case, we still need the children to count to n.
         if self.latency > 1 {
             for (child, (beg, end)) in self.children.iter_mut() {
                 // If beg == 0 and end > 1 then we need to "transfer" the incr_start_condition
-                // to the offload state.
+                // to the child so it guards the 0->1 transition.
                 let cond = if *beg == 0 && *end > 1 {
                     incr_start_cond.clone()
                 } else {
                     None
                 };
+                // Recursively call `count_to_n`
                 child.count_to_n(builder, cond);
             }
         }
 
-        // Handle repeats. (Should increment repeat when fsm is in final state.)
+        // Handle repeats (i.e., make sure we actually interate `self.num_repeats` times).
         if self.num_repeats != 1 {
             // If self.latency == 10, then we should increment the self.iter_count_cell
             // each time fsm == 9, i.e., `final_fsm_state`.
@@ -859,8 +946,8 @@ impl SingleNode {
             // Build an incrementer to increment `self.iter_count_cell`.
             let (repeat_adder_assigns, repeat_adder) =
                 repeat_fsm.borrow_mut().build_incrementer(builder);
-            // We shouldn't increment `self.iter_count_cell` in the final iteration:
-            // we should reset instead.
+            // We shouldn't increment `self.iter_count_cell` if we are in the final iteration:
+            // we should reset it instead.
             let final_repeat_state = *repeat_fsm.borrow_mut().query_between(
                 builder,
                 (self.num_repeats - 1, self.num_repeats),
@@ -917,7 +1004,7 @@ impl SingleNode {
         let early_reset_group = builder.add_group(early_reset_name);
 
         // Realize the static %[i:j] guards to fsm queries.
-        // *This is where most of the difficult work of the function is done*.
+        // *This is the most of the difficult thing the function does*.
         // This is significantly more complicated with a tree structure.
         let mut assigns = static_group
             .borrow()
@@ -987,7 +1074,11 @@ impl SingleNode {
         })
     }
 
-    fn transform_static_assigns(
+    /// Converts assignments of type dynamic to type static.
+    /// It will simply remove any %[i:j] guards (i.e., replace them with 1'b1)
+    /// so you need to make sure to only call this method when it is safe to do
+    /// do.
+    fn convert_assignments_type(
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
@@ -1052,7 +1143,7 @@ impl SingleNode {
 
         // Recursively realize each child.
         self.children.iter_mut().for_each(|(child, _)| {
-            child.transform_static_assigns(
+            child.convert_assignments_type(
                 static_groups,
                 reset_early_map,
                 group_rewrites,
@@ -1080,7 +1171,7 @@ impl SingleNode {
         Option<(u64, u64)>,
         Option<(u64, (u64, u64))>,
     ) {
-        // Splitting query into:
+        // Splitting query into the fsm query and the iteration query.
         // (beg_iter_query, end_iter_query) is an inclusive (both sides) query
         // on the iterations we are active for.
         // (beg_fsm_query, end_fsm_query) is the fsm query we should be supporting.
@@ -1092,12 +1183,19 @@ impl SingleNode {
         if end_fsm_query == 0 {
             end_fsm_query = self.latency;
         }
-        let x = if beg_iter_query == end_iter_query {
+
+        // Scenario 1: the query spans only a single iteration.
+        // We only have to check beg_query. The middle and end queries can be None.
+        if beg_iter_query == end_iter_query {
             let repeat_query = beg_iter_query;
             let fsm_query = (beg_fsm_query, end_fsm_query);
             let res = Some((repeat_query, fsm_query));
             (res, None, None)
-        } else if beg_iter_query + 1 == end_iter_query {
+        }
+        // Scenario 2: the query spans only 2 iterations.
+        // In this case, we only need a beg_query and an end_query, but no
+        // middle query.
+        else if beg_iter_query + 1 == end_iter_query {
             let middle_res = None;
 
             let repeat_query0 = beg_iter_query;
@@ -1120,29 +1218,41 @@ impl SingleNode {
             // }
 
             (beg_res, middle_res, end_res)
-        } else {
+        }
+        // Scenario 3: the query spans 3 or more iterations.
+        // In this case, we need the middle_query for the middle iterations,
+        // and the beg and end queries for the first and last iterations
+        // for this query.
+        else {
             let mut unconditional_repeat_query =
                 (beg_iter_query + 1, end_iter_query);
 
             let repeat_query0 = beg_iter_query;
+            // we know the beg_fsm_query stretches into the nexgt iteration,
+            // so we can end it at self.latency.
             let fsm_query0 = (beg_fsm_query, self.latency);
             let mut beg_res = Some((repeat_query0, fsm_query0));
+            // if beg_fsm_query == 0, then beg_res spans the entire iterations,
+            // so we can just add it the unconditional_repeat_query (i.e., the middle_query).
             if beg_fsm_query == 0 {
                 beg_res = None;
                 unconditional_repeat_query.0 -= 1;
             }
 
             let repeat_query1 = end_iter_query;
+            // we know the end_fsm_query stretches into the previous iteration,
+            // so we can start it at 0.
             let fsm_query1 = (0, end_fsm_query);
             let mut end_res = Some((repeat_query1, fsm_query1));
+            // if end_fsm_query == self.latency, then end_res spans the entire iterations,
+            // so we can just add it the unconditional_repeat_query (i.e., the middle_query).
             if end_fsm_query == self.latency {
                 end_res = None;
                 unconditional_repeat_query.1 += 1;
             }
 
             (beg_res, Some(unconditional_repeat_query), end_res)
-        };
-        x
+        }
     }
 
     // Checks whether the tree offloads its entire latency, and returns the
@@ -1153,13 +1263,14 @@ impl SingleNode {
                 .children
                 .iter()
                 .any(|(_, (beg, end))| *beg == 0 && *end == self.latency)
+                // This last check is prob unnecessary since it follows from the first two.
             && self.num_states == 1
     }
 
     // Given query (i,j), get the fsm query for cycles (i,j).
-    // This is greatly by the offloading to children.
+    // This is greatly complicated by the offloading to children.
     // We use a resturcturing that organizes the query into (beg, middle, end),
-    // similar to self.restructure_query.
+    // similar to self.restructure_query().
     fn get_fsm_query(
         &mut self,
         query: (u64, u64),
@@ -1362,6 +1473,8 @@ impl SingleNode {
         ir::Guard::And(Box::new(fsm_guard), counter_guard)
     }
 
+    // Converts a %[i:j] query into a query of `self`'s and its childrens
+    // iteration registers.
     fn query_between(
         &mut self,
         query: (u64, u64),
@@ -1479,6 +1592,7 @@ impl SingleNode {
         }
     }
 
+    // Get names of groups corresponding to all nodes
     pub fn get_all_nodes(&self) -> Vec<ir::Id> {
         let mut res = vec![self.root.0];
         for (child, _) in &self.children {
@@ -1487,6 +1601,7 @@ impl SingleNode {
         return res;
     }
 
+    // Adds conflicts between children and any descendents.
     pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
         let root_name = self.root.0;
         for (child, _) in &self.children {
@@ -1497,6 +1612,7 @@ impl SingleNode {
         }
     }
 
+    // Gets max value according to some function f.
     pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
     where
         F: Fn(&SingleNode) -> u64,
@@ -1512,14 +1628,21 @@ impl SingleNode {
     }
 }
 
+/// Represents a group of `Nodes` that execute in parallel.
 pub struct ParNodes {
+    /// Name of the `par_group` that fires off the threads
     pub group_name: ir::Id,
+    /// Latency
     pub latency: u64,
-    pub threads: Vec<(Node, (u64, u64))>,
+    /// Num Repeats
     pub num_repeats: u64,
+    /// (Thread, interval thread is active).
+    /// Interval thread is active should always start at 0.
+    pub threads: Vec<(Node, (u64, u64))>,
 }
 
 impl ParNodes {
+    /// Instantiates FSMs by recursively instantiating FSM for each thread.
     pub fn instantiate_fsms(
         &mut self,
         builder: &mut ir::Builder,
@@ -1531,8 +1654,8 @@ impl ParNodes {
         >,
         one_hot_cutoff: u64,
     ) {
-        for (child, _) in &mut self.threads {
-            child.instantiate_fsms(
+        for (thread, _) in &mut self.threads {
+            thread.instantiate_fsms(
                 builder,
                 coloring,
                 &colors_to_max_values,
@@ -1542,104 +1665,18 @@ impl ParNodes {
         }
     }
 
+    /// Counts to N by recursively calling `count_to_n` on each thread.
     pub fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,
         incr_start_cond: Option<ir::Guard<Nothing>>,
     ) {
-        for (child, _) in &mut self.threads {
-            child.count_to_n(builder, incr_start_cond.clone());
+        for (thread, _) in &mut self.threads {
+            thread.count_to_n(builder, incr_start_cond.clone());
         }
     }
 
-    pub fn get_longest_tree(&mut self) -> &mut SingleNode {
-        let max = self.threads.iter_mut().max_by_key(|(child, _)| {
-            (child.get_latency() * child.get_num_repeats()) as i64
-        });
-        if let Some((max_child, _)) = max {
-            match max_child {
-                Node::Par(par_nodes) => par_nodes.get_longest_tree(),
-                Node::Single(single_node) => single_node,
-            }
-        } else {
-            panic!("Field is empty or no maximum value found");
-        }
-    }
-
-    pub fn transform_static_assigns(
-        &mut self,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
-        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
-        builder: &mut ir::Builder,
-    ) {
-        // Get static grouo we are "realizing".
-        let static_group = Rc::clone(
-            &static_groups
-                .iter()
-                .find(|sgroup| sgroup.borrow().name() == self.group_name)
-                .unwrap(),
-        );
-        // Create the dynamic "early reset group" that will replace the static group.
-        let static_group_name = static_group.borrow().name();
-        let mut early_reset_name = static_group_name.to_string();
-        early_reset_name.insert_str(0, "early_reset_");
-        let early_reset_group = builder.add_group(early_reset_name);
-
-        let longest_tree = self.get_longest_tree();
-        // Use the longest tree to dictate the assignments of the others.
-        let mut assigns = static_group
-            .borrow()
-            .assignments
-            .clone()
-            .into_iter()
-            .map(|assign| {
-                longest_tree.make_assign_dyn(assign, true, true, builder)
-            })
-            .collect_vec();
-
-        // Add assignment `group[done] = ud.out`` to the new group.
-        structure!( builder; let ud = prim undef(1););
-        let early_reset_done_assign = build_assignments!(
-          builder;
-          early_reset_group["done"] = ? ud["out"];
-        );
-        assigns.extend(early_reset_done_assign);
-
-        early_reset_group.borrow_mut().assignments = assigns;
-        early_reset_group.borrow_mut().attributes =
-            static_group.borrow().attributes.clone();
-
-        // Now we have to update the fields with a bunch of information.
-        // This makes it easier when we have to build wrappers, rewrite ports, etc.
-
-        // Map the static group name -> early reset group name.
-        // This is helpful for rewriting control
-        reset_early_map
-            .insert(static_group_name, early_reset_group.borrow().name());
-        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
-        // Technically we could do this w/ early_reset_map but is easier w/
-        // group_rewrite, which is explicitly of type `PortRewriterMap`
-        group_rewrites.insert(
-            ir::Canonical::new(static_group_name, ir::Id::from("go")),
-            early_reset_group.borrow().find("go").unwrap_or_else(|| {
-                unreachable!(
-                    "group {} has no go port",
-                    early_reset_group.borrow().name()
-                )
-            }),
-        );
-
-        self.threads.iter_mut().for_each(|(child, _)| {
-            child.transform_static_assigns(
-                static_groups,
-                reset_early_map,
-                group_rewrites,
-                builder,
-            )
-        })
-    }
-
+    /// Realizes static groups into dynamic group.
     pub fn realize(
         &mut self,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
@@ -1664,16 +1701,23 @@ impl ParNodes {
         early_reset_name.insert_str(0, "early_reset_");
         let early_reset_group = builder.add_group(early_reset_name);
 
-        let longest_tree = self.get_longest_tree();
+        // Get the longest node.
+        let longest_node = self.get_longest_node();
 
-        // Use the longest tree to dictate the assignments of the others.
+        // If one thread lasts 10 cycles, and another lasts 5 cycles, then the par_group
+        // will look like this:
+        // static<10> group par_group {
+        //   thread1[go] = 1'd1;
+        //   thread2[go] = %[0:5] ? 1'd1;
+        // }
+        // Therefore the %[0:5] needs to be realized using the FSMs from thread1.
         let mut assigns = static_group
             .borrow()
             .assignments
             .clone()
             .into_iter()
             .map(|assign| {
-                longest_tree.make_assign_dyn(assign, true, false, builder)
+                longest_node.make_assign_dyn(assign, true, false, builder)
             })
             .collect_vec();
 
@@ -1731,15 +1775,111 @@ impl ParNodes {
         })
     }
 
+    /// Recursively searches each thread to get the longest lasting SingleNode.
+    pub fn get_longest_node(&mut self) -> &mut SingleNode {
+        let max = self.threads.iter_mut().max_by_key(|(child, _)| {
+            (child.get_latency() * child.get_num_repeats()) as i64
+        });
+        if let Some((max_child, _)) = max {
+            match max_child {
+                Node::Par(par_nodes) => par_nodes.get_longest_node(),
+                Node::Single(single_node) => single_node,
+            }
+        } else {
+            panic!("Field is empty or no maximum value found");
+        }
+    }
+
+    /// Converts assignments from static to dynamic (see equivalent method in
+    /// `SingleNode`'s implementation for more details).
+    pub fn convert_assignments_type(
+        &mut self,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
+        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        builder: &mut ir::Builder,
+    ) {
+        // Get static grouo we are "realizing".
+        let static_group = Rc::clone(
+            &static_groups
+                .iter()
+                .find(|sgroup| sgroup.borrow().name() == self.group_name)
+                .unwrap(),
+        );
+        // Create the dynamic "early reset group" that will replace the static group.
+        let static_group_name = static_group.borrow().name();
+        let mut early_reset_name = static_group_name.to_string();
+        early_reset_name.insert_str(0, "early_reset_");
+        let early_reset_group = builder.add_group(early_reset_name);
+
+        let longest_node = self.get_longest_node();
+        // Use the longest tree to dictate the assignments of the others.
+        let mut assigns = static_group
+            .borrow()
+            .assignments
+            .clone()
+            .into_iter()
+            .map(|assign| {
+                longest_node.make_assign_dyn(assign, true, true, builder)
+            })
+            .collect_vec();
+
+        // Add assignment `group[done] = ud.out`` to the new group.
+        structure!( builder; let ud = prim undef(1););
+        let early_reset_done_assign = build_assignments!(
+          builder;
+          early_reset_group["done"] = ? ud["out"];
+        );
+        assigns.extend(early_reset_done_assign);
+
+        early_reset_group.borrow_mut().assignments = assigns;
+        early_reset_group.borrow_mut().attributes =
+            static_group.borrow().attributes.clone();
+
+        // Now we have to update the fields with a bunch of information.
+        // This makes it easier when we have to build wrappers, rewrite ports, etc.
+
+        // Map the static group name -> early reset group name.
+        // This is helpful for rewriting control
+        reset_early_map
+            .insert(static_group_name, early_reset_group.borrow().name());
+        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
+        // Technically we could do this w/ early_reset_map but is easier w/
+        // group_rewrite, which is explicitly of type `PortRewriterMap`
+        group_rewrites.insert(
+            ir::Canonical::new(static_group_name, ir::Id::from("go")),
+            early_reset_group.borrow().find("go").unwrap_or_else(|| {
+                unreachable!(
+                    "group {} has no go port",
+                    early_reset_group.borrow().name()
+                )
+            }),
+        );
+
+        self.threads.iter_mut().for_each(|(child, _)| {
+            child.convert_assignments_type(
+                static_groups,
+                reset_early_map,
+                group_rewrites,
+                builder,
+            )
+        })
+    }
+
+    /// Use the longest node to query between.
     pub fn query_between(
         &mut self,
         query: (u64, u64),
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
-        let longest_tree = self.get_longest_tree();
-        longest_tree.query_between(query, builder)
+        let longest_node = self.get_longest_node();
+        longest_node.query_between(query, builder)
     }
+}
 
+/// Used to add conflicts for graph coloring for sharing FSMs.
+/// See the equivalent SingleNode implementation for more details.
+impl ParNodes {
     pub fn get_all_nodes(&self) -> Vec<ir::Id> {
         let mut res = vec![];
         for (thread, _) in &self.threads {
@@ -1771,71 +1911,5 @@ impl ParNodes {
             cur_max = std::cmp::max(cur_max, thread.get_max_value(name, f));
         }
         cur_max
-    }
-}
-
-impl Node {
-    // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
-    fn preprocess_static_interface_guard(
-        guard: ir::Guard<ir::StaticTiming>,
-        comp_sig: ir::RRC<ir::Cell>,
-    ) -> ir::Guard<ir::StaticTiming> {
-        match guard {
-            ir::Guard::Info(st) => {
-                let (beg, end) = st.get_interval();
-                if beg == 0 {
-                    // Replace %[0:n] -> (%0 & comp.go) | %[1:n]
-                    // Cannot just do comp.go | %[1:n] because we want
-                    // clients to be able to assert `comp.go` even after the first
-                    // cycle w/o affecting correctness.
-                    let first_cycle =
-                        ir::Guard::Info(ir::StaticTiming::new((0, 1)));
-                    let comp_go = guard!(comp_sig["go"]);
-                    let first_and_go = ir::Guard::and(comp_go, first_cycle);
-                    if end == 1 {
-                        return first_and_go;
-                    } else {
-                        let after =
-                            ir::Guard::Info(ir::StaticTiming::new((1, end)));
-                        let cong = ir::Guard::or(first_and_go, after);
-                        return cong;
-                    }
-                }
-                guard
-            }
-            ir::Guard::And(l, r) => {
-                let left = Self::preprocess_static_interface_guard(
-                    *l,
-                    Rc::clone(&comp_sig),
-                );
-                let right =
-                    Self::preprocess_static_interface_guard(*r, comp_sig);
-                ir::Guard::and(left, right)
-            }
-            ir::Guard::Or(l, r) => {
-                let left = Self::preprocess_static_interface_guard(
-                    *l,
-                    Rc::clone(&comp_sig),
-                );
-                let right =
-                    Self::preprocess_static_interface_guard(*r, comp_sig);
-                ir::Guard::or(left, right)
-            }
-            ir::Guard::Not(g) => {
-                let a = Self::preprocess_static_interface_guard(*g, comp_sig);
-                ir::Guard::Not(Box::new(a))
-            }
-            _ => guard,
-        }
-    }
-
-    // Looks recursively thru assignment's guard to %[0:n] into %0 | %[1:n].
-    pub fn preprocess_static_interface_assigns(
-        assign: &mut ir::Assignment<ir::StaticTiming>,
-        comp_sig: ir::RRC<ir::Cell>,
-    ) {
-        assign
-            .guard
-            .update(|g| Self::preprocess_static_interface_guard(g, comp_sig));
     }
 }

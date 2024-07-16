@@ -525,6 +525,7 @@ impl CompileStatic {
         }
 
         if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
+            assert!(children_vec.iter().all(|(_, (beg, _))| *beg == 0));
             Node::Par(ParNodes {
                 group_name: name,
                 threads: children_vec,
@@ -824,7 +825,7 @@ impl CompileStatic {
                 static_groups,
             );
             for (child, _) in fsm_tree.get_children() {
-                child.transform_static_assigns(
+                child.convert_assignments_type(
                     static_groups,
                     &mut self.reset_early_map,
                     group_rewrites,
