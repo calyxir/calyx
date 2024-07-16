@@ -37,13 +37,13 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Get config values from cli.
-    bld = cli::override_config_from_cli(bld)?;
+    let config = cli::config_from_cli(&bld.name)?;
 
     #[cfg(feature = "migrate_to_scripts")]
     {
-        bld = bld.load_plugins();
+        bld = bld.load_plugins(&config);
     }
 
     let driver = bld.build();
-    cli::cli(&driver)
+    cli::cli(&driver, &config)
 }

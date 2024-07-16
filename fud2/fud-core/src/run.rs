@@ -140,8 +140,12 @@ pub struct Run<'a> {
 }
 
 impl<'a> Run<'a> {
-    pub fn new(driver: &'a Driver, plan: Plan) -> Self {
-        Self::with_config(driver, plan, driver.config_data.clone())
+    pub fn new(
+        driver: &'a Driver,
+        plan: Plan,
+        config: figment::Figment,
+    ) -> Self {
+        Self::with_config(driver, plan, config)
     }
 
     pub fn with_config(

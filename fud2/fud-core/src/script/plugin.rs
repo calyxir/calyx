@@ -294,16 +294,18 @@ pub struct ScriptRunner {
     rhai_functions: rhai::AST,
     resolver: Option<Resolver>,
     setups: Rc<RefCell<HashMap<String, SetupRef>>>,
+    config_data: figment::Figment,
 }
 
 impl ScriptRunner {
-    pub fn new(builder: DriverBuilder) -> Self {
+    pub fn new(builder: DriverBuilder, config_data: figment::Figment) -> Self {
         let mut this = Self {
             builder: Rc::new(RefCell::new(builder)),
             engine: rhai::Engine::new(),
             rhai_functions: rhai::AST::empty(),
             resolver: Some(Resolver::default()),
             setups: Rc::default(),
+            config_data,
         };
         this.reg_state();
         this.reg_get_state();
@@ -495,16 +497,15 @@ impl ScriptRunner {
 
     /// Registers a Rhai function for getting values from the config file.
     fn reg_config(&mut self) {
-        let bld = Rc::clone(&self.builder);
+        let config_data = self.config_data.clone();
         self.engine.register_fn(
             "config",
             move |ctx: rhai::NativeCallContext, key: &str| -> RhaiResult<_> {
-                bld.borrow()
-                    .config_data
-                    .extract_inner::<String>(key)
-                    .or(Err(RhaiSystemError::config_not_found(key)
+                config_data.extract_inner::<String>(key).or(Err(
+                    RhaiSystemError::config_not_found(key)
                         .with_pos(ctx.position())
-                        .into()))
+                        .into(),
+                ))
             },
         );
     }
@@ -512,12 +513,11 @@ impl ScriptRunner {
     /// Registers a Rhai function for getting values from the config file or using a provided
     /// string if the key is not found.
     fn reg_config_or(&mut self) {
-        let bld = Rc::clone(&self.builder);
+        let config_data = self.config_data.clone();
         self.engine.register_fn(
             "config_or",
             move |key: &str, default: &str| -> RhaiResult<_> {
-                bld.borrow()
-                    .config_data
+                config_data
                     .extract_inner::<String>(key)
                     .or(Ok(default.to_string()))
             },
