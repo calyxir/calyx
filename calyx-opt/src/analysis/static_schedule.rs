@@ -264,7 +264,7 @@ impl StaticFSM {
 /// then we are actually in cycle i + x.
 #[derive(Debug)]
 pub enum StateType {
-    Delay(u64),
+    Normal((u64, u64)),
     Offload(u64),
 }
 
@@ -588,27 +588,15 @@ pub struct SingleNode {
     pub num_states: u64,
     /// (name of static group, assignments for corresponding dynamic group)
     pub root: (ir::Id, Vec<ir::Assignment<Nothing>>),
-    ///  maps (i,j) -> what the state of the corresponding FSM is.
-    ///  For example:
-    ///    - if (i,j) -> StateType::Offload(x) it means that for cycles i through
-    ///      j the FSM is in state x.
-    ///    - if (i,j) -> StateType::Delay(x) it means that for cycles i through j
-    ///      the fsm is will be in state i-x to j-x (one state per cycle).
-    ///   Suppose that we had the following FSM schedule:
+    ///  maps cycles (i,j) -> fsm state type.
+    ///  Here is an example FSM schedule:
     ///                           Cycles     FSM State (i.e., `fsm.out`)
-    ///                           (0..10) ->  [0,10)
-    ///                           (10..30) -> 10 // Offloading to child
-    ///                           (30..40) -> [11, 21)
-    ///                           (40,80) ->  21
-    ///                           (80,100)->  [22, 42)
-    ///   Then the delay_map is: (0,10) -> Delay(0)
-    ///                           (10,30) -> Offload(10)
-    ///                           (30,40) -> Delay(19)
-    ///                           (40,80) -> Offload(21)
-    ///                           (80,100)-> Delay(58).
-    ///   In other words, the delay_map is essentially a more comapct way
-    ///   of storing the FSM schedule.
-    pub delay_map: BTreeMap<(u64, u64), StateType>,
+    ///                           (0..10) ->  Normal[0,10)
+    ///                           (10..30) -> Offload(10) // Offloading to child
+    ///                           (30..40) -> Normal[11, 21)
+    ///                           (40,80) ->  Offload(21)
+    ///                           (80,100)->  Normal[22, 42)
+    pub fsm_schedule: BTreeMap<(u64, u64), StateType>,
     /// vec of (Node Object, cycles for which that child is executing).
     pub children: Vec<(Node, (u64, u64))>,
     /// keep track of where we are within a single iteration
@@ -743,10 +731,10 @@ impl SingleNode {
             // where children are executing, unless the child only lasts one cycle---
             // then we can discount it as an "offload" state).
             let offload_states: Vec<u64> = self
-                .delay_map
+                .fsm_schedule
                 .iter()
                 .filter_map(|((beg, end), state_type)| match state_type {
-                    StateType::Delay(_) => None,
+                    StateType::Normal(_) => None,
                     StateType::Offload(offload_state) => {
                         // Only need to include the children that last more than one cycle.
                         if beg + 1 == *end {
@@ -804,7 +792,7 @@ impl SingleNode {
                 // (we will make sure the child will add this guard when
                 // it is counting to n.)
                 if let Some(((beg, end), state_type)) =
-                    self.delay_map.iter().next()
+                    self.fsm_schedule.iter().next()
                 {
                     if !(matches!(state_type, StateType::Offload(_))
                         && *beg == 0
@@ -1293,27 +1281,17 @@ impl SingleNode {
             Rc::clone(fsm_cell_opt.expect("just checked if None"));
 
         let (query_beg, query_end) = query;
-        // Suppose delay_map is:    (0,10) -> Delay(0)
-        //                          (10,30) -> Offload(10)
-        //                          (30,40) -> Delay(19)
-        //                          (40,80) -> Offload(21)
-        //                          (80,100)-> Delay(58).
-        // And query = (15,95).
-        // Then at the end of the following `for` loop we should want:
-        // `beg_interval` should be fsm == 10 && <child.query_between(5,20)>
-        // `middle_interval` should be (11, 21)
-        // `end_interval` should be 22 <= fsm < 37
         let mut beg_interval = ir::Guard::True.not();
         let mut end_interval = ir::Guard::True.not();
         let mut middle_interval = None;
         let mut child_index = 0;
-        for ((beg, end), state_type) in self.delay_map.iter() {
+        for ((beg, end), state_type) in self.fsm_schedule.iter() {
             // Check if the query encompasses the entire interval.
             // If so, we add it to the "middle" interval.
             if query_beg <= *beg && *end <= query_end {
                 // Get the interval we have to add, based on `state_type`.
                 let interval_to_add = match state_type {
-                    StateType::Delay(delay) => (beg - delay, end - delay),
+                    StateType::Normal(fsm_interval) => *fsm_interval,
                     StateType::Offload(offload_state) => {
                         (*offload_state, offload_state + 1)
                     }
@@ -1331,15 +1309,20 @@ impl SingleNode {
             // interval. This should only happen once.
             else if *beg <= query_beg && query_beg < *end {
                 assert!(beg_interval.is_false());
+                // This is the query, but relativized to the start of the current interval.
+                let relative_query = (query_beg - beg, query_end - beg);
                 match state_type {
                     // If we are not offloading, then we can just produce a normal
                     // query.
-                    StateType::Delay(delay) => {
+                    StateType::Normal((beg_fsm_interval, end_fsm_interval)) => {
                         let translated_query = (
-                            query_beg - delay,
-                            // This query either stretches into another interval, or
+                            beg_fsm_interval + relative_query.0,
+                            // This query either stretches into the next interval, or
                             // ends within the interval: we want to capture both of these choices.
-                            std::cmp::min(query_end - delay, end - delay),
+                            std::cmp::min(
+                                beg_fsm_interval + relative_query.1,
+                                *end_fsm_interval,
+                            ),
                         );
                         beg_interval = *fsm_cell
                             .borrow_mut()
@@ -1357,11 +1340,11 @@ impl SingleNode {
                             self.children.get_mut(child_index).unwrap();
                         let child_query = child.query_between(
                             (
-                                query_beg - beg,
+                                relative_query.0,
                                 // This query either stretches into another interval, or
                                 // ends within the interval: we want to capture both of these choices.
                                 std::cmp::min(
-                                    query_end - beg,
+                                    relative_query.1,
                                     child.get_latency()
                                         * child.get_num_repeats(),
                                 ),
@@ -1375,19 +1358,19 @@ impl SingleNode {
             // Check if the end of the query lies within the
             // interval. This should only happen once.
             else if *beg < query_end && query_end <= *end {
+                // This is the query, but relativized to the start of the current interval.
+                let relative_query = (query_beg - beg, query_end - beg);
                 assert!(end_interval.is_false());
                 match state_type {
-                    StateType::Delay(delay) => {
+                    StateType::Normal((beg_fsm_interval, _)) => {
                         end_interval = *fsm_cell.borrow_mut().query_between(
                             builder,
                             // This query must stretch backwards into a preiouvs interval
                             // Otherwise it would have been caught by the
-                            // preceding elif statement.
-                            // Therefore, beg >= query_beg so I don't think
-                            // this check is necessary.
+                            // So beg_fsm_interval is a safe start.
                             (
-                                std::cmp::max(query_beg, *beg) - delay,
-                                query_end - delay,
+                                *beg_fsm_interval,
+                                beg_fsm_interval + relative_query.1,
                             ),
                         );
                     }
@@ -1403,8 +1386,8 @@ impl SingleNode {
                         // into a previous interval: otherwise, it
                         // would have been caught by the previous elif condition.
                         // therefore, we can start the child query at 0.
-                        let child_query = child
-                            .query_between((0, (query_end - beg)), builder);
+                        let child_query =
+                            child.query_between((0, relative_query.1), builder);
                         end_interval = in_offload_state.and(child_query);
                     }
                 };
