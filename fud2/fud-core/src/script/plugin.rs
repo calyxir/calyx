@@ -207,7 +207,7 @@ impl ScriptContext {
                         // Write the Ninja file.
                         let cmd = cmds.join(" && ");
                         e.rule(&name_c, &cmd)?;
-                        e.build_cmd(inputs, &name_c, outputs, &[])?;
+                        e.build_cmd(outputs, &name_c, inputs, &[])?;
                         Ok(())
                     });
 
@@ -687,7 +687,7 @@ impl ScriptRunner {
                     output_names,
                     output_states,
                 )?;
-                let _ = body.eval_with_context(context);
+                let _ = body.eval_with_context(context)?;
                 sctx.end_op(op_pos, bld.borrow_mut()).map(Dynamic::from)
             },
         );
