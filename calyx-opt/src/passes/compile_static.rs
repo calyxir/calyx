@@ -1,5 +1,5 @@
 use crate::analysis::{
-    FSMTree, GraphColoring, ParTree, StateType, StaticFSM, Tree,
+    GraphColoring, Node, ParNodes, SingleNode, StateType, StaticFSM,
 };
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
@@ -268,7 +268,7 @@ impl CompileStatic {
     /// XXX(Caleb): Todo.
     fn add_par_conflicts(
         c: &ir::Control,
-        fsm_trees: &Vec<FSMTree>,
+        fsm_trees: &Vec<Node>,
         conflict_graph: &mut GraphColoring<ir::Id>,
     ) {
         match c {
@@ -341,7 +341,7 @@ impl CompileStatic {
         }
     }
 
-    fn get_max_num_repeats(sgroup: ir::Id, tree_objects: &Vec<FSMTree>) -> u64 {
+    fn get_max_num_repeats(sgroup: ir::Id, tree_objects: &Vec<Node>) -> u64 {
         let mut cur_max = 1;
         for tree in tree_objects {
             cur_max = std::cmp::max(
@@ -351,7 +351,7 @@ impl CompileStatic {
         }
         cur_max
     }
-    fn get_max_num_states(sgroup: ir::Id, tree_objects: &Vec<FSMTree>) -> u64 {
+    fn get_max_num_states(sgroup: ir::Id, tree_objects: &Vec<Node>) -> u64 {
         let mut cur_max = 1;
         for tree in tree_objects {
             cur_max = std::cmp::max(
@@ -363,7 +363,7 @@ impl CompileStatic {
     }
 
     pub fn get_coloring(
-        tree_objects: &Vec<FSMTree>,
+        tree_objects: &Vec<Node>,
         sgroups: &[ir::RRC<ir::StaticGroup>],
         control: &mut ir::Control,
     ) -> HashMap<ir::Id, ir::Id> {
@@ -403,7 +403,7 @@ impl CompileStatic {
 
     pub fn get_color_max_values(
         coloring: &HashMap<ir::Id, ir::Id>,
-        tree_objects: &Vec<FSMTree>,
+        tree_objects: &Vec<Node>,
     ) -> HashMap<ir::Id, (u64, u64)> {
         let mut colors_to_sgroups: HashMap<ir::Id, Vec<ir::Id>> =
             HashMap::new();
@@ -475,7 +475,7 @@ impl CompileStatic {
         name: ir::Id,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         num_repeats: u64,
-    ) -> FSMTree {
+    ) -> Node {
         // Find the group that will serve as the root of the tree.
         let target_group = static_groups
             .iter()
@@ -525,7 +525,7 @@ impl CompileStatic {
         }
 
         if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
-            FSMTree::Par(ParTree {
+            Node::Par(ParNodes {
                 group_name: name,
                 threads: children_vec,
                 latency: target_group_ref.latency,
@@ -558,7 +558,7 @@ impl CompileStatic {
                 );
                 cur_num_states += target_group_ref.latency - cur_lat;
             }
-            FSMTree::Tree(Tree {
+            Node::Single(SingleNode {
                 latency: target_group_ref.latency,
                 fsm_cell: None,
                 iter_count_cell: None,
@@ -581,7 +581,7 @@ impl CompileStatic {
             .borrow()
             .get_latency()
     }
-    fn are_ranges_non_overlapping(ranges: &Vec<(FSMTree, (u64, u64))>) -> bool {
+    fn are_ranges_non_overlapping(ranges: &Vec<(Node, (u64, u64))>) -> bool {
         if ranges.len() == 0 {
             return true;
         }
@@ -682,7 +682,7 @@ impl CompileStatic {
 
     // Makes `done` signal for promoted static<n> component.
     fn make_done_signal_for_promoted_component(
-        fsm_tree: &mut FSMTree,
+        fsm_tree: &mut Node,
         builder: &mut ir::Builder,
         comp_sig: RRC<ir::Cell>,
     ) -> Vec<ir::Assignment<ir::Nothing>> {
@@ -745,7 +745,7 @@ impl CompileStatic {
     // `builder.component`'s continuous assignments.
     fn compile_static_interface(
         &mut self,
-        fsm_tree: &mut FSMTree,
+        fsm_tree: &mut Node,
         static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         coloring: &HashMap<ir::Id, ir::Id>,
@@ -762,7 +762,7 @@ impl CompileStatic {
                 static_groups,
             );
             for assign in &mut sgroup.borrow_mut().assignments {
-                FSMTree::preprocess_static_interface_assigns(
+                Node::preprocess_static_interface_assigns(
                     assign,
                     Rc::clone(&builder.component.signature),
                 );

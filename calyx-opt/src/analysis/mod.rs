@@ -44,6 +44,6 @@ pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
 pub use static_par_timing::StaticParTiming;
 pub use static_schedule::{
-    FSMEncoding, FSMTree, ParTree, StateType, StaticFSM, Tree,
+    FSMEncoding, Node, ParNodes, SingleNode, StateType, StaticFSM,
 };
 pub use variable_detection::VariableDetection;

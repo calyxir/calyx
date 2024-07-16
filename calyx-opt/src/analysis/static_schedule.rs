@@ -251,7 +251,7 @@ impl StaticFSM {
 
 /// Helpful for translating queries for the FSMTree structure.
 /// Because of the tree structure, %[i:j] is no longer is always equal to i <= fsm < j.
-/// Offload(i) means the FSM is offloading when fsm == i, meaning that if the fsm == i,
+/// Offload(i) means the FSM is offloading when fsm == i: so if the fsm == i,
 /// we need to look at the children to know what cycle we are in exactly.
 /// Delay(i) means the FSM has offloaded for i cycles, meaning that if the fsm == x,
 /// then we are actually in cycle i + x.
@@ -263,14 +263,14 @@ pub enum StateType {
 
 /// FSMTree can either be a Tree (i.e., a single node) or ParTree (i.e., a group of
 /// nodes that are executing in parallel).
-pub enum FSMTree {
-    Tree(Tree),
-    Par(ParTree),
+pub enum Node {
+    Single(SingleNode),
+    Par(ParNodes),
 }
 
 // Most methods in `FSMTree` simply call the equivalent methods for each
 // of the two possible variants.
-impl FSMTree {
+impl Node {
     /// Instantiate the necessary registers.
     /// The equivalent methods for the two variants contain more implementation
     /// details.
@@ -286,14 +286,14 @@ impl FSMTree {
         one_hot_cutoff: u64,
     ) {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.instantiate_fsms(
+            Node::Single(single_node) => single_node.instantiate_fsms(
                 builder,
                 coloring,
                 colors_to_max_values,
                 colors_to_fsm,
                 one_hot_cutoff,
             ),
-            FSMTree::Par(par_struct) => par_struct.instantiate_fsms(
+            Node::Par(par_nodes) => par_nodes.instantiate_fsms(
                 builder,
                 coloring,
                 colors_to_max_values,
@@ -312,11 +312,11 @@ impl FSMTree {
         incr_start_cond: Option<ir::Guard<Nothing>>,
     ) {
         match self {
-            FSMTree::Tree(tree_struct) => {
-                tree_struct.count_to_n(builder, incr_start_cond)
+            Node::Single(single_node) => {
+                single_node.count_to_n(builder, incr_start_cond)
             }
-            FSMTree::Par(par_struct) => {
-                par_struct.count_to_n(builder, incr_start_cond)
+            Node::Par(par_nodes) => {
+                par_nodes.count_to_n(builder, incr_start_cond)
             }
         }
     }
@@ -338,14 +338,14 @@ impl FSMTree {
         builder: &mut ir::Builder,
     ) {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.realize(
+            Node::Single(single_node) => single_node.realize(
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
                 group_rewrites,
                 builder,
             ),
-            FSMTree::Par(par_struct) => par_struct.realize(
+            Node::Par(par_nodes) => par_nodes.realize(
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
@@ -365,12 +365,10 @@ impl FSMTree {
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
         match self {
-            FSMTree::Tree(tree_struct) => {
-                tree_struct.query_between(query, builder)
+            Node::Single(single_node) => {
+                single_node.query_between(query, builder)
             }
-            FSMTree::Par(par_struct) => {
-                par_struct.query_between(query, builder)
-            }
+            Node::Par(par_nodes) => par_nodes.query_between(query, builder),
         }
     }
 
@@ -388,13 +386,13 @@ impl FSMTree {
         builder: &mut ir::Builder,
     ) {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.transform_static_assigns(
+            Node::Single(single_node) => single_node.transform_static_assigns(
                 static_groups,
                 reset_early_map,
                 group_rewrites,
                 builder,
             ),
-            FSMTree::Par(par_struct) => par_struct.transform_static_assigns(
+            Node::Par(par_nodes) => par_nodes.transform_static_assigns(
                 static_groups,
                 reset_early_map,
                 group_rewrites,
@@ -407,11 +405,11 @@ impl FSMTree {
     /// This only works on a single node (i.e., the `Tree`` variant).
     pub fn take_root_assigns(&mut self) -> Vec<ir::Assignment<Nothing>> {
         match self {
-            FSMTree::Tree(tree_struct) => {
-                std::mem::take(&mut tree_struct.root.1)
+            Node::Single(single_node) => {
+                std::mem::take(&mut single_node.root.1)
             }
-            FSMTree::Par(_) => {
-                panic!("Cannot take root assignments of par_struct")
+            Node::Par(_) => {
+                panic!("Cannot take root assignments of Node::Par variant")
             }
         }
     }
@@ -420,9 +418,9 @@ impl FSMTree {
     /// This only works on a single node (i.e., the `Tree`` variant).
     pub fn get_root_name(&mut self) -> ir::Id {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.root.0,
-            FSMTree::Par(_) => {
-                panic!("Cannot take root name of par_struct")
+            Node::Single(single_node) => single_node.root.0,
+            Node::Par(_) => {
+                panic!("Cannot take root name of Node::Par variant")
             }
         }
     }
@@ -432,34 +430,34 @@ impl FSMTree {
     /// execution of all the trees) if a `Par` variant.
     pub fn get_group_name(&self) -> ir::Id {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.root.0,
-            FSMTree::Par(par_struct) => par_struct.group_name,
+            Node::Single(single_node) => single_node.root.0,
+            Node::Par(par_nodes) => par_nodes.group_name,
         }
     }
 
     /// Gets latency of the overall tree.
     pub fn get_latency(&self) -> u64 {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.latency,
-            FSMTree::Par(par_struct) => par_struct.latency,
+            Node::Single(single_node) => single_node.latency,
+            Node::Par(par_nodes) => par_nodes.latency,
         }
     }
 
     /// Gets the children of root of the tree (if a `Tree` variant) or
     /// of the threads (i.e., trees) that are scheduled to execute (if a `Par`
     /// variant.)
-    pub fn get_children(&mut self) -> &mut Vec<(FSMTree, (u64, u64))> {
+    pub fn get_children(&mut self) -> &mut Vec<(Node, (u64, u64))> {
         match self {
-            FSMTree::Tree(tree_struct) => &mut tree_struct.children,
-            FSMTree::Par(par_struct) => &mut par_struct.threads,
+            Node::Single(single_node) => &mut single_node.children,
+            Node::Par(par_nodes) => &mut par_nodes.threads,
         }
     }
 
     /// Get number of repeats.
     fn get_num_repeats(&self) -> u64 {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.num_repeats,
-            FSMTree::Par(par_struct) => par_struct.num_repeats,
+            Node::Single(single_node) => single_node.num_repeats,
+            Node::Par(par_nodes) => par_nodes.num_repeats,
         }
     }
 
@@ -467,20 +465,18 @@ impl FSMTree {
     /// the `Tree` variants).
     pub fn get_all_nodes(&self) -> Vec<ir::Id> {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.get_all_nodes(),
-            FSMTree::Par(par_struct) => par_struct.get_all_nodes(),
+            Node::Single(single_node) => single_node.get_all_nodes(),
+            Node::Par(par_nodes) => par_nodes.get_all_nodes(),
         }
     }
 
     /// Adds conflicts between nodes in the tree that execute at the same time.
     pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
         match self {
-            FSMTree::Tree(tree_struct) => {
-                tree_struct.add_conflicts(conflict_graph)
+            Node::Single(single_node) => {
+                single_node.add_conflicts(conflict_graph)
             }
-            FSMTree::Par(par_struct) => {
-                par_struct.add_conflicts(conflict_graph)
-            }
+            Node::Par(par_nodes) => par_nodes.add_conflicts(conflict_graph),
         }
     }
 
@@ -488,11 +484,11 @@ impl FSMTree {
     /// `f` takes in a Tree (i.e., a node type) and returns a `u64`.
     pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
     where
-        F: Fn(&Tree) -> u64,
+        F: Fn(&SingleNode) -> u64,
     {
         match self {
-            FSMTree::Tree(tree_struct) => tree_struct.get_max_value(name, f),
-            FSMTree::Par(par_struct) => par_struct.get_max_value(name, f),
+            Node::Single(single_node) => single_node.get_max_value(name, f),
+            Node::Par(par_nodes) => par_nodes.get_max_value(name, f),
         }
     }
 }
@@ -515,18 +511,18 @@ impl FSMTree {
 ///                           (80,100)-> Delay(60).
 /// `children` = vec of (FSMTree Object, cycles for which that child is executing).
 /// `fsm_cell` and `iter_count_cell` keep track of `latency` and `num_repeats` respectively.
-pub struct Tree {
+pub struct SingleNode {
     pub latency: u64,
     pub num_repeats: u64,
     pub num_states: u64,
     pub root: (ir::Id, Vec<ir::Assignment<Nothing>>),
     pub delay_map: BTreeMap<(u64, u64), StateType>,
-    pub children: Vec<(FSMTree, (u64, u64))>,
+    pub children: Vec<(Node, (u64, u64))>,
     pub fsm_cell: Option<ir::RRC<StaticFSM>>,
     pub iter_count_cell: Option<ir::RRC<StaticFSM>>,
 }
 
-impl Tree {
+impl SingleNode {
     /// Instantiates the necessary registers.
     /// Because we share FSM registers, it's possible that this register has already
     /// been instantiated.
@@ -1503,7 +1499,7 @@ impl Tree {
 
     pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
     where
-        F: Fn(&Tree) -> u64,
+        F: Fn(&SingleNode) -> u64,
     {
         let mut cur_max = 1;
         if self.root.0 == name {
@@ -1516,14 +1512,14 @@ impl Tree {
     }
 }
 
-pub struct ParTree {
+pub struct ParNodes {
     pub group_name: ir::Id,
     pub latency: u64,
-    pub threads: Vec<(FSMTree, (u64, u64))>,
+    pub threads: Vec<(Node, (u64, u64))>,
     pub num_repeats: u64,
 }
 
-impl ParTree {
+impl ParNodes {
     pub fn instantiate_fsms(
         &mut self,
         builder: &mut ir::Builder,
@@ -1556,14 +1552,14 @@ impl ParTree {
         }
     }
 
-    pub fn get_longest_tree(&mut self) -> &mut Tree {
+    pub fn get_longest_tree(&mut self) -> &mut SingleNode {
         let max = self.threads.iter_mut().max_by_key(|(child, _)| {
             (child.get_latency() * child.get_num_repeats()) as i64
         });
         if let Some((max_child, _)) = max {
             match max_child {
-                FSMTree::Par(par_tree) => par_tree.get_longest_tree(),
-                FSMTree::Tree(tree) => tree,
+                Node::Par(par_nodes) => par_nodes.get_longest_tree(),
+                Node::Single(single_node) => single_node,
             }
         } else {
             panic!("Field is empty or no maximum value found");
@@ -1768,7 +1764,7 @@ impl ParTree {
 
     pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
     where
-        F: Fn(&Tree) -> u64,
+        F: Fn(&SingleNode) -> u64,
     {
         let mut cur_max = 1;
         for (thread, _) in &self.threads {
@@ -1778,7 +1774,7 @@ impl ParTree {
     }
 }
 
-impl FSMTree {
+impl Node {
     // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
     fn preprocess_static_interface_guard(
         guard: ir::Guard<ir::StaticTiming>,
