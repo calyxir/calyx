@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{config, run, script, utils};
+use crate::{run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -16,7 +16,6 @@ pub struct Driver {
     pub ops: PrimaryMap<OpRef, Operation>,
     pub rsrc_dir: Option<Utf8PathBuf>,
     pub rsrc_files: Option<FileData>,
-    pub config_data: figment::Figment,
 }
 
 impl Driver {
@@ -272,7 +271,6 @@ pub struct DriverBuilder {
     rsrc_files: Option<FileData>,
     scripts_dir: Option<Utf8PathBuf>,
     script_files: Option<FileData>,
-    pub config_data: figment::Figment,
 }
 
 #[derive(Debug)]
@@ -307,7 +305,6 @@ impl DriverBuilder {
             rsrc_files: None,
             scripts_dir: None,
             script_files: None,
-            config_data: config::load_config(name),
         }
     }
 
@@ -422,16 +419,12 @@ impl DriverBuilder {
     }
 
     /// Load any plugin scripts specified in the configuration file.
-    pub fn load_plugins(mut self) -> Self {
+    pub fn load_plugins(mut self, config_data: &figment::Figment) -> Self {
         // pull out things from self that we need
         let plugin_dir = self.scripts_dir.take();
         let plugin_files = self.script_files.take();
 
-        // TODO: Let's try to avoid loading/parsing the configuration file here and
-        // somehow reusing it from wherever we do that elsewhere.
-        let config = config::load_config(&self.name);
-
-        let mut runner = script::ScriptRunner::new(self);
+        let mut runner = script::ScriptRunner::new(self, config_data.clone());
 
         // add system plugins
         if let Some(plugin_dir) = plugin_dir {
@@ -452,7 +445,7 @@ impl DriverBuilder {
 
         // add user plugins defined in config
         if let Ok(plugins) =
-            config.extract_inner::<Vec<std::path::PathBuf>>("plugins")
+            config_data.extract_inner::<Vec<std::path::PathBuf>>("plugins")
         {
             runner.add_files(plugins.into_iter());
         }
@@ -468,7 +461,6 @@ impl DriverBuilder {
             ops: self.ops,
             rsrc_dir: self.rsrc_dir,
             rsrc_files: self.rsrc_files,
-            config_data: self.config_data,
         }
     }
 }

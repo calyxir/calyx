@@ -1,8 +1,8 @@
+use crate::config;
 use crate::exec::{
     Driver, EnumeratePlanner, Request, SingleOpOutputPlanner, StateRef,
 };
 use crate::run::Run;
-use crate::{config, DriverBuilder};
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
 use camino::Utf8PathBuf;
@@ -280,10 +280,10 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     bail!("unknown resource file {}", cmd.filename);
 }
 
-pub fn override_config_from_cli(
-    mut builder: DriverBuilder,
-) -> anyhow::Result<DriverBuilder> {
+/// Given the name of a Driver, returns a config based on that name and CLI arguments.
+pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
     let args: FakeArgs = argh::from_env();
+    let mut config = config::load_config(name);
 
     // Use `--set` arguments to override configuration values.
     for set in args.set {
@@ -293,15 +293,13 @@ pub fn override_config_from_cli(
             .next()
             .ok_or(anyhow!("--set arguments must be in key=value form"))?;
         let dict = figment::util::nest(key, value.into());
-        builder.config_data = builder
-            .config_data
-            .merge(figment::providers::Serialized::defaults(dict));
+        config = config.merge(figment::providers::Serialized::defaults(dict));
     }
 
-    Ok(builder)
+    Ok(config)
 }
 
-pub fn cli(driver: &Driver) -> anyhow::Result<()> {
+pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
     // Configure logging.
@@ -332,7 +330,7 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
-    let mut run = Run::new(driver, plan);
+    let mut run = Run::new(driver, plan, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {

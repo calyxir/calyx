@@ -16,8 +16,9 @@ fn test_driver() -> Driver {
 #[cfg(feature = "migrate_to_scripts")]
 fn test_driver() -> Driver {
     let mut bld = DriverBuilder::new("fud2-plugins");
+    let config = figment::Figment::new();
     bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
-    bld.load_plugins().build()
+    bld.load_plugins(&config).build()
 }
 
 trait InstaTest: Sized {

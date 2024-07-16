@@ -1189,6 +1189,7 @@ name = "fud"
 version = "0.0.2"
 dependencies = [
  "anyhow",
+ "figment",
  "fud-core",
  "include_dir",
  "insta",

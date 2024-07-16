@@ -20,12 +20,7 @@ use super::{
 };
 
 // The name, input states, output states, and shell commands to run of an op
-type OpSig = (
-    String,
-    Vec<(String, StateRef)>,
-    Vec<(String, StateRef)>,
-    Vec<String>,
-);
+type OpSig = (String, Vec<StateRef>, Vec<StateRef>, Vec<String>);
 
 #[derive(Clone)]
 struct ScriptContext {
@@ -93,21 +88,12 @@ impl ScriptContext {
         &self,
         pos: Position,
         name: &str,
-        input_names: rhai::Array,
         inputs: rhai::Array,
-        output_names: rhai::Array,
         outputs: rhai::Array,
     ) -> RhaiResult<()> {
         let inputs = inputs
             .into_iter()
             .map(|i| match i.clone().try_cast::<StateRef>() {
-                Some(state) => Ok(state),
-                None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
-            })
-            .collect::<RhaiResult<Vec<_>>>()?;
-        let input_names = input_names
-            .into_iter()
-            .map(|i| match i.clone().try_cast::<String>() {
                 Some(state) => Ok(state),
                 None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
             })
@@ -119,25 +105,11 @@ impl ScriptContext {
                 None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
             })
             .collect::<RhaiResult<Vec<_>>>()?;
-        let output_names = output_names
-            .into_iter()
-            .map(|i| match i.clone().try_cast::<String>() {
-                Some(state) => Ok(state),
-                None => Err(RhaiSystemError::state_ref(i).with_pos(pos).into()),
-            })
-            .collect::<RhaiResult<Vec<_>>>()?;
-        let input_tuples = input_names.into_iter().zip(inputs).collect();
-        let output_tuples = output_names.into_iter().zip(outputs).collect();
 
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             None => {
-                *cur_op = Some((
-                    name.to_string(),
-                    input_tuples,
-                    output_tuples,
-                    vec![],
-                ));
+                *cur_op = Some((name.to_string(), inputs, outputs, vec![]));
                 Ok(())
             }
             Some((ref old_name, _, _, _)) => {
@@ -161,17 +133,6 @@ impl ScriptContext {
         }
     }
 
-    /// If `#ident` is a substring of `cmd` and `("ident", "value")` is in `mapping`, returns a
-    /// string identical to `cmd` except for all instances `#ident` replaced with `value`.
-    fn substitute_shell_text(cmd: &str, mapping: &[(&str, &str)]) -> String {
-        let mut cur = cmd.to_string();
-        for (i, v) in mapping {
-            let substr = format!("#{}", i);
-            cur = cur.replace(&substr, v);
-        }
-        cur
-    }
-
     /// Collects an op currently being built and adds it to `bld`. Returns and error if `begin_op`
     /// has not been called before this `end_op` and after any previous `end_op`.
     fn end_op(
@@ -181,29 +142,12 @@ impl ScriptContext {
     ) -> RhaiResult<()> {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
-            Some((ref name, ref input_tuples, ref output_tuples, ref cmds)) => {
+            Some((ref name, ref input_states, ref output_states, ref cmds)) => {
                 // Create the emitter.
-                let input_tuples_c = input_tuples.clone();
-                let output_tuples_c = output_tuples.clone();
                 let cmds = cmds.clone();
                 let name_c = name.clone();
                 let f: EmitBuildClosure =
                     Box::new(move |e, inputs, outputs| {
-                        // Subsitute variables in shell commands with actual values.
-                        let input_names = input_tuples_c.iter().map(|(s, _)| s);
-                        let output_names =
-                            output_tuples_c.iter().map(|(s, _)| s);
-                        let mapping: Vec<_> = input_names
-                            .into_iter()
-                            .chain(output_names)
-                            .map(|s| s.as_str())
-                            .zip(inputs.iter().chain(outputs.iter()).copied())
-                            .collect();
-                        let cmds: Vec<_> = cmds
-                            .iter()
-                            .map(|c| Self::substitute_shell_text(c, &mapping))
-                            .collect();
-
                         // Write the Ninja file.
                         let cmd = cmds.join(" && ");
                         e.rule(&name_c, &cmd)?;
@@ -212,11 +156,7 @@ impl ScriptContext {
                     });
 
                 // Add the op.
-                let inputs: Vec<_> =
-                    input_tuples.iter().map(|(_, s)| *s).collect();
-                let outputs: Vec<_> =
-                    output_tuples.iter().map(|(_, s)| *s).collect();
-                bld.add_op(name, &[], &inputs, &outputs, f);
+                bld.add_op(name, &[], input_states, output_states, f);
 
                 // Now no op is being built.
                 *cur_op = None;
@@ -294,16 +234,18 @@ pub struct ScriptRunner {
     rhai_functions: rhai::AST,
     resolver: Option<Resolver>,
     setups: Rc<RefCell<HashMap<String, SetupRef>>>,
+    config_data: figment::Figment,
 }
 
 impl ScriptRunner {
-    pub fn new(builder: DriverBuilder) -> Self {
+    pub fn new(builder: DriverBuilder, config_data: figment::Figment) -> Self {
         let mut this = Self {
             builder: Rc::new(RefCell::new(builder)),
             engine: rhai::Engine::new(),
             rhai_functions: rhai::AST::empty(),
             resolver: Some(Resolver::default()),
             setups: Rc::default(),
+            config_data,
         };
         this.reg_state();
         this.reg_get_state();
@@ -466,19 +408,10 @@ impl ScriptRunner {
             "start_op_stmts",
             move |ctx: rhai::NativeCallContext,
                   name: &str,
-                  input_names: rhai::Array,
                   inputs: rhai::Array,
-                  output_names: rhai::Array,
                   outputs: rhai::Array|
                   -> RhaiResult<_> {
-                sctx.begin_op(
-                    ctx.position(),
-                    name,
-                    input_names,
-                    inputs,
-                    output_names,
-                    outputs,
-                )
+                sctx.begin_op(ctx.position(), name, inputs, outputs)
             },
         );
     }
@@ -495,16 +428,15 @@ impl ScriptRunner {
 
     /// Registers a Rhai function for getting values from the config file.
     fn reg_config(&mut self) {
-        let bld = Rc::clone(&self.builder);
+        let config_data = self.config_data.clone();
         self.engine.register_fn(
             "config",
             move |ctx: rhai::NativeCallContext, key: &str| -> RhaiResult<_> {
-                bld.borrow()
-                    .config_data
-                    .extract_inner::<String>(key)
-                    .or(Err(RhaiSystemError::config_not_found(key)
+                config_data.extract_inner::<String>(key).or(Err(
+                    RhaiSystemError::config_not_found(key)
                         .with_pos(ctx.position())
-                        .into()))
+                        .into(),
+                ))
             },
         );
     }
@@ -512,12 +444,11 @@ impl ScriptRunner {
     /// Registers a Rhai function for getting values from the config file or using a provided
     /// string if the key is not found.
     fn reg_config_or(&mut self) {
-        let bld = Rc::clone(&self.builder);
+        let config_data = self.config_data.clone();
         self.engine.register_fn(
             "config_or",
             move |key: &str, default: &str| -> RhaiResult<_> {
-                bld.borrow()
-                    .config_data
+                config_data
                     .extract_inner::<String>(key)
                     .or(Ok(default.to_string()))
             },
@@ -633,7 +564,7 @@ impl ScriptRunner {
         self.engine.register_custom_syntax_with_state_raw(
             "defop",
             Self::parse_defop,
-            false,
+            true,
             move |context, inputs, state| {
                 let state = state.clone_cast::<ParseState>();
 
@@ -674,19 +605,26 @@ impl ScriptRunner {
                     .collect::<RhaiResult<Vec<_>>>()?;
                 let body = inputs.last().unwrap();
 
+                for (i, name) in input_names.clone().into_iter().enumerate() {
+                    context.scope_mut().set_value(
+                        name.into_string().unwrap(),
+                        format!("$in[{}]", i),
+                    );
+                }
+
+                for (i, name) in output_names.clone().into_iter().enumerate() {
+                    context.scope_mut().set_value(
+                        name.into_string().unwrap(),
+                        format!("$out[{}]", i),
+                    );
+                }
+
                 // Position to note error.
                 let op_pos = inputs.first().unwrap().position();
 
                 // Begin listening for `shell` functions. Execute definition body and collect into
                 // an op.
-                sctx.begin_op(
-                    op_pos,
-                    op_name,
-                    input_names,
-                    input_states,
-                    output_names,
-                    output_states,
-                )?;
+                sctx.begin_op(op_pos, op_name, input_states, output_states)?;
                 let _ = body.eval_with_context(context)?;
                 sctx.end_op(op_pos, bld.borrow_mut()).map(Dynamic::from)
             },
