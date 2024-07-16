@@ -9,6 +9,7 @@ use calyx_ir::{
 use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
+use core::num;
 use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
@@ -19,7 +20,6 @@ use std::rc::Rc;
 
 const NODE_ID: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
-const DUPLICATE_NUM_REG: u64 = 2;
 
 /// Computes the exit edges of a given [ir::Control] program.
 ///
@@ -249,21 +249,24 @@ enum RegisterEncoding {
 }
 #[derive(Clone, Copy)]
 enum RegisterSpread {
-    // Default option: just a single register
+    /// Default option: just a single register
     Single,
-    // Duplicate the register to reduce fanout when querying
-    // (all FSMs in this vec still have all of the states)
+    /// Duplicate the register to reduce fanout when querying
+    /// (all FSMs in this vec still have all of the states)
     Duplicate,
+    /// Split the schedule with `n` states between two `n/2`-state registers;
+    /// available only for `Seq` schedules
+    Split,
 }
 
 #[derive(Clone, Copy)]
 /// A type that represents how the FSM should be implemented in hardware.
 struct FSMRepresentation {
-    // the representation of a state within a register (one-hot, binary, etc.)
+    /// the representation of a state within a register (one-hot, binary, etc.)
     encoding: RegisterEncoding,
-    // the number of registers representing the dynamic finite state machine
+    /// the number of registers representing the dynamic finite state machine
     spread: RegisterSpread,
-    // the index of the last state in the fsm (total # states = last_state + 1)
+    /// the index of the last state in the fsm (total # states = last_state + 1)
     last_state: u64,
 }
 
@@ -457,16 +460,22 @@ impl<'b, 'a> Schedule<'b, 'a> {
     fn build_fsm_infrastructure(
         builder: &mut ir::Builder,
         fsm_rep: &FSMRepresentation,
-    ) -> (Vec<RRC<Cell>>, RRC<Cell>, u64) {
+    ) -> (Vec<RRC<Cell>>, Option<RRC<Cell>>, RRC<Cell>, u64) {
+        // the number of states that each fsm represents
+        let schedule_size = match fsm_rep.spread {
+            RegisterSpread::Single | RegisterSpread::Duplicate => {
+                fsm_rep.last_state + 1
+            }
+            RegisterSpread::Split => (fsm_rep.last_state + 2) / 2,
+        };
         // get fsm bit width and build constant emitting fsm first state
         let (fsm_size, first_state) = match fsm_rep.encoding {
             RegisterEncoding::Binary => {
-                let fsm_size = get_bit_width_from(fsm_rep.last_state + 1);
+                let fsm_size = get_bit_width_from(schedule_size);
                 (fsm_size, builder.add_constant(0, fsm_size))
             }
             RegisterEncoding::OneHot => {
-                let fsm_size = fsm_rep.last_state + 1;
-                (fsm_size, builder.add_constant(1, fsm_size))
+                (schedule_size, builder.add_constant(1, schedule_size))
             }
         };
 
@@ -488,22 +497,26 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .collect_vec()
         };
 
-        let fsms = match (fsm_rep.encoding, fsm_rep.spread) {
-            (RegisterEncoding::Binary, RegisterSpread::Single) => {
-                add_fsm_regs("std_reg", 1)
-            }
-            (RegisterEncoding::OneHot, RegisterSpread::Single) => {
-                add_fsm_regs("init_one_reg", 1)
-            }
-            (RegisterEncoding::Binary, RegisterSpread::Duplicate) => {
-                add_fsm_regs("std_reg", DUPLICATE_NUM_REG)
-            }
-            (RegisterEncoding::OneHot, RegisterSpread::Duplicate) => {
-                add_fsm_regs("init_one_reg", DUPLICATE_NUM_REG)
-            }
-        };
-
-        (fsms, first_state, fsm_size)
+        (
+            add_fsm_regs(
+                match fsm_rep.encoding {
+                    RegisterEncoding::Binary => "std_reg",
+                    RegisterEncoding::OneHot => "init_one_reg",
+                },
+                match fsm_rep.spread {
+                    RegisterSpread::Single => 1,
+                    RegisterSpread::Duplicate | RegisterSpread::Split => 2,
+                },
+            ),
+            match fsm_rep.spread {
+                RegisterSpread::Single | RegisterSpread::Duplicate => None,
+                RegisterSpread::Split => {
+                    Some(builder.add_primitive("tog", "std_reg", &[1]))
+                }
+            },
+            first_state,
+            fsm_size,
+        )
     }
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
@@ -529,7 +542,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // build necessary primitives dependent on encoding and spread
         let signal_on = self.builder.add_constant(1, 1);
-        let (fsms, first_state, fsm_size) =
+        let (fsms, parent_opt, first_state, fsm_size) =
             Self::build_fsm_infrastructure(self.builder, &fsm_rep);
 
         // get first fsm register
@@ -538,7 +551,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // Add last state to JSON info
         let mut states = self.groups_to_states.iter().cloned().collect_vec();
         states.push(FSMStateInfo {
-            id: fsm_rep.last_state, // check that this register (fsm.0) is the correct one to use
+            id: fsm_rep.last_state,
             group: Id::new(format!("{}_END", fsm1.borrow().name())),
         });
 
@@ -563,6 +576,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
                     // for every assignment dependent on current fsm state, `&` new guard with existing guard
+                    // mod state by 2, and check this state plus add a guard for the parent register !!
                     let state_guard = Self::query_state(
                         self.builder,
                         &mut used_slicers_vec,
