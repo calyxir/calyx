@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{config, run, script, utils};
+use crate::{run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -424,10 +424,6 @@ impl DriverBuilder {
         let plugin_dir = self.scripts_dir.take();
         let plugin_files = self.script_files.take();
 
-        // TODO: Let's try to avoid loading/parsing the configuration file here and
-        // somehow reusing it from wherever we do that elsewhere.
-        let config = config::load_config(&self.name);
-
         let mut runner = script::ScriptRunner::new(self, config_data.clone());
 
         // add system plugins
@@ -449,7 +445,7 @@ impl DriverBuilder {
 
         // add user plugins defined in config
         if let Ok(plugins) =
-            config.extract_inner::<Vec<std::path::PathBuf>>("plugins")
+            config_data.extract_inner::<Vec<std::path::PathBuf>>("plugins")
         {
             runner.add_files(plugins.into_iter());
         }
