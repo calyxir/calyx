@@ -260,8 +260,8 @@ impl StaticFSM {
 /// Because of the tree structure, %[i:j] is no longer is always equal to i <= fsm < j.
 /// Offload(i) means the FSM is offloading when fsm == i: so if the fsm == i,
 /// we need to look at the children to know what cycle we are in exactly.
-/// Delay(i) means the FSM has offloaded for i cycles, meaning that if the fsm == x,
-/// then we are actually in cycle i + x.
+/// Normal(i,j) means the FSM is outputing (i..j), incrementing each cycle
+/// and not offloading.
 #[derive(Debug)]
 pub enum StateType {
     Normal((u64, u64)),
@@ -1285,6 +1285,17 @@ impl SingleNode {
         let mut end_interval = ir::Guard::True.not();
         let mut middle_interval = None;
         let mut child_index = 0;
+        // Suppose fsm_schedule =    Cycles     FSM State (i.e., `fsm.out`)
+        //                           (0..10) ->  Normal[0,10)
+        //                           (10..30) -> Offload(10) // Offloading to child
+        //                           (30..40) -> Normal[11, 21)
+        //                           (40,80) ->  Offload(21)
+        //                           (80,100)->  Normal[22, 42)
+        // And query = (15,95).
+        // Then at the end of the following `for` loop we want:
+        // `beg_interval` should be fsm == 10 && <child.query_between(5,20)>
+        // `middle_interval` should be (11, 22)
+        // `end_interval` should be 22 <= fsm < 37
         for ((beg, end), state_type) in self.fsm_schedule.iter() {
             // Check if the query encompasses the entire interval.
             // If so, we add it to the "middle" interval.
