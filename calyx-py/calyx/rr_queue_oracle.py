@@ -6,7 +6,7 @@ from calyx import queue_util
 if __name__ == "__main__":
     num_cmds, len, numflows = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
     keepgoing = "--keepgoing" in sys.argv
-    commands, values, _ = queue_util.parse_json()
+    commands, values, _, _ = queue_util.parse_json()
 
     # In reality, we would allow the user to specify the boundaries via
     # command line arguments or a configuration file. For now, we hardcode them
@@ -32,4 +32,4 @@ if __name__ == "__main__":
 
     ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)
 
-    queue_util.dump_json(ans, commands, values)
+    queue_util.dump_json(commands, values, ans)
