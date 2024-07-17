@@ -88,10 +88,6 @@ pub enum InterpreterError {
     #[error(transparent)]
     ReadlineError(#[from] ReadlineError),
 
-    /// An error for the exit command to the interactive debugger
-    #[error("exit")]
-    Exit,
-
     /// Wrapper error for parsing & related compiler errors
     #[error("{0:?}")]
     CompilerError(Box<CalyxError>),

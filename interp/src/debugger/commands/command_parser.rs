@@ -207,6 +207,10 @@ impl CommandParser {
         Ok(Command::Explain)
     }
 
+    fn restart(_input: Node) -> ParseResult<Command> {
+        Ok(Command::Restart)
+    }
+
     fn watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
         [watch_position(wp), group(g), print_state(p)] => {
@@ -261,6 +265,7 @@ impl CommandParser {
             [disable(dis), EOI(_)] => dis,
             [exit(exit), EOI(_)] => exit,
             [explain(ex), EOI(_)] => ex,
+            [restart(restart), EOI(_)] => restart,
             [EOI(_)] => Command::Empty,
         ))
     }

@@ -302,6 +302,7 @@ pub enum Command {
     ),
     PrintPC(bool),
     Explain,
+    Restart,
 }
 
 type Description = &'static str;
@@ -420,6 +421,8 @@ lazy_static! {
             // explain
             CIBuilder::new().invocation("explain")
                 .description("Show examples of commands which take arguments").build(),
+            CIBuilder::new().invocation("restart")
+                .description("Restart the debugger from the beginning of the execution. This will reset all breakpoints, watchpoints, and the command history").build(),
             // exit/quit
             CIBuilder::new().invocation("exit")
                 .invocation("quit")

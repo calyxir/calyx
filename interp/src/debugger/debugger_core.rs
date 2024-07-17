@@ -55,6 +55,11 @@ impl ProgramStatus {
     }
 }
 
+pub enum DebuggerReturnStatus {
+    Restart,
+    Exit,
+}
+
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [Debugger::main_loop] function while this struct holds auxiliary
 /// information used to coordinate the debugging process.
@@ -172,7 +177,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     // so on and so forth
 
-    pub fn main_loop(mut self) -> InterpreterResult<()> {
+    pub fn main_loop(mut self) -> InterpreterResult<DebuggerReturnStatus> {
         let mut input_stream = Input::new()?;
 
         println!(
@@ -218,7 +223,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     }
                 }
                 Command::Help => {
-                    print!("{}", Command::get_help_string().cyan())
+                    print!("{}", Command::get_help_string())
                 }
                 Command::Break(targets) => self.create_breakpoints(targets),
 
@@ -227,7 +232,10 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 | Command::Enable(_)
                 | Command::Disable(_)) => self.manipulate_breakpoint(comm),
 
-                Command::Exit => return Err(InterpreterError::Exit.into()),
+                Command::Exit => {
+                    println!("Exiting.");
+                    return Ok(DebuggerReturnStatus::Exit);
+                }
 
                 Command::InfoBreak => self
                     .debugging_context
@@ -266,6 +274,10 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::Explain => {
                     print!("{}", Command::get_explain_string().blue())
                 }
+
+                Command::Restart => {
+                    return Ok(DebuggerReturnStatus::Restart);
+                }
             }
         }
 
@@ -301,11 +313,17 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
 
                 Command::Help => {
-                    print!("{}", Command::get_help_string().blue())
+                    print!("{}", Command::get_help_string())
                 }
-                Command::Exit => return Err(InterpreterError::Exit.into()),
+                Command::Exit => {
+                    println!("Exiting.");
+                    return Ok(DebuggerReturnStatus::Exit);
+                }
                 Command::Explain => {
                     print!("{}", Command::get_explain_string().blue().bold())
+                }
+                Command::Restart => {
+                    return Ok(DebuggerReturnStatus::Restart);
                 }
                 _ => {
                     println!(

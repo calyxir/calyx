@@ -68,7 +68,9 @@ comm_where = { (^"where" | "pc") ~ (code_calyx)? }
 
 explain = { ^"explain" }
 
+restart = { ^"restart" }
+
 command = {
     SOI ~ (watch | comm_where | print_state | print | print_fail | delete_watch | delete | brk | enable | disable | step_over | step // commands without input
-  | cont | help | info_break | info_watch | display | exit | explain)? ~ EOI
+  | cont | help | info_break | info_watch | display | exit | explain | restart)? ~ EOI
 }

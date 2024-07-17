@@ -6,6 +6,7 @@ mod macros;
 pub mod source;
 
 pub use debugger_core::Debugger;
+pub use debugger_core::DebuggerReturnStatus;
 pub use debugger_core::OwnedDebugger;
 pub use debugger_core::ProgramStatus;
 
