@@ -91,7 +91,8 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
     decr_num_elements = pieo.decr(num_elements)
     incr_replace_tracker = pieo.incr(replace_tracker)
 
-
+    #Functions for then necessary PIEO functionality
+    
     def push():
         """
             Pushes an element into the PIEO.
