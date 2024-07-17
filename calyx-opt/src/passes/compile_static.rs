@@ -496,20 +496,27 @@ impl CompileStatic {
         }
     }
 
+    /// Given a static group `target_name` and vec of `static_groups`, builds a
+    /// `tree_object` for group `target_name` that repeats itself `num_repeat`
+    /// times.
     fn build_tree_object(
-        name: ir::Id,
+        target_name: ir::Id,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         num_repeats: u64,
     ) -> Node {
         // Find the group that will serve as the root of the tree.
         let target_group = static_groups
             .iter()
-            .find(|sgroup| sgroup.borrow().name() == name)
+            .find(|sgroup| sgroup.borrow().name() == target_name)
             .unwrap();
+        // Children of the root of the tree.
         let mut children_vec = vec![];
+
         let target_group_ref = target_group.borrow();
         for assign in &target_group_ref.assignments {
-            // Looking for static_group[go] = %[i:j] ? 1'd1; to build children.
+            // Looking for static_child[go] = %[i:j] ? 1'd1; to build children.
+            // This lets us know that `static_child` is executing from cycles
+            // i through j.
             match &assign.dst.borrow().parent {
                 PortParent::Cell(_) => {
                     if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
@@ -519,23 +526,25 @@ impl CompileStatic {
                 PortParent::Group(_) => panic!(""),
                 PortParent::StaticGroup(sgroup) => {
                     assert!(assign.src.borrow().is_constant(1, 1));
-                    let x = Self::get_interval_from_guard(
+                    let (beg, end) = Self::get_interval_from_guard(
                         &assign.guard,
                         target_group.borrow().get_latency(),
-                    );
-                    let (beg, end) =
-                        x.expect("couldn't get interval from guard");
+                    )
+                    .expect("couldn't get interval from guard");
                     let name: calyx_ir::Id =
                         sgroup.upgrade().borrow().name().clone();
+                    // Need the following lines to determine `num_repeats`
+                    // for the child.
                     let target_child_latency =
                         Self::get_sgroup_latency(name, static_groups);
                     let child_execution_time = end - beg;
                     assert!(
                         child_execution_time % target_child_latency == 0,
-                        ""
+                        "child will execute only part of an iteration"
                     );
                     let child_num_repeats =
                         child_execution_time / target_child_latency;
+                    // Recursively build a tree for the child.
                     children_vec.push((
                         Self::build_tree_object(
                             name,
@@ -549,20 +558,35 @@ impl CompileStatic {
         }
 
         if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
+            // If we are in a par group, then the "children" are actually
+            // threads that should all start at 0.
             assert!(children_vec.iter().all(|(_, (beg, _))| *beg == 0));
             Node::Par(ParNodes {
-                group_name: name,
+                group_name: target_name,
                 threads: children_vec,
                 latency: target_group_ref.latency,
                 num_repeats: num_repeats,
             })
         } else {
+            // If we are in a regular group, then the children should be
+            // non-overlapping.
             children_vec.sort_by_key(|(_, interval)| *interval);
             assert!(Self::are_ranges_non_overlapping(&children_vec));
+            // Now we must build the fsm schedule.
+            // Maps cycles (i,j) -> fsm state type (i.e., what the fsm outputs).
+            // Here is an example FSM schedule:
+            //                           Cycles     FSM State (i.e., `fsm.out`)
+            //                           (0..10) ->  Normal[0,10) // FSM counting from 0..10
+            //                           (10..30) -> Offload(10) // Offloading to child
+            //                           (30..40) -> Normal[11, 21)
+            //                           (40,80) ->  Offload(21)
+            //                           (80,100)->  Normal[22, 42)
+            let mut fsm_schedule = BTreeMap::new();
             let mut cur_num_states = 0;
             let mut cur_lat = 0;
-            let mut fsm_schedule = BTreeMap::new();
             for (_, (beg, end)) in &children_vec {
+                // Filling in the gap between children, if necessary with a
+                // `Normal` StateType.
                 if cur_lat != *beg {
                     fsm_schedule.insert(
                         (cur_lat, *beg),
@@ -574,11 +598,14 @@ impl CompileStatic {
                     cur_num_states += beg - cur_lat;
                     // cur_lat = *beg; assignment is unnecessary
                 }
+                // Inserting an Offload StateType to the schedule.
                 fsm_schedule
                     .insert((*beg, *end), StateType::Offload(cur_num_states));
                 cur_lat = *end;
                 cur_num_states += 1;
             }
+            // Filling in the gap between the final child and the end of the group
+            // with a Normal StateType.
             if cur_lat != target_group_ref.latency {
                 fsm_schedule.insert(
                     (cur_lat, target_group_ref.latency),
@@ -593,7 +620,7 @@ impl CompileStatic {
                 latency: target_group_ref.latency,
                 fsm_cell: None,
                 iter_count_cell: None,
-                root: (name, vec![]),
+                root: (target_name, vec![]),
                 fsm_schedule: fsm_schedule,
                 children: children_vec,
                 num_repeats: num_repeats,
@@ -602,14 +629,18 @@ impl CompileStatic {
         }
     }
 
+    /// Builds a dummy tree, solely for the purposes of determining conflicts
+    /// so we can greedily color when assigning FSMs.
+    /// This tree should never actually be turned into hardware!! (Thd trees that we
+    /// build here do not make sense if you want to actually do that.)
     fn build_dummy_tree(
-        name: ir::Id,
+        target_name: ir::Id,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
     ) -> Node {
         // Find the group that will serve as the root of the tree.
         let target_group = static_groups
             .iter()
-            .find(|sgroup| sgroup.borrow().name() == name)
+            .find(|sgroup| sgroup.borrow().name() == target_name)
             .unwrap();
         let mut children_vec = vec![];
         let target_group_ref = target_group.borrow();
@@ -618,7 +649,7 @@ impl CompileStatic {
             "ParCtrl attribute is not compatible with building dummy trees"
         );
         for assign in &target_group_ref.assignments {
-            // Looking for static_group[go] = %[i:j] ? 1'd1; to build children.
+            // Looking for static_child[go] = %[i:j] ? 1'd1; to build children.
             match &assign.dst.borrow().parent {
                 PortParent::Cell(_) => {
                     if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
@@ -649,7 +680,7 @@ impl CompileStatic {
             latency: target_group_ref.latency,
             fsm_cell: None,
             iter_count_cell: None,
-            root: (name, vec![]),
+            root: (target_name, vec![]),
             fsm_schedule: BTreeMap::new(),
             children: children_vec,
             num_repeats: 1,
@@ -657,6 +688,8 @@ impl CompileStatic {
         })
     }
 
+    /// Builds "trees" but just make them single nodes that never offload.
+    /// This is the original strategy that we used.
     fn build_single_node(
         name: ir::Id,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
@@ -688,6 +721,7 @@ impl CompileStatic {
         })
     }
 
+    /// Search through `static_groups` and get latency of sgroup named `name`
     fn get_sgroup_latency(
         name: ir::Id,
         static_groups: &[ir::RRC<ir::StaticGroup>],
@@ -695,11 +729,13 @@ impl CompileStatic {
         static_groups
             .iter()
             .find(|sgroup| sgroup.borrow().name() == name)
-            .unwrap()
+            .expect("couldn't find static group")
             .borrow()
             .get_latency()
     }
 
+    // Given a vec of tuples (i,j) sorted by the first element (i.e., `i`) checks
+    // whether the ranges do not overlap.
     fn are_ranges_non_overlapping(ranges: &Vec<(Node, (u64, u64))>) -> bool {
         if ranges.len() == 0 {
             return true;
@@ -715,6 +751,7 @@ impl CompileStatic {
         true
     }
 
+    // Get a vec of all static groups that were "enabled" in `ctrl`.
     fn get_static_enables(ctrl: &ir::Control) -> Vec<ir::Id> {
         match ctrl {
             ir::Control::Seq(ir::Seq { stmts, .. })
@@ -859,13 +896,15 @@ impl CompileStatic {
         assigns.to_vec()
     }
 
-    // Compiles `sgroup` according to the static component interface.
+    // `fsm_tree` should be the top-level tree in the components.
+    // `static_groups` are the component's static groups.
     // The assignments are removed from `sgroup` and placed into
     // `builder.component`'s continuous assignments.
     fn compile_static_interface(
         &mut self,
         fsm_tree: &mut Node,
         static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
+        // The following are just bookkeeping parameters.
         group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         coloring: &HashMap<ir::Id, ir::Id>,
         colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
@@ -876,10 +915,13 @@ impl CompileStatic {
         builder: &mut ir::Builder,
     ) -> calyx_utils::CalyxResult<()> {
         if fsm_tree.get_latency() > 1 {
+            // Find top-level static group.
             let sgroup = Self::find_static_group(
                 &fsm_tree.get_root_name(),
                 static_groups,
             );
+            // Perform some preprocessing on the assignments
+            // (in particular, transform %[0:n] into %0 | %[1:n])
             for assign in &mut sgroup.borrow_mut().assignments {
                 Node::preprocess_static_interface_assigns(
                     assign,
@@ -895,8 +937,8 @@ impl CompileStatic {
                     .find_unique_with_attr(ir::NumAttr::Go)?
                     .unwrap(),
             );
-            // Build a StaticSchedule object, realize it and add assignments
-            // as continuous assignments.
+
+            // Realize the fsm tree in hardware.
             fsm_tree.instantiate_fsms(
                 builder,
                 coloring,
@@ -912,11 +954,14 @@ impl CompileStatic {
                 group_rewrites,
                 builder,
             );
+            // Add root's assignments as continuous assignments, execpt for the
+            // `group[done]` assignments.
             builder.component.continuous_assignments.extend(
                 fsm_tree.take_root_assigns().into_iter().filter(|assign| {
                     let dst = assign.dst.borrow();
                     match dst.parent {
                         PortParent::Cell(_) => true,
+                        // Don't add assignment to `group[done]`
                         PortParent::Group(_) => dst.name != "done",
                         PortParent::StaticGroup(_) => true,
                     }
@@ -943,6 +988,9 @@ impl CompileStatic {
                 static_groups,
             );
             for (child, _) in fsm_tree.get_children() {
+                // We can ignore any static timing guards in the children,
+                // since we know the latency is 1. That is why we call
+                // `convert_assignments_type`.
                 child.convert_assignments_type(
                     static_groups,
                     &mut self.reset_early_map,
@@ -953,6 +1001,7 @@ impl CompileStatic {
             let assignments =
                 std::mem::take(&mut sgroup.borrow_mut().assignments);
             for mut assign in assignments {
+                // Make `assignments` continuous and replace %[0:1] with `comp.go`
                 let comp_sig = Rc::clone(&builder.component.signature);
                 assign.guard.update(|g| g.and(guard!(comp_sig["go"])));
                 builder.component.continuous_assignments.push(
@@ -962,6 +1011,7 @@ impl CompileStatic {
                 );
             }
             if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                // Need to add a done signal if this component was promoted.
                 let comp_sig = Rc::clone(&builder.component.signature);
                 let done_assigns =
                     Self::make_done_signal_for_promoted_component_one_cycle(
@@ -1000,6 +1050,8 @@ impl Visitor for CompileStatic {
                 if self.offload_pause {
                     Self::build_tree_object(*id, &sgroups, 1)
                 } else {
+                    // If we're not offloading, then we should build dummy trees
+                    // that are just used to determine coloring.
                     Self::build_dummy_tree(*id, &sgroups)
                 }
             })
@@ -1013,6 +1065,8 @@ impl Visitor for CompileStatic {
             &sgroups,
             &mut builder.component.control.borrow_mut(),
         );
+        // We need the max_num_states  and max_num_repeats for each
+        // color so we know how many bits the corresponding registers should get.
         let colors_to_max_values =
             Self::get_color_max_values(&coloring, &default_tree_objects);
         let mut colors_to_fsms: HashMap<
@@ -1023,6 +1077,8 @@ impl Visitor for CompileStatic {
         let mut tree_objects = if self.offload_pause {
             default_tree_objects
         } else {
+            // Build simple trees if we're not offloading (i.e., build trees
+            // that just consist of a single node.)
             let mut simple_trees = vec![];
             let sgroup_names = sgroups
                 .iter()
@@ -1079,6 +1135,7 @@ impl Visitor for CompileStatic {
                     &mut builder,
                 )?;
             } else {
+                // Otherwise just instantiate the tree to hardware.
                 tree.instantiate_fsms(
                     &mut builder,
                     &coloring,
@@ -1122,6 +1179,9 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // The main purpose of this method is inserting wrappers / singal registers
+        // when appropriate.
+
         // No need to build wrapper for static component interface
         if comp.is_static() {
             return Ok(Action::Continue);

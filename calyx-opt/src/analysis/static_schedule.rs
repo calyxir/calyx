@@ -382,7 +382,7 @@ impl Node {
     }
 
     /// Transforms static assignments in `static_groups` to an equivalent dynamic
-    /// assignments.
+    /// assignments (and inserts them into a dynamic group.)
     /// Only changes the type of the assignment: does *not* do query translation.
     /// Therefore, you should only call this method if you know it is safe
     /// to ignore all %[i:j] assignments.
