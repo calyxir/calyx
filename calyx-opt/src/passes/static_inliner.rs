@@ -330,153 +330,198 @@ impl StaticInliner {
                 latency,
                 attributes,
             }) => {
-                let mut conflict_graph: GraphColoring<usize> =
-                    GraphColoring::from(0..stmts.len());
-                let offload_interval_info = stmts
-                    .iter()
-                    .map(|stmt| Self::get_offload_latencies(stmt, 0))
-                    .collect_vec();
-                for (i, j) in (0..stmts.len()).tuple_combinations() {
-                    let intervals1 = &offload_interval_info[i];
-                    let intervals2 = &offload_interval_info[j];
-                    for &(start1, end1) in intervals1.iter() {
-                        for &(start2, end2) in intervals2.iter() {
-                            if (start2 <= end1 && end1 <= end2)
-                                || (start1 <= end2 && end2 <= end1)
-                            {
-                                conflict_graph.insert_conflict(&i, &j);
-                            }
-                        }
-                    }
-                }
-                let threads_to_colors = conflict_graph.color_greedy(None, true);
-                let mut colors_to_threads: BTreeMap<usize, Vec<_>> =
-                    BTreeMap::new();
-                for (thread, color) in &threads_to_colors {
-                    colors_to_threads.entry(*color).or_default().push(thread);
-                }
-                let colors_to_latencies: BTreeMap<usize, u64> =
-                    colors_to_threads
-                        .into_iter()
-                        .map(|(color, threads)| {
-                            (
-                                color,
-                                threads
-                                    .iter()
-                                    .map(|thread| {
-                                        stmts
-                                            .get(**thread)
-                                            .unwrap()
-                                            .get_latency()
-                                    })
-                                    .max()
-                                    .unwrap(),
-                            )
-                        })
-                        .collect();
-
-                let mut threads: BTreeMap<
-                    usize,
-                    Vec<ir::Assignment<ir::StaticTiming>>,
-                > = BTreeMap::new();
-                for (index, stmt) in stmts.iter().enumerate() {
-                    let stmt_latency = stmt.get_latency();
-                    let color_latency = *colors_to_latencies
-                        .get(&threads_to_colors[&index])
-                        .expect("coloring has gone wrong somehow");
-                    // recursively turn each stmt in the par block into a group g
-                    let stmt_group = self.inline_static_control(stmt, builder);
-                    assert!(
-                        stmt_group.borrow().get_latency() == stmt_latency,
-                        "static group latency doesn't match static stmt latency"
-                    );
-                    let mut group_assigns =
-                        stmt_group.borrow().assignments.clone();
-                    if stmt_latency < color_latency {
-                        group_assigns.iter_mut().for_each(|assign| {
-                            assign.guard.add_interval(StaticTiming::new((
-                                0,
-                                stmt_latency,
-                            )))
-                        })
-                    }
-                    threads
-                        .entry(*threads_to_colors.get(&index).unwrap())
-                        .or_default()
-                        .extend(group_assigns);
-                }
-
-                let mut groups = threads
-                    .into_iter()
-                    .map(|(index, assigns)| {
-                        let thread_group = builder.add_static_group(
-                            "static_par_thread",
-                            *colors_to_latencies.get(&index).expect(
-                                "something has gone wrong merging par threads",
-                            ),
-                        );
-                        thread_group.borrow_mut().assignments = assigns;
-                        thread_group
-                    })
-                    .collect_vec();
-
-                if groups.len() == 1 {
-                    let par_group = groups.pop().unwrap();
-                    par_group.borrow_mut().attributes = attributes.clone();
-                    par_group
-                } else {
+                if !self.offload_pause {
                     let par_group =
                         builder.add_static_group("static_par", *latency);
                     let mut par_group_assigns: Vec<
                         ir::Assignment<ir::StaticTiming>,
                     > = vec![];
-                    for group in groups {
-                        // Assign par_group[go] = %[0:par_latency] ? 1'd1;
-                        if get_bit_width_from(group.borrow().latency)
-                            == get_bit_width_from(*latency)
-                        {
-                            Self::increase_sgroup_latency(
-                                Rc::clone(&group),
-                                *latency,
-                            );
-                        }
-
-                        structure!( builder;
-                            let signal_on = constant(1,1);
+                    for stmt in stmts {
+                        let stmt_latency = stmt.get_latency();
+                        // first recursively call each stmt in par, and turn each stmt
+                        // into static group g.
+                        let g = self.inline_static_control(stmt, builder);
+                        assert!(g.borrow().get_latency() == stmt_latency, "static group latency doesn't match static stmt latency");
+                        // get the assignments from g
+                        // currently we clone, since we might need these assignments elsewhere
+                        // We could probably do some sort of analysis to see when we need to
+                        // clone vs. can take
+                        let mut g_assigns: Vec<
+                            ir::Assignment<ir::StaticTiming>,
+                        > = g.borrow_mut().assignments.clone();
+                        // add cur_offset to each static guard in g_assigns
+                        // and add %[offset, offset + latency] to each assignment in
+                        // g_assigns
+                        StaticInliner::update_assignments_timing(
+                            &mut g_assigns,
+                            0,
+                            stmt_latency,
+                            *latency,
                         );
-
-                        let stmt_guard = if group.borrow().latency == *latency {
-                            ir::Guard::True
-                        } else {
-                            ir::Guard::Info(ir::StaticTiming::new((
-                                0,
-                                group.borrow().get_latency(),
-                            )))
-                        };
-
-                        let trigger_body = build_assignments!(builder;
-                            group["go"] = stmt_guard ? signal_on["out"];
-                        );
-                        par_group_assigns.extend(trigger_body);
+                        // add g_assigns to par_group_assigns
+                        par_group_assigns.extend(g_assigns.into_iter());
                     }
-
                     par_group.borrow_mut().assignments = par_group_assigns;
                     par_group.borrow_mut().attributes = attributes.clone();
                     par_group
-                        .borrow_mut()
-                        .attributes
-                        .insert(ir::BoolAttr::ParCtrl, 1);
-                    let par_wrapper = builder
-                        .add_static_group("static_par_wrapper", *latency);
-                    structure!( builder;
-                        let signal_on = constant(1,1);
+                } else {
+                    let mut conflict_graph: GraphColoring<usize> =
+                        GraphColoring::from(0..stmts.len());
+                    let offload_interval_info = stmts
+                        .iter()
+                        .map(|stmt| Self::get_offload_latencies(stmt, 0))
+                        .collect_vec();
+                    for (i, j) in (0..stmts.len()).tuple_combinations() {
+                        let intervals1 = &offload_interval_info[i];
+                        let intervals2 = &offload_interval_info[j];
+                        for &(start1, end1) in intervals1.iter() {
+                            for &(start2, end2) in intervals2.iter() {
+                                if (start2 <= end1 && end1 <= end2)
+                                    || (start1 <= end2 && end2 <= end1)
+                                {
+                                    conflict_graph.insert_conflict(&i, &j);
+                                }
+                            }
+                        }
+                    }
+                    let threads_to_colors =
+                        conflict_graph.color_greedy(None, true);
+                    let mut colors_to_threads: BTreeMap<usize, Vec<_>> =
+                        BTreeMap::new();
+                    for (thread, color) in &threads_to_colors {
+                        colors_to_threads
+                            .entry(*color)
+                            .or_default()
+                            .push(thread);
+                    }
+                    let colors_to_latencies: BTreeMap<usize, u64> =
+                        colors_to_threads
+                            .into_iter()
+                            .map(|(color, threads)| {
+                                (
+                                    color,
+                                    threads
+                                        .iter()
+                                        .map(|thread| {
+                                            stmts
+                                                .get(**thread)
+                                                .unwrap()
+                                                .get_latency()
+                                        })
+                                        .max()
+                                        .unwrap(),
+                                )
+                            })
+                            .collect();
+
+                    let mut threads: BTreeMap<
+                        usize,
+                        Vec<ir::Assignment<ir::StaticTiming>>,
+                    > = BTreeMap::new();
+                    for (index, stmt) in stmts.iter().enumerate() {
+                        let stmt_latency = stmt.get_latency();
+                        let color_latency = *colors_to_latencies
+                            .get(&threads_to_colors[&index])
+                            .expect("coloring has gone wrong somehow");
+                        // recursively turn each stmt in the par block into a group g
+                        let stmt_group =
+                            self.inline_static_control(stmt, builder);
+                        assert!(
+                        stmt_group.borrow().get_latency() == stmt_latency,
+                        "static group latency doesn't match static stmt latency"
                     );
-                    let trigger_body = build_assignments!(builder;
-                        par_group["go"] = ? signal_on["out"];
-                    );
-                    // par_wrapper triggers par_group[go]
-                    par_wrapper.borrow_mut().assignments.extend(trigger_body);
-                    par_wrapper
+                        let mut group_assigns =
+                            stmt_group.borrow().assignments.clone();
+                        if stmt_latency < color_latency {
+                            group_assigns.iter_mut().for_each(|assign| {
+                                assign.guard.add_interval(StaticTiming::new((
+                                    0,
+                                    stmt_latency,
+                                )))
+                            })
+                        }
+                        threads
+                            .entry(*threads_to_colors.get(&index).unwrap())
+                            .or_default()
+                            .extend(group_assigns);
+                    }
+
+                    let mut groups = threads
+                        .into_iter()
+                        .map(|(index, assigns)| {
+                            let thread_group = builder.add_static_group(
+                            "static_par_thread",
+                            *colors_to_latencies.get(&index).expect(
+                                "something has gone wrong merging par threads",
+                            ),
+                        );
+                            thread_group.borrow_mut().assignments = assigns;
+                            thread_group
+                        })
+                        .collect_vec();
+
+                    if groups.len() == 1 {
+                        let par_group = groups.pop().unwrap();
+                        par_group.borrow_mut().attributes = attributes.clone();
+                        par_group
+                    } else {
+                        let par_group =
+                            builder.add_static_group("static_par", *latency);
+                        let mut par_group_assigns: Vec<
+                            ir::Assignment<ir::StaticTiming>,
+                        > = vec![];
+                        for group in groups {
+                            // Assign par_group[go] = %[0:par_latency] ? 1'd1;
+                            if get_bit_width_from(group.borrow().latency)
+                                == get_bit_width_from(*latency)
+                            {
+                                Self::increase_sgroup_latency(
+                                    Rc::clone(&group),
+                                    *latency,
+                                );
+                            }
+
+                            structure!( builder;
+                                let signal_on = constant(1,1);
+                            );
+
+                            let stmt_guard =
+                                if group.borrow().latency == *latency {
+                                    ir::Guard::True
+                                } else {
+                                    ir::Guard::Info(ir::StaticTiming::new((
+                                        0,
+                                        group.borrow().get_latency(),
+                                    )))
+                                };
+
+                            let trigger_body = build_assignments!(builder;
+                                group["go"] = stmt_guard ? signal_on["out"];
+                            );
+                            par_group_assigns.extend(trigger_body);
+                        }
+
+                        par_group.borrow_mut().assignments = par_group_assigns;
+                        par_group.borrow_mut().attributes = attributes.clone();
+                        par_group
+                            .borrow_mut()
+                            .attributes
+                            .insert(ir::BoolAttr::ParCtrl, 1);
+                        let par_wrapper = builder
+                            .add_static_group("static_par_wrapper", *latency);
+                        structure!( builder;
+                            let signal_on = constant(1,1);
+                        );
+                        let trigger_body = build_assignments!(builder;
+                            par_group["go"] = ? signal_on["out"];
+                        );
+                        // par_wrapper triggers par_group[go]
+                        par_wrapper
+                            .borrow_mut()
+                            .assignments
+                            .extend(trigger_body);
+                        par_wrapper
+                    }
                 }
             }
             ir::StaticControl::If(ir::StaticIf {

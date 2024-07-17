@@ -13,6 +13,7 @@ use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
+use std::vec;
 
 /// Compiles Static Islands
 pub struct CompileStatic {
@@ -589,6 +590,94 @@ impl CompileStatic {
             })
         }
     }
+
+    fn build_dummy_tree(
+        name: ir::Id,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) -> Node {
+        // Find the group that will serve as the root of the tree.
+        let target_group = static_groups
+            .iter()
+            .find(|sgroup| sgroup.borrow().name() == name)
+            .unwrap();
+        let mut children_vec = vec![];
+        let target_group_ref = target_group.borrow();
+        assert!(
+            !target_group_ref.attributes.has(ir::BoolAttr::ParCtrl),
+            "ParCtrl attribute is not compatible with building dummy trees"
+        );
+        for assign in &target_group_ref.assignments {
+            // Looking for static_group[go] = %[i:j] ? 1'd1; to build children.
+            match &assign.dst.borrow().parent {
+                PortParent::Cell(_) => {
+                    if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
+                        panic!("")
+                    }
+                }
+                PortParent::Group(_) => panic!(""),
+                PortParent::StaticGroup(sgroup) => {
+                    assert!(assign.src.borrow().is_constant(1, 1));
+                    let x = Self::get_interval_from_guard(
+                        &assign.guard,
+                        target_group.borrow().get_latency(),
+                        &name,
+                    );
+                    let (beg, end) =
+                        x.expect("couldn't get interval from guard");
+                    let name: calyx_ir::Id =
+                        sgroup.upgrade().borrow().name().clone();
+                    children_vec.push((
+                        Self::build_tree_object(name, static_groups, 1),
+                        (beg, end),
+                    ));
+                }
+            }
+        }
+
+        children_vec.sort_by_key(|(_, interval)| *interval);
+        Node::Single(SingleNode {
+            latency: target_group_ref.latency,
+            fsm_cell: None,
+            iter_count_cell: None,
+            root: (name, vec![]),
+            fsm_schedule: BTreeMap::new(),
+            children: children_vec,
+            num_repeats: 1,
+            num_states: target_group_ref.latency,
+        })
+    }
+
+    fn build_single_node(
+        name: ir::Id,
+        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) -> Node {
+        let target_group = static_groups
+            .iter()
+            .find(|sgroup| sgroup.borrow().name() == name)
+            .unwrap();
+        let target_group_ref = target_group.borrow();
+        assert!(
+            !target_group_ref.attributes.has(ir::BoolAttr::ParCtrl),
+            "ParCtrl attribute is not compatible with building a single node"
+        );
+
+        Node::Single(SingleNode {
+            latency: target_group_ref.latency,
+            fsm_cell: None,
+            iter_count_cell: None,
+            root: (name, vec![]),
+            fsm_schedule: vec![(
+                (0, target_group_ref.latency),
+                StateType::Normal((0, target_group_ref.latency)),
+            )]
+            .into_iter()
+            .collect(),
+            children: vec![],
+            num_repeats: 1,
+            num_states: target_group_ref.latency,
+        })
+    }
+
     fn get_sgroup_latency(
         name: ir::Id,
         static_groups: &[ir::RRC<ir::StaticGroup>],
@@ -600,6 +689,7 @@ impl CompileStatic {
             .borrow()
             .get_latency()
     }
+
     fn are_ranges_non_overlapping(ranges: &Vec<(Node, (u64, u64))>) -> bool {
         if ranges.len() == 0 {
             return true;
@@ -893,25 +983,46 @@ impl Visitor for CompileStatic {
         let static_enable_ids =
             Self::get_static_enables(&*builder.component.control.borrow());
         // Build one tree object per static enable.
-        let mut tree_objects = static_enable_ids
+        // Need to build trees to determine coloring.
+        let default_tree_objects = static_enable_ids
             .iter()
-            .map(|id| Self::build_tree_object(*id, &sgroups, 1))
+            .map(|id| {
+                if self.offload_pause {
+                    Self::build_tree_object(*id, &sgroups, 1)
+                } else {
+                    Self::build_dummy_tree(*id, &sgroups)
+                }
+            })
             .collect_vec();
 
         // The first thing is to assign FSMs -> static islands.
         // We sometimes assign the same FSM to different static islands
         // to reduce register usage. We do this by getting greedy coloring.
         let coloring: HashMap<ir::Id, ir::Id> = Self::get_coloring(
-            &tree_objects,
+            &default_tree_objects,
             &sgroups,
             &mut builder.component.control.borrow_mut(),
         );
         let colors_to_max_values =
-            Self::get_color_max_values(&coloring, &tree_objects);
+            Self::get_color_max_values(&coloring, &default_tree_objects);
         let mut colors_to_fsms: HashMap<
             ir::Id,
             (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
         > = HashMap::new();
+
+        let mut tree_objects = if self.offload_pause {
+            default_tree_objects
+        } else {
+            let mut simple_trees = vec![];
+            let sgroup_names = sgroups
+                .iter()
+                .map(|sgroup| sgroup.borrow().name())
+                .collect_vec();
+            for name in sgroup_names {
+                simple_trees.push(Self::build_single_node(name, &sgroups))
+            }
+            simple_trees
+        };
 
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();

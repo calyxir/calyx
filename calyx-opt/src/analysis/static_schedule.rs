@@ -1595,6 +1595,8 @@ impl SingleNode {
     }
 
     // Adds conflicts between children and any descendents.
+    // And add conflicts between any overlapping children (XXX(Caleb): need to
+    // do this for dumb rzn.)
     pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
         let root_name = self.root.0;
         for (child, _) in &self.children {
@@ -1602,6 +1604,20 @@ impl SingleNode {
                 conflict_graph.insert_conflict(&root_name, sgroup);
             }
             child.add_conflicts(conflict_graph);
+        }
+        for ((child_a, (beg_a, end_a)), (child_b, (beg_b, end_b))) in
+            self.children.iter().tuple_combinations()
+        {
+            if ((beg_a <= beg_b) & (beg_b < end_b))
+                | ((beg_a < end_b) & (end_b <= end_b))
+                | (beg_b <= beg_a && end_b >= end_a)
+            {
+                for a_node in child_a.get_all_nodes() {
+                    for b_node in child_b.get_all_nodes() {
+                        conflict_graph.insert_conflict(&a_node, &b_node);
+                    }
+                }
+            }
         }
     }
 
