@@ -2,7 +2,7 @@ use calyx_ir::{self as cir, BoolAttr};
 use smallvec::SmallVec;
 
 use crate::{
-    primitives::prim_utils::get_params, serialization::data_dump::Dimensions,
+    flatten::primitives::utils::get_params, serialization::Dimensions,
 };
 
 use super::prelude::ComponentIdx;
@@ -59,6 +59,7 @@ pub enum PrimType1 {
     UnsynSMult,
     UnsynSDiv,
     UnsynSMod,
+    Undef,
 }
 
 /// An enum for encoding FP primitives operator types
@@ -650,6 +651,14 @@ impl CellPrototype {
                             "std_unsyn_mod" => PrimType1::UnsynMod,
                             _ => PrimType1::UnsynSMod,
                         },
+                        width: width.try_into().unwrap(),
+                    }
+                }
+
+                "undef" => {
+                    get_params![params; width: "WIDTH"];
+                    Self::SingleWidth {
+                        op: PrimType1::Undef,
                         width: width.try_into().unwrap(),
                     }
                 }

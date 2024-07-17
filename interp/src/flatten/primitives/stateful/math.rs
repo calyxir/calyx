@@ -1,10 +1,12 @@
 use ibig::ops::RemEuclid;
 
 use crate::{
-    flatten::{flat_ir::prelude::*, primitives::declare_ports},
-    primitives::{
-        prim_utils::ShiftBuffer,
-        stateful::{floored_division, int_sqrt},
+    flatten::{
+        flat_ir::prelude::*,
+        primitives::{
+            declare_ports,
+            utils::{floored_division, int_sqrt, ShiftBuffer},
+        },
     },
     values::InputNumber,
 };
