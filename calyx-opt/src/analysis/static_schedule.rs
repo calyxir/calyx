@@ -435,8 +435,7 @@ impl Node {
     }
 
     /// Get max value of all nodes in the tree, according to some function f.
-    /// `f` takes in a Tree (i.e., a node type) and returns a `u64`. Note that this
-    /// function assumes a minimum value of 1. ** This is a weird assumption**.
+    /// `f` takes in a Tree (i.e., a node type) and returns a `u64`.
     pub fn get_max_value<F>(&self, name: &ir::Id, f: &F) -> u64
     where
         F: Fn(&SingleNode) -> u64,
@@ -1039,6 +1038,8 @@ impl SingleNode {
         );
 
         let fsm_identifier = match self.fsm_cell.as_ref() {
+            // If the tree does not have an fsm cell, then we can err on the
+            // side of giving it its own unique identifier.
             None => self.root.0,
             Some(fsm_rc) => fsm_rc.borrow().fsm_cell.borrow().name(),
         };
@@ -1595,8 +1596,10 @@ impl SingleNode {
     }
 
     // Adds conflicts between children and any descendents.
-    // And add conflicts between any overlapping children (XXX(Caleb): need to
-    // do this for dumb rzn.)
+    // Also add conflicts between any overlapping children. XXX(Caleb): normally
+    // there shouldn't be overlapping children, but when we are doing the traditional
+    // method in we don't offload (and therefore don't need this tree structure)
+    // I have created dummy trees for the sole purpose of drawing conflicts
     pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {
         let root_name = self.root.0;
         for (child, _) in &self.children {
@@ -1605,13 +1608,18 @@ impl SingleNode {
             }
             child.add_conflicts(conflict_graph);
         }
+        // Adding conflicts between overlapping children.
         for ((child_a, (beg_a, end_a)), (child_b, (beg_b, end_b))) in
             self.children.iter().tuple_combinations()
         {
+            // Checking if children overlap: either b begins within a, it
+            // ends within a, or it encompasses a's entire interval.
             if ((beg_a <= beg_b) & (beg_b < end_b))
                 | ((beg_a < end_b) & (end_b <= end_b))
                 | (beg_b <= beg_a && end_b >= end_a)
             {
+                // Adding conflicts between all nodes of the children if
+                // the children overlap.
                 for a_node in child_a.get_all_nodes() {
                     for b_node in child_b.get_all_nodes() {
                         conflict_graph.insert_conflict(&a_node, &b_node);
@@ -1626,7 +1634,7 @@ impl SingleNode {
     where
         F: Fn(&SingleNode) -> u64,
     {
-        let mut cur_max = 1;
+        let mut cur_max = 0;
         if self.root.0 == name {
             cur_max = std::cmp::max(cur_max, f(self));
         }
@@ -1762,11 +1770,18 @@ impl ParNodes {
             }),
         );
 
+        let fsm_identifier = match longest_node.fsm_cell.as_ref() {
+            // If the tree does not have an fsm cell, then we can err on the
+            // side of giving it its own unique identifier.
+            None => longest_node.root.0,
+            Some(fsm_rc) => fsm_rc.borrow().fsm_cell.borrow().name(),
+        };
+
         let total_latency = self.latency * self.num_repeats;
         fsm_info_map.insert(
             early_reset_group.borrow().name(),
             (
-                self.group_name,
+                fsm_identifier,
                 self.query_between((0, 1), builder),
                 self.query_between((total_latency - 1, total_latency), builder),
             ),
@@ -1915,7 +1930,7 @@ impl ParNodes {
     where
         F: Fn(&SingleNode) -> u64,
     {
-        let mut cur_max = 1;
+        let mut cur_max = 0;
         for (thread, _) in &self.threads {
             cur_max = std::cmp::max(cur_max, thread.get_max_value(name, f));
         }
