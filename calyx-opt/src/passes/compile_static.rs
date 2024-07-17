@@ -627,7 +627,7 @@ impl CompileStatic {
                     let name: calyx_ir::Id =
                         sgroup.upgrade().borrow().name().clone();
                     children_vec.push((
-                        Self::build_tree_object(name, static_groups, 1),
+                        Self::build_dummy_tree(name, static_groups),
                         (beg, end),
                     ));
                 }
