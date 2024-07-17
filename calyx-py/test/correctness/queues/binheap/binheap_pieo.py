@@ -6,90 +6,128 @@ import calyx.queue_call as qc
 
 def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=None, static=False):
     pieo = prog.component(name)
-    num_commands = 20000
-
-    #External memory cells
-    commands = pieo.seq_mem_d1("commands", 32, num_commands, 32, is_external=True)
-    values = pieo.seq_mem_d1("values", 32, num_commands, 32, is_external=True)
-    times = pieo.seq_mem_d1("times", 32, num_commands, 32, is_external=True)
-    ranks = pieo.seq_mem_d1("ranks", 32, num_commands, 32, is_external=True)
-    ans_mem = pieo.seq_mem_d1("ans_mem", 32, num_commands, 32, is_external=True)
 
     cmd_idx = pieo.reg(32)
-    incr_cmd_idx = pieo.incr(cmd_idx)
-    cmd_in_range = pieo.lt_use(cmd_idx.out, num_commands)
 
-    cmd, value, time, rank = pieo.reg(32), pieo.reg(32), pieo.reg(32), pieo.reg(32)
+    cmd = pieo.input("cmd", 3)
+    value = pieo.input("value", 32)
+    time = pieo.input("time", 32)
+    rank = pieo.input("rank", 32)
 
-    loads = [
-        pieo.mem_load_d1(commands, cmd_idx.out, cmd, "load_cmd"),
-        pieo.mem_load_d1(values, cmd_idx.out, value, "load_val"),
-        pieo.mem_load_d1(times, cmd_idx.out, time, "load_time"),
-        pieo.mem_load_d1(ranks, cmd_idx.out, rank, "load_rank")
-    ]
+    cmd_eqs = [pieo.eq_use(cmd, i) for i in range(5)]
 
-    cmd_eqs = [
-        pieo.eq_use(cmd.out, 0),
-        pieo.eq_use(cmd.out, 1),
-        pieo.eq_use(cmd.out, 2),
-        pieo.eq_use(cmd.out, 3),
-        pieo.eq_use(cmd.out, 4),
-    ]
+    rank_reg = pieo.reg(32)
 
-    # Declare the two sub-queues as cells of this component.
+    store_rank = pieo.reg_store(rank_reg, rank)
+
+    # Declare the sub-queues as cells of this component.
     val_queue = pieo.cell("val_queue", val_queue)
     time_queue = pieo.cell("time_queue", time_queue)
     rank_queue = pieo.cell("rank_queue", rank_queue)
 
     #Used to break ties between ranks and preserve FIFO order
-    shift_rank = pieo.lsh_use(rank.out, rank, 32)
-    add_rank = pieo.add_store_in_reg(rank.out, cmd_idx.out, rank)
+    shift_rank = pieo.lsh_use(rank_reg.out, rank_reg, 32)
+    add_rank, rank_reg = pieo.add_store_in_reg(rank_reg.out, cmd_idx.out, rank_reg)
 
     ans = pieo.reg(32)
     err = pieo.reg(1)
 
     num_elements = pieo.reg(32)
-    ans_index = pieo.reg(32)
 
     not_maxed = pieo.le_use(num_elements.out, queue_len)
     not_minned = pieo.ge_use(num_elements.out, 0)
 
+    #REGISTERS FOR QUERYING
+
+    queue_index = pieo.reg(32) #Tracker while scanning through heap
+    replace_tracker = pieo.reg(32) #Loop counter while writing elements back into heap
+
+    #Stores accessed times from popping queue
+    ready_time = pieo.reg(32)
+    val_ans = pieo.reg(32)
+    rank_ans = pieo.reg(32)
+
+    #Load when writing back to queue
+    cached_time = pieo.reg(32)
+    cached_val = pieo.reg(32)
+    cached_rank = pieo.reg(32)
+
+    #Equality checkers
+    val_eq = pieo.eq(32)
+    time_le = pieo.le(32)
+    pop_lt = pieo.lt(32)
+
+    while_and = pieo.and_(1)
+    while_and_val = pieo.and_(1)
+    val_time_and = pieo.and_(1)
+
+    replace_count_peek = pieo.lt_use(replace_tracker.out, queue_index.out) #Push back all popped elements
+    replace_count_pop = pieo.lt_use(replace_tracker.out, queue_index.out) #Don't push back the latest popped element
+
+    #Memory cells for querying
+    cached_data = [
+        pieo.seq_mem_d1(f"cached_vals", 32, queue_len, 32),
+        pieo.seq_mem_d1(f"cached_times", 32, queue_len, 32),
+        pieo.seq_mem_d1(f"cached_ranks", 32, queue_len, 32)
+    ]
+
+    #Cache data
+    cache_data = [
+        pieo.mem_store_d1(cached_data[0], queue_index.out, val_ans.out, f"cache_vals"),
+        pieo.mem_store_d1(cached_data[1], queue_index.out, ready_time.out, f"cache_times"),
+        pieo.mem_store_d1(cached_data[2], queue_index.out, rank_ans.out, f"cache_ranks")
+    ]
+
+    #Load Cached Data
+    load_cached_data = [
+        pieo.mem_load_d1(cached_data[0], replace_tracker.out, cached_val, f"load_cached_val"),
+        pieo.mem_load_d1(cached_data[1], replace_tracker.out, cached_time, f"load_cached_time"),
+        pieo.mem_load_d1(cached_data[2], replace_tracker.out, cached_rank, f"load_cached_rank")
+    ]
+
+    #Increment trackers
+    incr_num_elements = pieo.incr(num_elements)
+    incr_queue_idx = pieo.incr(queue_index)
+    decr_num_elements = pieo.decr(num_elements)
+    incr_replace_tracker = pieo.incr(replace_tracker)
+
+
     def push():
-        """Pushes an element into the PIEO.
+        """
+            Pushes an element into the PIEO.
             Push into the queue based on rank.
         """
 
         #In parallel, push value, time and rank into their respective heaps
         return cb.if_with(not_maxed,
             cb.seq(
-                shift_rank,
-                add_rank,
+                store_rank, shift_rank, add_rank,
                 cb.par(
                     cb.invoke(
                         val_queue,
-                        in_value=value.out,
-                        in_rank=rank.out,
+                        in_value=value,
+                        in_rank=rank_reg.out,
                         in_cmd=cb.const(2, 2),
                         ref_ans=ans,
-                        ref_err=err,
+                        ref_err=err
                     ),
                     cb.invoke(
                         time_queue,
-                        in_value=time.out,
-                        in_rank=rank.out,
+                        in_value=time,
+                        in_rank=rank_reg.out,
                         in_cmd=cb.const(2, 2),
                         ref_ans=ans,
-                        ref_err=err,
+                        ref_err=err
                     ),
                     cb.invoke(
                         rank_queue,
-                        in_value=time.out,
-                        in_rank=rank.out,
+                        in_value=rank_reg.out,
+                        in_rank=rank_reg.out,
                         in_cmd=cb.const(2, 2),
                         ref_ans=ans,
-                        ref_err=err,
+                        ref_err=err
                     )
-                ), pieo.incr(num_elements)
+                ), incr_num_elements
             )
         )
 
@@ -102,42 +140,15 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
             Returns the first element in the PIEO who is 'ripe' as per the specified time (its readiness time is earlier than the passed in time),
             and whose value matches the current value (if that is to factored in.)
         """
-        #Scan every element of the heap until the correct one is found
-        
-        queue_index = pieo.reg(32) #Tracker while scanning through heap
-        replace_tracker = pieo.reg(32) #Loop counter while writing elements back into heap
-
-        #Stores accessed times from popping queue
-        ready_time = pieo.reg(32)
-        val_ans = pieo.reg(32)
-        rank_ans = pieo.reg(32)
-
-        #Load when writing back to queue
-        cached_time = pieo.reg(32)
-        cached_val = pieo.reg(32)
-        cached_rank = pieo.reg(32)
-
-        cached_vals = pieo.seq_mem_d1(f"cached_vals_{cmd_idx.out}", 32, queue_len, 32)
-        cached_times = pieo.seq_mem_d1(f"cached_times_{cmd_idx.out}", 32, queue_len, 32)
-        cached_ranks = pieo.seq_mem_d1(f"cached_ranks_{cmd_idx.out}", 32, queue_len, 32)
-
-        #Equality checkers
-        val_eq = pieo.eq(32)
-        time_le = pieo.le(32)
-        pop_lt = pieo.lt(32)
-
-        while_and = pieo.and_(1)
-        while_and_val = pieo.and_(1)
-        val_time_and = pieo.and_(1)
 
         #Design all necessary loop guards
-        with pieo.comb_group(f"time_pop_guard_{cmd_idx.out}") as time_pop_guard:
+        with pieo.comb_group(f"time_pop_guard") as time_pop_guard:
             
-            val_eq.left = value.out
-            val_eq.right = val_ans.out
+            val_eq.left = val_ans.out
+            val_eq.right = value
 
             time_le.left = ready_time.out
-            time_le.right = time.out
+            time_le.right = time
 
             pop_lt.left = queue_index.out
             pop_lt.right = num_elements.out
@@ -151,12 +162,13 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
             val_time_and.left = val_eq.out
             val_time_and.right = time_le.out
 
-
-        replace_count_peek = pieo.lt_use(replace_tracker.out, queue_index.out) #Push back all popped elements
-        replace_count_pop = pieo.lt_use(replace_tracker.out, queue_index.out) #Don't push back the latest popped element
-
         return cb.seq(
             #Scan through heaps and pop value, time and rank until we either run out or find an accurate one
+            cb.par([
+                pieo.reg_store(queue_index, 0),
+                pieo.reg_store(replace_tracker, 0)
+            ]),
+
             cb.while_with (
                 cb.CellAndGroup(while_and_val, time_pop_guard) if include_value else cb.CellAndGroup(while_and, time_pop_guard),
                 cb.seq([
@@ -169,38 +181,30 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
                             ref_ans=ans,
                             ref_err=err)
                         for (q, ans) in ((val_queue, val_ans), (time_queue, ready_time), (rank_queue, rank_ans))
-                    ]),
-                    pieo.mem_store_d1(cached_vals, queue_index.out, val_ans.out, f"cache_vals_{cmd_idx.out}"),
-                    pieo.mem_store_d1(cached_times, queue_index.out, ready_time.out, f"cache_times_{cmd_idx.out}"),
-                    pieo.mem_store_d1(cached_ranks, queue_index.out, rank_ans.out, f"cache_ranks_{cmd_idx.out}"),
-                    pieo.incr(queue_index)
-                ])
+                    ])
+                ] + cache_data + [incr_queue_idx])
             ),
 
             #If the correct element was found, write it to ans_mem
-            cb.if_with(cb.CellAndGroup(val_time_and, time_pop_guard) if include_value else cb.CellAndGroup(time_le, time_pop_guard),
-                cb.seq(
-                    pieo.mem_store_d1(ans_mem, ans_index.out, val_ans.out, f"store_mem_{cmd_idx.out}"),
-                    pieo.incr(ans_index)
-                )
+            cb.if_with((cb.CellAndGroup(val_time_and, time_pop_guard) if include_value else cb.CellAndGroup(time_le, time_pop_guard)),
+                cb.seq([
+                    pieo.reg_store(ans, val_ans.out),
+                    pieo.reg_store(err, cb.const(1, 1))
+                ] + [decr_num_elements] if pop else []) #Decrement number of elements if we are popping
             ),
 
             #Write elements back – don't write back the last popped element if popping.
             cb.while_with(replace_count_pop if pop else replace_count_peek,
                 cb.seq([
                     #At each iteration, load the cached elements into registers
-                    cb.par([
-                        pieo.mem_load_d1(cached_vals, replace_tracker.out, cached_val, f"load_cached_val_{cmd_idx.out}"),
-                        pieo.mem_load_d1(cached_times, replace_tracker.out, cached_time, f"load_cached_time_{cmd_idx.out}"),
-                        pieo.mem_load_d1(cached_ranks, replace_tracker.out, cached_rank, f"load_cached_rank_{cmd_idx.out}"),
-                    ]),
+                    cb.par(load_cached_data),
 
                     #Concurrently write them back into memory, using the cached rank to determine location
                     cb.par([
                         cb.invoke(
                             val_queue,
-                            in_value=cb.const(32, cached_val.out),
-                            in_rank=cb.const(64, cached_rank.out),
+                            in_value=cached_val.out,
+                            in_rank=cached_rank.out,
                             in_cmd=cb.const(2, 2),
                             ref_ans=ans,
                             ref_err=err
@@ -208,73 +212,78 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
 
                         cb.invoke(
                             time_queue,
-                            in_value=cb.const(32, cached_time.out),
-                            in_rank=cb.const(64, cached_rank.out),
+                            in_value=cached_time.out,
+                            in_rank=cached_rank.out,
                             in_cmd=cb.const(2, 2),
                             ref_ans=ans,
                             ref_err=err
                         ),
                         cb.invoke(
                             rank_queue,
-                            in_value=cb.const(32, cached_rank.out),
-                            in_rank=cb.const(64, cached_rank.out),
+                            in_value=cached_rank.out,
+                            in_rank=cached_rank.out,
                             in_cmd=cb.const(2, 2),
                             ref_ans=ans,
                             ref_err=err,
                         )
-                    ]), pieo.incr(replace_tracker)
+                    ]), incr_replace_tracker
                 ])
             )
         )
-    
-    pieo.control += cb.while_with(
-        cmd_in_range, cb.seq (
-            cb.par(loads),
-            cb.par (
-                cb.if_with(cmd_eqs[0],
-                    cb.if_with(not_minned,
-                        query(pop=False)
-                    )
-                ),
 
-                cb.if_with(cmd_eqs[1],
-                    cb.if_with(not_minned,
-                        query(pop=True)
-                    )
-                ),
-
-                cb.if_with(cmd_eqs[2],
-                    cb.if_with(not_maxed,
-                        push()
-                    )
-                ),
-
-                cb.if_with(cmd_eqs[3],
-                    cb.if_with(not_maxed,
-                        query(pop=False, include_value=True)
-                    )
-                ),
-
-                cb.if_with(cmd_eqs[4],
-                    cb.if_with(not_maxed,
-                        query(pop=True, include_value=True)
-                    )
+    pieo.control += cb.seq(
+        cb.par (
+            #Peek with time predicate, if we have not minned out
+            cb.if_with(cmd_eqs[0],
+                cb.if_with(not_minned,
+                    query(pop=False),
+                    pieo.reg_store(err, cb.const(1, 1))
                 )
             ),
-            incr_cmd_idx
-        )
+
+            cb.if_with(cmd_eqs[1],
+                cb.if_with(not_minned,
+                    query(pop=True),
+                    pieo.reg_store(err, cb.const(1, 1))
+                )
+            ),
+
+            cb.if_with(cmd_eqs[2],
+                cb.if_with(not_maxed,
+                    push(),
+                    pieo.reg_store(err, cb.const(1, 1))
+                )
+            ),
+
+            cb.if_with(cmd_eqs[3],
+                cb.if_with(not_maxed,
+                    query(pop=False, include_value=True),
+                    pieo.reg_store(err, cb.const(1, 1))
+                )
+            ),
+
+            cb.if_with(cmd_eqs[4],
+                cb.if_with(not_maxed,
+                    query(pop=True, include_value=True),
+                    pieo.reg_store(err, cb.const(1, 1))
+                )
+            )
+        ),
+        pieo.incr(cmd_idx)
     )
+
+    return pieo
 
 def build():
     """Top-level function to build the program."""
-    num_cmds = 20000
+    num_cmds = int(sys.argv[1])
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
     val_queue = binheap.insert_binheap(prog, "val_queue", 4, 32, 32)
     time_queue = binheap.insert_binheap(prog, "time_queue", 4, 32, 32)
     rank_queue = binheap.insert_binheap(prog, "rank_queue", 4, 32, 32)
     pieo = insert_pieo(prog, "pieo", val_queue, time_queue, rank_queue, 16)
-    qc.insert_main(prog, pieo, num_cmds, keepgoing=keepgoing)
+    qc.insert_main(prog, pieo, num_cmds, keepgoing=keepgoing, use_ranks=True, use_times=True)
     return prog.program
 
 
