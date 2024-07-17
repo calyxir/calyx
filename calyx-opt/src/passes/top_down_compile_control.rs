@@ -9,7 +9,6 @@ use calyx_ir::{
 use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
-use core::num;
 use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
@@ -423,10 +422,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
             None => (Vec::new(), *state),
             Some(parent_reg) => {
                 let parent_const =
+                    // will query parent.reg == 0 if fsm to query is at index 0 and == 1 o/w
                     builder.add_constant(reg_to_query.try_into().unwrap(), 1);
                 let parent_guard =
                     guard!(parent_reg["out"] == parent_const["out"]);
-                (vec![parent_guard], (*state) % 2)
+                (vec![parent_guard], (*state) % (fsm_rep.last_state / 2)) // check
             }
         };
         match fsm_rep.encoding {
@@ -435,7 +435,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     builder.add_constant(state_to_query, *fsm_size);
                 let mut state_guard =
                     vec![guard!(fsm["out"] == state_const["out"])];
-                state_guard.extend(parent_guard.drain(..));
+                state_guard.append(&mut parent_guard);
                 state_guard
             }
             RegisterEncoding::OneHot => {
@@ -469,7 +469,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                         state_guard
                     }
                 }];
-                guard.extend(parent_guard.drain(..));
+                guard.append(&mut parent_guard);
                 guard
             }
         }
@@ -599,22 +599,21 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
-                    // for every assignment dependent on current fsm state, `&` new guard with existing guard
-                    // mod state by 2, and check this state plus add a guard for the parent register !!
-                    let mut state_guards = Self::query_state(
-                        self.builder,
-                        &mut used_slicers_vec,
-                        &fsm_rep,
-                        (&fsms, &signal_on, &parents),
-                        &state,
-                        &fsm_size,
-                        true, // by default attempt to distribute across regs if >=2 exist
-                    );
+                    // for every assignment dependent on current fsm state,
+                    // `&` new fsm guard with existing guard
                     assigns.iter_mut().for_each(|asgn| {
-                        asgn.guard.update(|guard| {
-                            state_guards
-                                .drain(..)
-                                .fold(guard, |g, sg| g.and(sg))
+                        asgn.guard.update(|existing_guard| {
+                            Self::query_state(
+                                self.builder,
+                                &mut used_slicers_vec,
+                                &fsm_rep,
+                                (&fsms, &signal_on, &parents),
+                                &state,
+                                &fsm_size,
+                                true,
+                            )
+                            .drain(..)
+                            .fold(existing_guard, |g, sg| g.and(sg))
                         })
                     });
                     assigns
@@ -623,7 +622,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // transition assignments
         // the following updates are meant to ensure agreement between the two
-        // fsm registers; hence, all registers must be updated if `duplicate` is chosen
+        // fsm registers; hence, all registers must be updated if `duplicate` or `split` are chosen
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
                 // get a transition guard for the first fsm register, and apply it to every fsm register
@@ -634,32 +633,30 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     (&fsms, &signal_on, &parents),
                     &s,
                     &fsm_size,
-                    false, // by default do not distribute transition queries across regs; choose first
+                    // by default do not distribute
+                    // transition queries across regs; choose first
+                    false,
                 );
 
-                // add transitions for every fsm register to ensure consistency between each
+                // add transition assignment to every fsm register to ensure
+                // consistency between each
                 fsms.iter()
                     .flat_map(|fsm| {
                         let trans_guard = state_guards
                             .clone()
                             .drain(..)
-                            .fold(guard.clone(), |g, sg| g.and(sg));
+                            .fold(guard.clone(), |g, sg| sg.and(g));
 
                         let end_const = match fsm_rep.encoding {
                             RegisterEncoding::Binary => {
                                 self.builder.add_constant(e, fsm_size)
                             }
-                            RegisterEncoding::OneHot => self
-                                .builder
-                                .add_constant(
-                                u64::pow(
-                                    2,
-                                    e.try_into().expect(
-                                        "can't use one-hot encoding due to too many states: failed to convert to u32",
-                                    ),
-                                ),
-                                fsm_size,
-                            ),
+                            RegisterEncoding::OneHot => {
+                                self.builder.add_constant(
+                                    u64::pow(2, e.try_into().unwrap()),
+                                    fsm_size,
+                                )
+                            }
                         };
                         let ec_borrow = end_const.borrow();
                         vec![
@@ -679,18 +676,30 @@ impl<'b, 'a> Schedule<'b, 'a> {
             }),
         );
 
-        // build transition assignments for all parent registers
+        // build transition assignments for all parent registers (simply from 0 to 1)
         group
             .borrow_mut()
             .assignments
             .extend(parents.iter().flat_map(|parent| {
-                let zero_const = self.builder.add_constant(0, 1);
-                let parent_guard = guard!(parent["out"] == zero_const["out"]);
-                build_assignments!(self.builder;
-                    parent["in"] = parent_guard ? signal_on["out"];
-                    parent["write_en"] = parent_guard ? signal_on["out"];
-                )
-            }));
+            // parent_guard := `parent0.out == 0 & fsm0.out == 0`
+            let parent_transition_guard = Self::query_state(
+                self.builder,
+                &mut used_slicers_vec,
+                &fsm_rep,
+                (&fsms, &signal_on, &parents),
+                &(fsm_rep.last_state / 2), // check empirically
+                &fsm_size,
+                false,
+            )
+            .drain(..)
+            .fold(ir::Guard::True, |g, sg| g.and(sg));
+            build_assignments!(self.builder;
+                parent["in"] = parent_transition_guard ? signal_on["out"];
+                parent["write_en"] = parent_transition_guard ? signal_on["out"];
+            )
+        }));
+
+        // START HERE; TODO: IMPLEMENT DONE / RESET
 
         // done condition for group
         // arbitrarily look at first fsm register, since all are identical
