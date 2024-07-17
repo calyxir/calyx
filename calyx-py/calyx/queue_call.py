@@ -55,7 +55,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, use_times, stats_compo
     # - ref register `err`, which is raised if an error occurs.
 
     # Our memories and registers, all of which are passed to us by reference.
-    commands = runner.seq_mem_d1("commands", 2, num_cmds, 32, is_ref=True)
+    commands = runner.seq_mem_d1("commands", 3 if use_times else 2, num_cmds, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, num_cmds, 32, is_ref=True)
     ranks = (
         runner.seq_mem_d1("ranks", 32, num_cmds, 32, is_ref=True) if use_ranks else None
@@ -178,7 +178,7 @@ def insert_main(
     dataplane_ans = main.reg(32)
     dataplane_err = main.reg(1)
 
-    commands = main.seq_mem_d1("commands", 3, num_cmds, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 3 if use_times else 2, num_cmds, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
     ranks = (
