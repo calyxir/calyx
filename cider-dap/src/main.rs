@@ -151,7 +151,7 @@ where
 
     // Currently, we need two threads to run the debugger and step through,
     // not sure why but would be good to look into for the future.
-    let thread = &adapter.create_thread(String::from("Main"));
+    let thread = &adapter.create_thread(String::from("Main")); //does not seem as though this does anything
     let thread2 = &adapter.create_thread(String::from("Thread 1"));
 
     // Notify server of first thread
@@ -256,6 +256,8 @@ fn run_server<R: Read, W: Write>(
             }
             // Continue the debugger
             Command::Continue(_args) => {
+                // need to run debugger, ngl not really sure how to implement this functionality
+                // run debugger until breakpoint or paused -> maybe have a process to deal w running debugger?
                 let rsp =
                     req.success(ResponseBody::Continue(ContinueResponse {
                         all_threads_continued: None,
@@ -265,6 +267,7 @@ fn run_server<R: Read, W: Write>(
             // Send a Stopped event with reason Pause
             Command::Pause(args) => {
                 // Get ID before rsp takes ownership
+                // need to communicate pause to debugger
                 let thread_id = args.thread_id;
                 let rsp = req.success(ResponseBody::Pause);
                 // Send response first
