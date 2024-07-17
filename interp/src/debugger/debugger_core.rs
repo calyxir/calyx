@@ -267,7 +267,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     .debugging_context
                     .print_watchpoints(self.interpreter.env()),
                 Command::PrintPC(_override_flag) => {
-                    println!("{}", "PLACEHOLDER".bold().underline().italic());
                     self.interpreter.print_pc();
                 }
 

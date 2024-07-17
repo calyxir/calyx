@@ -37,6 +37,7 @@ use ahash::HashMap;
 use ahash::HashSet;
 use ahash::HashSetExt;
 use itertools::Itertools;
+use owo_colors::OwoColorize;
 use slog::warn;
 use std::fmt::Debug;
 use std::fmt::Write;
@@ -567,7 +568,50 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     pub fn print_pc(&self) {
-        println!("{:?}", self.pc)
+        let current_nodes = self.pc.iter().filter(|point| {
+            let node = &self.ctx.as_ref().primary[point.control_node_idx];
+            match node {
+                ControlNode::Enable(_) | ControlNode::Invoke(_) => {
+                    let comp_go = self.get_comp_go(point.comp);
+                    self.ports[comp_go].as_bool().unwrap_or_default()
+                }
+
+                _ => false,
+            }
+        });
+
+        let ctx = &self.ctx.as_ref();
+
+        for point in current_nodes {
+            let node = &ctx.primary[point.control_node_idx];
+            match node {
+                ControlNode::Enable(x) => {
+                    println!(
+                        "{}::{}",
+                        self.get_full_name(point.comp),
+                        ctx.lookup_name(x.group()).underline()
+                    );
+                }
+                ControlNode::Invoke(x) => {
+                    let invoked_name = match x.cell {
+                        CellRef::Local(l) => self.get_full_name(
+                            &self.cells[point.comp].unwrap_comp().index_bases
+                                + l,
+                        ),
+                        CellRef::Ref(_) => {
+                            "<REF CELLS NOT YET SUPPORTED>".to_string()
+                        }
+                    };
+
+                    println!(
+                        "{}: invoke {}",
+                        self.get_full_name(point.comp),
+                        invoked_name.underline()
+                    );
+                }
+                _ => unreachable!(),
+            }
+        }
     }
 
     fn get_name_from_cell_and_parent(
