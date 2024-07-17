@@ -394,40 +394,57 @@ impl<'b, 'a> Schedule<'b, 'a> {
         builder: &mut ir::Builder,
         used_slicers_vec: &mut [HashMap<u64, RRC<Cell>>],
         fsm_rep: &FSMRepresentation,
-        hardware: (&[RRC<ir::Cell>], &RRC<Cell>),
+        (fsms, signal_on, parents): (
+            &[RRC<ir::Cell>],
+            &RRC<Cell>,
+            &Vec<RRC<Cell>>,
+        ),
         state: &u64,
         fsm_size: &u64,
         distribute: bool,
-    ) -> ir::Guard<Nothing> {
-        let (fsms, signal_on) = hardware;
+    ) -> Vec<ir::Guard<Nothing>> {
+        // get index of the register to query
+        let reg_to_query = register_to_query(
+            *state,
+            fsm_rep.last_state,
+            fsms.len().try_into().unwrap(),
+            distribute,
+        );
+        // isolate the fsm register and the slicers for this fsm
         let (fsm, used_slicers) = {
-            let reg_to_query = register_to_query(
-                *state,
-                fsm_rep.last_state,
-                fsms.len().try_into().unwrap(),
-                distribute,
-            );
             (
-                fsms.get(reg_to_query)
-                    .expect("the register at this index does not exist"),
-                used_slicers_vec
-                    .get_mut(reg_to_query)
-                    .expect("the used slicer map at this index does not exist"),
+                fsms.get(reg_to_query).unwrap(),
+                used_slicers_vec.get_mut(reg_to_query).unwrap(),
             )
+        };
+        // add a guard against the state of the correct parent register, if it exists
+        let (mut parent_guard, state_to_query) = match parents.get(reg_to_query)
+        {
+            None => (Vec::new(), *state),
+            Some(parent_reg) => {
+                let parent_const =
+                    builder.add_constant(reg_to_query.try_into().unwrap(), 1);
+                let parent_guard =
+                    guard!(parent_reg["out"] == parent_const["out"]);
+                (vec![parent_guard], (*state) % 2)
+            }
         };
         match fsm_rep.encoding {
             RegisterEncoding::Binary => {
-                let state_const = builder.add_constant(*state, *fsm_size);
-                let state_guard = guard!(fsm["out"] == state_const["out"]);
+                let state_const =
+                    builder.add_constant(state_to_query, *fsm_size);
+                let mut state_guard =
+                    vec![guard!(fsm["out"] == state_const["out"])];
+                state_guard.extend(parent_guard.drain(..));
                 state_guard
             }
             RegisterEncoding::OneHot => {
-                match used_slicers.get(state) {
+                let mut guard = vec![match used_slicers.get(state) {
                     None => {
                         // construct slicer for this bit query
                         structure!(
                             builder;
-                            let slicer = prim std_bit_slice(*fsm_size, *state, *state, 1);
+                            let slicer = prim std_bit_slice(*fsm_size, state_to_query, state_to_query, 1);
                         );
                         // build wire from fsm to slicer
                         let fsm_to_slicer = builder.build_assignment(
@@ -451,7 +468,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
                             guard!(slicer["out"] == signal_on["out"]);
                         state_guard
                     }
-                }
+                }];
+                guard.extend(parent_guard.drain(..));
+                guard
             }
         }
     }
@@ -460,7 +479,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
     fn build_fsm_infrastructure(
         builder: &mut ir::Builder,
         fsm_rep: &FSMRepresentation,
-    ) -> (Vec<RRC<Cell>>, Option<RRC<Cell>>, RRC<Cell>, u64) {
+    ) -> (Vec<RRC<Cell>>, Vec<RRC<Cell>>, RRC<Cell>, u64) {
         // the number of states that each fsm represents
         let schedule_size = match fsm_rep.spread {
             RegisterSpread::Single | RegisterSpread::Duplicate => {
@@ -480,13 +499,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
         };
 
         // for the given number of fsm registers to read from, add a primitive register to the design for each
-        let mut add_fsm_regs = |prim_name: &str, num_regs: u64| {
+        let mut add_regs = |ident: &str, prim_name: &str, num_regs: u64| {
             (0..num_regs)
                 .map(|n| {
                     let fsm_name = if num_regs == 1 {
-                        "fsm".to_string()
+                        ident.to_string()
                     } else {
-                        format!("fsm{}", n)
+                        format!("{ident}{n}")
                     };
                     builder.add_primitive(
                         fsm_name.as_str(),
@@ -498,7 +517,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
         };
 
         (
-            add_fsm_regs(
+            add_regs(
+                "fsm",
                 match fsm_rep.encoding {
                     RegisterEncoding::Binary => "std_reg",
                     RegisterEncoding::OneHot => "init_one_reg",
@@ -508,12 +528,14 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     RegisterSpread::Duplicate | RegisterSpread::Split => 2,
                 },
             ),
-            match fsm_rep.spread {
-                RegisterSpread::Single | RegisterSpread::Duplicate => None,
-                RegisterSpread::Split => {
-                    Some(builder.add_primitive("tog", "std_reg", &[1]))
-                }
-            },
+            add_regs(
+                "parent",
+                "std_reg",
+                match fsm_rep.spread {
+                    RegisterSpread::Single | RegisterSpread::Duplicate => 0,
+                    RegisterSpread::Split => 1,
+                },
+            ),
             first_state,
             fsm_size,
         )
@@ -542,11 +564,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // build necessary primitives dependent on encoding and spread
         let signal_on = self.builder.add_constant(1, 1);
-        let (fsms, parent_opt, first_state, fsm_size) =
+
+        // parent register only exists if split is selected
+        let (fsms, parents, first_state, fsm_size) =
             Self::build_fsm_infrastructure(self.builder, &fsm_rep);
 
         // get first fsm register
-        let fsm1 = fsms.first().expect("first fsm register does not exist");
+        let fsm1 = fsms.first().unwrap();
 
         // Add last state to JSON info
         let mut states = self.groups_to_states.iter().cloned().collect_vec();
@@ -577,17 +601,21 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .flat_map(|(state, mut assigns)| {
                     // for every assignment dependent on current fsm state, `&` new guard with existing guard
                     // mod state by 2, and check this state plus add a guard for the parent register !!
-                    let state_guard = Self::query_state(
+                    let mut state_guards = Self::query_state(
                         self.builder,
                         &mut used_slicers_vec,
                         &fsm_rep,
-                        (&fsms, &signal_on),
+                        (&fsms, &signal_on, &parents),
                         &state,
                         &fsm_size,
                         true, // by default attempt to distribute across regs if >=2 exist
                     );
                     assigns.iter_mut().for_each(|asgn| {
-                        asgn.guard.update(|g| g.and(state_guard.clone()))
+                        asgn.guard.update(|guard| {
+                            state_guards
+                                .drain(..)
+                                .fold(guard, |g, sg| g.and(sg))
+                        })
                     });
                     assigns
                 }),
@@ -599,11 +627,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
                 // get a transition guard for the first fsm register, and apply it to every fsm register
-                let state_guard = Self::query_state(
+                let state_guards = Self::query_state(
                     self.builder,
                     &mut used_slicers_vec,
                     &fsm_rep,
-                    (&fsms, &signal_on),
+                    (&fsms, &signal_on, &parents),
                     &s,
                     &fsm_size,
                     false, // by default do not distribute transition queries across regs; choose first
@@ -612,22 +640,26 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 // add transitions for every fsm register to ensure consistency between each
                 fsms.iter()
                     .flat_map(|fsm| {
-                        let trans_guard =
-                            state_guard.clone().and(guard.clone());
+                        let trans_guard = state_guards
+                            .clone()
+                            .drain(..)
+                            .fold(guard.clone(), |g, sg| g.and(sg));
+
                         let end_const = match fsm_rep.encoding {
                             RegisterEncoding::Binary => {
                                 self.builder.add_constant(e, fsm_size)
                             }
-                            RegisterEncoding::OneHot => {
-                                self.builder.add_constant(
-                                    u64::pow(
-                                        2,
-                                        e.try_into()
-                                            .expect("failed to convert to u32"),
+                            RegisterEncoding::OneHot => self
+                                .builder
+                                .add_constant(
+                                u64::pow(
+                                    2,
+                                    e.try_into().expect(
+                                        "can't use one-hot encoding due to too many states: failed to convert to u32",
                                     ),
-                                    fsm_size,
-                                )
-                            }
+                                ),
+                                fsm_size,
+                            ),
                         };
                         let ec_borrow = end_const.borrow();
                         vec![
@@ -647,13 +679,26 @@ impl<'b, 'a> Schedule<'b, 'a> {
             }),
         );
 
+        // build transition assignments for all parent registers
+        group
+            .borrow_mut()
+            .assignments
+            .extend(parents.iter().flat_map(|parent| {
+                let zero_const = self.builder.add_constant(0, 1);
+                let parent_guard = guard!(parent["out"] == zero_const["out"]);
+                build_assignments!(self.builder;
+                    parent["in"] = parent_guard ? signal_on["out"];
+                    parent["write_en"] = parent_guard ? signal_on["out"];
+                )
+            }));
+
         // done condition for group
         // arbitrarily look at first fsm register, since all are identical
-        let first_fsm_last_guard = Self::query_state(
+        let mut first_fsm_last_guard = Self::query_state(
             self.builder,
             &mut used_slicers_vec,
             &fsm_rep,
-            (&fsms, &signal_on),
+            (&fsms, &signal_on, &parents),
             &fsm_rep.last_state,
             &fsm_size,
             false,
@@ -662,7 +707,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let done_assign = self.builder.build_assignment(
             group.borrow().get("done"),
             signal_on.borrow().get("out"),
-            first_fsm_last_guard.clone(),
+            first_fsm_last_guard
+                .drain(..)
+                .fold(ir::Guard::True, |g, lg| g.and(lg)),
         );
 
         group.borrow_mut().assignments.push(done_assign);
@@ -676,11 +723,14 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     self.builder,
                     &mut used_slicers_vec,
                     &fsm_rep,
-                    (&fsms, &signal_on),
+                    (&fsms, &signal_on, &parents),
                     &fsm_rep.last_state,
                     &fsm_size,
                     false,
-                );
+                )
+                .drain(..)
+                .fold(ir::Guard::True, |g, lg| g.and(lg));
+
                 let reset_fsm = build_assignments!(self.builder;
                     fsm["in"] = fsm_last_guard ? first_state["out"];
                     fsm["write_en"] = fsm_last_guard ? signal_on["out"];
