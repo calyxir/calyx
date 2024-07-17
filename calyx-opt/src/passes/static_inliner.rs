@@ -234,11 +234,9 @@ impl StaticInliner {
                     }
                 }
                 false
-                // again we don't have to check because we will check this later
-                // on in inline_static_control
-                // stmts
-                //     .iter()
-                //     .any(|stmt| Self::have_overlapping_repeats(stmt))
+                // We don't have to check this
+                // stmts.iter().any(|stmt| Self::have_overlapping_repeats(stmt))
+                // because we will check this later on.
             }
 
             ir::StaticControl::If(ir::StaticIf {
@@ -270,6 +268,7 @@ impl StaticInliner {
 
     // inlines the static control `sc` and returns an equivalent single static group
     fn inline_static_control(
+        &self,
         sc: &ir::StaticControl,
         builder: &mut ir::Builder,
     ) -> ir::RRC<ir::StaticGroup> {
@@ -292,7 +291,7 @@ impl StaticInliner {
                     let stmt_latency = stmt.get_latency();
                     // first recursively call each stmt in seq, and turn each stmt
                     // into static group g.
-                    let g = StaticInliner::inline_static_control(stmt, builder);
+                    let g = self.inline_static_control(stmt, builder);
                     assert!(
                         g.borrow().get_latency() == stmt_latency,
                         "static group latency doesn't match static stmt latency"
@@ -386,8 +385,7 @@ impl StaticInliner {
                         .get(&threads_to_colors[&index])
                         .expect("coloring has gone wrong somehow");
                     // recursively turn each stmt in the par block into a group g
-                    let stmt_group =
-                        StaticInliner::inline_static_control(stmt, builder);
+                    let stmt_group = self.inline_static_control(stmt, builder);
                     assert!(
                         stmt_group.borrow().get_latency() == stmt_latency,
                         "static group latency doesn't match static stmt latency"
@@ -498,8 +496,7 @@ impl StaticInliner {
 
                 // Inline assignments in tbranch and fbranch, and get resulting
                 // tgroup_assigns and fgroup_assigns
-                let tgroup =
-                    StaticInliner::inline_static_control(tbranch, builder);
+                let tgroup = self.inline_static_control(tbranch, builder);
                 let mut tgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                     tgroup.borrow_mut().assignments.clone();
                 assert_eq!(
@@ -512,9 +509,8 @@ impl StaticInliner {
                     match **fbranch {
                         ir::StaticControl::Empty(_) => vec![],
                         _ => {
-                            let fgroup = StaticInliner::inline_static_control(
-                                fbranch, builder,
-                            );
+                            let fgroup =
+                                self.inline_static_control(fbranch, builder);
                             assert_eq!(fbranch_latency, fgroup.borrow().get_latency(), "false branch and false branch group latency do not match");
                             let fgroup_assigns: Vec<
                                 ir::Assignment<ir::StaticTiming>,
@@ -615,8 +611,7 @@ impl StaticInliner {
                 let repeat_group =
                     builder.add_static_group("static_repeat", *latency);
                 // turn body into a group body_group by recursively calling inline_static_control
-                let body_group =
-                    StaticInliner::inline_static_control(body, builder);
+                let body_group = self.inline_static_control(body, builder);
                 assert_eq!(*latency, (num_repeats * body_group.borrow().get_latency()), "latency of static repeat is not equal to num_repeats * latency of body");
                 // the assignments in the repeat group should simply trigger the
                 // body group. So the static group will literally look like:
@@ -652,8 +647,7 @@ impl Visitor for StaticInliner {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        let replacement_group =
-            StaticInliner::inline_static_control(s, &mut builder);
+        let replacement_group = self.inline_static_control(s, &mut builder);
         Ok(Action::Change(Box::new(ir::Control::from(
             ir::StaticControl::from(replacement_group),
         ))))
