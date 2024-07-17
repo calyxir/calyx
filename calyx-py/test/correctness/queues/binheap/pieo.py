@@ -37,7 +37,7 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
     not_maxed = pieo.le_use(num_elements.out, queue_len)
     not_minned = pieo.ge_use(num_elements.out, 0)
 
-    #REGISTERS FOR QUERYING
+    #Querying register/memory components
 
     queue_index = pieo.reg(32) #Tracker while scanning through heap
     replace_tracker = pieo.reg(32) #Loop counter while writing elements back into heap
@@ -63,26 +63,23 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
 
     replace_count_peek = pieo.lt_use(replace_tracker.out, queue_index.out) #Push back all popped elements
     replace_count_pop = pieo.lt_use(replace_tracker.out, queue_index.out) #Don't push back the latest popped element
-
-    #Memory cells for querying
+    
+    #Memory cells for cached values, times and ranks
     cached_data = [
-        pieo.seq_mem_d1(f"cached_vals", 32, queue_len, 32),
-        pieo.seq_mem_d1(f"cached_times", 32, queue_len, 32),
-        pieo.seq_mem_d1(f"cached_ranks", 32, queue_len, 32)
+        pieo.seq_mem_d1(f"cached_{i}", 32, queue_len, 32)
+        for i in range(3)
     ]
 
-    #Cache data
+    #Operations to cache values, times and ranks
     cache_data = [
-        pieo.mem_store_d1(cached_data[0], queue_index.out, val_ans.out, f"cache_vals"),
-        pieo.mem_store_d1(cached_data[1], queue_index.out, ready_time.out, f"cache_times"),
-        pieo.mem_store_d1(cached_data[2], queue_index.out, rank_ans.out, f"cache_ranks")
+        pieo.mem_store_d1(cached_data[i], queue_index.out, val_ans.out, f"cache_{i}")
+        for i in range(3)
     ]
 
-    #Load Cached Data
+    #Load cached values, times and ranks
     load_cached_data = [
-        pieo.mem_load_d1(cached_data[0], replace_tracker.out, cached_val, f"load_cached_val"),
-        pieo.mem_load_d1(cached_data[1], replace_tracker.out, cached_time, f"load_cached_time"),
-        pieo.mem_load_d1(cached_data[2], replace_tracker.out, cached_rank, f"load_cached_rank")
+        pieo.mem_load_d1(cached_data[i], replace_tracker.out, cached_val, f"load_cached{i}")
+        for i in range(3)
     ]
 
     #Increment trackers
@@ -171,7 +168,9 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
             ]),
 
             cb.while_with (
-                cb.CellAndGroup(while_and_val, time_pop_guard) if include_value else cb.CellAndGroup(while_and, time_pop_guard),
+                cb.CellAndGroup(while_and_val, time_pop_guard)
+                if include_value
+                else cb.CellAndGroup(while_and, time_pop_guard),
                 cb.seq([
                     cb.par([
                         cb.invoke(
@@ -181,13 +180,17 @@ def insert_pieo(prog, name, val_queue, time_queue, rank_queue, queue_len, stats=
                             in_cmd=cb.const(32, 0), #Pop from queue
                             ref_ans=ans,
                             ref_err=err)
-                        for (q, ans) in ((val_queue, val_ans), (time_queue, ready_time), (rank_queue, rank_ans))
+                        for (q, ans) in
+                        ((val_queue, val_ans), (time_queue, ready_time), (rank_queue, rank_ans))
                     ])
                 ] + cache_data + [incr_queue_idx])
             ),
 
             #If the correct element was found, write it to ans_mem
-            cb.if_with((cb.CellAndGroup(val_time_and, time_pop_guard) if include_value else cb.CellAndGroup(time_le, time_pop_guard)),
+            cb.if_with((
+                cb.CellAndGroup(val_time_and, time_pop_guard)
+                if include_value
+                else cb.CellAndGroup(time_le, time_pop_guard)),
                 cb.seq([
                     pieo.reg_store(ans, val_ans.out),
                     pieo.reg_store(err, cb.const(1, 1))
