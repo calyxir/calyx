@@ -464,35 +464,29 @@ impl CompileStatic {
     fn get_interval_from_guard(
         g: &ir::Guard<ir::StaticTiming>,
         lat: u64,
-    ) -> Option<(u64, u64)> {
+    ) -> (u64, u64) {
         match g {
             calyx_ir::Guard::Info(static_timing_interval) => {
-                Some(static_timing_interval.get_interval())
+                static_timing_interval.get_interval()
             }
             calyx_ir::Guard::Not(_)
             | calyx_ir::Guard::CompOp(_, _, _)
             | calyx_ir::Guard::Port(_)
-            | calyx_ir::Guard::True => Some((0, lat)),
+            | calyx_ir::Guard::True => (0, lat),
             calyx_ir::Guard::And(l, r) => {
-                match (
+                let ((beg1, end1), (beg2, end2)) = (
                     Self::get_interval_from_guard(l, lat),
                     Self::get_interval_from_guard(r, lat),
-                ) {
-                    (None, Some(x)) | (Some(x), None) => Some(x),
-                    (None, None) => {
-                        panic!("neither option")
-                    }
-                    (Some((beg1, end1)), Some((beg2, end2))) => {
-                        assert!(end1 - beg1 == lat || end2 - beg2 == lat);
-                        if end1 - beg1 == lat {
-                            Some((beg2, end2))
-                        } else {
-                            Some((beg1, end1))
-                        }
-                    }
+                );
+                assert!(end1 - beg1 == lat || end2 - beg2 == lat);
+                if end1 - beg1 == lat {
+                    (beg2, end2)
+                } else {
+                    (beg1, end1)
                 }
+
             }
-            ir::Guard::Or(_, _) => panic!(""),
+            ir::Guard::Or(_, _) => unreachable!("Shouldn't try to get interval from guard if there is an 'or' in the guard"),
         }
     }
 
@@ -529,8 +523,7 @@ impl CompileStatic {
                     let (beg, end) = Self::get_interval_from_guard(
                         &assign.guard,
                         target_group.borrow().get_latency(),
-                    )
-                    .expect("couldn't get interval from guard");
+                    );
                     let name: calyx_ir::Id =
                         sgroup.upgrade().borrow().name().clone();
                     // Need the following lines to determine `num_repeats`
@@ -659,12 +652,11 @@ impl CompileStatic {
                 PortParent::Group(_) => panic!(""),
                 PortParent::StaticGroup(sgroup) => {
                     assert!(assign.src.borrow().is_constant(1, 1));
-                    let x = Self::get_interval_from_guard(
+                    let (beg, end) = Self::get_interval_from_guard(
                         &assign.guard,
                         target_group.borrow().get_latency(),
                     );
-                    let (beg, end) =
-                        x.expect("couldn't get interval from guard");
+
                     let name: calyx_ir::Id =
                         sgroup.upgrade().borrow().name().clone();
                     children_vec.push((

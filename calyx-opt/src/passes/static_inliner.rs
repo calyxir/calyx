@@ -145,6 +145,13 @@ impl StaticInliner {
         cond_assigns
     }
 
+    // Given a static control block `sc`, and the current latency returns a
+    // vec of tuples (i,j) which represents all of the intervals for which
+    // the corresponding fsm will be offloading.
+    // There are two scenarios in which we offload:
+    //   1) We offload for all static repeat bodies.
+    //   2) If there is a static par in which different threads have overlapping
+    //      offloads, then we offload the entire static par.
     fn get_offload_latencies(
         sc: &ir::StaticControl,
         cur_latency: u64,
@@ -164,9 +171,13 @@ impl StaticInliner {
             }
             ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
                 let mut res = vec![];
+                // If the current static par has overlapping offload intervals,
+                // then push the entire par.
                 if Self::have_overlapping_offloads(sc) {
                     res.push((cur_latency, cur_latency + sc.get_latency()))
                 } else {
+                    // Othwerwise just recursively look into each statement
+                    // for possible offloads.
                     for stmt in stmts {
                         res.extend(Self::get_offload_latencies(
                             stmt,
@@ -193,13 +204,6 @@ impl StaticInliner {
                     cur_latency,
                     cur_latency + num_repeats * body.get_latency(),
                 )];
-                // Ths commented code is unnecessary since we only care about
-                // intersections, and the above interval covers all intersections.
-                // let mut lat = cur_latency;
-                // for _ in 0..*num_repeats {
-                //     res.extend(Self::get_repeat_latencies(&body, lat));
-                //     lat += cur_latency;
-                // }
                 res
             }
             ir::StaticControl::Invoke(inv) => {
@@ -209,6 +213,11 @@ impl StaticInliner {
         }
     }
 
+    // Checks whether a given static control block `sc` contains a static
+    // par in which different threads have overlapping offload intervals.
+    // Note that this only checks one layer of nesting once it finds a static par.
+    // So if you want to check a deeper layer of nesting you have to call this
+    // function again on the nested static par.
     fn have_overlapping_offloads(sc: &ir::StaticControl) -> bool {
         match sc {
             ir::StaticControl::Enable(_) | ir::StaticControl::Empty(_) => false,
@@ -216,6 +225,8 @@ impl StaticInliner {
                 .iter()
                 .any(|stmt| Self::have_overlapping_offloads(stmt)),
             ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                // For each thread, add vec of offload intervals to the vec.
+                // So we have a vec of (vec of tuples/intervals)
                 let intervals: Vec<_> = stmts
                     .iter()
                     .map(|stmt| Self::get_offload_latencies(stmt, 0))
@@ -238,7 +249,6 @@ impl StaticInliner {
                 // stmts.iter().any(|stmt| Self::have_overlapping_repeats(stmt))
                 // because we will check this later on.
             }
-
             ir::StaticControl::If(ir::StaticIf {
                 tbranch, fbranch, ..
             }) => {
@@ -255,6 +265,9 @@ impl StaticInliner {
         }
     }
 
+    // Increases the latency of static group `sg` to `new_lat`.
+    // `new_lat` must be longer than the existing latency.
+    // Useful to make `static par` threads all have the same latency.
     fn increase_sgroup_latency(sg: ir::RRC<ir::StaticGroup>, new_lat: u64) {
         assert!(
             new_lat >= sg.borrow().get_latency(),
@@ -331,6 +344,8 @@ impl StaticInliner {
                 attributes,
             }) => {
                 if !self.offload_pause {
+                    // If we don't pause on offload, we can just do things
+                    // conventionally, similar to static seq.
                     let par_group =
                         builder.add_static_group("static_par", *latency);
                     let mut par_group_assigns: Vec<
@@ -365,8 +380,14 @@ impl StaticInliner {
                     par_group.borrow_mut().attributes = attributes.clone();
                     par_group
                 } else {
+                    // We build a conflict graph to figure out which
+                    // `static par` threads can share an FSM (they can do so
+                    // so long as their offloads to not overlap).
+                    // The threads are reprented by the index of the thread in
+                    // `stmts`.
                     let mut conflict_graph: GraphColoring<usize> =
                         GraphColoring::from(0..stmts.len());
+                    // Getting the offload intervals for each thread.
                     let offload_interval_info = stmts
                         .iter()
                         .map(|stmt| Self::get_offload_latencies(stmt, 0))
@@ -378,12 +399,16 @@ impl StaticInliner {
                             for &(start2, end2) in intervals2.iter() {
                                 if (start2 <= end1 && end1 <= end2)
                                     || (start1 <= end2 && end2 <= end1)
+                                    || (start2 <= start1 && end1 <= end2)
                                 {
+                                    // If intervals overlap then insert conflict.
                                     conflict_graph.insert_conflict(&i, &j);
                                 }
                             }
                         }
                     }
+                    // Now we must "reverse" the coloring from threads->colors
+                    // to colors->thread so we can group all threds together.
                     let threads_to_colors =
                         conflict_graph.color_greedy(None, true);
                     let mut colors_to_threads: BTreeMap<usize, Vec<_>> =
@@ -394,6 +419,8 @@ impl StaticInliner {
                             .or_default()
                             .push(thread);
                     }
+                    // Need to know the latency of each color (i.e., the
+                    // maximum latency among all threads of that color.)
                     let colors_to_latencies: BTreeMap<usize, u64> =
                         colors_to_threads
                             .into_iter()
@@ -414,6 +441,9 @@ impl StaticInliner {
                             })
                             .collect();
 
+                    // Threads maps colors to the assignments corresponding to the
+                    // color (i.e., the assignments corresponding to the color's
+                    // group of threads.)
                     let mut threads: BTreeMap<
                         usize,
                         Vec<ir::Assignment<ir::StaticTiming>>,
@@ -427,11 +457,14 @@ impl StaticInliner {
                         let stmt_group =
                             self.inline_static_control(stmt, builder);
                         assert!(
-                        stmt_group.borrow().get_latency() == stmt_latency,
-                        "static group latency doesn't match static stmt latency"
-                    );
+                            stmt_group.borrow().get_latency() == stmt_latency,
+                            "static group latency doesn't match static stmt latency"
+                        );
                         let mut group_assigns =
                             stmt_group.borrow().assignments.clone();
+                        // If we are combining threads with uneven latencies, then
+                        // for the smaller threads we have to add an implicit guard from
+                        // %[0:smaller latency].
                         if stmt_latency < color_latency {
                             group_assigns.iter_mut().for_each(|assign| {
                                 assign.guard.add_interval(StaticTiming::new((
@@ -461,10 +494,12 @@ impl StaticInliner {
                         .collect_vec();
 
                     if groups.len() == 1 {
+                        // If we only have one group, no need for a wrapper.
                         let par_group = groups.pop().unwrap();
                         par_group.borrow_mut().attributes = attributes.clone();
                         par_group
                     } else {
+                        // We need a wrapper to fire off each thread independently.
                         let par_group =
                             builder.add_static_group("static_par", *latency);
                         let mut par_group_assigns: Vec<
