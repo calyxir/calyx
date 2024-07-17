@@ -25,8 +25,11 @@ pub struct CompileStatic {
     /// maps reset_early_group names to (fsm == 0, final_fsm_state);
     fsm_info_map:
         HashMap<ir::Id, (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>)>,
+
+    /// Command line arguments:
     /// cutoff for one hot encoding
     one_hot_cutoff: u64,
+    offload_pause: bool,
 }
 
 impl Named for CompileStatic {
@@ -45,7 +48,15 @@ impl Named for CompileStatic {
             encoding over one-hot. Defaults to 0 (i.e., always choose binary encoding)",
             ParseVal::Num(0),
             PassOpt::parse_num,
-        )]
+        ),
+        PassOpt::new(
+            "offload-pause",
+            "Whether to pause the static FSM when offloading",
+            ParseVal::Bool(false),
+            PassOpt::parse_bool,
+        )
+
+        ]
     }
 }
 
@@ -55,6 +66,7 @@ impl ConstructVisitor for CompileStatic {
 
         Ok(CompileStatic {
             one_hot_cutoff: opts["one-hot-cutoff"].pos_num().unwrap(),
+            offload_pause: opts["offload-pause"].bool(),
             reset_early_map: HashMap::new(),
             wrapper_map: HashMap::new(),
             signal_reg_map: HashMap::new(),

@@ -1,16 +1,20 @@
 use crate::analysis::GraphColoring;
 use crate::passes::math_utilities::get_bit_width_from;
-use crate::traversal::{Action, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::structure;
 use calyx_ir::LibrarySignatures;
 use calyx_ir::{self as ir, StaticTiming};
+use calyx_utils::CalyxResult;
 use ir::build_assignments;
 use itertools::Itertools;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-#[derive(Default)]
-pub struct StaticInliner;
+pub struct StaticInliner {
+    offload_pause: bool,
+}
 
 impl Named for StaticInliner {
     fn name() -> &'static str {
@@ -20,6 +24,27 @@ impl Named for StaticInliner {
     fn description() -> &'static str {
         "Compiles Static Control into a single Static Enable"
     }
+
+    fn opts() -> Vec<PassOpt> {
+        vec![PassOpt::new(
+            "offload-pause",
+            "Whether to pause the static FSM when offloading",
+            ParseVal::Bool(false),
+            PassOpt::parse_bool,
+        )]
+    }
+}
+
+impl ConstructVisitor for StaticInliner {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
+        let opts = Self::get_opts(ctx);
+
+        Ok(StaticInliner {
+            offload_pause: opts["offload-pause"].bool(),
+        })
+    }
+
+    fn clear_data(&mut self) {}
 }
 
 impl StaticInliner {
