@@ -13,8 +13,10 @@ use super::GraphColoring;
 /// Because of the tree structure, %[i:j] is no longer is always equal to i <= fsm < j.
 /// Offload(i) means the FSM is offloading when fsm == i: so if the fsm == i,
 /// we need to look at the children to know what cycle we are in exactly.
-/// Normal(i,j) means the FSM is outputing (i..j), incrementing each cycle
-/// and not offloading.
+/// Normal(i,j) means the FSM is outputing (i..j), incrementing each cycle (i.e.,
+/// like normal) and not offloading. Note that even though the FSM is outputting
+/// i..j each cycle, that does not necesarily mean we are in cycles i..j (due
+/// to offloading performed in the past.)
 #[derive(Debug)]
 pub enum StateType {
     Normal((u64, u64)),
@@ -23,13 +25,14 @@ pub enum StateType {
 
 /// Node can either be a SingleNode (i.e., a single node) or ParNodes (i.e., a group of
 /// nodes that are executing in parallel).
+/// Most methods in `Node` simply call the equivalent methods for each
+/// of the two possible variants. Perhaps could be more compactly implemented
+/// as a Trait, but enums have their benefits too.
 pub enum Node {
     Single(SingleNode),
     Par(ParNodes),
 }
 
-// Most methods in `Node` simply call the equivalent methods for each
-// of the two possible variants.
 // The following methods are used to actually instantiate the FSMTree structure
 // and compile static groups/control to dynamic groups/control.
 impl Node {
@@ -90,6 +93,7 @@ impl Node {
     /// details.
     pub fn realize(
         &mut self,
+        ignore_timing_guards: bool,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
         fsm_info_map: &mut HashMap<
@@ -101,6 +105,7 @@ impl Node {
     ) {
         match self {
             Node::Single(single_node) => single_node.realize(
+                ignore_timing_guards,
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
@@ -108,6 +113,7 @@ impl Node {
                 builder,
             ),
             Node::Par(par_nodes) => par_nodes.realize(
+                ignore_timing_guards,
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
@@ -131,36 +137,6 @@ impl Node {
                 single_node.query_between(query, builder)
             }
             Node::Par(par_nodes) => par_nodes.query_between(query, builder),
-        }
-    }
-
-    /// Transforms static assignments in `static_groups` to an equivalent dynamic
-    /// assignments (and inserts them into a dynamic group.)
-    /// Only changes the type of the assignment: does *not* do query translation.
-    /// Therefore, you should only call this method if you know it is safe
-    /// to ignore all %[i:j] assignments.
-    /// `reset_early_map` and `group_rewrites` are simply data structures for
-    /// keeping track of the mapping between equivalent static and dynamic groups.
-    pub fn convert_assignments_type(
-        &mut self,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
-        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
-        builder: &mut ir::Builder,
-    ) {
-        match self {
-            Node::Single(single_node) => single_node.convert_assignments_type(
-                static_groups,
-                reset_early_map,
-                group_rewrites,
-                builder,
-            ),
-            Node::Par(par_nodes) => par_nodes.convert_assignments_type(
-                static_groups,
-                reset_early_map,
-                group_rewrites,
-                builder,
-            ),
         }
     }
 }
@@ -363,7 +339,7 @@ impl SingleNode {
     /// Instantiates the necessary registers.
     /// Because we share FSM registers, it's possible that this register has already
     /// been instantiated.
-    /// Therefore we take in:
+    /// Therefore we take in a bunch of data structures to keep track of coloring:
     ///   - `coloring` that maps group names -> colors,
     ///   - `colors_to_max_values` which maps colors -> (max latency, max_num_repeats)
     ///   (we need to make sure that when we instantiate a color,
@@ -377,7 +353,7 @@ impl SingleNode {
     /// Note that it is not always necessary to instantiate one or both registers (e.g.,
     /// if num_repeats == 1 then you don't need an iter_count_register).
     ///
-    /// One hot cutoff is the cutoff to choose between binary and one hot encoding.
+    /// `one_hot_cutoff` is the cutoff to choose between binary and one hot encoding.
     /// Any number of states greater than the cutoff will get binary encoding.
     fn instantiate_fsms(
         &mut self,
@@ -414,7 +390,6 @@ impl SingleNode {
                         encoding,
                         builder,
                     ));
-                    // fsm_opt = Some(Rc::clone(&fsm_cell));
                     self.fsm_cell = Some(fsm_cell);
                 }
                 // Only need a `self.iter_count_cell` if num_states > 1.
@@ -429,7 +404,6 @@ impl SingleNode {
                         encoding,
                         builder,
                     ));
-                    // repeat_opt = Some(Rc::clone(&repeat_counter));
                     self.iter_count_cell = Some(repeat_counter);
                 }
 
@@ -501,10 +475,10 @@ impl SingleNode {
                 .collect();
 
             // There are two conditions under which we increment the FSM.
-            // 1) We are NOT in an offload state
-            // 2) We ARE in an offload state, but the child being offloaded
+            // 1) Increment when we are NOT in an offload state
+            // 2) Increment when we ARE in an offload state, but the child being offloaded
             // is in its final state. (intuitively, we need to increment because
-            // we know the control is being passed to the parent in the next cycle).
+            // we know the control is being passed back to parent in the next cycle).
 
             let parent_fsm = Rc::clone(
                 &self
@@ -512,144 +486,38 @@ impl SingleNode {
                     .as_mut()
                     .expect("should have set self.fsm_cell"),
             );
+
             // Build an adder to increment the parent fsm.
             let (adder_asssigns, adder) =
                 parent_fsm.borrow_mut().build_incrementer(builder);
             res_vec.extend(adder_asssigns);
 
-            // Handle situation 1): increment when we are NOT in an offload state
-            // if the offload states are 2, 4, and 6., then
-            // offload_state_guard = fsm == 2 | fsm == 4 | fsm == 6
-            // We should increment when !(offload_states), i.e.,
-            // !(fsm == 2 | fsm == 4 | fsm == 6).
-            let mut offload_state_guard: ir::Guard<Nothing> =
-                ir::Guard::Not(Box::new(ir::Guard::True));
-            for offload_state in &offload_states {
-                // Creating a guard that checks whether the parent fsm is
-                // in an offload state.
-                offload_state_guard.update(|g| {
-                    g.or(*parent_fsm.borrow_mut().query_between(
-                        builder,
-                        (*offload_state, offload_state + 1),
-                    ))
-                });
-            }
-            let not_offload_state = offload_state_guard.not();
-
-            let mut incr_guard = not_offload_state;
-
-            // If incr_start_cond.is_some(), then we have to specially take into
-            // account this scenario when incrementing the FSM.
-            if let Some(g) = incr_start_cond.clone() {
-                // If we offload during the transition from cycle 0->1 transition
-                // then we don't need a special first transition guard.
-                // (we will make sure the child will add this guard when
-                // it is counting to n.)
-                if let Some(((beg, end), state_type)) =
-                    self.fsm_schedule.iter().next()
-                {
-                    if !(matches!(state_type, StateType::Offload(_))
-                        && *beg == 0
-                        && *end > 1)
-                    {
-                        let first_state = self.get_fsm_query((0, 1), builder);
-                        // We must handle the 0->1 transition separately.
-                        // fsm.in = fsm == 0 & incr_start_cond ? fsm + 1;
-                        // fsm.write_en = fsm == 0 & incr_start_cond ? 1'd1;
-                        res_vec.extend(
-                            parent_fsm.borrow_mut().conditional_increment(
-                                first_state.clone().and(g),
-                                Rc::clone(&adder),
-                                builder,
-                            ),
-                        );
-                        // We also have to add fsm != 0 to incr_guard since
-                        // we have just added assignments to handle this situation
-                        // separately
-                        incr_guard = incr_guard.and(first_state.not())
-                    }
-                }
-            };
-
-            // We shouldn't increment when we are in the final state
-            // (we should be resetting instead).
-            // So we need to `& !in_final_state` to the guard.
-            let final_fsm_state =
-                self.get_fsm_query((self.latency - 1, self.latency), builder);
-            let not_final_state = final_fsm_state.clone().not();
-
-            // However, if the final state is an offload state, then there's no need
-            // to make this extra check of not being in the last state.
-            if let Some((_, (_, end_final_child))) = self.children.last() {
-                // If the final state is not an offload state, then
-                // we need to add this check.
-                if !(*end_final_child == self.latency) {
-                    incr_guard = incr_guard.and(not_final_state);
-                }
-            } else {
-                // Also, if there is just no offloading, then we need to add this check.
-                incr_guard = incr_guard.and(not_final_state);
-            };
-
-            // Conditionally increment based on `incr_guard`
-            res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
-                incr_guard,
+            // Handle situation 1). Increment when we are NOT in an offload state
+            res_vec.extend(self.increment_if_not_offloading(
+                incr_start_cond.clone(),
+                &offload_states,
                 Rc::clone(&adder),
+                Rc::clone(&parent_fsm),
+                builder,
+            ));
+
+            // Handle situation 2): Increment when we ARE in an offload state
+            // but the child being offloaded is in its final state.
+            res_vec.extend(self.increment_if_child_final_state(
+                &offload_states,
+                adder,
+                Rc::clone(&parent_fsm),
                 builder,
             ));
 
             // Reset the FSM when it is at its final fsm_state.
+            let final_fsm_state =
+                self.get_fsm_query((self.latency - 1, self.latency), builder);
             res_vec.extend(
                 parent_fsm
                     .borrow_mut()
-                    .conditional_reset(final_fsm_state.clone(), builder),
+                    .conditional_reset(final_fsm_state, builder),
             );
-
-            // Now handle situation 2):
-            // We ARE in an offload state, but the child being offloaded is in its final state.
-            for (i, (child, (_, end))) in self
-                .children
-                .iter_mut()
-                // If child only lasts a single cycle, then we can just unconditionally increment.
-                // We handle that case above (since `offload_states` only includes children that
-                // last more than one cycle).
-                .filter(|(_, (beg, end))| beg + 1 != *end)
-                .enumerate()
-            {
-                // We need to increment parent when child is in final state.
-                // For example, if the parent is offloading at state 5, then the
-                // guard would look like
-                // fsm.in = fsm == 5 && child_fsm_in_final_state ? fsm + 1;
-                // fsm.write_en == 5 && child_fsm_in_final_state ? 1'd1;
-
-                // The one exception:
-                // If the offload state is the last state (end == self.latency) then we don't
-                // increment, we need to reset to 0: we have already handled that case above.
-                if *end != self.latency {
-                    // We know each offload state corresponds to exactly one child.
-                    let child_state = offload_states[i];
-                    // Checking that we are in child state, e.g., `(fsm == 5)`
-                    // in the above example.
-                    let in_child_state = parent_fsm
-                        .borrow_mut()
-                        .query_between(builder, (child_state, child_state + 1));
-                    // now we need to check `child_fsm_in_final_state`
-                    let total_child_latency =
-                        child.get_latency() * child.get_num_repeats();
-                    let child_final_state = child.query_between(
-                        (total_child_latency - 1, total_child_latency),
-                        builder,
-                    );
-                    // Conditionally increment when `fsm==5 & child_final_state`
-                    let parent_fsm_incr =
-                        parent_fsm.borrow_mut().conditional_increment(
-                            in_child_state.and(child_final_state),
-                            Rc::clone(&adder),
-                            builder,
-                        );
-                    res_vec.extend(parent_fsm_incr);
-                }
-            }
         }
 
         // If self.num_states > 1, then it's guaranteed that self.latency > 1.
@@ -674,13 +542,10 @@ impl SingleNode {
         if self.num_repeats != 1 {
             // If self.latency == 10, then we should increment the self.iter_count_cell
             // each time fsm == 9, i.e., `final_fsm_state`.
-            let final_fsm_state = if self.latency == 1 {
-                ir::Guard::True
-            } else {
-                // Getting final state for the parent fsm.
-                self.get_fsm_query((self.latency - 1, self.latency), builder)
-            };
+            let final_fsm_state =
+                self.get_fsm_query((self.latency - 1, self.latency), builder);
 
+            // `repeat_fsm` store number of iterations.
             let repeat_fsm = Rc::clone(
                 &self
                     .iter_count_cell
@@ -715,16 +580,170 @@ impl SingleNode {
         self.root.1.extend(res_vec);
     }
 
+    /// Helper to `count_to_n`
+    /// Increment when we are NOT in an offload state
+    /// e.g., if `offload_states` == [2,4,6] then
+    /// We should increment when !(fsm == 2 | fsm == 4 | fsm == 6).
+    /// There are a couple corner cases we need to think about (in particular,
+    /// we should guard the 0->1 transition differently if `incr_start_cond` is
+    /// true, and we should reset rather than increment when we are in the final
+    /// fsm state).
+    fn increment_if_not_offloading(
+        &mut self,
+        incr_start_cond: Option<ir::Guard<Nothing>>,
+        offload_states: &[u64],
+        adder: ir::RRC<ir::Cell>,
+        parent_fsm: ir::RRC<StaticFSM>,
+        builder: &mut ir::Builder,
+    ) -> Vec<ir::Assignment<Nothing>> {
+        let mut res_vec = vec![];
+        let mut offload_state_guard: ir::Guard<Nothing> =
+            ir::Guard::Not(Box::new(ir::Guard::True));
+        for offload_state in offload_states {
+            // Creating a guard that checks whether the parent fsm is
+            // in an offload state.
+            offload_state_guard.update(|g| {
+                g.or(*parent_fsm.borrow_mut().query_between(
+                    builder,
+                    (*offload_state, offload_state + 1),
+                ))
+            });
+        }
+        let not_offload_state = offload_state_guard.not();
+
+        let mut incr_guard = not_offload_state;
+
+        // If incr_start_cond.is_some(), then we have to specially take into
+        // account this scenario when incrementing the FSM.
+        if let Some(g) = incr_start_cond.clone() {
+            // If we offload during the transition from cycle 0->1 transition
+            // then we don't need a special first transition guard.
+            // (we will make sure the child will add this guard when
+            // it is counting to n.)
+            if let Some(((beg, end), state_type)) =
+                self.fsm_schedule.iter().next()
+            {
+                if !(matches!(state_type, StateType::Offload(_))
+                    && *beg == 0
+                    && *end > 1)
+                {
+                    let first_state = self.get_fsm_query((0, 1), builder);
+                    // We must handle the 0->1 transition separately.
+                    // fsm.in = fsm == 0 & incr_start_cond ? fsm + 1;
+                    // fsm.write_en = fsm == 0 & incr_start_cond ? 1'd1;
+                    res_vec.extend(
+                        parent_fsm.borrow_mut().conditional_increment(
+                            first_state.clone().and(g),
+                            Rc::clone(&adder),
+                            builder,
+                        ),
+                    );
+                    // We also have to add fsm != 0 to incr_guard since
+                    // we have just added assignments to handle this situation
+                    // separately
+                    incr_guard = incr_guard.and(first_state.not())
+                }
+            }
+        };
+
+        // We shouldn't increment when we are in the final state
+        // (we should be resetting instead).
+        // So we need to `& !in_final_state` to the guard.
+        let final_fsm_state =
+            self.get_fsm_query((self.latency - 1, self.latency), builder);
+        let not_final_state = final_fsm_state.not();
+
+        // However, if the final state is an offload state, then there's no need
+        // to make this extra check of not being in the last state.
+        if let Some((_, (_, end_final_child))) = self.children.last() {
+            // If the final state is not an offload state, then
+            // we need to add this check.
+            if !(*end_final_child == self.latency) {
+                incr_guard = incr_guard.and(not_final_state);
+            }
+        } else {
+            // Also, if there is just no offloading, then we need to add this check.
+            incr_guard = incr_guard.and(not_final_state);
+        };
+
+        // Conditionally increment based on `incr_guard`
+        res_vec.extend(parent_fsm.borrow_mut().conditional_increment(
+            incr_guard,
+            Rc::clone(&adder),
+            builder,
+        ));
+
+        res_vec
+    }
+
+    /// Helper to `count_to_n`
+    /// Increment when we ARE in an offload state, but the child being
+    /// offloaded is in its final state.
+    fn increment_if_child_final_state(
+        &mut self,
+        offload_states: &[u64],
+        adder: ir::RRC<ir::Cell>,
+        parent_fsm: ir::RRC<StaticFSM>,
+        builder: &mut ir::Builder,
+    ) -> Vec<ir::Assignment<Nothing>> {
+        let mut res_vec = vec![];
+        for (i, (child, (_, end))) in self
+            .children
+            .iter_mut()
+            // If child only lasts a single cycle, then we can just unconditionally increment.
+            // We handle that case above (since `offload_states` only includes children that
+            // last more than one cycle).
+            .filter(|(_, (beg, end))| beg + 1 != *end)
+            .enumerate()
+        {
+            // We need to increment parent when child is in final state.
+            // For example, if the parent is offloading to `child_x` when it
+            // is in state 5, the guard would look like
+            // fsm.in = fsm == 5 && child_x_fsm_in_final_state ? fsm + 1;
+            // fsm.write_en == 5 && child_x_fsm_in_final_state ? 1'd1;
+
+            // The one exception:
+            // If the offload state is the last state (end == self.latency) then we don't
+            // increment, we need to reset to 0 (which we handle separately).
+            if *end != self.latency {
+                // We know each offload state corresponds to exactly one child.
+                let child_state = offload_states[i];
+                // Checking that we are in child state, e.g., `(fsm == 5)`
+                // in the above example.
+                let in_child_state = parent_fsm
+                    .borrow_mut()
+                    .query_between(builder, (child_state, child_state + 1));
+                // now we need to check `child_fsm_in_final_state`
+                let total_child_latency =
+                    child.get_latency() * child.get_num_repeats();
+                let child_final_state = child.query_between(
+                    (total_child_latency - 1, total_child_latency),
+                    builder,
+                );
+                // Conditionally increment when `fsm==5 & child_final_state`
+                let parent_fsm_incr =
+                    parent_fsm.borrow_mut().conditional_increment(
+                        in_child_state.and(child_final_state),
+                        Rc::clone(&adder),
+                        builder,
+                    );
+                res_vec.extend(parent_fsm_incr);
+            }
+        }
+        res_vec
+    }
+
     /// `Realize` each static group in the tree into a dynamic group.
     /// In particular, this involves converting %[i:j] guards into actual
     /// fsm register queries (which can get complicated with out tree structure:
     /// it's not just i <= fsm < j anymore).
     ///
     /// `reset_early_map`, `fsm_info_map`, and `group_rewrites` are all
-    /// metadata to make it more helpful for rewriting control, adding
-    /// wrapper groups when necessary, etc.
+    /// metadata to make it more easier later on when we are rewriting control,
+    ///  adding wrapper groups when necessary, etc.
     fn realize(
         &mut self,
+        ignore_timing_guards: bool,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
         fsm_info_map: &mut HashMap<
@@ -755,7 +774,14 @@ impl SingleNode {
             .assignments
             .clone()
             .into_iter()
-            .map(|assign| self.make_assign_dyn(assign, false, false, builder))
+            .map(|assign| {
+                self.make_assign_dyn(
+                    assign,
+                    false,
+                    ignore_timing_guards,
+                    builder,
+                )
+            })
             .collect_vec();
 
         // Add assignment `group[done] = ud.out`` to the new group.
@@ -765,7 +791,9 @@ impl SingleNode {
           early_reset_group["done"] = ? ud["out"];
         );
         assigns.extend(early_reset_done_assign);
-        // Adding the count_to_n assigns;
+
+        // Adding the assignments of `self.root` (mainly the `count_to_n`
+        // assignments).
         assigns.extend(std::mem::take(&mut self.root.1));
         self.root.1 = assigns.clone();
 
@@ -811,87 +839,10 @@ impl SingleNode {
         // Recursively realize each child.
         self.children.iter_mut().for_each(|(child, _)| {
             child.realize(
+                ignore_timing_guards,
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
-                group_rewrites,
-                builder,
-            )
-        })
-    }
-
-    /// Converts assignments of type dynamic to type static.
-    /// It will simply remove any %[i:j] guards (i.e., replace them with 1'b1)
-    /// so you need to make sure to only call this method when it is safe to do
-    /// do.
-    fn convert_assignments_type(
-        &mut self,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
-        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
-        builder: &mut ir::Builder,
-    ) {
-        // Get static grouo we are "realizing".
-        let static_group = Rc::clone(
-            &static_groups
-                .iter()
-                .find(|sgroup| sgroup.borrow().name() == self.root.0)
-                .unwrap(),
-        );
-        // Create the dynamic "early reset group" that will replace the static group.
-        let static_group_name = static_group.borrow().name();
-        let mut early_reset_name = static_group_name.to_string();
-        early_reset_name.insert_str(0, "early_reset_");
-        let early_reset_group = builder.add_group(early_reset_name);
-        // Realize the static %[i:j] guards to fsm checks.
-        // This is significantly more complicated with a tree structure.
-        let mut assigns = static_group
-            .borrow()
-            .assignments
-            .clone()
-            .into_iter()
-            .map(|assign| self.make_assign_dyn(assign, false, true, builder))
-            .collect_vec();
-
-        // Add assignment `group[done] = ud.out`` to the new group.
-        structure!( builder; let ud = prim undef(1););
-        let early_reset_done_assign = build_assignments!(
-          builder;
-          early_reset_group["done"] = ? ud["out"];
-        );
-        assigns.extend(early_reset_done_assign);
-        // Adding the count_to_n assigns;
-        assigns.extend(std::mem::take(&mut self.root.1));
-        self.root.1 = assigns.clone();
-
-        early_reset_group.borrow_mut().assignments = assigns;
-        early_reset_group.borrow_mut().attributes =
-            static_group.borrow().attributes.clone();
-
-        // Now we have to update the fields with a bunch of information.
-        // This makes it easier when we have to build wrappers, rewrite ports, etc.
-
-        // Map the static group name -> early reset group name.
-        reset_early_map
-            .insert(static_group_name, early_reset_group.borrow().name());
-        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
-        // Technically we could do this w/ early_reset_map but is easier w/
-        // group_rewrite, which is explicitly of type `PortRewriterMap`
-        group_rewrites.insert(
-            ir::Canonical::new(static_group_name, ir::Id::from("go")),
-            early_reset_group.borrow().find("go").unwrap_or_else(|| {
-                unreachable!(
-                    "group {} has no go port",
-                    early_reset_group.borrow().name()
-                )
-            }),
-        );
-
-        // Recursively realize each child.
-        self.children.iter_mut().for_each(|(child, _)| {
-            child.convert_assignments_type(
-                static_groups,
-                reset_early_map,
                 group_rewrites,
                 builder,
             )
@@ -1451,6 +1402,7 @@ impl ParNodes {
     /// Realizes static groups into dynamic group.
     pub fn realize(
         &mut self,
+        ignore_timing_guards: bool,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
         reset_early_map: &mut HashMap<ir::Id, ir::Id>,
         fsm_info_map: &mut HashMap<
@@ -1489,7 +1441,12 @@ impl ParNodes {
             .clone()
             .into_iter()
             .map(|assign| {
-                longest_node.make_assign_dyn(assign, true, false, builder)
+                longest_node.make_assign_dyn(
+                    assign,
+                    true,
+                    ignore_timing_guards,
+                    builder,
+                )
             })
             .collect_vec();
 
@@ -1545,6 +1502,7 @@ impl ParNodes {
         // Recursively realize each child.
         self.threads.iter_mut().for_each(|(child, _)| {
             child.realize(
+                ignore_timing_guards,
                 static_groups,
                 reset_early_map,
                 fsm_info_map,
@@ -1567,82 +1525,6 @@ impl ParNodes {
         } else {
             unreachable!("self.children is empty/no maximum value found");
         }
-    }
-
-    /// Converts assignments from static to dynamic (see equivalent method in
-    /// `SingleNode`'s implementation for more details).
-    pub fn convert_assignments_type(
-        &mut self,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
-        reset_early_map: &mut HashMap<ir::Id, ir::Id>,
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
-        builder: &mut ir::Builder,
-    ) {
-        // Get static grouo we are "realizing".
-        let static_group = Rc::clone(
-            &static_groups
-                .iter()
-                .find(|sgroup| sgroup.borrow().name() == self.group_name)
-                .unwrap(),
-        );
-        // Create the dynamic "early reset group" that will replace the static group.
-        let static_group_name = static_group.borrow().name();
-        let mut early_reset_name = static_group_name.to_string();
-        early_reset_name.insert_str(0, "early_reset_");
-        let early_reset_group = builder.add_group(early_reset_name);
-
-        let longest_node = self.get_longest_node();
-        // Use the longest tree to dictate the assignments of the others.
-        let mut assigns = static_group
-            .borrow()
-            .assignments
-            .clone()
-            .into_iter()
-            .map(|assign| {
-                longest_node.make_assign_dyn(assign, true, true, builder)
-            })
-            .collect_vec();
-
-        // Add assignment `group[done] = ud.out`` to the new group.
-        structure!( builder; let ud = prim undef(1););
-        let early_reset_done_assign = build_assignments!(
-          builder;
-          early_reset_group["done"] = ? ud["out"];
-        );
-        assigns.extend(early_reset_done_assign);
-
-        early_reset_group.borrow_mut().assignments = assigns;
-        early_reset_group.borrow_mut().attributes =
-            static_group.borrow().attributes.clone();
-
-        // Now we have to update the fields with a bunch of information.
-        // This makes it easier when we have to build wrappers, rewrite ports, etc.
-
-        // Map the static group name -> early reset group name.
-        // This is helpful for rewriting control
-        reset_early_map
-            .insert(static_group_name, early_reset_group.borrow().name());
-        // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
-        // Technically we could do this w/ early_reset_map but is easier w/
-        // group_rewrite, which is explicitly of type `PortRewriterMap`
-        group_rewrites.insert(
-            ir::Canonical::new(static_group_name, ir::Id::from("go")),
-            early_reset_group.borrow().find("go").unwrap_or_else(|| {
-                unreachable!(
-                    "group {} has no go port",
-                    early_reset_group.borrow().name()
-                )
-            }),
-        );
-
-        self.threads.iter_mut().for_each(|(child, _)| {
-            child.convert_assignments_type(
-                static_groups,
-                reset_early_map,
-                group_rewrites,
-                builder,
-            )
-        })
     }
 
     /// Use the longest node to query between.

@@ -940,6 +940,7 @@ impl CompileStatic {
             );
             fsm_tree.count_to_n(builder, Some(comp_go));
             fsm_tree.realize(
+                false,
                 static_groups,
                 &mut self.reset_early_map,
                 &mut self.fsm_info_map,
@@ -983,9 +984,11 @@ impl CompileStatic {
                 // We can ignore any static timing guards in the children,
                 // since we know the latency is 1. That is why we call
                 // `convert_assignments_type`.
-                child.convert_assignments_type(
+                child.realize(
+                    true,
                     static_groups,
                     &mut self.reset_early_map,
+                    &mut self.fsm_info_map,
                     group_rewrites,
                     builder,
                 )
@@ -1137,6 +1140,7 @@ impl Visitor for CompileStatic {
                 );
                 tree.count_to_n(&mut builder, None);
                 tree.realize(
+                    false,
                     &sgroups,
                     &mut self.reset_early_map,
                     &mut self.fsm_info_map,
