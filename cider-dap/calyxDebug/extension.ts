@@ -98,7 +98,7 @@ class CiderDebugAdapter {
       });
       this.adapterProcess.on("spawn", () => {
         logToPanel("Debugger started on port " + port + "!");
-        setTimeout(() => resolve(port), 400) //short wait to let the thing start running 
+        setTimeout(() => resolve(port), 700) //short wait to let the thing start running 
       });
       this.adapterProcess.on("error", () => {
         logToPanel("Debugger failed to start");

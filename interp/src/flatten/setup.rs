@@ -23,6 +23,13 @@ fn do_setup(
     if !skip_verification {
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[], &[], false)?;
     }
+    pm.execute_plan(
+        &mut ctx,
+        &["metadata-table-generation".to_string()],
+        &[],
+        &[],
+        false,
+    )?;
 
     let mapping = ctx
         .metadata

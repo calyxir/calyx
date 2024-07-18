@@ -80,7 +80,7 @@ var CiderDebugAdapter = /** @class */ (function () {
             });
             _this.adapterProcess.on("spawn", function () {
                 logToPanel("Debugger started on port " + port + "!");
-                setTimeout(function () { return resolve(port); }, 300); //short wait to let the thing start running 
+                setTimeout(function () { return resolve(port); }, 700); //short wait to let the thing start running 
             });
             _this.adapterProcess.on("error", function () {
                 logToPanel("Debugger failed to start");
@@ -115,23 +115,6 @@ function activate(context) {
             factory = new CiderDebugAdapterDescriptorFactoryExecutable();
             break;
     }
-    // //attempt no 1 at getting variables to show up anywhere. on wednesday try reformatting to not use regex and seeing if it actually does stuff
-    // context.subscriptions.push(vscode.languages.registerEvaluatableExpressionProvider('calyx', {
-    //   provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
-    //     const VARIABLE_REGEXP = /lt[a-z0-9]*/ig;
-    //     const line = document.lineAt(position.line).text;
-    //     let m: RegExpExecArray | null;
-    //     while (m = VARIABLE_REGEXP.exec(line)) {
-    //       const varRange = new vscode.Range(position.line, m.index, position.line, m.index + m[0].length);
-    //       logToPanel("line")
-    //       if (varRange.contains(position)) {
-    //         logToPanel("found variable!")
-    //         return new vscode.EvaluatableExpression(varRange);
-    //       }
-    //     }
-    //     return undefined;
-    //   }
-    // }));
     context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory));
     logToPanel("before disposables push");
     disposables.push(vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory));
