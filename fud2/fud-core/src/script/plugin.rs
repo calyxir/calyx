@@ -18,8 +18,17 @@ use super::{
     resolver::Resolver,
 };
 
-// The name, input states, output states, and shell commands to run of an op
-type OpSig = (String, Vec<StateRef>, Vec<StateRef>, Vec<String>);
+/// The signature and implementation of an operation.
+struct OpSig {
+    /// Operation name.
+    name: String,
+    /// Inputs states of the op.
+    input_states: Vec<StateRef>,
+    /// Output states of the op.
+    output_states: Vec<StateRef>,
+    /// An ordered list of the commands run when this op is required.
+    cmds: Vec<String>,
+}
 
 #[derive(Clone)]
 struct ScriptContext {
@@ -108,14 +117,22 @@ impl ScriptContext {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             None => {
-                *cur_op = Some((name.to_string(), inputs, outputs, vec![]));
+                *cur_op = Some(OpSig {
+                    name: name.to_string(),
+                    input_states: inputs,
+                    output_states: outputs,
+                    cmds: vec![],
+                });
                 Ok(())
             }
-            Some((ref old_name, _, _, _)) => {
-                Err(RhaiSystemError::began_op(old_name, name)
-                    .with_pos(pos)
-                    .into())
-            }
+            Some(OpSig {
+                name: ref old_name,
+                input_states: _,
+                output_states: _,
+                cmds: _,
+            }) => Err(RhaiSystemError::began_op(old_name, name)
+                .with_pos(pos)
+                .into()),
         }
     }
 
@@ -125,7 +142,7 @@ impl ScriptContext {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             Some(ref mut op_sig) => {
-                op_sig.3.push(cmd);
+                op_sig.cmds.push(cmd);
                 Ok(())
             }
             None => Err(RhaiSystemError::no_op().with_pos(pos).into()),
@@ -141,7 +158,12 @@ impl ScriptContext {
     ) -> RhaiResult<()> {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
-            Some((ref name, ref input_states, ref output_states, ref cmds)) => {
+            Some(OpSig {
+                ref name,
+                ref input_states,
+                ref output_states,
+                ref cmds,
+            }) => {
                 // Create the emitter.
                 let cmds = cmds.clone();
                 let op_name = name.clone();
