@@ -289,7 +289,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
 
                 Command::Explain => {
-                    print!("{}", Command::get_explain_string().blue())
+                    print!("{}", Command::get_explain_string())
                 }
 
                 Command::Restart => {
@@ -342,7 +342,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     return Ok(DebuggerReturnStatus::Exit);
                 }
                 Command::Explain => {
-                    print!("{}", Command::get_explain_string().blue().bold())
+                    print!("{}", Command::get_explain_string())
                 }
                 Command::Restart => {
                     return Ok(DebuggerReturnStatus::Restart(Box::new(

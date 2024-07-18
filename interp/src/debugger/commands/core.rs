@@ -380,7 +380,7 @@ lazy_static! {
             // print-state
             CIBuilder::new().invocation("print-state")
                 .description("Print the internal state of the target cell. Takes an optional print code before the target")
-                .usage("> watch after GROUP with print-state \\s mem").build(),
+                .usage("> print-state \\s mem").build(),
             // watch
             CIBuilder::new().invocation("watch")
                 .description("Watch a given group with a print statement. Takes an optional position (before/after)")
