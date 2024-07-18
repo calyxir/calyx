@@ -65,9 +65,9 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     tuplify = comp.cell(f"tuplify_{name}", insert_tuplify(prog, f"tuplify_{name}", rnk_w, val_w))
     untuplify = comp.cell(f"untuplify_{name}", insert_untuplify(prog, f"untuplify_{name}", rnk_w, val_w))
 
-    mem = comp.seq_mem_d1("mem", 96, max_queue_size, addr_size)
+    mem = comp.seq_mem_d1("mem", rnk_w + val_w, max_queue_size, addr_size)
     # The memory to store the heap, represented as an array.
-    # Each cell of the memory is 96 bits wide: a `rnk_w`-bit rank and a `val_w`-bit value.
+    # Each cell of the memory is (rnk_w + val_w) bits wide: a `rnk_w`-bit rank and a `val_w`-bit value.
 
     ans = comp.reg(val_w, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
