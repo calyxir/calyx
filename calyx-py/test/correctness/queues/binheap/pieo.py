@@ -88,7 +88,27 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
     decr_num_elements = pieo.decr(num_elements)
     incr_replace_tracker = pieo.incr(replace_tracker)
 
-    #Functions for then necessary PIEO functionality
+    #Design all necessary loop guards
+    with pieo.comb_group(f"time_pop_guard") as time_pop_guard:
+        val_eq.left = val_ans.out
+        val_eq.right = value
+
+        time_le.left = ready_time.out
+        time_le.right = time
+
+        pop_lt.left = queue_index.out
+        pop_lt.right = num_elements.out
+
+        while_and.left = time_le.out
+        while_and.right = pop_lt.out
+
+        while_and_val.left = while_and.out
+        while_and_val.right = val_eq.out
+
+        val_time_and.left = val_eq.out
+        val_time_and.right = time_le.out
+
+    #Functions for the necessary PIEO functionality
     
     def push():
         """
@@ -138,27 +158,6 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
             Returns the first element in the PIEO who is 'ripe' as per the specified time (its readiness time is earlier than the passed in time),
             and whose value matches the current value (if that is to factored in.)
         """
-
-        #Design all necessary loop guards
-        with pieo.comb_group(f"time_pop_guard") as time_pop_guard:
-            
-            val_eq.left = val_ans.out
-            val_eq.right = value
-
-            time_le.left = ready_time.out
-            time_le.right = time
-
-            pop_lt.left = queue_index.out
-            pop_lt.right = num_elements.out
-
-            while_and.left = time_le.out
-            while_and.right = pop_lt.out
-
-            while_and_val.left = while_and.out
-            while_and_val.right = val_eq.out
-
-            val_time_and.left = val_eq.out
-            val_time_and.right = time_le.out
 
         return cb.seq(
             #Scan through heaps and pop value, time and rank until we either run out or find an accurate one
