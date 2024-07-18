@@ -92,11 +92,11 @@ impl SingleOpOutputPlanner {
                     state_queue.push(op.output[0]);
                     visited[op.output[0]] = true;
                     breadcrumbs[op.output[0]] = Some(op_ref);
-                }
 
-                // Finish when we reach the goal edge.
-                if end == Destination::Op(op_ref) {
-                    break;
+                    // Finish when we reach the goal edge.
+                    if end == Destination::Op(op_ref) {
+                        break;
+                    }
                 }
             }
         }
