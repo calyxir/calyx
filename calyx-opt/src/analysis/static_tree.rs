@@ -913,8 +913,8 @@ impl SingleNode {
         }
         // Scenario 3: the query spans 3 or more iterations.
         // In this case, we need the middle_query for the middle iterations,
-        // and the beg and end queries for the first and last iterations
-        // for this query.
+        // and the beg and end queries for (parts of) the
+        // first and last iterations for this query.
         else {
             let mut unconditional_repeat_query =
                 (beg_iter_query + 1, end_iter_query);
@@ -947,30 +947,18 @@ impl SingleNode {
         }
     }
 
-    // Helper function: checks
-    // whether the tree offloads its entire latency, and returns the
-    // appropriate `bool`.
-    fn offload_entire_latency(&self) -> bool {
-        self.children.len() == 1
-            && self
-                .children
-                .iter()
-                .any(|(_, (beg, end))| *beg == 0 && *end == self.latency)
-                // This last check is prob unnecessary since it follows from the first two.
-            && self.num_states == 1
-    }
-
     // Given query (i,j), get the fsm query for cycles (i,j).
+    // Does NOT check the iteration number.
     // This is greatly complicated by the offloading to children.
     // We use a resturcturing that organizes the query into (beg, middle, end),
-    // similar to self.restructure_query().
+    // similar to (but not the same as) self.restructure_query().
     fn get_fsm_query(
         &mut self,
         query: (u64, u64),
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
-        // If latency == 1, then return `true`.
-        if self.latency == 1 {
+        // If guard is true the entire execution, then return `true`.
+        if 0 == query.0 && self.latency == query.1 {
             return ir::Guard::True;
         }
 
@@ -1024,7 +1012,7 @@ impl SingleNode {
                 }
             }
             // Otherwise check if the beginning of the query lies within the
-            // interval. This should only happen once.
+            // interval (This should only happen once). Add to `beg_interval`.
             else if *beg <= query_beg && query_beg < *end {
                 assert!(beg_interval.is_false());
                 // This is the query, but relativized to the start of the current interval.
@@ -1074,7 +1062,7 @@ impl SingleNode {
                 };
             }
             // Check if the end of the query lies within the
-            // interval. This should only happen once.
+            // interval (This should only happen once) Add to `end_interval`.
             else if *beg < query_end && query_end <= *end {
                 // We only need the end of the relative query.
                 // If we try to get the beginning then we could get overflow error.
@@ -1159,13 +1147,7 @@ impl SingleNode {
         (repeat_query, fsm_query): (u64, (u64, u64)),
         builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
-        // If fsm_query is just the entire latency, then no need to produce a
-        // check.
-        let fsm_guard = if 0 == fsm_query.0 && self.latency == fsm_query.1 {
-            ir::Guard::True
-        } else {
-            self.get_fsm_query(fsm_query, builder)
-        };
+        let fsm_guard = self.get_fsm_query(fsm_query, builder);
 
         // Checks `self.iter_count_cell`.
         let counter_guard =
@@ -1182,20 +1164,24 @@ impl SingleNode {
     ) -> ir::Guard<Nothing> {
         // See `restructure_query` to see what we're doing.
         // But basically:
-        // query0 = Option(iteration number, cycles during that iteration the query is true).
-        // repeat_query = Option(iterations during which the query is true the entire iteration).
-        // query1 = Option(iteration number, cycles during that iteration the query is true).
-        let (query0, repeat_query, query1) = self.restructure_query(query);
-        let g0 = match query0 {
+        // beg_iter_query = Option(iteration number, cycles during that iteration the query is true).
+        // middle_iter_query = Option(iterations during which the query is true the entire iteration).
+        // end_iter_query = Option(iteration number, cycles during that iteration the query is true).
+        let (beg_iter_query, middle_iter_query, end_iter_query) =
+            self.restructure_query(query);
+
+        // Call `check_iteration_and_fsm_state` for beg and end queries.
+        let g0 = match beg_iter_query {
             None => ir::Guard::True.not(),
             Some(q0) => self.check_iteration_and_fsm_state(q0, builder),
         };
-        let g1 = match query1 {
+        let g1 = match end_iter_query {
             None => ir::Guard::True.not(),
             Some(q1) => self.check_iteration_and_fsm_state(q1, builder),
         };
 
-        let rep_query = match repeat_query {
+        // Call `get_repeat_query` for middle_iter_queries.
+        let rep_query = match middle_iter_query {
             None => Box::new(ir::Guard::True.not()),
             Some(rq) => self.get_repeat_query(rq, builder),
         };
@@ -1292,6 +1278,23 @@ impl SingleNode {
         }
     }
 
+    // Helper function: checks
+    // whether the tree offloads its entire latency, and returns the
+    // appropriate `bool`.
+    fn offload_entire_latency(&self) -> bool {
+        self.children.len() == 1
+            && self
+                .children
+                .iter()
+                .any(|(_, (beg, end))| *beg == 0 && *end == self.latency)
+                // This last check is prob unnecessary since it follows from the first two.
+            && self.num_states == 1
+    }
+}
+
+/// These methods handle adding conflicts to the tree (to help coloring for
+/// sharing FSMs)
+impl SingleNode {
     // Get names of groups corresponding to all nodes
     pub fn get_all_nodes(&self) -> Vec<ir::Id> {
         let mut res = vec![self.root.0];
@@ -1434,7 +1437,8 @@ impl ParNodes {
         //   thread1[go] = 1'd1;
         //   thread2[go] = %[0:5] ? 1'd1;
         // }
-        // Therefore the %[0:5] needs to be realized using the FSMs from thread1.
+        // Therefore the %[0:5] needs to be realized using the FSMs from thread1 (the
+        // longest FSM).
         let mut assigns = static_group
             .borrow()
             .assignments
@@ -1512,7 +1516,8 @@ impl ParNodes {
         })
     }
 
-    /// Recursively searches each thread to get the longest lasting SingleNode.
+    /// Recursively searches each thread to get the longest (in terms of
+    /// cycle counts) SingleNode.
     pub fn get_longest_node(&mut self) -> &mut SingleNode {
         let max = self.threads.iter_mut().max_by_key(|(child, _)| {
             (child.get_latency() * child.get_num_repeats()) as i64
