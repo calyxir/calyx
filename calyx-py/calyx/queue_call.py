@@ -69,7 +69,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, use_times, stats_compo
     err = runner.reg(1, "component_err", is_ref=True)
 
     i = runner.reg(32)  # The index of the command we're currently processing
-    cmd = runner.reg(2)  # The command we're currently processing
+    cmd = runner.reg(3 if use_times else 2)  # The command we're currently processing
     value = runner.reg(32)  # The value we're currently processing
     rank = runner.reg(32)  # The rank we're currently processing
     time = runner.reg(32)  # The time we're currently processing
