@@ -4,8 +4,13 @@ import binheap
 import calyx.builder as cb
 import calyx.queue_call as qc
 
-def insert_pieo(prog, name, queue_len, stats=None, static=False):
+FACTOR = 4
+
+def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, static=False):
     pieo = prog.component(name)
+
+    ans = pieo.reg(32, "ans", is_ref=True)
+    err = pieo.reg(1, "err", is_ref=True)
 
     cmd_idx = pieo.reg(32, "cmd_idx")
 
@@ -16,21 +21,18 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
 
     cmd_eqs = [pieo.eq_use(cmd, i) for i in range(5)]
 
-    rank_reg = pieo.reg(32, "rank_reg")
+    rank_reg = pieo.reg(64, "rank_reg")
 
     store_rank = pieo.reg_store(rank_reg, rank, "store_rank")
 
     # Declare the sub-queues as cells of this component.
-    val_queue = pieo.cell("val_queue", binheap.insert_binheap(prog, "val_queue", 4, 32, 32))
-    time_queue = pieo.cell("time_queue", binheap.insert_binheap(prog, "time_queue", 4, 32, 32))
-    rank_queue = pieo.cell("rank_queue", binheap.insert_binheap(prog, "rank_queue", 4, 32, 32))
+    val_queue = pieo.cell("val_queue", binheap.insert_binheap(prog, "val_queue", queue_len_factor, 64, 32))
+    time_queue = pieo.cell("time_queue", binheap.insert_binheap(prog, "time_queue", queue_len_factor, 64, 32))
+    rank_queue = pieo.cell("rank_queue", binheap.insert_binheap(prog, "rank_queue", queue_len_factor, 64, 32))
 
     #Used to break ties between ranks and preserve FIFO order
     shift_rank = pieo.lsh_use(rank_reg.out, rank_reg, 32)
     add_rank, rank_reg = pieo.add_store_in_reg(rank_reg.out, cmd_idx.out, rank_reg)
-
-    ans = pieo.reg(32, "ans", is_ref=True)
-    err = pieo.reg(1, "err", is_ref=True)
 
     num_elements = pieo.reg(32, "num_elements")
 
@@ -63,12 +65,13 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
     store_ans = pieo.reg_store(ans, val_ans.out, "store_ans")
     
     #Registers for individual cached value, time and rank
-    cached_data_registers = [pieo.reg(32)] * 3
+    cached_data_registers = [pieo.reg(32)] * 2 + [pieo.reg(64)]
 
     #Memory cells for cached values, times and ranks
     cached_data = [
-        pieo.seq_mem_d1(f"cached_{i}", 32, queue_len, 32)
-        for i in range(3)
+        pieo.seq_mem_d1(f"cached_0", 32, queue_len, 32),
+        pieo.seq_mem_d1(f"cached_1", 32, queue_len, 32),
+        pieo.seq_mem_d1(f"cached_2", 64, queue_len, 32),
     ]
 
     #Operations to cache values, times and ranks
