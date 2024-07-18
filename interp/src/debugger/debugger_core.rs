@@ -55,8 +55,14 @@ impl ProgramStatus {
     }
 }
 
+/// An opaque wrapper type for internal debugging information
+pub struct DebuggerInfo {
+    ctx: DebuggingContext,
+    input_stream: Input,
+}
+
 pub enum DebuggerReturnStatus {
-    Restart,
+    Restart(Box<DebuggerInfo>),
     Exit,
 }
 
@@ -177,8 +183,20 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     // so on and so forth
 
-    pub fn main_loop(mut self) -> InterpreterResult<DebuggerReturnStatus> {
-        let mut input_stream = Input::new()?;
+    pub fn main_loop(
+        mut self,
+        info: Option<DebuggerInfo>,
+    ) -> InterpreterResult<DebuggerReturnStatus> {
+        let (input_stream, dbg_ctx) = info
+            .map(|x| (Some(x.input_stream), Some(x.ctx)))
+            .unwrap_or_else(|| (None, None));
+
+        if let Some(dbg_ctx) = dbg_ctx {
+            self.debugging_context = dbg_ctx;
+        }
+
+        let mut input_stream =
+            input_stream.map(Ok).unwrap_or_else(Input::new)?;
 
         println!(
             "==== {}: The {}alyx {}nterpreter and {}bugge{} ====",
@@ -275,7 +293,12 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
 
                 Command::Restart => {
-                    return Ok(DebuggerReturnStatus::Restart);
+                    return Ok(DebuggerReturnStatus::Restart(Box::new(
+                        DebuggerInfo {
+                            ctx: self.debugging_context,
+                            input_stream,
+                        },
+                    )));
                 }
             }
         }
@@ -322,7 +345,12 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     print!("{}", Command::get_explain_string().blue().bold())
                 }
                 Command::Restart => {
-                    return Ok(DebuggerReturnStatus::Restart);
+                    return Ok(DebuggerReturnStatus::Restart(Box::new(
+                        DebuggerInfo {
+                            ctx: self.debugging_context,
+                            input_stream,
+                        },
+                    )));
                 }
                 _ => {
                     println!(
