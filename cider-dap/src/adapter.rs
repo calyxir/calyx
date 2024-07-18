@@ -132,7 +132,7 @@ impl MyAdapter {
             // the code for now goes to the line of the last group running in the map, should deal
             // with this in the future for when groups run in parallel.
             for id in map {
-                let value = self.ids.lookup(id.to_string()).unwrap().line;
+                let value = self.ids.lookup(id.to_string()).unwrap().start_line;
                 line_number = value;
             }
             // Set line of the stack frame and tell debugger we're not finished.
@@ -156,7 +156,7 @@ impl MyAdapter {
         };
         vec![temp]
     }
-    // display the cells in the current context
+    // components are scopes
     pub fn get_scopes(&self) -> Vec<Scope> {
         let mut out_vec = vec![];
         let names = vec![String::from("cell 1"), String::from("cell 2")]; //self.debugger.get_cells() or alt way of getting from debugger

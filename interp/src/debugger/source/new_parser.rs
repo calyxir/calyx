@@ -33,7 +33,7 @@ impl MetadataParser {
 
     fn entry(input: Node) -> ParseResult<(String, GroupContents)> {
         Ok(match_nodes!(input.into_children();
-            [group_name(g), path(p),num(n)] => (g,GroupContents {path:p, line: n})
+            [group_name(g), path(p),num(st), num(end)] => (g,GroupContents {path:p, start_line: st, end_line:end})
         ))
     }
 
@@ -63,23 +63,24 @@ pub fn parse_metadata(input_str: &str) -> InterpreterResult<NewSourceMap> {
 #[cfg(test)]
 #[test]
 fn one_entry() {
-    let entry = parse_metadata("hello: your/mom 5").unwrap();
+    let entry = parse_metadata("hello: your/mom 6-9").unwrap();
     dbg!(&entry);
     let tup = entry.lookup(String::from("hello"));
     assert_eq!(
         tup.unwrap().clone(),
         GroupContents {
             path: String::from("your/mom"),
-            line: 5
+            start_line: 6,
+            end_line: 9
         }
     )
 }
 
 #[test]
-fn mult_entires() {
+fn mult_entries() {
     let entry = parse_metadata(
-        "wr_reg0: calyx/interp/test/control/reg_seq.futil 10,
-        wr_reg1: calyx/interp/test/control/reg_seq.futil 15",
+        "wr_reg0: calyx/interp/test/control/reg_seq.futil 10-13,
+        wr_reg1: calyx/interp/test/control/reg_seq.futil 15-19",
     )
     .unwrap();
     let tup = entry.lookup(String::from("wr_reg0"));
@@ -88,14 +89,16 @@ fn mult_entires() {
         tup.unwrap().clone(),
         GroupContents {
             path: String::from("calyx/interp/test/control/reg_seq.futil"),
-            line: 10
+            start_line: 10,
+            end_line: 13
         }
     );
     assert_eq!(
         tup2.unwrap().clone(),
         GroupContents {
             path: String::from("calyx/interp/test/control/reg_seq.futil"),
-            line: 15
+            start_line: 15,
+            end_line: 19
         }
     )
 }
