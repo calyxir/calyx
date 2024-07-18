@@ -422,7 +422,7 @@ lazy_static! {
             CIBuilder::new().invocation("explain")
                 .description("Show examples of commands which take arguments").build(),
             CIBuilder::new().invocation("restart")
-                .description("Restart the debugger from the beginning of the execution. This will reset all breakpoints, watchpoints, and the command history").build(),
+                .description("Restart the debugger from the beginning of the execution. Command history, breakpoints, watchpoints, etc. are preserved").build(),
             // exit/quit
             CIBuilder::new().invocation("exit")
                 .invocation("quit")
