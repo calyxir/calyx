@@ -416,14 +416,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 used_slicers_vec.get_mut(reg_to_query).unwrap(),
             )
         };
-        println!("reg to query: {reg_to_query}");
+
         // create a guard against the state of the correct parent register, if we split
         let (mut parent_guard, state_to_query) = match parents.get(reg_to_query)
         {
-            None => {
-                println!("took none path");
-                (Vec::new(), *state)
-            }
+            None => (Vec::new(), *state),
             Some(parent_reg) => {
                 // query parent == 1 iff we are in second-half of seq. schedule
                 let parent_const = builder.add_constant(
@@ -438,9 +435,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 (vec![parent_guard], *state % ((fsm_rep.last_state + 1) / 2)) // check
             }
         };
-        println!("last state: {}", fsm_rep.last_state);
-        println!("\n");
-        println!("state to query: {state_to_query}");
+
         match fsm_rep.encoding {
             RegisterEncoding::Binary => {
                 let state_const =
@@ -603,9 +598,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let mut used_slicers_vec =
             fsms.iter().map(|_| HashMap::new()).collect_vec();
 
-        print!("fsm size {fsm_size}");
-        print!("\n");
-
         // enable assignments
         // the following enable queries; we can decide which register to query for state-dependent assignments
         // because we know all registers precisely agree at each cycle
@@ -614,7 +606,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
-                    print!("state: {state}");
                     // for every assignment dependent on current fsm state,
                     // `&` new fsm guard with existing guard
                     assigns.iter_mut().for_each(|asgn| {
