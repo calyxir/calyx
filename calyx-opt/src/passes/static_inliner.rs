@@ -146,10 +146,10 @@ impl StaticInliner {
     }
 
     // Given a static control block `sc`, and the current latency returns a
-    // vec of tuples (i,j) which represents all of the intervals for which
-    // the corresponding fsm will be offloading.
-    // There are two scenarios in which we offload:
-    //   1) We offload for all static repeat bodies.
+    // vec of tuples (i,j) which represents all of the intervals (relative to
+    // the current latency) for which the corresponding fsm will be offloading.
+    // There are two scenarios in the fsm will be offloading:
+    //   1) All static repeat bodies.
     //   2) If there is a static par in which different threads have overlapping
     //      offloads, then we offload the entire static par.
     fn get_offload_latencies(
@@ -236,8 +236,12 @@ impl StaticInliner {
                 {
                     for &(start1, end1) in intervals1.iter() {
                         for &(start2, end2) in intervals2.iter() {
+                            // Overlap if either: interval1 a) starts within
+                            // interval2, b) ends within interval2, or c)
+                            // encompasses interval2 entirely.
                             if (start2 <= end1 && end1 <= end2)
-                                || (start1 <= end2 && end2 <= end1)
+                                || (start2 <= start1 && start1 <= end2)
+                                || (start1 <= start2 && end2 <= start2)
                             {
                                 return true;
                             }
@@ -398,8 +402,8 @@ impl StaticInliner {
                         for &(start1, end1) in intervals1.iter() {
                             for &(start2, end2) in intervals2.iter() {
                                 if (start2 <= end1 && end1 <= end2)
-                                    || (start1 <= end2 && end2 <= end1)
-                                    || (start2 <= start1 && end1 <= end2)
+                                    || (start2 <= start1 && start1 <= end2)
+                                    || (start1 <= start2 && end2 <= end1)
                                 {
                                     // If intervals overlap then insert conflict.
                                     conflict_graph.insert_conflict(&i, &j);

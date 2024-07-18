@@ -459,8 +459,6 @@ impl CompileStatic {
     /// `get_interval_from_guard` returns the interval found within guard `g`.
     /// The tricky part is that sometimes there can be an implicit latency
     /// `lat` that is not explicitly stated (i..e, as an %[i:j]) in the guard.
-    /// XXX(Caleb): why do we need to handle `or`'s? Like why would they even
-    /// appear?
     fn get_interval_from_guard(
         g: &ir::Guard<ir::StaticTiming>,
         lat: u64,
@@ -488,6 +486,59 @@ impl CompileStatic {
             }
             ir::Guard::Or(_, _) => unreachable!("Shouldn't try to get interval from guard if there is an 'or' in the guard"),
         }
+    }
+
+    // Given a children_sched (a sorted vec of intervals for which
+    // the children are active), builds an FSM schedule and returns it,
+    // along with the number of states the resulting FSM will have.
+    // Schedule maps cycles (i,j) -> fsm state type (i.e., what the fsm outputs).
+    // Here is an example FSM schedule:
+    //                           Cycles     FSM State (i.e., `fsm.out`)
+    //                           (0..10) ->  Normal[0,10) // FSM counting from 0..10
+    //                           (10..30) -> Offload(10) // Offloading to child
+    //                           (30..40) -> Normal[11, 21)
+    //                           (40,80) ->  Offload(21)
+    //                           (80,100)->  Normal[22, 42)
+    fn build_tree_schedule(
+        children_sched: &[(u64, u64)],
+        target_latency: u64,
+    ) -> (BTreeMap<(u64, u64), StateType>, u64) {
+        let mut fsm_schedule = BTreeMap::new();
+        let mut cur_num_states = 0;
+        let mut cur_lat = 0;
+        for (beg, end) in children_sched {
+            // Filling in the gap between children, if necessary with a
+            // `Normal` StateType.
+            if cur_lat != *beg {
+                fsm_schedule.insert(
+                    (cur_lat, *beg),
+                    StateType::Normal((
+                        cur_num_states,
+                        cur_num_states + (beg - cur_lat),
+                    )),
+                );
+                cur_num_states += beg - cur_lat;
+                // cur_lat = *beg; assignment is unnecessary
+            }
+            // Inserting an Offload StateType to the schedule.
+            fsm_schedule
+                .insert((*beg, *end), StateType::Offload(cur_num_states));
+            cur_lat = *end;
+            cur_num_states += 1;
+        }
+        // Filling in the gap between the final child and the end of the group
+        // with a Normal StateType.
+        if cur_lat != target_latency {
+            fsm_schedule.insert(
+                (cur_lat, target_latency),
+                StateType::Normal((
+                    cur_num_states,
+                    cur_num_states + (target_latency - cur_lat),
+                )),
+            );
+            cur_num_states += target_latency - cur_lat;
+        }
+        (fsm_schedule, cur_num_states)
     }
 
     /// Given a static group `target_name` and vec of `static_groups`, builds a
@@ -565,50 +616,13 @@ impl CompileStatic {
             // non-overlapping.
             children_vec.sort_by_key(|(_, interval)| *interval);
             assert!(Self::are_ranges_non_overlapping(&children_vec));
-            // Now we must build the fsm schedule.
-            // Maps cycles (i,j) -> fsm state type (i.e., what the fsm outputs).
-            // Here is an example FSM schedule:
-            //                           Cycles     FSM State (i.e., `fsm.out`)
-            //                           (0..10) ->  Normal[0,10) // FSM counting from 0..10
-            //                           (10..30) -> Offload(10) // Offloading to child
-            //                           (30..40) -> Normal[11, 21)
-            //                           (40,80) ->  Offload(21)
-            //                           (80,100)->  Normal[22, 42)
-            let mut fsm_schedule = BTreeMap::new();
-            let mut cur_num_states = 0;
-            let mut cur_lat = 0;
-            for (_, (beg, end)) in &children_vec {
-                // Filling in the gap between children, if necessary with a
-                // `Normal` StateType.
-                if cur_lat != *beg {
-                    fsm_schedule.insert(
-                        (cur_lat, *beg),
-                        StateType::Normal((
-                            cur_num_states,
-                            cur_num_states + (beg - cur_lat),
-                        )),
-                    );
-                    cur_num_states += beg - cur_lat;
-                    // cur_lat = *beg; assignment is unnecessary
-                }
-                // Inserting an Offload StateType to the schedule.
-                fsm_schedule
-                    .insert((*beg, *end), StateType::Offload(cur_num_states));
-                cur_lat = *end;
-                cur_num_states += 1;
-            }
-            // Filling in the gap between the final child and the end of the group
-            // with a Normal StateType.
-            if cur_lat != target_group_ref.latency {
-                fsm_schedule.insert(
-                    (cur_lat, target_group_ref.latency),
-                    StateType::Normal((
-                        cur_num_states,
-                        cur_num_states + (target_group_ref.latency - cur_lat),
-                    )),
-                );
-                cur_num_states += target_group_ref.latency - cur_lat;
-            }
+            let (fsm_schedule, num_states) = Self::build_tree_schedule(
+                &children_vec
+                    .iter()
+                    .map(|(_, interval)| *interval)
+                    .collect_vec(),
+                target_group_ref.latency,
+            );
             Node::Single(SingleNode {
                 latency: target_group_ref.latency,
                 fsm_cell: None,
@@ -617,7 +631,7 @@ impl CompileStatic {
                 fsm_schedule: fsm_schedule,
                 children: children_vec,
                 num_repeats: num_repeats,
-                num_states: cur_num_states,
+                num_states: num_states,
             })
         }
     }
