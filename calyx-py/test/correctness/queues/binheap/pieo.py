@@ -31,7 +31,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     # Declare the sub-queues as cells of this component.
     val_queue = pieo.cell("val_queue", binheap.insert_binheap(prog, "val_queue", queue_len_factor, 64, 32))
     time_queue = pieo.cell("time_queue", binheap.insert_binheap(prog, "time_queue", queue_len_factor, 64, 32))
-    rank_queue = pieo.cell("rank_queue", binheap.insert_binheap(prog, "rank_queue", queue_len_factor, 64, 32))
+    rank_queue = pieo.cell("rank_queue", binheap.insert_binheap(prog, "rank_queue", queue_len_factor, 64, 64))
 
     #Used to break ties between ranks and preserve FIFO order
     update_rank = pieo.reg_store(rank_reg, rank_cat.out)
