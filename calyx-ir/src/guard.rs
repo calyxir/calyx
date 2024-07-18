@@ -365,6 +365,16 @@ impl<T> Guard<T> {
         }
     }
 
+    /// Collapses a list of guards into a single guard by left-applying a
+    /// two-argument function `f` to the list, starting with the initial value
+    /// `self`: i.e. `f(...f(f(self, g0), g1)...gn)`.
+    pub fn fold<F>(self, mut guards: Vec<Self>, f: F) -> Self
+    where
+        F: Fn(Self, Self) -> Self,
+    {
+        guards.drain(..).fold(self, f)
+    }
+
     /// Returns all the ports used by this guard.
     pub fn all_ports(&self) -> Vec<RRC<Port>> {
         match self {
