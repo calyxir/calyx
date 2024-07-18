@@ -29,7 +29,7 @@ impl Named for StaticInliner {
         vec![PassOpt::new(
             "offload-pause",
             "Whether to pause the static FSM when offloading",
-            ParseVal::Bool(false),
+            ParseVal::Bool(true),
             PassOpt::parse_bool,
         )]
     }
