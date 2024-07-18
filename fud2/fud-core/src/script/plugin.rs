@@ -19,7 +19,7 @@ use super::{
 };
 
 /// The signature and implementation of an operation.
-struct OpSig {
+struct RhaiOp {
     /// Operation name.
     name: String,
     /// Inputs states of the op.
@@ -38,7 +38,7 @@ struct ScriptContext {
     setups: Rc<RefCell<HashMap<String, SetupRef>>>,
 
     /// An op currently being built. `None` means no op is currently being built.
-    cur_op: Rc<RefCell<Option<OpSig>>>,
+    cur_op: Rc<RefCell<Option<RhaiOp>>>,
 }
 
 impl ScriptContext {
@@ -117,7 +117,7 @@ impl ScriptContext {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             None => {
-                *cur_op = Some(OpSig {
+                *cur_op = Some(RhaiOp {
                     name: name.to_string(),
                     input_states: inputs,
                     output_states: outputs,
@@ -125,7 +125,7 @@ impl ScriptContext {
                 });
                 Ok(())
             }
-            Some(OpSig {
+            Some(RhaiOp {
                 name: ref old_name,
                 input_states: _,
                 output_states: _,
@@ -158,7 +158,7 @@ impl ScriptContext {
     ) -> RhaiResult<()> {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
-            Some(OpSig {
+            Some(RhaiOp {
                 ref name,
                 ref input_states,
                 ref output_states,
