@@ -151,14 +151,14 @@ impl ScriptContext {
                         // Write the Ninja file.
                         let cmd = cmds.join(" && ");
                         e.rule(&name_c, &cmd)?;
-                        let in_vars = inputs
-                            .iter()
-                            .enumerate()
-                            .map(|(k, &v)| (format!("i{}", k + 1), v));
-                        let out_vars = outputs
-                            .iter()
-                            .enumerate()
-                            .map(|(k, &v)| (format!("o{}", k + 1), v));
+                        let in_vars =
+                            inputs.iter().enumerate().map(|(k, &v)| {
+                                (ScriptRunner::io_file_var_name(k, true), v)
+                            });
+                        let out_vars =
+                            outputs.iter().enumerate().map(|(k, &v)| {
+                                (ScriptRunner::io_file_var_name(k, false), v)
+                            });
                         let vars: Vec<_> = in_vars.chain(out_vars).collect();
 
                         e.build_cmd_with_vars(
@@ -574,6 +574,16 @@ impl ScriptRunner {
         );
     }
 
+    /// Given the `index` of a file in the list of input/output files and if the file is an
+    /// `input`, returns a valid Ninja variable name.
+    fn io_file_var_name(index: usize, input: bool) -> String {
+        if input {
+            format!("i{}", index)
+        } else {
+            format!("o{}", index)
+        }
+    }
+
     /// Registers a custom syntax for creating ops using `start_op_stmts` and `end_op_stmts`.
     fn reg_defop_syntax(&mut self, sctx: ScriptContext) {
         let bld = Rc::clone(&self.builder);
@@ -626,14 +636,14 @@ impl ScriptRunner {
                 for (i, name) in input_names.clone().into_iter().enumerate() {
                     context.scope_mut().push(
                         name.into_string().unwrap(),
-                        format!("$i{}", i + 1),
+                        Self::io_file_var_name(i, true),
                     );
                 }
 
                 for (i, name) in output_names.clone().into_iter().enumerate() {
                     context.scope_mut().push(
                         name.into_string().unwrap(),
-                        format!("$o{}", i + 1),
+                        Self::io_file_var_name(i, false),
                     );
                 }
 
