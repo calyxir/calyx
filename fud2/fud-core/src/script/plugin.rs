@@ -2,7 +2,6 @@ use rhai::{Dynamic, ImmutableString, ParseError, Position};
 
 use crate::{
     exec::{SetupRef, StateRef},
-    run::EmitBuildClosure,
     DriverBuilder,
 };
 use std::{
@@ -145,34 +144,11 @@ impl ScriptContext {
             Some((ref name, ref input_states, ref output_states, ref cmds)) => {
                 // Create the emitter.
                 let cmds = cmds.clone();
-                let name_c = name.clone();
-                let f: EmitBuildClosure =
-                    Box::new(move |e, inputs, outputs| {
-                        // Write the Ninja file.
-                        let cmd = cmds.join(" && ");
-                        e.rule(&name_c, &cmd)?;
-                        let in_vars =
-                            inputs.iter().enumerate().map(|(k, &v)| {
-                                (ScriptRunner::io_file_var_name(k, true), v)
-                            });
-                        let out_vars =
-                            outputs.iter().enumerate().map(|(k, &v)| {
-                                (ScriptRunner::io_file_var_name(k, false), v)
-                            });
-                        let vars: Vec<_> = in_vars.chain(out_vars).collect();
-
-                        e.build_cmd_with_vars(
-                            outputs,
-                            &name_c,
-                            inputs,
-                            &[],
-                            &vars,
-                        )?;
-                        Ok(())
-                    });
+                let op_name = name.clone();
+                let op_emitter = crate::run::OpEmitData { op_name, cmds };
 
                 // Add the op.
-                bld.add_op(name, &[], input_states, output_states, f);
+                bld.add_op(name, &[], input_states, output_states, op_emitter);
 
                 // Now no op is being built.
                 *cur_op = None;
@@ -574,16 +550,6 @@ impl ScriptRunner {
         );
     }
 
-    /// Given the `index` of a file in the list of input/output files and if the file is an
-    /// `input`, returns a valid Ninja variable name.
-    fn io_file_var_name(index: usize, input: bool) -> String {
-        if input {
-            format!("i{}", index)
-        } else {
-            format!("o{}", index)
-        }
-    }
-
     /// Registers a custom syntax for creating ops using `start_op_stmts` and `end_op_stmts`.
     fn reg_defop_syntax(&mut self, sctx: ScriptContext) {
         let bld = Rc::clone(&self.builder);
@@ -636,14 +602,14 @@ impl ScriptRunner {
                 for (i, name) in input_names.clone().into_iter().enumerate() {
                     context.scope_mut().push(
                         name.into_string().unwrap(),
-                        Self::io_file_var_name(i, true),
+                        crate::run::io_file_var_name(i, true),
                     );
                 }
 
                 for (i, name) in output_names.clone().into_iter().enumerate() {
                     context.scope_mut().push(
                         name.into_string().unwrap(),
-                        Self::io_file_var_name(i, false),
+                        crate::run::io_file_var_name(i, false),
                     );
                 }
 

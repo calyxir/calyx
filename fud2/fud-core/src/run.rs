@@ -87,17 +87,54 @@ impl EmitBuild for EmitBuildFn {
     }
 }
 
-pub type EmitBuildClosure =
-    Box<dyn Fn(&mut StreamEmitter, &[&str], &[&str]) -> EmitResult>;
+/// The data required to emit a single op.
+pub struct OpEmitData {
+    /// The name of the op.
+    pub op_name: String,
+    /// The commands run whenever the op run. Each of these must be run in order in a context where
+    /// the variables in each cmd are supplied. In particular, this means that variables of the
+    /// form "$[i|o]<digit>" are in scope.
+    pub cmds: Vec<String>,
+}
 
-impl EmitBuild for EmitBuildClosure {
+/// Given the `index` of a file in the list of input/output files and if the file is an
+/// `input`, returns a valid Ninja variable name.
+pub fn io_file_var_name(index: usize, input: bool) -> String {
+    if input {
+        format!("i{}", index)
+    } else {
+        format!("o{}", index)
+    }
+}
+
+impl EmitBuild for OpEmitData {
     fn build(
         &self,
         emitter: &mut StreamEmitter,
-        input: &[&str],
-        output: &[&str],
+        inputs: &[&str],
+        outputs: &[&str],
     ) -> EmitResult {
-        self(emitter, input, output)
+        // Write the Ninja file.
+        let cmd = self.cmds.join(" && ");
+        emitter.rule(&self.op_name, &cmd)?;
+        let in_vars = inputs
+            .iter()
+            .enumerate()
+            .map(|(k, &v)| (io_file_var_name(k, true), v));
+        let out_vars = outputs
+            .iter()
+            .enumerate()
+            .map(|(k, &v)| (io_file_var_name(k, false), v));
+        let vars: Vec<_> = in_vars.chain(out_vars).collect();
+
+        emitter.build_cmd_with_vars(
+            outputs,
+            &self.op_name,
+            inputs,
+            &[],
+            &vars,
+        )?;
+        Ok(())
     }
 }
 
