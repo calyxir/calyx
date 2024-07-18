@@ -17,13 +17,16 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     cmd = pieo.input("cmd", 3)
     value = pieo.input("value", 32)
     time = pieo.input("time", 32)
-    rank = pieo.input("rank", 32)
+    rank = pieo.input("rank", 64)
 
     cmd_eqs = [pieo.eq_use(cmd, i) for i in range(5)]
 
+    rank_cat = pieo.cat(32, 32)
     rank_reg = pieo.reg(64, "rank_reg")
 
-    store_rank = pieo.reg_store(rank_reg, rank, "store_rank")
+    with pieo.continuous:
+        rank_cat.left = rank
+        rank_cat.right = cmd_idx.out
 
     # Declare the sub-queues as cells of this component.
     val_queue = pieo.cell("val_queue", binheap.insert_binheap(prog, "val_queue", queue_len_factor, 64, 32))
@@ -31,8 +34,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     rank_queue = pieo.cell("rank_queue", binheap.insert_binheap(prog, "rank_queue", queue_len_factor, 64, 32))
 
     #Used to break ties between ranks and preserve FIFO order
-    shift_rank = pieo.lsh_use(rank_reg.out, rank_reg, 32)
-    add_rank, rank_reg = pieo.add_store_in_reg(rank_reg.out, cmd_idx.out, rank_reg)
+    update_rank = pieo.reg_store(rank_reg, rank_cat.out)
 
     num_elements = pieo.reg(32, "num_elements")
 
@@ -129,7 +131,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
 
         #In parallel, push value, time and rank into their respective heaps
         return cb.seq(
-            store_rank, shift_rank, add_rank,
+            update_rank,
             cb.par(
                 cb.invoke(
                     val_queue,
