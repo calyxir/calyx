@@ -24,7 +24,7 @@ impl State {
         self.extensions.iter().any(|e| e == ext)
     }
 
-    /// Is this a "pseudo-state": doesn't correspond to an actual file, and must be an output state?
+    /// Is this a "pseudo-state": doesn't correspond to an actual file
     pub fn is_pseudo(&self) -> bool {
         self.extensions.is_empty()
     }
@@ -38,8 +38,8 @@ entity_impl!(StateRef, "state");
 /// An Operation transforms files from one State to another.
 pub struct Operation {
     pub name: String,
-    pub input: StateRef,
-    pub output: StateRef,
+    pub input: Vec<StateRef>,
+    pub output: Vec<StateRef>,
     pub setups: Vec<SetupRef>,
     pub emit: Box<dyn run::EmitBuild>,
     /// Describes where this operation was defined.

@@ -2,7 +2,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 use super::json_data::*;
-use interp::serialization::data_dump::*;
+use interp::serialization::*;
 
 pub fn convert_to_data_dump(json: &JsonData) -> DataDump {
     let mut data_dump = DataDump::new_empty();

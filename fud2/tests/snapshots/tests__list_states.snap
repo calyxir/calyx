@@ -4,10 +4,10 @@ source: fud2/tests/tests.rs
 [
     "calyx",
     "cider",
+    "cider-debug",
     "cocotb-axi",
     "dahlia",
     "dat",
-    "debug",
     "firrtl",
     "firrtl-with-primitives",
     "mrxl",

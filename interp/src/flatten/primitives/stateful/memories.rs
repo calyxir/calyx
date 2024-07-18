@@ -11,7 +11,7 @@ use crate::{
         },
         structures::{environment::PortMap, index_trait::IndexRef},
     },
-    serialization::{Entry, Serializable, Shape},
+    serialization::{Entry, PrintCode, Serializable, Shape},
     values::Value,
 };
 
@@ -97,10 +97,7 @@ impl Primitive for StdReg {
         Ok(out_signal | done_signal)
     }
 
-    fn serialize(
-        &self,
-        code: Option<crate::debugger::PrintCode>,
-    ) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         Serializable::Val(Entry::from_val_code(
             &self.internal_state,
             &code.unwrap_or_default(),
@@ -373,10 +370,7 @@ impl Primitive for CombMem {
         }
     }
 
-    fn serialize(
-        &self,
-        code: Option<crate::debugger::PrintCode>,
-    ) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         let code = code.unwrap_or_default();
 
         Serializable::Array(
@@ -581,7 +575,7 @@ impl Primitive for SeqMem {
         true
     }
 
-    fn serialize(&self, code: Option<crate::utils::PrintCode>) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         let code = code.unwrap_or_default();
 
         Serializable::Array(
