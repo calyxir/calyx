@@ -18,7 +18,7 @@ use super::{
     resolver::Resolver,
 };
 
-/// The signature and implementation of an operation.
+/// The signature and implementation of an operation specified in Rhai.
 struct RhaiOp {
     /// Operation name.
     name: String,
