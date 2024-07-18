@@ -34,13 +34,13 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
 
     num_elements = pieo.reg(32, "num_elements")
 
-    not_maxed = pieo.le_use(num_elements.out, queue_len)
-    not_minned = pieo.ge_use(num_elements.out, 0)
+    not_maxed = pieo.lt_use(num_elements.out, queue_len)
+    not_minned = pieo.gt_use(num_elements.out, 0)
 
     #Querying register/memory components
 
     queue_index = pieo.reg(32, "queue_idx") #Tracker while scanning through heap
-    replace_tracker = pieo.reg(32, "replace_racker") #Loop counter while writing elements back into heap
+    replace_tracker = pieo.reg(32, "replace_tracker") #Loop counter while writing elements back into heap
 
     #Stores accessed times from popping queue
     ready_time = pieo.reg(32, "ready_time")
@@ -125,36 +125,34 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
         """
 
         #In parallel, push value, time and rank into their respective heaps
-        return cb.if_with(not_maxed,
-            cb.seq(
-                store_rank, shift_rank, add_rank,
-                cb.par(
-                    cb.invoke(
-                        val_queue,
-                        in_value=value,
-                        in_rank=rank_reg.out,
-                        in_cmd=cb.const(2, 2),
-                        ref_ans=ans,
-                        ref_err=err
-                    ),
-                    cb.invoke(
-                        time_queue,
-                        in_value=time,
-                        in_rank=rank_reg.out,
-                        in_cmd=cb.const(2, 2),
-                        ref_ans=ans,
-                        ref_err=err
-                    ),
-                    cb.invoke(
-                        rank_queue,
-                        in_value=rank_reg.out,
-                        in_rank=rank_reg.out,
-                        in_cmd=cb.const(2, 2),
-                        ref_ans=ans,
-                        ref_err=err
-                    )
-                ), incr_num_elements
-            )
+        return cb.seq(
+            store_rank, shift_rank, add_rank,
+            cb.par(
+                cb.invoke(
+                    val_queue,
+                    in_value=value,
+                    in_rank=rank_reg.out,
+                    in_cmd=cb.const(2, 2),
+                    ref_ans=ans,
+                    ref_err=err
+                ),
+                cb.invoke(
+                    time_queue,
+                    in_value=time,
+                    in_rank=rank_reg.out,
+                    in_cmd=cb.const(2, 2),
+                    ref_ans=ans,
+                    ref_err=err
+                ),
+                cb.invoke(
+                    rank_queue,
+                    in_value=rank_reg.out,
+                    in_rank=rank_reg.out,
+                    in_cmd=cb.const(2, 2),
+                    ref_ans=ans,
+                    ref_err=err
+                )
+            ), incr_num_elements
         )
 
     def query(pop, include_value=False):
@@ -210,7 +208,7 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
                             val_queue,
                             in_value=cached_data_registers[0].out,
                             in_rank=cached_data_registers[2].out,
-                            in_cmd=cb.const(2, 2),
+                            in_cmd=cb.const(2, 2), #Push back to memory
                             ref_ans=ans,
                             ref_err=err
                         ),
@@ -219,7 +217,7 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
                             time_queue,
                             in_value=cached_data_registers[1].out,
                             in_rank=cached_data_registers[2].out,
-                            in_cmd=cb.const(2, 2),
+                            in_cmd=cb.const(2, 2), #Push back to memory
                             ref_ans=ans,
                             ref_err=err
                         ),
@@ -227,7 +225,7 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
                             rank_queue,
                             in_value=cached_data_registers[2].out,
                             in_rank=cached_data_registers[2].out,
-                            in_cmd=cb.const(2, 2),
+                            in_cmd=cb.const(2, 2), #Push back to memory
                             ref_ans=ans,
                             ref_err=err,
                         )
@@ -262,14 +260,14 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
             ),
 
             cb.if_with(cmd_eqs[3],
-                cb.if_with(not_maxed,
+                cb.if_with(not_minned,
                     query(pop=False, include_value=True),
                     raise_err
                 )
             ),
 
             cb.if_with(cmd_eqs[4],
-                cb.if_with(not_maxed,
+                cb.if_with(not_minned,
                     query(pop=True, include_value=True),
                     raise_err
                 )
