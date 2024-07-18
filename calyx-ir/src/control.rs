@@ -578,6 +578,10 @@ impl Control {
         matches!(self, Control::Static(_))
     }
 
+    pub fn is_seq(&self) -> bool {
+        matches!(self, Self::Seq(..))
+    }
+
     pub fn is_empty(&self) -> bool {
         matches!(self, Control::Static(StaticControl::Empty(_)))
             || matches!(self, Control::Empty(_))

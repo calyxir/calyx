@@ -416,10 +416,14 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 used_slicers_vec.get_mut(reg_to_query).unwrap(),
             )
         };
+        println!("reg to query: {reg_to_query}");
         // create a guard against the state of the correct parent register, if we split
         let (mut parent_guard, state_to_query) = match parents.get(reg_to_query)
         {
-            None => (Vec::new(), *state),
+            None => {
+                println!("took none path");
+                (Vec::new(), *state)
+            }
             Some(parent_reg) => {
                 // query parent == 1 iff we are in second-half of seq. schedule
                 let parent_const = builder.add_constant(
@@ -434,6 +438,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 (vec![parent_guard], *state % ((fsm_rep.last_state + 1) / 2)) // check
             }
         };
+        println!("last state: {}", fsm_rep.last_state);
+        println!("\n");
+        println!("state to query: {state_to_query}");
         match fsm_rep.encoding {
             RegisterEncoding::Binary => {
                 let state_const =
@@ -485,8 +492,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
         builder: &mut ir::Builder,
         fsm_rep: &FSMRepresentation,
     ) -> FSMHardware {
-        // the number of states that each fsm represents
-        let schedule_size = match fsm_rep.spread {
+        // represents the size of each sub-schedule within this schedule
+        // normally, the sub-schedule is the schedule, so
+        let individual_schedule_size = match fsm_rep.spread {
             RegisterSpread::Single | RegisterSpread::Duplicate => {
                 fsm_rep.last_state + 1
             }
@@ -495,12 +503,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // get fsm bit width and build constant emitting fsm first state
         let (fsm_size, first_state) = match fsm_rep.encoding {
             RegisterEncoding::Binary => {
-                let fsm_size = get_bit_width_from(schedule_size);
+                let fsm_size = get_bit_width_from(individual_schedule_size);
                 (fsm_size, builder.add_constant(0, fsm_size))
             }
-            RegisterEncoding::OneHot => {
-                (schedule_size, builder.add_constant(1, schedule_size))
-            }
+            RegisterEncoding::OneHot => (
+                individual_schedule_size,
+                builder.add_constant(1, individual_schedule_size),
+            ),
         };
 
         // for the given number of fsm registers to read from, add a primitive register to the design for each
@@ -538,7 +547,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 "std_reg",
                 match fsm_rep.spread {
                     RegisterSpread::Single | RegisterSpread::Duplicate => 0,
-                    RegisterSpread::Split => 1,
+                    RegisterSpread::Split => 2,
                 },
             ),
             first_state,
@@ -571,7 +580,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let signal_on = self.builder.add_constant(1, 1);
 
         // parent registers only exists if split is selected
-        let (mut fsms, mut parents, first_state, fsm_size) =
+        let (mut fsms, parents, first_state, fsm_size) =
             Self::build_fsm_infrastructure(self.builder, &fsm_rep);
 
         // Add last state to JSON info
@@ -594,6 +603,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let mut used_slicers_vec =
             fsms.iter().map(|_| HashMap::new()).collect_vec();
 
+        print!("fsm size {fsm_size}");
+        print!("\n");
+
         // enable assignments
         // the following enable queries; we can decide which register to query for state-dependent assignments
         // because we know all registers precisely agree at each cycle
@@ -602,6 +614,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
+                    print!("state: {state}");
                     // for every assignment dependent on current fsm state,
                     // `&` new fsm guard with existing guard
                     assigns.iter_mut().for_each(|asgn| {
@@ -645,6 +658,12 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
                 // add transition assignment to every fsm register to ensure
                 // consistency between each
+                let end_state_to_query =
+                    if let RegisterSpread::Split = fsm_rep.spread {
+                        e / 2
+                    } else {
+                        e
+                    };
                 fsms.iter()
                     .flat_map(|fsm| {
                         let trans_guard = state_guards
@@ -653,12 +672,15 @@ impl<'b, 'a> Schedule<'b, 'a> {
                             .fold(guard.clone(), |g, sg| sg.and(g));
 
                         let end_const = match fsm_rep.encoding {
-                            RegisterEncoding::Binary => {
-                                self.builder.add_constant(e, fsm_size)
-                            }
+                            RegisterEncoding::Binary => self
+                                .builder
+                                .add_constant(end_state_to_query, fsm_size),
                             RegisterEncoding::OneHot => {
                                 self.builder.add_constant(
-                                    u64::pow(2, e.try_into().unwrap()),
+                                    u64::pow(
+                                        2,
+                                        end_state_to_query.try_into().unwrap(),
+                                    ),
                                     fsm_size,
                                 )
                             }
@@ -727,7 +749,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group.borrow_mut().assignments.push(done_assign);
 
         // Cleanup: Add a transition from last state to the first state for each control register
-        fsms.append(&mut parents);
+        fsms.append(&mut parents.clone());
         let reset_fsms = fsms
             .iter()
             .flat_map(|fsm| {
@@ -1547,7 +1569,8 @@ impl Visitor for TopDownCompileControl {
 
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        let fsm_impl = self.get_representation(&sch, &attrs, false);
+        let fsm_impl =
+            self.get_representation(&sch, &attrs, control.borrow().is_seq());
         let comp_group =
             sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
