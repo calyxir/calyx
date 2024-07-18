@@ -49,7 +49,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     #Stores accessed times from popping queue
     ready_time = pieo.reg(32, "ready_time")
     val_ans = pieo.reg(32, "val_ans")
-    rank_ans = pieo.reg(32, "rank_ans")
+    rank_ans = pieo.reg(64, "rank_ans")
 
     #Equality checkers
     val_eq = pieo.eq(32)
@@ -78,8 +78,9 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
 
     #Operations to cache values, times and ranks
     cache_data = [
-        pieo.mem_store_d1(cached_data[i], queue_index.out, val_ans.out, f"cache_{i}")
-        for i in range(3)
+        pieo.mem_store_d1(cached_data[0], queue_index.out, val_ans.out, f"cache_{0}"),
+        pieo.mem_store_d1(cached_data[1], queue_index.out, ready_time.out, f"cache_{1}"),
+        pieo.mem_store_d1(cached_data[2], queue_index.out, rank_ans.out, f"cache_{2}")
     ]
 
     #Load cached values, times and ranks
