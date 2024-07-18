@@ -63,6 +63,9 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
 
     replace_count_peek = pieo.lt_use(replace_tracker.out, queue_index.out) #Push back all popped elements
     replace_count_pop = pieo.lt_use(replace_tracker.out, queue_index.out) #Don't push back the latest popped element
+
+    #Store answer
+    store_ans = pieo.reg_store(ans, val_ans.out)
     
     #Memory cells for cached values, times and ranks
     cached_data = [
@@ -87,6 +90,13 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
     incr_queue_idx = pieo.incr(queue_index)
     decr_num_elements = pieo.decr(num_elements)
     incr_replace_tracker = pieo.incr(replace_tracker)
+    incr_cmd_idx = pieo.incr(cmd_idx)
+
+    #Error and tracker resets
+    raise_err = pieo.reg_store(err, cb.const(1, 1))
+    reset_err = pieo.reg_store(err, cb.const(1, 0))
+    reset_queue_idx = pieo.reg_store(queue_index, cb.const(32, 0))
+    reset_replace_tracker = pieo.reg_store(replace_tracker, cb.const(32, 0))
 
     #Design all necessary loop guards
     with pieo.comb_group(f"time_pop_guard") as time_pop_guard:
@@ -161,11 +171,7 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
 
         return cb.seq(
             #Scan through heaps and pop value, time and rank until we either run out or find an accurate one
-            cb.par([
-                pieo.reg_store(queue_index, 0),
-                pieo.reg_store(replace_tracker, 0)
-            ]),
-
+            cb.par([reset_err, reset_queue_idx, reset_replace_tracker]),
             cb.while_with (
                 cb.CellAndGroup(while_and_val, time_pop_guard)
                 if include_value
@@ -190,10 +196,8 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
                 cb.CellAndGroup(val_time_and, time_pop_guard)
                 if include_value
                 else cb.CellAndGroup(time_le, time_pop_guard)),
-                cb.seq([
-                    pieo.reg_store(ans, val_ans.out),
-                    pieo.reg_store(err, cb.const(1, 1))
-                ] + [decr_num_elements] if pop else []) #Decrement number of elements if we are popping
+                cb.seq([store_ans, raise_err] + [decr_num_elements] if pop else [])
+                #Decrement number of elements if we are popping
             ),
 
             #Write elements back – don't write back the last popped element if popping.
@@ -234,46 +238,46 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
             )
         )
 
-    pieo.control += cb.seq(
+    pieo.control += cb.seq([
+        reset_err,
         cb.par (
             #Peek with time predicate, if we have not minned out
             cb.if_with(cmd_eqs[0],
                 cb.if_with(not_minned,
                     query(pop=False),
-                    pieo.reg_store(err, cb.const(1, 1))
+                    raise_err
                 )
             ),
 
             cb.if_with(cmd_eqs[1],
                 cb.if_with(not_minned,
                     query(pop=True),
-                    pieo.reg_store(err, cb.const(1, 1))
+                    raise_err
                 )
             ),
 
             cb.if_with(cmd_eqs[2],
                 cb.if_with(not_maxed,
                     push(),
-                    pieo.reg_store(err, cb.const(1, 1))
+                    raise_err
                 )
             ),
 
             cb.if_with(cmd_eqs[3],
                 cb.if_with(not_maxed,
                     query(pop=False, include_value=True),
-                    pieo.reg_store(err, cb.const(1, 1))
+                    raise_err
                 )
             ),
 
             cb.if_with(cmd_eqs[4],
                 cb.if_with(not_maxed,
                     query(pop=True, include_value=True),
-                    pieo.reg_store(err, cb.const(1, 1))
+                    raise_err
                 )
             )
-        ),
-        pieo.incr(cmd_idx)
-    )
+        ), incr_cmd_idx
+    ])
 
     return pieo
 
