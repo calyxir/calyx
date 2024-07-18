@@ -29,8 +29,8 @@ def insert_pieo(prog, name, queue_len, stats=None, static=False):
     shift_rank = pieo.lsh_use(rank_reg.out, rank_reg, 32)
     add_rank, rank_reg = pieo.add_store_in_reg(rank_reg.out, cmd_idx.out, rank_reg)
 
-    ans = pieo.reg(32, "ans")
-    err = pieo.reg(1, "err")
+    ans = pieo.reg(32, "ans", is_ref=True)
+    err = pieo.reg(1, "err", is_ref=True)
 
     num_elements = pieo.reg(32, "num_elements")
 
