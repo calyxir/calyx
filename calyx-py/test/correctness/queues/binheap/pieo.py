@@ -17,7 +17,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     cmd = pieo.input("cmd", 3)
     value = pieo.input("value", 32)
     time = pieo.input("time", 32)
-    rank = pieo.input("rank", 64)
+    rank = pieo.input("rank", 32)
 
     cmd_eqs = [pieo.eq_use(cmd, i) for i in range(5)]
 
