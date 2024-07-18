@@ -11,6 +11,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
 
     ans = pieo.reg(32, "ans", is_ref=True)
     err = pieo.reg(1, "err", is_ref=True)
+    rank_ref = pieo.reg(64, "rank_ref", is_ref=True)
 
     cmd_idx = pieo.reg(32, "cmd_idx")
 
@@ -155,7 +156,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                     in_value=rank_reg.out,
                     in_rank=rank_reg.out,
                     in_cmd=cb.const(2, 2),
-                    ref_ans=ans,
+                    ref_ans=rank_ref,
                     ref_err=err
                 )
             ), incr_num_elements
