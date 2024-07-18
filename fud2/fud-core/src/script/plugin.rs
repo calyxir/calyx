@@ -151,7 +151,23 @@ impl ScriptContext {
                         // Write the Ninja file.
                         let cmd = cmds.join(" && ");
                         e.rule(&name_c, &cmd)?;
-                        e.build_cmd(outputs, &name_c, inputs, &[])?;
+                        let in_vars = inputs
+                            .iter()
+                            .enumerate()
+                            .map(|(k, &v)| (format!("i{}", k + 1), v));
+                        let out_vars = outputs
+                            .iter()
+                            .enumerate()
+                            .map(|(k, &v)| (format!("o{}", k + 1), v));
+                        let vars: Vec<_> = in_vars.chain(out_vars).collect();
+
+                        e.build_cmd_with_vars(
+                            outputs,
+                            &name_c,
+                            inputs,
+                            &[],
+                            &vars,
+                        )?;
                         Ok(())
                     });
 
@@ -605,17 +621,19 @@ impl ScriptRunner {
                     .collect::<RhaiResult<Vec<_>>>()?;
                 let body = inputs.last().unwrap();
 
+                let orig_scope_size = context.scope().len();
+
                 for (i, name) in input_names.clone().into_iter().enumerate() {
-                    context.scope_mut().set_value(
+                    context.scope_mut().push(
                         name.into_string().unwrap(),
-                        format!("$in[{}]", i),
+                        format!("$i{}", i + 1),
                     );
                 }
 
                 for (i, name) in output_names.clone().into_iter().enumerate() {
-                    context.scope_mut().set_value(
+                    context.scope_mut().push(
                         name.into_string().unwrap(),
-                        format!("$out[{}]", i),
+                        format!("$o{}", i + 1),
                     );
                 }
 
@@ -626,7 +644,10 @@ impl ScriptRunner {
                 // an op.
                 sctx.begin_op(op_pos, op_name, input_states, output_states)?;
                 let _ = body.eval_with_context(context)?;
-                sctx.end_op(op_pos, bld.borrow_mut()).map(Dynamic::from)
+                let res =
+                    sctx.end_op(op_pos, bld.borrow_mut()).map(Dynamic::from);
+                context.scope_mut().rewind(orig_scope_size);
+                res
             },
         );
     }

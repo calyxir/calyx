@@ -524,6 +524,37 @@ impl<W: Write> Emitter<W> {
         Ok(())
     }
 
+    /// Emit a Ninja build command with variable list.
+    pub fn build_cmd_with_vars(
+        &mut self,
+        targets: &[&str],
+        rule: &str,
+        deps: &[&str],
+        implicit_deps: &[&str],
+        variables: &[(String, &str)],
+    ) -> std::io::Result<()> {
+        write!(self.out, "build")?;
+        for target in targets {
+            write!(self.out, " {}", target)?;
+        }
+        write!(self.out, ": {}", rule)?;
+        for dep in deps {
+            write!(self.out, " {}", dep)?;
+        }
+        if !implicit_deps.is_empty() {
+            write!(self.out, " |")?;
+            for dep in implicit_deps {
+                write!(self.out, " {}", dep)?;
+            }
+        }
+        writeln!(self.out)?;
+        for (key, value) in variables {
+            writeln!(self.out, "  {} = {}", key, value)?;
+        }
+        writeln!(self.out)?;
+        Ok(())
+    }
+
     /// Emit a Ninja comment.
     pub fn comment(&mut self, text: &str) -> std::io::Result<()> {
         writeln!(self.out, "# {}", text)?;
