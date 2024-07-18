@@ -207,15 +207,29 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             "r".underline()
         );
 
+        let mut err_count = 0_u8;
+
         while !self.interpreter.is_done() {
             let comm = input_stream.next_command();
             let comm = match comm {
-                Ok(c) => c,
+                Ok(c) => {
+                    err_count = 0;
+                    c
+                }
                 Err(e) => match *e {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_)
                     | InterpreterError::ParseError(_) => {
                         println!("Error: {}", e.red().bold());
+                        err_count += 1;
+                        if err_count == 3 {
+                            println!(
+                                "Type {} for a list of commands or {} for usage examples.",
+                                "help".yellow().bold().underline(),
+                                "explain".yellow().bold().underline()
+                            );
+                            err_count = 0;
+                        }
                         continue;
                     }
                     _ => return Err(e),
@@ -289,7 +303,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
 
                 Command::Explain => {
-                    print!("{}", Command::get_explain_string().blue())
+                    print!("{}", Command::get_explain_string())
                 }
 
                 Command::Restart => {
@@ -342,7 +356,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     return Ok(DebuggerReturnStatus::Exit);
                 }
                 Command::Explain => {
-                    print!("{}", Command::get_explain_string().blue().bold())
+                    print!("{}", Command::get_explain_string())
                 }
                 Command::Restart => {
                     return Ok(DebuggerReturnStatus::Restart(Box::new(
