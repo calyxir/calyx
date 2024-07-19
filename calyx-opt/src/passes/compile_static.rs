@@ -613,7 +613,7 @@ impl CompileStatic {
                 group_name: target_name,
                 threads: children_vec,
                 latency: target_group_ref.latency,
-                num_repeats: num_repeats,
+                num_repeats,
             })
         } else {
             // If we are in a regular group, then the children should be
@@ -632,10 +632,10 @@ impl CompileStatic {
                 fsm_cell: None,
                 iter_count_cell: None,
                 root: (target_name, vec![]),
-                fsm_schedule: fsm_schedule,
+                fsm_schedule,
                 children: children_vec,
-                num_repeats: num_repeats,
-                num_states: num_states,
+                num_repeats,
+                num_states,
             })
         }
     }
