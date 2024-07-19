@@ -83,7 +83,7 @@ impl ConstructVisitor for CompileStatic {
             wrapper_map: HashMap::new(),
             signal_reg_map: HashMap::new(),
             fsm_info_map: HashMap::new(),
-            group_rewrites: ir::rewriter::PortRewriteMap::new(),
+            group_rewrites: ir::rewriter::PortRewriteMap::default(),
         })
     }
 
@@ -92,6 +92,7 @@ impl ConstructVisitor for CompileStatic {
         self.wrapper_map = HashMap::new();
         self.signal_reg_map = HashMap::new();
         self.fsm_info_map = HashMap::new();
+        self.group_rewrites = ir::rewriter::PortRewriteMap::default();
     }
 }
 
