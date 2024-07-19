@@ -38,10 +38,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       early_reset_static_seq[go] = 1'd1;
       signal_reg.write_en = fsm.out == 4'd9 & 1'b1 & !signal_reg.out ? 1'd1;
       signal_reg.in = fsm.out == 4'd9 & 1'b1 & !signal_reg.out ? 1'd1;
-      wrapper_early_reset_static_seq[done] = fsm.out == 4'd0 & 1'b1 & signal_reg.out ? 1'd1;
+      wrapper_early_reset_static_seq[done] = signal_reg.out ? 1'd1;
     }
-    signal_reg.write_en = fsm.out == 4'd0 & 1'b1 & signal_reg.out ? 1'd1;
-    signal_reg.in = fsm.out == 4'd0 & 1'b1 & signal_reg.out ? 1'd0;
+    signal_reg.write_en = signal_reg.out ? 1'd1;
+    signal_reg.in = signal_reg.out ? 1'd0;
   }
   control {
     wrapper_early_reset_static_seq;

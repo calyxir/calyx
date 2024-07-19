@@ -30,10 +30,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       early_reset_static_invoke[go] = 1'd1;
       signal_reg.write_en = 1'b1 & 1'b1 & !signal_reg.out ? 1'd1;
       signal_reg.in = 1'b1 & 1'b1 & !signal_reg.out ? 1'd1;
-      wrapper_early_reset_static_invoke[done] = 1'b1 & 1'b1 & signal_reg.out ? 1'd1;
+      wrapper_early_reset_static_invoke[done] = signal_reg.out ? 1'd1;
     }
-    signal_reg.write_en = 1'b1 & 1'b1 & signal_reg.out ? 1'd1;
-    signal_reg.in = 1'b1 & 1'b1 & signal_reg.out ? 1'd0;
+    signal_reg.write_en = signal_reg.out ? 1'd1;
+    signal_reg.in = signal_reg.out ? 1'd0;
   }
   control {
     wrapper_early_reset_static_invoke;
