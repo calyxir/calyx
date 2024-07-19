@@ -2,13 +2,15 @@
 //! passes.
 use crate::traversal;
 use calyx_ir as ir;
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::{Error, MultiError};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::time::Instant;
 
+pub type PassResult<T> = std::result::Result<T, MultiError>;
+
 /// Top-level type for all passes that transform an [ir::Context]
-pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> CalyxResult<()>>;
+pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> PassResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
 #[derive(Default)]
@@ -30,7 +32,48 @@ impl PassManager {
     /// let pm = PassManager::default();
     /// pm.register_pass::<WellFormed>()?;
     /// ```
-    pub fn register_pass<Pass>(&mut self) -> CalyxResult<()>
+    pub fn register_pass<Pass>(&mut self) -> PassResult<()>
+    where
+        Pass:
+            traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
+    {
+        self.register_generic_pass::<Pass>(Box::new(|ir| {
+            Pass::do_pass_default(ir)?;
+            Ok(())
+        }))
+    }
+
+    /// Registers a diagnostic pass as a normal pass. If there is an error,
+    /// this will report the first error gathered by the pass.
+    pub fn register_diagnostic<Pass>(&mut self) -> PassResult<()>
+    where
+        Pass: traversal::Visitor
+            + traversal::ConstructVisitor
+            + traversal::Named
+            + traversal::DiagnosticPass,
+    {
+        self.register_generic_pass::<Pass>(Box::new(|ir| {
+            let mut visitor = Pass::from(ir)?;
+            visitor.do_pass(ir)?;
+
+            let errors: Vec<_> =
+                visitor.diagnostics().errors_iter().cloned().collect();
+            if !errors.is_empty() {
+                Err(MultiError::from(errors))
+            } else {
+                // only show warnings, if there are no errors
+                visitor.diagnostics().warning_iter().for_each(
+                    |warning| log::warn!(target: Pass::name(), "{warning:?}"),
+                );
+                Ok(())
+            }
+        }))
+    }
+
+    fn register_generic_pass<Pass>(
+        &mut self,
+        pass_closure: PassClosure,
+    ) -> PassResult<()>
     where
         Pass:
             traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
@@ -40,12 +83,9 @@ impl PassManager {
             return Err(Error::misc(format!(
                 "Pass with name '{}' is already registered.",
                 name
-            )));
+            ))
+            .into());
         }
-        let pass_closure: PassClosure = Box::new(|ir| {
-            Pass::do_pass_default(ir)?;
-            Ok(())
-        });
         self.passes.insert(name.clone(), pass_closure);
         let mut help = format!("- {}: {}", name, Pass::description());
         for opt in Pass::opts() {
@@ -69,12 +109,13 @@ impl PassManager {
         &mut self,
         name: String,
         passes: Vec<String>,
-    ) -> CalyxResult<()> {
+    ) -> PassResult<()> {
         if self.aliases.contains_key(&name) {
             return Err(Error::misc(format!(
                 "Alias with name '{}'  already registered.",
                 name
-            )));
+            ))
+            .into());
         }
         // Expand any aliases used in defining this alias.
         let all_passes = passes
@@ -150,9 +191,22 @@ impl PassManager {
         &self,
         incls: &[String],
         excls: &[String],
-    ) -> CalyxResult<(Vec<String>, HashSet<String>)> {
-        // Incls and excls can both have aliases in them. Resolve them.
-        let passes = incls
+        insns: &[String],
+    ) -> PassResult<(Vec<String>, HashSet<String>)> {
+        let mut insertions = insns
+            .iter()
+            .filter_map(|str| match str.split_once(':') {
+                Some((before, after)) => {
+                    Some((before.to_string(), after.to_string()))
+                }
+                None => {
+                    log::warn!("No ':' in {str}. Ignoring this option.");
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        // Incls and excls can have aliases in them. Resolve them.
+        let mut passes = incls
             .iter()
             .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<Vec<_>>();
@@ -163,7 +217,7 @@ impl PassManager {
             .collect::<HashSet<String>>();
 
         // Validate that names of passes in incl and excl sets are known
-        passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
+        passes.iter().chain(excl_set.iter().chain(insertions.iter().flat_map(|(pass1, pass2)| vec![pass1, pass2]))).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
                 Err(Error::misc(format!(
                     "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
@@ -173,18 +227,50 @@ impl PassManager {
             }
         })?;
 
+        // Remove passes from `insertions` that are not slated to run.
+        insertions.retain(|(pass1, pass2)|
+            if !passes.contains(pass1) || excl_set.contains(pass1) {
+                log::warn!("Pass {pass1} is not slated to run. Reordering will have no effect.");
+                false
+            }
+            else if !passes.contains(pass2) || excl_set.contains(pass2) {
+                log::warn!("Pass {pass2} is not slated to run. Reordering will have no effect.");
+                false
+            }
+            else {
+                true
+            }
+        );
+
+        // Perform re-insertion.
+        // Insert `after` right after `before`. If `after` already appears after
+        // before, do nothing.
+        for (before, after) in insertions {
+            let before_idx =
+                passes.iter().position(|pass| *pass == before).unwrap();
+            let after_idx =
+                passes.iter().position(|pass| *pass == after).unwrap();
+            // Only need to perform re-insertion if it is actually out of order.
+            if before_idx > after_idx {
+                passes.insert(before_idx + 1, after);
+                passes.remove(after_idx);
+            }
+        }
+
         Ok((passes, excl_set))
     }
 
     /// Executes a given "plan" constructed using the incl and excl lists.
+    /// ord is a relative ordering that should be enforced.
     pub fn execute_plan(
         &self,
         ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
+        insn: &[String],
         dump_ir: bool,
-    ) -> CalyxResult<()> {
-        let (passes, excl_set) = self.create_plan(incl, excl)?;
+    ) -> PassResult<()> {
+        let (passes, excl_set) = self.create_plan(incl, excl, insn)?;
 
         for name in passes {
             // Pass is known to exist because create_plan validates the

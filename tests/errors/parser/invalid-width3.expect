@@ -1,9 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Failed to parse `tests/errors/parser/invalid-width3.futil`:  --> 4:12
-  |
-4 |     r.in = 1'o10;
-  |            ^---^
-  |
-  = Cannot represent given literal '10' in 1 bit
+Error: tests/errors/parser/invalid-width3.futil
+4 |    r.in = 1'o10;
+  |           ^^^^^ Parse error
+Cannot represent given literal '10' in 1 bit

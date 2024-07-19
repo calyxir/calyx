@@ -169,6 +169,20 @@ impl Attributes {
     }
 }
 
+impl PartialEq for Attributes {
+    fn eq(&self, other: &Self) -> bool {
+        self.inl == other.inl
+            && self.hinfo.attrs.len() == other.hinfo.attrs.len()
+            && self
+                .hinfo
+                .attrs
+                .iter()
+                .all(|(k, v)| other.hinfo.attrs.get(k) == Some(v))
+    }
+}
+
+impl Eq for Attributes {}
+
 #[cfg(feature = "serialize")]
 impl serde::Serialize for HeapAttrInfo {
     fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>

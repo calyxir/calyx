@@ -2,8 +2,6 @@
 use argh::FromArgs;
 #[cfg(feature = "serialize")]
 use calyx_backend::SexpBackend;
-#[cfg(feature = "yxi")]
-use calyx_backend::YxiBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
     Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
@@ -91,6 +89,10 @@ pub struct Opts {
     #[argh(option, short = 'x', long = "extra-opt")]
     pub extra_opts: Vec<String>,
 
+    /// establish a relative ordering of passes
+    #[argh(option, short = 'i', long = "insert")]
+    pub insertions: Vec<String>,
+
     /// enable verbose printing
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
@@ -167,11 +169,6 @@ impl Opts {
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend;
-                backend.run(context, self.output)
-            }
-            #[cfg(feature = "yxi")]
-            BackendOpt::Yxi => {
-                let backend = YxiBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Firrtl => {

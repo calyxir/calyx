@@ -46,6 +46,7 @@ results.xml
 
 # Ignore .fud2 cache
 .fud2/
+.fud2-*/
 
 
 !cider-dap/calyxDebug/package.json
@@ -55,5 +56,10 @@ results.xml
 tools/btor2/btor2i/build/
 
 # vcd-parsing tmp files ignore
-tools/vcd-parsing/tmp/
-tools/vcd-parsing/logs
+tools/profiler/tmp/
+tools/profiler/logs
+
+temp/
+
+# for running a venv
+.venv

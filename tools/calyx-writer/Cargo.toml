@@ -1,0 +1,19 @@
+[package]
+name = "calyx_writer"
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+readme.workspace = true
+description.workspace = true
+categories.workspace = true
+homepage.workspace = true
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lib]
+name = "calyx_writer"
+path = "lib.rs"

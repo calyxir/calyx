@@ -1,14 +1,9 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, utils};
+use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
-use cranelift_entity::{PrimaryMap, SecondaryMap};
-use std::collections::HashMap;
-
-#[derive(PartialEq)]
-enum Destination {
-    State(StateRef),
-    Op(OpRef),
-}
+use cranelift_entity::PrimaryMap;
+use rand::distributions::{Alphanumeric, DistString};
+use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 type FileData = HashMap<&'static str, &'static [u8]>;
 
@@ -24,147 +19,186 @@ pub struct Driver {
 }
 
 impl Driver {
-    /// Find a chain of Operations from the `start` state to the `end`, which may be a state or the
-    /// final operation in the chain.
-    fn find_path_segment(
+    /// Generate a filename with an extension appropriate for the given State, `state_ref` relative
+    /// to `workdir`.
+    ///
+    /// If `user_visible`, then the path should not be in the working directory because the user
+    /// should see the generated file (or provides the file).
+    ///
+    /// If `used` is false, the state is neither an output to the user, or used as input an op. In
+    /// this case, the filename associated with the state will be prefixed by `_unused_`.
+    fn gen_name(
         &self,
-        start: StateRef,
-        end: Destination,
-    ) -> Option<Vec<OpRef>> {
-        // Our start state is the input.
-        let mut visited = SecondaryMap::<StateRef, bool>::new();
-        visited[start] = true;
+        state_ref: StateRef,
+        used: bool,
+        user_visible: bool,
+        workdir: &Utf8PathBuf,
+    ) -> IO {
+        let state = &self.states[state_ref];
 
-        // Build the incoming edges for each vertex.
-        let mut breadcrumbs = SecondaryMap::<StateRef, Option<OpRef>>::new();
-
-        // Breadth-first search.
-        let mut state_queue: Vec<StateRef> = vec![start];
-        while !state_queue.is_empty() {
-            let cur_state = state_queue.remove(0);
-
-            // Finish when we reach the goal vertex.
-            if end == Destination::State(cur_state) {
-                break;
-            }
-
-            // Traverse any edge from the current state to an unvisited state.
-            for (op_ref, op) in self.ops.iter() {
-                if op.input == cur_state && !visited[op.output] {
-                    state_queue.push(op.output);
-                    visited[op.output] = true;
-                    breadcrumbs[op.output] = Some(op_ref);
-                }
-
-                // Finish when we reach the goal edge.
-                if end == Destination::Op(op_ref) {
-                    break;
-                }
-            }
-        }
-
-        // Traverse the breadcrumbs backward to build up the path back from output to input.
-        let mut op_path: Vec<OpRef> = vec![];
-        let mut cur_state = match end {
-            Destination::State(state) => state,
-            Destination::Op(op) => {
-                op_path.push(op);
-                self.ops[op].input
-            }
-        };
-        while cur_state != start {
-            match breadcrumbs[cur_state] {
-                Some(op) => {
-                    op_path.push(op);
-                    cur_state = self.ops[op].input;
-                }
-                None => return None,
-            }
-        }
-        op_path.reverse();
-
-        Some(op_path)
-    }
-
-    /// Find a chain of operations from the `start` state to the `end` state, passing through each
-    /// `through` operation in order.
-    pub fn find_path(
-        &self,
-        start: StateRef,
-        end: StateRef,
-        through: &[OpRef],
-    ) -> Option<Vec<OpRef>> {
-        let mut cur_state = start;
-        let mut op_path: Vec<OpRef> = vec![];
-
-        // Build path segments through each through required operation.
-        for op in through {
-            let segment =
-                self.find_path_segment(cur_state, Destination::Op(*op))?;
-            op_path.extend(segment);
-            cur_state = self.ops[*op].output;
-        }
-
-        // Build the final path segment to the destination state.
-        let segment =
-            self.find_path_segment(cur_state, Destination::State(end))?;
-        op_path.extend(segment);
-
-        Some(op_path)
-    }
-
-    /// Generate a filename with an extension appropriate for the given State.
-    fn gen_name(&self, stem: &str, state: StateRef) -> Utf8PathBuf {
-        let state = &self.states[state];
-        if state.is_pseudo() {
-            Utf8PathBuf::from(format!("_pseudo_{}", state.name))
+        let prefix = if !used { "_unused_" } else { "" };
+        let extension = if !state.extensions.is_empty() {
+            &state.extensions[0]
         } else {
-            // TODO avoid collisions in case we reuse extensions...
-            Utf8PathBuf::from(stem).with_extension(&state.extensions[0])
+            ""
+        };
+
+        // Only make the path relative, i.e. not in the workdir if the file should be user visible.
+        let post_process = if user_visible {
+            utils::relative_path
+        } else {
+            |x: &Utf8Path, _y: &Utf8Path| x.to_path_buf()
+        };
+
+        IO::File(if state.is_pseudo() {
+            post_process(
+                &Utf8PathBuf::from(format!("{}pseudo_{}", prefix, state.name)),
+                workdir,
+            )
+        } else {
+            // TODO avoid collisions in case of reused extensions...
+            post_process(
+                &Utf8PathBuf::from(format!("{}{}", prefix, state.name))
+                    .with_extension(extension),
+                workdir,
+            )
+        })
+    }
+
+    /// Generates a filename for a state tagged with if the file should be read from StdIO and path
+    /// name relative to `workdir`.
+    ///
+    /// The state is searched for in `states`. If it is found, the name at the same index in `files` is
+    /// returned, else `stdio_name` is returned.
+    ///
+    /// If the state is not in states, new name is generated.
+    /// This name will be prefixed by `_unused_` if unused is `true`. This signifies the file is
+    /// neither requested as an output by the user nor used as input to any op.
+    fn gen_name_or_use_given(
+        &self,
+        state_ref: StateRef,
+        states: &[StateRef],
+        files: &[Utf8PathBuf],
+        stdio_name: &str,
+        used: bool,
+        workdir: &Utf8PathBuf,
+    ) -> IO {
+        let state = &self.states[state_ref];
+        let extension = if !state.extensions.is_empty() {
+            &state.extensions[0]
+        } else {
+            ""
+        };
+
+        // If the state is found in `states` the user should see this file. Amoung other things,
+        // this means it should be in their directory and not the working directory.
+        let user_visible = states.contains(&state_ref);
+
+        if let Some(idx) = states.iter().position(|&s| s == state_ref) {
+            if let Some(filename) = files.get(idx) {
+                if user_visible {
+                    IO::File(utils::relative_path(&filename.clone(), workdir))
+                } else {
+                    IO::File(filename.clone())
+                }
+            } else {
+                IO::StdIO(
+                    Utf8PathBuf::from(stdio_name).with_extension(extension),
+                )
+            }
+        } else {
+            self.gen_name(state_ref, used, user_visible, workdir)
         }
     }
 
-    /// Concot a plan to carry out the requested build.
+    /// Generates a vector contianing filenames for files of each state in `states`.
+    ///
+    /// `req` is used to generate filenames as inputs and outputs may want to takes names from
+    /// `req.end_files` or `req.start_files`.
+    ///
+    /// `input` is true if all states in `states` are an input to an op.
+    /// `used` is the states in `states` which are an input to another op or in `req.end_states`.
+    fn gen_names(
+        &self,
+        states: &[StateRef],
+        req: &Request,
+        input: bool,
+        used: &[StateRef],
+    ) -> Vec<IO> {
+        // Inputs cannot be results, so look at starting states, else look at ending states.
+        let req_states = if input {
+            &req.start_states
+        } else {
+            &req.end_states
+        };
+
+        // Inputs cannot be results, so look at starting files, else look at ending files.
+        let req_files = if input {
+            &req.start_files
+        } else {
+            &req.end_files
+        };
+        // The above lists can't be the concatination of the two branches because start and end
+        // states are not necessarily disjoint, but they could still have different files assigned
+        // to each state.
+
+        states
+            .iter()
+            .map(|&state| {
+                let stdio_name = if input {
+                    format!("_from_stdin_{}", self.states[state].name)
+                } else {
+                    format!("_to_stdout_{}", self.states[state].name)
+                };
+
+                self.gen_name_or_use_given(
+                    state,
+                    req_states,
+                    req_files,
+                    &stdio_name,
+                    input || used.contains(&state),
+                    &req.workdir,
+                )
+            })
+            .collect()
+    }
+
+    /// Concoct a plan to carry out the requested build.
     ///
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: Request) -> Option<Plan> {
-        // Find a path through the states.
-        let path =
-            self.find_path(req.start_state, req.end_state, &req.through)?;
-
-        let mut steps: Vec<(OpRef, Utf8PathBuf)> = vec![];
-
-        // Get the initial input filename and the stem to use to generate all intermediate filenames.
-        let (stdin, start_file) = match req.start_file {
-            Some(path) => (false, utils::relative_path(&path, &req.workdir)),
-            None => (true, "stdin".into()),
-        };
-        let stem = start_file.file_stem().unwrap();
+        // Find a plan through the states.
+        let path = req.planner.find_plan(
+            &req.start_states,
+            &req.end_states,
+            &req.through,
+            &self.ops,
+        )?;
 
         // Generate filenames for each step.
-        steps.extend(path.into_iter().map(|op| {
-            let filename = self.gen_name(stem, self.ops[op].output);
-            (op, filename)
-        }));
+        let steps = path
+            .into_iter()
+            .map(|(op, used)| {
+                let input_filenames =
+                    self.gen_names(&self.ops[op].input, &req, true, &used);
+                let output_filenames =
+                    self.gen_names(&self.ops[op].output, &req, false, &used);
+                (op, input_filenames, output_filenames)
+            })
+            .collect::<Vec<_>>();
 
-        // If we have a specified output filename, use that instead of the generated one.
-        let stdout = if let Some(end_file) = req.end_file {
-            // TODO Can we just avoid generating the unused filename in the first place?
-            let last_step = steps.last_mut().expect("no steps");
-            last_step.1 = utils::relative_path(&end_file, &req.workdir);
-            false
-        } else {
-            // Print to stdout if the last state is a real (non-pseudo) state.
-            !self.states[req.end_state].is_pseudo()
-        };
+        // Collect filenames of inputs and outputs
+        let results =
+            self.gen_names(&req.end_states, &req, false, &req.end_states);
+        let inputs =
+            self.gen_names(&req.start_states, &req, true, &req.start_states);
 
         Some(Plan {
-            start: start_file,
             steps,
+            inputs,
+            results,
             workdir: req.workdir,
-            stdin,
-            stdout,
         })
     }
 
@@ -195,9 +229,23 @@ impl Driver {
             .map(|(op, _)| op)
     }
 
-    /// The working directory to use when running a build.
-    pub fn default_workdir(&self) -> Utf8PathBuf {
+    /// The default working directory name when we want the same directory on every run.
+    pub fn stable_workdir(&self) -> Utf8PathBuf {
         format!(".{}", &self.name).into()
+    }
+
+    /// A new working directory that does not yet exist on the filesystem, for when we
+    /// want to avoid collisions.
+    pub fn fresh_workdir(&self) -> Utf8PathBuf {
+        loop {
+            let rand_suffix =
+                Alphanumeric.sample_string(&mut rand::thread_rng(), 8);
+            let path: Utf8PathBuf =
+                format!(".{}-{}", &self.name, rand_suffix).into();
+            if !path.exists() {
+                return path;
+            }
+        }
     }
 
     /// Print a list of registered states and operations to stdout.
@@ -208,30 +256,62 @@ impl Driver {
             for ext in &state.extensions {
                 print!(" .{}", ext);
             }
+            if let Some(src) = &state.source {
+                print!(" ({src})")
+            }
             println!();
         }
 
         println!();
         println!("Operations:");
         for (_, op) in self.ops.iter() {
+            let dev_info = op
+                .source
+                .as_ref()
+                .map(|src| format!(" ({src})"))
+                .unwrap_or_default();
             println!(
-                "  {}: {} -> {}",
+                "  {}: {} -> {}{}",
                 op.name,
-                self.states[op.input].name,
-                self.states[op.output].name
+                self.states[op.input[0]].name,
+                self.states[op.output[0]].name,
+                dev_info
             );
         }
     }
 }
 
 pub struct DriverBuilder {
-    name: String,
+    pub name: String,
     setups: PrimaryMap<SetupRef, Setup>,
     states: PrimaryMap<StateRef, State>,
     ops: PrimaryMap<OpRef, Operation>,
     rsrc_dir: Option<Utf8PathBuf>,
     rsrc_files: Option<FileData>,
+    scripts_dir: Option<Utf8PathBuf>,
+    script_files: Option<FileData>,
 }
+
+#[derive(Debug)]
+pub enum DriverError {
+    UnknownState(String),
+    UnknownSetup(String),
+}
+
+impl Display for DriverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DriverError::UnknownState(state) => {
+                write!(f, "Unknown state: {state}")
+            }
+            DriverError::UnknownSetup(setup) => {
+                write!(f, "Unknown state: {setup}")
+            }
+        }
+    }
+}
+
+impl Error for DriverError {}
 
 impl DriverBuilder {
     pub fn new(name: &str) -> Self {
@@ -242,6 +322,8 @@ impl DriverBuilder {
             ops: Default::default(),
             rsrc_dir: None,
             rsrc_files: None,
+            scripts_dir: None,
+            script_files: None,
         }
     }
 
@@ -249,24 +331,20 @@ impl DriverBuilder {
         self.states.push(State {
             name: name.to_string(),
             extensions: extensions.iter().map(|s| s.to_string()).collect(),
+            source: None,
         })
     }
 
-    fn add_op<T: run::EmitBuild + 'static>(
-        &mut self,
-        name: &str,
-        setups: &[SetupRef],
-        input: StateRef,
-        output: StateRef,
-        emit: T,
-    ) -> OpRef {
-        self.ops.push(Operation {
-            name: name.into(),
-            setups: setups.into(),
-            input,
-            output,
-            emit: Box::new(emit),
-        })
+    pub fn state_source<S: ToString>(&mut self, state: StateRef, src: S) {
+        self.states[state].source = Some(src.to_string());
+    }
+
+    pub fn find_state(&self, needle: &str) -> Result<StateRef, DriverError> {
+        self.states
+            .iter()
+            .find(|(_, State { name, .. })| needle == name)
+            .map(|(state_ref, _)| state_ref)
+            .ok_or_else(|| DriverError::UnknownState(needle.to_string()))
     }
 
     pub fn add_setup<T: run::EmitSetup + 'static>(
@@ -284,6 +362,32 @@ impl DriverBuilder {
         self.add_setup(name, func)
     }
 
+    pub fn find_setup(&self, needle: &str) -> Result<SetupRef, DriverError> {
+        self.setups
+            .iter()
+            .find(|(_, Setup { name, .. })| needle == name)
+            .map(|(setup_ref, _)| setup_ref)
+            .ok_or_else(|| DriverError::UnknownSetup(needle.to_string()))
+    }
+
+    pub fn add_op<T: run::EmitBuild + 'static>(
+        &mut self,
+        name: &str,
+        setups: &[SetupRef],
+        input: &[StateRef],
+        output: &[StateRef],
+        emit: T,
+    ) -> OpRef {
+        self.ops.push(Operation {
+            name: name.into(),
+            setups: setups.into(),
+            input: input.into(),
+            output: output.into(),
+            emit: Box::new(emit),
+            source: None,
+        })
+    }
+
     pub fn op(
         &mut self,
         name: &str,
@@ -292,7 +396,11 @@ impl DriverBuilder {
         output: StateRef,
         build: run::EmitBuildFn,
     ) -> OpRef {
-        self.add_op(name, setups, input, output, build)
+        self.add_op(name, setups, &[input], &[output], build)
+    }
+
+    pub fn op_source<S: ToString>(&mut self, op: OpRef, src: S) {
+        self.ops[op].source = Some(src.to_string());
     }
 
     pub fn rule(
@@ -305,8 +413,8 @@ impl DriverBuilder {
         self.add_op(
             rule_name,
             setups,
-            input,
-            output,
+            &[input],
+            &[output],
             run::EmitRuleBuild {
                 rule_name: rule_name.to_string(),
             },
@@ -321,6 +429,53 @@ impl DriverBuilder {
         self.rsrc_files = Some(files);
     }
 
+    pub fn scripts_dir(&mut self, path: &str) {
+        self.scripts_dir = Some(path.into());
+    }
+
+    pub fn script_files(&mut self, files: FileData) {
+        self.script_files = Some(files);
+    }
+
+    /// Load any plugin scripts specified in the configuration file.
+    pub fn load_plugins(mut self) -> Self {
+        // pull out things from self that we need
+        let plugin_dir = self.scripts_dir.take();
+        let plugin_files = self.script_files.take();
+
+        // TODO: Let's try to avoid loading/parsing the configuration file here and
+        // somehow reusing it from wherever we do that elsewhere.
+        let config = config::load_config(&self.name);
+
+        let mut runner = script::ScriptRunner::new(self);
+
+        // add system plugins
+        if let Some(plugin_dir) = plugin_dir {
+            runner.add_files(
+                std::fs::read_dir(plugin_dir)
+                    .unwrap()
+                    // filter out invalid paths
+                    .filter_map(|dir_entry| dir_entry.map(|p| p.path()).ok())
+                    // filter out paths that don't have `.rhai` extension
+                    .filter(|p| p.extension() == Some(OsStr::new("rhai"))),
+            );
+        }
+
+        // add static plugins (where string is included in binary)
+        if let Some(plugin_files) = plugin_files {
+            runner.add_static_files(plugin_files.into_iter());
+        }
+
+        // add user plugins defined in config
+        if let Ok(plugins) =
+            config.extract_inner::<Vec<std::path::PathBuf>>("plugins")
+        {
+            runner.add_files(plugins.into_iter());
+        }
+
+        runner.run()
+    }
+
     pub fn build(self) -> Driver {
         Driver {
             name: self.name,
@@ -333,29 +488,52 @@ impl DriverBuilder {
     }
 }
 
+/// A file tagged with its input source.
+#[derive(Debug, Clone)]
+pub enum IO {
+    /// A file at a given path which is to be read from stdin or output to stdout.
+    StdIO(Utf8PathBuf),
+    /// A file at a given path which need not be read from stdin or output ot stdout.
+    File(Utf8PathBuf),
+}
+
+impl IO {
+    /// Returns the filename of the file `self` represents
+    pub fn filename(&self) -> &Utf8PathBuf {
+        match self {
+            Self::StdIO(p) => p,
+            Self::File(p) => p,
+        }
+    }
+
+    /// Returns if `self` is a `StdIO`.
+    pub fn is_from_stdio(&self) -> bool {
+        match self {
+            Self::StdIO(_) => true,
+            Self::File(_) => false,
+        }
+    }
+}
+
+impl Display for IO {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.filename())
+    }
+}
+
 #[derive(Debug)]
 pub struct Plan {
-    /// The input to the first step.
-    pub start: Utf8PathBuf,
+    /// The chain of operations to run and each step's input and output files.
+    pub steps: Vec<(OpRef, Vec<IO>, Vec<IO>)>,
 
-    /// The chain of operations to run and each step's output file.
-    pub steps: Vec<(OpRef, Utf8PathBuf)>,
+    /// The inputs used to generate the results.
+    /// Earlier elements of inputs should be read before later ones.
+    pub inputs: Vec<IO>,
+
+    /// The resulting files of the plan.
+    /// Earlier elements of inputs should be written before later ones.
+    pub results: Vec<IO>,
 
     /// The directory that the build will happen in.
     pub workdir: Utf8PathBuf,
-
-    /// Read the first input from stdin.
-    pub stdin: bool,
-
-    /// Write the final output to stdout.
-    pub stdout: bool,
-}
-
-impl Plan {
-    pub fn end(&self) -> &Utf8Path {
-        match self.steps.last() {
-            Some((_, path)) => path,
-            None => &self.start,
-        }
-    }
 }

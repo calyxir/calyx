@@ -49,14 +49,17 @@ def generate_fp_pow_component(
     )
 
     # groups
-    with comp.group("init") as init:
+    with comp.group("init_pow") as init_pow:
         pow.in_ = FixedPoint(
             "1.0", width, int_width, is_signed=is_signed
         ).unsigned_integer()
         pow.write_en = 1
+        init_pow.done = pow.done
+
+    with comp.group("init_count") as init_count:
         count.in_ = 0
         count.write_en = 1
-        init.done = (pow.done & count.done) @ 1
+        init_count.done = count.done
 
     with comp.group("execute_mul") as execute_mul:
         mul.left = comp.this().base
@@ -73,7 +76,10 @@ def generate_fp_pow_component(
     with comp.continuous:
         comp.this().out = pow.out
 
-    comp.control += [init, while_with(cond, par(execute_mul, incr_count))]
+    comp.control += [
+        par(init_pow, init_count),
+        while_with(cond, par(execute_mul, incr_count)),
+    ]
 
     return comp.component
 
@@ -312,18 +318,20 @@ def generate_groups(
     int_x = comp.get_cell("int_x")
     frac_x = comp.get_cell("frac_x")
     one = comp.get_cell("one")
-    with comp.group("split_bits") as split_bits:
+    with comp.group("split_bits_int_x") as split_bits_int_x:
         and0.left = input.out
         and0.right = const(width, 2**width - 2**frac_width)
         rsh.left = and0.out
         rsh.right = const(width, frac_width)
+        int_x.write_en = 1
+        int_x.in_ = rsh.out
+        split_bits_int_x.done = int_x.done
+    with comp.group("split_bits_frac_x") as split_bits_frac_x:
         and1.left = input.out
         and1.right = const(width, (2**frac_width) - 1)
-        int_x.write_en = 1
         frac_x.write_en = 1
-        int_x.in_ = rsh.out
         frac_x.in_ = and1.out
-        split_bits.done = (int_x.done & frac_x.done) @ 1
+        split_bits_frac_x.done = frac_x.done
 
     if is_signed:
         mult_pipe = comp.get_cell("mult_pipe1")
@@ -411,7 +419,8 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
     if is_signed:
         lt = comp.get_cell("lt")
     init = comp.get_group("init")
-    split_bits = comp.get_group("split_bits")
+    split_bits_int_x = comp.get_group("split_bits_int_x")
+    split_bits_frac_x = comp.get_group("split_bits_frac_x")
 
     # TODO (griffin): This is a hack to avoid inserting empty seqs. Maybe worth
     # moving into the add method of ControlBuilder?
@@ -430,7 +439,7 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
                 if is_signed
                 else []
             ),
-            split_bits,
+            par(split_bits_int_x, split_bits_frac_x),
             pow_invokes,
             consume_pow,
             mult_by_reciprocal,
@@ -695,14 +704,14 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
     base_reg = main.reg(width, "base_reg")
     exp_reg = main.reg(width, "exp_reg")
-    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
-    b = main.comb_mem_d1("b", width, 1, 1, is_external=True)
-    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.seq_mem_d1("x", width, 1, 1, is_external=True)
+    b = main.seq_mem_d1("b", width, 1, 1, is_external=True)
+    ret = main.seq_mem_d1("ret", width, 1, 1, is_external=True)
     f = main.comp_instance("f", "fp_pow_full")
 
-    read_base = main.mem_load_d1(b, 0, base_reg, "read_base", is_comb=True)
-    read_exp = main.mem_load_d1(x, 0, exp_reg, "read_exp", is_comb=True)
-    write_to_memory = main.mem_store_d1(ret, 0, f.out, "write_to_memory", is_comb=True)
+    read_base = main.mem_load_d1(b, 0, base_reg, "read_base")
+    read_exp = main.mem_load_d1(x, 0, exp_reg, "read_exp")
+    write_to_memory = main.mem_store_d1(ret, 0, f.out, "write_to_memory")
 
     main.control += [
         read_base,
@@ -731,17 +740,18 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
 
     t = main.reg(width, "t")
-    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
-    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.seq_mem_d1("x", width, 1, 1, is_external=True)
+    ret = main.seq_mem_d1("ret", width, 1, 1, is_external=True)
     e = main.comp_instance("e", "exp")
 
     with main.group("init") as init:
         x.addr0 = 0
-        t.in_ = x.read_data
-        t.write_en = 1
+        x.content_en = 1
+        t.in_ = x.done @ x.read_data
+        t.write_en = x.done @ 1
         init.done = t.done
 
-    write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory", is_comb=True)
+    write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory")
 
     main.control += [
         init,

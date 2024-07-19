@@ -1,13 +1,15 @@
 # pylint: disable=import-error
+import sys
 import calyx.builder as cb
 import calyx.queue_call as qc
+from calyx.utils import bits_needed
 
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
 QUEUE_LEN_FACTOR = 4
 
 
-def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
+def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     """Inserts the component `fifo` into the program.
 
     It has:
@@ -22,79 +24,74 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     # If it is 0, we pop.
     # If it is 1, we peek.
     # If it is 2, we push `value` to the queue.
-    value = fifo.input("value", 32)  # The value to push to the queue
+    value = fifo.input("value", val_width)  # The value to push to the queue
 
     max_queue_len = 2**queue_len_factor
-    mem = fifo.seq_mem_d1("mem", 32, max_queue_len, queue_len_factor)
-    write = fifo.reg(queue_len_factor, "next_write")  # The next address to write to
-    read = fifo.reg(queue_len_factor, "next_read")  # The next address to read from
+    mem = fifo.seq_mem_d1("mem", val_width, max_queue_len, queue_len_factor)
+    write = fifo.reg(queue_len_factor)  # The next address to write to
+    read = fifo.reg(queue_len_factor)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size 2^queue_len_factor.
 
-    ans = fifo.reg(32, "ans", is_ref=True)
+    ans = fifo.reg(val_width, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
-
     err = fifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
-
-    len = fifo.reg(32)  # The active length of the FIFO.
-
-    # Cells and groups to check which command we got.
-    cmd_eq_0 = fifo.eq_use(cmd, 0)
-    cmd_lt_2 = fifo.lt_use(cmd, 2)
-    cmd_eq_2 = fifo.eq_use(cmd, 2)
-
-    len_eq_0 = fifo.eq_use(len.out, 0)
-    len_eq_max_queue_len = fifo.eq_use(len.out, max_queue_len)
-
-    # Cells and groups to increment read and write registers
-    write_incr = fifo.incr(write)  # write++
-    read_incr = fifo.incr(read)  # read++
-    len_incr = fifo.incr(len)  # len++
-    len_decr = fifo.decr(len)  # len--
-
+    len = fifo.reg(bits_needed(max_queue_len))  # The active length of the FIFO.
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
-    # Load and store into an arbitary slot in memory
-    write_to_mem = fifo.mem_store_d1(mem, write.out, value, "write_payload_to_mem")
-    write_to_ans = fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem")
+    # The user called pop.
+    # If the queue is empty, we should raise an error.
+    # Otherwise, we should proceed with the core logic
+    pop_logic = cb.if_with(
+        fifo.eq_use(len.out, 0),
+        raise_err,
+        [
+            # `pop` has been called, and the queue is not empty.
+            # Write the answer to the answer register, increment `read`, and decrement `len`.
+            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_pop"),
+            fifo.incr(read),
+            fifo.decr(len),
+        ],
+    )
 
-    fifo.control += cb.par(
-        # Was it a (pop/peek), or a push? We can do those two cases in parallel.
-        # The logic is shared for pops and peeks, with just a few differences.
-        cb.if_with(
-            # Did the user call pop/peek?
-            cmd_lt_2,
-            cb.if_with(
-                # Yes, the user called pop/peek. But is the queue empty?
-                len_eq_0,
-                raise_err,  # The queue is empty: underflow.
-                [  # The queue is not empty. Proceed.
-                    write_to_ans,  # Write the answer to the answer register.
-                    cb.if_with(
-                        cmd_eq_0,  # Did the user call pop?
-                        [  # Yes, so we have some work to do besides peeking.
-                            read_incr,  # Increment the read pointer.
-                            len_decr,  # Decrement the active length.
-                        ],
-                    ),
-                ],
-            ),
-        ),
-        cb.if_with(
-            # Did the user call push?
-            cmd_eq_2,
-            cb.if_with(
-                # Yes, the user called push. But is the queue full?
-                len_eq_max_queue_len,
-                raise_err,  # The queue is empty: underflow.
-                [  # The queue is not full. Proceed.
-                    write_to_mem,  # Write `value` to the queue.
-                    write_incr,  # Increment the write pointer.
-                    len_incr,  # Increment the active length.
-                ],
-            ),
-        ),
+    # The user called peek.
+    # If the queue is empty, we should raise an error.
+    # Otherwise, we should proceed with the core logic
+    peek_logic = cb.if_with(
+        fifo.eq_use(len.out, 0),
+        raise_err,
+        [
+            # `peek` has been called, and the queue is not empty.
+            # Write the answer to the answer register.
+            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_peek"),
+        ],
+    )
+
+    # The user called push.
+    # If the queue is full, we should raise an error.
+    # Otherwise, we should proceed with the core logic.
+    push_logic = cb.if_with(
+        fifo.eq_use(len.out, max_queue_len),
+        raise_err,
+        [  # `push` has been called and the queue is not full.
+            # Write `value` to the queue, and increment `write` and `len`.
+            fifo.mem_store_d1(mem, write.out, value, "write_payload_to_mem"),
+            fifo.incr(write),
+            fifo.incr(len),
+        ],
+    )
+
+    # Was it a pop, peek, push, or an invalid command?
+    # We can do those four cases in parallel.
+    fifo.control += fifo.case(
+        cmd,
+        {
+            0: pop_logic,
+            1: peek_logic,
+            2: push_logic,
+            3: raise_err,
+        },
     )
 
     return fifo
@@ -102,9 +99,11 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
 
 def build():
     """Top-level function to build the program."""
+    num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
     fifo = insert_fifo(prog, "fifo")
-    qc.insert_main(prog, fifo)
+    qc.insert_main(prog, fifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 

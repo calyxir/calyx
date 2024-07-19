@@ -1,9 +1,11 @@
 use crate::config;
-use crate::exec::{Driver, Request, StateRef};
+use crate::exec::{
+    Driver, EnumeratePlanner, Request, SingleOpOutputPlanner, StateRef,
+};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -91,19 +93,23 @@ struct FakeArgs {
 
     /// the input file
     #[argh(positional)]
-    input: Option<Utf8PathBuf>,
+    input: Vec<Utf8PathBuf>,
 
     /// the output file
     #[argh(option, short = 'o')]
-    output: Option<Utf8PathBuf>,
+    output: Vec<Utf8PathBuf>,
 
-    /// the state to start from
+    /// the states to start from.
+    /// The ith state is applied to the ith input file.
+    /// If more states are specified than files, files for these states are read from stdin.
     #[argh(option)]
-    from: Option<String>,
+    from: Vec<String>,
 
     /// the state to produce
+    /// The ith state is applied to the ith output file.
+    /// If more states are specified than files, files for these states are written to stdout
     #[argh(option)]
-    to: Option<String>,
+    to: Vec<String>,
 
     /// execution mode (run, plan, emit, gen, dot)
     #[argh(option, short = 'm', default = "Mode::Run")]
@@ -132,42 +138,76 @@ struct FakeArgs {
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
+
+    /// use new enumeration algorithm for finding operation sequences
+    #[argh(switch)]
+    planner: bool,
 }
 
-fn from_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
-    match &args.from {
-        Some(name) => driver
-            .get_state(name)
-            .ok_or(anyhow!("unknown --from state")),
-        None => match args.input {
-            Some(ref input) => driver
-                .guess_state(input)
-                .ok_or(anyhow!("could not infer input state")),
-            None => bail!("specify an input file or use --from"),
-        },
+fn get_states_with_errors(
+    driver: &Driver,
+    explicit_states: &[String],
+    files: &[Utf8PathBuf],
+    unknown_state: &str,
+    uninferable_file: &str,
+    no_states: &str,
+) -> anyhow::Result<Vec<StateRef>> {
+    let explicit_states = explicit_states.iter().map(|state_str| {
+        driver
+            .get_state(state_str)
+            .ok_or(anyhow!("{unknown_state}"))
+    });
+    let inferred_states =
+        files.iter().skip(explicit_states.len()).map(|input_str| {
+            driver
+                .guess_state(input_str)
+                .ok_or(anyhow!("{uninferable_file}"))
+        });
+    let states = explicit_states
+        .chain(inferred_states)
+        .collect::<Result<Vec<_>, _>>()?;
+    if states.is_empty() {
+        bail!("{no_states}");
     }
+    Ok(states)
 }
 
-fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
-    match &args.to {
-        Some(name) => {
-            driver.get_state(name).ok_or(anyhow!("unknown --to state"))
-        }
-        None => match &args.output {
-            Some(out) => driver
-                .guess_state(out)
-                .ok_or(anyhow!("could not infer output state")),
-            None => Err(anyhow!("specify an output file or use --to")),
-        },
-    }
+fn from_states(
+    driver: &Driver,
+    args: &FakeArgs,
+) -> anyhow::Result<Vec<StateRef>> {
+    get_states_with_errors(
+        driver,
+        &args.from,
+        &args.input,
+        "unknown --from state",
+        "could not infer input state",
+        "specify and input file or use --from",
+    )
+}
+
+fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
+    get_states_with_errors(
+        driver,
+        &args.to,
+        &args.output,
+        "unknown --to state",
+        "could no infer output state",
+        "specify an output file or use --to",
+    )
 }
 
 fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
-    let default_workdir = driver.default_workdir();
-    let workdir = args.dir.as_deref().unwrap_or_else(|| match args.mode {
-        Mode::Generate | Mode::Run => default_workdir.as_ref(),
-        _ => Utf8Path::new("."),
+    let workdir = args.dir.clone().unwrap_or_else(|| match args.mode {
+        Mode::Generate | Mode::Run => {
+            if args.keep.unwrap_or(false) {
+                driver.stable_workdir()
+            } else {
+                driver.fresh_workdir()
+            }
+        }
+        _ => ".".into(),
     });
 
     // Find all the operations to route through.
@@ -180,14 +220,18 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
                 .ok_or(anyhow!("unknown --through op {}", s))
         })
         .collect();
-
     Ok(Request {
-        start_file: args.input.clone(),
-        start_state: from_state(driver, args)?,
-        end_file: args.output.clone(),
-        end_state: to_state(driver, args)?,
+        start_files: args.input.clone(),
+        start_states: from_states(driver, args)?,
+        end_files: args.output.clone(),
+        end_states: to_state(driver, args)?,
         through: through?,
-        workdir: workdir.into(),
+        workdir,
+        planner: if args.planner {
+            Box::new(EnumeratePlanner {})
+        } else {
+            Box::new(SingleOpOutputPlanner {})
+        },
     })
 }
 
@@ -295,7 +339,7 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
         Mode::ShowPlan => run.show(),
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
-        Mode::Generate => run.emit_to_dir(&workdir)?,
+        Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
         Mode::Run => run.emit_and_run(&workdir)?,
     }
 

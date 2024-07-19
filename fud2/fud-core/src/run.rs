@@ -2,6 +2,7 @@ use crate::config;
 use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
 use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::process::{Command, ExitStatus};
@@ -14,6 +15,13 @@ pub enum RunError {
 
     /// A required configuration key was missing.
     MissingConfig(String),
+
+    /// An invalid value was found for a configuration key the configuration.
+    InvalidValue {
+        key: String,
+        value: String,
+        valid_values: Vec<String>,
+    },
 
     /// The Ninja process exited with nonzero status.
     NinjaFailed(ExitStatus),
@@ -32,6 +40,19 @@ impl std::fmt::Display for RunError {
             RunError::MissingConfig(s) => {
                 write!(f, "missing required config key: {}", s)
             }
+            RunError::InvalidValue {
+                key,
+                value,
+                valid_values,
+            } => {
+                write!(
+                    f,
+                    "invalid value '{}' for key '{}'. Valid values are [{}]",
+                    value,
+                    key,
+                    valid_values.iter().join(", ")
+                )
+            }
             RunError::NinjaFailed(c) => {
                 write!(f, "ninja exited with {}", c)
             }
@@ -47,20 +68,20 @@ pub type EmitResult = std::result::Result<(), RunError>;
 pub trait EmitBuild {
     fn build(
         &self,
-        emitter: &mut Emitter,
-        input: &str,
-        output: &str,
+        emitter: &mut StreamEmitter,
+        input: &[&str],
+        output: &[&str],
     ) -> EmitResult;
 }
 
-pub type EmitBuildFn = fn(&mut Emitter, &str, &str) -> EmitResult;
+pub type EmitBuildFn = fn(&mut StreamEmitter, &[&str], &[&str]) -> EmitResult;
 
 impl EmitBuild for EmitBuildFn {
     fn build(
         &self,
-        emitter: &mut Emitter,
-        input: &str,
-        output: &str,
+        emitter: &mut StreamEmitter,
+        input: &[&str],
+        output: &[&str],
     ) -> EmitResult {
         self(emitter, input, output)
     }
@@ -75,24 +96,24 @@ pub struct EmitRuleBuild {
 impl EmitBuild for EmitRuleBuild {
     fn build(
         &self,
-        emitter: &mut Emitter,
-        input: &str,
-        output: &str,
+        emitter: &mut StreamEmitter,
+        input: &[&str],
+        output: &[&str],
     ) -> EmitResult {
-        emitter.build(&self.rule_name, input, output)?;
+        emitter.build_cmd(output, &self.rule_name, input, &[])?;
         Ok(())
     }
 }
 
 /// Code to emit Ninja code at the setup stage.
 pub trait EmitSetup {
-    fn setup(&self, emitter: &mut Emitter) -> EmitResult;
+    fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult;
 }
 
-pub type EmitSetupFn = fn(&mut Emitter) -> EmitResult;
+pub type EmitSetupFn = fn(&mut StreamEmitter) -> EmitResult;
 
 impl EmitSetup for EmitSetupFn {
-    fn setup(&self, emitter: &mut Emitter) -> EmitResult {
+    fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult {
         self(emitter)
     }
 }
@@ -127,16 +148,21 @@ impl<'a> Run<'a> {
 
     /// Just print the plan for debugging purposes.
     pub fn show(self) {
-        if self.plan.stdin {
-            println!("(stdin) -> {}", self.plan.start);
-        } else {
-            println!("start: {}", self.plan.start);
-        }
-        for (op, file) in self.plan.steps {
-            println!("{}: {} -> {}", op, self.driver.ops[op].name, file);
-        }
-        if self.plan.stdout {
-            println!("-> (stdout)");
+        for (op, files_in, files_out) in self.plan.steps {
+            println!(
+                "{}: {} -> {}",
+                self.driver.ops[op].name,
+                files_in
+                    .into_iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                files_out
+                    .into_iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
         }
     }
 
@@ -149,14 +175,17 @@ impl<'a> Run<'a> {
         // Record the states and ops that are actually used in the plan.
         let mut states: HashMap<StateRef, String> = HashMap::new();
         let mut ops: HashSet<OpRef> = HashSet::new();
-        let first_op = self.plan.steps[0].0;
-        states.insert(
-            self.driver.ops[first_op].input,
-            self.plan.start.to_string(),
-        );
-        for (op, file) in &self.plan.steps {
-            states.insert(self.driver.ops[*op].output, file.to_string());
-            ops.insert(*op);
+        for (op_ref, files_in, files_out) in &self.plan.steps {
+            let op = &self.driver.ops[*op_ref];
+            for (s, f) in op.input.iter().zip(files_in.iter()) {
+                let filename = f.to_string();
+                states.insert(*s, filename.to_string());
+            }
+            for (s, f) in op.output.iter().zip(files_out.iter()) {
+                let filename = format!("{f}");
+                states.insert(*s, filename.to_string());
+            }
+            ops.insert(*op_ref);
         }
 
         // Show all states.
@@ -175,7 +204,10 @@ impl<'a> Run<'a> {
 
         // Show all operations.
         for (op_ref, op) in self.driver.ops.iter() {
-            print!("  {} -> {} [label=\"{}\"", op.input, op.output, op.name);
+            print!(
+                "  {} -> {} [label=\"{}\"",
+                op.input[0], op.output[0], op.name
+            );
             if ops.contains(&op_ref) {
                 print!(" penwidth=3");
             }
@@ -191,25 +223,31 @@ impl<'a> Run<'a> {
     }
 
     /// Ensure that a directory exists and write `build.ninja` inside it.
-    pub fn emit_to_dir(&self, dir: &Utf8Path) -> EmitResult {
-        std::fs::create_dir_all(dir)?;
-        let ninja_path = dir.join("build.ninja");
-        let ninja_file = std::fs::File::create(ninja_path)?;
+    pub fn emit_to_dir(&self, path: &Utf8Path) -> Result<TempDir, RunError> {
+        let dir = TempDir::new(path, self.global_config.keep_build_dir)?;
 
-        self.emit(ninja_file)
+        let ninja_path = path.join("build.ninja");
+        let ninja_file = std::fs::File::create(ninja_path)?;
+        self.emit(ninja_file)?;
+
+        Ok(dir)
     }
 
     /// Emit `build.ninja` to a temporary directory and then actually execute ninja.
     pub fn emit_and_run(&self, dir: &Utf8Path) -> EmitResult {
         // Emit the Ninja file.
-        let stale_dir = dir.exists();
-        self.emit_to_dir(dir)?;
+        let dir = self.emit_to_dir(dir)?;
 
         // Capture stdin.
-        if self.plan.stdin {
-            let stdin_file = std::fs::File::create(
-                self.plan.workdir.join(&self.plan.start),
-            )?;
+        for filename in self.plan.inputs.iter().filter_map(|f| {
+            if f.is_from_stdio() {
+                Some(f.filename())
+            } else {
+                None
+            }
+        }) {
+            let stdin_file =
+                std::fs::File::create(self.plan.workdir.join(filename))?;
             std::io::copy(
                 &mut std::io::stdin(),
                 &mut std::io::BufWriter::new(stdin_file),
@@ -218,26 +256,36 @@ impl<'a> Run<'a> {
 
         // Run `ninja` in the working directory.
         let mut cmd = Command::new(&self.global_config.ninja);
-        cmd.current_dir(dir);
+        cmd.current_dir(&dir.path);
+
+        if !self.global_config.verbose {
+            if ninja_supports_quiet(&self.global_config.ninja)? {
+                cmd.arg("--quiet");
+            }
+        } else {
+            cmd.arg("--verbose");
+        }
+
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
         let status = cmd.status()?;
 
-        // Emit stdout, only when Ninja succeeded.
-        if status.success() && self.plan.stdout {
-            let stdout_file =
-                std::fs::File::open(self.plan.workdir.join(self.plan.end()))?;
-            std::io::copy(
-                &mut std::io::BufReader::new(stdout_file),
-                &mut std::io::stdout(),
-            )?;
-        }
-
-        // Remove the temporary directory unless it already existed at the start *or* the user specified `--keep`.
-        if !self.global_config.keep_build_dir && !stale_dir {
-            std::fs::remove_dir_all(dir)?;
-        }
-
+        // Emit to stdout, only when Ninja succeeded.
         if status.success() {
+            // Outputs results to stdio if tagged as such.
+            for filename in self.plan.results.iter().filter_map(|f| {
+                if f.is_from_stdio() {
+                    Some(f.filename())
+                } else {
+                    None
+                }
+            }) {
+                let stdout_files =
+                    std::fs::File::open(self.plan.workdir.join(filename))?;
+                std::io::copy(
+                    &mut std::io::BufReader::new(stdout_files),
+                    &mut std::io::stdout(),
+                )?;
+            }
             Ok(())
         } else {
             Err(RunError::NinjaFailed(status))
@@ -245,7 +293,7 @@ impl<'a> Run<'a> {
     }
 
     pub fn emit<T: Write + 'a>(&self, out: T) -> EmitResult {
-        let mut emitter = Emitter::new(
+        let mut emitter = StreamEmitter::new(
             out,
             self.config_data.clone(),
             self.plan.workdir.clone(),
@@ -258,7 +306,7 @@ impl<'a> Run<'a> {
 
         // Emit the setup for each operation used in the plan, only once.
         let mut done_setups = HashSet::<SetupRef>::new();
-        for (op, _) in &self.plan.steps {
+        for (op, _, _) in &self.plan.steps {
             for setup in &self.driver.ops[*op].setups {
                 if done_setups.insert(*setup) {
                     let setup = &self.driver.setups[*setup];
@@ -271,32 +319,50 @@ impl<'a> Run<'a> {
 
         // Emit the build commands for each step in the plan.
         emitter.comment("build targets")?;
-        let mut last_file = &self.plan.start;
-        for (op, out_file) in &self.plan.steps {
+        for (op, in_files, out_files) in &self.plan.steps {
             let op = &self.driver.ops[*op];
             op.emit.build(
                 &mut emitter,
-                last_file.as_str(),
-                out_file.as_str(),
+                in_files
+                    .iter()
+                    .map(|io| io.filename().as_str())
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                out_files
+                    .iter()
+                    .map(|io| io.filename().as_str())
+                    .collect::<Vec<_>>()
+                    .as_slice(),
             )?;
-            last_file = out_file;
         }
         writeln!(emitter.out)?;
 
-        // Mark the last file as the default target.
-        writeln!(emitter.out, "default {}", last_file)?;
+        // Mark the last file as the default targets.
+        for result in &self.plan.results {
+            writeln!(emitter.out, "default {}", result.filename())?;
+        }
 
         Ok(())
     }
 }
 
-pub struct Emitter<'a> {
-    pub out: Box<dyn Write + 'a>,
+/// A context for generating Ninja code.
+///
+/// Callbacks to build functionality that generate Ninja code (setups and ops) use this
+/// to access all the relevant configuration and to write out lines of Ninja code.
+pub struct Emitter<W: Write> {
+    pub out: W,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
-impl<'a> Emitter<'a> {
+/// A generic emitter that outputs to any `Write` stream.
+pub type StreamEmitter<'a> = Emitter<Box<dyn Write + 'a>>;
+
+/// An emitter that buffers the Ninja code in memory.
+pub type BufEmitter = Emitter<Vec<u8>>;
+
+impl<'a> StreamEmitter<'a> {
     fn new<T: Write + 'a>(
         out: T,
         config_data: figment::Figment,
@@ -309,6 +375,23 @@ impl<'a> Emitter<'a> {
         }
     }
 
+    /// Create a new bufferred emitter with the same configuration.
+    pub fn buffer(&self) -> BufEmitter {
+        Emitter {
+            out: Vec::new(),
+            config_data: self.config_data.clone(),
+            workdir: self.workdir.clone(),
+        }
+    }
+
+    /// Flush the output from a bufferred emitter to this emitter.
+    pub fn unbuffer(&mut self, buf: BufEmitter) -> EmitResult {
+        self.out.write_all(&buf.out)?;
+        Ok(())
+    }
+}
+
+impl<W: Write> Emitter<W> {
     /// Fetch a configuration value, or panic if it's missing.
     pub fn config_val(&self, key: &str) -> Result<String, RunError> {
         self.config_data
@@ -316,11 +399,48 @@ impl<'a> Emitter<'a> {
             .map_err(|_| RunError::MissingConfig(key.to_string()))
     }
 
+    /// Fetch a configuration value that is one of the elements in `values`, or panic if it's missing.
+    pub fn config_constrained_val(
+        &self,
+        key: &str,
+        valid_values: Vec<&str>,
+    ) -> Result<String, RunError> {
+        let value = self.config_val(key)?;
+        if valid_values.contains(&value.as_str()) {
+            Ok(value)
+        } else {
+            Err(RunError::InvalidValue {
+                key: key.to_string(),
+                value,
+                valid_values: valid_values
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+            })
+        }
+    }
+
     /// Fetch a configuration value, using a default if it's missing.
     pub fn config_or(&self, key: &str, default: &str) -> String {
         self.config_data
             .extract_inner::<String>(key)
             .unwrap_or_else(|_| default.into())
+    }
+
+    /// Fetch a configuration value that is one of the elements in `values`, or return a default if missing.
+    /// If an invalid value is explicitly passed, panics.
+    pub fn config_constrained_or(
+        &self,
+        key: &str,
+        valid_values: Vec<&str>,
+        default: &str,
+    ) -> Result<String, RunError> {
+        let value = self.config_or(key, default);
+        if value.as_str() == default {
+            Ok(value)
+        } else {
+            self.config_constrained_val(key, valid_values)
+        }
     }
 
     /// Emit a Ninja variable declaration for `name` based on the configured value for `key`.
@@ -416,5 +536,58 @@ impl<'a> Emitter<'a> {
     /// Add a build command to extract a resource file into the build directory.
     pub fn rsrc(&mut self, filename: &str) -> std::io::Result<()> {
         self.build_cmd(&[filename], "get-rsrc", &[], &[])
+    }
+}
+
+/// Check whether a Ninja executable supports the `--quiet` flag.
+fn ninja_supports_quiet(ninja: &str) -> std::io::Result<bool> {
+    let version_output = Command::new(ninja).arg("--version").output()?;
+    if let Ok(version) = String::from_utf8(version_output.stdout) {
+        let parts: Vec<&str> = version.split('.').collect();
+        if parts.len() >= 2 {
+            let major = parts[0].parse::<u32>().unwrap_or(0);
+            let minor = parts[1].parse::<u32>().unwrap_or(0);
+            Ok(major > 1 || (major == 1 && minor >= 11))
+        } else {
+            Ok(false)
+        }
+    } else {
+        Ok(false)
+    }
+}
+
+/// A directory that can optionally delete itself when we're done with it.
+pub struct TempDir {
+    path: Utf8PathBuf,
+    delete: bool,
+}
+
+impl TempDir {
+    /// Create a directory *or* use an existing directory.
+    ///
+    /// If the directory already exists, we will not delete it (regardless of `keep`). Otherwise,
+    /// we will create a new one, and we will delete it when this object is dropped, unless
+    /// `keep` is true.
+    pub fn new(path: &Utf8Path, keep: bool) -> std::io::Result<Self> {
+        let delete = !path.exists() && !keep;
+        std::fs::create_dir_all(path)?;
+        Ok(Self {
+            path: path.into(),
+            delete,
+        })
+    }
+
+    /// If this directory would otherwise be deleted, don't.
+    pub fn keep(&mut self) {
+        self.delete = false;
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        if self.delete {
+            // We must ignore errors when attempting to delete.
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
     }
 }

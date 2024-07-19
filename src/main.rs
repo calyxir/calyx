@@ -9,12 +9,11 @@ mod cmdline;
 use calyx_backend::BackendOpt;
 use calyx_frontend as frontend;
 use calyx_ir as ir;
-use calyx_opt::pass_manager::PassManager;
-use calyx_utils::CalyxResult;
+use calyx_opt::pass_manager::{PassManager, PassResult};
 use cmdline::{CompileMode, Opts};
 use itertools::Itertools;
 
-fn main() -> CalyxResult<()> {
+fn main() -> PassResult<()> {
     // parse the command line arguments into Opts struct
     let mut opts = Opts::get_opts()?;
 
@@ -74,7 +73,13 @@ fn main() -> CalyxResult<()> {
     ctx.extra_opts = opts.extra_opts.drain(..).collect();
 
     // Run all passes specified by the command line
-    pm.execute_plan(&mut ctx, &opts.pass, &opts.disable_pass, opts.dump_ir)?;
+    pm.execute_plan(
+        &mut ctx,
+        &opts.pass,
+        &opts.disable_pass,
+        &opts.insertions,
+        opts.dump_ir,
+    )?;
 
     // Print out the Calyx program after transformation.
     if opts.backend == BackendOpt::Calyx {
@@ -94,6 +99,6 @@ fn main() -> CalyxResult<()> {
 
         Ok(())
     } else {
-        opts.run_backend(ctx)
+        Ok(opts.run_backend(ctx)?)
     }
 }

@@ -1,0 +1,35 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: calyx-to-cocotb-axi"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+
+cocotb-makefile-dir = $calyx-base/yxi/axi-calyx/cocotb
+sim_data = /test/data.json
+rule copy
+  command = cp $in $out
+rule make-cocotb
+  command = make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out
+rule cleanup-cocotb
+  command = sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out
+
+build Makefile: copy $cocotb-makefile-dir/Makefile
+build axi_test.py: copy $cocotb-makefile-dir/axi_test.py
+build run_axi_test.py: copy $cocotb-makefile-dir/run_axi_test.py
+build tmp.dat: make-cocotb /input.ext | Makefile axi_test.py run_axi_test.py
+build /output.ext: cleanup-cocotb tmp.dat
+
+default /output.ext

@@ -58,12 +58,18 @@ flags=$(head -n 1 {} | cut -c 3-)
 ./target/debug/calyx {} $flags -l .
 """
 
-#yxi is not part of [core]
 [[tests]]
-name = "yxi backend"
-paths = ["yxi/tests/backend/*.futil"]
+name = "yxi tool"
+paths = ["yxi/tests/yxi-tool/*.futil"]
 cmd = """
-./target/debug/calyx {} -b yxi
+./target/debug/yxi {}
+"""
+
+[[tests]]
+name = "fud2 yxi invocation"
+paths = ["yxi/tests/ref-mems-vec-add.futil"]
+cmd = """
+fud2 {} --from calyx --to yxi
 """
 
 ##### Frontend Tests #####
@@ -124,11 +130,17 @@ python3 {} |\
 
 [[tests]]
 name = "[calyx-py] queues correctness"
-paths = ["calyx-py/test/correctness/queues/*.py"]
+paths = [
+    "calyx-py/test/correctness/queues/*.py",
+    "calyx-py/test/correctness/queues/binheap/*.py",
+    "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
+    "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"
+]
+
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} |\
+python3 {} 20000 --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
@@ -143,7 +155,7 @@ paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} |\
+python3 {} 20000 --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
@@ -163,7 +175,7 @@ paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} --static |\
+python3 {} 20000 --static --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
@@ -179,7 +191,7 @@ paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} --static |\
+python3 {} 20000 --static --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
@@ -207,6 +219,48 @@ fud exec --from calyx --to jq \
          -s verilog.data {}.data \
          -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+[[tests]]
+name = "correctness dynamic one-hot encoding"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil",
+  "tests/correctness/static-interface/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-x tdcc:one-hot-cutoff=500 -d static-promotion' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+[[tests]]
+name = "correctness dynamic fsm register duplication"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil",
+  "tests/correctness/static-interface/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-x tdcc:duplicate-cutoff=0 -d static-promotion' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
          -s jq.expr ".memories" \
          {} -q
 """
@@ -525,19 +579,43 @@ fud e {} -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          --to dat -q
 """
-##### Cayx AXI tests #####
+
+##### Calyx AXI tests #####
 [[tests]]
-name = "calyx-py AXI wrapper generation"
-paths = ["yxi/tests/*.yxi"]
+name = "calyx-py read-write-compute AXI wrapper generation"
+paths = ["yxi/tests/axi/read-compute-write/*.yxi"]
 cmd = """
 python3 yxi/axi-calyx/axi-generator.py {}
 """
 
 [[tests]]
-name = "fud2 axi-wrapper invocation"
-paths = ["yxi/tests/fud2/*.futil"]
+name = "calyx-py dynamic AXI wrapper generation"
+paths = ["yxi/tests/axi/dynamic/*.yxi"]
 cmd = """
-fud2 {} --to calyx --through axi-wrapped
+python3 yxi/axi-calyx/dynamic-axi-generator.py {}
+"""
+
+#Ignore fud2 stderr for now due to ninja nondeterminism
+[[tests]]
+name = "fud2 AXI wrapper invocation"
+paths = ["yxi/tests/axi/*/*-mem-vec-add.futil"]
+cmd = """
+dynamic=$(head -n 2 {} | tail -n 1 | cut -c 4-)
+fud2 {} --to calyx --through axi-wrapped --set $dynamic 2> /dev/null
+"""
+
+[[tests]]
+name = "fud2 AXI-wrapped to verilog"
+paths = ["yxi/tests/axi/*/*-mem-vec-add-axi-wrapped.futil"]
+cmd = """
+fud2 {} --from calyx --to verilog-noverify 2> /dev/null
+"""
+
+[[tests]]
+name = "fud2 cocotb AXI-wrapped xecution"
+paths = ["yxi/tests/axi/*/*-mem-vec-add-verilog.v"]
+cmd = """
+fud2 {} --from verilog-noverify --to cocotb-axi --set sim.data=yxi/tests/axi/vectorized-add.data 2> /dev/null
 """
 
 ##### Xilinx Tests ######

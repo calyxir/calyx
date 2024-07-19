@@ -24,6 +24,15 @@ We specify the names and bitwidths of any ports that we want a component to have
 Observe that we have saved handles to the input ports by assigning them to Python variables, but have not done the same with the output port.
 We will show shortly how to create a handle to a port after its definition.
 
+It is also possible to create ports that have [attributes]. Attributes can either
+be described as a string or a (string, value) tuple.
+A string such as `"data"`, which will create an `@data` attribute.
+A (string, value) tuple such as `("done", 1)` will create an `@done(1)` attribute.
+
+```python
+{{#include ../../calyx-py/test/port_attributes.py:port_attributes}}
+```
+
 ## Cells
 
 We add cells to the component as follows.
@@ -266,21 +275,21 @@ The Python return value, `incr_i`, is a handle to the group that performs the in
 
 ## Guarded Assignments
 
-Consider the group that adds value `v` to a memory at the cell pointed to by register `i`.
+Consider the group that multiplies the memory at the cell pointed to by register `i` by the value `v`.
 
 ```python
-{{#include ../../calyx-py/test/walkthrough.py:add_at_position_i}}
+{{#include ../../calyx-py/test/walkthrough.py:mul_at_position_i}}
 ```
 
-The first few lines are straightforward; we are setting the cell to be read from with `addr0`, reading from that cell and driving the value to the adder's left port, and setting the right port of the adder to the value `v`.
+The first few lines are straightforward; we are setting the cell to be read from with `addr0`, reading from that cell and driving the value to the multiplier's left port, and setting the right port of the multiplier to the value `v`.
 
-Now we wish to write the result to the memory at the cell pointed to by register `i`, but only once we know that the adder has finished its work. We do this with a guarded assignment, using the `@` operator:
+Now we wish to write the result to the memory at the cell pointed to by register `i`, but only once we know that the multiplier has finished its work. We do this with a guarded assignment, using the `@` operator:
 ```python
-        mem.write_en = add.done @ cb.HI
+        mem.write_en = mul.done @ cb.HI
 ```
 In Calyx, we would have written this guarded assignment with a question mark:
 ```
-        mem.write_en = add.done ? 1'd1;
+        mem.write_en = mul.done ? 1'd1;
 ```
 We use the `@` operator in the builder library to avoid clashing with Python's ternary operator.
 
@@ -443,3 +452,4 @@ comp = prog.component("adder")
 [helloworld]: calyx-py.md
 [walkthrough]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.py
 [walkthrough_expect]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.expect
+[attributes]: https://docs.calyxir.org/lang/attributes.html

@@ -39,7 +39,7 @@ def add_systolic_output_params(comp: cb.ComponentBuilder, row_num, addr_width):
     The ouptut arguments alllow the systolic array to expose its outputs for `row_num`
     without writing to memory (e.g., r0_valid, r0_value, r0_idx).
     """
-    cb.add_comp_params(
+    cb.add_comp_ports(
         comp,
         input_ports=[],
         output_ports=[

@@ -11,6 +11,10 @@ pub struct Config {
     pub allow_par_conflicts: bool,
     /// suppresses warnings
     pub quiet: bool,
+    /// dump registers as single entry memories
+    pub dump_registers: bool,
+    /// dumps all memories rather than just external ones
+    pub dump_all_memories: bool,
 }
 
 #[derive(Default)]
@@ -19,6 +23,8 @@ pub struct ConfigBuilder {
     error_on_overflow: Option<bool>,
     allow_par_conflicts: Option<bool>,
     quiet: Option<bool>,
+    dump_registers: Option<bool>,
+    dump_all_memories: Option<bool>,
 }
 
 impl ConfigBuilder {
@@ -47,6 +53,16 @@ impl ConfigBuilder {
         self
     }
 
+    pub fn dump_registers(mut self, value: bool) -> Self {
+        self.dump_registers = Some(value);
+        self
+    }
+
+    pub fn dump_all_memories(mut self, value: bool) -> Self {
+        self.dump_all_memories = Some(value);
+        self
+    }
+
     pub fn build(self) -> Config {
         Config {
             allow_par_conflicts: self.allow_par_conflicts.unwrap_or_default(),
@@ -55,6 +71,8 @@ impl ConfigBuilder {
             allow_invalid_memory_access: self
                 .allow_invalid_memory_access
                 .unwrap_or_default(),
+            dump_registers: self.dump_registers.unwrap_or_default(),
+            dump_all_memories: self.dump_all_memories.unwrap_or_default(),
         }
     }
 }

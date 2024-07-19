@@ -1,12 +1,12 @@
 use crate::error::AdapterResult;
 use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
 use interp::debugger::source::structures::NewSourceMap;
-use interp::debugger::Debugger;
+use interp::debugger::OwnedDebugger;
 use std::path::PathBuf;
 
 pub struct MyAdapter {
     #[allow(dead_code)]
-    debugger: Debugger,
+    debugger: OwnedDebugger,
     break_count: Counter,
     thread_count: Counter,
     stack_count: Counter,
@@ -20,7 +20,7 @@ pub struct MyAdapter {
 impl MyAdapter {
     pub fn new(path: &str, std_path: PathBuf) -> AdapterResult<Self> {
         let (debugger, metadata) =
-            Debugger::from_file(&PathBuf::from(path), &std_path).unwrap();
+            OwnedDebugger::from_file(&PathBuf::from(path), &std_path).unwrap();
         Ok(MyAdapter {
             debugger,
             break_count: Counter::new(),

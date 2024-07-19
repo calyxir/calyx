@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import sys
 import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
@@ -6,6 +7,7 @@ import calyx.queue_call as qc
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
 QUEUE_LEN_FACTOR = 4
+
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
@@ -293,11 +295,13 @@ def insert_pifo(
 
 def build():
     """Top-level function to build the program."""
+    num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
     fifo_l = fifo.insert_fifo(prog, "fifo_l", QUEUE_LEN_FACTOR)
     fifo_r = fifo.insert_fifo(prog, "fifo_r", QUEUE_LEN_FACTOR)
     pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
-    qc.insert_main(prog, pifo)
+    qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 

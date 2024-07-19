@@ -1,4 +1,10 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Structure: Group `two` refers to the done condition of another group (`one`).
+Error: tests/errors/orphan-done.futil
+16 |      one[done] = r.done;
+   |      ^^^^^^^^^^^^^^^^^^^ Malformed Structure: Group `two` refers to the done condition of another group (`one`)
+
+tests/errors/orphan-done.futil
+17 |      two[done] = r.done;
+   |      ^^^^^^^^^^^^^^^^^^^ Malformed Structure: Group `two` has multiple done conditions

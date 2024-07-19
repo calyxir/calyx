@@ -1,0 +1,50 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: calyx -> dat through icarus"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+
+python = python3
+build json-dat.py: get-rsrc
+rule hex-data
+  command = $python json-dat.py --from-json $in $out
+rule json-data
+  command = $python json-dat.py --to-json $out $in
+sim_data = /test/data.json
+datadir = sim_data
+build $datadir: hex-data $sim_data | json-dat.py
+rule sim-run
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+cycle-limit = 500000000
+
+build tb.sv: get-rsrc
+
+iverilog = iverilog
+rule icarus-compile-standalone-tb
+  command = $iverilog -g2012 -o $out tb.sv $in
+rule icarus-compile-custom-tb
+  command = $iverilog -g2012 -o $out tb.sv memories.sv $in
+
+build verilog-noverify.sv: calyx _from_stdin_calyx.futil
+  backend = verilog
+  args = --disable-verify
+build sim.exe: icarus-compile-standalone-tb verilog-noverify.sv | tb.sv
+build sim.log: sim-run sim.exe $datadir
+  bin = sim.exe
+  args = +NOTRACE=1
+build _to_stdout_dat.json: json-data $datadir sim.log | json-dat.py
+
+default _to_stdout_dat.json
