@@ -16,12 +16,12 @@ fn calyx_setup() {
 
 defop calyx_to_verilog(c: calyx_state) >> v: verilog_state {
     let s = calyx_setup();
-    shell(`${s.calyx_exe} -l ${s.calyx_base} -b verilog ${s.args} #c > #v`);
+    shell(`${s.calyx_exe} -l ${s.calyx_base} -b verilog ${s.args} ${c} > ${v}`);
 }
 
 defop calyx_noverify(c: calyx_state) >> v: verilog_noverify {
     let s = calyx_setup();
-    shell(`${s.calyx_exe} -l ${s.calyx_base} -b verilog ${s.args} --disable-verify #c > #v`);
+    shell(`${s.calyx_exe} -l ${s.calyx_base} -b verilog ${s.args} --disable-verify ${c} > ${v}`);
 }
 
 fn calyx_pass(pass, args, in_str, out_str) {

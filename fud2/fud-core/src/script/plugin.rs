@@ -28,6 +28,8 @@ struct RhaiOp {
     output_states: Vec<StateRef>,
     /// An ordered list of the commands run when this op is required.
     cmds: Vec<String>,
+    /// A list of the values required from the config.
+    config_vars: Vec<crate::run::ConfigVar>,
 }
 
 #[derive(Clone)]
@@ -122,6 +124,7 @@ impl ScriptContext {
                     input_states: inputs,
                     output_states: outputs,
                     cmds: vec![],
+                    config_vars: vec![],
                 });
                 Ok(())
             }
@@ -130,6 +133,7 @@ impl ScriptContext {
                 input_states: _,
                 output_states: _,
                 cmds: _,
+                config_vars: _,
             }) => Err(RhaiSystemError::began_op(old_name, name)
                 .with_pos(pos)
                 .into()),
@@ -143,6 +147,23 @@ impl ScriptContext {
         match *cur_op {
             Some(ref mut op_sig) => {
                 op_sig.cmds.push(cmd);
+                Ok(())
+            }
+            None => Err(RhaiSystemError::no_op().with_pos(pos).into()),
+        }
+    }
+
+    /// Adds a config var. Returns an error if `begin_op` has not been called
+    /// before this `end_op` and after any previous `end_op`.
+    fn add_config_var(
+        &self,
+        pos: Position,
+        var: crate::run::ConfigVar,
+    ) -> RhaiResult<()> {
+        let mut cur_op = self.cur_op.borrow_mut();
+        match *cur_op {
+            Some(ref mut op_sig) => {
+                op_sig.config_vars.push(var);
                 Ok(())
             }
             None => Err(RhaiSystemError::no_op().with_pos(pos).into()),
@@ -163,11 +184,17 @@ impl ScriptContext {
                 ref input_states,
                 ref output_states,
                 ref cmds,
+                ref config_vars,
             }) => {
                 // Create the emitter.
                 let cmds = cmds.clone();
                 let op_name = name.clone();
-                let op_emitter = crate::run::OpEmitData { op_name, cmds };
+                let config_vars = config_vars.clone();
+                let op_emitter = crate::run::OpEmitData {
+                    op_name,
+                    cmds,
+                    config_vars,
+                };
 
                 // Add the op.
                 bld.add_op(name, &[], input_states, output_states, op_emitter);
@@ -248,25 +275,21 @@ pub struct ScriptRunner {
     rhai_functions: rhai::AST,
     resolver: Option<Resolver>,
     setups: Rc<RefCell<HashMap<String, SetupRef>>>,
-    config_data: figment::Figment,
 }
 
 impl ScriptRunner {
-    pub fn new(builder: DriverBuilder, config_data: figment::Figment) -> Self {
+    pub fn new(builder: DriverBuilder) -> Self {
         let mut this = Self {
             builder: Rc::new(RefCell::new(builder)),
             engine: rhai::Engine::new(),
             rhai_functions: rhai::AST::empty(),
             resolver: Some(Resolver::default()),
             setups: Rc::default(),
-            config_data,
         };
         this.reg_state();
         this.reg_get_state();
         this.reg_get_setup();
         this.reg_defop_syntax_nop();
-        this.reg_config();
-        this.reg_config_or();
         this
     }
 
@@ -441,30 +464,36 @@ impl ScriptRunner {
     }
 
     /// Registers a Rhai function for getting values from the config file.
-    fn reg_config(&mut self) {
-        let config_data = self.config_data.clone();
+    fn reg_config(&mut self, sctx: ScriptContext) {
         self.engine.register_fn(
             "config",
             move |ctx: rhai::NativeCallContext, key: &str| -> RhaiResult<_> {
-                config_data.extract_inner::<String>(key).or(Err(
-                    RhaiSystemError::config_not_found(key)
-                        .with_pos(ctx.position())
-                        .into(),
-                ))
+                sctx.add_config_var(
+                    ctx.position(),
+                    crate::run::ConfigVar::Var(key.to_string()),
+                )?;
+                Ok(format!("${{{}}}", key))
             },
         );
     }
 
     /// Registers a Rhai function for getting values from the config file or using a provided
     /// string if the key is not found.
-    fn reg_config_or(&mut self) {
-        let config_data = self.config_data.clone();
+    fn reg_config_or(&mut self, sctx: ScriptContext) {
         self.engine.register_fn(
             "config_or",
-            move |key: &str, default: &str| -> RhaiResult<_> {
-                config_data
-                    .extract_inner::<String>(key)
-                    .or(Ok(default.to_string()))
+            move |ctx: rhai::NativeCallContext,
+                  key: &str,
+                  default: &str|
+                  -> RhaiResult<_> {
+                sctx.add_config_var(
+                    ctx.position(),
+                    crate::run::ConfigVar::VarOr(
+                        key.to_string(),
+                        default.to_string(),
+                    ),
+                )?;
+                Ok(format!("${{{}}}", key))
             },
         );
     }
@@ -624,14 +653,14 @@ impl ScriptRunner {
                 for (i, name) in input_names.clone().into_iter().enumerate() {
                     context.scope_mut().push(
                         name.into_string().unwrap(),
-                        crate::run::io_file_var_name(i, true),
+                        format!("${}", crate::run::io_file_var_name(i, true)),
                     );
                 }
 
                 for (i, name) in output_names.clone().into_iter().enumerate() {
                     context.scope_mut().push(
                         name.into_string().unwrap(),
-                        crate::run::io_file_var_name(i, false),
+                        format!("${}", crate::run::io_file_var_name(i, false)),
                     );
                 }
 
@@ -668,6 +697,8 @@ impl ScriptRunner {
         self.reg_shell(sctx.clone());
         self.reg_end_op_stmts(sctx.clone());
         self.reg_defop_syntax(sctx.clone());
+        self.reg_config(sctx.clone());
+        self.reg_config_or(sctx.clone());
 
         self.engine
             .module_resolver()

@@ -424,7 +424,7 @@ impl DriverBuilder {
         let plugin_dir = self.scripts_dir.take();
         let plugin_files = self.script_files.take();
 
-        let mut runner = script::ScriptRunner::new(self, config_data.clone());
+        let mut runner = script::ScriptRunner::new(self);
 
         // add system plugins
         if let Some(plugin_dir) = plugin_dir {

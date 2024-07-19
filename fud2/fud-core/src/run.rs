@@ -87,14 +87,27 @@ impl EmitBuild for EmitBuildFn {
     }
 }
 
+/// A config variable.
+#[derive(Debug, Clone)]
+pub enum ConfigVar {
+    /// The key for the config variable.
+    Var(String),
+    /// The key for the config variable followed by the value it should be if the key is not found.
+    VarOr(String, String),
+}
+
 /// The data required to emit a single op.
 pub struct OpEmitData {
     /// The name of the op.
     pub op_name: String,
+
     /// The commands run whenever the op run. Each of these must be run in order in a context where
     /// the variables in each cmd are supplied. In particular, this means that variables of the
     /// form "$[i|o]<digit>" are in scope.
     pub cmds: Vec<String>,
+
+    /// Variables to be emitted
+    pub config_vars: Vec<ConfigVar>,
 }
 
 /// Given the `index` of a file in the list of input/output files and if the file is an
@@ -126,6 +139,13 @@ impl EmitBuild for OpEmitData {
             .enumerate()
             .map(|(k, &v)| (io_file_var_name(k, false), v));
         let vars: Vec<_> = in_vars.chain(out_vars).collect();
+
+        for var in &self.config_vars {
+            match var {
+                ConfigVar::Var(k) => emitter.config_var(k, k)?,
+                ConfigVar::VarOr(k, d) => emitter.config_var_or(k, k, d)?,
+            }
+        }
 
         emitter.build_cmd_with_vars(
             outputs,
