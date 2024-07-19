@@ -1,0 +1,13 @@
+// -p metadata-table-generation
+
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {}
+  wires {
+    group g1 {}
+    group g2 {}
+    group g3 {}
+  }
+  control {}
+}
