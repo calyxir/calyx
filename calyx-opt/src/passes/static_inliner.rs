@@ -9,7 +9,7 @@ use calyx_ir::{self as ir, StaticTiming};
 use calyx_utils::CalyxResult;
 use ir::build_assignments;
 use itertools::Itertools;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 pub struct StaticInliner {
@@ -283,6 +283,35 @@ impl StaticInliner {
         });
     }
 
+    fn get_coloring(par_stmts: &[ir::StaticControl]) -> HashMap<usize, usize> {
+        let mut conflict_graph: GraphColoring<usize> =
+            GraphColoring::from(0..par_stmts.len());
+        // Getting the offload intervals for each thread.
+        let offload_interval_info = par_stmts
+            .iter()
+            .map(|stmt| Self::get_offload_latencies(stmt, 0))
+            .collect_vec();
+        // Build conflict graph, where each thread is represented
+        // by its index in `stmts`
+        for (i, j) in (0..par_stmts.len()).tuple_combinations() {
+            let intervals1 = &offload_interval_info[i];
+            let intervals2 = &offload_interval_info[j];
+            for &(start1, end1) in intervals1.iter() {
+                for &(start2, end2) in intervals2.iter() {
+                    if (start2 <= end1 && end1 <= end2)
+                        || (start2 <= start1 && start1 <= end2)
+                        || (start1 <= start2 && end2 <= end1)
+                    {
+                        // If intervals overlap then insert conflict.
+                        conflict_graph.insert_conflict(&i, &j);
+                    }
+                }
+            }
+        }
+
+        conflict_graph.color_greedy(None, true)
+    }
+
     // inlines the static control `sc` and returns an equivalent single static group
     fn inline_static_control(
         &self,
@@ -362,15 +391,10 @@ impl StaticInliner {
                         let g = self.inline_static_control(stmt, builder);
                         assert!(g.borrow().get_latency() == stmt_latency, "static group latency doesn't match static stmt latency");
                         // get the assignments from g
-                        // currently we clone, since we might need these assignments elsewhere
-                        // We could probably do some sort of analysis to see when we need to
-                        // clone vs. can take
                         let mut g_assigns: Vec<
                             ir::Assignment<ir::StaticTiming>,
                         > = g.borrow_mut().assignments.clone();
-                        // add cur_offset to each static guard in g_assigns
-                        // and add %[offset, offset + latency] to each assignment in
-                        // g_assigns
+                        // and add %[0, group_latency] to each assignment in g_assigns
                         StaticInliner::update_assignments_timing(
                             &mut g_assigns,
                             0,
@@ -386,43 +410,12 @@ impl StaticInliner {
                 } else {
                     // We build a conflict graph to figure out which
                     // `static par` threads can share an FSM (they can do so
-                    // so long as their offloads to not overlap).
-                    // The threads are reprented by the index of the thread in
-                    // `stmts`.
-                    let mut conflict_graph: GraphColoring<usize> =
-                        GraphColoring::from(0..stmts.len());
-                    // Getting the offload intervals for each thread.
-                    let offload_interval_info = stmts
-                        .iter()
-                        .map(|stmt| Self::get_offload_latencies(stmt, 0))
-                        .collect_vec();
-                    for (i, j) in (0..stmts.len()).tuple_combinations() {
-                        let intervals1 = &offload_interval_info[i];
-                        let intervals2 = &offload_interval_info[j];
-                        for &(start1, end1) in intervals1.iter() {
-                            for &(start2, end2) in intervals2.iter() {
-                                if (start2 <= end1 && end1 <= end2)
-                                    || (start2 <= start1 && start1 <= end2)
-                                    || (start1 <= start2 && end2 <= end1)
-                                {
-                                    // If intervals overlap then insert conflict.
-                                    conflict_graph.insert_conflict(&i, &j);
-                                }
-                            }
-                        }
-                    }
-                    // Now we must "reverse" the coloring from threads->colors
-                    // to colors->thread so we can group all threds together.
-                    let threads_to_colors =
-                        conflict_graph.color_greedy(None, true);
-                    let mut colors_to_threads: BTreeMap<usize, Vec<_>> =
-                        BTreeMap::new();
-                    for (thread, color) in &threads_to_colors {
-                        colors_to_threads
-                            .entry(*color)
-                            .or_default()
-                            .push(thread);
-                    }
+                    // so long as they never offload at the same time).
+                    // To do this we perform a greedy coloring, where nodes=threads
+                    // and threads are represented by their index in `stmts`.
+                    let threads_to_colors = Self::get_coloring(&stmts);
+                    let colors_to_threads =
+                        GraphColoring::reverse_coloring(&threads_to_colors);
                     // Need to know the latency of each color (i.e., the
                     // maximum latency among all threads of that color.)
                     let colors_to_latencies: BTreeMap<usize, u64> =
@@ -435,29 +428,34 @@ impl StaticInliner {
                                         .iter()
                                         .map(|thread| {
                                             stmts
-                                                .get(**thread)
-                                                .unwrap()
+                                                .get(*thread)
+                                                .expect("coloring shouldn't produce unkown threads")
                                                 .get_latency()
                                         })
                                         .max()
-                                        .unwrap(),
+                                        .expect("par.stmts shouldn't be empty"),
                                 )
                             })
                             .collect();
 
-                    // Threads maps colors to the assignments corresponding to the
+                    // `thread_assigns` maps colors to the assignments corresponding to the
                     // color (i.e., the assignments corresponding to the color's
                     // group of threads.)
-                    let mut threads: BTreeMap<
+                    let mut color_assigns: BTreeMap<
                         usize,
                         Vec<ir::Assignment<ir::StaticTiming>>,
                     > = BTreeMap::new();
+                    // iterate through stmts to build `color_assigns`.
                     for (index, stmt) in stmts.iter().enumerate() {
+                        // color_latency should be >= stmt_latency
+                        // (color_latency is max of all threads of the color).
                         let stmt_latency = stmt.get_latency();
                         let color_latency = *colors_to_latencies
                             .get(&threads_to_colors[&index])
                             .expect("coloring has gone wrong somehow");
+
                         // recursively turn each stmt in the par block into a group g
+                        // and take its assignments.
                         let stmt_group =
                             self.inline_static_control(stmt, builder);
                         assert!(
@@ -466,6 +464,7 @@ impl StaticInliner {
                         );
                         let mut group_assigns =
                             stmt_group.borrow().assignments.clone();
+
                         // If we are combining threads with uneven latencies, then
                         // for the smaller threads we have to add an implicit guard from
                         // %[0:smaller latency].
@@ -477,29 +476,29 @@ impl StaticInliner {
                                 )))
                             })
                         }
-                        threads
+
+                        color_assigns
                             .entry(*threads_to_colors.get(&index).unwrap())
                             .or_default()
                             .extend(group_assigns);
                     }
 
-                    let mut groups = threads
+                    // Now turn `color_assigns` into `groups` (each color gets
+                    // one group).
+                    let mut color_groups = color_assigns
                         .into_iter()
                         .map(|(index, assigns)| {
                             let thread_group = builder.add_static_group(
                             "static_par_thread",
-                            *colors_to_latencies.get(&index).expect(
-                                "something has gone wrong merging par threads",
-                            ),
-                        );
+                            *colors_to_latencies.get(&index).expect("something has gone wrong merging par threads"));
                             thread_group.borrow_mut().assignments = assigns;
                             thread_group
                         })
                         .collect_vec();
 
-                    if groups.len() == 1 {
+                    if color_groups.len() == 1 {
                         // If we only have one group, no need for a wrapper.
-                        let par_group = groups.pop().unwrap();
+                        let par_group = color_groups.pop().unwrap();
                         par_group.borrow_mut().attributes = attributes.clone();
                         par_group
                     } else {
@@ -509,10 +508,16 @@ impl StaticInliner {
                         let mut par_group_assigns: Vec<
                             ir::Assignment<ir::StaticTiming>,
                         > = vec![];
-                        for group in groups {
-                            // Assign par_group[go] = %[0:par_latency] ? 1'd1;
-                            if get_bit_width_from(group.borrow().latency)
-                                == get_bit_width_from(*latency)
+                        for group in color_groups {
+                            // If color_latency < latency we need to add guard
+                            // color_group[go] = %[0:color_latency] ? 1'd1;
+                            // However, if color_latency will take the same
+                            // number of bits as latency, then we might as
+                            // well just increase the latency of the group to
+                            // avoid making this guard.
+                            if group.borrow().latency < *latency
+                                && get_bit_width_from(group.borrow().latency)
+                                    == get_bit_width_from(*latency)
                             {
                                 Self::increase_sgroup_latency(
                                     Rc::clone(&group),
@@ -524,6 +529,8 @@ impl StaticInliner {
                                 let signal_on = constant(1,1);
                             );
 
+                            // Making assignment:
+                            // color_group[go] = %[0:color_latency] ? 1'd1;
                             let stmt_guard =
                                 if group.borrow().latency == *latency {
                                     ir::Guard::True
@@ -546,6 +553,11 @@ impl StaticInliner {
                             .borrow_mut()
                             .attributes
                             .insert(ir::BoolAttr::ParCtrl, 1);
+
+                        // Building a wrapper that just simply executes `par_group`.
+                        // This group could get thrown away, but thats fine, because
+                        // we've guaranteed that `par_group` will never get thrown
+                        // out.
                         let par_wrapper = builder
                             .add_static_group("static_par_wrapper", *latency);
                         structure!( builder;
