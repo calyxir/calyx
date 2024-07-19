@@ -3,31 +3,6 @@ export const calyx_state = state("calyx", ["futil"]);
 export const verilog_noverify = state("verilog-noverify", ["sv"]);
 
 export let calyx_setup = calyx_setup;
-export let calyx_pass = calyx_pass;
-
-fn calyx_setup() {
-    let calyx_base = config("calyx.base");
-    #{ 
-        calyx_base: calyx_base,
-        calyx_exe: config_or("calyx.exe", `${calyx_base}/target/debug/calyx`),
-        args: config_or("calyx.args", ""),
-    }
-}
-
-defop calyx_to_verilog(c: calyx_state) >> v: verilog_state {
-    let s = calyx_setup();
-    shell(`${s.calyx_exe} -l ${s.calyx_base} -b verilog ${s.args} ${c} > ${v}`);
-}
-
-defop calyx_noverify(c: calyx_state) >> v: verilog_noverify {
-    let s = calyx_setup();
-    shell(`${s.calyx_exe} -l ${s.calyx_base} -b verilog ${s.args} --disable-verify ${c} > ${v}`);
-}
-
-fn calyx_pass(pass, args, in_str, out_str) {
-    let s = calyx_setup();
-    shell(`${s.calyx_exe} -l ${s.calyx_base} -p ${pass} ${args} ${in_str} > ${out_str}`);
-}
 
 fn calyx_setup(e) {
    e.config_var("calyx-base", "calyx.base");
