@@ -21,13 +21,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.in = fsm.out == 3'd4 & early_reset_static_seq_go.out ? 3'd0;
     adder.left = early_reset_static_seq_go.out ? fsm.out;
     adder.right = early_reset_static_seq_go.out ? 3'd1;
-    wrapper_early_reset_static_seq_done.in = fsm.out == 3'd0 & 1'b1 & signal_reg.out ? 1'd1;
+    wrapper_early_reset_static_seq_done.in = signal_reg.out ? 1'd1;
     early_reset_static_seq_go.in = wrapper_early_reset_static_seq_go.out ? 1'd1;
-    signal_reg.write_en = fsm.out == 3'd0 & 1'b1 & signal_reg.out | fsm.out == 3'd4 & 1'b1 & !signal_reg.out & wrapper_early_reset_static_seq_go.out ? 1'd1;
+    signal_reg.write_en = signal_reg.out | fsm.out == 3'd4 & 1'b1 & !signal_reg.out & wrapper_early_reset_static_seq_go.out ? 1'd1;
     signal_reg.clk = clk;
     signal_reg.reset = reset;
     signal_reg.in = fsm.out == 3'd4 & 1'b1 & !signal_reg.out & wrapper_early_reset_static_seq_go.out ? 1'd1;
-    signal_reg.in = fsm.out == 3'd0 & 1'b1 & signal_reg.out ? 1'd0;
+    signal_reg.in = signal_reg.out ? 1'd0;
     early_reset_static_seq_done.in = ud.out;
     wrapper_early_reset_static_seq_go.in = go;
   }

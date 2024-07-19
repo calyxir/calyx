@@ -88,11 +88,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     early_reset_static_seq_go.in = while_wrapper_early_reset_static_seq_go.out ? 1'd1;
     le0.left = early_reset_cond00_go.out | fsm.out == 4'd7 & early_reset_static_seq_go.out ? i0.out;
     le0.right = early_reset_cond00_go.out | fsm.out == 4'd7 & early_reset_static_seq_go.out ? const1.out;
-    signal_reg.write_en = 1'b1 & 1'b1 & signal_reg.out | 1'b1 & 1'b1 & !signal_reg.out & wrapper_early_reset_cond00_go.out ? 1'd1;
+    signal_reg.write_en = signal_reg.out | 1'b1 & 1'b1 & !signal_reg.out & wrapper_early_reset_cond00_go.out ? 1'd1;
     signal_reg.clk = clk;
     signal_reg.reset = reset;
     signal_reg.in = 1'b1 & 1'b1 & !signal_reg.out & wrapper_early_reset_cond00_go.out ? 1'd1;
-    signal_reg.in = 1'b1 & 1'b1 & signal_reg.out ? 1'd0;
+    signal_reg.in = signal_reg.out ? 1'd0;
     B0.clk = clk;
     B0.addr0 = fsm.out == 4'd0 & early_reset_static_seq_go.out ? i0.out;
     B0.reset = reset;
@@ -102,7 +102,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     B_read0_0.in = fsm.out == 4'd0 & early_reset_static_seq_go.out ? B0.read_data;
     B_read0_0.in = fsm.out == 4'd5 & early_reset_static_seq_go.out ? A_read0_0.out;
     wrapper_early_reset_cond00_go.in = !wrapper_early_reset_cond00_done.out & fsm0.out == 2'd1 & tdcc_go.out ? 1'd1;
-    wrapper_early_reset_cond00_done.in = 1'b1 & 1'b1 & signal_reg.out ? 1'd1;
+    wrapper_early_reset_cond00_done.in = signal_reg.out ? 1'd1;
     early_reset_static_seq_done.in = ud0.out;
     tdcc_done.in = fsm0.out == 2'd3 ? 1'd1;
     while_wrapper_early_reset_static_seq_done.in = !comb_reg.out & fsm.out == 4'd0 & 1'b1 ? 1'd1;
