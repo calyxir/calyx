@@ -316,7 +316,7 @@ pub struct SingleNode {
     pub num_repeats: u64,
     /// number of states in this node
     pub num_states: u64,
-    /// (name of static group, assignments for corresponding dynamic group)
+    /// (name of static group, assignments to build a corresponding dynamic group)
     pub root: (ir::Id, Vec<ir::Assignment<Nothing>>),
     ///  maps cycles (i,j) -> fsm state type.
     ///  Here is an example FSM schedule:
@@ -328,6 +328,8 @@ pub struct SingleNode {
     ///                           (80,100)->  Normal[22, 42)
     pub fsm_schedule: BTreeMap<(u64, u64), StateType>,
     /// vec of (Node Object, cycles for which that child is executing).
+    /// Note that you can build `fsm_schedule` from just this information,
+    /// but it's convenient to have `fsm_schedule` avaialable.
     pub children: Vec<(Node, (u64, u64))>,
     /// keep track of where we are within a single iteration
     pub fsm_cell: Option<ir::RRC<StaticFSM>>,
@@ -450,10 +452,9 @@ impl SingleNode {
         let mut res_vec: Vec<ir::Assignment<Nothing>> = Vec::new();
 
         // Only need to count up to n if self.num_states > 1.
-        // Otherwise either a) latency is 1 cycle or b)
-        // we're just offloading the etnire time.
-        // Either way, there's no need to instantiate a self.fsm_cell to count up
-        // to n.
+        // If self.num_states == 1, then either a) latency is 1 cycle or b)
+        // we're just offloading the entire time (so the child will count).
+        // Either way, there's no need to instantiate a self.fsm_cell to count.
         if self.num_states > 1 {
             // `offload_states` are the fsm_states that last >1 cycles (i.e., states
             // where children are executing, unless the child only lasts one cycle---
@@ -479,6 +480,8 @@ impl SingleNode {
             // 2) Increment when we ARE in an offload state, but the child being offloaded
             // is in its final state. (intuitively, we need to increment because
             // we know the control is being passed back to parent in the next cycle).
+            // (when we are in the final state, we obviously should not increment:
+            // we should reset back to 0.)
 
             let parent_fsm = Rc::clone(
                 &self
@@ -586,7 +589,7 @@ impl SingleNode {
     /// We should increment when !(fsm == 2 | fsm == 4 | fsm == 6).
     /// There are a couple corner cases we need to think about (in particular,
     /// we should guard the 0->1 transition differently if `incr_start_cond` is
-    /// true, and we should reset rather than increment when we are in the final
+    /// some(), and we should reset rather than increment when we are in the final
     /// fsm state).
     fn increment_if_not_offloading(
         &mut self,
@@ -849,6 +852,8 @@ impl SingleNode {
         })
     }
 
+    // Rephrasing an (i,j) query: this breaks up the guard and makes it easier
+    // to figure out what logic we need to instantiate to perform the query.
     // Restructure an (i,j) query into:
     // (beg, middle, end) query.
     // This is best explained by example.

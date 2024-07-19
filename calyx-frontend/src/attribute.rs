@@ -70,7 +70,8 @@ pub enum BoolAttr {
     /// denotes a static component or control promoted from dynamic
     Promoted,
     #[strum(serialize = "par")]
-    /// denotes a group that was generated from `par` control
+    /// Denotes a group that was generated from a `staticpar` during static
+    /// inlining.
     ParCtrl,
 }
 impl From<BoolAttr> for Attribute {
