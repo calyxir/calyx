@@ -1323,8 +1323,8 @@ impl SingleNode {
         {
             // Checking if children overlap: either b begins within a, it
             // ends within a, or it encompasses a's entire interval.
-            if ((beg_a <= beg_b) & (beg_b < end_b))
-                | ((beg_a < end_b) & (end_b <= end_b))
+            if ((beg_a <= beg_b) & (beg_b < end_a))
+                | ((beg_a < end_b) & (end_b <= end_a))
                 | (beg_b <= beg_a && end_b >= end_a)
             {
                 // Adding conflicts between all nodes of the children if
