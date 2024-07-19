@@ -508,22 +508,23 @@ impl<'b, 'a> Schedule<'b, 'a> {
         };
 
         // for the given number of fsm registers to read from, add a primitive register to the design for each
-        let mut add_regs = |ident: &str, prim_name: &str, num_regs: u64| {
-            (0..num_regs)
-                .map(|n| {
-                    let fsm_name = if num_regs == 1 {
-                        ident.to_string()
-                    } else {
-                        format!("{ident}{n}")
-                    };
-                    builder.add_primitive(
-                        fsm_name.as_str(),
-                        prim_name,
-                        &[fsm_size],
-                    )
-                })
-                .collect_vec()
-        };
+        let mut add_regs =
+            |ident: &str, prim_name: &str, num_regs: u64, reg_size: u64| {
+                (0..num_regs)
+                    .map(|n| {
+                        let fsm_name = if num_regs == 1 {
+                            ident.to_string()
+                        } else {
+                            format!("{ident}{n}")
+                        };
+                        builder.add_primitive(
+                            fsm_name.as_str(),
+                            prim_name,
+                            &[reg_size],
+                        )
+                    })
+                    .collect_vec()
+            };
 
         (
             add_regs(
@@ -536,6 +537,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     RegisterSpread::Single => 1,
                     RegisterSpread::Duplicate | RegisterSpread::Split => 2,
                 },
+                fsm_size,
             ),
             add_regs(
                 "parent",
@@ -544,6 +546,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     RegisterSpread::Single | RegisterSpread::Duplicate => 0,
                     RegisterSpread::Split => 2,
                 },
+                1,
             ),
             first_state,
             fsm_size,
@@ -573,9 +576,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // build necessary primitives dependent on encoding and spread
         let signal_on = self.builder.add_constant(1, 1);
+        let signal_off = self.builder.add_constant(0, 1);
 
         // parent registers only exists if split is selected
-        let (mut fsms, parents, first_state, fsm_size) =
+        let (fsms, parents, first_state, fsm_size) =
             Self::build_fsm_infrastructure(self.builder, &fsm_rep);
 
         // Add last state to JSON info
@@ -635,7 +639,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
                 // get a transition guard for the first fsm register, and apply it to every fsm register
-                let state_guards = Self::query_state(
+
+                let trans_guard = Self::query_state(
                     self.builder,
                     &mut used_slicers_vec,
                     &fsm_rep,
@@ -645,22 +650,47 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     // by default, do not distribute transition queries
                     // across regs; choose the first reg.
                     false,
-                );
+                )
+                .drain(..)
+                .fold(guard, |g, sg| sg.and(g));
+
+                let parent_transitions = parents
+                    .iter()
+                    .flat_map(|parent| {
+                        let parent_const = self.builder.add_constant(
+                            match e >= (fsm_rep.last_state + 1) / 2 {
+                                true => 1,
+                                false => 0,
+                            },
+                            1,
+                        );
+                        let pc_borrow = parent_const.borrow();
+                        vec![
+                            self.builder.build_assignment(
+                                parent.borrow().get("in"),
+                                pc_borrow.get("out"),
+                                trans_guard.clone(),
+                            ),
+                            self.builder.build_assignment(
+                                parent.borrow().get("write_en"),
+                                signal_on.borrow().get("out"),
+                                trans_guard.clone(),
+                            ),
+                        ]
+                    })
+                    .collect_vec();
 
                 // add transition assignment to every fsm register to ensure
                 // consistency between each
-                let end_state_to_query =
-                    if let RegisterSpread::Split = fsm_rep.spread {
-                        e / 2
-                    } else {
-                        e
-                    };
-                fsms.iter()
+                let fsm_transitions = fsms
+                    .iter()
                     .flat_map(|fsm| {
-                        let trans_guard = state_guards
-                            .clone()
-                            .drain(..)
-                            .fold(guard.clone(), |g, sg| sg.and(g));
+                        let end_state_to_query =
+                            if let RegisterSpread::Split = fsm_rep.spread {
+                                e % ((fsm_rep.last_state + 1) / 2)
+                            } else {
+                                e
+                            };
 
                         let end_const = match fsm_rep.encoding {
                             RegisterEncoding::Binary => self
@@ -686,37 +716,17 @@ impl<'b, 'a> Schedule<'b, 'a> {
                             self.builder.build_assignment(
                                 fsm.borrow().get("write_en"),
                                 signal_on.borrow().get("out"),
-                                trans_guard,
+                                trans_guard.clone(),
                             ),
                         ]
                     })
+                    .collect_vec();
+                vec![parent_transitions, fsm_transitions]
+                    .drain(..)
+                    .flatten()
                     .collect_vec()
             }),
         );
-
-        // build transition assignments for all parent registers (simply from 0 to 1)
-        // e.g. `parent{x}.in = parent0.out == 0 & fsm0.out == <last-state/2> ? 1'b1``
-        group
-            .borrow_mut()
-            .assignments
-            .extend(parents.iter().flat_map(|parent| {
-            let parent_transition_guard = ir::Guard::True.fold(
-                Self::query_state(
-                    self.builder,
-                    &mut used_slicers_vec,
-                    &fsm_rep,
-                    (&fsms, &signal_on, &parents),
-                    &(fsm_rep.last_state / 2), // check empirically
-                    &fsm_size,
-                    false,
-                ),
-                ir::Guard::and,
-            );
-            build_assignments!(self.builder;
-                parent["in"] = parent_transition_guard ? signal_on["out"];
-                parent["write_en"] = parent_transition_guard ? signal_on["out"];
-            )
-        }));
 
         // done condition for group
         // arbitrarily look at first fsm register, since all are identical
@@ -739,52 +749,45 @@ impl<'b, 'a> Schedule<'b, 'a> {
         );
         group.borrow_mut().assignments.push(done_assign);
 
-        // Cleanup: Add a transition from last state to the first state for each control register
-        fsms.append(&mut parents.clone());
-        let reset_fsms = fsms
-            .iter()
-            .flat_map(|fsm| {
-                match fsm_rep.spread {
-                    // single / duplicate rep. requires only one reset: at endpoint
-                    RegisterSpread::Single | RegisterSpread::Duplicate => {
-                        vec![fsm_rep.last_state]
-                    }
-                    // split requires resets at two distinct states: midpoint and endpoint
-                    RegisterSpread::Split => {
-                        vec![(fsm_rep.last_state) / 2, fsm_rep.last_state]
-                    }
-                }
-                .iter()
-                .flat_map(|state| {
-                    // by default, query first register
-                    let fsm_last_guard = ir::Guard::True.fold(
-                        Self::query_state(
-                            self.builder,
-                            &mut used_slicers_vec,
-                            &fsm_rep,
-                            (&fsms, &signal_on, &parents),
-                            state,
-                            &fsm_size,
-                            false,
-                        ),
-                        ir::Guard::and,
-                    );
-                    build_assignments!(self.builder;
-                        fsm["in"] = fsm_last_guard ? first_state["out"];
+        // CLEANUP:
+        // Add a transition from last state to the first state for each fsm register
+        let mut create_resets =
+            |collection: &Vec<RRC<Cell>>, src: &RRC<Cell>| {
+                collection
+                    .iter()
+                    .flat_map(|fsm| {
+                        let fsm_last_guard = ir::Guard::True.fold(
+                            Self::query_state(
+                                self.builder,
+                                &mut used_slicers_vec,
+                                &fsm_rep,
+                                (&fsms, &signal_on, &parents),
+                                &fsm_rep.last_state,
+                                &fsm_size,
+                                false,
+                            ),
+                            ir::Guard::and,
+                        );
+                        build_assignments!(self.builder;
+                        fsm["in"] = fsm_last_guard ? src["out"];
                         fsm["write_en"] = fsm_last_guard ? signal_on["out"];)
-                })
-                .collect_vec()
-            })
-            .collect_vec();
+                    })
+                    .collect_vec()
+            };
 
-        // Add assignments for any parent registers, too
-        // let reset_parents = parents.iter().flat_map(f)
+        let reset_assigns = vec![
+            create_resets(&fsms, &first_state),
+            create_resets(&parents, &signal_off),
+        ]
+        .drain(..)
+        .flatten()
+        .collect_vec();
 
         // extend with conditions to set all fsms to initial state
         self.builder
             .component
             .continuous_assignments
-            .extend(reset_fsms);
+            .extend(reset_assigns);
 
         group
     }
