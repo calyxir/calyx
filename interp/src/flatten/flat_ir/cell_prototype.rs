@@ -88,32 +88,32 @@ pub enum MemType {
 #[derive(Debug, Clone)]
 pub enum MemoryDimensions {
     D1 {
-        d0_size: Width,
-        d0_idx_size: Width,
+        d0_size: ParamWidth,
+        d0_idx_size: ParamWidth,
     },
     D2 {
-        d0_size: Width,
-        d0_idx_size: Width,
-        d1_size: Width,
-        d1_idx_size: Width,
+        d0_size: ParamWidth,
+        d0_idx_size: ParamWidth,
+        d1_size: ParamWidth,
+        d1_idx_size: ParamWidth,
     },
     D3 {
-        d0_size: Width,
-        d0_idx_size: Width,
-        d1_size: Width,
-        d1_idx_size: Width,
-        d2_size: Width,
-        d2_idx_size: Width,
+        d0_size: ParamWidth,
+        d0_idx_size: ParamWidth,
+        d1_size: ParamWidth,
+        d1_idx_size: ParamWidth,
+        d2_size: ParamWidth,
+        d2_idx_size: ParamWidth,
     },
     D4 {
-        d0_size: Width,
-        d0_idx_size: Width,
-        d1_size: Width,
-        d1_idx_size: Width,
-        d2_size: Width,
-        d2_idx_size: Width,
-        d3_size: Width,
-        d3_idx_size: Width,
+        d0_size: ParamWidth,
+        d0_idx_size: ParamWidth,
+        d1_size: ParamWidth,
+        d1_idx_size: ParamWidth,
+        d2_size: ParamWidth,
+        d2_idx_size: ParamWidth,
+        d3_size: ParamWidth,
+        d3_idx_size: ParamWidth,
     },
 }
 
@@ -181,44 +181,49 @@ impl MemoryDimensions {
 }
 
 /// A type alias to allow potential space hacks
-pub type Width = u32;
+pub type ParamWidth = u32;
 
 #[derive(Debug, Clone)]
 pub enum CellPrototype {
     Component(ComponentIdx),
     Constant {
         value: u64,
-        width: Width,
+        width: ParamWidth,
         c_type: LiteralOrPrimitive,
     },
     SingleWidth {
         op: PrimType1,
-        width: Width,
+        width: ParamWidth,
     },
     FixedPoint {
         op: FPType,
-        width: Width,
-        int_width: Width,
-        frac_width: Width,
+        width: ParamWidth,
+        int_width: ParamWidth,
+        frac_width: ParamWidth,
     },
     // The awkward three that don't fit the other patterns
     Slice {
-        in_width: Width,
-        out_width: Width,
+        in_width: ParamWidth,
+        out_width: ParamWidth,
     },
     Pad {
-        in_width: Width,
-        out_width: Width,
+        in_width: ParamWidth,
+        out_width: ParamWidth,
     },
     Cat {
-        left: Width,
-        right: Width,
-        out: Width,
+        left: ParamWidth,
+        right: ParamWidth,
+        out: ParamWidth,
+    },
+    BitSlice {
+        start_idx: ParamWidth,
+        end_idx: ParamWidth,
+        out_width: ParamWidth,
     },
     // Memories
     Memory {
         mem_type: MemType,
-        width: Width,
+        width: ParamWidth,
         dims: MemoryDimensions,
         is_external: bool,
     },
@@ -660,6 +665,19 @@ impl CellPrototype {
                     Self::SingleWidth {
                         op: PrimType1::Undef,
                         width: width.try_into().unwrap(),
+                    }
+                }
+
+                "std_bit_slice" => {
+                    get_params![params;
+                        start_idx: "START_IDX",
+                        end_idx: "END_IDX",
+                        out_width: "OUT_WIDTH"
+                    ];
+                    Self::BitSlice {
+                        start_idx: start_idx.try_into().unwrap(),
+                        end_idx: end_idx.try_into().unwrap(),
+                        out_width: out_width.try_into().unwrap(),
                     }
                 }
 

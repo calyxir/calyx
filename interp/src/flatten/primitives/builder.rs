@@ -98,6 +98,13 @@ pub fn build_primitive(
             }
             PrimType1::Undef => Box::new(StdUndef::new(base_port, *width)),
         },
+        CellPrototype::BitSlice {
+            start_idx,
+            end_idx,
+            out_width,
+        } => Box::new(StdBitSlice::new(
+            base_port, *start_idx, *end_idx, *out_width,
+        )),
         CellPrototype::FixedPoint {
             op: _,
             width: _,
