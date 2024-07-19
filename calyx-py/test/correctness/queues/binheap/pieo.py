@@ -183,13 +183,13 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                     cb.par([
                         cb.invoke(
                             q,
-                            in_value=cb.const(32, 0),
-                            in_rank=cb.const(32, 0),
-                            in_cmd=cb.const(32, 0), #Pop from queue
-                            ref_ans=ans,
+                            in_value=cb.const(width, 0),
+                            in_rank=cb.const(64, 0),
+                            in_cmd=cb.const(2, 0), #Pop from queue
+                            ref_ans=a,
                             ref_err=err)
-                        for (q, ans) in
-                        ((val_queue, val_ans), (time_queue, ready_time), (rank_queue, rank_ans))
+                        for (q, a, width) in
+                        ((val_queue, val_ans, 32), (time_queue, ready_time, 32), (rank_queue, rank_ans, 64))
                     ])
                 ] + cache_data + [incr_queue_idx])
             ),
