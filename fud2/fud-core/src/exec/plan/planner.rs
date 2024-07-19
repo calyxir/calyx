@@ -1,6 +1,6 @@
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 
-use super::{OpRef, Operation, StateRef};
+use super::super::{OpRef, Operation, StateRef};
 
 /// `Step` is an op paired with its used outputs.
 type Step = (OpRef, Vec<StateRef>);
