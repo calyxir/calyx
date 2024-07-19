@@ -110,7 +110,7 @@ impl Node {
             ir::Id,
             (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>),
         >,
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        group_rewrites: &mut ir::rewriter::PortRewriteMap,
         builder: &mut ir::Builder,
     ) {
         match self {
@@ -760,7 +760,7 @@ impl SingleNode {
             ir::Id,
             (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>),
         >,
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        group_rewrites: &mut ir::rewriter::PortRewriteMap,
         builder: &mut ir::Builder,
     ) {
         // Get static group we are "realizing".
@@ -1424,7 +1424,7 @@ impl ParNodes {
             ir::Id,
             (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>),
         >,
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+        group_rewrites: &mut ir::rewriter::PortRewriteMap,
         builder: &mut ir::Builder,
     ) {
         // Get static grouo we are "realizing".
