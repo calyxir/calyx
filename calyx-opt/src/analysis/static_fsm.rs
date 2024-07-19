@@ -100,14 +100,14 @@ impl StaticFSM {
     ) -> Vec<ir::Assignment<Nothing>> {
         let fsm_cell = Rc::clone(&self.fsm_cell);
         let signal_on = builder.add_constant(1, 1);
-        let assigns = build_assignments!(
+        let x = build_assignments!(
           builder;
           // increments the fsm
           fsm_cell["in"] = guard ? adder["out"];
           fsm_cell["write_en"] = guard ? signal_on["out"];
         )
         .to_vec();
-        assigns
+        x
     }
 
     // Returns the assignments that conditionally resets the fsm to 0,
@@ -126,13 +126,13 @@ impl StaticFSM {
             FSMEncoding::Binary => builder.add_constant(0, self.bitwidth),
             FSMEncoding::OneHot => builder.add_constant(1, self.bitwidth),
         };
-        let assigns = build_assignments!(
+        let x = build_assignments!(
           builder;
           fsm_cell["in"] = guard ? const_0["out"];
           fsm_cell["write_en"] = guard ? signal_on["out"];
         )
         .to_vec();
-        assigns
+        x
     }
 
     // Returns a guard that takes a (beg, end) `query`, and returns the equivalent

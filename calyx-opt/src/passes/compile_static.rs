@@ -15,6 +15,8 @@ use std::ops::Not;
 use std::rc::Rc;
 use std::vec;
 
+type OptionalStaticFSM = Option<ir::RRC<StaticFSM>>;
+
 /// Compiles Static Islands
 pub struct CompileStatic {
     /// maps original static group names to the corresponding group that has an FSM that reset early
@@ -26,9 +28,11 @@ pub struct CompileStatic {
     /// maps reset_early_group names to (fsm_identifier, fsm_first_state, final_fsm_state);
     /// The "fsm identifier" is just the name of the fsm (if it exists) and
     /// some other unique identifier if it doesn't exist (this works because
-    /// it is always fine to give each entry its own completely unique identifier.)
+    /// it is always fine to give each entry group its own completely unique identifier.)
     fsm_info_map:
         HashMap<ir::Id, (ir::Id, ir::Guard<Nothing>, ir::Guard<Nothing>)>,
+    /// Maps `static_group[go]` to `early_reset_group[go]`.
+    group_rewrites: ir::rewriter::PortRewriteMap,
 
     /// Command line arguments:
     /// Cutoff for one hot encoding. Anything larger than the cutoff becomes
@@ -79,6 +83,7 @@ impl ConstructVisitor for CompileStatic {
             wrapper_map: HashMap::new(),
             signal_reg_map: HashMap::new(),
             fsm_info_map: HashMap::new(),
+            group_rewrites: ir::rewriter::PortRewriteMap::new(),
         })
     }
 
@@ -546,7 +551,7 @@ impl CompileStatic {
     /// times.
     fn build_tree_object(
         target_name: ir::Id,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        static_groups: &[ir::RRC<ir::StaticGroup>],
         num_repeats: u64,
     ) -> Node {
         // Find the group that will serve as the root of the tree.
@@ -575,8 +580,7 @@ impl CompileStatic {
                         &assign.guard,
                         target_group.borrow().get_latency(),
                     );
-                    let name: calyx_ir::Id =
-                        sgroup.upgrade().borrow().name().clone();
+                    let name: calyx_ir::Id = sgroup.upgrade().borrow().name();
                     // Need the following lines to determine `num_repeats`
                     // for the child.
                     let target_child_latency =
@@ -642,7 +646,7 @@ impl CompileStatic {
     /// build here do not make sense if you want to actually do that.)
     fn build_dummy_tree(
         target_name: ir::Id,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        static_groups: &[ir::RRC<ir::StaticGroup>],
     ) -> Node {
         // Find the group that will serve as the root of the tree.
         let target_group = static_groups
@@ -671,8 +675,7 @@ impl CompileStatic {
                         target_group.borrow().get_latency(),
                     );
 
-                    let name: calyx_ir::Id =
-                        sgroup.upgrade().borrow().name().clone();
+                    let name: calyx_ir::Id = sgroup.upgrade().borrow().name();
                     children_vec.push((
                         Self::build_dummy_tree(name, static_groups),
                         (beg, end),
@@ -698,7 +701,7 @@ impl CompileStatic {
     /// This is the original strategy that we used.
     fn build_single_node(
         name: ir::Id,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        static_groups: &[ir::RRC<ir::StaticGroup>],
     ) -> Node {
         let target_group = static_groups
             .iter()
@@ -742,8 +745,8 @@ impl CompileStatic {
 
     // Given a vec of tuples (i,j) sorted by the first element (i.e., `i`) checks
     // whether the ranges do not overlap.
-    fn are_ranges_non_overlapping(ranges: &Vec<(Node, (u64, u64))>) -> bool {
-        if ranges.len() == 0 {
+    fn are_ranges_non_overlapping(ranges: &[(Node, (u64, u64))]) -> bool {
+        if ranges.is_empty() {
             return true;
         }
         for i in 0..ranges.len() - 1 {
@@ -763,20 +766,20 @@ impl CompileStatic {
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => stmts
                 .iter()
-                .flat_map(|stmt| Self::get_static_enables(stmt))
+                .flat_map(Self::get_static_enables)
                 .collect_vec(),
             ir::Control::Empty(_)
             | ir::Control::Enable(_)
             | ir::Control::Invoke(_) => vec![],
             ir::Control::If(c) => {
-                let mut tbranch_res = Self::get_static_enables(&*c.tbranch);
-                let fbranch_res = Self::get_static_enables(&*c.fbranch);
+                let mut tbranch_res = Self::get_static_enables(&c.tbranch);
+                let fbranch_res = Self::get_static_enables(&c.fbranch);
                 tbranch_res.extend(fbranch_res);
                 tbranch_res
             }
             ir::Control::Repeat(ir::Repeat { body, .. })
             | ir::Control::While(ir::While { body, .. }) => {
-                Self::get_static_enables(&*body)
+                Self::get_static_enables(body)
             }
             ir::Control::Static(sc) => {
                 let ir::StaticControl::Enable(s) = sc else {
@@ -910,13 +913,11 @@ impl CompileStatic {
         &mut self,
         fsm_tree: &mut Node,
         static_groups: &mut Vec<ir::RRC<ir::StaticGroup>>,
-        // The following are just bookkeeping parameters.
-        group_rewrites: &mut HashMap<ir::Canonical, ir::RRC<ir::Port>>,
         coloring: &HashMap<ir::Id, ir::Id>,
         colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
-            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+            (OptionalStaticFSM, OptionalStaticFSM),
         >,
         builder: &mut ir::Builder,
     ) -> calyx_utils::CalyxResult<()> {
@@ -958,7 +959,7 @@ impl CompileStatic {
                 static_groups,
                 &mut self.reset_early_map,
                 &mut self.fsm_info_map,
-                group_rewrites,
+                &mut self.group_rewrites,
                 builder,
             );
             // Add root's assignments as continuous assignments, execpt for the
@@ -1003,7 +1004,7 @@ impl CompileStatic {
                     static_groups,
                     &mut self.reset_early_map,
                     &mut self.fsm_info_map,
-                    group_rewrites,
+                    &mut self.group_rewrites,
                     builder,
                 )
             }
@@ -1050,7 +1051,7 @@ impl Visitor for CompileStatic {
         let mut builder = ir::Builder::new(comp, sigs);
         // Get a vec of all groups that are enabled in comp's control.
         let static_enable_ids =
-            Self::get_static_enables(&*builder.component.control.borrow());
+            Self::get_static_enables(&builder.component.control.borrow());
         // Build one tree object per static enable.
         // Need to build trees to determine coloring.
         let default_tree_objects = static_enable_ids
@@ -1080,7 +1081,7 @@ impl Visitor for CompileStatic {
             Self::get_color_max_values(&coloring, &default_tree_objects);
         let mut colors_to_fsms: HashMap<
             ir::Id,
-            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+            (OptionalStaticFSM, OptionalStaticFSM),
         > = HashMap::new();
 
         let mut tree_objects = if self.offload_pause {
@@ -1099,8 +1100,6 @@ impl Visitor for CompileStatic {
             simple_trees
         };
 
-        // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
-        let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
         // Static components have a different interface than static groups.
         // If we have a static component, we have to compile the top-level
         // island (this island should be a group by now and corresponds
@@ -1132,12 +1131,9 @@ impl Visitor for CompileStatic {
             // Static component/groups have different interfaces
             if static_component_interface {
                 // Compile top level static group differently.
-                // We know that the top level static island has its own
-                // unique FSM so we can do `.pop().unwrap()`
                 self.compile_static_interface(
                     tree,
                     &mut sgroups,
-                    &mut group_rewrites,
                     &coloring,
                     &colors_to_max_values,
                     &mut colors_to_fsms,
@@ -1158,7 +1154,7 @@ impl Visitor for CompileStatic {
                     &sgroups,
                     &mut self.reset_early_map,
                     &mut self.fsm_info_map,
-                    &mut group_rewrites,
+                    &mut self.group_rewrites,
                     &mut builder,
                 );
             }
@@ -1169,7 +1165,7 @@ impl Visitor for CompileStatic {
         // groups don't have done holes.
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
-                group_rewrites
+                self.group_rewrites
                     .get(&port.borrow().canonical())
                     .map(Rc::clone)
             })

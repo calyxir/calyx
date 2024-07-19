@@ -9,6 +9,15 @@ use std::rc::Rc;
 
 use super::GraphColoring;
 
+type OptionalStaticFSM = Option<ir::RRC<StaticFSM>>;
+/// Query (i ,(j,k)) that corresponds to:
+/// Am I in iteration i, and between cylces j and k within
+/// that query?
+type SingleIterQuery = (u64, (u64, u64));
+/// Query (i,j) that corresponds to:
+/// Am I between iterations i and j, inclusive?
+type ItersQuery = (u64, u64);
+
 /// Helpful for translating queries for the FSMTree structure.
 /// Because of the tree structure, %[i:j] is no longer is always equal to i <= fsm < j.
 /// Offload(i) means the FSM is offloading when fsm == i: so if the fsm == i,
@@ -46,7 +55,7 @@ impl Node {
         colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
-            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+            (OptionalStaticFSM, OptionalStaticFSM),
         >,
         one_hot_cutoff: u64,
     ) {
@@ -88,7 +97,8 @@ impl Node {
 
     /// "Realize" the static groups into dynamic groups.
     /// The main challenge is converting %[i:j] into fsm guards.
-    /// Need to call `instantiate_fsms` before calling `realize`.
+    /// Need to call `instantiate_fsms` and (probably)
+    /// `count_to_n` before calling `realize`.
     /// The equivalent methods for the two variants contain more implementation
     /// details.
     pub fn realize(
@@ -364,7 +374,7 @@ impl SingleNode {
         colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
-            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+            (OptionalStaticFSM, OptionalStaticFSM),
         >,
         one_hot_cutoff: u64,
     ) {
@@ -414,17 +424,16 @@ impl SingleNode {
                 colors_to_fsm.insert(
                     *color,
                     (
-                        self.fsm_cell.as_ref().map(|x| Rc::clone(x)),
-                        self.iter_count_cell.as_ref().map(|x| Rc::clone(&x)),
+                        self.fsm_cell.as_ref().map(Rc::clone),
+                        self.iter_count_cell.as_ref().map(Rc::clone),
                     ),
                 );
             }
             Some((fsm_option, repeat_option)) => {
                 // Trivially assign to `self.fsm_cell` and `self.iter_count_cell` since
                 // we've already created it.
-                self.fsm_cell = fsm_option.as_ref().map(|x| Rc::clone(&x));
-                self.iter_count_cell =
-                    repeat_option.as_ref().map(|x| Rc::clone(&x));
+                self.fsm_cell = fsm_option.as_ref().map(Rc::clone);
+                self.iter_count_cell = repeat_option.as_ref().map(Rc::clone);
             }
         }
 
@@ -433,7 +442,7 @@ impl SingleNode {
             child.instantiate_fsms(
                 builder,
                 coloring,
-                &colors_to_max_values,
+                colors_to_max_values,
                 colors_to_fsm,
                 one_hot_cutoff,
             );
@@ -484,8 +493,7 @@ impl SingleNode {
             // we should reset back to 0.)
 
             let parent_fsm = Rc::clone(
-                &self
-                    .fsm_cell
+                self.fsm_cell
                     .as_mut()
                     .expect("should have set self.fsm_cell"),
             );
@@ -550,8 +558,7 @@ impl SingleNode {
 
             // `repeat_fsm` store number of iterations.
             let repeat_fsm = Rc::clone(
-                &self
-                    .iter_count_cell
+                self.iter_count_cell
                     .as_mut()
                     .expect("should have set self.iter_count_cell"),
             );
@@ -661,7 +668,7 @@ impl SingleNode {
         if let Some((_, (_, end_final_child))) = self.children.last() {
             // If the final state is not an offload state, then
             // we need to add this check.
-            if !(*end_final_child == self.latency) {
+            if *end_final_child != self.latency {
                 incr_guard = incr_guard.and(not_final_state);
             }
         } else {
@@ -758,10 +765,10 @@ impl SingleNode {
     ) {
         // Get static group we are "realizing".
         let static_group = Rc::clone(
-            &static_groups
+            static_groups
                 .iter()
                 .find(|sgroup| sgroup.borrow().name() == self.root.0)
-                .unwrap(),
+                .expect("couldn't find static group"),
         );
         // Create the dynamic "early reset group" that will replace the static group.
         let static_group_name = static_group.borrow().name();
@@ -869,9 +876,9 @@ impl SingleNode {
         &self,
         query: (u64, u64),
     ) -> (
-        Option<(u64, (u64, u64))>,
-        Option<(u64, u64)>,
-        Option<(u64, (u64, u64))>,
+        Option<SingleIterQuery>,
+        Option<ItersQuery>,
+        Option<SingleIterQuery>,
     ) {
         // Splitting the query into an fsm query and and iteration query.
         // (beg_iter_query, end_iter_query) is an inclusive (both sides) query
@@ -1306,7 +1313,7 @@ impl SingleNode {
         for (child, _) in &self.children {
             res.extend(child.get_all_nodes())
         }
-        return res;
+        res
     }
 
     // Adds conflicts between children and any descendents.
@@ -1381,7 +1388,7 @@ impl ParNodes {
         colors_to_max_values: &HashMap<ir::Id, (u64, u64)>,
         colors_to_fsm: &mut HashMap<
             ir::Id,
-            (Option<ir::RRC<StaticFSM>>, Option<ir::RRC<StaticFSM>>),
+            (OptionalStaticFSM, OptionalStaticFSM),
         >,
         one_hot_cutoff: u64,
     ) {
@@ -1389,7 +1396,7 @@ impl ParNodes {
             thread.instantiate_fsms(
                 builder,
                 coloring,
-                &colors_to_max_values,
+                colors_to_max_values,
                 colors_to_fsm,
                 one_hot_cutoff,
             );
@@ -1422,10 +1429,10 @@ impl ParNodes {
     ) {
         // Get static grouo we are "realizing".
         let static_group = Rc::clone(
-            &static_groups
+            static_groups
                 .iter()
                 .find(|sgroup| sgroup.borrow().name() == self.group_name)
-                .unwrap(),
+                .expect("couldn't find static group"),
         );
         // Create the dynamic "early reset group" that will replace the static group.
         let static_group_name = static_group.borrow().name();
@@ -1556,7 +1563,7 @@ impl ParNodes {
         for (thread, _) in &self.threads {
             res.extend(thread.get_all_nodes())
         }
-        return res;
+        res
     }
 
     pub fn add_conflicts(&self, conflict_graph: &mut GraphColoring<ir::Id>) {

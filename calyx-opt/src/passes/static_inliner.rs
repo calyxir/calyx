@@ -190,9 +190,8 @@ impl StaticInliner {
             ir::StaticControl::If(ir::StaticIf {
                 tbranch, fbranch, ..
             }) => {
-                let mut res =
-                    Self::get_offload_latencies(&tbranch, cur_latency);
-                res.extend(Self::get_offload_latencies(&fbranch, cur_latency));
+                let mut res = Self::get_offload_latencies(tbranch, cur_latency);
+                res.extend(Self::get_offload_latencies(fbranch, cur_latency));
                 res
             }
             ir::StaticControl::Repeat(ir::StaticRepeat {
@@ -221,9 +220,9 @@ impl StaticInliner {
     fn have_overlapping_offloads(sc: &ir::StaticControl) -> bool {
         match sc {
             ir::StaticControl::Enable(_) | ir::StaticControl::Empty(_) => false,
-            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
-                .iter()
-                .any(|stmt| Self::have_overlapping_offloads(stmt)),
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+                stmts.iter().any(Self::have_overlapping_offloads)
+            }
             ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
                 // For each thread, add vec of offload intervals to the vec.
                 // So we have a vec of (vec of tuples/intervals)
@@ -256,11 +255,11 @@ impl StaticInliner {
             ir::StaticControl::If(ir::StaticIf {
                 tbranch, fbranch, ..
             }) => {
-                Self::have_overlapping_offloads(&tbranch)
-                    || Self::have_overlapping_offloads(&fbranch)
+                Self::have_overlapping_offloads(tbranch)
+                    || Self::have_overlapping_offloads(fbranch)
             }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-                Self::have_overlapping_offloads(&body)
+                Self::have_overlapping_offloads(body)
             }
             ir::StaticControl::Invoke(inv) => {
                 dbg!(inv.comp.borrow().name());
@@ -413,7 +412,7 @@ impl StaticInliner {
                     // so long as they never offload at the same time).
                     // To do this we perform a greedy coloring, where nodes=threads
                     // and threads are represented by their index in `stmts`.
-                    let threads_to_colors = Self::get_coloring(&stmts);
+                    let threads_to_colors = Self::get_coloring(stmts);
                     let colors_to_threads =
                         GraphColoring::reverse_coloring(&threads_to_colors);
                     // Need to know the latency of each color (i.e., the
