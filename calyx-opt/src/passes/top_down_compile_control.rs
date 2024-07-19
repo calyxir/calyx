@@ -1237,7 +1237,8 @@ impl TopDownCompileControl {
                 match (last_state) <= self.duplicate_cutoff {
                     true => RegisterSpread::Single,
                     false => {
-                        if is_seq {
+                        // must be sequential schedule w/ # states >= 2 to split
+                        if is_seq && last_state > 1 {
                             RegisterSpread::Split
                         } else {
                             RegisterSpread::Duplicate
