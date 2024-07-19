@@ -233,7 +233,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                             in_value=cached_data_registers[2].out,
                             in_rank=cached_data_registers[2].out,
                             in_cmd=cb.const(2, 2), #Push back to memory
-                            ref_ans=ans,
+                            ref_ans=rank_ans,
                             ref_err=err,
                         )
                     ]), incr_replace_tracker
