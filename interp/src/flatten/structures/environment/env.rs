@@ -10,7 +10,7 @@ use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, PrimType1},
+            cell_prototype::{CellPrototype, SingleWidthType},
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices,
                 CellDefinitionRef::{Local, Ref},
@@ -1881,7 +1881,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         .unwrap(),
                 ),
                 CellPrototype::SingleWidth {
-                    op: PrimType1::Reg,
+                    op: SingleWidthType::Reg,
                     width,
                 } => {
                     if dump_registers {

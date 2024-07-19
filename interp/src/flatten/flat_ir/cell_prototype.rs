@@ -15,7 +15,7 @@ pub enum LiteralOrPrimitive {
 
 /// An enum for encoding primitive operator types with only one width parameter
 #[derive(Debug, Clone)]
-pub enum PrimType1 {
+pub enum SingleWidthType {
     Reg,
     //
     Not,
@@ -192,7 +192,7 @@ pub enum CellPrototype {
         c_type: LiteralOrPrimitive,
     },
     SingleWidth {
-        op: PrimType1,
+        op: SingleWidthType,
         width: ParamWidth,
     },
     FixedPoint {
@@ -264,7 +264,7 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
 
                     Self::SingleWidth {
-                        op: PrimType1::Reg,
+                        op: SingleWidthType::Reg,
                         width: width.try_into().unwrap(),
                     }
                 }
@@ -285,9 +285,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_add" {
-                            PrimType1::Add
+                            SingleWidthType::Add
                         } else {
-                            PrimType1::SignedAdd
+                            SingleWidthType::SignedAdd
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -297,9 +297,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_sub" {
-                            PrimType1::Sub
+                            SingleWidthType::Sub
                         } else {
-                            PrimType1::SignedSub
+                            SingleWidthType::SignedSub
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -345,9 +345,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_mult_pipe" {
-                            PrimType1::MultPipe
+                            SingleWidthType::MultPipe
                         } else {
-                            PrimType1::SignedMultPipe
+                            SingleWidthType::SignedMultPipe
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -357,9 +357,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_div_pipe" {
-                            PrimType1::DivPipe
+                            SingleWidthType::DivPipe
                         } else {
-                            PrimType1::SignedDivPipe
+                            SingleWidthType::SignedDivPipe
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -368,7 +368,7 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
 
                     Self::SingleWidth {
-                        op: PrimType1::Sqrt,
+                        op: SingleWidthType::Sqrt,
                         width: width.try_into().unwrap(),
                     }
                 }
@@ -413,10 +413,10 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_lsh" => PrimType1::Lsh,
-                            "std_rsh" => PrimType1::Rsh,
-                            "std_lrsh" => PrimType1::SignedLsh,
-                            _ => PrimType1::SignedRsh,
+                            "std_lsh" => SingleWidthType::Lsh,
+                            "std_rsh" => SingleWidthType::Rsh,
+                            "std_lrsh" => SingleWidthType::SignedLsh,
+                            _ => SingleWidthType::SignedRsh,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -426,10 +426,10 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_and" => PrimType1::And,
-                            "std_or" => PrimType1::Or,
-                            "std_xor" => PrimType1::Xor,
-                            _ => PrimType1::Not,
+                            "std_and" => SingleWidthType::And,
+                            "std_or" => SingleWidthType::Or,
+                            "std_xor" => SingleWidthType::Xor,
+                            _ => SingleWidthType::Not,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -438,7 +438,7 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
 
                     Self::SingleWidth {
-                        op: PrimType1::Wire,
+                        op: SingleWidthType::Wire,
                         width: width.try_into().unwrap(),
                     }
                 }
@@ -448,12 +448,12 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_eq" => PrimType1::Eq,
-                            "std_neq" => PrimType1::Neq,
-                            "std_lt" => PrimType1::Lt,
-                            "std_le" => PrimType1::Le,
-                            "std_gt" => PrimType1::Gt,
-                            _ => PrimType1::Ge,
+                            "std_eq" => SingleWidthType::Eq,
+                            "std_neq" => SingleWidthType::Neq,
+                            "std_lt" => SingleWidthType::Lt,
+                            "std_le" => SingleWidthType::Le,
+                            "std_gt" => SingleWidthType::Gt,
+                            _ => SingleWidthType::Ge,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -465,12 +465,12 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_sge" => PrimType1::SignedGe,
-                            "std_sle" => PrimType1::SignedLe,
-                            "std_sgt" => PrimType1::SignedGt,
-                            "std_slt" => PrimType1::SignedLt,
-                            "std_seq" => PrimType1::SignedEq,
-                            _ => PrimType1::SignedNeq,
+                            "std_sge" => SingleWidthType::SignedGe,
+                            "std_sle" => SingleWidthType::SignedLe,
+                            "std_sgt" => SingleWidthType::SignedGt,
+                            "std_slt" => SingleWidthType::SignedLt,
+                            "std_seq" => SingleWidthType::SignedEq,
+                            _ => SingleWidthType::SignedNeq,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -649,12 +649,12 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
                     Self::SingleWidth {
                         op: match n {
-                            "std_unsyn_mult" => PrimType1::UnsynMult,
-                            "std_unsyn_div" => PrimType1::UnsynDiv,
-                            "std_unsyn_smult" => PrimType1::UnsynSMult,
-                            "std_unsyn_sdiv" => PrimType1::UnsynSDiv,
-                            "std_unsyn_mod" => PrimType1::UnsynMod,
-                            _ => PrimType1::UnsynSMod,
+                            "std_unsyn_mult" => SingleWidthType::UnsynMult,
+                            "std_unsyn_div" => SingleWidthType::UnsynDiv,
+                            "std_unsyn_smult" => SingleWidthType::UnsynSMult,
+                            "std_unsyn_sdiv" => SingleWidthType::UnsynSDiv,
+                            "std_unsyn_mod" => SingleWidthType::UnsynMod,
+                            _ => SingleWidthType::UnsynSMod,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -663,7 +663,7 @@ impl CellPrototype {
                 "undef" => {
                     get_params![params; width: "WIDTH"];
                     Self::SingleWidth {
-                        op: PrimType1::Undef,
+                        op: SingleWidthType::Undef,
                         width: width.try_into().unwrap(),
                     }
                 }
