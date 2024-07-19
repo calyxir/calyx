@@ -11,7 +11,6 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
 
     ans = pieo.reg(32, "ans", is_ref=True)
     err = pieo.reg(1, "err", is_ref=True)
-    rank_ref = pieo.reg(64, "rank_ref", is_ref=True)
 
     cmd_idx = pieo.reg(32, "cmd_idx")
 
@@ -48,9 +47,9 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     replace_tracker = pieo.reg(32, "replace_tracker") #Loop counter while writing elements back into heap
 
     #Stores accessed times from popping queue
-    ready_time = pieo.reg(32, "ready_time")
-    val_ans = pieo.reg(32, "val_ans")
-    rank_ans = pieo.reg(64, "rank_ans")
+    ready_time = pieo.reg(32, "ready_time", is_ref=True)
+    val_ans = pieo.reg(32, "val_ans", is_ref=True)
+    rank_ans = pieo.reg(64, "rank_ans", is_ref=True)
 
     #Equality checkers
     val_eq = pieo.eq(32)
@@ -156,7 +155,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                     in_value=rank_reg.out,
                     in_rank=rank_reg.out,
                     in_cmd=cb.const(2, 2),
-                    ref_ans=rank_ref,
+                    ref_ans=rank_ans,
                     ref_err=err
                 )
             ), incr_num_elements
@@ -216,7 +215,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                             in_value=cached_data_registers[0].out,
                             in_rank=cached_data_registers[2].out,
                             in_cmd=cb.const(2, 2), #Push back to memory
-                            ref_ans=ans,
+                            ref_ans=val_ans,
                             ref_err=err
                         ),
 
@@ -225,7 +224,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                             in_value=cached_data_registers[1].out,
                             in_rank=cached_data_registers[2].out,
                             in_cmd=cb.const(2, 2), #Push back to memory
-                            ref_ans=ans,
+                            ref_ans=ready_time,
                             ref_err=err
                         ),
                         cb.invoke(
