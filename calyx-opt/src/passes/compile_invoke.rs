@@ -145,7 +145,6 @@ impl CompileInvoke {
         let inv_comp_id = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
         for (ref_cell_name, concrete_cell) in ref_cells {
-
             log::debug!(
                 "Removing ref cell `{}` with {} ports",
                 ref_cell_name,
@@ -189,14 +188,12 @@ impl CompileInvoke {
             let mut used_ports: HashSet<ir::Id> = HashSet::new();
             // If `is_none()` then the invoked comp should be a primitive , and
             // we assume that all ports are used
-            if invoked_comp.is_none() {
-                used_ports = new_comp_ports.clone();
-            } else {
-                invoked_comp.unwrap().iter_assignments(|a| {
+            if let Some(invoked_comp) = invoked_comp {
+                invoked_comp.iter_assignments(|a| {
                     // ref_reg_out for example
                     log::debug!(
                         "invoked_comp `{}` assignments: {} -> {}",
-                        invoked_comp.unwrap().name,
+                        invoked_comp.name,
                         a.src.borrow().canonical(),
                         a.dst.borrow().canonical()
                     );
@@ -204,11 +201,13 @@ impl CompileInvoke {
                         used_ports.insert(port.borrow().name);
                     }
                 });
-                invoked_comp.unwrap().iter_static_assignments(|a| {
+                invoked_comp.iter_static_assignments(|a| {
                     for port in a.iter_ports() {
                         used_ports.insert(port.borrow().name);
                     }
                 });
+            } else {
+                used_ports.clone_from(&new_comp_ports);
             }
 
             log::debug!("new_comp_ports: {}", new_comp_ports.iter().join(", "));
@@ -407,16 +406,14 @@ impl Visitor for CompileInvoke {
         let invoke_group = builder.add_group("invoke");
 
         //get iterator of comps of ref_cells used in the invoke
-        let invoked_comp: Option<&ir::Component> = comps
-            .iter()
-            .find(|&c| {
-                log::debug!(
-                    "invoke component: {}, c.name: {}",
-                    s.comp.borrow().prototype.get_name().unwrap(),
-                    comps.iter().map(|c| c.name).join(", ")
-                );
-                s.comp.borrow().prototype.get_name().unwrap() == c.name
-            });
+        let invoked_comp: Option<&ir::Component> = comps.iter().find(|&c| {
+            log::debug!(
+                "invoke component: {}, c.name: {}",
+                s.comp.borrow().prototype.get_name().unwrap(),
+                comps.iter().map(|c| c.name).join(", ")
+            );
+            s.comp.borrow().prototype.get_name().unwrap() == c.name
+        });
 
         log::debug!(
             "comps is: {}",
@@ -437,7 +434,7 @@ impl Visitor for CompileInvoke {
             ),
             //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
         );
-        
+
         // comp.go = 1'd1;
         // invoke[done] = comp.done;
         structure!(builder;
@@ -446,7 +443,7 @@ impl Visitor for CompileInvoke {
         let cell = s.comp.borrow();
         let go_port = get_go_port(Rc::clone(&s.comp))?;
         let done_port = cell.find_unique_with_attr(ir::NumAttr::Done)?.unwrap();
-        
+
         // Build assignemnts
         let go_assign = builder.build_assignment(
             go_port,
@@ -458,13 +455,26 @@ impl Visitor for CompileInvoke {
             done_port,
             ir::Guard::True,
         );
-        
+
         invoke_group
-        .borrow_mut()
-        .assignments
-        .extend(vec![go_assign, done_assign]);
-    
-    log::debug!("invoke_group: `{}` has added assignments: {}", invoke_group.borrow().name(), invoke_group.borrow().assignments.iter().map(|a| format!("{} -> {}", a.src.borrow().canonical(), a.dst.borrow().canonical())).join(", "));
+            .borrow_mut()
+            .assignments
+            .extend(vec![go_assign, done_assign]);
+
+        log::debug!(
+            "invoke_group: `{}` has added assignments: {}",
+            invoke_group.borrow().name(),
+            invoke_group
+                .borrow()
+                .assignments
+                .iter()
+                .map(|a| format!(
+                    "{} -> {}",
+                    a.src.borrow().canonical(),
+                    a.dst.borrow().canonical()
+                ))
+                .join(", ")
+        );
         // Generate argument assignments
         let cell = &*s.comp.borrow();
         let assigns = build_assignments(
@@ -473,7 +483,18 @@ impl Visitor for CompileInvoke {
             &mut builder,
             cell,
         );
-        log::debug!("assigns is: {}", assigns.clone().iter().map(|a| format!("{} -> {}", a.src.borrow().canonical(), a.dst.borrow().canonical())).join(", "));
+        log::debug!(
+            "assigns is: {}",
+            assigns
+                .clone()
+                .iter()
+                .map(|a| format!(
+                    "{} -> {}",
+                    a.src.borrow().canonical(),
+                    a.dst.borrow().canonical()
+                ))
+                .join(", ")
+        );
         invoke_group.borrow_mut().assignments.extend(assigns);
         // Add assignments from the attached combinational group
         if let Some(cgr) = &s.comb_group {
@@ -514,9 +535,7 @@ impl Visitor for CompileInvoke {
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
         //If the component is not a primitive, pass along the component to `ref_cells_to_ports``
-        let invoked_comp: Option<&ir::Component> = comps
-        .iter()
-        .find(|&c| {
+        let invoked_comp: Option<&ir::Component> = comps.iter().find(|&c| {
             log::debug!(
                 "invoke component: {}, c.name: {}",
                 s.comp.borrow().prototype.get_name().unwrap(),
@@ -525,14 +544,13 @@ impl Visitor for CompileInvoke {
             s.comp.borrow().prototype.get_name().unwrap() == c.name
         });
 
-        invoke_group
-            .borrow_mut()
-            .assignments
-            .extend(self.ref_cells_to_ports_assignments(
+        invoke_group.borrow_mut().assignments.extend(
+            self.ref_cells_to_ports_assignments(
                 Rc::clone(&s.comp),
                 s.ref_cells.drain(..),
                 invoked_comp,
-            ));
+            ),
+        );
 
         // comp.go = 1'd1;
         structure!(builder;
