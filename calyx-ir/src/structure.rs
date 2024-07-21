@@ -539,12 +539,14 @@ impl<T> Assignment<T> {
         self.guard.for_each(&mut |port| f(&port).map(Guard::port))
     }
 
-        /// Reads through assignments unmutably
-        pub fn iter_ports(&self) -> impl Iterator<Item = RRC<Port>> {
-            self.guard.all_ports().into_iter()
+    /// Reads through assignments unmutably
+    pub fn iter_ports(&self) -> impl Iterator<Item = RRC<Port>> {
+        self.guard
+            .all_ports()
+            .into_iter()
             .chain(std::iter::once(Rc::clone(&self.dst)))
             .chain(std::iter::once(Rc::clone(&self.src)))
-        }
+    }
 }
 
 impl From<Assignment<Nothing>> for Assignment<StaticTiming> {
