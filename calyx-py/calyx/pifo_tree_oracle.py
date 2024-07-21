@@ -8,7 +8,7 @@ from calyx import queue_util
 if __name__ == "__main__":
     max_cmds, len = int(sys.argv[1]), int(sys.argv[2])
     keepgoing = "--keepgoing" in sys.argv
-    commands, values, _ = queue_util.parse_json()
+    commands, values, _, _ = queue_util.parse_json()
 
     # Our PIFO is a little complicated: it is a tree of queues.
     # The root has two children, which are PIFOs.
@@ -28,4 +28,4 @@ if __name__ == "__main__":
     )
 
     ans = queues.operate_queue(pifo, max_cmds, commands, values, keepgoing=keepgoing)
-    queue_util.dump_json(ans, commands, values)
+    queue_util.dump_json(commands, values, ans)

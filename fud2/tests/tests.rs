@@ -221,8 +221,8 @@ fn sim_tests() {
 #[test]
 fn cider_tests() {
     let driver = test_driver();
-    request(&driver, "calyx", "dat", &["interp"]).test(&driver);
-    request(&driver, "calyx", "debug", &[]).test(&driver);
+    request(&driver, "calyx", "dat", &["cider"]).test(&driver);
+    request(&driver, "calyx", "cider-debug", &[]).test(&driver);
 }
 
 #[test]

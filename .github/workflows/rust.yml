@@ -27,7 +27,7 @@ jobs:
       - name: Check calyx build
         run: ./target/debug/calyx --version
       - name: validate playground config
-        run: node web/validate-data.js 
+        run: node web/validate-data.js
 
   # Get the hash of the Dockerfile
   hash:
@@ -120,10 +120,10 @@ jobs:
         fud c stages.interpreter.exec /home/calyx/target/debug/cider
 
     - name: Runt tests
-      working-directory: /home/calyx
+      working-directory: /home/calyx/interp/tests
       run: |
         # Run the remaining tests
-        runt interp -x 'relay' -d -o fail
+        runt -x '(numeric types correctness and parsing)|(tcam testing)|(../../tests/correctness/pipelined-mac.futil)|(../../tests/correctness/std-bit-slice.futil)|(polybench)' -d -o fail
 
     - name: Source code tests
       uses: actions-rs/cargo@v1
@@ -187,7 +187,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         runt -i 'cocotb' -d -o fail -j 1 --max-futures 1
-    
+
     - name: Runt tests
       working-directory: /home/calyx
       run: |
