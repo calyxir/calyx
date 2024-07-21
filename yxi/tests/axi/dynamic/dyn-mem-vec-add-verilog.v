@@ -9899,8 +9899,8 @@ wire _guard4 = invoke0_go_out;
 wire _guard5 = invoke0_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
-wire _guard8 = invoke0_go_out;
-wire _guard9 = invoke0_done_out;
+wire _guard8 = invoke0_done_out;
+wire _guard9 = invoke0_go_out;
 wire _guard10 = invoke0_go_out;
 wire _guard11 = invoke0_go_out;
 wire _guard12 = invoke0_go_out;
@@ -9909,9 +9909,6 @@ wire _guard14 = invoke0_go_out;
 wire _guard15 = invoke0_go_out;
 wire _guard16 = invoke0_go_out;
 wire _guard17 = invoke0_go_out;
-wire _guard18 = invoke0_go_out;
-wire _guard19 = invoke0_go_out;
-wire _guard20 = invoke0_go_out;
 assign axi_dyn_mem_A0_WREADY = A0_WREADY;
 assign axi_dyn_mem_A0_RVALID = A0_RVALID;
 assign axi_dyn_mem_A0_RLAST = A0_RLAST;
@@ -9929,9 +9926,6 @@ assign axi_dyn_mem_A0_content_en =
 assign axi_dyn_mem_A0_AWREADY = A0_AWREADY;
 assign axi_dyn_mem_A0_reset = reset;
 assign axi_dyn_mem_A0_RRESP = A0_RRESP;
-assign axi_dyn_mem_A0_write_data =
-  _guard4 ? main_compute_A0_write_data :
-  32'd0;
 assign axi_dyn_mem_A0_ARREADY = A0_ARREADY;
 assign axi_dyn_mem_A0_BVALID = A0_BVALID;
 assign axi_dyn_mem_A0_ARESETn = A0_ARESETn;
@@ -9939,26 +9933,26 @@ assign axi_dyn_mem_Sum0_WREADY = Sum0_WREADY;
 assign axi_dyn_mem_Sum0_RVALID = Sum0_RVALID;
 assign axi_dyn_mem_Sum0_RLAST = Sum0_RLAST;
 assign axi_dyn_mem_Sum0_write_en =
-  _guard5 ? main_compute_Sum0_write_en :
+  _guard4 ? main_compute_Sum0_write_en :
   1'd0;
 assign axi_dyn_mem_Sum0_RDATA = Sum0_RDATA;
 assign axi_dyn_mem_Sum0_clk = clk;
 assign axi_dyn_mem_Sum0_addr0 =
-  _guard6 ? main_compute_Sum0_addr0 :
+  _guard5 ? main_compute_Sum0_addr0 :
   3'd0;
 assign axi_dyn_mem_Sum0_content_en =
-  _guard7 ? main_compute_Sum0_content_en :
+  _guard6 ? main_compute_Sum0_content_en :
   1'd0;
 assign axi_dyn_mem_Sum0_AWREADY = Sum0_AWREADY;
 assign axi_dyn_mem_Sum0_reset = reset;
 assign axi_dyn_mem_Sum0_RRESP = Sum0_RRESP;
 assign axi_dyn_mem_Sum0_write_data =
-  _guard8 ? main_compute_Sum0_write_data :
+  _guard7 ? main_compute_Sum0_write_data :
   32'd0;
 assign axi_dyn_mem_Sum0_ARREADY = Sum0_ARREADY;
 assign axi_dyn_mem_Sum0_BVALID = Sum0_BVALID;
 assign axi_dyn_mem_Sum0_ARESETn = Sum0_ARESETn;
-assign done = _guard9;
+assign done = _guard8;
 assign B0_WLAST = axi_dyn_mem_B0_WLAST;
 assign Sum0_ARVALID = axi_dyn_mem_Sum0_ARVALID;
 assign Sum0_ARBURST = axi_dyn_mem_Sum0_ARBURST;
@@ -10020,48 +10014,42 @@ assign Sum0_WID = 1'd0;
 assign A0_ARLEN = axi_dyn_mem_A0_ARLEN;
 assign A0_AWID = 1'd0;
 assign main_compute_A0_read_data =
-  _guard10 ? axi_dyn_mem_A0_read_data :
+  _guard9 ? axi_dyn_mem_A0_read_data :
   32'd0;
 assign main_compute_B0_read_data =
-  _guard11 ? axi_dyn_mem_B0_read_data :
+  _guard10 ? axi_dyn_mem_B0_read_data :
   32'd0;
 assign main_compute_Sum0_done =
-  _guard12 ? axi_dyn_mem_Sum0_done :
+  _guard11 ? axi_dyn_mem_Sum0_done :
   1'd0;
 assign main_compute_clk = clk;
 assign main_compute_B0_done =
-  _guard13 ? axi_dyn_mem_B0_done :
+  _guard12 ? axi_dyn_mem_B0_done :
   1'd0;
-assign main_compute_go = _guard14;
+assign main_compute_go = _guard13;
 assign main_compute_reset = reset;
 assign main_compute_A0_done =
-  _guard15 ? axi_dyn_mem_A0_done :
+  _guard14 ? axi_dyn_mem_A0_done :
   1'd0;
-assign main_compute_Sum0_read_data =
-  _guard16 ? axi_dyn_mem_Sum0_read_data :
-  32'd0;
 assign invoke0_go_in = go;
 assign invoke0_done_in = main_compute_done;
 assign axi_dyn_mem_B0_WREADY = B0_WREADY;
 assign axi_dyn_mem_B0_RVALID = B0_RVALID;
 assign axi_dyn_mem_B0_RLAST = B0_RLAST;
 assign axi_dyn_mem_B0_write_en =
-  _guard17 ? main_compute_B0_write_en :
+  _guard15 ? main_compute_B0_write_en :
   1'd0;
 assign axi_dyn_mem_B0_RDATA = B0_RDATA;
 assign axi_dyn_mem_B0_clk = clk;
 assign axi_dyn_mem_B0_addr0 =
-  _guard18 ? main_compute_B0_addr0 :
+  _guard16 ? main_compute_B0_addr0 :
   3'd0;
 assign axi_dyn_mem_B0_content_en =
-  _guard19 ? main_compute_B0_content_en :
+  _guard17 ? main_compute_B0_content_en :
   1'd0;
 assign axi_dyn_mem_B0_AWREADY = B0_AWREADY;
 assign axi_dyn_mem_B0_reset = reset;
 assign axi_dyn_mem_B0_RRESP = B0_RRESP;
-assign axi_dyn_mem_B0_write_data =
-  _guard20 ? main_compute_B0_write_data :
-  32'd0;
 assign axi_dyn_mem_B0_ARREADY = B0_ARREADY;
 assign axi_dyn_mem_B0_BVALID = B0_BVALID;
 assign axi_dyn_mem_B0_ARESETn = B0_ARESETn;
