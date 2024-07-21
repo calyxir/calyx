@@ -519,43 +519,23 @@ def add_control_subordinate(prog, mems):
         xrt_control_reg.write_en = 1
         check_ap_done.done = xrt_control_reg.done
 
-    # Ideally we would use the below to
-    # pass in the registers as ref cells, but because we want
-    # to invoke both controllers in parallel, we can't do this.
-    # To get around this we can manually hook up ports for registers
-    # ```
-    # sub_controller_kwargs = {}
-    # for reg in control_regs:
-    #     sub_controller_kwargs[f"ref_{reg.name}"] = reg
-    # # Control
-    # read_controller_invoke = invoke(
-    #     read_controller,
-    #     **sub_controller_kwargs
-    # )
-
-    # write_controller_invoke = invoke(
-    #     write_controller,
-    #     **sub_controller_kwargs
-    # )
-    # ```
-        
-    read_controller_kwargs = {}
-    write_controller_kwargs = {}
+    #Pass in the concrete cells as into our invokes
+    sub_controller_kwargs = {}
     for reg in control_regs:
-        read_controller_kwargs[f"in_{reg.name}_out"] = reg.out
-        write_controller_kwargs[f"out_{reg.name}_in"] = reg.in_
-        write_controller_kwargs[f"out_{reg.name}_write_en"] = reg.write_en
-    n_ap_done = control_subordinate.not_use(ap_done_slice.out, "n_ap_done",width=1)
-
+        sub_controller_kwargs[f"ref_{reg.name}"] = reg
+    # Control
     read_controller_invoke = invoke(
         read_controller,
-        **read_controller_kwargs,
-    )
-    write_controller_invoke = invoke(
-        write_controller,
-        **write_controller_kwargs,
+        **sub_controller_kwargs
     )
 
+    write_controller_invoke = invoke(
+        write_controller,
+        **sub_controller_kwargs
+    )
+
+
+    n_ap_done = control_subordinate.not_use(ap_done_slice.out, "n_ap_done",width=1)
     control_subordinate.control += [
         init_control_regs,
         while_with(n_ap_done, [par(write_controller_invoke, read_controller_invoke), check_ap_done]),

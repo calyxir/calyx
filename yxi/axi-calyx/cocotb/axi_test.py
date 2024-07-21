@@ -90,7 +90,11 @@ async def run_kernel_test(toplevel, data_path: str):
     # Finish when ap_done is high or 100 us of simulation have passed.
     timeout = 5000
     #Assert ap_start by writing 1 to 0x0000
-    await tb.control_manager.write(0x0000, encode([1],1))
+    await tb.control_manager.write(0x0000, encode([0],1))
+    #Base addresses for memories
+    await tb.control_manager.write(0x0018, encode([0],8))
+    await tb.control_manager.write(0x0020, encode([0],8))
+    await tb.control_manager.write(0x0028, encode([0],8))
     await with_timeout(RisingEdge(toplevel.done), timeout, "us")
 
 
@@ -156,7 +160,6 @@ def encode(
     width,
     byteorder: Union[Literal["little"], Literal["big"]] = "little",
     signed: bool = False
-) -> bytes:
-
+    ) -> bytes:
     """Return the `width`-wide byte representation of lst with byteorder"""
     return b''.join(i.to_bytes(width, byteorder, signed=signed) for i in lst)
