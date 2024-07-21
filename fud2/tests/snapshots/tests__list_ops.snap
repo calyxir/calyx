@@ -49,8 +49,8 @@ source: fud2/tests/tests.rs
     ),
     (
         "debug",
-        "calyx",
-        "debug",
+        "cider",
+        "cider-debug",
     ),
     (
         "firrtl",
@@ -86,11 +86,6 @@ source: fud2/tests/tests.rs
         "icarus-refmem",
         "verilog-refmem-noverify",
         "sim",
-    ),
-    (
-        "interp",
-        "calyx",
-        "dat",
     ),
     (
         "mrxl-to-calyx",

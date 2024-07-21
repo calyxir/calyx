@@ -446,6 +446,7 @@ version = "0.7.1"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
+ "calyx-opt",
  "calyx-utils",
  "cc",
  "chrono",
@@ -518,6 +519,10 @@ dependencies = [
  "serde_json",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "calyx_writer"
+version = "0.7.1"
 
 [[package]]
 name = "camino"
@@ -2352,9 +2357,9 @@ dependencies = [
 
 [[package]]
 name = "rhai"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a7d88770120601ba1e548bb6bc2a05019e54ff01b51479e38e64ec3b59d4759"
+checksum = "61797318be89b1a268a018a92a7657096d83f3ecb31418b9e9c16dcbb043b702"
 dependencies = [
  "ahash 0.8.10",
  "bitflags 2.4.2",

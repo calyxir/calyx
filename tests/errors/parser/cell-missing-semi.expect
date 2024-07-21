@@ -1,10 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Failed to parse `tests/errors/parser/cell-missing-semi.futil`:  --> 4:5
-  |
-4 |     h = std_reg(32)
-5 |     l = std_reg(32);␊
-  |     ^
-  |
-  = Declaration is missing `;`
+Error: tests/errors/parser/cell-missing-semi.futil
+4 |    h = std_reg(32)
+  |    ^^^^^^^^^^^^^^^ Parse error
+Declaration is missing `;`

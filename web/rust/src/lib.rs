@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use calyx_frontend as frontend;
 use calyx_ir as ir;
-use calyx_opt::pass_manager::PassManager;
+use calyx_opt::pass_manager::{PassManager, PassResult};
 use calyx_utils::{CalyxResult, Error};
 use wasm_bindgen::prelude::*;
 
@@ -29,7 +29,7 @@ fn compile(
     passes: &[String],
     library: &str,
     namespace: &str,
-) -> CalyxResult<String> {
+) -> PassResult<String> {
     let pm = PassManager::default_passes()?;
 
     let ns = frontend::parser::CalyxParser::parse(

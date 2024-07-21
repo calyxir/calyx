@@ -47,14 +47,14 @@ rule interp-to-dat
   command = $python interp-dat.py --from-interp $in $sim_data > $out
 build data.json: dat-to-interp $sim_data | interp-dat.py
 rule run-cider
-  command = $cider-exe -l $calyx-base --data data.dump $in flat > $out
+  command = $cider-exe -l $calyx-base --data data.dump $in > $out
 rule dump-to-interp
   command = $cider-converter --to cider $in > $out
 rule interp-to-dump
   command = $cider-converter --to json $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
-build interp_out.json: cider stdin | data.json
-build stdin.json: interp-to-dat interp_out.json | $sim_data interp-dat.py
+build interp_out.json: cider _from_stdin_calyx.futil | data.json
+build _to_stdout_dat.json: interp-to-dat interp_out.json | $sim_data interp-dat.py
 
-default stdin.json
+default _to_stdout_dat.json

@@ -1,6 +1,6 @@
 use fud_core::{
     config::default_config,
-    exec::{Plan, Request},
+    exec::{Plan, Request, SingleOpOutputPlanner, IO},
     run::Run,
     Driver, DriverBuilder,
 };
@@ -50,7 +50,7 @@ impl InstaTest for Plan {
         let ops = self
             .steps
             .iter()
-            .map(|(opref, _path)| driver.ops[*opref].name.to_string())
+            .map(|(opref, _, _)| driver.ops[*opref].name.to_string())
             .collect_vec()
             .join(" -> ");
         format!("emit plan: {ops}")
@@ -60,7 +60,7 @@ impl InstaTest for Plan {
         let ops = self
             .steps
             .iter()
-            .map(|(opref, _path)| driver.ops[*opref].name.to_string())
+            .map(|(opref, _, _)| driver.ops[*opref].name.to_string())
             .collect_vec()
             .join("_");
         format!("plan_{ops}")
@@ -93,8 +93,8 @@ impl InstaTest for Request {
     fn desc(&self, driver: &Driver) -> String {
         let mut desc = format!(
             "emit request: {} -> {}",
-            driver.states[self.start_state].name,
-            driver.states[self.end_state].name
+            driver.states[self.start_states[0]].name,
+            driver.states[self.end_states[0]].name
         );
         if !self.through.is_empty() {
             desc.push_str(" through");
@@ -107,13 +107,13 @@ impl InstaTest for Request {
     }
 
     fn slug(&self, driver: &Driver) -> String {
-        let mut desc = driver.states[self.start_state].name.to_string();
+        let mut desc = driver.states[self.start_states[0]].name.to_string();
         for op in &self.through {
             desc.push('_');
             desc.push_str(&driver.ops[*op].name);
         }
         desc.push('_');
-        desc.push_str(&driver.states[self.end_state].name);
+        desc.push_str(&driver.states[self.end_states[0]].name);
         desc
     }
 
@@ -130,12 +130,13 @@ fn request(
     through: &[&str],
 ) -> Request {
     fud_core::exec::Request {
-        start_file: None,
-        start_state: driver.get_state(start).unwrap(),
-        end_file: None,
-        end_state: driver.get_state(end).unwrap(),
+        start_files: vec![],
+        start_states: vec![driver.get_state(start).unwrap()],
+        end_files: vec![],
+        end_states: vec![driver.get_state(end).unwrap()],
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
+        planner: Box::new(SingleOpOutputPlanner {}),
     }
 }
 
@@ -144,11 +145,14 @@ fn all_ops() {
     let driver = test_driver();
     for op in driver.ops.keys() {
         let plan = Plan {
-            start: "/input.ext".into(),
-            steps: vec![(op, "/output.ext".into())],
+            steps: vec![(
+                op,
+                vec![IO::File("/input.ext".into())],
+                vec![IO::File("/output.ext".into())],
+            )],
             workdir: ".".into(),
-            stdin: false,
-            stdout: false,
+            inputs: vec![IO::File("/input.ext".into())],
+            results: vec![IO::File("/output.ext".into())],
         };
         plan.test(&driver);
     }
@@ -179,8 +183,8 @@ fn list_ops() {
         .map(|op| {
             (
                 &op.name,
-                &driver.states[op.input].name,
-                &driver.states[op.output].name,
+                &driver.states[op.input[0]].name,
+                &driver.states[op.output[0]].name,
             )
         })
         .sorted()
@@ -217,8 +221,8 @@ fn sim_tests() {
 #[test]
 fn cider_tests() {
     let driver = test_driver();
-    request(&driver, "calyx", "dat", &["interp"]).test(&driver);
-    request(&driver, "calyx", "debug", &[]).test(&driver);
+    request(&driver, "calyx", "dat", &["cider"]).test(&driver);
+    request(&driver, "calyx", "cider-debug", &[]).test(&driver);
 }
 
 #[test]
