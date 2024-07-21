@@ -140,9 +140,9 @@ impl CompileInvoke {
         &mut self,
         inv_cell: RRC<ir::Cell>,
         ref_cells: impl Iterator<Item = (ir::Id, ir::RRC<ir::Cell>)>,
-        ref_comps: Vec<&ir::Component>,
+        invoked_comp: Option<&ir::Component>, //i.e. in invoke reader[]()(); this is `reader`
     ) -> Vec<ir::Assignment<T>> {
-        let inv_comp = inv_cell.borrow().type_name().unwrap();
+        let inv_comp_id = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
         for (ref_cell_name, concrete_cell) in ref_cells {
             log::debug!(
@@ -152,108 +152,100 @@ impl CompileInvoke {
             );
 
             // comp_ports is mapping from canonical names of the ports of the ref cell to the
-            // new port defined on the signature of the component.
+            // new port defined on the signature of the higher level component.
             // i.e. ref_reg.in -> ref_reg_in
             // These have name of ref cell, not the cell passed in as an arugment
-            let Some(comp_ports) = self.port_names.get(&inv_comp) else {
-                unreachable!("component `{}` invoked but not already visited by the pass", inv_comp)
+            let Some(comp_ports) = self.port_names.get(&inv_comp_id) else {
+                unreachable!("component `{}` invoked but not already visited by the pass", inv_comp_id)
             };
-
-            // let comp_port_names: HashSet<ir::Id> = comp_ports
-            //     .values()
-            //     .map(|c| )
-            //     .collect();
 
             log::debug!(
                 "self.port_names: {} \n {}",
-                self.port_names
-                    .0
-                    .keys()
-                    .join(", "),
+                self.port_names.0.keys().join(", "),
                 self.port_names
                     .0
                     .values()
-                    .map(|m| m
-                        .keys()
-                        .map(|c| c.port.as_ref())
-                        .join(", "))
+                    .map(|m| m.keys().map(|c| c.port.as_ref()).join(", "))
                     .join(" :: ")
             );
 
             log::debug!(
                 "Comp ports: {} \n -> {}",
-                comp_ports
-                    .keys()
-                    .join(", "),
+                comp_ports.keys().join(", "),
                 comp_ports
                     .values()
                     .map(|p| p.borrow().canonical())
                     .join(", ")
             );
 
-            log::debug!(
-                "ref_comps is: {}",
-                ref_comps
-                    .iter()
-                    .map(|c| c.name)
-                    .collect_vec()
-                    .into_iter()
-                    .join(", ")
-            );
+            //contains the newly add ports that result ffrom ref cells.
+            let new_comp_ports = comp_ports
+                .values()
+                .map(|p| p.borrow().name)
+                .collect::<HashSet<_>>();
 
-            //This is the component of what is being invoked
-            // i.e in `invoke reader[]()();` this is `reader`.
-            let invoked_comp = *ref_comps
-            .iter()
-            .find(|&c| {
+            // tracks ports used in assigments of the invoked component
+            let mut used_ports: HashSet<ir::Id> = HashSet::new();
+            // If `is_none()` then the invoked comp should be a primitive , and
+            // we assume that all ports are used
+            if invoked_comp.is_none() {
+                used_ports = new_comp_ports.clone();
+            } else {
+                invoked_comp.unwrap().iter_assignments(|a| {
+                    // ref_reg_out for example
                     log::debug!(
-                        "c is: {}",
-                        c.name
+                        "invoked_comp `{}` assignments: {} -> {}",
+                        invoked_comp.unwrap().name,
+                        a.src.borrow().canonical(),
+                        a.dst.borrow().canonical()
                     );
-                    c.name == inv_comp
-                })
-            .unwrap_or_else(|| {
-                unreachable!(
-                    "A component `{}` was invoked but not found in the list of components of the program. Should not be possible.\n Instead we found: {}",
-                    inv_comp,
-                    ref_comps.iter().map(|c| c.name).collect_vec().into_iter().join(", ")
-                )
-            });
-
-            //go through the invoked component and get assignments and their ports
-            let mut used_ports = HashSet::new();
-            invoked_comp.iter_assignments(|a| {
-                // ref_reg_out for example
-                log::debug!("invoked_comp `{}` assignments: {} -> {}", invoked_comp.name ,a.src.borrow().canonical(), a.dst.borrow().name);
-                for port in a.iter_ports() {
-                    //these are the ports of the invoked component
-                    if comp_ports.values().any(|p| p.borrow().name == port.borrow().name){
+                    for port in a.iter_ports() {
                         used_ports.insert(port.borrow().name);
                     }
-                }
-            });
+                });
+            }
+
+            log::debug!("new_comp_ports: {}", new_comp_ports.iter().join(", "));
+            log::debug!("used_ports: {}", used_ports.iter().join(", "));
+
+            let to_assign: HashSet<&ir::Id> =
+                new_comp_ports.intersection(&used_ports).collect();
 
             log::debug!("concrete_cell: {}", concrete_cell.borrow().name());
-            log::debug!("concrete_cell ports: {}", concrete_cell.borrow().ports().iter().map(|p| p.borrow().get_parent_name()).join(", "));
-            log::debug!("used ports: {}", used_ports.iter().join(", "));
+            log::debug!(
+                "concrete_cell ports: {}",
+                concrete_cell
+                    .borrow()
+                    .ports()
+                    .iter()
+                    .map(|p| p.borrow().get_parent_name())
+                    .join(", ")
+            );
             // let ref_cell_ports = concrete_cell
 
             // We expect each canonical port in `comp_ports` to exactly match with a port in
             //`concrete_cell` based on well-formedness subtype checks.
             // `canon` is `ref_reg.in`, for example.
-            for canon in comp_ports.keys() {
+            for (ref_cell_canon, new_sig_port) in comp_ports.iter() {
                 //only interested in ports attached to the ref cell
-                if canon.cell != ref_cell_name {
+                if ref_cell_canon.cell != ref_cell_name {
                     continue;
                 }
 
-                if !used_ports.contains(&canon.port){
+                log::debug!(
+                    "used ports: {}. new_sig_port is: {}",
+                    used_ports.iter().join(", "),
+                    new_sig_port.borrow().name
+                );
+                if !to_assign.contains(&new_sig_port.borrow().name) {
                     continue;
                 }
 
                 // The given port of the actual, concrete cell passed in
-                let concrete_port =
-                    Self::get_concrete_port(concrete_cell.clone(), &canon.port);
+                let concrete_port = Self::get_concrete_port(
+                    concrete_cell.clone(),
+                    &ref_cell_canon.port,
+                );
 
                 if concrete_port.borrow().has_attribute(ir::BoolAttr::Clk)
                     || concrete_port.borrow().has_attribute(ir::BoolAttr::Reset)
@@ -261,17 +253,20 @@ impl CompileInvoke {
                     continue;
                 }
 
-
-                let Some(comp_port) = comp_ports.get(canon) else {
+                let Some(comp_port) = comp_ports.get(ref_cell_canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
-                        canon,
-                        inv_comp,
+                        ref_cell_canon,
+                        inv_comp_id,
                         comp_ports.keys().map(|c| c.port.as_ref()).collect_vec().join(", ")
                     )
                 };
                 // Get the port on the new cell with the same name as ref_port
                 let ref_port = inv_cell.borrow().get(comp_port.borrow().name);
-                log::debug!("Port `{}` -> `{}`", canon, ref_port.borrow().name);
+                log::debug!(
+                    "Port `{}` -> `{}`",
+                    ref_cell_canon,
+                    ref_port.borrow().name
+                );
 
                 let old_port = concrete_port.borrow().canonical();
                 // If the port has been removed already, get the new port from the component's signature
@@ -404,24 +399,17 @@ impl Visitor for CompileInvoke {
         let invoke_group = builder.add_group("invoke");
 
         //get iterator of comps of ref_cells used in the invoke
-        let ref_comps: Vec<&ir::Component> = comps
+        let invoked_comp: Option<&ir::Component> = comps
             .iter()
-            .filter(|&c| {
+            .find(|&c| {
                 log::debug!(
                     "invoke component: {}, c.name: {}",
                     s.comp.borrow().prototype.get_name().unwrap(),
                     c.name
                 );
                 s.comp.borrow().prototype.get_name().unwrap() == c.name
-            })
-            .collect();
+            });
 
-        //TODO (nathaniel): delete this and change ref_comps from a vector to just a &ir::Component
-        assert!(
-            ref_comps.len() == 1,
-            "Expected exactly one component to be found, found: {}",
-            ref_comps.len()
-        );
         log::debug!(
             "comps is: {}",
             comps
@@ -437,7 +425,7 @@ impl Visitor for CompileInvoke {
             self.ref_cells_to_ports(
                 Rc::clone(&s.comp),
                 s.ref_cells.drain(..),
-                ref_comps,
+                invoked_comp,
             ),
             //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
         );
@@ -516,12 +504,17 @@ impl Visitor for CompileInvoke {
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
-        //get iterator of comps of ref_cells used in the invoke
-        let ref_cells = s.ref_cells.clone();
-        let ref_comps: Vec<&ir::Component> = comps
-            .iter()
-            .filter(|&c| ref_cells.iter().any(|(name, _)| c.name == name))
-            .collect();
+        //If the component is not a primitive, pass along the component to `ref_cells_to_ports``
+        let invoked_comp: Option<&ir::Component> = comps
+        .iter()
+        .find(|&c| {
+            log::debug!(
+                "invoke component: {}, c.name: {}",
+                s.comp.borrow().prototype.get_name().unwrap(),
+                c.name
+            );
+            s.comp.borrow().prototype.get_name().unwrap() == c.name
+        });
 
         invoke_group
             .borrow_mut()
@@ -529,7 +522,7 @@ impl Visitor for CompileInvoke {
             .extend(self.ref_cells_to_ports(
                 Rc::clone(&s.comp),
                 s.ref_cells.drain(..),
-                ref_comps,
+                invoked_comp,
             ));
 
         // comp.go = 1'd1;
