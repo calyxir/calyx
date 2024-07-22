@@ -513,8 +513,8 @@ def add_control_subordinate(prog, mems):
 
     with control_subordinate.group("check_ap_done") as check_ap_done:
         ap_done_or.left = xrt_control_reg.out
-        ap_done_or.right = ap_done_slice.out @ const(32, 0b10)
-        ap_done_or.right = ~ap_done_slice.out @ const(32, 0)
+        ap_done_or.right = this["ap_done_in"] @ const(32, 0b10)
+        ap_done_or.right = ~this["ap_done_in"] @ const(32, 0)
         xrt_control_reg.in_ = ap_done_or.out
         xrt_control_reg.write_en = 1
         check_ap_done.done = xrt_control_reg.done
@@ -538,7 +538,10 @@ def add_control_subordinate(prog, mems):
     n_ap_done = control_subordinate.not_use(ap_done_slice.out, "n_ap_done",width=1)
     control_subordinate.control += [
         init_control_regs,
-        while_with(n_ap_done, [par(write_controller_invoke, read_controller_invoke), check_ap_done]),
+        while_with(n_ap_done, [par(
+            while_with(n_ap_done, write_controller_invoke),
+            while_with(n_ap_done, read_controller_invoke),
+            ), check_ap_done]),
     ]
 
 
