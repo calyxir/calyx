@@ -248,19 +248,19 @@ def insert_pieo(prog, name, queue_len_factor=FACTOR, stats=None, static=False):
         reset_err,
         cb.par (
             #Peek with time predicate, if we have not minned out
-            cb.if_with(cmd_eqs[0],
-                cb.if_with(underflow_check,
-                    query(pop=False),
-                    raise_err
-                )
-            ),
+            # cb.if_with(cmd_eqs[0],
+            #     cb.if_with(underflow_check,
+            #         query(pop=False),
+            #         raise_err
+            #     )
+            # ),
 
-            cb.if_with(cmd_eqs[1],
-                cb.if_with(underflow_check,
-                    query(pop=True),
-                    raise_err
-                )
-            ),
+            # cb.if_with(cmd_eqs[1],
+            #     cb.if_with(underflow_check,
+            #         query(pop=True),
+            #         raise_err
+            #     )
+            # ),
 
             cb.if_with(cmd_eqs[2],
                 cb.if_with(overflow_check,
@@ -269,19 +269,19 @@ def insert_pieo(prog, name, queue_len_factor=FACTOR, stats=None, static=False):
                 )
             ),
 
-            cb.if_with(cmd_eqs[3],
-                cb.if_with(underflow_check,
-                    query(pop=False, include_value=True),
-                    raise_err
-                )
-            ),
+            # cb.if_with(cmd_eqs[3],
+            #     cb.if_with(underflow_check,
+            #         query(pop=False, include_value=True),
+            #         raise_err
+            #     )
+            # ),
 
-            cb.if_with(cmd_eqs[4],
-                cb.if_with(underflow_check,
-                    query(pop=True, include_value=True),
-                    raise_err
-                )
-            )
+            # cb.if_with(cmd_eqs[4],
+            #     cb.if_with(underflow_check,
+            #         query(pop=True, include_value=True),
+            #         raise_err
+            #     )
+            # )
         )
     ])
 
