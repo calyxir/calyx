@@ -3,7 +3,7 @@ use super::{
     parser,
 };
 use crate::LibrarySignatures;
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::{CalyxResult, Error, WithPos};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -54,31 +54,40 @@ pub struct Workspace {
 
 impl Workspace {
     /// Returns the absolute location to an imported file.
-    /// Imports can refer to files either in the library path or in the parent
-    /// folder.
+    ///
+    /// An import path is first resolved as an absolute or
+    /// relative(-to-`parent`) path, and if no file exists at either such
+    /// extended path exists, it assumed to be under the library path
+    /// `lib_path`.
     fn canonicalize_import<S>(
         import: S,
         parent: &Path,
         lib_path: &Path,
     ) -> CalyxResult<PathBuf>
     where
-        S: AsRef<Path> + Clone,
+        S: AsRef<Path> + Clone + WithPos,
     {
-        let parent_path = parent.join(import.clone());
-        if parent_path.exists() {
-            return Ok(parent_path);
+        let absolute_import = import.as_ref();
+        if absolute_import.is_absolute() && absolute_import.exists() {
+            return Ok(import.as_ref().to_path_buf());
         }
-        let lib = lib_path.join(import.clone());
-        if lib.exists() {
-            return Ok(lib);
+
+        let relative_import = parent.join(import.clone());
+        if relative_import.exists() {
+            return Ok(relative_import);
+        }
+
+        let library_import = lib_path.join(import.clone());
+        if library_import.exists() {
+            return Ok(library_import);
         }
 
         Err(Error::invalid_file(
-            format!("Import path `{}` found neither in the parent ({}) nor library path ({})",
+            format!("Import path `{}` found neither as an absolute path, nor in the parent ({}), nor in library path ({})",
             import.as_ref().to_string_lossy(),
             parent.to_string_lossy(),
             lib_path.to_string_lossy()
-        )))
+        )).with_pos(&import))
     }
 
     // Get the absolute path to an extern. Extern can only exist on paths
@@ -89,17 +98,19 @@ impl Workspace {
         parent: &Path,
     ) -> CalyxResult<PathBuf>
     where
-        S: AsRef<Path> + Clone,
+        S: AsRef<Path> + Clone + WithPos,
     {
-        let parent_path = parent.join(extern_path.clone()).canonicalize()?;
-        if parent_path.exists() {
-            return Ok(parent_path);
-        }
-        Err(Error::invalid_file(format!(
-            "Extern path `{}` not found in parent directory ({})",
-            extern_path.as_ref().to_string_lossy(),
-            parent.to_string_lossy(),
-        )))
+        parent
+            .join(extern_path.clone())
+            .canonicalize()
+            .map_err(|_| {
+                Error::invalid_file(format!(
+                    "Extern path `{}` not found in parent directory ({})",
+                    extern_path.as_ref().to_string_lossy(),
+                    parent.to_string_lossy(),
+                ))
+                .with_pos(&extern_path)
+            })
     }
 
     /// Construct a new workspace using the `compile.futil` library which
@@ -264,7 +275,8 @@ impl Workspace {
         })?;
 
         // Add original imports to workspace
-        ws.original_imports = ns.imports.clone();
+        ws.original_imports =
+            ns.imports.iter().map(|imp| imp.to_string()).collect();
 
         // TODO (griffin): Probably not a great idea to clone the metadata
         // string but it works for now

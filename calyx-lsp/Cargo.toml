@@ -27,6 +27,7 @@ default = ["diagnostics"]
 calyx-frontend.workspace = true
 calyx-ir.workspace = true
 calyx-utils.workspace = true
+calyx-opt.workspace = true
 chrono = "0.4.33"
 itertools.workspace = true
 regex = "1.10.3"

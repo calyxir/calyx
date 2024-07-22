@@ -182,16 +182,20 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
     let mut all_names: HashSet<&Id> =
         HashSet::with_capacity(workspace.components.len() + prims.len());
 
-    let prim_names = prims.iter().map(|p| &p.name);
+    let prim_names = prims.iter().map(|p| (&p.name, p.attributes.copy_span()));
 
-    let comp_names = workspace.components.iter().map(|comp| &comp.name);
+    let comp_names = workspace
+        .components
+        .iter()
+        .map(|comp| (&comp.name, comp.attributes.copy_span()));
 
-    for bound in prim_names.chain(comp_names) {
+    for (bound, span) in prim_names.chain(comp_names) {
         if all_names.contains(bound) {
             return Err(Error::already_bound(
                 *bound,
                 "component or primitive".to_string(),
-            ));
+            )
+            .with_pos(&span));
         }
         all_names.insert(bound);
     }

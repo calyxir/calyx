@@ -143,7 +143,7 @@ def insert_map_component(prog):
     """Insert a map component into the program.
     The user provides a 1-d memory of length 10, by reference.
     The user also provides a single value, `v`.
-    We add `v` to each element in the memory.
+    We multiply each element in the memory by `v`.
     """
     comp = prog.component("map")
     # ANCHOR: comb_mem_d1_ref
@@ -155,24 +155,24 @@ def insert_map_component(prog):
     # ANCHOR: incr_oneliner
     incr_i = comp.incr(i)
     # ANCHOR_END: incr_oneliner
-    add = comp.add(32)
+    mul = comp.mult_pipe(32)
 
     # ANCHOR: width_inf
     i_lt_10 = comp.lt_use(i.out, 10)
     # ANCHOR_END: width_inf
 
-    # ANCHOR: add_at_position_i
-    with comp.group("add_at_position_i") as add_at_position_i:
+    # ANCHOR: mul_at_position_i
+    with comp.group("mul_at_position_i") as mul_at_position_i:
         mem.addr0 = i.out
-        add.left = mem.read_data
-        add.right = v
-        mem.write_en = add.done @ cb.HI
-        mem.write_data = add.out
-        add_at_position_i.done = mem.done
-    # ANCHOR_END: add_at_position_i
+        mul.left = mem.read_data
+        mul.right = v
+        mem.write_en = mul.done @ cb.HI
+        mem.write_data = mul.out
+        mul_at_position_i.done = mem.done
+    # ANCHOR_END: mul_at_position_i
 
     # ANCHOR: while_with
-    comp.control += cb.while_with(i_lt_10, [add_at_position_i, incr_i])
+    comp.control += cb.while_with(i_lt_10, [mul_at_position_i, incr_i])
     # ANCHOR_END: while_with
 
     return comp

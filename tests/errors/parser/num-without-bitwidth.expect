@@ -1,9 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Failed to parse `tests/errors/parser/num-without-bitwidth.futil`:  --> 4:12
-  |
-4 |     r.in = 1;
-  |            ^
-  |
-  = Expected number with bitwidth (like 32'd10).
+Error: tests/errors/parser/num-without-bitwidth.futil
+4 |    r.in = 1;
+  |           ^ Parse error
+Expected number with bitwidth (like 32'd10).

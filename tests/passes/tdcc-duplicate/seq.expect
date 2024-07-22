@@ -1,0 +1,53 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    @generated fsm0 = std_reg(2);
+    @generated fsm1 = std_reg(2);
+  }
+  wires {
+    group A {
+      a.in = 2'd0;
+      a.write_en = 1'd1;
+      A[done] = a.done;
+    }
+    group B {
+      b.in = 2'd1;
+      b.write_en = 1'd1;
+      B[done] = b.done;
+    }
+    group C {
+      c.in = 2'd2;
+      c.write_en = 1'd1;
+      C[done] = c.done;
+    }
+    group tdcc {
+      A[go] = !A[done] & fsm0.out == 2'd0 ? 1'd1;
+      B[go] = !B[done] & fsm0.out == 2'd1 ? 1'd1;
+      C[go] = !C[done] & fsm1.out == 2'd2 ? 1'd1;
+      fsm0.in = fsm0.out == 2'd0 & A[done] ? 2'd1;
+      fsm0.write_en = fsm0.out == 2'd0 & A[done] ? 1'd1;
+      fsm1.in = fsm0.out == 2'd0 & A[done] ? 2'd1;
+      fsm1.write_en = fsm0.out == 2'd0 & A[done] ? 1'd1;
+      fsm0.in = fsm0.out == 2'd1 & B[done] ? 2'd2;
+      fsm0.write_en = fsm0.out == 2'd1 & B[done] ? 1'd1;
+      fsm1.in = fsm0.out == 2'd1 & B[done] ? 2'd2;
+      fsm1.write_en = fsm0.out == 2'd1 & B[done] ? 1'd1;
+      fsm0.in = fsm0.out == 2'd2 & C[done] ? 2'd3;
+      fsm0.write_en = fsm0.out == 2'd2 & C[done] ? 1'd1;
+      fsm1.in = fsm0.out == 2'd2 & C[done] ? 2'd3;
+      fsm1.write_en = fsm0.out == 2'd2 & C[done] ? 1'd1;
+      tdcc[done] = fsm0.out == 2'd3 ? 1'd1;
+    }
+    fsm0.in = fsm0.out == 2'd3 ? 2'd0;
+    fsm0.write_en = fsm0.out == 2'd3 ? 1'd1;
+    fsm1.in = fsm0.out == 2'd3 ? 2'd0;
+    fsm1.write_en = fsm0.out == 2'd3 ? 1'd1;
+  }
+  control {
+    tdcc;
+  }
+}

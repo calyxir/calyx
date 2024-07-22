@@ -1,17 +1,13 @@
-pub mod interpreter;
-pub mod primitives;
-pub mod serialization;
-pub use utils::MemoryMap;
+mod as_raw;
 pub mod configuration;
 pub mod debugger;
 pub mod errors;
-pub mod interpreter_ir;
 pub mod logging;
 mod macros;
+pub mod serialization;
 mod structures;
 mod tests;
-mod utils;
 
 pub mod flatten;
 
-pub use structures::{environment, stk_env, values};
+pub use structures::values;

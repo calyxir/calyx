@@ -221,13 +221,11 @@ port. Omitting a guard expression is equivalent to using `1'd1` (a constant
 "true") as the guard.
 
 Guards can use the following constructs:
-- `port`: A port access on a defined cell
-- `port op port`: A comparison between values on two ports. Valid `op` are: `>`, `<`, `>=`, `<=`, `==`
+- `port`: A port access on a defined cell, such as `cond.out`, or a literal, such as `3'd2`.
+- `port op port`: A comparison between values on two ports. Valid instances of `op` are: `>`, `<`, `>=`, `<=`, `==`
 - `!guard`: Logical negation of a guard value
-- `guard || guard`: Disjunction between two guards
-- `guard && guard`: Conjunction of two guards
-
-In the context of guards, a port can also be a literal (i.e., `counter.out == 3'd2` is a valid guard).
+- `guard | guard`: Disjunction between two guards
+- `guard & guard`: Conjunction of two guards
 
 > **Well-formedness**: For each input port on the LHS, only one guard should be active in any given cycle during the execution of a Calyx program.
 
@@ -463,7 +461,7 @@ component update_memory() -> () {
 }
 ```
 
-When invoking such a component, the calling component must provide a binding for each defined cell:
+When [invoking][invoke] such a component, the calling component must provide a binding for each defined cell:
 ```
 component main() -> () {
   cells {
@@ -481,7 +479,69 @@ component main() -> () {
 }
 ```
 As the example shows, each invocation can take different bindings for each `ref` cell.
+In the first invocation, we pass in the concrete cell `m1` while in the second we pass
+in `m2`.
 See [the tutorial][ref-tut] for longer example on how to use this feature.
+
+### Subtyping for `ref` cells
+
+When providing bindings for [`ref` cells][ref], one must provide a concrete cell that is a
+*subtype* of the `ref` cell. A cell `a` is a subtype of cell `b` if the [component][components]
+defining `a` has *at least* the same ports as the component defining `b.`
+
+Consider the following component definitions:
+```
+component b(in_1 : 1) -> (out_1 : 1) {
+    // cells, wires, and control blocks
+}
+
+component a(in_1 : 1, in_2 : 1) -> (out_1 : 1, out_2 : 1){
+    // cells, wires, and control blocks
+}
+```
+
+Because the component definition of `a` has the ports `in_1` and `out_1`, a concrete cell of `a` can be bound to a `ref` cell of component `b`:
+```
+//Expects a `ref` cell of component `b`
+component c() -> () {
+    cells{
+        ref b1 = b();
+    }
+    wires{...}
+    control{...}
+}
+
+
+component main() -> () {
+  cells {
+      c_cell = c();
+      b_cell = b();
+      a_cell = a(); //recall `a` is a subtype of `b`
+  }
+  wires { ... }
+  control {
+    seq {
+      // Pass `b_cell` by reference. Both are `b1` and `b_cell` are defined by the component `b`
+      invoke c[b1=b_cell]()(); 
+      // Pass `a_cell` by reference. The `ref` cell and concrete cell are defined by different components,
+      // but this is allowed because `a` is a subtype of `b`.
+      invoke c[b1=a_cell]()();
+    }
+  }
+}
+```
+
+Ports are considered to be equal with respect to subtyping if they have the same
+name, width, direction, and attributes.
+
+> **Note:** The notion of subtyping described above, that only checks for port equivalence between components, is incomplete.
+> A complete, correct definition of subtyping would require that for `a` to be a subtype
+> of `b`, for every `ref` cell expected in `a`, component `b` must expect a `ref`
+> cell that is a subtype of the associated `ref` cell in `a` (note that the relationship between
+these nested `ref` cells is opposite the relationship of `a` and `b`).
+>
+>  Because nested `ref` cells are not currently allowed in Calyx, this is not a problem in practice.
+
 
 [attributes]: ./attributes.md
 [components]: #calyx-components
@@ -492,6 +552,7 @@ See [the tutorial][ref-tut] for longer example on how to use this feature.
 [continuous]: #continuous-assignments
 [control]: #the-control-operators
 [ref]: #ref-cells
+[invoke]: #invoke
 [godoneattr]: ./attributes.md#go-done-clk-and-reset
 [clkreset]: ./attributes.md#go-done-clk-and-reset
 [ref-tut]: ./memories-by-reference.md
