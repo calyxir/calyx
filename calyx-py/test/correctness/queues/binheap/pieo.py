@@ -28,85 +28,85 @@ def insert_pieo(prog, name, queue_len_factor=FACTOR, stats=None, static=False):
     #Registers/cells for ensuring no overflow or underflow
     num_elements = pieo.reg(32, "num_elements")
     overflow_check = pieo.lt_use(num_elements.out, 2**queue_len_factor)
-    underflow_check = pieo.gt_use(num_elements.out, 0)
+    # underflow_check = pieo.gt_use(num_elements.out, 0)
 
     #Querying register/memory components
-    queue_index = pieo.reg(32, "queue_idx") #Tracker while scanning through heap
-    replace_tracker = pieo.reg(32, "replace_tracker") #Loop counter while writing elements back into heap
+    # queue_index = pieo.reg(32, "queue_idx") #Tracker while scanning through heap
+    # replace_tracker = pieo.reg(32, "replace_tracker") #Loop counter while writing elements back into heap
 
     #Stores accessed times from popping queue
-    ready_time = pieo.reg(32, "ready_time")
-    val_ans = pieo.reg(32, "val_ans")
-    rank_ans = pieo.reg(32, "rank_ans")
+    # ready_time = pieo.reg(32, "ready_time")
+    # val_ans = pieo.reg(32, "val_ans")
+    # rank_ans = pieo.reg(32, "rank_ans")
 
     #Equality checkers
-    val_eq = pieo.eq(32)
-    time_le = pieo.le(32)
-    pop_lt = pieo.lt(32)
+    # val_eq = pieo.eq(32)
+    # time_le = pieo.le(32)
+    # pop_lt = pieo.lt(32)
 
-    while_and = pieo.and_(1)
-    while_and_val = pieo.and_(1)
-    val_time_and = pieo.and_(1)
+    # while_and = pieo.and_(1)
+    # while_and_val = pieo.and_(1)
+    # val_time_and = pieo.and_(1)
 
-    replace_count_peek = pieo.lt_use(replace_tracker.out, queue_index.out) #Push back all popped elements
-    replace_count_pop = pieo.lt_use(replace_tracker.out, queue_index.out) #Don't push back the latest popped element
+    # replace_count_peek = pieo.lt_use(replace_tracker.out, queue_index.out) #Push back all popped elements
+    # replace_count_pop = pieo.lt_use(replace_tracker.out, queue_index.out) #Don't push back the latest popped element
 
     #Store answer
-    store_ans = pieo.reg_store(ans, val_ans.out, "store_ans")
-    store_val = pieo.reg_store(val_ans, ans.out)
-    store_time = pieo.reg_store(ready_time, ans.out)
-    store_rank = pieo.reg_store(rank_ans, ans.out)
+    # store_ans = pieo.reg_store(ans, val_ans.out, "store_ans")
+    # store_val = pieo.reg_store(val_ans, ans.out)
+    # store_time = pieo.reg_store(ready_time, ans.out)
+    # store_rank = pieo.reg_store(rank_ans, ans.out)
     
     #Registers for individual cached value, time and rank
-    cached_data_registers = [pieo.reg(32)] * 3
+    # cached_data_registers = [pieo.reg(32)] * 3
 
     #Memory cells for cached values, times and ranks
-    cached_data = [pieo.seq_mem_d1(f"cached_{i}", 32, 2**queue_len_factor, 32) for i in range(3)]
+    # cached_data = [pieo.seq_mem_d1(f"cached_{i}", 32, 2**queue_len_factor, 32) for i in range(3)]
 
     #Operations to cache values, times and ranks
-    cache_data = [
-        pieo.mem_store_d1(cached_data[0], queue_index.out, val_ans.out, f"cache_{0}"),
-        pieo.mem_store_d1(cached_data[1], queue_index.out, ready_time.out, f"cache_{1}"),
-        pieo.mem_store_d1(cached_data[2], queue_index.out, rank_ans.out, f"cache_{2}")
-    ]
+    # cache_data = [
+    #     pieo.mem_store_d1(cached_data[0], queue_index.out, val_ans.out, f"cache_{0}"),
+    #     pieo.mem_store_d1(cached_data[1], queue_index.out, ready_time.out, f"cache_{1}"),
+    #     pieo.mem_store_d1(cached_data[2], queue_index.out, rank_ans.out, f"cache_{2}")
+    # ]
 
     #Load cached values, times and ranks
-    load_cached_data = [
-        pieo.mem_load_d1(cached_data[i], replace_tracker.out, cached_data_registers[i], f"load_cached{i}")
-        for i in range(3)
-    ]
+    # load_cached_data = [
+    #     pieo.mem_load_d1(cached_data[i], replace_tracker.out, cached_data_registers[i], f"load_cached{i}")
+    #     for i in range(3)
+    # ]
 
     #Increment trackers
     incr_num_elements = pieo.incr(num_elements)
-    incr_queue_idx = pieo.incr(queue_index)
-    decr_num_elements = pieo.decr(num_elements)
-    incr_replace_tracker = pieo.incr(replace_tracker)
+    # incr_queue_idx = pieo.incr(queue_index)
+    # decr_num_elements = pieo.decr(num_elements)
+    # incr_replace_tracker = pieo.incr(replace_tracker)
 
     #Error and tracker resets
     raise_err = pieo.reg_store(err, cb.const(1, 1), "raise_err")
     reset_err = pieo.reg_store(err, cb.const(1, 0), "reset_err")
-    reset_queue_idx = pieo.reg_store(queue_index, cb.const(32, 0), "reset_queue_idx")
-    reset_replace_tracker = pieo.reg_store(replace_tracker, cb.const(32, 0), "reset_replace_tracker")
+    # reset_queue_idx = pieo.reg_store(queue_index, cb.const(32, 0), "reset_queue_idx")
+    # reset_replace_tracker = pieo.reg_store(replace_tracker, cb.const(32, 0), "reset_replace_tracker")
 
     #Design all necessary loop guards
-    with pieo.comb_group(f"time_pop_guard") as time_pop_guard:
-        val_eq.left = val_ans.out
-        val_eq.right = value
+    # with pieo.comb_group(f"time_pop_guard") as time_pop_guard:
+    #     val_eq.left = val_ans.out
+    #     val_eq.right = value
 
-        time_le.left = ready_time.out
-        time_le.right = time
+    #     time_le.left = ready_time.out
+    #     time_le.right = time
 
-        pop_lt.left = queue_index.out
-        pop_lt.right = num_elements.out
+    #     pop_lt.left = queue_index.out
+    #     pop_lt.right = num_elements.out
 
-        while_and.left = time_le.out
-        while_and.right = pop_lt.out
+    #     while_and.left = time_le.out
+    #     while_and.right = pop_lt.out
 
-        while_and_val.left = while_and.out
-        while_and_val.right = val_eq.out
+    #     while_and_val.left = while_and.out
+    #     while_and_val.right = val_eq.out
 
-        val_time_and.left = val_eq.out
-        val_time_and.right = time_le.out
+    #     val_time_and.left = val_eq.out
+    #     val_time_and.right = time_le.out
 
     #Functions for the necessary PIEO functionality
     
