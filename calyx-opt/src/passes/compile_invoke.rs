@@ -159,16 +159,8 @@ impl CompileInvoke {
                 unreachable!("component `{}` invoked but not already visited by the pass", inv_comp_id)
             };
 
-            //contains the newly added ports that result from ref cells removal/dump_ports
-            let new_comp_ports = comp_ports
-                .values()
-                .map(|p| p.borrow().name)
-                .collect::<HashSet<_>>();
-
             // tracks ports used in assigments of the invoked component
             let mut used_ports: HashSet<ir::Id> = HashSet::new();
-            // If `is_none()` then the invoked comp should be a primitive , and
-            // we assume that all ports are used
             if let Some(invoked_comp) = invoked_comp {
                 invoked_comp.iter_assignments(|a| {
                     for port in a.iter_ports() {
@@ -180,9 +172,19 @@ impl CompileInvoke {
                         used_ports.insert(port.borrow().name);
                     }
                 });
+            // If the `invoked_comp` passed to the function is `None`,
+            // then the component being invoked is a primitive.
             } else {
-                used_ports.clone_from(&new_comp_ports);
+                unreachable!("Primitives should not have ref cells passed into them at invocation. However ref cells were found at the invocation of {}.",
+                    inv_comp_id
+                );
             }
+
+            //contains the newly added ports that result from ref cells removal/dump_ports
+            let new_comp_ports = comp_ports
+                .values()
+                .map(|p| p.borrow().name)
+                .collect::<HashSet<_>>();
 
             let to_assign: HashSet<&ir::Id> =
                 new_comp_ports.intersection(&used_ports).collect();
@@ -196,7 +198,9 @@ impl CompileInvoke {
                     continue;
                 }
 
-                // For example, if we have a reader component that only reads frmo a ref_reg, we will not have `ref_reg.in = ...`` in the invoke* group.
+                // For example, if we have a reader component that only reads from a ref_reg,
+                // we will not have `ref_reg.in = ...` in the invoke* group because the
+                // reader component does not access `ref_reg.in`.
                 if !to_assign.contains(&new_sig_port.borrow().name) {
                     continue;
                 }

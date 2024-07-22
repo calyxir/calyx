@@ -539,7 +539,7 @@ impl<T> Assignment<T> {
         self.guard.for_each(&mut |port| f(&port).map(Guard::port))
     }
 
-    /// Reads through assignments unmutably
+    /// Iterate through all ports contained within the assignment.
     pub fn iter_ports(&self) -> impl Iterator<Item = RRC<Port>> {
         self.guard
             .all_ports()
