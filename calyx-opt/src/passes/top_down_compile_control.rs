@@ -643,7 +643,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
                 // get a transition guard for the first fsm register, and apply it to every fsm register
-
                 let trans_guard = Self::query_state(
                     self.builder,
                     &mut used_slicers_vec,
@@ -651,84 +650,67 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     (&fsms, &signal_on, &parents),
                     &s,
                     &fsm_size,
-                    // by default, do not distribute transition queries
-                    // across regs; choose the first reg.
+                    // by default, do not distribute transition queries across regs.
                     false,
                 )
                 .drain(..)
                 .fold(guard, |g, sg| sg.and(g));
 
-                let parent_transitions = parents
-                    .iter()
-                    .flat_map(|parent| {
-                        let parent_const = self.builder.add_constant(
-                            match e > fsm_rep.last_state / 2 {
-                                true => 1,
-                                false => 0,
-                            },
-                            1,
-                        );
-                        let pc_borrow = parent_const.borrow();
-                        vec![
-                            self.builder.build_assignment(
-                                parent.borrow().get("in"),
-                                pc_borrow.get("out"),
-                                trans_guard.clone(),
-                            ),
-                            self.builder.build_assignment(
-                                parent.borrow().get("write_en"),
-                                signal_on.borrow().get("out"),
-                                trans_guard.clone(),
-                            ),
-                        ]
-                    })
-                    .collect_vec();
-
-                // add transition assignment to every fsm register to ensure
-                // consistency between each
-                let fsm_transitions = fsms
-                    .iter()
-                    .flat_map(|fsm| {
-                        let end_state_to_query =
-                            if let RegisterSpread::Split = fsm_rep.spread {
-                                e % ((fsm_rep.last_state + 2) / 2)
-                            } else {
-                                e
-                            };
-
-                        let end_const = match fsm_rep.encoding {
-                            RegisterEncoding::Binary => self
-                                .builder
-                                .add_constant(end_state_to_query, fsm_size),
-                            RegisterEncoding::OneHot => {
-                                self.builder.add_constant(
-                                    u64::pow(
-                                        2,
-                                        end_state_to_query.try_into().unwrap(),
+                let mut create_transitions =
+                    |collection: &Vec<RRC<Cell>>,
+                     const_value: u64,
+                     cell_size: u64| {
+                        collection
+                            .iter()
+                            .flat_map(|cell| {
+                                let end_const = self
+                                    .builder
+                                    .add_constant(const_value, cell_size);
+                                let end_const_borr = end_const.borrow();
+                                vec![
+                                    self.builder.build_assignment(
+                                        cell.borrow().get("in"),
+                                        end_const_borr.get("out"),
+                                        trans_guard.clone(),
                                     ),
-                                    fsm_size,
-                                )
-                            }
-                        };
-                        let ec_borrow = end_const.borrow();
-                        vec![
-                            self.builder.build_assignment(
-                                fsm.borrow().get("in"),
-                                ec_borrow.get("out"),
-                                trans_guard.clone(),
+                                    self.builder.build_assignment(
+                                        cell.borrow().get("write_en"),
+                                        signal_on.borrow().get("out"),
+                                        trans_guard.clone(),
+                                    ),
+                                ]
+                            })
+                            .collect_vec()
+                    };
+
+                let fsm_end_constant = match fsm_rep.spread {
+                    RegisterSpread::Split => e % ((fsm_rep.last_state + 2) / 2),
+                    RegisterSpread::Single | RegisterSpread::Duplicate => e,
+                };
+
+                // // parent & fsm (child) transitions
+                vec![
+                    create_transitions(
+                        &parents,
+                        match e > fsm_rep.last_state / 2 {
+                            true => 1,
+                            false => 0,
+                        },
+                        1,
+                    ),
+                    create_transitions(
+                        &fsms,
+                        match fsm_rep.encoding {
+                            RegisterEncoding::Binary => fsm_end_constant,
+                            RegisterEncoding::OneHot => u64::pow(
+                                2,
+                                fsm_end_constant.try_into().unwrap(),
                             ),
-                            self.builder.build_assignment(
-                                fsm.borrow().get("write_en"),
-                                signal_on.borrow().get("out"),
-                                trans_guard.clone(),
-                            ),
-                        ]
-                    })
-                    .collect_vec();
-                vec![parent_transitions, fsm_transitions]
-                    .drain(..)
-                    .flatten()
-                    .collect_vec()
+                        },
+                        fsm_size,
+                    ),
+                ]
+                .concat()
             }),
         );
 
@@ -783,9 +765,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
             create_resets(&fsms, &first_state),
             create_resets(&parents, &signal_off),
         ]
-        .drain(..)
-        .flatten()
-        .collect_vec();
+        .concat();
 
         // extend with conditions to set all fsms to initial state
         self.builder
