@@ -689,7 +689,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 };
 
                 // // parent & fsm (child) transitions
-                vec![
+                [
                     create_transitions(
                         &parents,
                         match e > fsm_rep.last_state / 2 {
@@ -761,7 +761,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .collect_vec()
             };
 
-        let reset_assigns = vec![
+        let reset_assigns = [
             create_resets(&fsms, &first_state),
             create_resets(&parents, &signal_off),
         ]
