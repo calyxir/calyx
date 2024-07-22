@@ -424,15 +424,19 @@ impl<'b, 'a> Schedule<'b, 'a> {
             Some(parent_reg) => {
                 // query parent == 1 iff we are in second-half of seq. schedule
                 let parent_const = builder.add_constant(
-                    match *state >= (fsm_rep.last_state + 1) / 2 {
+                    match *state > (fsm_rep.last_state + 1) / 2 {
                         true => 1,
                         false => 0,
                     },
                     1,
                 );
                 let parent_guard =
-                    guard!(parent_reg["out"] == parent_const["out"]);
-                (vec![parent_guard], *state % ((fsm_rep.last_state + 1) / 2)) // check
+                    vec![guard!(parent_reg["out"] == parent_const["out"])];
+
+                // mod by 1 plus last state so we can query final state for done condition
+                let state_to_query = *state % ((fsm_rep.last_state + 2) / 2);
+
+                (parent_guard, state_to_query) // check
             }
         };
 
@@ -658,7 +662,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .iter()
                     .flat_map(|parent| {
                         let parent_const = self.builder.add_constant(
-                            match e >= (fsm_rep.last_state + 1) / 2 {
+                            match e > (fsm_rep.last_state + 1) / 2 {
                                 true => 1,
                                 false => 0,
                             },
@@ -687,7 +691,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .flat_map(|fsm| {
                         let end_state_to_query =
                             if let RegisterSpread::Split = fsm_rep.spread {
-                                e % ((fsm_rep.last_state + 1) / 2)
+                                e % ((fsm_rep.last_state + 2) / 2)
                             } else {
                                 e
                             };
