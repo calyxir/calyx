@@ -1,6 +1,6 @@
 use argh::FromArgs;
 use cider_data_converter::{converter, json_data::JsonData};
-use interp::serialization::data_dump::{self, SerializationError};
+use interp::serialization::{self, SerializationError};
 use std::{
     fs::File,
     io::{self, Read, Write},
@@ -112,7 +112,8 @@ fn main() -> Result<(), CiderDataConverterError> {
                     .serialize(&mut output)?;
             }
             Action::ToJson => {
-                let data_dump = data_dump::DataDump::deserialize(&mut input)?;
+                let data_dump =
+                    serialization::DataDump::deserialize(&mut input)?;
                 let json_data = converter::convert_from_data_dump(&data_dump);
                 writeln!(
                     &mut output,

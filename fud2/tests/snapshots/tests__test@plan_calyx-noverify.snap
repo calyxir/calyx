@@ -1,0 +1,24 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: calyx-noverify"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+
+build /output.ext: calyx /input.ext
+  backend = verilog
+  args = --disable-verify
+
+default /output.ext

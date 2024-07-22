@@ -132,6 +132,18 @@ class ComponentBuilder:
         """
         return self._port_with_attributes(name, size, False, attribute_literals)
 
+    def output_with_attributes(
+        self,
+        name: str,
+        size: int,
+        attribute_literals: List[Union[str, Tuple[str, int]]],
+    ) -> ExprBuilder:
+        """Declare an output port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+        return self._port_with_attributes(name, size, False, attribute_literals)
+
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
@@ -148,7 +160,6 @@ class ComponentBuilder:
 
         Returns an expression builder for the port.
         """
-
         attributes = []
         for attr in attribute_literals:
             if isinstance(attr, str):
@@ -196,6 +207,28 @@ class ComponentBuilder:
             self.component.controls = builder.stmt
         else:
             self.component.controls = builder
+
+    # NOTE: Could also be a GroupBuilder
+    Controllable = Union[ast.Control, str, ast.Group, list, set, ast.Empty, None]
+
+    def case(
+        self, signal: ExprBuilder, cases: Dict[int, Controllable], signed=False
+    ) -> None:
+        """Add the required cells, wiring, and `if` statements to enable `case`
+        like semantics in the component. Does not support `default` cases.
+        Branches are implemented via mutually exclusive `if` statements in the
+        component's `control` block."""
+        width = self.infer_width(signal)
+        ifs = []
+        for branch, controllable in cases.items():
+            std_eq = self.eq(width, f"{signal.name}_eq_{branch}", signed)
+
+            with self.continuous:
+                std_eq.left = signal
+                std_eq.right = const(width, branch)
+            ifs.append(if_(std_eq["out"], controllable))
+
+        return par(*ifs)
 
     def port_width(self, port: ExprBuilder) -> int:
         """Get the width of an expression, which may be a port of this component."""
@@ -631,6 +664,8 @@ class ComponentBuilder:
         with self.comb_group(groupname) as comb_group:
             cell.left = left
             cell.right = right
+            if not cell.is_comb():
+                cell.go = HI
         return CellAndGroup(cell, comb_group)
 
     def binary_use_names(self, cellname, leftname, rightname, groupname=None):
@@ -712,6 +747,16 @@ class ComponentBuilder:
         width = self.try_infer_width(width, input, input)
         return self.unary_use(input, self.not_(width, cellname))
 
+    def mult_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `left` * `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.mult_pipe(width, cellname, signed))
+
+    def div_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `left` * `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.div_pipe(width, cellname, signed))
+
     def bitwise_flip_reg(self, reg, cellname=None):
         """Inserts wiring into `self` to bitwise-flip the contents of `reg`
         and put the result back into `reg`.
@@ -728,7 +773,7 @@ class ComponentBuilder:
 
     def incr(self, reg, val=1, signed=False, cellname=None, static=False):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
-        cellname = cellname or f"{reg.name}_incr"
+        cellname = cellname or self.generate_name(f"{reg.name}_incr_{val}")
         width = reg.infer_width_reg()
         add_cell = self.add(width, cellname, signed)
         group = (
@@ -747,7 +792,7 @@ class ComponentBuilder:
 
     def decr(self, reg, val=1, signed=False, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
-        cellname = cellname or f"{reg.name}_decr"
+        cellname = cellname or self.generate_name(f"{reg.name}_decr_{val}")
         width = reg.infer_width_reg()
         sub_cell = self.sub(width, cellname, signed)
         with self.group(f"{cellname}_group") as decr_group:
@@ -809,8 +854,20 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
+    def mem_latch_d1(self, mem, i, groupname):
+        """Inserts wiring into `self` to latch `mem[i]`,
+        where `mem` is a seq_mem_d1 memory.
+        A user can later read `mem.out` and get the latched value.
+        """
+        assert mem.is_seq_mem_d1()
+        with self.group(groupname) as latch_grp:
+            mem.addr0 = i
+            mem.content_en = HI
+            latch_grp.done = mem.done
+        return latch_grp
+
     def mem_load_d2(self, mem, i, j, reg, groupname):
-        """Inserts wiring into `self` to perform `reg := mem[i]`,
+        """Inserts wiring into `self` to perform `reg := mem[i][j]`,
         where `mem` is a seq_d2 memory or a comb_mem_d2 memory
         """
         assert mem.is_seq_mem_d2() or mem.is_comb_mem_d2()
@@ -827,6 +884,19 @@ class ComponentBuilder:
                 reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
+
+    def mem_latch_d2(self, mem, i, j, groupname):
+        """Inserts wiring into `self` to latch `mem[i][j]`,
+        where `mem` is a seq_mem_d2 memory.
+        A user can later read `mem.out` and get the latched value.
+        """
+        assert mem.is_seq_mem_d2()
+        with self.group(groupname) as latch_grp:
+            mem.addr0 = i
+            mem.addr1 = j
+            mem.content_en = HI
+            latch_grp.done = mem.done
+        return latch_grp
 
     def mem_store_d1(self, mem, i, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,
@@ -872,25 +942,24 @@ class ComponentBuilder:
             load_grp.done = ans.done
         return load_grp
 
-    def op_store_in_reg(
-        self,
-        op_cell,
-        left,
-        right,
-        cellname,
-        width,
-        ans_reg=None,
-    ):
+    def op_store_in_reg(self, op_cell, left, right, cellname, width, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left op right`,
         where `op_cell`, a Cell that performs some `op`, is provided.
         """
+
+        is_comb = op_cell.is_comb()
         ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
             op_cell.right = right
-            ans_reg.write_en = 1
-            ans_reg.in_ = op_cell.out
+
+            if not is_comb:
+                op_cell.go = HI
+
+            ans_reg.write_en = 1 if is_comb else op_cell.done @ 1
+            ans_reg.in_ = op_cell.out if is_comb else op_cell.done @ op_cell.out
             op_group.done = ans_reg.done
+
         return op_group, ans_reg
 
     def add_store_in_reg(
@@ -948,6 +1017,38 @@ class ComponentBuilder:
         width = width or self.try_infer_width(width, left, right)
         cell = self.neq(width, cellname, signed)
         return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+
+    def le_store_in_reg(
+        self, left, right, ans_reg=None, cellname=None, width=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left <= right`."""
+        width = width or self.try_infer_width(width, left, right)
+        cell = self.le(width, cellname, signed)
+        return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+
+    def ge_store_in_reg(
+        self, left, right, ans_reg=None, cellname=None, width=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left >= right`."""
+        width = width or self.try_infer_width(width, left, right)
+        cell = self.ge(width, cellname, signed)
+        return self.op_store_in_reg(cell, left, right, cell.name, 1, ans_reg)
+
+    def mult_store_in_reg(
+        self, left, right, ans_reg=None, cellname=None, width=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left * right`."""
+        width = width or self.try_infer_width(width, left, right)
+        cell = self.mult_pipe(width, cellname, signed)
+        return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
+
+    def div_store_in_reg(
+        self, left, right, ans_reg=None, cellname=None, width=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left / right`."""
+        width = width or self.try_infer_width(width, left, right)
+        cell = self.div_pipe(width, cellname, signed)
+        return self.op_store_in_reg(cell, left, right, cell.name, width, ans_reg)
 
     def infer_width(self, expr) -> int:
         """Infer the width of an expression."""
@@ -1235,6 +1336,22 @@ class ExprBuilder:
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
 
+    def __lt__(self, other: ExprBuilder):
+        """Construct a less-than comparison with <."""
+        return ExprBuilder(ast.Lt(self.expr, other.expr))
+
+    def __le__(self, other: ExprBuilder):
+        """Construct a less-than-or-equal comparison with <."""
+        return ExprBuilder(ast.Lte(self.expr, other.expr))
+
+    def __gt__(self, other: ExprBuilder):
+        """Construct a greater-than comparison with <."""
+        return ExprBuilder(ast.Gt(self.expr, other.expr))
+
+    def __ge__(self, other: ExprBuilder):
+        """Construct a greater-than-or-equal comparison with <."""
+        return ExprBuilder(ast.Gte(self.expr, other.expr))
+
     @property
     def name(self):
         """Get the name of the expression."""
@@ -1318,6 +1435,22 @@ class CellBuilder(CellLikeBuilder):
         return (
             isinstance(self._cell.comp, ast.CompInst)
             and self._cell.comp.id == prim_name
+        )
+
+    def is_comb(self) -> bool:
+        return self._cell.comp.id in (
+            "std_add",
+            "std_sub",
+            "std_lt",
+            "std_le",
+            "std_ge",
+            "std_gt",
+            "std_eq",
+            "std_neq",
+            "std_sgt",
+            "std_slt",
+            "std_fp_sgt",
+            "std_fp_slt",
         )
 
     def is_comb_mem_d1(self) -> bool:
