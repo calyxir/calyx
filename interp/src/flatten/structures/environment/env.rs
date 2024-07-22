@@ -30,9 +30,7 @@ use crate::{
         },
     },
     logging,
-    serialization::{
-        DataDump, DataHeader, Dimensions, MemoryDeclaration, PrintCode,
-    },
+    serialization::{DataDump, MemoryDeclaration, PrintCode},
     values::Value,
 };
 use ahash::HashMap;
