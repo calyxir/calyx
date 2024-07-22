@@ -1,28 +1,28 @@
 //! Defines the default passes available to [PassManager].
+use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, CompileSync,
     CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
     DiscoverExternal, ExternalToRef, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Metadata,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
     SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
     UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
-use calyx_utils::CalyxResult;
 
 impl PassManager {
-    pub fn default_passes() -> CalyxResult<Self> {
+    pub fn default_passes() -> PassResult<Self> {
         // Construct the pass manager and register all passes.
         let mut pm = PassManager::default();
 
         // Validation passes
-        pm.register_pass::<WellFormed>()?;
-        pm.register_pass::<Papercut>()?;
+        pm.register_diagnostic::<WellFormed>()?;
+        pm.register_diagnostic::<Papercut>()?;
         pm.register_pass::<Canonicalize>()?;
 
         // Optimization passes
@@ -62,7 +62,7 @@ impl PassManager {
         pm.register_pass::<DefaultAssigns>()?;
 
         // Enabled in the synthesis compilation flow
-        pm.register_pass::<SynthesisPapercut>()?;
+        pm.register_diagnostic::<SynthesisPapercut>()?;
         pm.register_pass::<Externalize>()?;
 
         // Disabled by default
@@ -75,6 +75,9 @@ impl PassManager {
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
+
+        //add metadata
+        pm.register_pass::<Metadata>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(

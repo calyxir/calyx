@@ -15,7 +15,7 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install python dependencies
+# Install python dependencies cocotb==1.6.2 seems to be for Xilinx cocotb tests
 RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi

@@ -172,6 +172,12 @@ impl SearchPath {
                         return Some(*node);
                     }
 
+                    ControlNode::Repeat(_) => {
+                        // we need to re-check the loop count, so this is our
+                        // next node
+                        return Some(*node);
+                    }
+
                     // none of these three should be possible as a non-leaf node
                     // which is what we are currently searching through on the
                     // path, so this is definitely an error
@@ -293,6 +299,17 @@ impl SearchPath {
                         })
                     }
                 }
+                ControlNode::Repeat(rep) => {
+                    if node.search_index.is_some() {
+                        current_path.path.pop();
+                    } else {
+                        node.search_index = Some(SearchIndex::new(0));
+                        current_path.path.push(SearchNode {
+                            node: rep.body,
+                            search_index: None,
+                        })
+                    }
+                }
             }
         }
 
@@ -331,6 +348,26 @@ const CONTROL_POINT_PREALLOCATE: usize = 16;
 /// children would be a lot.
 pub type ChildCount = u16;
 
+#[derive(Debug, Clone)]
+pub struct WithEntry {
+    pub group: CombGroupIdx,
+    /// Whether or not a body has been executed. Only used by if statements
+    pub entered: bool,
+}
+
+impl WithEntry {
+    pub fn new(group: CombGroupIdx) -> Self {
+        Self {
+            group,
+            entered: false,
+        }
+    }
+
+    pub fn set_entered(&mut self) {
+        self.entered = true;
+    }
+}
+
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
 #[derive(Debug, Default)]
@@ -338,36 +375,35 @@ pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
     par_map: HashMap<ControlPoint, ChildCount>,
     continuous_assigns: Vec<ContinuousAssignments>,
-    with_map: HashMap<ControlPoint, CombGroupIdx>,
+    with_map: HashMap<ControlPoint, WithEntry>,
+    repeat_map: HashMap<ControlPoint, u64>,
+    just_finished_comps: Vec<GlobalCellIdx>,
 }
 
 // we need a few things from the program counter
 
+pub type PcFields = (
+    Vec<ControlPoint>,
+    HashMap<ControlPoint, ChildCount>,
+    HashMap<ControlPoint, WithEntry>,
+    HashMap<ControlPoint, u64>,
+);
+
+pub type PcMaps<'a> = (
+    &'a mut HashMap<ControlPoint, ChildCount>,
+    &'a mut HashMap<ControlPoint, WithEntry>,
+    &'a mut HashMap<ControlPoint, u64>,
+);
+
 impl ProgramCounter {
-    pub(crate) fn new(ctx: &Context) -> Self {
-        let root = ctx.entry_point;
-        // this relies on the fact that we construct the root cell-ledger
-        // as the first possible cell in the program. If that changes this will break.
-        let root_cell = GlobalCellIdx::new(0);
-
-        let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
-
-        if let Some(current) = ctx.primary[root].control {
-            vec.push(ControlPoint {
-                comp: root_cell,
-                control_node_idx: current,
-            })
-        } else {
-            todo!(
-                "Flat interpreter does not support control-less components yet"
-            )
-        }
-
+    pub(crate) fn new_empty() -> Self {
         Self {
-            vec,
+            vec: Vec::with_capacity(CONTROL_POINT_PREALLOCATE),
             par_map: HashMap::new(),
             continuous_assigns: Vec::new(),
             with_map: HashMap::new(),
+            repeat_map: HashMap::new(),
+            just_finished_comps: Vec::new(),
         }
     }
 
@@ -375,8 +411,8 @@ impl ProgramCounter {
         self.vec.iter()
     }
 
-    pub fn is_done(&self) -> bool {
-        self.vec.is_empty()
+    pub fn node_slice(&self) -> &[ControlPoint] {
+        &self.vec
     }
 
     pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
@@ -395,29 +431,21 @@ impl ProgramCounter {
         &self.par_map
     }
 
-    pub fn take_fields(
-        &mut self,
-    ) -> (
-        Vec<ControlPoint>,
-        HashMap<ControlPoint, ChildCount>,
-        HashMap<ControlPoint, CombGroupIdx>,
-    ) {
+    pub fn take_fields(&mut self) -> PcFields {
         (
             std::mem::take(&mut self.vec),
             std::mem::take(&mut self.par_map),
             std::mem::take(&mut self.with_map),
+            std::mem::take(&mut self.repeat_map),
         )
     }
 
-    pub fn restore_fields(
-        &mut self,
-        vec: Vec<ControlPoint>,
-        par_map: HashMap<ControlPoint, ChildCount>,
-        with_map: HashMap<ControlPoint, CombGroupIdx>,
-    ) {
+    pub fn restore_fields(&mut self, fields: PcFields) {
+        let (vec, par_map, with_map, repeat_map) = fields;
         self.vec = vec;
         self.par_map = par_map;
         self.with_map = with_map;
+        self.repeat_map = repeat_map;
     }
 
     pub(crate) fn push_continuous_assigns(
@@ -433,8 +461,20 @@ impl ProgramCounter {
         &self.continuous_assigns
     }
 
-    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, CombGroupIdx> {
+    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, WithEntry> {
         &self.with_map
+    }
+
+    pub fn set_finshed_comp(&mut self, comp: GlobalCellIdx) {
+        self.just_finished_comps.push(comp)
+    }
+
+    pub fn finished_comps(&self) -> &[GlobalCellIdx] {
+        &self.just_finished_comps
+    }
+
+    pub fn clear_finished_comps(&mut self) {
+        self.just_finished_comps.clear()
     }
 }
 

@@ -1,4 +1,4 @@
 ---STDERR---
 Error: tests/passes/well-formed/ref-type-mismatch.futil
 33 |      invoke f[m = k1]()();
-   |      ^^^^^^^^^^^^^^^^^^^^^ Malformed Control: Unexpected type for ref cell. Expected `std_reg(32)`, received `std_reg(16)`
+   |      ^^^^^^^^^^^^^^^^^^^^^ Malformed Control: The type passed in `std_reg(16)` is not a subtype of the expected type `std_reg(32)`.

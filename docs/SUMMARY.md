@@ -22,7 +22,8 @@
   - [Multiple Paths](./running-calyx/fud/multiple-paths.md)
   - [CIRCT](./running-calyx/fud/circt.md)
   - [Resource Estimation](./running-calyx/fud/resource-estimation.md)
-- [fud2: Experimental Driver](./running-calyx/fud2.md)
+- [fud2: Experimental Driver](./running-calyx/fud2/index.md)
+  - [Scripting](./running-calyx/fud2/scripts.md)
 - [Interfacing with Calyx RTL](./running-calyx/interfacing.md)
 - [The Calyx Interpreter](./running-calyx/interpreter.md)
 

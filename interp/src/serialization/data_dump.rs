@@ -144,13 +144,11 @@ impl DataDump {
     ) -> std::io::Result<()> {
         let header_str = serde_json::to_string(&self.header).unwrap();
         let len_bytes = header_str.len();
-        let written = writer.write(&len_bytes.to_le_bytes()).unwrap();
-        assert_eq!(written, 8);
+        writer.write_all(&len_bytes.to_le_bytes())?;
         write!(writer, "{}", header_str).unwrap();
-
-        let written = writer.write(&self.data)?;
+        writer.write_all(&self.data)?;
         writer.flush()?;
-        assert_eq!(written, self.data.len());
+
         Ok(())
     }
 

@@ -7,6 +7,7 @@ use crate::{
     flatten::structures::index_trait::{
         impl_index, impl_index_nonzero, IndexRange, IndexRef,
     },
+    serialization::PrintCode,
     values::Value,
 };
 
@@ -172,7 +173,7 @@ impl From<GlobalPortIdx> for GlobalPortRef {
 
 impl GlobalPortRef {
     #[must_use]
-    pub fn _as_port(&self) -> Option<&GlobalPortIdx> {
+    pub fn as_port(&self) -> Option<&GlobalPortIdx> {
         if let Self::Port(v) = self {
             Some(v)
         } else {
@@ -246,6 +247,84 @@ impl From<LocalRefCellOffset> for CellRef {
 
 impl From<LocalCellOffset> for CellRef {
     fn from(v: LocalCellOffset) -> Self {
+        Self::Local(v)
+    }
+}
+
+#[derive(Debug)]
+pub enum GlobalCellRef {
+    Cell(GlobalCellIdx),
+    Ref(GlobalRefCellIdx),
+}
+
+impl From<GlobalRefCellIdx> for GlobalCellRef {
+    fn from(v: GlobalRefCellIdx) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<GlobalCellIdx> for GlobalCellRef {
+    fn from(v: GlobalCellIdx) -> Self {
+        Self::Cell(v)
+    }
+}
+
+impl GlobalCellRef {
+    pub fn from_local(local: CellRef, base_info: &BaseIndices) -> Self {
+        match local {
+            CellRef::Local(l) => (base_info + l).into(),
+            CellRef::Ref(r) => (base_info + r).into(),
+        }
+    }
+
+    #[must_use]
+    pub fn as_cell(&self) -> Option<&GlobalCellIdx> {
+        if let Self::Cell(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_ref(&self) -> Option<&GlobalRefCellIdx> {
+        if let Self::Ref(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if the global cell ref is [`Cell`].
+    ///
+    /// [`Cell`]: GlobalCellRef::Cell
+    #[must_use]
+    pub fn is_cell(&self) -> bool {
+        matches!(self, Self::Cell(..))
+    }
+
+    /// Returns `true` if the global cell ref is [`Ref`].
+    ///
+    /// [`Ref`]: GlobalCellRef::Ref
+    #[must_use]
+    pub fn is_ref(&self) -> bool {
+        matches!(self, Self::Ref(..))
+    }
+}
+
+pub enum CellDefinitionRef {
+    Local(CellDefinitionIdx),
+    Ref(RefCellDefinitionIdx),
+}
+
+impl From<RefCellDefinitionIdx> for CellDefinitionRef {
+    fn from(v: RefCellDefinitionIdx) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<CellDefinitionIdx> for CellDefinitionRef {
+    fn from(v: CellDefinitionIdx) -> Self {
         Self::Local(v)
     }
 }
@@ -403,6 +482,10 @@ impl PortValue {
         Self(Some(AssignedValue::cell_value(val)))
     }
 
+    pub fn new_cell_zeroes(width: u32) -> Self {
+        Self::new_cell(Value::zeroes(width))
+    }
+
     /// Creates a [PortValue] that has the "winner" as implicit
     pub fn new_implicit(val: Value) -> Self {
         Self(Some(AssignedValue::implicit_value(val)))
@@ -412,6 +495,21 @@ impl PortValue {
     /// This is equivalent to [Option::take]
     pub fn set_undef(&mut self) -> Option<AssignedValue> {
         self.0.take()
+    }
+
+    pub fn format_value(&self, print_code: PrintCode) -> String {
+        if let Some(v) = self.0.as_ref() {
+            let v = &v.val;
+            match print_code {
+                PrintCode::Unsigned => format!("{}", v.as_unsigned()),
+                PrintCode::Signed => format!("{}", v.as_signed()),
+                PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
+                PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
+                PrintCode::Binary => format!("{}", v),
+            }
+        } else {
+            "undef".to_string()
+        }
     }
 }
 
