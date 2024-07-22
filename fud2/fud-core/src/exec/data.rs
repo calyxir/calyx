@@ -31,7 +31,7 @@ impl State {
 }
 
 /// A reference to a State.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct StateRef(u32);
 entity_impl!(StateRef, "state");
 
