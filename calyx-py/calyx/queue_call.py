@@ -107,7 +107,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, use_times, stats_compo
             )
             if stats_component
             else (
-                cb.invoke(  # Invoke the queue with ranks.
+                cb.invoke(  # Invoke the queue with ranks and times.
                     queue,
                     in_cmd=cmd.out,
                     in_value=value.out,
@@ -118,7 +118,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, use_times, stats_compo
                 )
                 if use_ranks and use_times
                 else (
-                    cb.invoke(  # Invoke the queue without stats or ranks.
+                    cb.invoke( # Invoke the queue with ranks but without times
                         queue,
                         in_cmd=cmd.out,
                         in_value=value.out,
@@ -127,7 +127,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, use_times, stats_compo
                         ref_err=err,
                     )
                     if use_ranks
-                    else cb.invoke(
+                    else cb.invoke( # Invoke the queue without stats or ranks.
                         queue,
                         in_cmd=cmd.out,
                         in_value=value.out,
