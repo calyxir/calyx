@@ -54,6 +54,9 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
 
     #Store answer
     store_ans = pieo.reg_store(ans, val_ans.out, "store_ans")
+    store_val = pieo.reg_store(val_ans, ans.out)
+    store_time = pieo.reg_store(ready_time, ans.out)
+    store_rank = pieo.reg_store(rank_ans, ans.out)
     
     #Registers for individual cached value, time and rank
     cached_data_registers = [pieo.reg(32)] * 3
@@ -173,7 +176,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                         in_cmd=cb.const(2, 0), #Pop from queue
                         ref_ans=ans,
                         ref_err=err
-                    ), pieo.reg_store(val_ans, ans.out),
+                    ), store_val,
 
                     cb.invoke(
                         time_queue,
@@ -182,7 +185,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                         in_cmd=cb.const(2, 0), #Pop from queue
                         ref_ans=ans,
                         ref_err=err
-                    ), pieo.reg_store(ready_time, ans.out),
+                    ), store_time,
 
                     cb.invoke(
                         rank_queue,
@@ -191,7 +194,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                         in_cmd=cb.const(2, 0), #Pop from queue
                         ref_ans=ans,
                         ref_err=err
-                    ), pieo.reg_store(rank_ans, ans.out)
+                    ), store_rank
                 ] + cache_data + [incr_queue_idx])
             ),
 
