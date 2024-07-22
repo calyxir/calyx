@@ -1,7 +1,5 @@
+use crate::flatten::flat_ir::prelude::AssignedValue;
 use crate::values::Value;
-use crate::{
-    flatten::flat_ir::prelude::AssignedValue, utils::assignment_to_string,
-};
 use calyx_ir::{self as ir, Assignment, Id};
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use rustyline::error::ReadlineError;
@@ -67,7 +65,7 @@ pub enum InterpreterError {
     #[error(transparent)]
     ParseError(
         #[from]
-        pest_consume::Error<crate::debugger::parser::command_parser::Rule>,
+        pest_consume::Error<crate::debugger::commands::command_parser::Rule>,
     ),
 
     /// Unable to parse the debugger command
@@ -79,7 +77,7 @@ pub enum InterpreterError {
     // Unable to parse metadata
     #[error(transparent)]
     NewMetadataParseError(
-        #[from] pest_consume::Error<crate::debugger::new_parser::Rule>,
+        #[from] pest_consume::Error<crate::debugger::source::new_parser::Rule>,
     ),
 
     // Missing metadata
@@ -89,10 +87,6 @@ pub enum InterpreterError {
     /// Wrapper for errors coming from the interactive CLI
     #[error(transparent)]
     ReadlineError(#[from] ReadlineError),
-
-    /// An error for the exit command to the interactive debugger
-    #[error("exit")]
-    Exit,
 
     /// Wrapper error for parsing & related compiler errors
     #[error("{0:?}")]
@@ -207,9 +201,16 @@ pub enum InterpreterError {
     UndefinedReadAddr(String),
 
     #[error(transparent)]
-    SerializationError(
-        #[from] crate::serialization::data_dump::SerializationError,
-    ),
+    SerializationError(#[from] crate::serialization::SerializationError),
+}
+
+pub fn assignment_to_string(
+    assignment: &ir::Assignment<ir::Nothing>,
+) -> String {
+    let mut str = vec![];
+    ir::Printer::write_assignment(assignment, 0, &mut str)
+        .expect("Write Failed");
+    String::from_utf8(str).expect("Found invalid UTF-8")
 }
 
 impl InterpreterError {
@@ -245,29 +246,6 @@ impl From<CalyxError> for InterpreterError {
 impl From<CalyxMultiError> for InterpreterError {
     fn from(e: CalyxMultiError) -> Self {
         Self::CompilerMultiError(Box::new(e))
-    }
-}
-
-impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
-    for InterpreterError
-{
-    fn from(
-        err: crate::structures::stk_env::CollisionError<
-            *const calyx_ir::Port,
-            crate::values::Value,
-        >,
-    ) -> Self {
-        // when the error is first raised, the IR has not yet been deconstructed, so this
-        // dereference is safe
-        let port: &ir::Port = unsafe { &*err.0 };
-        let parent_name = port.get_parent_name();
-        let port_name = port.name;
-        Self::ParOverlap {
-            port_id: port_name,
-            parent_id: parent_name,
-            v1: err.1,
-            v2: err.2,
-        }
     }
 }
 

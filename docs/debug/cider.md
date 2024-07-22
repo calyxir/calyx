@@ -1,30 +1,21 @@
-# The Calyx Interactive Debugger
+# Cider: The Calyx Interpreter and Debugger
 
-The Calyx Interactive Debugger is a prototype debugging tool built on top of the
-[Calyx Interpreter][interp] which exposes a [gdb][gdb]-like interface for
-debugging Calyx programs.
+Cider is a prototype debugging tool which exposes a [gdb][gdb]-like interface
+for debugging Calyx programs.
 
 ## Getting Started
 
-If you are using [`fud`][fud], getting started with the debugger is easy.
-
-First, follow [these instructions][interp-fud] to build the interpreter and register it as a `fud` stage.
+If you are using [`fud2`][fud], getting started with the debugger is easy. It
+requires no extra setup beyond the initial `fud2` directory configuration.
 
 Assuming you are trying to debug a program called `my_program.futil` with data
 file `my_program.futil.data`, invoke the debugger with the following command:
 
 ```
-fud e --to debugger -q my_program.futil -s verilog.data my_program.futil.data
+fud2 my_program.futil --to cider-debug -s sim.data=my_program.futil.data
 ```
 
-This will open the target program in the interactive debugger. Note that we use `fud`'s *quiet* flag, `-q`, here. This avoids clashes between `fud`'s outputs and the debugger's outputs, since both tools interact with `stdout`.
-
-The interpreter does not currently support [`ref` cells][ref-cells].
-To run the debugger on a program that uses these, you must first compile them away by running the `compile-invoke` pass:
-
-```
-fud e --to debugger -s calyx.flags '-p compile-invoke' -q my_program.futil -s verilog.data my_program.futil.data
-```
+This will open the target program in the interactive debugger.
 
 ## Advancing Program execution
 
@@ -78,7 +69,7 @@ Main component has finished executing. Debugger is now in inspection mode.
 
 ## Breakpoints
 
-CIDR supports breakpoints on group definitions. This helps focus attention on
+Cider supports breakpoints on group definitions. This helps focus attention on
 suspect portions of the code.
 
 ### Setting a breakpoint
@@ -161,17 +152,17 @@ with formatting.
 
 ### Formatting codes
 
-CIDR supports several different formatting codes which do the hard work of
+Cider supports several different formatting codes which do the hard work of
 interpreting the data in human readable ways.
 
 
-| name | code | description
-|------|------|-----------|
-|binary|  | The default, a bit vector with the msb on the left
-|unsigned| \u | Unsigned bit-num formatting
-|signed| \s | Two's Complement formatting
-|unsigned fixedpoint| \u.N | For N >=1. Unsigned Fixed-point with N fractional bits. The remaining bits are for the integral component.
-|signed fixedpoint| \s.N | For N >=1. Signed Fixed-point with N fractional bits. The remaining bits are for the integral component.
+| name                | code | description                                                                                                |
+| ------------------- | ---- | ---------------------------------------------------------------------------------------------------------- |
+| binary              |      | The default, a bit vector with the msb on the left                                                         |
+| unsigned            | \u   | Unsigned bit-num formatting                                                                                |
+| signed              | \s   | Two's Complement formatting                                                                                |
+| unsigned fixedpoint | \u.N | For N >=1. Unsigned Fixed-point with N fractional bits. The remaining bits are for the integral component. |
+| signed fixedpoint   | \s.N | For N >=1. Signed Fixed-point with N fractional bits. The remaining bits are for the integral component.   |
 
 ### `print` and `print-state`
 
@@ -285,7 +276,7 @@ much of the execution is occurring in parallel at any given point.
 Use `help` to see all commands. Use `exit` to exit the debugger.
 
 
-[fud]: ../running-calyx/fud/index.md
+[fud]: ../running-calyx/fud2/index.md
 [gdb]: https://sourceware.org/gdb/
 [interp]: ../running-calyx/interpreter.md
 [interp-fud]: ../running-calyx/interpreter.md#interpreting-via-fud

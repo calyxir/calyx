@@ -348,6 +348,26 @@ const CONTROL_POINT_PREALLOCATE: usize = 16;
 /// children would be a lot.
 pub type ChildCount = u16;
 
+#[derive(Debug, Clone)]
+pub struct WithEntry {
+    pub group: CombGroupIdx,
+    /// Whether or not a body has been executed. Only used by if statements
+    pub entered: bool,
+}
+
+impl WithEntry {
+    pub fn new(group: CombGroupIdx) -> Self {
+        Self {
+            group,
+            entered: false,
+        }
+    }
+
+    pub fn set_entered(&mut self) {
+        self.entered = true;
+    }
+}
+
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
 #[derive(Debug, Default)]
@@ -355,8 +375,9 @@ pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
     par_map: HashMap<ControlPoint, ChildCount>,
     continuous_assigns: Vec<ContinuousAssignments>,
-    with_map: HashMap<ControlPoint, CombGroupIdx>,
+    with_map: HashMap<ControlPoint, WithEntry>,
     repeat_map: HashMap<ControlPoint, u64>,
+    just_finished_comps: Vec<GlobalCellIdx>,
 }
 
 // we need a few things from the program counter
@@ -364,13 +385,13 @@ pub(crate) struct ProgramCounter {
 pub type PcFields = (
     Vec<ControlPoint>,
     HashMap<ControlPoint, ChildCount>,
-    HashMap<ControlPoint, CombGroupIdx>,
+    HashMap<ControlPoint, WithEntry>,
     HashMap<ControlPoint, u64>,
 );
 
 pub type PcMaps<'a> = (
     &'a mut HashMap<ControlPoint, ChildCount>,
-    &'a mut HashMap<ControlPoint, CombGroupIdx>,
+    &'a mut HashMap<ControlPoint, WithEntry>,
     &'a mut HashMap<ControlPoint, u64>,
 );
 
@@ -382,11 +403,16 @@ impl ProgramCounter {
             continuous_assigns: Vec::new(),
             with_map: HashMap::new(),
             repeat_map: HashMap::new(),
+            just_finished_comps: Vec::new(),
         }
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
         self.vec.iter()
+    }
+
+    pub fn node_slice(&self) -> &[ControlPoint] {
+        &self.vec
     }
 
     pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
@@ -435,8 +461,20 @@ impl ProgramCounter {
         &self.continuous_assigns
     }
 
-    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, CombGroupIdx> {
+    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, WithEntry> {
         &self.with_map
+    }
+
+    pub fn set_finshed_comp(&mut self, comp: GlobalCellIdx) {
+        self.just_finished_comps.push(comp)
+    }
+
+    pub fn finished_comps(&self) -> &[GlobalCellIdx] {
+        &self.just_finished_comps
+    }
+
+    pub fn clear_finished_comps(&mut self) {
+        self.just_finished_comps.clear()
     }
 }
 
