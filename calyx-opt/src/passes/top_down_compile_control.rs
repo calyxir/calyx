@@ -424,7 +424,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
             Some(parent_reg) => {
                 // query parent == 1 iff we are in second-half of seq. schedule
                 let parent_const = builder.add_constant(
-                    match *state > (fsm_rep.last_state + 1) / 2 {
+                    match *state > fsm_rep.last_state / 2 {
                         true => 1,
                         false => 0,
                     },
@@ -662,7 +662,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .iter()
                     .flat_map(|parent| {
                         let parent_const = self.builder.add_constant(
-                            match e > (fsm_rep.last_state + 1) / 2 {
+                            match e > fsm_rep.last_state / 2 {
                                 true => 1,
                                 false => 0,
                             },
