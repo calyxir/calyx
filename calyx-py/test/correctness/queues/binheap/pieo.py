@@ -1,12 +1,11 @@
-# pylint: disable=import-error
 import sys
-import stable_binheap
+from stable_binheap import insert_stable_binheap as insert_sb
 import calyx.builder as cb
 import calyx.queue_call as qc
 
 FACTOR = 4
 
-def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, static=False):
+def insert_pieo(prog, name, queue_len_factor=FACTOR, stats=None, static=False):
     pieo = prog.component(name)
 
     #Ref cells
@@ -22,13 +21,13 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     cmd_eqs = [pieo.eq_use(cmd, i) for i in range(5)]
 
     # Declare the sub-queues as cells of this component.
-    val_queue = pieo.cell("val_queue", stable_binheap.insert_stable_binheap(prog, "val_queue", queue_len_factor))
-    time_queue = pieo.cell("time_queue", stable_binheap.insert_stable_binheap(prog, "time_queue", queue_len_factor))
-    rank_queue = pieo.cell("rank_queue", stable_binheap.insert_stable_binheap(prog, "rank_queue", queue_len_factor))
+    val_queue = pieo.cell("val_queue", insert_sb(prog, "val_queue", queue_len_factor))
+    time_queue = pieo.cell("time_queue", insert_sb(prog, "time_queue", queue_len_factor))
+    rank_queue = pieo.cell("rank_queue", insert_sb(prog, "rank_queue", queue_len_factor))
 
     #Registers/cells for ensuring no overflow or underflow
     num_elements = pieo.reg(32, "num_elements")
-    overflow_check = pieo.lt_use(num_elements.out, queue_len)
+    overflow_check = pieo.lt_use(num_elements.out, 2**queue_len_factor)
     underflow_check = pieo.gt_use(num_elements.out, 0)
 
     #Querying register/memory components
@@ -62,7 +61,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
     cached_data_registers = [pieo.reg(32)] * 3
 
     #Memory cells for cached values, times and ranks
-    cached_data = [pieo.seq_mem_d1(f"cached_{i}", 32, queue_len, 32) for i in range(3)]
+    cached_data = [pieo.seq_mem_d1(f"cached_{i}", 32, 2**queue_len_factor, 32) for i in range(3)]
 
     #Operations to cache values, times and ranks
     cache_data = [
@@ -176,7 +175,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                         in_cmd=cb.const(2, 0), #Pop from queue
                         ref_ans=ans,
                         ref_err=err
-                    ), store_val,
+                    ), store_val, #Store in value register
 
                     cb.invoke(
                         time_queue,
@@ -185,7 +184,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                         in_cmd=cb.const(2, 0), #Pop from queue
                         ref_ans=ans,
                         ref_err=err
-                    ), store_time,
+                    ), store_time, #Store in readiness time register
 
                     cb.invoke(
                         rank_queue,
@@ -194,7 +193,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                         in_cmd=cb.const(2, 0), #Pop from queue
                         ref_ans=ans,
                         ref_err=err
-                    ), store_rank
+                    ), store_rank #Store in rank register
                 ] + cache_data + [incr_queue_idx])
             ),
 
@@ -204,7 +203,7 @@ def insert_pieo(prog, name, queue_len, queue_len_factor=FACTOR, stats=None, stat
                 if include_value
                 else cb.CellAndGroup(time_le, time_pop_guard)),
                 cb.seq([store_ans, raise_err] + [decr_num_elements] if pop else [])
-                #Decrement number of elements if we are popping
+                #Decrement element count if we are popping
             ),
 
             #Write elements back – don't write back the last popped element if popping.
@@ -293,7 +292,7 @@ def build():
     num_cmds = int(sys.argv[1])
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
-    pieo = insert_pieo(prog, "pieo", 16)
+    pieo = insert_pieo(prog, "pieo")
     qc.insert_main(prog, pieo, num_cmds, keepgoing=keepgoing, use_ranks=True, use_times=True)
     return prog.program
 
