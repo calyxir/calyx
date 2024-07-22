@@ -144,7 +144,7 @@ impl ParseVec {
                 ParseVec::D1(v) => {
                     let parsed: Vec<_> = v
                         .iter()
-                        .map(|n| Self::parse_float(n))
+                        .map(Self::parse_float)
                         .collect::<Result<Vec<_>, _>>()?;
                     Ok(DataVec::Fd1(parsed))
                 }
@@ -153,7 +153,7 @@ impl ParseVec {
                         .iter()
                         .map(|v2| {
                             v2.iter()
-                                .map(|n| Self::parse_float(n))
+                                .map(Self::parse_float)
                                 .collect::<Result<Vec<_>, _>>()
                         })
                         .collect::<Result<Vec<_>, _>>()?;
@@ -166,7 +166,7 @@ impl ParseVec {
                             v2.iter()
                                 .map(|v3| {
                                     v3.iter()
-                                        .map(|n| Self::parse_float(n))
+                                        .map(Self::parse_float)
                                         .collect::<Result<Vec<_>, _>>()
                                 })
                                 .collect::<Result<Vec<_>, _>>()
@@ -183,7 +183,7 @@ impl ParseVec {
                                     v3.iter()
                                         .map(|v4| {
                                             v4.iter()
-                                                .map(|n| Self::parse_float(n))
+                                                .map(Self::parse_float)
                                                 .collect::<Result<Vec<_>, _>>()
                                         })
                                         .collect::<Result<Vec<_>, _>>()
@@ -199,7 +199,7 @@ impl ParseVec {
                 ParseVec::D1(v) => {
                     let parsed: Vec<_> = v
                         .iter()
-                        .map(|n| Self::parse_int(n))
+                        .map(Self::parse_int)
                         .collect::<Result<Vec<_>, _>>()?;
                     Ok(DataVec::Id1(parsed))
                 }
@@ -208,7 +208,7 @@ impl ParseVec {
                         .iter()
                         .map(|v2| {
                             v2.iter()
-                                .map(|n| Self::parse_int(n))
+                                .map(Self::parse_int)
                                 .collect::<Result<Vec<_>, _>>()
                         })
                         .collect::<Result<Vec<_>, _>>()?;
@@ -221,7 +221,7 @@ impl ParseVec {
                             v2.iter()
                                 .map(|v3| {
                                     v3.iter()
-                                        .map(|n| Self::parse_int(n))
+                                        .map(Self::parse_int)
                                         .collect::<Result<Vec<_>, _>>()
                                 })
                                 .collect::<Result<Vec<_>, _>>()
@@ -238,7 +238,7 @@ impl ParseVec {
                                     v3.iter()
                                         .map(|v4| {
                                             v4.iter()
-                                                .map(|n| Self::parse_int(n))
+                                                .map(Self::parse_int)
                                                 .collect::<Result<Vec<_>, _>>()
                                         })
                                         .collect::<Result<Vec<_>, _>>()
