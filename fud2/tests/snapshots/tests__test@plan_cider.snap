@@ -43,7 +43,7 @@ rule interp-to-dump
   command = $cider-converter --to json $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
-build interp_out.dump: run-cider cider-input.futil | data.dump
+build interp_out.dump: run-cider /input.ext | data.dump
 build /output.ext: interp-to-dump interp_out.dump | $sim_data $cider-converter
 
 default /output.ext
