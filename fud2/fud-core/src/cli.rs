@@ -169,7 +169,7 @@ struct FakeArgs {
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
 
-    /// use new enumeration algorithm for finding operation sequences
+    /// planner for the backend
     #[argh(option, default = "Planner::Legacy")]
     planner: Planner,
 }

@@ -27,7 +27,7 @@ fn language_string(states: &[StateRef]) -> String {
 
     let states = states
         .into_iter()
-        .map(|n| n.to_string())
+        .map(|n| n.as_u32().to_string())
         .collect::<Vec<_>>()
         .join(" ");
     format!("(states {})", states)
@@ -47,7 +47,7 @@ impl FindPlan for EggPlanner {
             .map(|(op_ref, op)| {
                 // Name the rewrite after the op's reference.
                 // This is how we will retrieve it later from the egraph.
-                let name = op_ref.to_string();
+                let name = op_ref.as_u32().to_string();
 
                 // Maintain lists of states in sorted order to reduce number of eclasses.
                 let lhs: Pattern<StateLanguage> =
@@ -65,8 +65,8 @@ impl FindPlan for EggPlanner {
 
         // Find a solution.
         let mut runner = Runner::default()
-            .with_expr(&start_expr)
             .with_explanations_enabled()
+            .with_expr(&start_expr)
             .run(&rules);
 
         // check if a solution exists
