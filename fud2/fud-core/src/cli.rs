@@ -1,7 +1,5 @@
 use crate::config;
-use crate::exec::{
-    Driver, EnumeratePlanner, Request, SingleOpOutputPlanner, StateRef,
-};
+use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
@@ -40,6 +38,38 @@ impl Display for Mode {
             Mode::Generate => write!(f, "gen"),
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
+        }
+    }
+}
+
+/// Types of planners to use on the backend. Except for legacy, they "should" all match
+/// specification, but may perform at different efficiencies or choose different paths when there
+/// is more than one correct path to choose.
+enum Planner {
+    Legacy,
+    Egg,
+    Enumerate,
+}
+
+impl FromStr for Planner {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "legacy" => Ok(Planner::Legacy),
+            "egg" => Ok(Planner::Egg),
+            "enumerate" => Ok(Planner::Enumerate),
+            _ => Err("unknown planner".to_string()),
+        }
+    }
+}
+
+impl Display for Planner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Planner::Legacy => write!(f, "legacy"),
+            Planner::Egg => write!(f, "egg"),
+            Planner::Enumerate => write!(f, "enumerate"),
         }
     }
 }
@@ -140,8 +170,8 @@ struct FakeArgs {
     pub log_level: log::LevelFilter,
 
     /// use new enumeration algorithm for finding operation sequences
-    #[argh(switch)]
-    planner: bool,
+    #[argh(option, default = "Planner::Legacy")]
+    planner: Planner,
 }
 
 fn get_states_with_errors(
@@ -227,10 +257,10 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         end_states: to_state(driver, args)?,
         through: through?,
         workdir,
-        planner: if args.planner {
-            Box::new(EnumeratePlanner {})
-        } else {
-            Box::new(SingleOpOutputPlanner {})
+        planner: match args.planner {
+            Planner::Legacy => Box::new(plan::SingleOpOutputPlanner {}),
+            Planner::Egg => Box::new(plan::EggPlanner {}),
+            Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
         },
     })
 }

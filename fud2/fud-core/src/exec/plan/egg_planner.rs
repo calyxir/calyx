@@ -74,7 +74,7 @@ impl FindPlan for EggPlanner {
             language_string(end).parse().unwrap();
 
         // If the end expression exists, retrieve it using steps.
-        // TODO: this ignores `through`.
+        // TODO: this currently ignores `through`.
         if runner.egraph.lookup_expr(&end_expr).is_some() {
             let mut explanation = runner.explain_existance(&end_expr);
             Some(
