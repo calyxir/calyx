@@ -80,8 +80,8 @@ ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
 WORKDIR /home/calyx
 run mkdir -p ~/.local/bin
 RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
-RUN printf "dahlia = \"/home/dahlia/fuse\n\"" >> ~/.config/fud2.toml
-RUN printf "[calyx]\nbase = \"/home/calyx\"" >> ~/.config/fud2.toml
+RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
+RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
 
 # Install calyx-py
 WORKDIR /home/calyx/calyx-py
