@@ -6,9 +6,9 @@ static<10> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset 
     r = std_reg(32);
     r1 = std_reg(32);
     @generated fsm = std_reg(4);
-    @generated fsm0 = std_reg(3);
+    @generated fsm0 = std_reg(4);
     @generated adder = std_add(4);
-    @generated adder0 = std_add(3);
+    @generated adder0 = std_add(4);
     @generated ud = undef(1);
     @generated ud0 = undef(1);
     @generated ud1 = undef(1);
@@ -23,7 +23,7 @@ static<10> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset 
     }
     group early_reset_static_par<"par"=1> {
       early_reset_static_par_thread[go] = 1'd1;
-      early_reset_static_par_thread0[go] = fsm.out < 4'd5 & 1'b1 ? 1'd1;
+      early_reset_static_par_thread0[go] = 1'd1;
       early_reset_static_par[done] = ud0.out;
     }
     group early_reset_static_par_thread {
@@ -52,11 +52,11 @@ static<10> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset 
       r1.in = 32'd2;
       early_reset_c[done] = ud4.out;
       adder0.left = fsm0.out;
-      adder0.right = 3'd1;
-      fsm0.in = fsm0.out != 3'd4 ? adder0.out;
-      fsm0.write_en = fsm0.out != 3'd4 ? 1'd1;
-      fsm0.in = fsm0.out == 3'd4 ? 3'd0;
-      fsm0.write_en = fsm0.out == 3'd4 ? 1'd1;
+      adder0.right = 4'd1;
+      fsm0.in = fsm0.out != 4'd9 ? adder0.out;
+      fsm0.write_en = fsm0.out != 4'd9 ? 1'd1;
+      fsm0.in = fsm0.out == 4'd9 ? 4'd0;
+      fsm0.write_en = fsm0.out == 4'd9 ? 1'd1;
     }
     early_reset_static_par[go] = 1'd1;
   }
