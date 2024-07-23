@@ -1,5 +1,4 @@
 use crate::analysis::GraphColoring;
-use crate::passes::math_utilities::get_bit_width_from;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
@@ -514,15 +513,17 @@ impl StaticInliner {
                             // number of bits as latency, then we might as
                             // well just increase the latency of the group to
                             // avoid making this guard.
-                            if group.borrow().latency < *latency
-                                && get_bit_width_from(group.borrow().latency)
-                                    == get_bit_width_from(*latency)
-                            {
-                                Self::increase_sgroup_latency(
-                                    Rc::clone(&group),
-                                    *latency,
-                                );
-                            }
+                            // if group.borrow().latency < *latency
+                            //     && get_bit_width_from(group.borrow().latency)
+                            //         == get_bit_width_from(*latency)
+                            // {
+                            // Actually just unconditionally increase sgroup
+                            // latency.
+                            Self::increase_sgroup_latency(
+                                Rc::clone(&group),
+                                *latency,
+                            );
+                            // }
 
                             structure!( builder;
                                 let signal_on = constant(1,1);
