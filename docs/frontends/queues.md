@@ -102,6 +102,63 @@ A register tracks the class that we wish to emit from next.
 The register starts arbitrarily, and is updated after each successful emission from the desired class.
 It is left unchanged in the case when the desired class is empty and an element of the other class is emitted in the interest of work conservation.
 
+Additionally, there are two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop/peek from next. These PIFOs take n flows instead of just two.
+
+### Round Robin Queues
+
+Round robin queues are PIFOs generalized to n flows that operate in a work 
+conserving round robin fashion. That is, if a flow is silent when it is its turn, that flow
+simply skips its turn and the next flow is offered service.
+
+Internally, it operates n FIFOs.
+It takes in a list `boundaries` that must be of length `n`, using which the
+client can divide the incoming traffic into `n` flows.
+For example, if n = 3 and the client passes boundaries [133, 266, 400],
+packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+
+- At push, we check the `boundaries` list to determine which flow to push to.
+Take the boundaries example given earlier, [133, 266, 400].
+If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
+and 305 would end up in flow 2 since 266 <= 305 <= 400.
+- Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
+it increments `hot` and therefore continues to check all other flows
+in round robin fashion.
+- Peek works in a similar fashion to `pop`, except
+`hot` is restored to its original value at the every end.
+Further, nothing is actually dequeued.
+
+The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
+is parameterized on red_robin being `true` or `false`.
+
+### Strict Queues
+
+Strict queues support n flows as well, but instead, flows have a strict order of priority, which determines popping and peeking
+order. If the highest priority flow is silent when it is its turn, that flow
+simply skips its turn and the next flow is offered service. If a higher
+priority flow get pushed to in the interim, the next call to pop/peek will
+return from that flow.
+
+Like round robin queues, it takes in a list `boundaries` that must be of length `n`, which divide the incoming traffic into `n` flows.
+For example, if n = 3 and the client passes boundaries [133, 266, 400],
+packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+
+It takes a list `order` that must be of length `n`, which specifies the order
+of priority of the flows. For example, if n = 3 and the client passes order
+[1, 2, 0], flow 1 (packets in range [134, 266]) is first priority, flow 2
+(packets in range [267, 400]) is second priority, and flow 0 (packets in range
+[0, 133]) is last priority.
+
+- At push, we check the `boundaries` list to determine which flow to push to.
+Take the boundaries example given earlier, [133, 266, 400].
+If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
+and 305 would end up in flow 2 since 266 <= 305 <= 400.
+- Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
+it tries `order[1]`, etc.
+- Peek works in a similar fashion to `pop`.
+
+The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
+is parameterized on red_robin being `true` or `false`.
+
 ## PIFO Tree
 
 A PIFO tree is a tree-shaped data structure in which each node is associated with a PIFO.
@@ -152,66 +209,6 @@ It uses a counter `i` and instantiates, in turn, a binary heap that accepts 64-b
 
 The source code is available in [`stable_binheap.py`][stable_binheap.py].
 
-## Round Robin Queues
-
-Round robin queues are PIFOs generalized to n flows that operate in a work 
-conserving round robin fashion. If a flow is silent when it is its turn, that flow
-simply skips its turn and the next flow is offered service.
-
-Supports the operations `push`, `pop`, and `peek`.
-It takes in a list `boundaries` that must be of length `n`, using which the
-client can divide the incoming traffic into `n` flows.
-For example, if n = 3 and the client passes boundaries [133, 266, 400],
-packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
-
-- At push, we check the `boundaries` list to determine which flow to push to.
-Take the boundaries example given earlier, [133, 266, 400].
-If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
-and 305 would end up in flow 2 since 266 <= 305 <= 400.
-- Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
-it increments `hot` and therefore continues to check all other flows
-in round robin fashion.
-- Peek allows the client to see which element is at the head of the queue
-without removing it. Thus, peek works in a similar fashion to `pop`, except
-`hot` is restored to its original value at the every end.
-Further, nothing is actually dequeued.
-
-The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
-is parameterized on red_robin being `true` or `false`.
-
-## Strict Queues
-
-Strict queues support n flows as well, but instead apply a strict policy to them,
-meaning that flows have a strict order of priority, which determines popping and peeking
-order. If the highest priority flow is silent when it is its turn, that flow
-simply skips its turn and the next flow is offered service. If a higher
-priority flow get pushed to in the interim, the next call to pop/peek will
-return from that flow.
-
-Supports the operations `push`, `pop`, and `peek`.
-It takes in a list `boundaries` that must be of length `n`, using which the
-client can divide the incoming traffic into `n` flows.
-For example, if n = 3 and the client passes boundaries [133, 266, 400],
-packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
-
-It takes a list `order` that must be of length `n`, which specifies the order
-of priority of the flows. For example, if n = 3 and the client passes order
-[1, 2, 0], flow 1 (packets in range [134, 266]) is first priority, flow 2
-(packets in range [267, 400]) is second priority, and flow 0 (packets in range
-[0, 133]) is last priority.
-
-- At push, we check the `boundaries` list to determine which flow to push to.
-Take the boundaries example given earlier, [133, 266, 400].
-If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
-and 305 would end up in flow 2 since 266 <= 305 <= 400.
-- Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
-it tries `order[1]`, etc.
-- Peek allows the client to see which element is at the head of the queue
-without removing it. Thus, peek works in a similar fashion to `pop`. Further,
-nothing is actually dequeued.
-
-The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
-is parameterized on red_robin being `true` or `false`.
 
 [builder]: ../builder/calyx-py.md
 [fifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/fifo.py
