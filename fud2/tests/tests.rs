@@ -1,6 +1,6 @@
 use fud_core::{
     config::default_config,
-    exec::{Plan, Request, SingleOpOutputPlanner, IO},
+    exec::{plan::SingleOpOutputPlanner, Plan, Request, IO},
     run::Run,
     Driver, DriverBuilder,
 };
