@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use super::{
     super::{OpRef, Operation, StateRef},
     FindPlan, Step,
@@ -12,8 +10,12 @@ pub struct EggPlanner;
 
 define_language! {
     /// A language to represent a collection of states.
+    /// For example, if there are 3 states and 2 ops, a term `(root (states x x x) (ops x x))`
+    /// represents the absense of all states and all ops. A term `(root (states 3 x x) (ops x 2))`
+    /// represents a a pair of sets, the first containing a single state with `StateRef` 3 and the
+    /// second containing a single op with `OpRef` 2.
     enum StateLanguage {
-        // The root of a term
+        // The root of a term. This is used to store a pair of "states" and "ops".
         "root" = Root([Id; 2]),
         // A list of states.
         "states" = States(Box<[Id]>),
@@ -26,9 +28,14 @@ define_language! {
     }
 }
 
-/// Construct string which can be parsed to a `StateLanguage` expression out of a set of
-/// `StateRef`. If `use_x` is set, states not in `states` and ops not in `through` will be replaced
-/// with "x", else they will be given a unique variable name.
+/// Construct string which can be parsed to a `root` term in `StateLanguage`.
+///
+/// `states` are in included states in the term, and `through` are the included ops. If
+/// `states_use_x` is set, then all absent states will be marked with `x`. If it is not set, these
+/// unused states will instead be marked with a unique variable to create a string parsable into a
+/// pattern. `ops_use_x` is similar but applies to unused ops.
+///
+/// `all_states` is an ordered list of all states. `all_ops` is an ordered list of all ops.
 fn language_string(
     states: &[StateRef],
     through: &[OpRef],
@@ -89,11 +96,8 @@ impl FindPlan for EggPlanner {
             .map(|op| op.input.clone())
             .chain(ops.values().map(|op| op.output.clone()))
             .flatten()
-            .collect::<BTreeSet<_>>()
-            .into_iter()
             .collect();
-        let all_ops: Vec<_> =
-            ops.keys().collect::<BTreeSet<_>>().into_iter().collect();
+        let all_ops: Vec<_> = ops.keys().collect();
 
         // Construct egg rewrites for each op.
         let rules: Vec<Rewrite<StateLanguage, ()>> = ops
@@ -118,6 +122,7 @@ impl FindPlan for EggPlanner {
                 // The input states don't go away but this pretends they do because it massively
                 // reduces the search space.
 
+                // TODO: Change `language_string` so it can also be used to format `rhs`.
                 // Collect states into a string.
                 let state_str = all_states
                     .iter()
@@ -169,7 +174,8 @@ impl FindPlan for EggPlanner {
             .with_expr(&start_expr)
             .run(&rules);
 
-        // Check if a solution exists.
+        // Create solution expression. This assumes that the ops generate exactly the requested
+        // files with no extras.
         let end_expr: RecExpr<StateLanguage> =
             language_string(end, through, true, true, &all_states, &all_ops)
                 .parse()
