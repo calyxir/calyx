@@ -1,9 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Failed to parse `tests/errors/parser/wrong-binary-num.futil`:  --> 4:16
-  |
-4 |     r.in = 10'b22;
-  |                ^^
-  |
-  = Expected binary number
+Error: tests/errors/parser/wrong-binary-num.futil
+4 |    r.in = 10'b22;
+  |               ^^ Parse error
+Expected binary number

@@ -3,6 +3,7 @@ use calyx_ir::{self as cir, NumAttr, RRC};
 use itertools::Itertools;
 
 use crate::{
+    as_raw::AsRaw,
     flatten::{
         flat_ir::{
             cell_prototype::{CellPrototype, LiteralOrPrimitive},
@@ -19,7 +20,6 @@ use crate::{
             index_trait::IndexRange,
         },
     },
-    utils::AsRaw,
 };
 
 use super::{structures::*, utils::CompTraversal};
