@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use super::{
     super::{OpRef, Operation, StateRef},
     FindPlan, Step,
@@ -11,26 +13,66 @@ pub struct EggPlanner;
 define_language! {
     /// A language to represent a collection of states.
     enum StateLanguage {
+        // The root of a term
+        "root" = Root([Id; 2]),
         // A list of states.
-        "states" = List(Box<[Id]>),
-        // A singular state, represented by its StateRef.
-        State(u32),
+        "states" = States(Box<[Id]>),
+        // A list of ops.
+        "ops" = Ops(Box<[Id]>),
+        // Symbolizes the absense of a state or op.
+        "x" = X,
+        // A ref, refering to either a StateRef or OpRef depending on context.
+        Ref(u32),
     }
 }
 
 /// Construct string which can be parsed to a `StateLanguage` expression out of a set of
-/// `StateRef`.
-fn language_string(states: &[StateRef]) -> String {
-    // Maintain lists of states in sorted order to reduce number of eclasses.
-    let mut states = Vec::from(states);
-    states.sort();
-
-    let states = states
-        .into_iter()
-        .map(|n| n.as_u32().to_string())
+/// `StateRef`. If `use_x` is set, states not in `states` and ops not in `through` will be replaced
+/// with "x", else they will be given a unique variable name.
+fn language_string(
+    states: &[StateRef],
+    through: &[OpRef],
+    states_use_x: bool,
+    ops_use_x: bool,
+    all_states: &[StateRef],
+    all_ops: &[OpRef],
+) -> String {
+    // Collect states into a string.
+    let state_str = all_states
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            if states.contains(s) {
+                s.as_u32().to_string()
+            } else if states_use_x {
+                String::from("x")
+            } else {
+                format!("?s{}", i)
+            }
+        })
         .collect::<Vec<_>>()
         .join(" ");
-    format!("(states {})", states)
+    let state_str = format!("(states {})", state_str);
+
+    // Collect ops into a string.
+    let op_str = all_ops
+        .iter()
+        .enumerate()
+        .map(|(i, o)| {
+            if through.contains(o) {
+                o.as_u32().to_string()
+            } else if ops_use_x {
+                String::from("x")
+            } else {
+                format!("?o{}", i)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let op_str = format!("(ops {})", op_str);
+
+    // Put them together with root.
+    format!("(root {} {})", state_str, op_str)
 }
 
 impl FindPlan for EggPlanner {
@@ -41,6 +83,18 @@ impl FindPlan for EggPlanner {
         through: &[OpRef],
         ops: &PrimaryMap<OpRef, Operation>,
     ) -> Option<Vec<Step>> {
+        // Collect all ops and states into sorted `Vec`s.
+        let all_states: Vec<_> = ops
+            .values()
+            .map(|op| op.input.clone())
+            .chain(ops.values().map(|op| op.output.clone()))
+            .flatten()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let all_ops: Vec<_> =
+            ops.keys().collect::<BTreeSet<_>>().into_iter().collect();
+
         // Construct egg rewrites for each op.
         let rules: Vec<Rewrite<StateLanguage, ()>> = ops
             .iter()
@@ -50,10 +104,54 @@ impl FindPlan for EggPlanner {
                 let name = op_ref.as_u32().to_string();
 
                 // Maintain lists of states in sorted order to reduce number of eclasses.
-                let lhs: Pattern<StateLanguage> =
-                    language_string(&op.input).parse().unwrap();
-                let rhs: Pattern<StateLanguage> =
-                    language_string(&op.output).parse().unwrap();
+                let lhs: Pattern<StateLanguage> = language_string(
+                    &op.input,
+                    &[],
+                    false,
+                    false,
+                    &all_states,
+                    &all_ops,
+                )
+                .parse()
+                .unwrap();
+
+                // The input states don't go away but this pretends they do because it massively
+                // reduces the search space.
+
+                // Collect states into a string.
+                let state_str = all_states
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| {
+                        if op.output.contains(s) {
+                            s.as_u32().to_string()
+                        } else if op.input.contains(s) {
+                            String::from("x")
+                        } else {
+                            format!("?s{}", i)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let state_str = format!("(states {})", state_str);
+
+                // Collect ops into a string.
+                let op_str = all_ops
+                    .iter()
+                    .enumerate()
+                    .map(|(i, o)| {
+                        if through.contains(o) {
+                            o.as_u32().to_string()
+                        } else {
+                            format!("?o{}", i)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let op_str = format!("(ops {})", op_str);
+
+                let lang_str = format!("(root {} {})", state_str, op_str);
+                let rhs: Pattern<StateLanguage> = lang_str.parse().unwrap();
 
                 rewrite!(name; lhs => rhs)
             })
@@ -61,7 +159,9 @@ impl FindPlan for EggPlanner {
 
         // Construct initial expression.
         let start_expr: RecExpr<StateLanguage> =
-            language_string(start).parse().unwrap();
+            language_string(start, &[], true, true, &all_states, &all_ops)
+                .parse()
+                .unwrap();
 
         // Find a solution.
         let mut runner = Runner::default()
@@ -69,9 +169,11 @@ impl FindPlan for EggPlanner {
             .with_expr(&start_expr)
             .run(&rules);
 
-        // check if a solution exists
+        // Check if a solution exists.
         let end_expr: RecExpr<StateLanguage> =
-            language_string(end).parse().unwrap();
+            language_string(end, through, true, true, &all_states, &all_ops)
+                .parse()
+                .unwrap();
 
         // If the end expression exists, retrieve it using steps.
         // TODO: this currently ignores `through`.
@@ -91,7 +193,6 @@ impl FindPlan for EggPlanner {
                     })
                     // Assume all outputs of an op are used.
                     // TODO: Make it so only a subset of the outputs of a thing need to be used.
-                    // TODO: Make it so inputs can be used multiple times.
                     .map(|op_ref| (op_ref, ops[op_ref].output.to_vec()))
                     .collect(),
             )
