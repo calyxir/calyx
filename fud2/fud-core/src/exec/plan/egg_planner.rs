@@ -82,6 +82,72 @@ fn language_string(
     format!("(root {} {})", state_str, op_str)
 }
 
+/// Creates a `Rewrite` corresponding to `op` and `op_ref` for `StateLanguage`.
+///
+/// `through` is all of the ops required to be used by a plan the planner is attempting to find.
+/// This is used as an optimization so only the ops specified in `through` are needed to be kept
+/// track of in `ops` terms.
+///
+/// `all_states` is an ordered list of all states. `all_ops` is an ordered list of all ops.
+fn rewrite_from_op(
+    op_ref: OpRef,
+    op: &Operation,
+    through: &[OpRef],
+    all_states: &[StateRef],
+    all_ops: &[OpRef],
+) -> Rewrite<StateLanguage, ()> {
+    // Name the rewrite after the op's reference.
+    // This is how we will retrieve it later from the egraph.
+    let name = op_ref.as_u32().to_string();
+
+    // Maintain lists of states in sorted order to reduce number of eclasses.
+    let lhs: Pattern<StateLanguage> =
+        language_string(&op.input, &[], false, false, all_states, all_ops)
+            .parse()
+            .unwrap();
+
+    // The input states don't go away but this pretends they do because it massively
+    // reduces the search space.
+
+    // TODO: Change `language_string` so it can also be used to format `rhs`.
+    // Collect states into a string.
+    let state_str = all_states
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            if op.output.contains(s) {
+                s.as_u32().to_string()
+            } else if op.input.contains(s) {
+                String::from("x")
+            } else {
+                format!("?s{}", i)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let state_str = format!("(states {})", state_str);
+
+    // Collect ops into a string.
+    let op_str = all_ops
+        .iter()
+        .enumerate()
+        .map(|(i, o)| {
+            if through.contains(o) {
+                o.as_u32().to_string()
+            } else {
+                format!("?o{}", i)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let op_str = format!("(ops {})", op_str);
+
+    let lang_str = format!("(root {} {})", state_str, op_str);
+    let rhs: Pattern<StateLanguage> = lang_str.parse().unwrap();
+
+    rewrite!(name; lhs => rhs)
+}
+
 impl FindPlan for EggPlanner {
     fn find_plan(
         &self,
@@ -103,62 +169,7 @@ impl FindPlan for EggPlanner {
         let rules: Vec<Rewrite<StateLanguage, ()>> = ops
             .iter()
             .map(|(op_ref, op)| {
-                // Name the rewrite after the op's reference.
-                // This is how we will retrieve it later from the egraph.
-                let name = op_ref.as_u32().to_string();
-
-                // Maintain lists of states in sorted order to reduce number of eclasses.
-                let lhs: Pattern<StateLanguage> = language_string(
-                    &op.input,
-                    &[],
-                    false,
-                    false,
-                    &all_states,
-                    &all_ops,
-                )
-                .parse()
-                .unwrap();
-
-                // The input states don't go away but this pretends they do because it massively
-                // reduces the search space.
-
-                // TODO: Change `language_string` so it can also be used to format `rhs`.
-                // Collect states into a string.
-                let state_str = all_states
-                    .iter()
-                    .enumerate()
-                    .map(|(i, s)| {
-                        if op.output.contains(s) {
-                            s.as_u32().to_string()
-                        } else if op.input.contains(s) {
-                            String::from("x")
-                        } else {
-                            format!("?s{}", i)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                let state_str = format!("(states {})", state_str);
-
-                // Collect ops into a string.
-                let op_str = all_ops
-                    .iter()
-                    .enumerate()
-                    .map(|(i, o)| {
-                        if through.contains(o) {
-                            o.as_u32().to_string()
-                        } else {
-                            format!("?o{}", i)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                let op_str = format!("(ops {})", op_str);
-
-                let lang_str = format!("(root {} {})", state_str, op_str);
-                let rhs: Pattern<StateLanguage> = lang_str.parse().unwrap();
-
-                rewrite!(name; lhs => rhs)
+                rewrite_from_op(op_ref, op, through, &all_states, &all_ops)
             })
             .collect();
 
