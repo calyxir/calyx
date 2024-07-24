@@ -1,5 +1,5 @@
 use fud_core::{
-    exec::{EnumeratePlanner, FindPlan},
+    exec::plan::{EnumeratePlanner, FindPlan},
     DriverBuilder,
 };
 
