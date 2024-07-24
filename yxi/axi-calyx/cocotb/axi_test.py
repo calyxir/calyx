@@ -89,12 +89,15 @@ async def run_kernel_test(toplevel, data_path: str):
 
     # Finish when ap_done is high or 100 us of simulation have passed.
     timeout = 5000
-    #Assert ap_start by writing 1 to 0x0000
-    await tb.control_manager.write(0x0000, encode([0],1))
     #Base addresses for memories
-    await tb.control_manager.write(0x0018, encode([0],8))
-    await tb.control_manager.write(0x0020, encode([0],8))
-    await tb.control_manager.write(0x0028, encode([0],8))
+    await tb.control_manager.write(0x0010, encode([0x0],4))
+    await tb.control_manager.write(0x0014, encode([0x0],4))
+    await tb.control_manager.write(0x0018, encode([0x0],4))
+    await tb.control_manager.write(0x001C, encode([0x0],4))
+    await tb.control_manager.write(0x0020, encode([0x0],4))
+    await tb.control_manager.write(0x0024, encode([0x0],4))
+    #Assert ap_start by writing 1 to 0x0000
+    await tb.control_manager.write(0x0000, encode([0x1],1))
     await with_timeout(RisingEdge(toplevel.done), timeout, "us")
 
 

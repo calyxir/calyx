@@ -1,4 +1,4 @@
-from calyx.builder import Builder, add_comp_ports, invoke, const, par, while_with, if_
+from calyx.builder import Builder, add_comp_ports, invoke, const, par, while_
 from typing import Literal
 from math import log2
 import json
@@ -289,7 +289,7 @@ def add_write_controller(prog, mems):
         ("AWREADY", 1),
         ("WREADY", 1),
         ("BVALID", 1),
-        ("BRRESP", 2),
+        ("BRESP", 2),
     ]
 
     add_comp_ports(write_controller, write_controller_inputs, write_controller_outputs)
@@ -334,7 +334,7 @@ def add_write_controller(prog, mems):
             b_channel,
             in_BREADY=write_controller.this()["BREADY"],
             out_BVALID=write_controller.this()["BVALID"],
-            out_BRESP=write_controller.this()["BRRESP"],
+            out_BRESP=write_controller.this()["BRESP"],
         ),
     ]
 
@@ -456,6 +456,11 @@ def add_control_subordinate(prog, mems):
         f"s_control_write_controller", prog.get_component("s_control_write_controller")
     )
 
+    n_ap_done = control_subordinate.not_(1, "n_ap_done")
+    # Ideally this would be a comb group for analysis purposes, but this leadds to nested
+    # comb group activation, so this is continuous instead
+    # n_ap_done = control_subordinate.not_use(ap_done_slice.out, "n_ap_done",width=1)
+
     # Wires
     xrt_control_reg = control_subordinate.get_cell("control")
     
@@ -491,7 +496,7 @@ def add_control_subordinate(prog, mems):
         this["AWREADY"] = write_controller["AWREADY"]
         this["WREADY"] = write_controller["WREADY"]
         this["BVALID"] = write_controller["BVALID"]
-        this["BRESP"] = write_controller["BRRESP"]
+        this["BRESP"] = write_controller["BRESP"]
         this["ARREADY"] = read_controller["ARREADY"]
         this["RDATA"] = read_controller["RDATA"]
         this["RRESP"] = read_controller["RRESP"]
@@ -502,7 +507,7 @@ def add_control_subordinate(prog, mems):
         # XRT Wiring stuff
         ap_start_slice.in_ = xrt_control_reg.out
         ap_done_slice.in_ = xrt_control_reg.out
-        control_subordinate.this()
+        n_ap_done.in_ = this["ap_done_in"]
 
     with control_subordinate.group("init_control_regs") as init_control_regs:
         for reg in control_regs:
@@ -511,13 +516,14 @@ def add_control_subordinate(prog, mems):
 
         init_control_regs.done = xrt_control_reg.done
 
-    with control_subordinate.group("check_ap_done") as check_ap_done:
+    # Writes to the control register if the input signal ap_done is high
+    with control_subordinate.group("write_ap_done") as write_ap_done:
         ap_done_or.left = xrt_control_reg.out
         ap_done_or.right = this["ap_done_in"] @ const(32, 0b10)
         ap_done_or.right = ~this["ap_done_in"] @ const(32, 0)
         xrt_control_reg.in_ = ap_done_or.out
         xrt_control_reg.write_en = 1
-        check_ap_done.done = xrt_control_reg.done
+        write_ap_done.done = xrt_control_reg.done
 
     #Pass in the concrete cells as into our invokes
     sub_controller_kwargs = {}
@@ -535,13 +541,13 @@ def add_control_subordinate(prog, mems):
     )
 
 
-    n_ap_done = control_subordinate.not_use(ap_done_slice.out, "n_ap_done",width=1)
     control_subordinate.control += [
         init_control_regs,
-        while_with(n_ap_done, [par(
-            while_with(n_ap_done, write_controller_invoke),
-            while_with(n_ap_done, read_controller_invoke),
-            ), check_ap_done]),
+            par(
+                while_(n_ap_done.out, write_controller_invoke),
+                while_(n_ap_done.out, read_controller_invoke),
+            ),
+            write_ap_done
     ]
 
 

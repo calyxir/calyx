@@ -12,6 +12,9 @@ from math import log2, ceil
 import json
 import sys
 
+
+GENERATE_FOR_XILINX = True
+
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
 
 # Since yxi is still young, keys and formatting change often.
@@ -668,9 +671,14 @@ def add_wrapper_comp(prog, mems):
 
     add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
     
-    control_subordinate = wrapper_comp.cell(f"control_subordinate", prog.get_component("control_subordinate"))
-    ap_start_block_reg = wrapper_comp.reg(1, f"ap_start_block_reg")
-    ap_done_reg = wrapper_comp.reg(1, f"ap_done_reg")
+    if GENERATE_FOR_XILINX:
+        control_subordinate = wrapper_comp.cell(f"control_subordinate", prog.get_component("control_subordinate"))
+        ap_start_block_reg = wrapper_comp.reg(1, f"ap_start_block_reg")
+        ap_done_reg = wrapper_comp.reg(1, f"ap_done_reg")
+
+        with wrapper_comp.continuous:
+            control_subordinate.ap_done_in = ap_done_reg.out
+
 
     #NOTE: This breaks encapsulation of modules a bit,
     # but allows us to block on ap_start in the control block without
@@ -684,7 +692,6 @@ def add_wrapper_comp(prog, mems):
         block_ap_start.done = ap_start_block_reg.done
 
     with wrapper_comp.group(f"assert_ap_done") as assert_ap_done:
-        control_subordinate.ap_done_in = ap_done_reg.out
         ap_done_reg.in_ = 1
         ap_done_reg.write_en = 1
         assert_ap_done.done = ap_done_reg.done
@@ -781,7 +788,10 @@ def add_wrapper_comp(prog, mems):
             wrapper_comp.this()[f"{mem_name}_WLAST"] = axi_mem.WLAST
             wrapper_comp.this()[f"{mem_name}_WDATA"] = axi_mem.WDATA
             wrapper_comp.this()[f"{mem_name}_BREADY"] = axi_mem.BREADY
-        
+
+            if GENERATE_FOR_XILINX:
+                axi_mem["base_address"] = control_subordinate[f"{mem_name}_base_addr"]
+
 
 
         # Creates `<mem_name> = internal_mem_<mem_name>` as refs in invocation of `main_compute`
