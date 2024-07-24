@@ -41,6 +41,7 @@ def create_axi_lite_channel_ports(prog, prefix: Literal["AW", "AR", "W", "B", "R
     s_to_m_channel = prog.component(f"s_{lc_x}_channel")
     channel_inputs = [
         ("ARESETn", 1),
+        ("ap_done", 1)
     ]
     channel_outputs = []
 
@@ -105,7 +106,7 @@ def _add_s_to_m_address_channel(prog, prefix: Literal["AW", "AR"]):
         x_addr.write_en = (x_ready.out & xVALID) @ 1
         x_addr.write_en = ~(x_ready.out & xVALID) @ 0
 
-        block_transfer.done = x_addr.done
+        block_transfer.done = (x_addr.done | s_to_m_address_channel.this()["ap_done"]) @ 1
 
     s_to_m_address_channel.control += [invoke(x_ready, in_in=0),block_transfer]
 
@@ -139,7 +140,7 @@ def add_read_channel(prog):
         read_channel.this()["RRESP"] = 0b00
 
         # TODO: Make sure this works? This is changed from the manager controllers which uses a "bt_reg" (block_transfer)
-        service_read_request.done = r_handshake_occurred.out
+        service_read_request.done = (r_handshake_occurred.out | read_channel.this()["ap_done"]) @ 1
 
     read_channel.control += [
         invoke(r_handshake_occurred, in_in=0),
@@ -169,7 +170,7 @@ def add_write_channel(prog):
         wdata.write_en = (wready.out & wVALID) @ 1
         wdata.write_en = ~(wready.out & wVALID) @ 0
 
-        service_write_request.done = wdata.done
+        service_write_request.done = (wdata.done | write_channel.this()["ap_done"]) @ 1
 
     
     write_channel.control += [invoke(wready, in_in=0), service_write_request]
@@ -197,7 +198,7 @@ def add_bresp_channel(prog):
         b_handshake_occurred.in_ = (bvalid.out & BREADY) @ 1
         b_handshake_occurred.in_ = ~(bvalid.out & BREADY) @ 0
         b_handshake_occurred.write_en = 1
-        block_transfer.done = b_handshake_occurred.out
+        block_transfer.done = (b_handshake_occurred.out | bresp_channel.this()["ap_done"]) @ 1
 
     bresp_channel.control += [invoke(b_handshake_occurred, in_in=0), block_transfer]
 
@@ -245,6 +246,7 @@ def add_read_controller(prog, mems):
             ref_rdata=reg,
             in_ARESETn=read_controller.this()["ARESETn"],
             in_RREADY=read_controller.this()["RREADY"],
+            in_ap_done = read_controller.this()["ap_done"],
             out_RVALID=read_controller.this()["RVALID"],
             out_RRESP=read_controller.this()["RRESP"],
             out_RDATA=read_controller.this()["RDATA"],
@@ -261,6 +263,7 @@ def add_read_controller(prog, mems):
             in_ARESETn=read_controller.this()["ARESETn"],
             in_ARVALID=read_controller.this()["ARVALID"],
             in_ARADDR=read_controller.this()["ARADDR"],
+            in_ap_done=read_controller.this()["ap_done"],
             in_ARPROT=read_controller.this()["ARPROT"],
             out_ARREADY=read_controller.this()["ARREADY"],
         ),
@@ -283,6 +286,7 @@ def add_write_controller(prog, mems):
         ("WDATA", 32),
         ("WSTRB", 4),
         ("BREADY", 1),
+        ("ap_done", 1) # Passed in to allow short circuiting of component completion
     ]
 
     write_controller_outputs = [
@@ -314,6 +318,7 @@ def add_write_controller(prog, mems):
             in_WVALID=write_controller.this()["WVALID"],
             in_WDATA=write_controller.this()["WDATA"],
             in_WSTRB=write_controller.this()["WSTRB"],
+            in_ap_done=write_controller.this()["ap_done"],
             out_WREADY=write_controller.this()["WREADY"],
         )
 
@@ -327,12 +332,14 @@ def add_write_controller(prog, mems):
             in_AWVALID=write_controller.this()["AWVALID"],
             in_AWADDR=write_controller.this()["AWADDR"],
             in_AWPROT=write_controller.this()["AWPROT"],
+            in_ap_done=write_controller.this()["ap_done"],
             out_AWREADY=write_controller.this()["AWREADY"],
         ),
         addr_case,
         invoke(
             b_channel,
             in_BREADY=write_controller.this()["BREADY"],
+            in_ap_done=write_controller.this()["ap_done"],
             out_BVALID=write_controller.this()["BVALID"],
             out_BRESP=write_controller.this()["BRESP"],
         ),
@@ -486,11 +493,13 @@ def add_control_subordinate(prog, mems):
         write_controller["WDATA"] = this["WDATA"]
         write_controller["WSTRB"] = this["WSTRB"]
         write_controller["BREADY"] = this["BREADY"]
+        write_controller["ap_done"] = this["ap_done_in"]
 
         read_controller["ARESETn"] = this["ARESETn"]
         read_controller["ARVALID"] = this["ARVALID"]
         read_controller["ARADDR"] = this["ARADDR"]
         read_controller["ARPROT"] = const(3, 0b110) #Tie to priveleged, nonsecure, data access request.
+        read_controller["ap_done"] = this["ap_done_in"]
 
         #   Outputs
         this["AWREADY"] = write_controller["AWREADY"]
@@ -514,7 +523,7 @@ def add_control_subordinate(prog, mems):
             reg.in_ = 0
             reg.write_en = 1
 
-        init_control_regs.done = xrt_control_reg.done
+        init_control_regs.done = (xrt_control_reg.done | this["ap_done_in"]) @ 1
 
     # Writes to the control register if the input signal ap_done is high
     with control_subordinate.group("write_ap_done") as write_ap_done:
