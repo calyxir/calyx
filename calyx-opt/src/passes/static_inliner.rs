@@ -517,12 +517,14 @@ impl StaticInliner {
                             //     && get_bit_width_from(group.borrow().latency)
                             //         == get_bit_width_from(*latency)
                             // {
-                            // Actually just unconditionally increase sgroup
-                            // latency.
-                            Self::increase_sgroup_latency(
-                                Rc::clone(&group),
-                                *latency,
-                            );
+                            if group.borrow().latency + 1 == *latency
+                                || group.borrow().latency + 2 == *latency
+                            {
+                                Self::increase_sgroup_latency(
+                                    Rc::clone(&group),
+                                    *latency,
+                                );
+                            }
                             // }
 
                             structure!( builder;
