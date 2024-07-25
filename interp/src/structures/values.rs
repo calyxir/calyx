@@ -638,12 +638,12 @@ impl Value {
         self.vec.len()
     }
 
-    /// Returns a value containing the sliced region \[lower,upper\], consumes the original
-    pub fn slice_out(self, upper_idx: usize, lower_idx: usize) -> Self {
+    /// Returns a value containing the sliced region \[lower,upper\), consumes the original
+    pub fn slice_out(self, lower_idx: usize, upper_idx: usize) -> Self {
         assert!(upper_idx >= lower_idx);
         assert!(upper_idx < self.vec.len());
 
-        let new_bv = (self.vec[lower_idx..=upper_idx]).into();
+        let new_bv = (self.vec[lower_idx..upper_idx]).into();
         Value { vec: new_bv }
     }
 

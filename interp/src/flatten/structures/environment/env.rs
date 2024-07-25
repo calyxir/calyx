@@ -10,7 +10,7 @@ use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, PrimType1},
+            cell_prototype::{CellPrototype, SingleWidthType},
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices,
                 CellDefinitionRef::{Local, Ref},
@@ -30,7 +30,7 @@ use crate::{
         },
     },
     logging,
-    serialization::{DataDump, Dimensions, PrintCode},
+    serialization::{DataDump, MemoryDeclaration, PrintCode},
     values::Value,
 };
 use ahash::HashMap;
@@ -241,6 +241,8 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
     pub(super) ctx: C,
+
+    memory_header: Option<Vec<MemoryDeclaration>>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -263,11 +265,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ),
             pc: ProgramCounter::new_empty(),
             ctx,
+            memory_header: None,
         };
 
         let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
-        env.layout_component(root, data_map, &mut HashSet::new());
+        env.layout_component(root, &data_map, &mut HashSet::new());
 
         // Initialize program counter
         // TODO griffin: Maybe refactor into a separate function
@@ -284,6 +287,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             }
         }
 
+        if let Some(header) = data_map {
+            env.memory_header = Some(header.header.memories);
+        }
+
         env
     }
 
@@ -298,7 +305,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     fn layout_component(
         &mut self,
         comp: GlobalCellIdx,
-        data_map: Option<DataDump>,
+        data_map: &Option<DataDump>,
         memories_initialized: &mut HashSet<String>,
     ) {
         // for mutability reasons, see note in `[Environment::new]`
@@ -370,7 +377,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     info,
                     port_base,
                     self.ctx.as_ref(),
-                    &data_map,
+                    data_map,
                     memories_initialized,
                 );
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
@@ -390,7 +397,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 );
 
                 // layout sub-component but don't include the data map
-                self.layout_component(cell, None, memories_initialized);
+                self.layout_component(cell, &None, memories_initialized);
             }
         }
 
@@ -1870,26 +1877,51 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     dims,
                     is_external,
                     ..
-                } if *is_external | all_mems => dump.push_memory(
-                    name,
-                    *width as usize,
-                    dims.size(),
-                    dims.as_serializing_dim(),
-                    self.env.cells[cell_index]
-                        .unwrap_primitive()
-                        .dump_memory_state()
-                        .unwrap(),
-                ),
+                } if *is_external | all_mems => {
+                    let declaration =
+                        if *is_external && self.env.memory_header.is_some() {
+                            if let Some(dec) = self
+                                .env
+                                .memory_header
+                                .as_ref()
+                                .unwrap()
+                                .iter()
+                                .find(|x| x.name == name)
+                            {
+                                dec.clone()
+                            } else {
+                                MemoryDeclaration::new_bitnum(
+                                    name,
+                                    *width as usize,
+                                    dims.as_serializing_dim(),
+                                    false,
+                                )
+                            }
+                        } else {
+                            MemoryDeclaration::new_bitnum(
+                                name,
+                                *width as usize,
+                                dims.as_serializing_dim(),
+                                false,
+                            )
+                        };
+
+                    dump.push_memory(
+                        declaration,
+                        self.env.cells[cell_index]
+                            .unwrap_primitive()
+                            .dump_memory_state()
+                            .unwrap(),
+                    )
+                }
                 CellPrototype::SingleWidth {
-                    op: PrimType1::Reg,
+                    op: SingleWidthType::Reg,
                     width,
                 } => {
                     if dump_registers {
-                        dump.push_memory(
+                        dump.push_reg(
                             name,
                             *width as usize,
-                            1,
-                            Dimensions::D1(1),
                             self.env.cells[cell_index]
                                 .unwrap_primitive()
                                 .dump_memory_state()
