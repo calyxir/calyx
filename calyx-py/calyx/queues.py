@@ -799,3 +799,74 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, times=None, kee
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
     ans += [0] * (max_cmds - len(ans))
     return ans
+
+def operate_queue2(queue, max_cmds, commands, values, ranks=None, times=None, keepgoing=None):
+    """Given the four lists
+    (One of commands, one of values, one of ranks, one of times):
+    - Note that `commands` and `values` are required,
+      while `ranks` and `times` are optional lists depending on the queue type.
+    - Feed these into our queue, and return the answer memory.
+    - Commands correspond to:
+        0 : pop (for non-work-conserving queues, pop by predicate)
+        1 : peek (for non-work-conserving queues, peek by predicate)
+        2 : push
+        3 : pop by value (only for non-work-conserving queues)
+        4 : peek by value (only for non-work-conserving queues)
+    """
+    ans = []
+    ranks = ranks or [0] * len(values)
+    times = times or [0] * len(values)
+
+    for cmd, val, rank, time in zip(commands, values, ranks, times):
+ 
+        if cmd == 0: #Pop (with possible time predicate)
+            try:
+                ans.append(queue.pop(time))
+            except QueueError:
+                ans.append(20000)
+                if keepgoing:
+                    continue
+                break
+            
+        elif cmd == 1: #Peek (with possible time predicate)
+            try:
+                ans.append(queue.peek(time))
+            except QueueError:
+                ans.append(20000)
+                if keepgoing:
+                    continue
+                break
+
+        elif cmd == 2: #Push
+            try:
+                queue.push(val, rank, time)
+                ans.append(10000)
+            except QueueError:
+                if keepgoing:
+                    continue
+                break
+
+        elif cmd == 3: #Pop with value parameter
+            try:
+                ans.append(queue.pop(time, val))
+            except QueueError:
+                ans.append(20000)
+                if keepgoing:
+                    continue
+                break
+
+        elif cmd == 4: #Peek with value parameter
+            try:
+                ans.append(queue.peek(time, val))
+            except QueueError:
+                ans.append(20000)
+                if keepgoing:
+                    continue
+                break
+        
+        else:
+            raise CmdError("Unrecognized command.")
+
+    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
+    ans += [0] * (max_cmds - len(ans))
+    return ans
