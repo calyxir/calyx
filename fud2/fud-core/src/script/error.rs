@@ -14,6 +14,10 @@ pub(super) enum RhaiSystemErrorKind {
     StateRef(String),
     BeganOp(String, String),
     NoOp,
+    NoDep(String),
+
+    /// The string is the type name of non-string value.
+    ExpectedString(String),
 }
 
 impl RhaiSystemError {
@@ -48,6 +52,20 @@ impl RhaiSystemError {
         }
     }
 
+    pub(super) fn no_dep(dep: &str) -> Self {
+        Self {
+            kind: RhaiSystemErrorKind::NoDep(dep.to_string()),
+            position: rhai::Position::NONE,
+        }
+    }
+
+    pub(super) fn expected_string(v: &str) -> Self {
+        Self {
+            kind: RhaiSystemErrorKind::ExpectedString(v.to_string()),
+            position: rhai::Position::NONE,
+        }
+    }
+
     pub(super) fn with_pos(mut self, p: rhai::Position) -> Self {
         self.position = p;
         self
@@ -68,6 +86,12 @@ impl Display for RhaiSystemError {
             }
             RhaiSystemErrorKind::NoOp => {
                 write!(f, "Unable to find current op being built. Consider calling start_op_stmts earlier in the program.")
+            }
+            RhaiSystemErrorKind::NoDep(dep) => {
+                write!(f, "Unable to find dep: `{dep:?}`. A call to `shell` with `{dep:?}` as an output must occur prior to this call.")
+            }
+            RhaiSystemErrorKind::ExpectedString(v) => {
+                write!(f, "Expected string, got: `{v:?}`.")
             }
         }
     }
