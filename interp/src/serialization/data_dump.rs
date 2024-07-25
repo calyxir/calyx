@@ -175,6 +175,9 @@ pub struct DataDump {
 }
 
 impl DataDump {
+    /// Magic number to identify a data dump file
+    const MAGIC_NUMBER: [u8; 4] = [216, 194, 228, 20];
+
     /// returns an empty data dump with a top level name
     pub fn new_empty_with_top_level(top_level: String) -> Self {
         Self {
@@ -225,7 +228,12 @@ impl DataDump {
         let mut header_str = Vec::new();
         ciborium::ser::into_writer(&self.header, &mut header_str)
             .expect("cbor serialization failed");
-        let len_bytes = header_str.len();
+        writer.write_all(&Self::MAGIC_NUMBER)?;
+
+        let len_bytes: u32 = header_str
+            .len()
+            .try_into()
+            .expect("Header length cannot fit in u32");
         writer.write_all(&len_bytes.to_le_bytes())?;
         writer.write_all(&header_str)?;
         writer.write_all(&self.data)?;
@@ -238,11 +246,19 @@ impl DataDump {
     pub fn deserialize(
         reader: &mut dyn std::io::Read,
     ) -> Result<Self, SerializationError> {
-        let mut raw_header_len = [0u8; 8];
-        reader.read_exact(&mut raw_header_len).unwrap();
-        let header_len = usize::from_le_bytes(raw_header_len);
+        let mut magic_number = [0u8; 4];
+        reader
+            .read_exact(&mut magic_number)
+            .map_err(|_| SerializationError::InvalidMagicNumber)?;
+        if magic_number != Self::MAGIC_NUMBER {
+            return Err(SerializationError::InvalidMagicNumber);
+        }
 
-        let mut raw_header = vec![0u8; header_len];
+        let mut raw_header_len = [0u8; 4];
+        reader.read_exact(&mut raw_header_len).unwrap();
+        let header_len = u32::from_le_bytes(raw_header_len);
+
+        let mut raw_header = vec![0u8; header_len as usize];
         reader.read_exact(&mut raw_header)?;
         let header: DataHeader = ciborium::from_reader(raw_header.as_slice())
             .expect("deserializing cbor failed");
@@ -283,6 +299,9 @@ pub enum SerializationError {
 
     #[error(transparent)]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
+
+    #[error("input is not a valid data dump")]
+    InvalidMagicNumber,
 }
 
 #[cfg(test)]
