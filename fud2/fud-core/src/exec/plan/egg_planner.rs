@@ -207,8 +207,11 @@ impl FindPlan for EggPlanner {
                             )
                         })
                     })
-                    // Assume all outputs of an op are used.
-                    // TODO: Make it so only a subset of the outputs of a thing need to be used.
+                    // Assume all outputs of an op are used. While this shouldn't cause any issues
+                    // of correctness, it ignores the problem of two ops outputing the same state.
+                    // This implies further reduction of the completeness of the search. This plan
+                    // leaves which state is prioritized undefined (though it should still be
+                    // deterministic).
                     .map(|op_ref| (op_ref, ops[op_ref].output.to_vec()))
                     .collect(),
             )
