@@ -1,9 +1,8 @@
 export const verilog_state = state("verilog", ["sv", "v"]);
-export const calyx_state = state("calyx", ["futil"]);
 export const verilog_noverify = state("verilog-noverify", ["sv"]);
+export const calyx_state = state("calyx", ["futil"]);
 
 export let calyx_setup = calyx_setup;
-
 fn calyx_setup(e) {
    e.config_var("calyx-base", "calyx.base");
    e.config_var_or("calyx-exe", "calyx.exe", "$calyx-base/target/debug/calyx");
