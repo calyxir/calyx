@@ -9,7 +9,7 @@ sys.path.insert(0, parentdir)
 
 import fifo
 import calyx.builder as cb
-import calyx.queue_callcs as qc
+import calyx.queue_call as qc
 import calyx.py_ast as ast
 
 # This determines the maximum possible length of the queue:
