@@ -60,9 +60,16 @@ build f4 f5 $o0 _t1_rule_9.fake: t1_rule_9 $i0 f1 f2
   i0 = _from_stdin_s1
   o0 = _to_stdout_s2
 
-build _to_stdout_s2: phony _from_stdin_s1 _t1_rule_1.fake _t1_rule_2.fake _t1_rule_3.fake _t1_rule_4.fake _t1_rule_5.fake _t1_rule_6.fake _t1_rule_7.fake _t1_rule_8.fake _t1_rule_9.fake
+rule t1_rule_10
+  command = echo owo
+build _t1_rule_10.fake: t1_rule_10 _t1_rule_1.fake _t1_rule_2.fake _t1_rule_3.fake _t1_rule_4.fake _t1_rule_5.fake _t1_rule_6.fake _t1_rule_7.fake _t1_rule_8.fake _t1_rule_9.fake
   i0 = _from_stdin_s1
   o0 = _to_stdout_s2
 
+build _t1_output.fake: phony _from_stdin_s1 _t1_rule_1.fake _t1_rule_2.fake _t1_rule_3.fake _t1_rule_4.fake _t1_rule_5.fake _t1_rule_6.fake _t1_rule_7.fake _t1_rule_8.fake _t1_rule_9.fake _t1_rule_10.fake
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+default _t1_output.fake
 
 default _to_stdout_s2

@@ -271,4 +271,5 @@ fn frontend_tests() {
 fn shell_tests() {
     let driver = driver_from_path("shell_deps");
     request(&driver, &["s1"], &["s2"], &[]).test(&driver);
+    request(&driver, &["s3"], &["s4"], &[]).test(&driver);
 }

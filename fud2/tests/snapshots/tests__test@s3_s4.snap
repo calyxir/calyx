@@ -1,0 +1,26 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: s3 -> s4"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+rule t2_rule_1
+  command = echo five
+build f4 f5 _t2_rule_1.fake: t2_rule_1 $i0
+  i0 = _from_stdin_s3
+  o0 = _to_stdout_s4
+
+rule t2_rule_2
+  command = echo owo
+build _t2_rule_2.fake: t2_rule_2 _t2_rule_1.fake
+  i0 = _from_stdin_s3
+  o0 = _to_stdout_s4
+
+build $o0: phony _from_stdin_s3 _t2_rule_1.fake _t2_rule_2.fake
+  i0 = _from_stdin_s3
+  o0 = _to_stdout_s4
+
+
+default _to_stdout_s4
