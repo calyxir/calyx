@@ -66,50 +66,21 @@ pub fn convert_to_data_dump(json: &JsonData) -> DataDump {
         let data: Box<dyn Iterator<Item = u8>> = match &data_vec {
             DataVec::Id1(v1) => Box::new(v1.iter().flat_map(|val| {
                 // chopping off the upper bits
-                sign_extend_vec(
-                    val.to_signed_bytes_le(),
-                    width,
-                    signed && val < &BigInt::ZERO,
-                )
-                .into_iter()
-                .take(width.div_ceil(8))
+                unroll_bigint(val, width, signed)
             })),
             DataVec::Id2(v1) => Box::new(v1.iter().flat_map(|v2| {
-                v2.iter().flat_map(|val| {
-                    sign_extend_vec(
-                        val.to_signed_bytes_le(),
-                        width,
-                        signed && val < &BigInt::ZERO,
-                    )
-                    .into_iter()
-                    .take(width.div_ceil(8))
-                })
+                v2.iter().flat_map(|val| unroll_bigint(val, width, signed))
             })),
             DataVec::Id3(v1) => Box::new(v1.iter().flat_map(|v2| {
                 v2.iter().flat_map(|v3| {
-                    v3.iter().flat_map(|val| {
-                        sign_extend_vec(
-                            val.to_signed_bytes_le(),
-                            width,
-                            signed && val < &BigInt::ZERO,
-                        )
-                        .into_iter()
-                        .take(width.div_ceil(8))
-                    })
+                    v3.iter().flat_map(|val| unroll_bigint(val, width, signed))
                 })
             })),
             DataVec::Id4(v1) => Box::new(v1.iter().flat_map(|v2| {
                 v2.iter().flat_map(|v3| {
                     v3.iter().flat_map(|v4| {
-                        v4.iter().flat_map(|val| {
-                            sign_extend_vec(
-                                val.to_signed_bytes_le(),
-                                width,
-                                signed && val < &BigInt::ZERO,
-                            )
-                            .into_iter()
-                            .take(width.div_ceil(8))
-                        })
+                        v4.iter()
+                            .flat_map(|val| unroll_bigint(val, width, signed))
                     })
                 })
             })),
@@ -123,6 +94,21 @@ pub fn convert_to_data_dump(json: &JsonData) -> DataDump {
     }
 
     data_dump
+}
+
+#[inline]
+fn unroll_bigint(
+    val: &BigInt,
+    width: usize,
+    signed: bool,
+) -> std::iter::Take<std::vec::IntoIter<u8>> {
+    sign_extend_vec(
+        val.to_signed_bytes_le(),
+        width,
+        signed && val < &BigInt::ZERO,
+    )
+    .into_iter()
+    .take(width.div_ceil(8))
 }
 
 fn parse_bytes(bytes: &[u8], width: usize, signed: bool) -> BigInt {
