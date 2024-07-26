@@ -85,6 +85,7 @@ impl<'a> Builder<'a> {
                 direction: ir::Direction::Inout,
                 parent: ir::PortParent::Group(WRC::from(&group)),
                 attributes: ir::Attributes::default(),
+                slice: None,
             });
             group.borrow_mut().holes.push(hole);
         }
@@ -126,6 +127,7 @@ impl<'a> Builder<'a> {
             direction: ir::Direction::Inout,
             parent: ir::PortParent::StaticGroup(WRC::from(&group)),
             attributes: ir::Attributes::default(),
+            slice: None,
         });
         group.borrow_mut().holes.push(hole);
 
@@ -371,6 +373,7 @@ impl<'a> Builder<'a> {
                 direction: pd.direction,
                 parent: ir::PortParent::Cell(WRC::from(&cell)),
                 attributes: pd.attributes,
+                slice: None,
             });
             cell.borrow_mut().ports.push(port);
         });

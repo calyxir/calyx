@@ -98,7 +98,11 @@ impl ComponentDef {
 pub enum Port {
     /// Refers to the port named `port` on the subcomponent
     /// `component`.
-    Comp { component: Id, port: Id },
+    Comp {
+        component: Id,
+        port: Id,
+        slice: Option<(u64, u64)>,
+    },
 
     /// Refers to the port named `port` on the component
     /// currently being defined.

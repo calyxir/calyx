@@ -158,8 +158,10 @@ hole = {
       identifier ~ "[" ~ identifier ~ "]"
 }
 
+slice = { ".slice_port(" ~ bitwidth ~ "," ~ bitwidth ~ ")" }
+
 port = {
-      (identifier ~ "." ~ identifier)
+      (identifier ~ "." ~ identifier ~ slice?)
     | identifier
 }
 

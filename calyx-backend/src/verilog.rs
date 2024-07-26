@@ -367,26 +367,35 @@ fn emit_component<F: io::Write>(
 fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
     cell.ports
         .iter()
-        .filter_map(|port| match &port.borrow().parent {
-            ir::PortParent::Cell(cell) => {
-                let parent_ref = cell.upgrade();
-                let parent = parent_ref.borrow();
-                match parent.prototype {
-                    ir::CellType::Component { .. }
-                    | ir::CellType::Primitive { .. } => Some((
-                        format!(
-                            "{}_{}",
-                            parent.name().as_ref(),
-                            port.borrow().name.as_ref()
-                        ),
-                        port.borrow().width,
-                        port.borrow().direction.clone(),
-                    )),
-                    _ => None,
+        .filter_map(|port| {
+            let suffix = match port.borrow().slice {
+                None => "".to_string(),
+                Some((i, j)) => {
+                    format!("[{}:{}]", j, i)
                 }
+            };
+            match &port.borrow().parent {
+                ir::PortParent::Cell(cell) => {
+                    let parent_ref = cell.upgrade();
+                    let parent = parent_ref.borrow();
+                    match parent.prototype {
+                        ir::CellType::Component { .. }
+                        | ir::CellType::Primitive { .. } => Some((
+                            format!(
+                                "{}_{}{}",
+                                parent.name().as_ref(),
+                                port.borrow().name.as_ref(),
+                                suffix
+                            ),
+                            port.borrow().width,
+                            port.borrow().direction.clone(),
+                        )),
+                        _ => None,
+                    }
+                }
+                ir::PortParent::Group(_) => unreachable!(),
+                ir::PortParent::StaticGroup(_) => unreachable!(),
             }
-            ir::PortParent::Group(_) => unreachable!(),
-            ir::PortParent::StaticGroup(_) => unreachable!(),
         })
         .collect()
 }
@@ -637,6 +646,12 @@ fn emit_assignment_flat<F: io::Write>(
 
 fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
     let port = port_ref.borrow();
+    let suffix = match port.slice {
+        None => "".to_string(),
+        Some((i, j)) => {
+            format!("[{}:{}]", j, i)
+        }
+    };
     match &port.parent {
         ir::PortParent::Cell(cell) => {
             let parent_ref = cell.upgrade();
@@ -647,9 +662,10 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
                 }
                 ir::CellType::ThisComponent => v::Expr::new_ref(port.name),
                 _ => v::Expr::Ref(format!(
-                    "{}_{}",
+                    "{}_{}{}",
                     parent.name().as_ref(),
-                    port.name.as_ref()
+                    port.name.as_ref(),
+                    suffix
                 )),
             }
         }
@@ -706,6 +722,12 @@ struct VerilogPortRef<'a>(&'a RRC<ir::Port>);
 impl<'a> std::fmt::Display for VerilogPortRef<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let port = self.0.borrow();
+        let suffix = match port.slice {
+            None => "".to_string(),
+            Some((i, j)) => {
+                format!("[{}:{}]", j, i)
+            }
+        };
         match &port.parent {
             ir::PortParent::Cell(cell) => {
                 let parent_ref = cell.upgrade();
@@ -720,9 +742,10 @@ impl<'a> std::fmt::Display for VerilogPortRef<'a> {
                     _ => {
                         write!(
                             f,
-                            "{}_{}",
+                            "{}_{}{}",
                             parent.name().as_ref(),
-                            port.name.as_ref()
+                            port.name.as_ref(),
+                            suffix,
                         )
                     }
                 }

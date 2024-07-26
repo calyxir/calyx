@@ -83,6 +83,7 @@ where
                 direction: port.direction.clone(),
                 parent: ir::PortParent::Cell(WRC::from(&component.signature)),
                 attributes: new_port_attrs,
+                slice: None,
             });
             component
                 .signature

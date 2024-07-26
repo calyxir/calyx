@@ -569,11 +569,18 @@ impl CalyxParser {
     }
 
     // ================ Wires =====================
+    fn slice(input: Node) -> ParseResult<(u64, u64)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(i), bitwidth(j)] => (i,j)
+        ))
+    }
     fn port(input: Node) -> ParseResult<ast::Port> {
         Ok(match_nodes!(
             input.into_children();
             [identifier(component), identifier(port)] =>
-                ast::Port::Comp { component, port },
+                ast::Port::Comp { component, port, slice:None },
+            [identifier(component), identifier(port), slice((i,j))] => ast::Port::Comp { component, port, slice:Some((i,j)) },
             [identifier(port)] => ast::Port::This { port }
         ))
     }

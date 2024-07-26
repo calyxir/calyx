@@ -446,17 +446,35 @@ fn add_static_group(
 /// Get the pointer to the Port represented by `port`.
 fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
     match port {
-        ast::Port::Comp { component, port } => comp
-            .find_cell(component)
-            .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
-            .borrow()
-            .find(port)
-            .ok_or_else(|| {
-                Error::undefined(
-                    Id::new(format!("{}.{}", component, port)),
-                    "port".to_string(),
-                )
-            }),
+        ast::Port::Comp {
+            component,
+            port,
+            slice,
+        } => match slice {
+            None => comp
+                .find_cell(component)
+                .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
+                .borrow()
+                .find(port)
+                .ok_or_else(|| {
+                    Error::undefined(
+                        Id::new(format!("{}.{}", component, port)),
+                        "port".to_string(),
+                    )
+                }),
+            Some((i, j)) => comp
+                .find_cell(component)
+                .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
+                .borrow()
+                .find_slice(port, (i, j))
+                .ok_or_else(|| {
+                    Error::undefined(
+                        Id::new(format!("{}.{}", component, port)),
+                        "port".to_string(),
+                    )
+                }),
+        },
+
         ast::Port::This { port } => {
             comp.signature.borrow().find(&port).ok_or_else(|| {
                 Error::undefined(port, "component port".to_string())

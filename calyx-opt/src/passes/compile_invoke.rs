@@ -284,6 +284,7 @@ impl Visitor for CompileInvoke {
                             direction: p.borrow().direction.reverse(),
                             parent: ir::PortParent::Cell(WRC::from(cell)),
                             attributes: Attributes::default(),
+                            slice: None,
                         });
                         new_ports.push(new_port);
                     }

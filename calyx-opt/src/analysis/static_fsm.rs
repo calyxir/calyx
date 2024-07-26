@@ -179,16 +179,18 @@ impl StaticFSM {
         &mut self,
         fsm_cell: ir::RRC<ir::Cell>,
         (lb, ub): (u64, u64),
-        builder: &mut ir::Builder,
+        _builder: &mut ir::Builder,
     ) -> ir::Guard<Nothing> {
         match self.queries.get(&(lb, ub)) {
             None => {
-                let port = Self::build_one_hot_query(
-                    Rc::clone(&fsm_cell),
-                    self.bitwidth,
-                    (lb, ub),
-                    builder,
-                );
+                let port = if ub - lb == 1 {
+                    fsm_cell
+                        .borrow()
+                        .find_slice("out", (lb, ub - 1))
+                        .expect("couldn't find port")
+                } else {
+                    panic!("");
+                };
                 self.queries.insert((lb, ub), Rc::clone(&port));
                 ir::Guard::port(port)
             }

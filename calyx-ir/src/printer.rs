@@ -763,6 +763,10 @@ impl Printer {
 
     /// Get the port access expression.
     pub fn port_to_str(port: &ir::Port) -> String {
+        let suffix = match port.slice {
+            None => "".to_string(),
+            Some((i, j)) => format!(".slice_port({},{})", i, j),
+        };
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
                 let cell_ref =
@@ -778,7 +782,9 @@ impl Printer {
                         format!("{}'d{}", width, val)
                     }
                     ir::CellType::ThisComponent => port.name.to_string(),
-                    _ => format!("{}.{}", cell.name().id, port.name.id),
+                    _ => {
+                        format!("{}.{}{}", cell.name().id, port.name.id, suffix)
+                    }
                 }
             }
             ir::PortParent::Group(group_wref) => format!(

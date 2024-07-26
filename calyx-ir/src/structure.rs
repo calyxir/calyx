@@ -35,6 +35,8 @@ pub struct Port {
     pub parent: PortParent,
     /// Attributes associated with this port.
     pub attributes: Attributes,
+    /// Optional slice
+    pub slice: Option<(u64, u64)>,
 }
 
 /// Canonical name of a Port
@@ -311,6 +313,28 @@ impl Cell {
             .iter()
             .find(|&g| g.borrow().name == name)
             .map(Rc::clone)
+    }
+
+    pub fn find_slice<S>(&self, name: S, slice: (u64, u64)) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
+    {
+        self.ports
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(|port| {
+                let rc_port = Rc::clone(port);
+                // clone to get separate objects.
+                let mut cloned_port = {
+                    let borrowed_object = rc_port.borrow();
+                    (*borrowed_object).clone()
+                };
+                cloned_port.slice = Some(slice);
+                cloned_port.width = slice.1 - slice.0 + 1;
+                let x = crate::rrc(cloned_port);
+                x
+            })
     }
 
     /// Return all ports that have the attribute `attr`.
