@@ -220,6 +220,20 @@ impl ScriptContext {
                     op_sig.cmds.len(),
                 ));
 
+                // Duplicated targets should be an error.
+                for target in &gens {
+                    let matched_target = op_sig
+                        .cmds
+                        .iter()
+                        .flat_map(|c| &c.gens)
+                        .find(|s| *s == target);
+                    if let Some(t) = matched_target {
+                        return Err(RhaiSystemError::dup_target(t)
+                            .with_pos(pos)
+                            .into());
+                    }
+                }
+
                 // Add all generated files to seen dependancies.
                 for v in &gens {
                     op_sig.seen_deps.insert(v.clone());

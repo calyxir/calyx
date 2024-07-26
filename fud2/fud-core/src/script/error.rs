@@ -15,6 +15,7 @@ pub(super) enum RhaiSystemErrorKind {
     BeganOp(String, String),
     NoOp,
     NoDep(String),
+    DupTarget(String),
 
     /// The string is the type name of non-string value.
     ExpectedString(String),
@@ -66,6 +67,13 @@ impl RhaiSystemError {
         }
     }
 
+    pub(super) fn dup_target(target: &str) -> Self {
+        Self {
+            kind: RhaiSystemErrorKind::DupTarget(target.to_string()),
+            position: rhai::Position::NONE,
+        }
+    }
+
     pub(super) fn with_pos(mut self, p: rhai::Position) -> Self {
         self.position = p;
         self
@@ -92,6 +100,9 @@ impl Display for RhaiSystemError {
             }
             RhaiSystemErrorKind::ExpectedString(v) => {
                 write!(f, "Expected string, got: `{v:?}`.")
+            }
+            RhaiSystemErrorKind::DupTarget(target) => {
+                write!(f, "Duplicate target: `{target:?}`. Consider removing a shell command generating `{target:?}`.")
             }
         }
     }
