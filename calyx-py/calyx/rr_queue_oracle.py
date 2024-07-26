@@ -26,8 +26,8 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unsupported number of flows")
 
-    # Our Round Robin Queue orchestrates n FIFOs, in this case provided as
-    # a command line argument. It orchestrates the FIFOs in a round-robin fashion.
+    # Our Round Robin Queue orchestrates n subqueues, in this case provided as
+    # a command line argument. It orchestrates the subqueues in a round-robin fashion.
     pifo = queues.RRQueue(numflows, boundaries, len)
 
     ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)

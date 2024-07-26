@@ -588,9 +588,9 @@ class RRQueue:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
-        for fifo, boundary in zip(self.data, self.boundaries):
+        for subqueue, boundary in zip(self.data, self.boundaries):
             if val <= boundary:
-                fifo.push(val)
+                subqueue.push(val)
                 self.pifo_len += 1
                 break
 
@@ -599,8 +599,8 @@ class RRQueue:
         self.hot = 0 if self.hot == (self.n - 1) else self.hot + 1
 
     def pop(self, *_) -> Optional[int]:
-        """Pops the PIFO by popping some internal FIFO.
-        Updates `hot` to be one more than the index of the internal FIFO that
+        """Pops the PIFO by popping some internal subqueue.
+        Updates `hot` to be one more than the index of the internal subqueue that
         we did pop.
         """
         if self.pifo_len == 0:
