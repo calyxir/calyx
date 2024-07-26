@@ -7,7 +7,6 @@ use crate::{
 use std::{
     cell::{RefCell, RefMut},
     collections::{HashMap, HashSet},
-    hash::{Hash as _, Hasher as _},
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -129,13 +128,16 @@ impl ScriptContext {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
             None => {
+                let num_inputs = inputs.len();
                 *cur_op = Some(RhaiOp {
                     name: name.to_string(),
                     input_states: inputs,
                     output_states: outputs,
                     cmds: vec![],
                     config_vars: vec![],
-                    seen_deps: HashSet::new(),
+                    seen_deps: HashSet::from_iter((0..num_inputs).map(|i| {
+                        format!("${}", crate::run::io_file_var_name(i, true))
+                    })),
                 });
                 Ok(())
             }
@@ -149,10 +151,8 @@ impl ScriptContext {
 
     /// Returns a fake file name for `cmd` to use as a dependancy by other commands dending on
     /// `cmd`.
-    fn fake_file_name(cmd: &String) -> String {
-        let mut s = std::hash::DefaultHasher::new();
-        cmd.hash(&mut s);
-        format!("__cmd_dep_{}.fake", s.finish())
+    fn fake_file_name(op_name: &str, rule_idx: usize) -> String {
+        format!("_{}_rule_{}.fake", op_name, rule_idx + 1)
     }
 
     /// Adds a shell command to the `cur_op`. Returns an error if `begin_op` has not been called
@@ -178,7 +178,8 @@ impl ScriptContext {
                     op_sig
                         .cmds
                         .iter()
-                        .map(|c| Self::fake_file_name(&c.cmd))
+                        .enumerate()
+                        .map(|(i, _)| Self::fake_file_name(&op_sig.name, i))
                         .collect()
                 } else {
                     // Depends on file specified in `deps`.
@@ -214,7 +215,10 @@ impl ScriptContext {
                     .collect::<Result<Vec<_>, _>>()?;
 
                 // All commands generate a "fake" file for dependancy tracking.
-                gens.push(Self::fake_file_name(&cmd));
+                gens.push(Self::fake_file_name(
+                    &op_sig.name,
+                    op_sig.cmds.len(),
+                ));
 
                 // Add all generated files to seen dependancies.
                 for v in &gens {
@@ -515,21 +519,6 @@ impl ScriptRunner {
         );
     }
 
-    /// Registers a Rhai function which starts the parser listening for shell commands, how an op
-    /// does its transformation.
-    fn reg_start_op_stmts(&mut self, sctx: ScriptContext) {
-        self.engine.register_fn(
-            "start_op_stmts",
-            move |ctx: rhai::NativeCallContext,
-                  name: &str,
-                  inputs: rhai::Array,
-                  outputs: rhai::Array|
-                  -> RhaiResult<_> {
-                sctx.begin_op(ctx.position(), name, inputs, outputs)
-            },
-        );
-    }
-
     /// Registers a Rhai function which adds shell commands to be used by an op based on a given
     /// command and specified generated files and dependancies.
     fn reg_shell_deps(&mut self, sctx: ScriptContext) {
@@ -599,18 +588,6 @@ impl ScriptRunner {
                     ),
                 )?;
                 Ok(format!("${{{}}}", key))
-            },
-        );
-    }
-
-    /// Registers a Rhai function which stops the parser listening to shell commands and adds the
-    /// created op to `self.builder`.
-    fn reg_end_op_stmts(&mut self, sctx: ScriptContext) {
-        let bld = Rc::clone(&self.builder);
-        self.engine.register_fn(
-            "end_op_stmts",
-            move |ctx: rhai::NativeCallContext| -> RhaiResult<_> {
-                sctx.end_op(ctx.position(), bld.borrow_mut())
             },
         );
     }
@@ -798,10 +775,8 @@ impl ScriptRunner {
         let sctx = self.script_context(path.to_path_buf());
         self.reg_rule(sctx.clone());
         self.reg_op(sctx.clone());
-        self.reg_start_op_stmts(sctx.clone());
         self.reg_shell(sctx.clone());
         self.reg_shell_deps(sctx.clone());
-        self.reg_end_op_stmts(sctx.clone());
         self.reg_defop_syntax(sctx.clone());
         self.reg_config(sctx.clone());
         self.reg_config_or(sctx.clone());

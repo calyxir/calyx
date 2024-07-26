@@ -1,6 +1,6 @@
 use fud_core::{
     config::default_config,
-    exec::{Plan, Request, SingleOpOutputPlanner, IO},
+    exec::{FindPlan, Plan, Request, SingleOpOutputPlanner, IO},
     run::Run,
     Driver, DriverBuilder,
 };
@@ -18,6 +18,18 @@ fn test_driver() -> Driver {
     let mut bld = DriverBuilder::new("fud2-plugins");
     let config = figment::Figment::new();
     bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
+    bld.load_plugins(&config).build()
+}
+
+fn driver_from_path(path: &str) -> Driver {
+    let mut bld = DriverBuilder::new("fud2-plugins");
+    let config = figment::Figment::new();
+    let path = format!(
+        "{}/{}",
+        manifest_dir_macros::directory_path!("tests/scripts"),
+        path
+    );
+    bld.scripts_dir(&path);
     bld.load_plugins(&config).build()
 }
 
@@ -124,21 +136,34 @@ impl InstaTest for Request {
     }
 }
 
-fn request(
+fn request_with_planner(
     driver: &Driver,
-    start: &str,
-    end: &str,
+    start: &[&str],
+    end: &[&str],
     through: &[&str],
+    planner: impl FindPlan + 'static,
 ) -> Request {
     fud_core::exec::Request {
         start_files: vec![],
-        start_states: vec![driver.get_state(start).unwrap()],
+        start_states: start
+            .iter()
+            .map(|s| driver.get_state(s).unwrap())
+            .collect(),
         end_files: vec![],
-        end_states: vec![driver.get_state(end).unwrap()],
+        end_states: end.iter().map(|s| driver.get_state(s).unwrap()).collect(),
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
-        planner: Box::new(SingleOpOutputPlanner {}),
+        planner: Box::new(planner),
     }
+}
+
+fn request(
+    driver: &Driver,
+    start: &[&str],
+    end: &[&str],
+    through: &[&str],
+) -> Request {
+    request_with_planner(driver, start, end, through, SingleOpOutputPlanner {})
 }
 
 #[test]
@@ -200,13 +225,14 @@ fn list_ops() {
 #[test]
 fn calyx_to_verilog() {
     let driver = test_driver();
-    request(&driver, "calyx", "verilog", &[]).test(&driver);
+    request(&driver, &["calyx"], &["verilog"], &[]).test(&driver);
 }
 
 #[test]
 fn calyx_via_firrtl() {
     let driver = test_driver();
-    request(&driver, "calyx", "verilog-refmem", &["firrtl"]).test(&driver);
+    request(&driver, &["calyx"], &["verilog-refmem"], &["firrtl"])
+        .test(&driver);
 }
 
 #[test]
@@ -214,7 +240,7 @@ fn sim_tests() {
     let driver = test_driver();
     for dest in &["dat", "vcd"] {
         for sim in &["icarus", "verilator"] {
-            request(&driver, "calyx", dest, &[sim]).test(&driver);
+            request(&driver, &["calyx"], &[dest], &[sim]).test(&driver);
         }
     }
 }
@@ -222,21 +248,27 @@ fn sim_tests() {
 #[test]
 fn cider_tests() {
     let driver = test_driver();
-    request(&driver, "calyx", "dat", &["interp"]).test(&driver);
-    request(&driver, "calyx", "debug", &[]).test(&driver);
+    request(&driver, &["calyx"], &["dat"], &["interp"]).test(&driver);
+    request(&driver, &["calyx"], &["debug"], &[]).test(&driver);
 }
 
 #[test]
 fn xrt_tests() {
     let driver = test_driver();
-    request(&driver, "calyx", "dat", &["xrt"]).test(&driver);
-    request(&driver, "calyx", "vcd", &["xrt-trace"]).test(&driver);
+    request(&driver, &["calyx"], &["dat"], &["xrt"]).test(&driver);
+    request(&driver, &["calyx"], &["vcd"], &["xrt-trace"]).test(&driver);
 }
 
 #[test]
 fn frontend_tests() {
     let driver = test_driver();
     for frontend in &["dahlia", "mrxl"] {
-        request(&driver, frontend, "calyx", &[]).test(&driver);
+        request(&driver, &[frontend], &["calyx"], &[]).test(&driver);
     }
+}
+
+#[test]
+fn shell_tests() {
+    let driver = driver_from_path("shell_deps");
+    request(&driver, &["s1"], &["s2"], &[]).test(&driver);
 }

@@ -144,14 +144,7 @@ impl EmitBuild for OpEmitData {
         inputs: &[&str],
         outputs: &[&str],
     ) -> EmitResult {
-        for (i, cmd) in self.cmds.iter().enumerate() {
-            let rule_name = format!("{}_rule_{}", self.op_name, i + 1);
-            emitter.rule(&rule_name, &cmd.cmd)?;
-            let targets = cmd.gens.iter().map(|s| s.as_str()).collect_vec();
-            let deps = cmd.deps.iter().map(|s| s.as_str()).collect_vec();
-            emitter.build_cmd(&targets, &rule_name, &deps, &[])?;
-        }
-        // Write the Ninja file.
+        // Collect variables into ninja variables.
         let in_vars = inputs
             .iter()
             .enumerate()
@@ -169,13 +162,36 @@ impl EmitBuild for OpEmitData {
             }
         }
 
-        emitter.build_cmd_with_vars(
-            outputs,
-            &self.op_name,
-            inputs,
-            &[],
-            &vars,
-        )?;
+        // Write a sequence of rules for each cmd.
+        for (i, cmd) in self.cmds.iter().enumerate() {
+            let rule_name = format!("{}_rule_{}", self.op_name, i + 1);
+            emitter.rule(&rule_name, &cmd.cmd)?;
+            let targets = cmd.gens.iter().map(|s| s.as_str()).collect_vec();
+            let deps = cmd.deps.iter().map(|s| s.as_str()).collect_vec();
+            emitter.build_cmd_with_vars(
+                &targets,
+                &rule_name,
+                &deps,
+                &[],
+                &vars,
+            )?;
+        }
+
+        // Depend on all shell commands. The illusion is all shell commands are run in order, with
+        // the option to specify some shell commands as having explicit targets and dependancies as
+        // an optimization. They still all have to get run though.
+        let deps = inputs
+            .iter()
+            .cloned()
+            .chain(
+                self.cmds
+                    .iter()
+                    .map(|cmd| cmd.gens.last().unwrap().as_str()),
+            )
+            .collect_vec();
+
+        emitter.build_cmd_with_vars(outputs, "phony", &deps, &[], &vars)?;
+
         Ok(())
     }
 }

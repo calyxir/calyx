@@ -1,0 +1,68 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: s1 -> s2"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+rule t1_rule_1
+  command = echo uwu
+build _t1_rule_1.fake: t1_rule_1
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_2
+  command = echo one
+build f1 _t1_rule_2.fake: t1_rule_2
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_3
+  command = echo two
+build _t1_rule_3.fake: t1_rule_3 f1
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_4
+  command = echo three
+build _t1_rule_4.fake: t1_rule_4 _t1_rule_1.fake _t1_rule_2.fake _t1_rule_3.fake
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_5
+  command = echo four
+build _t1_rule_5.fake: t1_rule_5
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_6
+  command = echo five
+build f2 _t1_rule_6.fake: t1_rule_6 f1
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_7
+  command = echo five
+build _t1_rule_7.fake: t1_rule_7 $i0
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_8
+  command = echo five
+build $o0 _t1_rule_8.fake: t1_rule_8
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+rule t1_rule_9
+  command = echo five
+build f4 f5 $o0 _t1_rule_9.fake: t1_rule_9 $i0 f1 f2
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+build _to_stdout_s2: phony _from_stdin_s1 _t1_rule_1.fake _t1_rule_2.fake _t1_rule_3.fake _t1_rule_4.fake _t1_rule_5.fake _t1_rule_6.fake _t1_rule_7.fake _t1_rule_8.fake _t1_rule_9.fake
+  i0 = _from_stdin_s1
+  o0 = _to_stdout_s2
+
+
+default _to_stdout_s2
