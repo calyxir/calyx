@@ -30,6 +30,6 @@ if __name__ == "__main__":
     # order of the flows.
     pifo = queues.StrictPifo(numflows, boundaries, order, len)
 
-    ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)
+    ans = queues.operate_queue2(pifo, num_cmds, commands, values, keepgoing=keepgoing)
 
     queue_util.dump_json(commands, values, ans)

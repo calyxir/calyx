@@ -842,6 +842,7 @@ def operate_queue2(queue, max_cmds, commands, values, ranks=None, times=None, ke
                 queue.push(val, rank, time)
                 ans.append(10000)
             except QueueError:
+                ans.append(20000)
                 if keepgoing:
                     continue
                 break
