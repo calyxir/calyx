@@ -123,7 +123,9 @@ Suppose that we want to make sure that `let0` is correctly performing its
 computation.
 We can generate the control FSM for the program using:
 
-      futil <filename> -p top-down-cc
+```
+fud2 <code.futil> -s sim.data=data.json --through icarus -o trace.vcd
+```
 
 This generates a Calyx program with several new groups.
 We want to look for groups with the prefix `tdcc` which look something like
