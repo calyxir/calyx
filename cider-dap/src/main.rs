@@ -190,6 +190,7 @@ fn run_server<R: Read, W: Write>(
             Some(req) => req,
             None => return Err(MyAdapterError::MissingCommandError),
         };
+        info!(logger, "{req:?}");
         match &req.command {
             Command::Launch(_) => {
                 //why is this listed a second time
@@ -199,7 +200,6 @@ fn run_server<R: Read, W: Write>(
 
             Command::SetBreakpoints(args) => {
                 // Add breakpoints
-                info!(logger, "set breakpoint request");
                 if let Some(breakpoint) = &args.breakpoints {
                     let out =
                         adapter.set_breakpoint(args.source.clone(), breakpoint);
@@ -266,6 +266,9 @@ fn run_server<R: Read, W: Write>(
             }
             // Send a Stopped event with reason Pause
             Command::Pause(args) => {
+                //necessary to clear out object references
+                adapter.on_pause();
+
                 // Get ID before rsp takes ownership
                 // need to communicate pause to debugger
                 let thread_id = args.thread_id;
@@ -343,20 +346,24 @@ fn run_server<R: Read, W: Write>(
                 );
                 server.send_event(stopped)?;
             }
-            Command::Scopes(_) => {
+            Command::Scopes(args) => {
                 //variables go in here most likely
                 //just get stuff displaying then figure out how to pretty it up
-                info!(logger, "scopes req");
+
+                let frame_id = args.frame_id;
                 let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
-                    scopes: adapter.get_scopes(),
+                    scopes: adapter.get_scopes(frame_id),
                 }));
+                info!(logger, "responded with {rsp:?}");
                 server.respond(rsp)?;
             }
-            Command::Variables(_) => {
+            Command::Variables(args) => {
                 info!(logger, "variables req");
+                // never happening idk why
+                let var_ref = args.variables_reference;
                 let rsp =
                     req.success(ResponseBody::Variables(VariablesResponse {
-                        variables: adapter.get_variables(),
+                        variables: adapter.get_variables(var_ref),
                     }));
                 server.respond(rsp)?;
             }

@@ -4,6 +4,10 @@ use dap::types::{
 };
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::OwnedDebugger;
+use std::borrow::Borrow;
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::env::var;
 use std::path::PathBuf;
 
 pub struct MyAdapter {
@@ -15,8 +19,7 @@ pub struct MyAdapter {
     breakpoints: Vec<(Source, i64)>, // This field is a placeholder
     stack_frames: Vec<StackFrame>,   // This field is a placeholder
     threads: Vec<Thread>,            // This field is a placeholder
-    variables: Vec<Variable>,
-    scopes: Vec<Scope>,
+    object_references: HashMap<i64, Vec<String>>,
     source: String,
     ids: NewSourceMap,
 }
@@ -33,8 +36,7 @@ impl MyAdapter {
             breakpoints: Vec::new(),
             stack_frames: Vec::new(),
             threads: Vec::new(),
-            variables: Vec::new(),
-            scopes: Vec::new(),
+            object_references: HashMap::new(),
             source: path.to_string(),
             ids: metadata,
         })
@@ -117,6 +119,7 @@ impl MyAdapter {
     }
 
     pub fn next_line(&mut self, _thread: i64) -> bool {
+        self.object_references.clear();
         //return a more informative enum
         // Step through once
         let status = self.debugger.step(1).unwrap(); //need to unwrap a different way
@@ -142,30 +145,43 @@ impl MyAdapter {
     }
 
     //display ports of each cell
-    pub fn get_variables(&self) -> Vec<Variable> {
-        let temp = Variable {
-            name: String::from("variable"),
-            value: String::from("12"),
-            type_field: None,
-            presentation_hint: None,
-            evaluate_name: None,
-            variables_reference: 0,
-            named_variables: None,
-            indexed_variables: None,
-            memory_reference: None,
-        };
-        vec![temp]
+    pub fn get_variables(&self, var_ref: i64) -> Vec<Variable> {
+        let ports = self.object_references.get(&var_ref);
+        match ports {
+            None => return Vec::default(),
+            Some(p) => {
+                let out: Vec<Variable> = p
+                    .into_iter()
+                    .map(|x| Variable {
+                        name: String::from(x),
+                        value: String::from("1"),
+                        type_field: None,
+                        presentation_hint: None,
+                        evaluate_name: None,
+                        variables_reference: 0,
+                        named_variables: None,
+                        indexed_variables: None,
+                        memory_reference: None,
+                    })
+                    .collect();
+                return out;
+            }
+        }
     }
-    // components are scopes
-    pub fn get_scopes(&self) -> Vec<Scope> {
+    // return cells in calyx context (later should hopefully just return ones w current component)
+    pub fn get_scopes(&mut self, frame: i64) -> Vec<Scope> {
         let mut out_vec = vec![];
-        let names = vec![String::from("cell 1"), String::from("cell 2")]; //self.debugger.get_cells() or alt way of getting from debugger
-        for name in names {
+        let cell_names = self.debugger.get_cells();
+        let mut var_ref_count = 1;
+        for (name, ports) in cell_names {
+            self.object_references.insert(var_ref_count, ports);
             let scope = Scope {
-                name,
-                presentation_hint: None,
-                variables_reference: 0,
-                named_variables: Some(1),
+                name: name,
+                presentation_hint: Some(
+                    dap::types::ScopePresentationhint::Locals,
+                ),
+                variables_reference: var_ref_count,
+                named_variables: None,
                 indexed_variables: None,
                 expensive: false,
                 source: None,
@@ -174,9 +190,14 @@ impl MyAdapter {
                 end_line: None,
                 end_column: None,
             };
-            out_vec.push(scope)
+            var_ref_count += 1;
+            out_vec.push(scope);
         }
         out_vec
+    }
+
+    pub fn on_pause(&mut self) {
+        self.object_references.clear();
     }
 }
 

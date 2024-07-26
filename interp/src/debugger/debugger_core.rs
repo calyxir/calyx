@@ -8,7 +8,7 @@ use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
     errors::{InterpreterError, InterpreterResult},
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::prelude::{CellInfo, GroupIdx, LocalRefPortOffset},
         setup_simulation_with_metadata,
         structures::{
             context::Context,
@@ -113,6 +113,12 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 .collect(),
             done: self.interpreter.is_done(),
         }
+    }
+
+    pub fn get_cells(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+        self.interpreter.env().iter_cells()
     }
 
     // Go to next step
