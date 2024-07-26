@@ -150,6 +150,24 @@ python3 {} 20000 --keepgoing |\
 """
 
 [[tests]]
+name = "[calyx-py] update expect"
+paths = [
+    "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/rr_queue_short.py",
+]
+
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20 --keepgoing |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
 name = "[calyx-py] sdn no-promote correctness"
 paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
