@@ -13,7 +13,7 @@ defop t1(a: s1) >> b: s2 {
   shell_deps("echo five", ["f1"], ["f2"]);
   shell_deps("echo five", [a], []);
   shell_deps("echo five", [], [b]);
-  shell_deps("echo five", [a, "f1", "f2"], ["f4", "f5", b]);
+  shell_deps("echo five", [a, "f1", "f2"], ["f4", "f5"]);
   shell("echo owo");
 }
 

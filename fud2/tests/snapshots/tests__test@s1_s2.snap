@@ -56,7 +56,7 @@ build $o0 _t1_rule_8.fake: t1_rule_8
 
 rule t1_rule_9
   command = echo five
-build f4 f5 $o0 _t1_rule_9.fake: t1_rule_9 $i0 f1 f2
+build f4 f5 _t1_rule_9.fake: t1_rule_9 $i0 f1 f2
   i0 = _from_stdin_s1
   o0 = _to_stdout_s2
 
