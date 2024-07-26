@@ -42,6 +42,8 @@ pub struct CompileStatic {
     /// offloading. In order for compilation to make sense, this parameter must
     /// match the parameter for `static-inline`.
     offload_pause: bool,
+    /// Bool indicating whether to greedily share the FSM registers
+    greedy_share: bool,
 }
 
 impl Named for CompileStatic {
@@ -66,6 +68,12 @@ impl Named for CompileStatic {
             "Whether to pause the static FSM when offloading",
             ParseVal::Bool(true),
             PassOpt::parse_bool,
+        ),
+        PassOpt::new(
+            "greedy-share",
+            "Whether to greedily share the FSMs",
+            ParseVal::Bool(true),
+            PassOpt::parse_bool,
         )
 
         ]
@@ -79,6 +87,7 @@ impl ConstructVisitor for CompileStatic {
         Ok(CompileStatic {
             one_hot_cutoff: opts["one-hot-cutoff"].pos_num().unwrap(),
             offload_pause: opts["offload-pause"].bool(),
+            greedy_share: opts["greedy-share"].bool(),
             reset_early_map: HashMap::new(),
             wrapper_map: HashMap::new(),
             signal_reg_map: HashMap::new(),
@@ -378,12 +387,21 @@ impl CompileStatic {
     /// that could be executing in parallel, and returns a greedy coloring of the
     /// graph.
     pub fn get_coloring(
+        &self,
         tree_objects: &Vec<Node>,
         sgroups: &[ir::RRC<ir::StaticGroup>],
         control: &mut ir::Control,
     ) -> HashMap<ir::Id, ir::Id> {
+        if !self.greedy_share {
+            // If !greedy_share just give each sgroup its own color.
+            return sgroups
+                .iter()
+                .map(|g| (g.borrow().name(), g.borrow().name()))
+                .collect();
+        }
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
+
         // Necessary conflicts to ensure correctness
 
         // Self::add_par_conflicts adds necessary conflicts between all nodes of
@@ -1071,7 +1089,7 @@ impl Visitor for CompileStatic {
         // The first thing is to assign FSMs -> static islands.
         // We sometimes assign the same FSM to different static islands
         // to reduce register usage. We do this by getting greedy coloring.
-        let coloring: HashMap<ir::Id, ir::Id> = Self::get_coloring(
+        let coloring: HashMap<ir::Id, ir::Id> = self.get_coloring(
             &default_tree_objects,
             &sgroups,
             &mut builder.component.control.borrow_mut(),
