@@ -1,18 +1,20 @@
 use itertools::Itertools;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
+use num_rational::{BigRational, Rational64};
+use num_traits::{sign::Signed, ConstZero, Num, ToPrimitive};
 use serde_json::Number;
 use std::{collections::HashMap, iter::repeat, str::FromStr};
 
 use super::json_data::*;
 use interp::serialization::*;
 
-fn msb(width: usize) -> u8 {
+fn msb(width: u32) -> u8 {
     let rem = width % 8;
     1u8 << (if rem != 0 { rem - 1 } else { 7 }) // shift to the right by between 0 and 7
 }
 
-fn sign_extend_vec(mut vec: Vec<u8>, width: usize, signed: bool) -> Vec<u8> {
-    let byte_count = width.div_ceil(8);
+fn sign_extend_vec(mut vec: Vec<u8>, width: u32, signed: bool) -> Vec<u8> {
+    let byte_count = width.div_ceil(8) as usize;
     let msb = if vec.len() < byte_count {
         0b1000_0000u8
     } else {
@@ -20,7 +22,7 @@ fn sign_extend_vec(mut vec: Vec<u8>, width: usize, signed: bool) -> Vec<u8> {
     };
 
     if signed && vec.last().unwrap() & msb != 0 {
-        match vec.len().cmp(&byte_count) {
+        match vec.len().cmp(&(byte_count)) {
             std::cmp::Ordering::Less => {
                 vec.extend(
                     repeat(0b1111_1111).take(byte_count - vec.len() - 1),
@@ -99,7 +101,7 @@ pub fn convert_to_data_dump(json: &JsonData) -> DataDump {
 #[inline]
 fn unroll_bigint(
     val: &BigInt,
-    width: usize,
+    width: u32,
     signed: bool,
 ) -> std::iter::Take<std::vec::IntoIter<u8>> {
     sign_extend_vec(
@@ -108,10 +110,113 @@ fn unroll_bigint(
         signed && val < &BigInt::ZERO,
     )
     .into_iter()
-    .take(width.div_ceil(8))
+    .take(width.div_ceil(8) as usize)
 }
 
-fn parse_bytes(bytes: &[u8], width: usize, signed: bool) -> BigInt {
+/// This is so so so stupid
+fn float_to_rational(float: f64) -> BigRational {
+    let string = dbg!(format!("{:.}", float));
+    let string = dbg!(string.split('.').collect_vec());
+
+    if string.len() == 1 {
+        return BigRational::from_integer(
+            BigInt::from_str_radix(string[0], 10).unwrap(),
+        );
+    }
+
+    let is_neg = string[0].starts_with('-');
+
+    let int = dbg!(BigInt::from_str_radix(
+        string[0].strip_prefix('-').unwrap_or(string[0]),
+        10
+    )
+    .unwrap());
+    let frac = BigInt::from_str_radix(string[1], 10).unwrap();
+    let denom = BigInt::from(10).pow(string[1].len() as u32);
+
+    let result = BigRational::from_integer(int) + BigRational::new(frac, denom);
+    if is_neg {
+        -result
+    } else {
+        result
+    }
+}
+
+fn unroll_float(
+    mut val: f64,
+    format: &interp::serialization::FormatInfo,
+    round_float: bool,
+) -> impl Iterator<Item = u8> {
+    if let &interp::serialization::FormatInfo::Fixed {
+        signed,
+        int_width,
+        frac_width,
+    } = format
+    {
+        let mut rational = dbg!(float_to_rational(val));
+
+        let mut frac_part = rational.fract().abs();
+        let mut frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
+
+        if frac_log.is_none() && round_float {
+            let w = BigInt::from(1) << frac_width;
+            let new = val * w.to_f64().unwrap();
+            let new = new.round() / w.to_f64().unwrap();
+
+            val = new;
+            rational = dbg!(float_to_rational(val));
+
+            frac_part = rational.fract().abs();
+            frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
+        } else {
+            panic!("Number cannot be represented as a fixed-point number");
+        }
+
+        let int_part = dbg!(rational.to_integer());
+        dbg!(&frac_part);
+
+        let frac_log = frac_log.unwrap();
+        if frac_log > frac_width {
+            panic!("cannot represent value with {frac_width} fractional bits, requires at least {frac_log} bits");
+        }
+
+        let int_log = log2_round_down(&int_part.abs().to_biguint().unwrap());
+
+        let int_log = int_log + if int_part > BigInt::ZERO { 1 } else { 0 };
+        let int_log = int_log + if int_part.is_negative() { 1 } else { 0 };
+
+        if int_log > int_width {
+            panic!("cannot represent value with {int_width} integer bits, requires at least {int_log} bits");
+        }
+
+        let diff = frac_width - frac_log;
+
+        let mul = BigInt::from(2).pow(diff);
+        let numer = dbg!(frac_part.numer() * mul);
+
+        let number = dbg!(int_part << frac_width) | numer;
+
+        let number = if number.is_positive() && val < 0_f64 {
+            -number
+        } else {
+            number
+        };
+
+        dbg!(&number);
+
+        sign_extend_vec(
+            number.to_signed_bytes_le(),
+            frac_width + int_width,
+            signed && number.is_negative(),
+        )
+        .into_iter()
+        .take((frac_width + int_width).div_ceil(8) as usize)
+    } else {
+        panic!("Called unroll_float on a non-fixed point type");
+    }
+}
+
+fn parse_bytes(bytes: &[u8], width: u32, signed: bool) -> BigInt {
     if signed {
         let msb = msb(width);
 
@@ -130,20 +235,53 @@ fn parse_bytes(bytes: &[u8], width: usize, signed: bool) -> BigInt {
     }
 }
 
+fn parse_bytes_fixed(
+    bytes: &[u8],
+    int_width: u32,
+    frac_width: u32,
+    signed: bool,
+) -> BigRational {
+    let int = dbg!(parse_bytes(bytes, int_width + frac_width, signed));
+    let mut int_part = dbg!(&int >> frac_width);
+    let frac_part =
+        dbg!(&int & ((BigInt::from(1) << frac_width) - BigInt::from(1)));
+
+    let alt_frac = dbg!(int - (&int_part << frac_width));
+
+    let is_neg = int_part.is_negative();
+    if int_part.is_negative() {
+        int_part = -int_part;
+    }
+
+    dbg!(&int_part);
+
+    let res = BigRational::from_integer(int_part)
+        + dbg!(BigRational::new(frac_part, (BigInt::from(1) << frac_width)));
+
+    if is_neg {
+        -res
+    } else {
+        res
+    }
+}
+
 fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
     let width = declaration.width();
 
-    let chunk_stream = data.chunks_exact(width.div_ceil(8)).map(|chunk| {
-        match declaration.format {
-            interp::serialization::FormatInfo::Bitnum { signed, .. } => {
-                let int = parse_bytes(chunk, width, signed);
-                Number::from_str(&int.to_str_radix(10)).unwrap()
+    let chunk_stream =
+        data.chunks_exact(width.div_ceil(8) as usize).map(|chunk| {
+            match declaration.format {
+                interp::serialization::FormatInfo::Bitnum {
+                    signed, ..
+                } => {
+                    let int = parse_bytes(chunk, width, signed);
+                    Number::from_str(&int.to_str_radix(10)).unwrap()
+                }
+                interp::serialization::FormatInfo::Fixed { .. } => todo!(),
             }
-            interp::serialization::FormatInfo::Fixed { .. } => todo!(),
-        }
-    });
+        });
     // sanity check
-    assert!(data.len() % width.div_ceil(8) == 0);
+    assert!(data.len() % (width.div_ceil(8) as usize) == 0);
 
     match &declaration.dimensions {
         Dimensions::D1(_) => chunk_stream.collect_vec().into(),
@@ -195,13 +333,64 @@ pub fn convert_from_data_dump(dump: &DataDump) -> JsonPrintDump {
     JsonPrintDump(map)
 }
 
+/// This is catastrophically stupid.
+fn log2_round_down(x: &BigUint) -> u32 {
+    if *x == BigUint::ZERO {
+        return 0;
+    }
+
+    let mut count = 0_u32;
+    while *x > BigUint::from(2_u32).pow(count) {
+        count += 1;
+    }
+
+    if BigUint::from(2_u32).pow(count) == *x {
+        count
+    } else {
+        count - 1
+    }
+}
+
+fn log2_exact(x: &BigUint) -> Option<u32> {
+    let log_round_down = log2_round_down(x);
+    if *x == BigUint::from(2_u32).pow(log_round_down) {
+        Some(log_round_down)
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    #[test]
+    fn test_unroll_float() {
+        let float = -1.123;
+        dbg!(&num_traits::float::FloatCore::fract(float));
+
+        let signed = true;
+        let int_width = 16;
+        let frac_width = 16;
+
+        let format = interp::serialization::FormatInfo::Fixed {
+            signed,
+            int_width,
+            frac_width,
+        };
+
+        let result = unroll_float(float, &format, true);
+        let result = result.collect_vec();
+        dbg!(BigInt::from_signed_bytes_le(&result));
+        let parsed_res =
+            parse_bytes_fixed(&result, int_width, frac_width, signed);
+        println!("{:#x?}", result);
+        println!("{}", parsed_res);
+    }
+
     prop_compose! {
-        fn arb_format_info()(width in 1_u64..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+        fn arb_format_info()(width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
             crate::json_data::FormatInfo {
                 width: Some(width),
                 is_signed: signed,
@@ -225,14 +414,14 @@ mod tests {
     }
 
     prop_compose! {
-        fn arb_bigint(width: u64, signed: bool)(mut data in prop::collection::vec(any::<u8>(), width.div_ceil(8) as usize)) -> BigInt {
+        fn arb_bigint(width: u32, signed: bool)(mut data in prop::collection::vec(any::<u8>(), width.div_ceil(8) as usize)) -> BigInt {
             let last = data.last_mut().unwrap();
             let mask = 0b1111_1111u8
                 >> (if width % 8 == 0 { 0 } else { 8 - width % 8 });
             *last &= mask;
 
             if signed {
-                parse_bytes(data.as_slice(), width as usize, signed)
+                parse_bytes(data.as_slice(), width, signed)
 
             } else {
                 BigInt::from_bytes_le(num_bigint::Sign::Plus, data.as_slice())
@@ -242,7 +431,7 @@ mod tests {
     }
 
     prop_compose! {
-        fn arb_data(width: u64, dimensions: Dimensions, signed: bool)(data in prop::collection::vec(arb_bigint(width, signed), dimensions.size())) -> ParseVec {
+        fn arb_data(width: u32, dimensions: Dimensions, signed: bool)(data in prop::collection::vec(arb_bigint(width, signed), dimensions.size())) -> ParseVec {
             let data = data.into_iter().map(|x| Number::from_str(&x.to_str_radix(10)).unwrap());
 
             match dimensions {
@@ -267,8 +456,8 @@ mod tests {
         })
     }
 
-    fn arb_bigint_with_info() -> impl Strategy<Value = (BigInt, u64, bool)> {
-        let width = prop_oneof![1..=128_u64];
+    fn arb_bigint_with_info() -> impl Strategy<Value = (BigInt, u32, bool)> {
+        let width = prop_oneof![1..=128_u32];
         let signed = any::<bool>();
 
         (width, signed).prop_flat_map(|(width, signed)| {
@@ -294,9 +483,9 @@ mod tests {
         #[test]
         fn sign_extend(data in arb_bigint_with_info()) {
             let (data, width, signed) = data;
-            let vec = sign_extend_vec(data.to_signed_bytes_le(), width as usize, signed);
+            let vec = sign_extend_vec(data.to_signed_bytes_le(), width, signed);
 
-            let parsed_back = parse_bytes(&vec, width as usize, signed);
+            let parsed_back = parse_bytes(&vec, width, signed);
 
             prop_assert_eq!(data, parsed_back);
         }

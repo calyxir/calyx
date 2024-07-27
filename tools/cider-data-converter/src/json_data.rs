@@ -20,17 +20,17 @@ pub struct FormatInfo {
     pub is_signed: bool,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub width: Option<u64>,
+    pub width: Option<u32>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub int_width: Option<u64>,
+    pub int_width: Option<u32>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub frac_width: Option<u64>,
+    pub frac_width: Option<u32>,
 }
 
 impl FormatInfo {
-    pub fn get_width(&self) -> u64 {
+    pub fn get_width(&self) -> u32 {
         if let Some(w) = self.width {
             w
         } else if self.int_width.is_some() && self.frac_width.is_some() {
@@ -50,7 +50,7 @@ impl FormatInfo {
         match &self.numeric_type {
             NumericType::Bitnum => interp::serialization::FormatInfo::Bitnum {
                 signed: self.is_signed,
-                width: self.width.unwrap() as usize,
+                width: self.width.unwrap(),
             },
             NumericType::Fixed => {
                 let (int_width, frac_width) = if self.int_width.is_some()
@@ -75,8 +75,8 @@ impl FormatInfo {
 
                 interp::serialization::FormatInfo::Fixed {
                     signed: self.is_signed,
-                    int_width: int_width as usize,
-                    frac_width: frac_width as usize,
+                    int_width,
+                    frac_width,
                 }
             }
         }

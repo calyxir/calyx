@@ -48,12 +48,12 @@ impl From<(usize, usize, usize, usize)> for Dimensions {
 pub enum FormatInfo {
     Bitnum {
         signed: bool,
-        width: usize,
+        width: u32,
     },
     Fixed {
         signed: bool,
-        int_width: usize,
-        frac_width: usize,
+        int_width: u32,
+        frac_width: u32,
     },
 }
 
@@ -65,7 +65,7 @@ impl FormatInfo {
         }
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         match self {
             FormatInfo::Bitnum { width, .. } => *width,
             FormatInfo::Fixed {
@@ -87,7 +87,7 @@ pub struct MemoryDeclaration {
 impl MemoryDeclaration {
     pub fn new_bitnum(
         name: String,
-        width: usize,
+        width: u32,
         dimensions: Dimensions,
         signed: bool,
     ) -> Self {
@@ -102,8 +102,8 @@ impl MemoryDeclaration {
         name: String,
         dimensions: Dimensions,
         signed: bool,
-        int_width: usize,
-        frac_width: usize,
+        int_width: u32,
+        frac_width: u32,
     ) -> Self {
         assert!(int_width + frac_width > 0, "width must be greater than 0");
 
@@ -135,10 +135,10 @@ impl MemoryDeclaration {
     }
 
     pub fn byte_count(&self) -> usize {
-        self.format.width().div_ceil(8) * self.dimensions.size()
+        self.format.width().div_ceil(8) as usize * self.dimensions.size()
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         self.format.width()
     }
 
@@ -208,7 +208,7 @@ impl DataDump {
     pub fn push_reg<T: IntoIterator<Item = u8>>(
         &mut self,
         name: String,
-        width: usize,
+        width: u32,
         data: T,
     ) {
         let declaration = MemoryDeclaration::new_bitnum(
@@ -389,7 +389,7 @@ mod tests {
     use proptest::prelude::*;
 
     prop_compose! {
-        fn arb_memory_declaration()(name in any::<String>(), signed in any::<bool>(), width in 1_usize..=256, size in 1_usize..=500) -> MemoryDeclaration {
+        fn arb_memory_declaration()(name in any::<String>(), signed in any::<bool>(), width in 1_u32..=256, size in 1_usize..=500) -> MemoryDeclaration {
             MemoryDeclaration::new_bitnum(name.to_string(), width, Dimensions::D1(size), signed)
         }
     }
@@ -429,7 +429,7 @@ mod tests {
             // produced from the memory primitive to not match the one
             // serialized into it in the first place
             for mem in &header.memories {
-                let bytes_per_val = mem.width().div_ceil(8);
+                let bytes_per_val = mem.width().div_ceil(8) as usize;
                 let rem = mem.width() % 8;
                 let mask = if rem != 0 { 255u8 >> (8 - rem) } else { 255_u8 };
 
