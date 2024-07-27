@@ -4,6 +4,12 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 from math import log2
 
+"""
+This file takes in a `.yxi` description and outputs a xml suitable for a `kernel.xml` file
+can be used to package an xclbin for the Xilinx XRT runtime.
+See https://docs.amd.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
+for the spec this is based on.
+"""
 size_key = "total_size"
 width_key = "data_width"
 
