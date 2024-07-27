@@ -13,6 +13,8 @@ pub struct BackendConf {
     pub enable_verification: bool,
     /// Use flat (ANF) assignments for guards instead of deep expression trees.
     pub flat_assign: bool,
+    /// Generate muxes in the backend:
+    pub emit_muxes: bool,
     /// [FIRRTL backend only] Emit extmodule declarations for primtives
     /// for use with SystemVerilog implementations
     pub emit_primitive_extmodules: bool,
