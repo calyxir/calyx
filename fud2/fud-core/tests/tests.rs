@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use fud_core::{
     exec::plan::{EggPlanner, EnumeratePlanner, FindPlan},
     DriverBuilder,
@@ -140,6 +142,104 @@ fn find_plan_nontrivial_cycle() {
         assert_eq!(
             Some(vec![(t2, vec![s2]), (t3, vec![s3])]),
             path_finder.find_plan(&[s1], &[s3], &[], &driver.ops)
+        );
+    }
+}
+
+#[test]
+fn op_creating_two_states() {
+    for path_finder in MULTI_PLANNERS {
+        println!("testing planner: {:?}", path_finder);
+        let mut bld = DriverBuilder::new("fud2");
+        let s0 = bld.state("s0", &[]);
+        let s1 = bld.state("s1", &[]);
+        let s2 = bld.state("s2", &[]);
+        let build_fn: fud_core::run::EmitBuildFn = |_, _, _| Ok(());
+        let t0 = bld.add_op("t0", &[], &[s0], &[s1, s2], build_fn);
+        let driver = bld.build();
+        assert_eq!(
+            Some(vec![(t0, vec![s1, s2])]),
+            path_finder.find_plan(&[s0], &[s1, s2], &[], &driver.ops)
+        );
+    }
+}
+
+#[test]
+fn op_compressing_two_states() {
+    for path_finder in MULTI_PLANNERS {
+        println!("testing planner: {:?}", path_finder);
+        let mut bld = DriverBuilder::new("fud2");
+        let s0 = bld.state("s0", &[]);
+        let s1 = bld.state("s1", &[]);
+        let s2 = bld.state("s2", &[]);
+        let build_fn: fud_core::run::EmitBuildFn = |_, _, _| Ok(());
+        let t0 = bld.add_op("t0", &[], &[s1, s2], &[s0], build_fn);
+        let driver = bld.build();
+        assert_eq!(
+            Some(vec![(t0, vec![s0])]),
+            path_finder.find_plan(&[s1, s2], &[s0], &[], &driver.ops)
+        );
+    }
+}
+
+#[test]
+fn op_creating_two_states_not_initial_and_final() {
+    for path_finder in MULTI_PLANNERS {
+        println!("testing planner: {:?}", path_finder);
+        let mut bld = DriverBuilder::new("fud2");
+        let s0 = bld.state("s0", &[]);
+        let s1 = bld.state("s1", &[]);
+        let s2 = bld.state("s2", &[]);
+        let s3 = bld.state("s3", &[]);
+        let s4 = bld.state("s4", &[]);
+        let s5 = bld.state("s5", &[]);
+        let build_fn: fud_core::run::EmitBuildFn = |_, _, _| Ok(());
+        let t0 = bld.add_op("t0", &[], &[s0], &[s1], build_fn);
+        let t1 = bld.add_op("t1", &[], &[s1], &[s2, s3], build_fn);
+        let t2 = bld.add_op("t2", &[], &[s2], &[s4], build_fn);
+        let t3 = bld.add_op("t3", &[], &[s3], &[s5], build_fn);
+        let driver = bld.build();
+        assert_eq!(
+            Some(BTreeSet::from_iter(vec![
+                (t0, vec![s1]),
+                (t1, vec![s2, s3]),
+                (t2, vec![s4]),
+                (t3, vec![s5])
+            ])),
+            path_finder
+                .find_plan(&[s0], &[s4, s5], &[], &driver.ops)
+                .map(|v| BTreeSet::from_iter(v))
+        );
+    }
+}
+
+#[test]
+fn op_compressing_two_states_not_initial_and_final() {
+    for path_finder in MULTI_PLANNERS {
+        println!("testing planner: {:?}", path_finder);
+        let mut bld = DriverBuilder::new("fud2");
+        let s0 = bld.state("s0", &[]);
+        let s1 = bld.state("s1", &[]);
+        let s2 = bld.state("s2", &[]);
+        let s3 = bld.state("s3", &[]);
+        let s4 = bld.state("s4", &[]);
+        let s5 = bld.state("s5", &[]);
+        let build_fn: fud_core::run::EmitBuildFn = |_, _, _| Ok(());
+        let t0 = bld.add_op("t0", &[], &[s0], &[s1], build_fn);
+        let t1 = bld.add_op("t1", &[], &[s2], &[s3], build_fn);
+        let t2 = bld.add_op("t2", &[], &[s1, s3], &[s4], build_fn);
+        let t3 = bld.add_op("t3", &[], &[s4], &[s5], build_fn);
+        let driver = bld.build();
+        assert_eq!(
+            Some(BTreeSet::from_iter(vec![
+                (t0, vec![s1]),
+                (t1, vec![s3]),
+                (t2, vec![s4]),
+                (t3, vec![s5]),
+            ])),
+            path_finder
+                .find_plan(&[s0, s2], &[s5], &[], &driver.ops)
+                .map(|v| BTreeSet::from_iter(v))
         );
     }
 }

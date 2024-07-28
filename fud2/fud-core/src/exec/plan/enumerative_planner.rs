@@ -84,7 +84,7 @@ impl EnumeratePlanner {
                 .iter()
                 .filter_map(|input| {
                     // Get indicies of `Step`s whose `used_outputs` must be modified.
-                    plan.iter_mut()
+                    plan.iter()
                         .rev()
                         .position(|(o, used_outputs)| {
                             // `op_ref`'s op now uses the input of the previous op in the plan.
@@ -92,7 +92,7 @@ impl EnumeratePlanner {
                             !used_outputs.contains(input)
                                 && ops[*o].output.contains(input)
                         })
-                        .map(|i| (input, i))
+                        .map(|i| (input, plan.len() - i - 1))
                 })
                 .collect();
 
@@ -146,7 +146,7 @@ impl EnumeratePlanner {
     ) -> Option<Vec<Step>> {
         // Try all sequences of ops up to `MAX_PATH_LEN`. At that point, the computation starts to
         // become really big.
-        for len in 1..Self::MAX_PLAN_LEN {
+        for len in 1..=Self::MAX_PLAN_LEN {
             if let Some(plan) = Self::try_paths_of_length(
                 &mut vec![],
                 len,
