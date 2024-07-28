@@ -22,7 +22,7 @@ define_language! {
         // A list of ops.
         "ops" = Ops(Box<[Id]>),
         // Symbolizes the absense of a state or op.
-        "x" = X,
+        "xxx" = X,
         // A ref, refering to either a StateRef or OpRef depending on context.
         Ref(u32),
     }
@@ -52,7 +52,7 @@ fn language_string(
             if states.contains(s) {
                 s.as_u32().to_string()
             } else if states_use_x {
-                String::from("x")
+                String::from("xxx")
             } else {
                 format!("?s{}", i)
             }
@@ -69,7 +69,7 @@ fn language_string(
             if through.contains(o) {
                 o.as_u32().to_string()
             } else if ops_use_x {
-                String::from("x")
+                String::from("xxx")
             } else {
                 format!("?o{}", i)
             }
@@ -118,7 +118,7 @@ fn rewrite_from_op(
             if op.output.contains(s) {
                 s.as_u32().to_string()
             } else if op.input.contains(s) {
-                String::from("x")
+                String::from("xxx")
             } else {
                 format!("?s{}", i)
             }
@@ -131,9 +131,9 @@ fn rewrite_from_op(
     let op_str = all_ops
         .iter()
         .enumerate()
-        .map(|(i, o)| {
-            if through.contains(o) {
-                o.as_u32().to_string()
+        .map(|(i, &o)| {
+            if through.contains(&op_ref) && o == op_ref {
+                op_ref.as_u32().to_string()
             } else {
                 format!("?o{}", i)
             }
@@ -157,13 +157,18 @@ impl FindPlan for EggPlanner {
         ops: &PrimaryMap<OpRef, Operation>,
     ) -> Option<Vec<Step>> {
         // Collect all ops and states into sorted `Vec`s.
-        let all_states: Vec<_> = ops
+        let mut all_states: Vec<_> = ops
             .values()
             .map(|op| op.input.clone())
             .chain(ops.values().map(|op| op.output.clone()))
             .flatten()
             .collect();
-        let all_ops: Vec<_> = ops.keys().collect();
+        all_states.sort();
+        all_states.dedup();
+
+        let mut all_ops: Vec<_> = ops.keys().collect();
+        all_ops.sort();
+        all_ops.dedup();
 
         // Construct egg rewrites for each op.
         let rules: Vec<Rewrite<StateLanguage, ()>> = ops
@@ -194,27 +199,29 @@ impl FindPlan for EggPlanner {
 
         // If the end expression exists, retrieve it using steps.
         if runner.egraph.lookup_expr(&end_expr).is_some() {
-            let mut explanation = runner.explain_existance(&end_expr);
-            Some(
-                explanation
-                    .make_flat_explanation()
-                    .iter()
-                    .filter_map(|t| {
-                        // Re-parse the op's reference from the rules creating `end_expr`.
-                        t.forward_rule.map(|r| {
-                            OpRef::from_u32(
-                                r.to_string().parse::<u32>().unwrap(),
-                            )
-                        })
+            let mut explanation =
+                runner.explain_equivalence(&start_expr, &end_expr);
+            let explanation: Vec<_> = explanation
+                .make_flat_explanation()
+                .iter()
+                .filter_map(|t| {
+                    // Re-parse the op's reference from the rules creating `end_expr`.
+                    t.forward_rule.map(|r| {
+                        OpRef::from_u32(r.to_string().parse::<u32>().unwrap())
                     })
-                    // Assume all outputs of an op are used. While this shouldn't cause any issues
-                    // of correctness, it ignores the problem of two ops outputing the same state.
-                    // This implies further reduction of the completeness of the search. This plan
-                    // leaves which state is prioritized undefined (though it should still be
-                    // deterministic).
-                    .map(|op_ref| (op_ref, ops[op_ref].output.to_vec()))
-                    .collect(),
-            )
+                })
+                // Assume all outputs of an op are used. While this shouldn't cause any issues
+                // of correctness, it ignores the problem of two ops outputing the same state.
+                // This implies further reduction of the completeness of the search. This plan
+                // leaves which state is prioritized undefined (though it should still be
+                // deterministic).
+                .map(|op_ref| (op_ref, ops[op_ref].output.to_vec()))
+                .collect();
+            if explanation.is_empty() {
+                None
+            } else {
+                Some(explanation)
+            }
         } else {
             None
         }
