@@ -182,6 +182,7 @@ fn unroll_float(
             let new = val * w.to_f64().unwrap();
             let new = new.round();
 
+            // this is, to put it charitably, weapons grade silly
             BigInt::from_str_radix(&format!("{:.0}", new), 10).unwrap()
         } else if frac_log.is_none() {
             panic!("Number cannot be represented as a fixed-point number");
