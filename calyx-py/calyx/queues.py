@@ -757,6 +757,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, times=None, kee
             try:
                 ans.append(queue.pop(time))
             except QueueError:
+                ans.append(20000)
                 if keepgoing:
                     continue
                 break
@@ -765,6 +766,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, times=None, kee
             try:
                 ans.append(queue.peek(time))
             except QueueError:
+                ans.append(20000)
                 if keepgoing:
                     continue
                 break
@@ -772,7 +774,9 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, times=None, kee
         elif cmd == 2: #Push
             try:
                 queue.push(val, rank, time)
+                ans.append(10000)
             except QueueError:
+                ans.append(20000)
                 if keepgoing:
                     continue
                 break
@@ -781,6 +785,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, times=None, kee
             try:
                 ans.append(queue.pop(time, val))
             except QueueError:
+                ans.append(20000)
                 if keepgoing:
                     continue
                 break
@@ -789,6 +794,7 @@ def operate_queue(queue, max_cmds, commands, values, ranks=None, times=None, kee
             try:
                 ans.append(queue.peek(time, val))
             except QueueError:
+                ans.append(20000)
                 if keepgoing:
                     continue
                 break
