@@ -63,6 +63,11 @@ struct Opts {
     #[argh(option, short = 'o')]
     output_path: Option<PathBuf>,
 
+    /// whether to round un-representable floating point instantiations rather than
+    /// throwing an error
+    #[argh(switch, short = 'r', long = "round-float")]
+    round_float: bool,
+
     /// optional specification of what action to perform. Can be "cider" or
     /// "json". If not provided, the converter will try to guess based on file names
     #[argh(option, short = 't', long = "to")]
@@ -108,7 +113,7 @@ fn main() -> Result<(), CiderDataConverterError> {
             Action::ToDataDump => {
                 let parsed_json: JsonData =
                     serde_json::from_reader(&mut input)?;
-                converter::convert_to_data_dump(&parsed_json)
+                converter::convert_to_data_dump(&parsed_json, opts.round_float)
                     .serialize(&mut output)?;
             }
             Action::ToJson => {
