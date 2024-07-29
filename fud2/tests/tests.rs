@@ -1,3 +1,4 @@
+use figment::providers::Format as _;
 use fud_core::{
     config::default_config,
     exec::{
@@ -23,9 +24,11 @@ fn test_driver() -> Driver {
     bld.load_plugins(&config).build()
 }
 
-fn driver_from_path(path: &str) -> Driver {
+fn driver_from_path_with_config(
+    path: &str,
+    config: figment::Figment,
+) -> Driver {
     let mut bld = DriverBuilder::new("fud2-plugins");
-    let config = figment::Figment::new();
     let path = format!(
         "{}/{}",
         manifest_dir_macros::directory_path!("tests/scripts"),
@@ -33,6 +36,10 @@ fn driver_from_path(path: &str) -> Driver {
     );
     bld.scripts_dir(&path);
     bld.load_plugins(&config).build()
+}
+
+fn driver_from_path(path: &str) -> Driver {
+    driver_from_path_with_config(path, figment::Figment::new())
 }
 
 trait InstaTest: Sized {
@@ -90,7 +97,8 @@ impl InstaTest for Plan {
             .merge(("xilinx.vivado", "/test/xilinx/vivado"))
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
-            .merge(("dahlia", "/test/bin/dahlia"));
+            .merge(("dahlia", "/test/bin/dahlia"))
+            .merge(("c0", "v1"));
         let run = Run::with_config(driver, self, config);
         let mut buf = vec![];
         run.emit(&mut buf).unwrap();
@@ -316,4 +324,17 @@ fn simple_defops() {
         EnumeratePlanner {},
     )
     .test(&driver);
+}
+
+#[test]
+fn config() {
+    let config = figment::Figment::from({
+        let source = r#"
+                c0 = "v0"
+            "#;
+        figment::providers::Toml::string(source)
+    });
+    let driver = driver_from_path_with_config("defop", config);
+    request(&driver, &["state0"], &["state1"], &["t4"]).test(&driver);
+    request(&driver, &["state0"], &["state1"], &["t5"]).test(&driver);
 }

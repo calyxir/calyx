@@ -24,3 +24,15 @@ defop t3(s0: state0, s1: state1, s2: state2) >> s3: state3, s4: state4 {
   shell(`echo inputs ${s0} ${s1} ${s2}`);
   shell(`echo outputs ${s3} ${s4}`);
 }
+
+// testing config works
+defop t4(s0: state0) >> s1: state1 {
+  let c0 = config("c0");
+  shell(`echo ${c0}`);
+}
+
+// testing config_or works
+defop t5(s0: state0) >> s1: state1 {
+  let c0 = config_or("this-config-better-not-exist", "gholdengo");
+  shell(`echo ${c0}`);
+}
