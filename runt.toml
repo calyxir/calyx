@@ -138,7 +138,7 @@ paths = [
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 200 --keepgoing |\
+python3 {} 20000 --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
@@ -150,7 +150,7 @@ python3 {} 200 --keepgoing |\
 [[tests]]
 name = "[calyx-py] queues correctness"
 paths = [
-    #"calyx-py/test/correctness/queues/*.py",
+    "calyx-py/test/correctness/queues/*.py",
     "calyx-py/test/correctness/queues/binheap/*.py",
     "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
     "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"

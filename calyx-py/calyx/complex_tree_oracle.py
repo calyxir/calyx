@@ -17,9 +17,9 @@ if __name__ == "__main__":
     pifo = queues.RRQueue2(
         3,
         [133, 266, 400],
-        (queues.StrictPifo(3, [133, 266, 400], [0, 1, 2], 16),
-          queues.RRQueue(3, [133, 266, 400], len),
-            queues.StrictPifo(2, [200, 400], [0, 1], len)),
+        (queues.StrictPifo(3, [44, 88, 133], [0, 1, 2], 16),
+          queues.RRQueue(3, [177, 221, 266], len),
+            queues.StrictPifo(2, [333, 400], [0, 1], len)),
           len
     )
 
