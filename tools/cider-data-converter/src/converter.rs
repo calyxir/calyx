@@ -1,7 +1,7 @@
 use itertools::Itertools;
-use num_bigint::{BigInt, BigUint};
-use num_rational::{BigRational, Rational64};
-use num_traits::{sign::Signed, ConstZero, Num, ToPrimitive};
+use num_bigint::{BigInt, BigUint, ToBigInt};
+use num_rational::BigRational;
+use num_traits::{sign::Signed, Num, ToPrimitive};
 use serde_json::Number;
 use std::{collections::HashMap, iter::repeat, str::FromStr};
 
@@ -51,15 +51,16 @@ fn sign_extend_vec(mut vec: Vec<u8>, width: u32, signed: bool) -> Vec<u8> {
     vec
 }
 
-pub fn convert_to_data_dump(json: &JsonData) -> DataDump {
+pub fn convert_to_data_dump(json: &JsonData, round_float: bool) -> DataDump {
     let mut data_dump = DataDump::new_empty();
 
     for (name, entry) in json.0.iter() {
         let data_vec = entry.data.parse(&entry.format).unwrap();
+        let format = entry.format.as_data_dump_format();
         let dec: MemoryDeclaration = MemoryDeclaration::new(
             name.clone(),
             data_vec.dimensions(),
-            entry.format.as_data_dump_format(),
+            format.clone(),
         );
 
         let width = dec.width();
@@ -86,10 +87,30 @@ pub fn convert_to_data_dump(json: &JsonData) -> DataDump {
                     })
                 })
             })),
-            DataVec::Fd1(_) => todo!("implement fixed-point"),
-            DataVec::Fd2(_) => todo!("implement fixed-point"),
-            DataVec::Fd3(_) => todo!("implement fixed-point"),
-            DataVec::Fd4(_) => todo!("implement fixed-point"),
+            DataVec::Fd1(v1) => Box::new(
+                v1.iter()
+                    .flat_map(|val| unroll_float(*val, &format, round_float)),
+            ),
+            DataVec::Fd2(v1) => Box::new(v1.iter().flat_map(|v2| {
+                v2.iter()
+                    .flat_map(|val| unroll_float(*val, &format, round_float))
+            })),
+            DataVec::Fd3(v1) => Box::new(v1.iter().flat_map(|v2| {
+                v2.iter().flat_map(|v3| {
+                    v3.iter().flat_map(|val| {
+                        unroll_float(*val, &format, round_float)
+                    })
+                })
+            })),
+            DataVec::Fd4(v1) => Box::new(v1.iter().flat_map(|v2| {
+                v2.iter().flat_map(|v3| {
+                    v3.iter().flat_map(|v4| {
+                        v4.iter().flat_map(|val| {
+                            unroll_float(*val, &format, round_float)
+                        })
+                    })
+                })
+            })),
         };
 
         data_dump.push_memory(dec, data)
@@ -104,19 +125,15 @@ fn unroll_bigint(
     width: u32,
     signed: bool,
 ) -> std::iter::Take<std::vec::IntoIter<u8>> {
-    sign_extend_vec(
-        val.to_signed_bytes_le(),
-        width,
-        signed && val < &BigInt::ZERO,
-    )
-    .into_iter()
-    .take(width.div_ceil(8) as usize)
+    sign_extend_vec(val.to_signed_bytes_le(), width, signed)
+        .into_iter()
+        .take(width.div_ceil(8) as usize)
 }
 
 /// This is so so so stupid
 fn float_to_rational(float: f64) -> BigRational {
-    let string = dbg!(format!("{:.}", float));
-    let string = dbg!(string.split('.').collect_vec());
+    let string = format!("{:.}", float);
+    let string = string.split('.').collect_vec();
 
     if string.len() == 1 {
         return BigRational::from_integer(
@@ -126,11 +143,11 @@ fn float_to_rational(float: f64) -> BigRational {
 
     let is_neg = string[0].starts_with('-');
 
-    let int = dbg!(BigInt::from_str_radix(
+    let int = BigInt::from_str_radix(
         string[0].strip_prefix('-').unwrap_or(string[0]),
-        10
+        10,
     )
-    .unwrap());
+    .unwrap();
     let frac = BigInt::from_str_radix(string[1], 10).unwrap();
     let denom = BigInt::from(10).pow(string[1].len() as u32);
 
@@ -153,42 +170,19 @@ fn unroll_float(
         frac_width,
     } = format
     {
-        let rational = dbg!(float_to_rational(val));
+        let rational = float_to_rational(val);
 
         let frac_part = rational.fract().abs();
         let frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
 
         let number = if frac_log.is_none() && round_float {
-            // let w = BigInt::from(1) << frac_width;
-            // let new = dbg!(val * w.to_f64().unwrap());
-            // let new = dbg!(new.round()) / dbg!(w.to_f64().unwrap());
-
-            // let alt = BigInt::from_str_radix(
-            //     &format!("{:.0}", val * w.to_f64().unwrap()),
-            //     10,
-            // )
-            // .unwrap();
-            // dbg!(&alt);
-
-            // val = dbg!(new);
-            // rational = dbg!(float_to_rational(val));
-
-            // frac_part = rational.fract().abs();
-            // frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
-
-            dbg!("approximating!!!!");
-
             let w = BigInt::from(1) << frac_width;
-            let new = val * w.to_f64().unwrap();
-            let new = new.round();
-
-            // this is, to put it charitably, weapons grade silly
-            BigInt::from_str_radix(&format!("{:.0}", new), 10).unwrap()
+            let new = (val * w.to_f64().unwrap()).round();
+            new.to_bigint().unwrap()
         } else if frac_log.is_none() {
-            panic!("Number cannot be represented as a fixed-point number");
+            panic!("Number cannot be represented as a fixed-point number. If you want to approximate the number, set the `round_float` flag to true.");
         } else {
-            let int_part = dbg!(rational.to_integer());
-            dbg!(&frac_part);
+            let int_part = rational.to_integer();
 
             let frac_log = frac_log.unwrap_or_else(|| panic!("unable to round the given value to a value representable with {frac_width} fractional bits"));
             if frac_log > frac_width {
@@ -197,7 +191,6 @@ fn unroll_float(
 
             let mut int_log =
                 log2_round_down(&int_part.abs().to_biguint().unwrap());
-            dbg!(&int_log);
             if (BigInt::from(1) << int_log) <= int_part.abs() {
                 int_log += 1;
             }
@@ -205,37 +198,26 @@ fn unroll_float(
                 int_log += 1;
             }
 
-            dbg!(&int_log);
-
             if int_log > int_width {
                 let signed_str = if signed { "signed " } else { "" };
 
                 panic!("cannot represent {signed_str}value of {val} with {int_width} integer bits, requires at least {int_log} bits");
             }
 
-            let number = rational.numer() << (frac_width - frac_log);
-            number
+            rational.numer() << (frac_width - frac_log)
         };
 
-        dbg!(&number);
-
-        let bit_count = dbg!(number.bits()) + if signed { 1 } else { 0 };
+        let bit_count = number.bits() + if signed { 1 } else { 0 };
 
         if bit_count > (frac_width + int_width) as u64 {
             let difference = bit_count - frac_width as u64;
-            let leading_text = if frac_log.is_none() {
-                "The approximation of the number"
-            } else {
-                "The number"
-            };
-
-            panic!("{leading_text} {val} cannot be represented with {frac_width} fractional bits and {int_width} integer bits. Requires at least {difference} integer bits.");
+            panic!("The approximation of the number {val} cannot be represented with {frac_width} fractional bits and {int_width} integer bits. Requires at least {difference} integer bits.");
         }
 
         sign_extend_vec(
             number.to_signed_bytes_le(),
             frac_width + int_width,
-            signed && number.is_negative(),
+            signed,
         )
         .into_iter()
         .take((frac_width + int_width).div_ceil(8) as usize)
@@ -269,12 +251,9 @@ fn parse_bytes_fixed(
     frac_width: u32,
     signed: bool,
 ) -> BigRational {
-    let int = dbg!(parse_bytes(bytes, int_width + frac_width, signed));
+    let int = parse_bytes(bytes, int_width + frac_width, signed);
 
-    let alt_num =
-        dbg!(BigRational::new(int.clone(), BigInt::from(1) << frac_width));
-
-    alt_num
+    BigRational::new(int.clone(), BigInt::from(1) << frac_width)
 }
 
 fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
@@ -289,7 +268,17 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
                     let int = parse_bytes(chunk, width, signed);
                     Number::from_str(&int.to_str_radix(10)).unwrap()
                 }
-                interp::serialization::FormatInfo::Fixed { .. } => todo!(),
+                interp::serialization::FormatInfo::Fixed {
+                    signed,
+                    int_width,
+                    frac_width,
+                } => {
+                    let int =
+                        parse_bytes_fixed(chunk, int_width, frac_width, signed);
+                    let float = int.to_f64().unwrap();
+
+                    Number::from_f64(float).unwrap()
+                }
             }
         });
     // sanity check
@@ -364,7 +353,6 @@ fn log2_round_down(x: &BigUint) -> u32 {
 }
 
 fn log2_exact(x: &BigUint) -> Option<u32> {
-    dbg!(x);
     let log_round_down = log2_round_down(x);
     if *x == BigUint::from(2_u32).pow(log_round_down) {
         Some(log_round_down)
@@ -380,11 +368,11 @@ mod tests {
 
     #[test]
     fn test_unroll_float() {
-        let float = 2.5;
+        let float = -13.345;
 
         let signed = true;
-        let int_width = 2;
-        let frac_width = 16;
+        let int_width = 5;
+        let frac_width = 50;
 
         let format = interp::serialization::FormatInfo::Fixed {
             signed,
@@ -394,11 +382,14 @@ mod tests {
 
         let result = unroll_float(float, &format, true);
         let result = result.collect_vec();
-        dbg!(BigInt::from_signed_bytes_le(&result));
+        BigInt::from_signed_bytes_le(&result);
         let parsed_res =
             parse_bytes_fixed(&result, int_width, frac_width, signed);
-        println!("{:#x?}", result);
-        println!("{}", parsed_res);
+        println!(
+            " exact {}\n approx {}",
+            parsed_res,
+            parsed_res.to_f64().unwrap()
+        );
     }
 
     prop_compose! {
@@ -483,7 +474,7 @@ mod tests {
         fn test_json_roundtrip(map in prop::collection::hash_map(any::<String>(), arb_json_entry(), 1..4)) {
             let json_data = JsonData(map);
 
-            let dump = convert_to_data_dump(&json_data);
+            let dump = convert_to_data_dump(&json_data, false);
 
             let json_print_dump = convert_from_data_dump(&dump);
 
