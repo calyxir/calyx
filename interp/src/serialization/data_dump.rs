@@ -475,7 +475,7 @@ mod tests {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width() as u32, false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
@@ -484,7 +484,7 @@ mod tests {
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width() as u32, false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
