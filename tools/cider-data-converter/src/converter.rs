@@ -130,7 +130,9 @@ fn unroll_bigint(
         .take(width.div_ceil(8) as usize)
 }
 
-/// This is so so so stupid
+/// This is so so so stupid. unfortunately, using the `BigRational` type's
+/// to_f64 method results in some rounding behavior which creates very confusing
+/// errors (demanding more precision) so this is a workaround.
 fn float_to_rational(float: f64) -> BigRational {
     let string = format!("{:.}", float);
     let string = string.split('.').collect_vec();
@@ -180,7 +182,7 @@ fn unroll_float(
             let new = (val * w.to_f64().unwrap()).round();
             new.to_bigint().unwrap()
         } else if frac_log.is_none() {
-            panic!("Number cannot be represented as a fixed-point number. If you want to approximate the number, set the `round_float` flag to true.");
+            panic!("Number {val} cannot be represented as a fixed-point number. If you want to approximate the number, set the `round_float` flag to true.");
         } else {
             let int_part = rational.to_integer();
 
@@ -368,11 +370,11 @@ mod tests {
 
     #[test]
     fn test_unroll_float() {
-        let float = -13.345;
+        let float = -0.5;
 
         let signed = true;
-        let int_width = 5;
-        let frac_width = 50;
+        let int_width = 16;
+        let frac_width = 16;
 
         let format = interp::serialization::FormatInfo::Fixed {
             signed,
@@ -390,10 +392,12 @@ mod tests {
             parsed_res,
             parsed_res.to_f64().unwrap()
         );
+
+        assert_eq!(parsed_res.to_f64().unwrap(), float)
     }
 
     prop_compose! {
-        fn arb_format_info()(width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+        fn arb_format_info_bitnum()(width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
             crate::json_data::FormatInfo {
                 width: Some(width),
                 is_signed: signed,
@@ -402,6 +406,23 @@ mod tests {
                 frac_width: None,
             }
         }
+    }
+
+    prop_compose! {
+        fn arb_format_info_fixed()(int_width in 1_u32..=128, frac_width in 1_u32..=128, signed in any::<bool>()) -> crate::json_data::FormatInfo {
+            crate::json_data::FormatInfo {
+                width: None,
+                is_signed: signed,
+                numeric_type: NumericType::Fixed,
+                int_width: Some(int_width),
+                frac_width: Some(frac_width),
+            }
+        }
+    }
+
+    fn format_info_generator(
+    ) -> impl Strategy<Value = crate::json_data::FormatInfo> {
+        prop_oneof![arb_format_info_bitnum(), arb_format_info_fixed()]
     }
 
     fn dim_generator() -> impl Strategy<Value = Dimensions> {
@@ -434,8 +455,15 @@ mod tests {
     }
 
     prop_compose! {
-        fn arb_data(width: u32, dimensions: Dimensions, signed: bool)(data in prop::collection::vec(arb_bigint(width, signed), dimensions.size())) -> ParseVec {
-            let data = data.into_iter().map(|x| Number::from_str(&x.to_str_radix(10)).unwrap());
+        fn arb_data(format: crate::json_data::FormatInfo, dimensions: Dimensions, signed: bool)(data in prop::collection::vec(arb_bigint(format.get_width(), signed), dimensions.size())) -> ParseVec {
+            let data = data.into_iter().map(|x| {
+                if format.is_fixedpt() {
+                    let rat = BigRational::new(x.clone(), BigInt::from(1) << format.frac_width().unwrap());
+                    Number::from_f64(rat.to_f64().unwrap()).unwrap()
+                } else {
+                    Number::from_str(&x.to_str_radix(10)).unwrap()
+                }
+            });
 
             match dimensions {
                 Dimensions::D1(_) => data.collect_vec().into(),
@@ -447,10 +475,10 @@ mod tests {
     }
 
     fn arb_json_entry() -> impl Strategy<Value = JsonDataEntry> {
-        let arb_format_info = arb_format_info();
+        let arb_format_info = format_info_generator();
         let dim = dim_generator();
         (arb_format_info, dim).prop_flat_map(|(format, dimensions)| {
-            arb_data(format.get_width(), dimensions, format.is_signed).prop_map(
+            arb_data(format.clone(), dimensions, format.is_signed).prop_map(
                 move |x| JsonDataEntry {
                     data: x,
                     format: format.clone(),
@@ -474,7 +502,7 @@ mod tests {
         fn test_json_roundtrip(map in prop::collection::hash_map(any::<String>(), arb_json_entry(), 1..4)) {
             let json_data = JsonData(map);
 
-            let dump = convert_to_data_dump(&json_data, false);
+            let dump = convert_to_data_dump(&json_data, true);
 
             let json_print_dump = convert_from_data_dump(&dump);
 

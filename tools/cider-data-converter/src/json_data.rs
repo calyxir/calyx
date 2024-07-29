@@ -40,10 +40,30 @@ impl FormatInfo {
         }
     }
 
-    fn is_fixedpt(&self) -> bool {
+    pub fn is_fixedpt(&self) -> bool {
         self.int_width.is_some() && self.frac_width.is_some()
             || self.width.is_some() && self.frac_width.is_some()
             || self.width.is_some() && self.int_width.is_some()
+    }
+
+    pub fn int_width(&self) -> Option<u32> {
+        if self.int_width.is_some() {
+            self.int_width
+        } else if self.width.is_some() && self.frac_width.is_some() {
+            Some(self.width.unwrap() - self.frac_width.unwrap())
+        } else {
+            None
+        }
+    }
+
+    pub fn frac_width(&self) -> Option<u32> {
+        if self.frac_width.is_some() {
+            self.frac_width
+        } else if self.int_width.is_some() && self.width.is_some() {
+            Some(self.width.unwrap() - self.int_width.unwrap())
+        } else {
+            None
+        }
     }
 
     pub fn as_data_dump_format(&self) -> interp::serialization::FormatInfo {
