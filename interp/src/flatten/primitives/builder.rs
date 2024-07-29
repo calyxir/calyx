@@ -108,25 +108,35 @@ pub fn build_primitive(
             base_port, *start_idx, *end_idx, *out_width,
         )),
         CellPrototype::FixedPoint {
-            op: op,
-            width: width,
-            int_width: int_width,
-            frac_width: frac_width,
+            op,
+            width,
+            int_width,
+            frac_width,
         } => match op {
             FXType::Add | FXType::SignedAdd => Box::new(StdAdd::new(base_port)),
             FXType::Sub | FXType::SignedSub => Box::new(StdSub::new(base_port)),
-            FXType::Mult => todo!(),
-            FXType::Div => todo!(),
-            FXType::SignedMult => {
-                todo!()
-            }
-            FXType::SignedDiv => {
-                todo!()
-            }
+            FXType::Mult | FXType::SignedMult => Box::new(
+                FxpMultPipe::<2>::new(base_port, *int_width, *frac_width),
+            ),
+            FXType::Div => Box::new(FxpDivPipe::<2, false>::new(
+                base_port,
+                *int_width,
+                *frac_width,
+            )),
+
+            FXType::SignedDiv => Box::new(FxpDivPipe::<2, true>::new(
+                base_port,
+                *int_width,
+                *frac_width,
+            )),
             FXType::Gt => Box::new(StdGt::new(base_port)),
             FXType::SignedGt => Box::new(StdSgt::new(base_port)),
             FXType::SignedLt => Box::new(StdSlt::new(base_port)),
-            FXType::Sqrt => todo!(),
+            FXType::Sqrt => Box::new(Sqrt::<true>::new(
+                base_port,
+                *width,
+                Some(*frac_width),
+            )),
         },
         CellPrototype::Slice {
             in_width: _, // Not actually needed, should probably remove
