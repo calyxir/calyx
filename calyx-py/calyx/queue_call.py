@@ -123,7 +123,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
             ],
         ),
         runner.incr(i),  # i++
-        #runner.reg_store(err, 0, "lower_err"),  # Lower the error flag.
+        # runner.reg_store(err, 0, "lower_err"),  # Lower the error flag.
     ]
 
     return runner
@@ -164,7 +164,7 @@ def insert_main(
         else None
     )
     i = main.reg(32)  # A counter for how many times we have invoked the dataplane.
-    #j = main.reg(32)  # The index on the answer-list we'll write to
+    # j = main.reg(32)  # The index on the answer-list we'll write to
     keep_looping = main.and_(1)  # If this is high, we keep going. Otherwise, we stop.
     lt = main.lt(32)
     not_err = main.not_(1)
@@ -186,7 +186,7 @@ def insert_main(
         cb.CellAndGroup(keep_looping, compute_keep_looping),
         [
             main.reg_store(has_ans, 0, "lower_has_ans"),  # Lower the has-ans flag.
-            main.reg_store(dataplane_err, 0, "lower_err"), # Lower the has-err flag.
+            main.reg_store(dataplane_err, 0, "lower_err"),  # Lower the has-err flag.
             (
                 cb.invoke(
                     # Invoke the dataplane component with a stats component.
@@ -226,12 +226,16 @@ def insert_main(
             # write it to the answer-list and increment the index `i`.
             cb.if_(
                 has_ans.out,
-                
-                    main.mem_store_d1(ans_mem, i.out, dataplane_ans.out, "write_ans"),
-                    cb.if_(dataplane_err.out, 
-                        main.mem_store_d1(ans_mem, i.out, cb.const(32, 20000), "write_err"), # there was an error
-                        main.mem_store_d1(ans_mem, i.out, cb.const(32, 10000), "write_push"),) # the command was a push
-                    
+                main.mem_store_d1(ans_mem, i.out, dataplane_ans.out, "write_ans"),
+                cb.if_(
+                    dataplane_err.out,
+                    main.mem_store_d1(
+                        ans_mem, i.out, cb.const(32, 20000), "write_err"
+                    ),  # there was an error
+                    main.mem_store_d1(
+                        ans_mem, i.out, cb.const(32, 10000), "write_push"
+                    ),
+                ),  # the command was a push
             ),
             (
                 cb.invoke(  # Invoke the controller component.
