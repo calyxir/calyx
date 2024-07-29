@@ -128,24 +128,6 @@ python3 {} |\
        -q
 """
 
-[[tests]]
-name = "[calyx-py] queues correctness"
-paths = [
-    "calyx-py/test/correctness/queues/pifo_tree.py",
-    "calyx-py/test/correctness/queues/complex_tree.py",
-]
-
-cmd = """
-name=$(basename {} .py) &&
-dir=$(dirname {}) &&
-python3 {} 20000 --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
-"""
 
 [[tests]]
 name = "[calyx-py] queues correctness"
