@@ -4,7 +4,7 @@ use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, MemType, SingleWidthType},
+            cell_prototype::{CellPrototype, FXType, MemType, SingleWidthType},
             prelude::{CellInfo, GlobalPortIdx},
         },
         structures::context::Context,
@@ -108,11 +108,26 @@ pub fn build_primitive(
             base_port, *start_idx, *end_idx, *out_width,
         )),
         CellPrototype::FixedPoint {
-            op: _,
-            width: _,
-            int_width: _,
-            frac_width: _,
-        } => todo!("Fixed point implementations not available yet"),
+            op: op,
+            width: width,
+            int_width: int_width,
+            frac_width: frac_width,
+        } => match op {
+            FXType::Add | FXType::SignedAdd => Box::new(StdAdd::new(base_port)),
+            FXType::Sub | FXType::SignedSub => Box::new(StdSub::new(base_port)),
+            FXType::Mult => todo!(),
+            FXType::Div => todo!(),
+            FXType::SignedMult => {
+                todo!()
+            }
+            FXType::SignedDiv => {
+                todo!()
+            }
+            FXType::Gt => Box::new(StdGt::new(base_port)),
+            FXType::SignedGt => Box::new(StdSgt::new(base_port)),
+            FXType::SignedLt => Box::new(StdSlt::new(base_port)),
+            FXType::Sqrt => todo!(),
+        },
         CellPrototype::Slice {
             in_width: _, // Not actually needed, should probably remove
             out_width,
