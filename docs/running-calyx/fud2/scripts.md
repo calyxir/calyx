@@ -28,6 +28,66 @@ export const verilog_state = state("verilog", ["sv", "v"]);
 
 These two lines define a `calyx` state and a `verilog` state. The `export` prefix means that these variables will be accessible to other scripts that `import "calyx"`.
 
+Now we will define an operation taking the `calyx` state to the `verilog` state. These operations define functions where the signiture asserts the result of running the body.
+
+```rust,ignore
+// define an op called "calyx_to_verilog" taking a "calyx_state" to a "verilog_state".
+defop calyx_to_verilog(c: calyx_state) >> v: verilog_state {
+    // retrieve a variable from the fud2.toml config
+    let calyx_base = config("calyx.base");
+    // retrieve a variable from the config, or a default derived from calyx-base
+    let calyx_exe = config_or("calyx.exe", "${calyx_base}/target/debug/calyx");
+    // retrieve a variable from cli options, or with a default
+    let args = config_or("calyx.args", "");
+
+    // specify a shell command to turn a calyx file "c" into a verilog file "v"
+    shell("${calyx_exe} -l ${calyx_base} -b verilog ${args} ${c} > ${v});
+}
+```
+
+Possibly counterintutively, `c`, `v`, `calyx_base`, `calyx_exe`, and `args` do not contain the actual variable values defined. They contain identifiers which are replaced values by Ninja during runtime. This thwarts the confusing possibility of from different code paths of a given op running despite no changes to a script.
+
+This example shows off nearly all of the features available for defining ops. The complexity and ability for code reuse, comes from the basic tools of Rhai. Consider if we wanted to create a second, similar op `calyx_noverify`. We can factor the contents of `calyx_to_verilog` into a new function and call that funtion in both ops.
+
+```
+// a function constructing a shell command to take a calyx in_file to a verilog out_file
+// this function adds `add_args` as extra arguments to it's call to the calyx compiler
+fn calyx_cmd(in_file, out_file, add_args) {
+    // retrieve a variable from the fud2.toml config
+    let calyx_base = config("calyx.base");
+    // retrieve a variable from the config, or a default derived from calyx-base
+    let calyx_exe = config_or("calyx.exe", "${calyx_base}/target/debug/calyx");
+    // retrieve a variable from cli options, or with a default
+    let args = config_or("calyx.args", "");
+
+    // specify a shell command to turn a calyx file into a verilog file
+    shell("${calyx_exe} -l ${calyx_base} -b verilog ${args} ${add_args} ${in_file} > ${out_file});
+}
+
+// define an op called "calyx_to_verilog" taking a "calyx_state" to a "verilog_state".
+defop calyx_to_verilog(c: calyx_state) >> v: verilog_state {
+    calyx_cmd(c, v, "");
+}
+
+// define an op called "calyx_noverify" taking a "calyx_state" to a "verilog_state".
+defop calyx_to_verilog(c: calyx_state) >> v: verilog_state {
+    calyx_cmd(c, v, "--disable-verify");
+}
+```
+
+## Example Script (Legacy)
+
+We'll walk through how to write a script that adds support for using the `calyx` compiler.
+
+Like before, we need to define some states:
+
+```rust,ignore
+export const calyx_state = state("calyx", ["futil"]);
+export const verilog_state = state("verilog", ["sv", "v"]);
+```
+
+These two lines define a `calyx` state and a `verilog` state. The `export` prefix means that these variables will be accessible to other scripts that `import "calyx"`.
+
 Next we'll define a setup procedure to define some rules that will be useful.
 
 ```rust,ignore
