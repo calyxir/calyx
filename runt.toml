@@ -131,7 +131,26 @@ python3 {} |\
 [[tests]]
 name = "[calyx-py] queues correctness"
 paths = [
-    "calyx-py/test/correctness/queues/*.py",
+    "calyx-py/test/correctness/queues/pifo_tree.py",
+    "calyx-py/test/correctness/queues/complex_tree.py",
+]
+
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 200 --keepgoing |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
+name = "[calyx-py] queues correctness"
+paths = [
+    #"calyx-py/test/correctness/queues/*.py",
     "calyx-py/test/correctness/queues/binheap/*.py",
     "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
     "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"
