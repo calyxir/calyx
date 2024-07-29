@@ -1,0 +1,20 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: state0 state1 state2 -> state3 state4"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+rule t3
+  command = echo inputs $i0 $i1 $i2 && echo outputs $o0 $o1
+build _to_stdout_state3 _to_stdout_state4: t3 _from_stdin_state0 _from_stdin_state1 _from_stdin_state2
+  i0 = _from_stdin_state0
+  i1 = _from_stdin_state1
+  i2 = _from_stdin_state2
+  o0 = _to_stdout_state3
+  o1 = _to_stdout_state4
+
+
+default _to_stdout_state3
+default _to_stdout_state4

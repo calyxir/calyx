@@ -209,7 +209,7 @@ impl ScriptContext {
 }
 
 /// All nodes in the parsing state machine.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 enum ParseNode {
     DefopS,
     IdentS,
@@ -228,7 +228,7 @@ enum ParseNode {
 }
 
 /// All of the state of the parser.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct ParseState {
     node: ParseNode,
     inputs: usize,
@@ -610,7 +610,6 @@ impl ScriptRunner {
             true,
             move |context, inputs, state| {
                 let state = state.clone_cast::<ParseState>();
-
                 // Collect name of op and input/output states.
                 let op_name =
                     inputs.first().unwrap().get_string_value().unwrap();
@@ -634,7 +633,7 @@ impl ScriptRunner {
                     .iter()
                     .skip(1 + 2 * state.inputs)
                     .step_by(2)
-                    .take(state.inputs)
+                    .take(state.outputs)
                     .map(|n| {
                         Dynamic::from(n.get_string_value().unwrap().to_string())
                     })
@@ -643,7 +642,7 @@ impl ScriptRunner {
                     .iter()
                     .skip(2 + 2 * state.inputs)
                     .step_by(2)
-                    .take(state.inputs)
+                    .take(state.outputs)
                     .map(|s| s.eval_with_context(context))
                     .collect::<RhaiResult<Vec<_>>>()?;
                 let body = inputs.last().unwrap();

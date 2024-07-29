@@ -1,6 +1,8 @@
 use fud_core::{
     config::default_config,
-    exec::{FindPlan, Plan, Request, SingleOpOutputPlanner, IO},
+    exec::{
+        EnumeratePlanner, FindPlan, Plan, Request, SingleOpOutputPlanner, IO,
+    },
     run::Run,
     Driver, DriverBuilder,
 };
@@ -104,11 +106,17 @@ impl InstaTest for Plan {
 
 impl InstaTest for Request {
     fn desc(&self, driver: &Driver) -> String {
-        let mut desc = format!(
-            "emit request: {} -> {}",
-            driver.states[self.start_states[0]].name,
-            driver.states[self.end_states[0]].name
-        );
+        let start_str = self
+            .start_states
+            .iter()
+            .map(|&state| &driver.states[state].name)
+            .join(" ");
+        let end_str = &self
+            .end_states
+            .iter()
+            .map(|&state| &driver.states[state].name)
+            .join(" ");
+        let mut desc = format!("emit request: {} -> {}", start_str, end_str);
         if !self.through.is_empty() {
             desc.push_str(" through");
             for op in &self.through {
@@ -120,13 +128,26 @@ impl InstaTest for Request {
     }
 
     fn slug(&self, driver: &Driver) -> String {
-        let mut desc = driver.states[self.start_states[0]].name.to_string();
-        for op in &self.through {
-            desc.push('_');
-            desc.push_str(&driver.ops[*op].name);
+        let mut desc = self
+            .start_states
+            .iter()
+            .map(|&state| &driver.states[state].name)
+            .join("_");
+        if !self.through.is_empty() {
+            desc.push_str("_through");
+            for op in &self.through {
+                desc.push('_');
+                desc.push_str(&driver.ops[*op].name);
+            }
         }
-        desc.push('_');
-        desc.push_str(&driver.states[self.end_states[0]].name);
+        desc.push_str("_to_");
+        desc.push_str(
+            &self
+                .end_states
+                .iter()
+                .map(|&state| &driver.states[state].name)
+                .join("_"),
+        );
         desc
     }
 
@@ -265,4 +286,34 @@ fn frontend_tests() {
     for frontend in &["dahlia", "mrxl"] {
         request(&driver, &[frontend], &["calyx"], &[]).test(&driver);
     }
+}
+
+#[test]
+fn simple_defops() {
+    let driver = driver_from_path("defop");
+    request(&driver, &["state0"], &["state1"], &[]).test(&driver);
+    request_with_planner(
+        &driver,
+        &["state0", "state1"],
+        &["state2"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
+    request_with_planner(
+        &driver,
+        &["state0"],
+        &["state2", "state1"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
+    request_with_planner(
+        &driver,
+        &["state0", "state1", "state2"],
+        &["state3", "state4"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
 }
