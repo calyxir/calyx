@@ -5,8 +5,6 @@ use fud_core::{
     DriverBuilder,
 };
 
-mod gen_graph;
-
 const MULTI_PLANNERS: [&dyn FindPlan; 2] =
     [&EnumeratePlanner {}, &EggPlanner {}];
 
