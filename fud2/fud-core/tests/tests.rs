@@ -206,7 +206,7 @@ fn op_creating_two_states_not_initial_and_final() {
             ])),
             path_finder
                 .find_plan(&[s0], &[s4, s5], &[], &driver.ops)
-                .map(|v| BTreeSet::from_iter(v))
+                .map(BTreeSet::from_iter)
         );
     }
 }
@@ -237,7 +237,7 @@ fn op_compressing_two_states_not_initial_and_final() {
             ])),
             path_finder
                 .find_plan(&[s0, s2], &[s5], &[], &driver.ops)
-                .map(|v| BTreeSet::from_iter(v))
+                .map(BTreeSet::from_iter)
         );
     }
 }
