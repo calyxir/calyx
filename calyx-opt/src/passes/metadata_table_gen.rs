@@ -36,10 +36,10 @@ impl fmt::Display for Metadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let grps = &self.groups;
 
-        for ((_, name), ((start, end), file)) in grps {
+        for ((comp, name), ((start, end), file)) in grps {
             let file = file.to_str().unwrap();
 
-            writeln!(f, "{name}: {file} {start}-{end}")?;
+            writeln!(f, "{comp}.{name}: {file} {start}-{end}")?;
         }
 
         Ok(())
@@ -103,6 +103,6 @@ mod tests {
         );
         data.add_entry(Id::from("main"), Id::from("group_2"), (23, 28), path);
         let test_string = data.to_string();
-        assert_eq!(test_string, "group_1: /temp/path/for/testing.futil 12-16\ngroup_2: /temp/path/for/testing.futil 23-28\n")
+        assert_eq!(test_string, "main.group_1: /temp/path/for/testing.futil 12-16\nmain.group_2: /temp/path/for/testing.futil 23-28\n")
     }
 }

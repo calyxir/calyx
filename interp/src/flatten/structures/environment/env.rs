@@ -40,8 +40,8 @@ use ahash::HashSetExt;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
+use std::fmt::Debug;
 use std::fmt::Write;
-use std::{borrow::Borrow, fmt::Debug};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 

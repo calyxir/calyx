@@ -20,8 +20,6 @@ use crate::{
 
 use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
-use calyx_ir::Id;
-
 use owo_colors::OwoColorize;
 use std::path::Path as FilePath;
 
