@@ -4,10 +4,7 @@ use dap::types::{
 };
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::OwnedDebugger;
-use std::borrow::Borrow;
-use std::cell::Cell;
 use std::collections::HashMap;
-use std::env::var;
 use std::path::PathBuf;
 
 pub struct MyAdapter {

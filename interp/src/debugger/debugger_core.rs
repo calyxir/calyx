@@ -8,7 +8,7 @@ use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
     errors::{InterpreterError, InterpreterResult},
     flatten::{
-        flat_ir::prelude::{CellInfo, GroupIdx, LocalRefPortOffset},
+        flat_ir::prelude::GroupIdx,
         setup_simulation_with_metadata,
         structures::{
             context::Context,
