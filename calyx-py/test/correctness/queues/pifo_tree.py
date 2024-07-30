@@ -1,7 +1,6 @@
 # pylint: disable=import-error
 import sys
 import fifo
-import pifo
 import calyx.builder as cb
 import calyx.queue_call as qc
 import strict_and_rr_queues.gen_strict_or_rr as rr
