@@ -447,7 +447,7 @@ class ComponentBuilder:
             is_ref,
         )
     
-    def comb_mem_d1(
+    def comb_mem_dn(
         self,
         name: str,
         bitwidth: int,
@@ -456,7 +456,7 @@ class ComponentBuilder:
         is_external: bool = False,
         is_ref: bool = False,
     ) -> CellBuilder:
-        """Generate a StdMemD1 cell."""
+        """Generate a StdMemD1 cell that abstracts to an n-dimensional memory."""
         self.prog.import_("primitives/memories/comb.futil")
         prod = 1
         for l in lens:
@@ -509,7 +509,7 @@ class ComponentBuilder:
         is_external: bool = False,
         is_ref: bool=False
     ) -> CellBuilder:
-        """Generate a SeqMemD1 cell that abstracts to a memory block of n dimensions"""
+        """Generate a SeqMemD1 cell that abstracts to an n-dimensional memory."""
         self.prog.import_("primitives/memories/seq.futil")
         prod = 1
         for l in lens:
