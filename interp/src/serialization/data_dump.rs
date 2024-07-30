@@ -48,12 +48,12 @@ impl From<(usize, usize, usize, usize)> for Dimensions {
 pub enum FormatInfo {
     Bitnum {
         signed: bool,
-        width: usize,
+        width: u32,
     },
     Fixed {
         signed: bool,
-        int_width: usize,
-        frac_width: usize,
+        int_width: u32,
+        frac_width: u32,
     },
 }
 
@@ -65,7 +65,7 @@ impl FormatInfo {
         }
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         match self {
             FormatInfo::Bitnum { width, .. } => *width,
             FormatInfo::Fixed {
@@ -87,7 +87,7 @@ pub struct MemoryDeclaration {
 impl MemoryDeclaration {
     pub fn new_bitnum(
         name: String,
-        width: usize,
+        width: u32,
         dimensions: Dimensions,
         signed: bool,
     ) -> Self {
@@ -102,8 +102,8 @@ impl MemoryDeclaration {
         name: String,
         dimensions: Dimensions,
         signed: bool,
-        int_width: usize,
-        frac_width: usize,
+        int_width: u32,
+        frac_width: u32,
     ) -> Self {
         assert!(int_width + frac_width > 0, "width must be greater than 0");
 
@@ -135,10 +135,10 @@ impl MemoryDeclaration {
     }
 
     pub fn byte_count(&self) -> usize {
-        self.format.width().div_ceil(8) * self.dimensions.size()
+        self.format.width().div_ceil(8) as usize * self.dimensions.size()
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         self.format.width()
     }
 
@@ -175,6 +175,9 @@ pub struct DataDump {
 }
 
 impl DataDump {
+    /// Magic number to identify a data dump file
+    const MAGIC_NUMBER: [u8; 4] = [216, 194, 228, 20];
+
     /// returns an empty data dump with a top level name
     pub fn new_empty_with_top_level(top_level: String) -> Self {
         Self {
@@ -205,7 +208,7 @@ impl DataDump {
     pub fn push_reg<T: IntoIterator<Item = u8>>(
         &mut self,
         name: String,
-        width: usize,
+        width: u32,
         data: T,
     ) {
         let declaration = MemoryDeclaration::new_bitnum(
@@ -221,16 +224,19 @@ impl DataDump {
     pub fn serialize(
         &self,
         writer: &mut dyn std::io::Write,
-    ) -> std::io::Result<()> {
+    ) -> Result<(), SerializationError> {
         let mut header_str = Vec::new();
-        ciborium::ser::into_writer(&self.header, &mut header_str)
-            .expect("cbor serialization failed");
-        let len_bytes = header_str.len();
+        ciborium::ser::into_writer(&self.header, &mut header_str)?;
+        writer.write_all(&Self::MAGIC_NUMBER)?;
+
+        let len_bytes: u32 = header_str
+            .len()
+            .try_into()
+            .expect("Header length cannot fit in u32");
         writer.write_all(&len_bytes.to_le_bytes())?;
         writer.write_all(&header_str)?;
         writer.write_all(&self.data)?;
         writer.flush()?;
-
         Ok(())
     }
 
@@ -238,26 +244,50 @@ impl DataDump {
     pub fn deserialize(
         reader: &mut dyn std::io::Read,
     ) -> Result<Self, SerializationError> {
-        let mut raw_header_len = [0u8; 8];
-        reader.read_exact(&mut raw_header_len).unwrap();
-        let header_len = usize::from_le_bytes(raw_header_len);
+        let mut magic_number = [0u8; 4];
+        reader.read_exact(&mut magic_number).map_err(|e| {
+            if let std::io::ErrorKind::UnexpectedEof = e.kind() {
+                SerializationError::InvalidMagicNumber
+            } else {
+                SerializationError::IoError(e)
+            }
+        })?;
+        if magic_number != Self::MAGIC_NUMBER {
+            return Err(SerializationError::InvalidMagicNumber);
+        }
 
-        let mut raw_header = vec![0u8; header_len];
-        reader.read_exact(&mut raw_header)?;
-        let header: DataHeader = ciborium::from_reader(raw_header.as_slice())
-            .expect("deserializing cbor failed");
+        let mut raw_header_len = [0u8; 4];
+        reader.read_exact(&mut raw_header_len).map_err(|e| {
+            if let std::io::ErrorKind::UnexpectedEof = e.kind() {
+                SerializationError::MissingHeaderLength
+            } else {
+                SerializationError::IoError(e)
+            }
+        })?;
+        let header_len = u32::from_le_bytes(raw_header_len);
+
+        let mut raw_header = vec![0u8; header_len as usize];
+        reader.read_exact(&mut raw_header).map_err(|e| {
+            if let std::io::ErrorKind::UnexpectedEof = e.kind() {
+                SerializationError::MalformedHeader
+            } else {
+                SerializationError::IoError(e)
+            }
+        })?;
+        let header: DataHeader = ciborium::from_reader(raw_header.as_slice())?;
+
         let mut data: Vec<u8> = Vec::with_capacity(header.data_size());
 
         // we could do a read_exact here instead but I opted for read_to_end
         // instead to avoid allowing incorrect/malformed data files
         let amount_read = reader.read_to_end(&mut data)?;
-        assert_eq!(amount_read, header.data_size());
+        if amount_read != header.data_size() {
+            return Err(SerializationError::MalformedData);
+        }
 
         Ok(DataDump { header, data })
     }
 
-    // TODO Griffin: Replace the panic with a proper error and the standard
-    // handling
     pub fn get_data(&self, mem_name: &str) -> Option<&[u8]> {
         let mut current_base = 0_usize;
         for mem in &self.header.memories {
@@ -283,6 +313,26 @@ pub enum SerializationError {
 
     #[error(transparent)]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
+
+    #[error("failed to parse data header: {0}")]
+    CborDeError(#[from] ciborium::de::Error<std::io::Error>),
+
+    #[error("failed to serialize data header: {0}")]
+    CborSerError(#[from] ciborium::ser::Error<std::io::Error>),
+
+    #[error("Malformed data dump, missing header length")]
+    MissingHeaderLength,
+
+    #[error("Malformed data dump, file is too short for given header length")]
+    MalformedHeader,
+
+    #[error(
+        "Malformed data dump, data section does not match header description"
+    )]
+    MalformedData,
+
+    #[error("Input is not a valid data dump")]
+    InvalidMagicNumber,
 }
 
 #[cfg(test)]
@@ -339,7 +389,7 @@ mod tests {
     use proptest::prelude::*;
 
     prop_compose! {
-        fn arb_memory_declaration()(name in any::<String>(), signed in any::<bool>(), width in 1_usize..=256, size in 1_usize..=500) -> MemoryDeclaration {
+        fn arb_memory_declaration()(name in any::<String>(), signed in any::<bool>(), width in 1_u32..=256, size in 1_usize..=500) -> MemoryDeclaration {
             MemoryDeclaration::new_bitnum(name.to_string(), width, Dimensions::D1(size), signed)
         }
     }
@@ -379,7 +429,7 @@ mod tests {
             // produced from the memory primitive to not match the one
             // serialized into it in the first place
             for mem in &header.memories {
-                let bytes_per_val = mem.width().div_ceil(8);
+                let bytes_per_val = mem.width().div_ceil(8) as usize;
                 let rem = mem.width() % 8;
                 let mask = if rem != 0 { 255u8 >> (8 - rem) } else { 255_u8 };
 
@@ -425,7 +475,7 @@ mod tests {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width() as u32, false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
@@ -434,7 +484,7 @@ mod tests {
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width() as u32, false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
