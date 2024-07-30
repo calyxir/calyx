@@ -515,7 +515,7 @@ class ComponentBuilder:
         for l in lens:
             prod *= l
         return self.cell(
-            name, ast.Stdlib.seq_mem_d1(bitwidth, lens, idx_size), is_external, is_ref
+            name, ast.Stdlib.seq_mem_d1(bitwidth, prod, idx_size), is_external, is_ref
         )
 
     def binary(
@@ -935,7 +935,7 @@ class ComponentBuilder:
         return latch_grp
 
     def flatten_idx(self, dims, indices):
-        """Translate an n-dimensional index into a corresponding"""
+        """Translate an n-dimensional index into a corresponding 1d index"""
         assert len(dims) == len(indices)
         i = len(indices) - 1
         prod = 1
