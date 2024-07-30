@@ -399,7 +399,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
                         )
                         .slice_out(
                             self.frac_width as usize,
-                            (2 * self.frac_width + self.int_width - 1) as usize,
+                            (2 * self.frac_width + self.int_width) as usize,
                         )
                     })
                 });
@@ -444,7 +444,7 @@ pub struct FxpDivPipe<const DEPTH: usize, const SIGNED: bool> {
 }
 
 impl<const DEPTH: usize, const SIGNED: bool> FxpDivPipe<DEPTH, SIGNED> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT_QUOTIENT: 5, OUT_REMAINDER: 6, DONE: 7];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT_REMAINDER: 5, OUT_QUOTIENT: 6, DONE: 7];
     pub fn new(
         base_port: GlobalPortIdx,
         int_width: u32,
