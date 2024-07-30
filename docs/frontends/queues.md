@@ -89,20 +89,7 @@ The most favorably ranked element is the one with the highest priority.
 Two elements may be pushed with the same priority.
 A priority queue that is additionally defined to break such ties in FIFO order is called a _push in, first out_ (PIFO) queue.
 
-Our queue frontend generates a simple PIFO in Calyx; the source code is available [here][pifo.py].
-
-Curiously, our PIFO has a ranking policy "baked in": it partitions incoming elements into two classes, and tries to emit elements from those two classes in a round-robin fashion.
-The PIFO operates in a work-conserving manner: if there are no elements from one class and there are elements from the other, we emit an element from the latter class even if it is not its turn.
-
-Internally, our PIFO maintains two sub-queues, one for each class.
-It also has a boundary value, which informs its partition policy: elements less than the boundary go to the first class, and other elements go to the second class.
-Control logic for pushing a new element is straightforward.
-The control logic for peeking and popping is more subtle because this is where the round-robin policy is enforced.
-A register tracks the class that we wish to emit from next.
-The register starts arbitrarily, and is updated after each successful emission from the desired class.
-It is left unchanged in the case when the desired class is empty and an element of the other class is emitted in the interest of work conservation.
-
-Additionally, there are two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop/peek from next. These PIFOs take n flows instead of just two.
+There are two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop/peek from next. These PIFOs take n flows, which are represented with n subqueues.
 
 ### Round Robin Queues
 
@@ -110,7 +97,7 @@ Round robin queues are PIFOs generalized to n flows that operate in a work
 conserving round robin fashion. That is, if a flow is silent when it is its turn, that flow
 simply skips its turn and the next flow is offered service.
 
-Internally, it operates n FIFOs.
+Internally, it operates n subqueues.
 It takes in a list `boundaries` that must be of length `n`, using which the
 client can divide the incoming traffic into `n` flows.
 For example, if n = 3 and the client passes boundaries [133, 266, 400],
@@ -128,13 +115,13 @@ in round robin fashion.
 Further, nothing is actually dequeued.
 
 The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
-is parameterized on red_robin being `true` or `false`.
+is parameterized on round_robin being `true` or `false`.
 
 ### Strict Queues
 
 Strict queues support n flows as well, but instead, flows have a strict order of priority, which determines popping and peeking
 order. If the highest priority flow is silent when it is its turn, that flow
-simply skips its turn and the next flow is offered service. If a higher
+simply skips its turn and the next priority flow is offered service. If a higher
 priority flow get pushed to in the interim, the next call to pop/peek will
 return from that flow.
 
@@ -169,9 +156,8 @@ A variety of scheduling policies can be realized by manipulating the various pri
 Popping the most favorably ranked element from a PIFO tree is relatively straightforward: popping the root PIFO tells us which child PIFO to pop from next, and we recurse until we reach a leaf PIFO.
 We refer interested readers to [this][sivaraman16] research paper for more details on PIFO trees.
 
-Our frontend allows for the creation of PIFO trees of any height, but with two restrictions:
-- The tree must be binary-branching.
-- The scheduling policy at each internal node must be _round-robin_.
+Our frontend allows for the creation of PIFO trees of any height, number of children, and with
+the scheduling policy at each internal node being _round-robin_ or _strict_.
 
 See the [source code][pifo_tree.py] for an example where we create a PIFO tree of height 2.
 Specifically, the example implements the PIFO tree described in §2 of [this][mohan23] research paper.
