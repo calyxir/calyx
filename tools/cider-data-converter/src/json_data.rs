@@ -116,6 +116,74 @@ pub enum ParseError {
     ParseFloat(#[from] ParseFloatError),
 }
 
+#[derive(Debug, Clone)]
+pub struct QuoteWrappedNumber(Number);
+
+impl Serialize for QuoteWrappedNumber {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if self.0.is_f64() {
+            serializer.serialize_str(&self.0.to_string())
+        } else {
+            self.0.serialize(serializer)
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum PrintVec {
+    D1(Vec<QuoteWrappedNumber>),
+    D2(Vec<Vec<QuoteWrappedNumber>>),
+    D3(Vec<Vec<Vec<QuoteWrappedNumber>>>),
+    D4(Vec<Vec<Vec<Vec<QuoteWrappedNumber>>>>),
+}
+
+impl From<ParseVec> for PrintVec {
+    fn from(v: ParseVec) -> Self {
+        match v {
+            ParseVec::D1(v) => {
+                PrintVec::D1(v.into_iter().map(QuoteWrappedNumber).collect())
+            }
+            ParseVec::D2(v) => PrintVec::D2(
+                v.into_iter()
+                    .map(|v| v.into_iter().map(QuoteWrappedNumber).collect())
+                    .collect(),
+            ),
+            ParseVec::D3(v) => PrintVec::D3(
+                v.into_iter()
+                    .map(|v| {
+                        v.into_iter()
+                            .map(|v| {
+                                v.into_iter().map(QuoteWrappedNumber).collect()
+                            })
+                            .collect()
+                    })
+                    .collect(),
+            ),
+            ParseVec::D4(v) => PrintVec::D4(
+                v.into_iter()
+                    .map(|v| {
+                        v.into_iter()
+                            .map(|v| {
+                                v.into_iter()
+                                    .map(|v| {
+                                        v.into_iter()
+                                            .map(QuoteWrappedNumber)
+                                            .collect()
+                                    })
+                                    .collect()
+                            })
+                            .collect()
+                    })
+                    .collect(),
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum ParseVec {
@@ -454,9 +522,35 @@ pub struct JsonDataEntry {
 pub struct JsonData(pub HashMap<String, JsonDataEntry>);
 
 #[derive(Debug, Serialize)]
-#[serde(transparent)]
+#[serde(untagged)]
 /// A structure meant to mimic the old style of data dump printing.
-pub struct JsonPrintDump(pub HashMap<String, ParseVec>);
+pub enum JsonPrintDump {
+    Normal(HashMap<String, ParseVec>),
+    Quoted(HashMap<String, PrintVec>),
+}
+
+impl JsonPrintDump {
+    #[must_use]
+    pub fn as_normal(&self) -> Option<&HashMap<String, ParseVec>> {
+        if let Self::Normal(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+impl From<HashMap<String, PrintVec>> for JsonPrintDump {
+    fn from(v: HashMap<String, PrintVec>) -> Self {
+        Self::Quoted(v)
+    }
+}
+
+impl From<HashMap<String, ParseVec>> for JsonPrintDump {
+    fn from(v: HashMap<String, ParseVec>) -> Self {
+        Self::Normal(v)
+    }
+}
 
 #[cfg(test)]
 mod tests {
