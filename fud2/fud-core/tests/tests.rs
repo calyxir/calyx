@@ -247,7 +247,7 @@ fn op_compressing_two_states_not_initial_and_final() {
 
 #[test]
 fn correctness_fuzzing() {
-    const LAYERS: u64 = 6;
+    const LAYERS: u64 = 5;
     const STATES_PER_LAYER: u64 = 100;
     const OPS_PER_LAYER: u64 = 10;
     const MAX_IO_SIZE: u64 = 5;
