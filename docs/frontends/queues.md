@@ -89,18 +89,62 @@ The most favorably ranked element is the one with the highest priority.
 Two elements may be pushed with the same priority.
 A priority queue that is additionally defined to break such ties in FIFO order is called a _push in, first out_ (PIFO) queue.
 
-Our queue frontend generates a simple PIFO in Calyx; the source code is available [here][pifo.py].
+There are two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop/peek from next. These PIFOs take n flows, which are represented with n subqueues.
 
-Curiously, our PIFO has a ranking policy "baked in": it partitions incoming elements into two classes, and tries to emit elements from those two classes in a round-robin fashion.
-The PIFO operates in a work-conserving manner: if there are no elements from one class and there are elements from the other, we emit an element from the latter class even if it is not its turn.
+### Round Robin Queues
 
-Internally, our PIFO maintains two sub-queues, one for each class.
-It also has a boundary value, which informs its partition policy: elements less than the boundary go to the first class, and other elements go to the second class.
-Control logic for pushing a new element is straightforward.
-The control logic for peeking and popping is more subtle because this is where the round-robin policy is enforced.
-A register tracks the class that we wish to emit from next.
-The register starts arbitrarily, and is updated after each successful emission from the desired class.
-It is left unchanged in the case when the desired class is empty and an element of the other class is emitted in the interest of work conservation.
+Round robin queues are PIFOs generalized to n flows that operate in a work 
+conserving round robin fashion. That is, if a flow is silent when it is its turn, that flow
+simply skips its turn and the next flow is offered service.
+
+Internally, it operates n subqueues.
+It takes in a list `boundaries` that must be of length `n`, using which the
+client can divide the incoming traffic into `n` flows.
+For example, if n = 3 and the client passes boundaries [133, 266, 400],
+packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+
+- At push, we check the `boundaries` list to determine which flow to push to.
+Take the boundaries example given earlier, [133, 266, 400].
+If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
+and 305 would end up in flow 2 since 266 <= 305 <= 400.
+- Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
+it increments `hot` and therefore continues to check all other flows
+in round robin fashion.
+- Peek works in a similar fashion to `pop`, except
+`hot` is restored to its original value at the every end.
+Further, nothing is actually dequeued.
+
+The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
+is parameterized on round_robin being `true` or `false`.
+
+### Strict Queues
+
+Strict queues support n flows as well, but instead, flows have a strict order of priority, which determines popping and peeking
+order. If the highest priority flow is silent when it is its turn, that flow
+simply skips its turn and the next priority flow is offered service. If a higher
+priority flow get pushed to in the interim, the next call to pop/peek will
+return from that flow.
+
+Like round robin queues, it takes in a list `boundaries` that must be of length `n`, which divide the incoming traffic into `n` flows.
+For example, if n = 3 and the client passes boundaries [133, 266, 400],
+packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+
+It takes a list `order` that must be of length `n`, which specifies the order
+of priority of the flows. For example, if n = 3 and the client passes order
+[1, 2, 0], flow 1 (packets in range [134, 266]) is first priority, flow 2
+(packets in range [267, 400]) is second priority, and flow 0 (packets in range
+[0, 133]) is last priority.
+
+- At push, we check the `boundaries` list to determine which flow to push to.
+Take the boundaries example given earlier, [133, 266, 400].
+If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
+and 305 would end up in flow 2 since 266 <= 305 <= 400.
+- Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
+it tries `order[1]`, etc.
+- Peek works in a similar fashion to `pop`.
+
+The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
+is parameterized on red_robin being `true` or `false`.
 
 ## PIFO Tree
 
@@ -112,9 +156,8 @@ A variety of scheduling policies can be realized by manipulating the various pri
 Popping the most favorably ranked element from a PIFO tree is relatively straightforward: popping the root PIFO tells us which child PIFO to pop from next, and we recurse until we reach a leaf PIFO.
 We refer interested readers to [this][sivaraman16] research paper for more details on PIFO trees.
 
-Our frontend allows for the creation of PIFO trees of any height, but with two restrictions:
-- The tree must be binary-branching.
-- The scheduling policy at each internal node must be _round-robin_.
+Our frontend allows for the creation of PIFO trees of any height, number of children, and with
+the scheduling policy at each internal node being _round-robin_ or _strict_.
 
 See the [source code][pifo_tree.py] for an example where we create a PIFO tree of height 2.
 Specifically, the example implements the PIFO tree described in §2 of [this][mohan23] research paper.
@@ -169,3 +212,4 @@ The source code is available in [`stable_binheap.py`][stable_binheap.py].
 [gen_queue_data_expect.sh]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/gen_queue_data_expect.sh
 [queue_call.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queue_call.py
 [runt-queues]: https://github.com/calyxir/calyx/blob/a4c2442675d3419be6d2f5cf912aa3f804b3c4ab/runt.toml#L131-L144
+[gen_strict_or_rr.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/strict_and_rr_queues/gen_strict_or_rr.py
