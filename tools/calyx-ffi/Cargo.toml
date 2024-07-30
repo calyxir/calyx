@@ -14,3 +14,6 @@ rust-version.workspace = true
 
 [dependencies]
 calyx-ffi-macro = { path = "../calyx-ffi-macro" }
+calyx-frontend.workspace = true
+calyx-ir.workspace = true
+interp = { path = "../../interp" }
