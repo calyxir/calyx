@@ -12,6 +12,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attrs as CalyxFFIMacroArgs);
     let item_struct = parse_macro_input!(item as syn::ItemStruct);
     let name = item_struct.ident;
+    let path = args.src.to_string_lossy().to_string();
 
     // <sorry>
     let comp = calyx::parse_calyx_file(&args);
@@ -22,11 +23,11 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let comp = comp.get();
     // </sorry>
 
-    let comp_name = syn::parse_str::<syn::LitStr>(&format!(
-        "\"{}\"",
-        comp.name.to_string()
-    ))
-    .expect("failed to turn quoted name into string");
+    let comp_name =
+        syn::parse_str::<syn::LitStr>(&format!("\"{}\"", comp.name))
+            .expect("failed to turn quoted name into string");
+    let comp_path = syn::parse_str::<syn::LitStr>(&format!("\"{}\"", path))
+        .expect("failed to turn quoted path into string");
 
     let backend_macro = args.backend;
     let mut field_names = vec![];
@@ -65,7 +66,8 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
     let struct_def = quote! {
         struct #name {
-            #(#fields),*
+            #(#fields,)*
+            user_data: std::mem::MaybeUninit<#backend_macro!(@user_data_type)>
         }
     };
 
@@ -74,35 +76,47 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
             #(#getters)*
         }
 
+        impl std::default::Default for #name {
+            fn default() -> Self {
+                Self {
+                    #(#field_names: std::default::Default::default(),)*
+                    user_data: unsafe { std::mem::MaybeUninit::zeroed() }
+                }
+            }
+        }
+
         impl CalyxFFIComponent for #name {
+            fn path(&self) -> &'static str {
+                #comp_path
+            }
+
             fn name(&self) -> &'static str {
                 #comp_name
             }
 
-            fn init(&mut self) {
-                #backend_macro!(init self; #(#field_names),*);
-            }
-
-            fn deinit(&mut self) {
-                #backend_macro!(deinit self; #(#field_names),*);
+            fn init(&mut self, context: &calyx_ir::Context) {
+                #backend_macro!(@init self, context; #(#field_names),*);
             }
 
             fn reset(&mut self) {
-                #backend_macro!(reset self; #(#field_names),*);
+                #backend_macro!(@reset self; #(#field_names),*);
+            }
+
+            fn can_tick(&self) -> bool {
+                #backend_macro!(@can_tick self; #(#field_names),*)
             }
 
             fn tick(&mut self) {
-                #backend_macro!(tick self; #(#field_names),*);
+                #backend_macro!(@tick self; #(#field_names),*);
             }
 
             fn go(&mut self) {
-                #backend_macro!(go self; #(#field_names),*);
+                #backend_macro!(@go self; #(#field_names),*);
             }
         }
     };
 
     quote! {
-        #[derive(Default)]
         #struct_def
         #impl_block
     }

@@ -1,9 +1,11 @@
 use calyx_ffi::prelude::*;
 
+use calyx_ffi::cider_ffi_backend;
+
 #[calyx_ffi(
     src = "/Users/ethan/Documents/GitHub/calyx/tools/tb/examples/calyx/adder.futil",
     comp = "main",
-    backend = useless_ffi_backend
+    backend = cider_ffi_backend
 )]
 struct Adder;
 

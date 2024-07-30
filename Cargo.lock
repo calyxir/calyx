@@ -415,6 +415,9 @@ name = "calyx-ffi"
 version = "0.7.1"
 dependencies = [
  "calyx-ffi-macro",
+ "calyx-frontend",
+ "calyx-ir",
+ "interp",
 ]
 
 [[package]]
