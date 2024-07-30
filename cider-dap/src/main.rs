@@ -389,7 +389,7 @@ fn create_stopped(
         false => Some(thread_id),
     };
     Event::Stopped(StoppedEventBody {
-        reason: reason,
+        reason,
         description: Some(desc),
         thread_id: thread,
         preserve_focus_hint: None,
