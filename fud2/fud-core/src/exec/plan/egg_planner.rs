@@ -80,6 +80,17 @@ fn language_expr(
 /// track of in `ops` terms.
 ///
 /// `all_states` is an ordered list of all states. `all_ops` is an ordered list of all ops.
+///
+/// This rewrite will look like `(root (states <state list>) (ops <op list>)) =>
+/// (root (states <state list - op inputs + op outputs>) (ops <op list + op>))`
+///
+/// As an example, given 3 ops and 4 states, if op 2 takes states 2 and 3 to state 4, the rewrite
+/// would take
+/// `(root (states 1 2 3 xxx) (ops 1 xxx xxx)) => (root (states 1 xxx xxx r) (ops 1 2 xxx)`.
+///
+/// This function removes input states from the set of those available not because they are
+/// consumed, but because it massively reduces the search space. This is a concession of
+/// completeness for efficiency.
 fn rewrite_from_op(
     op_ref: OpRef,
     op: &Operation,
