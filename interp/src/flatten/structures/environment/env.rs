@@ -248,13 +248,13 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
     }
-
+    /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
     ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
         let env = self;
         let cell_names = self.cells.iter().map(|(idx, _ledger)| {
-            (idx.get_full_name(env), self.iter_cells_port_helper(idx))
+            (idx.get_full_name(env), self.get_ports_for_cell(idx))
         });
 
         cell_names
@@ -263,7 +263,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     //not sure if beneficial to change this to be impl iterator as well
-    fn iter_cells_port_helper(&self, cell: GlobalCellIdx) -> Vec<String> {
+    fn get_ports_for_cell(&self, cell: GlobalCellIdx) -> Vec<String> {
         let parent = self.get_parent_cell_from_cell(cell);
         match parent {
             None => {
