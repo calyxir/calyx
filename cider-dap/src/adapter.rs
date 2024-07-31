@@ -68,6 +68,10 @@ impl MyAdapter {
         out_vec
     }
 
+    pub fn clear_breakpoints(&mut self) {
+        self.breakpoints.clear()
+    }
+
     ///Creates a thread using the parameter name.
     pub fn create_thread(&mut self, name: String) -> Thread {
         //how do we attach the thread to the program

@@ -128,6 +128,10 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
+    pub fn breakpoint(&mut self, bkpt_lines: Vec<i64>) {
+        //turn the lines into group name + component using the metadata table
+    }
+
     #[inline]
     fn do_step(&mut self, n: u32) -> InterpreterResult<()> {
         for _ in 0..n {
