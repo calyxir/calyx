@@ -26,9 +26,9 @@ define_language! {
         // A list of ops.
         "ops" = Ops(Box<[Id]>),
         // Symbolizes the absence of a state or op.
-        "xxx" = X,
-        // A ref, refering to either a StateRef or OpRef depending on context.
-        Ref(u32),
+        "nil" = X,
+        // Symbolizes the presence of a state or op.
+        "one" = C,
     }
 }
 
@@ -49,7 +49,7 @@ fn language_expr(
         .iter()
         .map(|s| {
             if states.contains(s) {
-                expr.add(StateLanguage::Ref(s.as_u32()))
+                expr.add(StateLanguage::C)
             } else {
                 expr.add(StateLanguage::X)
             }
@@ -63,7 +63,7 @@ fn language_expr(
         .iter()
         .map(|o| {
             if through.contains(o) {
-                expr.add(StateLanguage::Ref(o.as_u32()))
+                expr.add(StateLanguage::C)
             } else {
                 expr.add(StateLanguage::X)
             }
@@ -111,7 +111,7 @@ fn rewrite_from_op(
         .enumerate()
         .map(|(i, s)| {
             if op.input.contains(s) {
-                lhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ref(s.as_u32())))
+                lhs.add(egg::ENodeOrVar::ENode(StateLanguage::C))
             } else {
                 lhs.add(egg::ENodeOrVar::Var(
                     format!("?s{}", i).parse().unwrap(),
@@ -151,7 +151,7 @@ fn rewrite_from_op(
         .enumerate()
         .map(|(i, s)| {
             if op.output.contains(s) {
-                rhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ref(s.as_u32())))
+                rhs.add(egg::ENodeOrVar::ENode(StateLanguage::C))
             } else if op.input.contains(s) {
                 rhs.add(egg::ENodeOrVar::ENode(StateLanguage::X))
             } else {
@@ -171,7 +171,7 @@ fn rewrite_from_op(
         .enumerate()
         .map(|(i, &o)| {
             if through.contains(&op_ref) && o == op_ref {
-                rhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ref(o.as_u32())))
+                rhs.add(egg::ENodeOrVar::ENode(StateLanguage::C))
             } else {
                 rhs.add(egg::ENodeOrVar::Var(
                     format!("?o{}", i).parse().unwrap(),
