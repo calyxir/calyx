@@ -3,7 +3,9 @@ use super::{
     FindPlan, Step,
 };
 use cranelift_entity::PrimaryMap;
-use egg::{define_language, rewrite, Id, Pattern, RecExpr, Rewrite, Runner};
+use egg::{
+    define_language, rewrite, Id, Pattern, PatternAst, RecExpr, Rewrite, Runner,
+};
 
 #[derive(Debug, Default)]
 pub struct EggPlanner;
@@ -28,58 +30,47 @@ define_language! {
     }
 }
 
-/// Construct string which can be parsed to a `root` term in `StateLanguage`.
+/// Construct an expr for `root` term in `StateLanguage`.
 ///
-/// `states` are in included states in the term, and `through` are the included ops. If
-/// `states_use_x` is set, then all absent states will be marked with `x`. If it is not set, these
-/// unused states will instead be marked with a unique variable to create a string parsable into a
-/// pattern. `ops_use_x` is similar but applies to unused ops.
-///
+/// `states` are in included states in the term, and `through` are the included ops. Unspecified
+/// ops and states are maked with "xxx".
 /// `all_states` is an ordered list of all states. `all_ops` is an ordered list of all ops.
-fn language_string(
+fn language_expr(
     states: &[StateRef],
     through: &[OpRef],
-    states_use_x: bool,
-    ops_use_x: bool,
     all_states: &[StateRef],
     all_ops: &[OpRef],
-) -> String {
-    // Collect states into a string.
-    let state_str = all_states
+) -> RecExpr<StateLanguage> {
+    let mut expr: RecExpr<StateLanguage> = Default::default();
+    // Collect states into an expr.
+    let state_ids = all_states
         .iter()
-        .enumerate()
-        .map(|(i, s)| {
+        .map(|s| {
             if states.contains(s) {
-                s.as_u32().to_string()
-            } else if states_use_x {
-                String::from("xxx")
+                expr.add(StateLanguage::Ref(s.as_u32()))
             } else {
-                format!("?s{}", i)
+                expr.add(StateLanguage::X)
             }
         })
-        .collect::<Vec<_>>()
-        .join(" ");
-    let state_str = format!("(states {})", state_str);
+        .collect::<Vec<_>>();
+    let state_expr =
+        expr.add(StateLanguage::States(state_ids.into_boxed_slice()));
 
-    // Collect ops into a string.
-    let op_str = all_ops
+    // Collect ops into an expr.
+    let op_ids = all_ops
         .iter()
-        .enumerate()
-        .map(|(i, o)| {
+        .map(|o| {
             if through.contains(o) {
-                o.as_u32().to_string()
-            } else if ops_use_x {
-                String::from("xxx")
+                expr.add(StateLanguage::Ref(o.as_u32()))
             } else {
-                format!("?o{}", i)
+                expr.add(StateLanguage::X)
             }
         })
-        .collect::<Vec<_>>()
-        .join(" ");
-    let op_str = format!("(ops {})", op_str);
+        .collect::<Vec<_>>();
+    let op_expr = expr.add(StateLanguage::Ops(op_ids.into_boxed_slice()));
 
-    // Put them together with root.
-    format!("(root {} {})", state_str, op_str)
+    expr.add(StateLanguage::Root([state_expr, op_expr]));
+    expr
 }
 
 /// Creates a `Rewrite` corresponding to `op` and `op_ref` for `StateLanguage`.
@@ -97,53 +88,93 @@ fn rewrite_from_op(
     all_ops: &[OpRef],
 ) -> Rewrite<StateLanguage, ()> {
     // Name the rewrite after the op's reference.
-    // This is how we will retrieve it later from the egraph.
+    // This enables retrieving the op later from the egraph.
     let name = op_ref.as_u32().to_string();
 
-    // Maintain lists of states in sorted order to reduce number of eclasses.
-    let lhs: Pattern<StateLanguage> =
-        language_string(&op.input, &[], false, false, all_states, all_ops)
-            .parse()
-            .unwrap();
+    let mut lhs: PatternAst<StateLanguage> = Default::default();
+    // Collect states into a pattern.
+    let state_ids = all_states
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            if op.input.contains(s) {
+                lhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ref(s.as_u32())))
+            } else {
+                lhs.add(egg::ENodeOrVar::Var(
+                    format!("?s{}", i).parse().unwrap(),
+                ))
+            }
+        })
+        .collect::<Vec<_>>();
+    let state_pattern = lhs.add(egg::ENodeOrVar::ENode(StateLanguage::States(
+        state_ids.into_boxed_slice(),
+    )));
+
+    // Collect ops into a pattern.
+    let op_ids = all_ops
+        .iter()
+        .enumerate()
+        .map(|(i, _o)| {
+            lhs.add(egg::ENodeOrVar::Var(format!("?o{}", i).parse().unwrap()))
+        })
+        .collect::<Vec<_>>();
+    let op_pattern = lhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ops(
+        op_ids.into_boxed_slice(),
+    )));
+
+    lhs.add(egg::ENodeOrVar::ENode(StateLanguage::Root([
+        state_pattern,
+        op_pattern,
+    ])));
+    let lhs = Pattern::new(lhs);
 
     // The input states don't go away but this pretends they do because it massively
-    // reduces the search space.
+    // reduces the search space. This is why states go from a `Ref` to `X`.
 
-    // TODO: Change `language_string` so it can also be used to format `rhs`.
-    // Collect states into a string.
-    let state_str = all_states
+    // Collect states into a pattern.
+    let mut rhs: PatternAst<StateLanguage> = Default::default();
+    let state_ids = all_states
         .iter()
         .enumerate()
         .map(|(i, s)| {
             if op.output.contains(s) {
-                s.as_u32().to_string()
+                rhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ref(s.as_u32())))
             } else if op.input.contains(s) {
-                String::from("xxx")
+                rhs.add(egg::ENodeOrVar::ENode(StateLanguage::X))
             } else {
-                format!("?s{}", i)
+                rhs.add(egg::ENodeOrVar::Var(
+                    format!("?s{}", i).parse().unwrap(),
+                ))
             }
         })
-        .collect::<Vec<_>>()
-        .join(" ");
-    let state_str = format!("(states {})", state_str);
+        .collect::<Vec<_>>();
+    let state_pattern = rhs.add(egg::ENodeOrVar::ENode(StateLanguage::States(
+        state_ids.into_boxed_slice(),
+    )));
 
-    // Collect ops into a string.
-    let op_str = all_ops
+    // Collect ops into a pattern.
+    let op_ids = all_ops
         .iter()
         .enumerate()
         .map(|(i, &o)| {
             if through.contains(&op_ref) && o == op_ref {
-                op_ref.as_u32().to_string()
+                rhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ref(o.as_u32())))
             } else {
-                format!("?o{}", i)
+                rhs.add(egg::ENodeOrVar::Var(
+                    format!("?o{}", i).parse().unwrap(),
+                ))
             }
         })
-        .collect::<Vec<_>>()
-        .join(" ");
-    let op_str = format!("(ops {})", op_str);
+        .collect::<Vec<_>>();
+    let op_pattern = rhs.add(egg::ENodeOrVar::ENode(StateLanguage::Ops(
+        op_ids.into_boxed_slice(),
+    )));
 
-    let lang_str = format!("(root {} {})", state_str, op_str);
-    let rhs: Pattern<StateLanguage> = lang_str.parse().unwrap();
+    rhs.add(egg::ENodeOrVar::ENode(StateLanguage::Root([
+        state_pattern,
+        op_pattern,
+    ])));
+    let rhs = Pattern::new(rhs);
 
     rewrite!(name; lhs => rhs)
 }
@@ -180,9 +211,7 @@ impl FindPlan for EggPlanner {
 
         // Construct initial expression.
         let start_expr: RecExpr<StateLanguage> =
-            language_string(start, &[], true, true, &all_states, &all_ops)
-                .parse()
-                .unwrap();
+            language_expr(start, &[], &all_states, &all_ops);
 
         // Find a solution.
         let mut runner = Runner::default()
@@ -193,9 +222,7 @@ impl FindPlan for EggPlanner {
         // Create solution expression. This assumes that the ops generate exactly the requested
         // files with no extras.
         let end_expr: RecExpr<StateLanguage> =
-            language_string(end, through, true, true, &all_states, &all_ops)
-                .parse()
-                .unwrap();
+            language_expr(end, through, &all_states, &all_ops);
 
         // If the end expression exists, retrieve it using steps.
         if runner.egraph.lookup_expr(&end_expr).is_some() {
