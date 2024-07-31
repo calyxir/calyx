@@ -1,3 +1,5 @@
+use crate::exec::State;
+
 use super::{
     super::{OpRef, Operation, StateRef},
     planner::Step,
@@ -116,6 +118,7 @@ impl FindPlan for SingleOpOutputPlanner {
         end: &[StateRef],
         through: &[OpRef],
         ops: &PrimaryMap<OpRef, Operation>,
+        _states: &PrimaryMap<StateRef, State>,
     ) -> Option<Vec<Step>> {
         assert!(start.len() == 1 && end.len() == 1);
         Self::find_plan(start[0], end[0], through, ops)

@@ -19,9 +19,24 @@ fn find_plan_simple_graph_test() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s2])]),
-            path_finder.find_plan(&[s1], &[s2], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s2],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
-        assert_eq!(None, path_finder.find_plan(&[s1], &[s1], &[], &driver.ops));
+        assert_eq!(
+            None,
+            path_finder.find_plan(
+                &[s1],
+                &[s1],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
+        );
     }
 }
 
@@ -38,7 +53,13 @@ fn find_plan_multi_op_graph() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s3])]),
-            path_finder.find_plan(&[s1], &[s3], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s3],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -64,16 +85,43 @@ fn find_plan_multi_path_graph() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s3]), (t4, vec![s5])]),
-            path_finder.find_plan(&[s1], &[s5], &[t4], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s5],
+                &[t4],
+                &driver.ops,
+                &driver.states
+            )
         );
         assert_eq!(
             Some(vec![(t1, vec![s3]), (t5, vec![s5])]),
-            path_finder.find_plan(&[s1], &[s5], &[t5], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s5],
+                &[t5],
+                &driver.ops,
+                &driver.states
+            )
         );
-        assert_eq!(None, path_finder.find_plan(&[s6], &[s5], &[], &driver.ops));
         assert_eq!(
             None,
-            path_finder.find_plan(&[s1], &[s5], &[t2], &driver.ops)
+            path_finder.find_plan(
+                &[s6],
+                &[s5],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
+        );
+        assert_eq!(
+            None,
+            path_finder.find_plan(
+                &[s1],
+                &[s5],
+                &[t2],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -85,7 +133,16 @@ fn find_plan_only_state_graph() {
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
         let driver = bld.build();
-        assert_eq!(None, path_finder.find_plan(&[s1], &[s1], &[], &driver.ops));
+        assert_eq!(
+            None,
+            path_finder.find_plan(
+                &[s1],
+                &[s1],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
+        );
     }
 }
 
@@ -99,7 +156,13 @@ fn find_plan_self_loop() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s1])]),
-            path_finder.find_plan(&[s1], &[s1], &[t1], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s1],
+                &[t1],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -116,11 +179,23 @@ fn find_plan_cycle_graph() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s2])]),
-            path_finder.find_plan(&[s1], &[s2], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s2],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
         assert_eq!(
             Some(vec![(t2, vec![s1])]),
-            path_finder.find_plan(&[s2], &[s1], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s2],
+                &[s1],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -139,7 +214,13 @@ fn find_plan_nontrivial_cycle() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t2, vec![s2]), (t3, vec![s3])]),
-            path_finder.find_plan(&[s1], &[s3], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s3],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -157,7 +238,13 @@ fn op_creating_two_states() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t0, vec![s1, s2])]),
-            path_finder.find_plan(&[s0], &[s1, s2], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s0],
+                &[s1, s2],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -175,7 +262,13 @@ fn op_compressing_two_states() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t0, vec![s0])]),
-            path_finder.find_plan(&[s1, s2], &[s0], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1, s2],
+                &[s0],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -205,7 +298,7 @@ fn op_creating_two_states_not_initial_and_final() {
                 (t3, vec![s5])
             ])),
             path_finder
-                .find_plan(&[s0], &[s4, s5], &[], &driver.ops)
+                .find_plan(&[s0], &[s4, s5], &[], &driver.ops, &driver.states)
                 .map(BTreeSet::from_iter)
         );
     }
@@ -236,7 +329,7 @@ fn op_compressing_two_states_not_initial_and_final() {
                 (t3, vec![s5]),
             ])),
             path_finder
-                .find_plan(&[s0, s2], &[s5], &[], &driver.ops)
+                .find_plan(&[s0, s2], &[s5], &[], &driver.ops, &driver.states)
                 .map(BTreeSet::from_iter)
         );
     }

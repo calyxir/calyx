@@ -1,3 +1,5 @@
+use crate::exec::State;
+
 use super::{
     super::{OpRef, Operation, StateRef},
     FindPlan, Step,
@@ -171,6 +173,7 @@ impl FindPlan for EnumeratePlanner {
         end: &[StateRef],
         through: &[OpRef],
         ops: &PrimaryMap<OpRef, Operation>,
+        _states: &PrimaryMap<StateRef, State>,
     ) -> Option<Vec<Step>> {
         Self::find_plan(start, end, through, ops)
     }

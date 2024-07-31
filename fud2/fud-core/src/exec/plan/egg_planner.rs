@@ -1,3 +1,5 @@
+use crate::exec::State;
+
 use super::{
     super::{OpRef, Operation, StateRef},
     FindPlan, Step,
@@ -197,20 +199,11 @@ impl FindPlan for EggPlanner {
         end: &[StateRef],
         through: &[OpRef],
         ops: &PrimaryMap<OpRef, Operation>,
+        states: &PrimaryMap<StateRef, State>,
     ) -> Option<Vec<Step>> {
         // Collect all ops and states into sorted `Vec`s.
-        let mut all_states: Vec<_> = ops
-            .values()
-            .map(|op| op.input.clone())
-            .chain(ops.values().map(|op| op.output.clone()))
-            .flatten()
-            .collect();
-        all_states.sort();
-        all_states.dedup();
-
-        let mut all_ops: Vec<_> = ops.keys().collect();
-        all_ops.sort();
-        all_ops.dedup();
+        let all_states: Vec<_> = states.keys().collect();
+        let all_ops: Vec<_> = ops.keys().collect();
 
         // Construct egg rewrites for each op.
         let rules: Vec<Rewrite<StateLanguage, ()>> = ops
