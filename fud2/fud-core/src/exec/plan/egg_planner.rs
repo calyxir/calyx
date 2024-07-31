@@ -11,7 +11,7 @@ pub struct EggPlanner;
 define_language! {
     /// A language to represent a collection of states.
     /// For example, if there are 3 states and 2 ops, a term `(root (states x x x) (ops x x))`
-    /// represents the absense of all states and all ops. A term `(root (states 3 x x) (ops x 2))`
+    /// represents the absence of all states and all ops. A term `(root (states 3 x x) (ops x 2))`
     /// represents a a pair of sets, the first containing a single state with `StateRef` 3 and the
     /// second containing a single op with `OpRef` 2.
     enum StateLanguage {
