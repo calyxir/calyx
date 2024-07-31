@@ -258,7 +258,7 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         through: through?,
         workdir,
         planner: match args.planner {
-            Planner::Legacy => Box::new(plan::SingleOpOutputPlanner {}),
+            Planner::Legacy => Box::new(plan::LegacyPlanner {}),
             Planner::Egg => Box::new(plan::EggPlanner {}),
             Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
         },

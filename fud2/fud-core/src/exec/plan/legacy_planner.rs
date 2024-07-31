@@ -14,8 +14,8 @@ enum Destination {
 }
 
 #[derive(Debug, Default)]
-pub struct SingleOpOutputPlanner {}
-impl SingleOpOutputPlanner {
+pub struct LegacyPlanner {}
+impl LegacyPlanner {
     /// Find a chain of Operations from the `start` state to the `end`, which may be a state or the
     /// final operation in the chain.
     fn find_path_segment(
@@ -111,7 +111,7 @@ impl SingleOpOutputPlanner {
     }
 }
 
-impl FindPlan for SingleOpOutputPlanner {
+impl FindPlan for LegacyPlanner {
     fn find_plan(
         &self,
         start: &[StateRef],
