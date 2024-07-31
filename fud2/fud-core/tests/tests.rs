@@ -1,12 +1,19 @@
 use std::collections::BTreeSet;
 
 use fud_core::{
-    exec::plan::{EggPlanner, EnumeratePlanner, FindPlan},
+    exec::plan::{EnumeratePlanner, FindPlan},
     DriverBuilder,
 };
 
+#[cfg(feature = "egg_planner")]
+use fud_core::exec::plan::EggPlanner;
+
+#[cfg(feature = "egg_planner")]
 const MULTI_PLANNERS: [&dyn FindPlan; 2] =
     [&EnumeratePlanner {}, &EggPlanner {}];
+
+#[cfg(not(feature = "egg_planner"))]
+const MULTI_PLANNERS: [&dyn FindPlan; 1] = [&EnumeratePlanner {}];
 
 #[test]
 fn find_plan_simple_graph_test() {
