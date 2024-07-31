@@ -144,7 +144,7 @@ fn language_expr(
 ///
 /// As an example, given 3 ops and 4 states, if op 2 takes states 2 and 3 to state 4, the rewrite
 /// would take
-/// `(root (states c c c xxx) (ops c xxx xxx)) => (root (states c xxx xxx c) (ops c c xxx)`.
+/// `(root (states c c c xxx) (ops c xxx xxx)) => (root (states c xxx xxx c) (ops c c xxx))`.
 ///
 /// This function removes input states from the set of those available not because they are
 /// consumed, but because it massively reduces the search space. This is a concession of
