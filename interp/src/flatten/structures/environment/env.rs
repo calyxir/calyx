@@ -1892,7 +1892,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             } else {
                                 MemoryDeclaration::new_bitnum(
                                     name,
-                                    *width as usize,
+                                    *width,
                                     dims.as_serializing_dim(),
                                     false,
                                 )
@@ -1900,7 +1900,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         } else {
                             MemoryDeclaration::new_bitnum(
                                 name,
-                                *width as usize,
+                                *width,
                                 dims.as_serializing_dim(),
                                 false,
                             )
@@ -1921,7 +1921,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     if dump_registers {
                         dump.push_reg(
                             name,
-                            *width as usize,
+                            *width,
                             self.env.cells[cell_index]
                                 .unwrap_primitive()
                                 .dump_memory_state()
