@@ -48,7 +48,8 @@
 //!
 //! ## Comments
 //! This solution isn't complete, but it is correct and works efficiently for the current and
-//! somewhat larger op graph sizes.
+//! somewhat larger op graph sizes. This cases it excludes are where a single state is used by
+//! multiple ops.
 
 use crate::exec::State;
 
