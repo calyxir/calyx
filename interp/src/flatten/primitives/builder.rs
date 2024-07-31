@@ -4,7 +4,7 @@ use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, MemType, PrimType1},
+            cell_prototype::{CellPrototype, FXType, MemType, SingleWidthType},
             prelude::{CellInfo, GlobalPortIdx},
         },
         structures::context::Context,
@@ -35,75 +35,109 @@ pub fn build_primitive(
             "Build primitive erroneously called on a calyx component"
         ),
         CellPrototype::SingleWidth { op, width } => match op {
-            PrimType1::Reg => Box::new(StdReg::new(base_port, *width)),
-            PrimType1::Not => Box::new(StdNot::new(base_port)),
-            PrimType1::And => Box::new(StdAnd::new(base_port)),
-            PrimType1::Or => Box::new(StdOr::new(base_port)),
-            PrimType1::Xor => Box::new(StdXor::new(base_port)),
-            PrimType1::Add => Box::new(StdAdd::new(base_port)),
-            PrimType1::Sub => Box::new(StdSub::new(base_port)),
-            PrimType1::Gt => Box::new(StdGt::new(base_port)),
-            PrimType1::Lt => Box::new(StdLt::new(base_port)),
-            PrimType1::Eq => Box::new(StdEq::new(base_port)),
-            PrimType1::Neq => Box::new(StdNeq::new(base_port)),
-            PrimType1::Ge => Box::new(StdGe::new(base_port)),
-            PrimType1::Le => Box::new(StdLe::new(base_port)),
-            PrimType1::Lsh => Box::new(StdLsh::new(base_port, *width)),
-            PrimType1::Rsh => Box::new(StdRsh::new(base_port, *width)),
-            PrimType1::Mux => Box::new(StdMux::new(base_port)),
-            PrimType1::Wire => Box::new(StdWire::new(base_port)),
-            PrimType1::SignedAdd => Box::new(StdAdd::new(base_port)),
-            PrimType1::SignedSub => Box::new(StdSub::new(base_port)),
-            PrimType1::SignedGt => Box::new(StdSgt::new(base_port)),
-            PrimType1::SignedLt => Box::new(StdSlt::new(base_port)),
-            PrimType1::SignedEq => Box::new(StdSeq::new(base_port)),
-            PrimType1::SignedNeq => Box::new(StdSneq::new(base_port)),
-            PrimType1::SignedGe => Box::new(StdSge::new(base_port)),
-            PrimType1::SignedLe => Box::new(StdSle::new(base_port)),
-            PrimType1::SignedLsh => Box::new(StdSlsh::new(base_port)),
-            PrimType1::SignedRsh => Box::new(StdSrsh::new(base_port)),
-            PrimType1::MultPipe => {
+            SingleWidthType::Reg => Box::new(StdReg::new(base_port, *width)),
+            SingleWidthType::Not => Box::new(StdNot::new(base_port)),
+            SingleWidthType::And => Box::new(StdAnd::new(base_port)),
+            SingleWidthType::Or => Box::new(StdOr::new(base_port)),
+            SingleWidthType::Xor => Box::new(StdXor::new(base_port)),
+            SingleWidthType::Add => Box::new(StdAdd::new(base_port)),
+            SingleWidthType::Sub => Box::new(StdSub::new(base_port)),
+            SingleWidthType::Gt => Box::new(StdGt::new(base_port)),
+            SingleWidthType::Lt => Box::new(StdLt::new(base_port)),
+            SingleWidthType::Eq => Box::new(StdEq::new(base_port)),
+            SingleWidthType::Neq => Box::new(StdNeq::new(base_port)),
+            SingleWidthType::Ge => Box::new(StdGe::new(base_port)),
+            SingleWidthType::Le => Box::new(StdLe::new(base_port)),
+            SingleWidthType::Lsh => Box::new(StdLsh::new(base_port, *width)),
+            SingleWidthType::Rsh => Box::new(StdRsh::new(base_port, *width)),
+            SingleWidthType::Mux => Box::new(StdMux::new(base_port)),
+            SingleWidthType::Wire => Box::new(StdWire::new(base_port)),
+            SingleWidthType::SignedAdd => Box::new(StdAdd::new(base_port)),
+            SingleWidthType::SignedSub => Box::new(StdSub::new(base_port)),
+            SingleWidthType::SignedGt => Box::new(StdSgt::new(base_port)),
+            SingleWidthType::SignedLt => Box::new(StdSlt::new(base_port)),
+            SingleWidthType::SignedEq => Box::new(StdSeq::new(base_port)),
+            SingleWidthType::SignedNeq => Box::new(StdSneq::new(base_port)),
+            SingleWidthType::SignedGe => Box::new(StdSge::new(base_port)),
+            SingleWidthType::SignedLe => Box::new(StdSle::new(base_port)),
+            SingleWidthType::SignedLsh => Box::new(StdSlsh::new(base_port)),
+            SingleWidthType::SignedRsh => Box::new(StdSrsh::new(base_port)),
+            SingleWidthType::MultPipe => {
                 Box::new(StdMultPipe::<2>::new(base_port, *width))
             }
-            PrimType1::SignedMultPipe => {
+            SingleWidthType::SignedMultPipe => {
                 // todo: Check if this is actually okay
                 Box::new(StdMultPipe::<2>::new(base_port, *width))
             }
-            PrimType1::DivPipe => {
+            SingleWidthType::DivPipe => {
                 Box::new(StdDivPipe::<2, false>::new(base_port, *width))
             }
-            PrimType1::SignedDivPipe => {
+            SingleWidthType::SignedDivPipe => {
                 Box::new(StdDivPipe::<2, true>::new(base_port, *width))
             }
-            PrimType1::Sqrt => {
+            SingleWidthType::Sqrt => {
                 Box::new(Sqrt::<false>::new(base_port, *width, None))
             }
-            PrimType1::UnsynMult => {
+            SingleWidthType::UnsynMult => {
                 Box::new(StdUnsynMult::new(base_port, *width))
             }
-            PrimType1::UnsynDiv => {
+            SingleWidthType::UnsynDiv => {
                 Box::new(StdUnsynDiv::new(base_port, *width))
             }
-            PrimType1::UnsynMod => {
+            SingleWidthType::UnsynMod => {
                 Box::new(StdUnsynMod::new(base_port, *width))
             }
-            PrimType1::UnsynSMult => {
+            SingleWidthType::UnsynSMult => {
                 Box::new(StdUnsynSmult::new(base_port, *width))
             }
-            PrimType1::UnsynSDiv => {
+            SingleWidthType::UnsynSDiv => {
                 Box::new(StdUnsynSdiv::new(base_port, *width))
             }
-            PrimType1::UnsynSMod => {
+            SingleWidthType::UnsynSMod => {
                 Box::new(StdUnsynSmod::new(base_port, *width))
             }
-            PrimType1::Undef => Box::new(StdUndef::new(base_port, *width)),
+            SingleWidthType::Undef => {
+                Box::new(StdUndef::new(base_port, *width))
+            }
         },
+        CellPrototype::BitSlice {
+            start_idx,
+            end_idx,
+            out_width,
+        } => Box::new(StdBitSlice::new(
+            base_port, *start_idx, *end_idx, *out_width,
+        )),
         CellPrototype::FixedPoint {
-            op: _,
-            width: _,
-            int_width: _,
-            frac_width: _,
-        } => todo!("Fixed point implementations not available yet"),
+            op,
+            width,
+            int_width,
+            frac_width,
+        } => match op {
+            FXType::Add | FXType::SignedAdd => Box::new(StdAdd::new(base_port)),
+            FXType::Sub | FXType::SignedSub => Box::new(StdSub::new(base_port)),
+            FXType::Mult | FXType::SignedMult => Box::new(
+                FxpMultPipe::<2>::new(base_port, *int_width, *frac_width),
+            ),
+            FXType::Div => Box::new(FxpDivPipe::<2, false>::new(
+                base_port,
+                *int_width,
+                *frac_width,
+            )),
+
+            FXType::SignedDiv => Box::new(FxpDivPipe::<2, true>::new(
+                base_port,
+                *int_width,
+                *frac_width,
+            )),
+            FXType::Gt => Box::new(StdGt::new(base_port)),
+            FXType::SignedGt => Box::new(StdSgt::new(base_port)),
+            FXType::SignedLt => Box::new(StdSlt::new(base_port)),
+            FXType::Sqrt => Box::new(Sqrt::<true>::new(
+                base_port,
+                *width,
+                Some(*frac_width),
+            )),
+        },
         CellPrototype::Slice {
             in_width: _, // Not actually needed, should probably remove
             out_width,

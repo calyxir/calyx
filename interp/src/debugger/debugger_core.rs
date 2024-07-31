@@ -20,8 +20,6 @@ use crate::{
 
 use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
-use calyx_ir::Id;
-
 use owo_colors::OwoColorize;
 use std::path::Path as FilePath;
 
@@ -50,8 +48,14 @@ impl ProgramStatus {
     }
 }
 
+/// An opaque wrapper type for internal debugging information
+pub struct DebuggerInfo {
+    ctx: DebuggingContext,
+    input_stream: Input,
+}
+
 pub enum DebuggerReturnStatus {
-    Restart,
+    Restart(Box<DebuggerInfo>),
     Exit,
 }
 
@@ -189,8 +193,20 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     // so on and so forth
 
-    pub fn main_loop(mut self) -> InterpreterResult<DebuggerReturnStatus> {
-        let mut input_stream = Input::new()?;
+    pub fn main_loop(
+        mut self,
+        info: Option<DebuggerInfo>,
+    ) -> InterpreterResult<DebuggerReturnStatus> {
+        let (input_stream, dbg_ctx) = info
+            .map(|x| (Some(x.input_stream), Some(x.ctx)))
+            .unwrap_or_else(|| (None, None));
+
+        if let Some(dbg_ctx) = dbg_ctx {
+            self.debugging_context = dbg_ctx;
+        }
+
+        let mut input_stream =
+            input_stream.map(Ok).unwrap_or_else(Input::new)?;
 
         println!(
             "==== {}: The {}alyx {}nterpreter and {}bugge{} ====",
@@ -201,15 +217,29 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             "r".underline()
         );
 
+        let mut err_count = 0_u8;
+
         while !self.interpreter.is_done() {
             let comm = input_stream.next_command();
             let comm = match comm {
-                Ok(c) => c,
+                Ok(c) => {
+                    err_count = 0;
+                    c
+                }
                 Err(e) => match *e {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_)
                     | InterpreterError::ParseError(_) => {
                         println!("Error: {}", e.red().bold());
+                        err_count += 1;
+                        if err_count == 3 {
+                            println!(
+                                "Type {} for a list of commands or {} for usage examples.",
+                                "help".yellow().bold().underline(),
+                                "explain".yellow().bold().underline()
+                            );
+                            err_count = 0;
+                        }
                         continue;
                     }
                     _ => return Err(e),
@@ -283,11 +313,16 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
 
                 Command::Explain => {
-                    print!("{}", Command::get_explain_string().blue())
+                    print!("{}", Command::get_explain_string())
                 }
 
                 Command::Restart => {
-                    return Ok(DebuggerReturnStatus::Restart);
+                    return Ok(DebuggerReturnStatus::Restart(Box::new(
+                        DebuggerInfo {
+                            ctx: self.debugging_context,
+                            input_stream,
+                        },
+                    )));
                 }
             }
         }
@@ -331,10 +366,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     return Ok(DebuggerReturnStatus::Exit);
                 }
                 Command::Explain => {
-                    print!("{}", Command::get_explain_string().blue().bold())
+                    print!("{}", Command::get_explain_string())
                 }
                 Command::Restart => {
-                    return Ok(DebuggerReturnStatus::Restart);
+                    return Ok(DebuggerReturnStatus::Restart(Box::new(
+                        DebuggerInfo {
+                            ctx: self.debugging_context,
+                            input_stream,
+                        },
+                    )));
                 }
                 _ => {
                     println!(

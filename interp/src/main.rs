@@ -3,7 +3,7 @@ use argh::FromArgs;
 use calyx_utils::OutputFile;
 use interp::{
     configuration,
-    debugger::{Debugger, DebuggerReturnStatus},
+    debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
     errors::InterpreterResult,
     flatten::structures::environment::Simulator,
 };
@@ -128,13 +128,16 @@ fn main() -> InterpreterResult<()> {
             Ok(())
         }
         Command::Debug(_) => {
+            let mut info: Option<DebuggerInfo> = None;
             loop {
                 let debugger = Debugger::new(&i_ctx, &opts.data_file)?;
 
-                let result = debugger.main_loop()?;
+                let result = debugger.main_loop(info)?;
                 match result {
                     DebuggerReturnStatus::Exit => break,
-                    DebuggerReturnStatus::Restart => continue,
+                    DebuggerReturnStatus::Restart(new_info) => {
+                        info = Some(*new_info);
+                    }
                 }
             }
             Ok(())

@@ -30,6 +30,6 @@ flags = -p none
 rule calyx-with-flags
   command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
-build cider-input.futil: calyx-with-flags /input.ext
+build /output.ext: calyx-with-flags /input.ext
 
 default /output.ext

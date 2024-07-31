@@ -4,10 +4,7 @@ use dap::types::{
 };
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::OwnedDebugger;
-use std::borrow::Borrow;
-use std::cell::Cell;
 use std::collections::HashMap;
-use std::env::var;
 use std::path::PathBuf;
 
 pub struct MyAdapter {
@@ -152,10 +149,10 @@ impl MyAdapter {
     pub fn get_variables(&self, var_ref: i64) -> Vec<Variable> {
         let ports = self.object_references.get(&var_ref);
         match ports {
-            None => return Vec::default(),
+            None => Vec::default(),
             Some(p) => {
                 let out: Vec<Variable> = p
-                    .into_iter()
+                    .iter()
                     .map(|x| Variable {
                         name: String::from(x),
                         value: String::from("1"),
@@ -168,19 +165,19 @@ impl MyAdapter {
                         memory_reference: None,
                     })
                     .collect();
-                return out;
+                out
             }
         }
     }
     // return cells in calyx context (later should hopefully just return ones w current component)
-    pub fn get_scopes(&mut self, frame: i64) -> Vec<Scope> {
+    pub fn get_scopes(&mut self, _frame: i64) -> Vec<Scope> {
         let mut out_vec = vec![];
         let cell_names = self.debugger.get_cells();
         let mut var_ref_count = 1;
         for (name, ports) in cell_names {
             self.object_references.insert(var_ref_count, ports);
             let scope = Scope {
-                name: name,
+                name,
                 presentation_hint: Some(
                     dap::types::ScopePresentationhint::Locals,
                 ),

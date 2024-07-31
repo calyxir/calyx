@@ -10,7 +10,7 @@ use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, PrimType1},
+            cell_prototype::{CellPrototype, SingleWidthType},
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices,
                 CellDefinitionRef::{Local, Ref},
@@ -31,7 +31,7 @@ use crate::{
         },
     },
     logging,
-    serialization::{DataDump, Dimensions, PrintCode},
+    serialization::{DataDump, MemoryDeclaration, PrintCode},
     values::Value,
 };
 use ahash::HashMap;
@@ -242,11 +242,70 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
     pub(super) ctx: C,
+
+    memory_header: Option<Vec<MemoryDeclaration>>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
+    }
+    /// Returns the full name and port list of each cell in the context
+    pub fn iter_cells(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+        let env = self;
+        let cell_names = self.cells.iter().map(|(idx, _ledger)| {
+            (idx.get_full_name(env), self.get_ports_for_cell(idx))
+        });
+
+        cell_names
+        // get parent from cell, if not exist then lookup component ledger get base idxs, go to context and get signature to get ports
+        // for cells, same thing but in the cell ledger, subtract child offset from parent offset to get local offset, lookup in cell offset in component info
+    }
+
+    //not sure if beneficial to change this to be impl iterator as well
+    fn get_ports_for_cell(&self, cell: GlobalCellIdx) -> Vec<String> {
+        let parent = self.get_parent_cell_from_cell(cell);
+        match parent {
+            None => {
+                let comp_ledger = self.cells[cell].as_comp().unwrap();
+                let comp_info =
+                    self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
+                let port_ids = comp_info.signature.into_iter().map(|x| {
+                    &self.ctx().secondary.local_port_defs
+                        [comp_info.port_offset_map[x]]
+                        .name
+                });
+                let port_names = port_ids
+                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                    .collect_vec();
+                port_names
+            }
+            Some(parent_cell) => {
+                let parent_comp_ledger = self.cells[parent_cell].unwrap_comp();
+                let comp_info = self
+                    .ctx()
+                    .secondary
+                    .comp_aux_info
+                    .get(parent_comp_ledger.comp_id);
+                let local_offset = cell - &parent_comp_ledger.index_bases;
+
+                let port_ids = self.ctx().secondary.local_cell_defs
+                    [comp_info.cell_offset_map[local_offset]]
+                    .ports
+                    .into_iter()
+                    .map(|x| {
+                        &self.ctx().secondary.local_port_defs
+                            [comp_info.port_offset_map[x]]
+                            .name
+                    });
+                let names = port_ids
+                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                    .collect_vec();
+                names
+            }
+        }
     }
 
     pub fn iter_cells(
@@ -321,11 +380,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ),
             pc: ProgramCounter::new_empty(),
             ctx,
+            memory_header: None,
         };
 
         let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
-        env.layout_component(root, data_map, &mut HashSet::new());
+        env.layout_component(root, &data_map, &mut HashSet::new());
 
         // Initialize program counter
         // TODO griffin: Maybe refactor into a separate function
@@ -342,6 +402,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             }
         }
 
+        if let Some(header) = data_map {
+            env.memory_header = Some(header.header.memories);
+        }
+
         env
     }
 
@@ -356,7 +420,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     fn layout_component(
         &mut self,
         comp: GlobalCellIdx,
-        data_map: Option<DataDump>,
+        data_map: &Option<DataDump>,
         memories_initialized: &mut HashSet<String>,
     ) {
         // for mutability reasons, see note in `[Environment::new]`
@@ -428,7 +492,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     info,
                     port_base,
                     self.ctx.as_ref(),
-                    &data_map,
+                    data_map,
                     memories_initialized,
                 );
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
@@ -448,7 +512,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 );
 
                 // layout sub-component but don't include the data map
-                self.layout_component(cell, None, memories_initialized);
+                self.layout_component(cell, &None, memories_initialized);
             }
         }
 
@@ -1928,26 +1992,51 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     dims,
                     is_external,
                     ..
-                } if *is_external | all_mems => dump.push_memory(
-                    name,
-                    *width as usize,
-                    dims.size(),
-                    dims.as_serializing_dim(),
-                    self.env.cells[cell_index]
-                        .unwrap_primitive()
-                        .dump_memory_state()
-                        .unwrap(),
-                ),
+                } if *is_external | all_mems => {
+                    let declaration =
+                        if *is_external && self.env.memory_header.is_some() {
+                            if let Some(dec) = self
+                                .env
+                                .memory_header
+                                .as_ref()
+                                .unwrap()
+                                .iter()
+                                .find(|x| x.name == name)
+                            {
+                                dec.clone()
+                            } else {
+                                MemoryDeclaration::new_bitnum(
+                                    name,
+                                    *width,
+                                    dims.as_serializing_dim(),
+                                    false,
+                                )
+                            }
+                        } else {
+                            MemoryDeclaration::new_bitnum(
+                                name,
+                                *width,
+                                dims.as_serializing_dim(),
+                                false,
+                            )
+                        };
+
+                    dump.push_memory(
+                        declaration,
+                        self.env.cells[cell_index]
+                            .unwrap_primitive()
+                            .dump_memory_state()
+                            .unwrap(),
+                    )
+                }
                 CellPrototype::SingleWidth {
-                    op: PrimType1::Reg,
+                    op: SingleWidthType::Reg,
                     width,
                 } => {
                     if dump_registers {
-                        dump.push_memory(
+                        dump.push_reg(
                             name,
-                            *width as usize,
-                            1,
-                            Dimensions::D1(1),
+                            *width,
                             self.env.cells[cell_index]
                                 .unwrap_primitive()
                                 .dump_memory_state()

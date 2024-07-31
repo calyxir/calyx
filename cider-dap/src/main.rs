@@ -13,7 +13,7 @@ use dap::prelude::*;
 use error::AdapterResult;
 use responses::VariablesResponse;
 use slog::{info, Drain};
-use std::default;
+//use std::default;
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
@@ -390,7 +390,7 @@ fn create_stopped(
         false => Some(thread_id),
     };
     Event::Stopped(StoppedEventBody {
-        reason: reason,
+        reason,
         description: Some(desc),
         thread_id: thread,
         preserve_focus_hint: None,

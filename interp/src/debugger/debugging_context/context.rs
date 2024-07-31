@@ -739,3 +739,9 @@ impl DebuggingContext {
         }
     }
 }
+
+impl Default for DebuggingContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}

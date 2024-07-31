@@ -8,7 +8,7 @@ use std::path::PathBuf;
 /// Metadata stores a Map between each group name and data used in the metadata table (specified in PR #2022)
 #[derive(Default)]
 pub struct Metadata {
-    groups: LinkedHashMap<Id, ((usize, usize), PathBuf)>,
+    groups: LinkedHashMap<(Id, Id), ((usize, usize), PathBuf)>,
 }
 
 impl Metadata {
@@ -18,8 +18,14 @@ impl Metadata {
     }
 
     /// Add a new entry to the metadata table
-    fn add_entry(&mut self, name: Id, span: (usize, usize), path: PathBuf) {
-        let ins = self.groups.insert(name, (span, path));
+    fn add_entry(
+        &mut self,
+        comp_name: Id,
+        name: Id,
+        span: (usize, usize),
+        path: PathBuf,
+    ) {
+        let ins = self.groups.insert((comp_name, name), (span, path));
         if let Some(_v) = ins {
             panic!("Two of same group name found")
         }
@@ -30,10 +36,10 @@ impl fmt::Display for Metadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let grps = &self.groups;
 
-        for (name, ((start, end), file)) in grps {
+        for ((comp, name), ((start, end), file)) in grps {
             let file = file.to_str().unwrap();
 
-            writeln!(f, "{name}: {file} {start}-{end}")?;
+            writeln!(f, "{comp}.{name}: {file} {start}-{end}")?;
         }
 
         Ok(())
@@ -60,7 +66,12 @@ impl Visitor for Metadata {
                     let grp = rcc_grp.borrow_mut();
                     let pos_data = grp.attributes.copy_span();
                     let (file, span) = pos_data.get_line_num();
-                    table.add_entry(grp.name(), span, PathBuf::from(file));
+                    table.add_entry(
+                        component.name,
+                        grp.name(),
+                        span,
+                        PathBuf::from(file),
+                    ); //hm may need to actually use the full name of the group
                 }
 
                 ctx.metadata = Some(table.to_string());
@@ -84,9 +95,14 @@ mod tests {
         assert_eq!(empt_string, "");
 
         let path = PathBuf::from("/temp/path/for/testing.futil");
-        data.add_entry(Id::from("group_1"), (12, 16), path.clone());
-        data.add_entry(Id::from("group_2"), (23, 28), path);
+        data.add_entry(
+            Id::from("main"),
+            Id::from("group_1"),
+            (12, 16),
+            path.clone(),
+        );
+        data.add_entry(Id::from("main"), Id::from("group_2"), (23, 28), path);
         let test_string = data.to_string();
-        assert_eq!(test_string, "group_1: /temp/path/for/testing.futil 12-16\ngroup_2: /temp/path/for/testing.futil 23-28\n")
+        assert_eq!(test_string, "main.group_1: /temp/path/for/testing.futil 12-16\nmain.group_2: /temp/path/for/testing.futil 23-28\n")
     }
 }

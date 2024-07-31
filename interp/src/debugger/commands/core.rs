@@ -380,7 +380,7 @@ lazy_static! {
             // print-state
             CIBuilder::new().invocation("print-state")
                 .description("Print the internal state of the target cell. Takes an optional print code before the target")
-                .usage("> watch after GROUP with print-state \\s mem").build(),
+                .usage("> print-state \\s mem").build(),
             // watch
             CIBuilder::new().invocation("watch")
                 .description("Watch a given group with a print statement. Takes an optional position (before/after)")
@@ -422,7 +422,7 @@ lazy_static! {
             CIBuilder::new().invocation("explain")
                 .description("Show examples of commands which take arguments").build(),
             CIBuilder::new().invocation("restart")
-                .description("Restart the debugger from the beginning of the execution. This will reset all breakpoints, watchpoints, and the command history").build(),
+                .description("Restart the debugger from the beginning of the execution. Command history, breakpoints, watchpoints, etc. are preserved").build(),
             // exit/quit
             CIBuilder::new().invocation("exit")
                 .invocation("quit")
