@@ -1,3 +1,55 @@
+//! A planner based around egraphs.
+//!
+//! ## Problem Statement for Planners
+//! The planner is given a set of "ops" and a set of "states." Ops are function taking in a set of
+//! states and returning a set of states.
+//!
+//! The planner is tasked with finding a sequence of ops which takes some inital set of states to a
+//! new set of states with the constraint that there is a set of ops which must be used in this
+//! sequence. By being "used" in this sequence, this means each op must be present in the sequence
+//! and it's outputs, if they were removed, would make construction of the final set of output
+//! states impossible.
+//!
+//! If states are though of ast types, then this problem reduces to creating a function out of an
+//! API, the ops, which satisfies a given type signature.
+//!
+//! ## Encoding in Terms
+//! This module is an optimization over a simple enumerative solution for finding these composition
+//! of functions. The space of possible programs are first encoded as a pair of sets.
+//!
+//! Assign each op and state a unique index. Then, a set of states which was created by a sequence
+//! of ops can be represented by a list of "x"s and "c"s (two bit vectors if that feels more
+//! intuitive). The ith element of the first list is a "c" iff state i exists in the se tof states,
+//! else it is "x". Similarly, the ith element of the second list is "c" iff op i was used to
+//! create a set of states, else it is "x".
+//!
+//! For example, if there are 3 states and 2 ops, the sets of states {1, 3} created using op 2,
+//! could be represented by the string (c x c) (x c).
+//!
+//! Ops can then be described as rewrites to this string. For example, if op 1 takes state 1 to
+//! state 2, it would do the following to the above string: (c x c) (x c) => (x c c) (c c). An
+//! important observation is the op "consumed" state 1. This is no a requirement for correctness.
+//! Ops do not consume their input states. However, this is done when creating rewrites because
+//! otherwise the size of the e-graph becomes infeasible.
+//!
+//! ## The Algorithm
+//! The input states are encoded as a pair of lists. They are created from no ops so the second
+//! list contains only "x".
+//!
+//! Ops are then encoded as rewrites and applied repeatedly to the e-graph.
+//! Equality saturation is a natural place to stop, take below, but not necessary (and possibly
+//! prohibitive for large op graphs).
+//!
+//! The desired outputs are then encoded as a pair of lists, the ops in the second list those
+//! required to be in the output sequence. If this pair of lists is found in the final e-graph, a
+//! solution exists and can be retrieved from the rewrites (egg, what this module uses to represent
+//! e-graphs supports getting a sequence of rewrites proving a term in an e-graph exists).
+//! Otherwise, "no solution found" is returned.
+//!
+//! ## Comments
+//! This solution isn't complete, but it is correct and works efficiently for the current and
+//! somewhat larger op graph sizes.
+
 use crate::exec::State;
 
 use super::{
