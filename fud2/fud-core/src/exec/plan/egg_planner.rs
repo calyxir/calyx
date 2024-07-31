@@ -285,32 +285,26 @@ impl FindPlan for EggPlanner {
             language_expr(end, through, &all_states, &all_ops);
 
         // If the end expression exists, retrieve it using steps.
-        if runner.egraph.lookup_expr(&end_expr).is_some() {
-            let mut explanation =
-                runner.explain_equivalence(&start_expr, &end_expr);
-            let explanation: Vec<_> = explanation
-                .make_flat_explanation()
-                .iter()
-                .filter_map(|t| {
-                    // Re-parse the op's reference from the rules creating `end_expr`.
-                    t.forward_rule.map(|r| {
-                        OpRef::from_u32(r.to_string().parse::<u32>().unwrap())
-                    })
-                })
-                // Assume all outputs of an op are used. While this shouldn't cause any issues
-                // of correctness, it ignores the problem of two ops outputting the same state.
-                // This implies further reduction of the completeness of the search. This plan
-                // leaves which state is prioritized undefined (though it should still be
-                // deterministic).
-                .map(|op_ref| (op_ref, ops[op_ref].output.to_vec()))
-                .collect();
-            if explanation.is_empty() {
-                None
-            } else {
-                Some(explanation)
-            }
-        } else {
-            None
-        }
+        runner
+            .egraph
+            .lookup_expr(&end_expr)
+            .map(|_| {
+                runner
+                    .explain_equivalence(&start_expr, &end_expr)
+                    .make_flat_explanation()
+                    .iter()
+                    .filter_map(|t| t.forward_rule)
+                    .map(|r|
+                        // Re-parse the op's reference from the rules creating `end_expr`.
+                        OpRef::from_u32(r.to_string().parse::<u32>().unwrap()))
+                    // Assume all outputs of an op are used. While this shouldn't cause any issues
+                    // of correctness, it ignores the problem of two ops outputting the same state.
+                    // This implies further reduction of the completeness of the search. This plan
+                    // leaves which state is prioritized undefined (though it should still be
+                    // deterministic).
+                    .map(|op_ref| (op_ref, ops[op_ref].output.to_vec()))
+                    .collect::<Vec<_>>()
+            })
+            .filter(|steps| !steps.is_empty())
     }
 }
