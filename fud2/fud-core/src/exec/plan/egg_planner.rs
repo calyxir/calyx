@@ -68,9 +68,12 @@ pub struct EggPlanner;
 define_language! {
     /// A language to represent a collection of states.
     /// For example, if there are 3 states and 2 ops, a term `(root (states x x x) (ops x x))`
-    /// represents the absence of all states and all ops. A term `(root (states 3 x x) (ops x 2))`
-    /// represents a pair of sets, the first containing a single state with `StateRef` 3 and the
-    /// second containing a single op with `OpRef` 2.
+    /// represents the absence of all states and all ops. A term `(root (states c x x) (ops x c))`
+    /// represents a pair of sets, the first containing a single state with index 3 and the second
+    /// containing a single op with index 2.
+    ///
+    /// Here indexes are an arbitrary (but consistent!) mapping from states and ops to non-negative
+    /// integers.
     enum StateLanguage {
         // The root of a term. This is used to store a pair of "states" and "ops".
         "root" = Root([Id; 2]),
@@ -79,9 +82,9 @@ define_language! {
         // A list of ops.
         "ops" = Ops(Box<[Id]>),
         // Symbolizes the absence of a state or op.
-        "nil" = X,
+        "xxx" = X,
         // Symbolizes the presence of a state or op.
-        "one" = C,
+        "ccc" = C,
     }
 }
 
@@ -141,7 +144,7 @@ fn language_expr(
 ///
 /// As an example, given 3 ops and 4 states, if op 2 takes states 2 and 3 to state 4, the rewrite
 /// would take
-/// `(root (states 1 2 3 xxx) (ops 1 xxx xxx)) => (root (states 1 xxx xxx r) (ops 1 2 xxx)`.
+/// `(root (states c c c xxx) (ops c xxx xxx)) => (root (states c xxx xxx c) (ops c c xxx)`.
 ///
 /// This function removes input states from the set of those available not because they are
 /// consumed, but because it massively reduces the search space. This is a concession of
@@ -154,7 +157,7 @@ fn rewrite_from_op(
     all_ops: &[OpRef],
 ) -> Rewrite<StateLanguage, ()> {
     // Name the rewrite after the op's reference.
-    // This enables retrieving the op later from the egraph.
+    // This enables retrieving the op later from the e-graph.
     let name = op_ref.as_u32().to_string();
 
     let mut lhs: PatternAst<StateLanguage> = Default::default();
@@ -195,7 +198,7 @@ fn rewrite_from_op(
     let lhs = Pattern::new(lhs);
 
     // The input states don't go away but this pretends they do because it massively
-    // reduces the search space. This is why states go from a `Ref` to `X`.
+    // reduces the search space. This is why states go from a `C` to `X`.
 
     // Collect states into a pattern.
     let mut rhs: PatternAst<StateLanguage> = Default::default();
