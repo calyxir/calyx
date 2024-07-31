@@ -12,7 +12,7 @@ define_language! {
     /// A language to represent a collection of states.
     /// For example, if there are 3 states and 2 ops, a term `(root (states x x x) (ops x x))`
     /// represents the absence of all states and all ops. A term `(root (states 3 x x) (ops x 2))`
-    /// represents a a pair of sets, the first containing a single state with `StateRef` 3 and the
+    /// represents a pair of sets, the first containing a single state with `StateRef` 3 and the
     /// second containing a single op with `OpRef` 2.
     enum StateLanguage {
         // The root of a term. This is used to store a pair of "states" and "ops".
@@ -21,7 +21,7 @@ define_language! {
         "states" = States(Box<[Id]>),
         // A list of ops.
         "ops" = Ops(Box<[Id]>),
-        // Symbolizes the absense of a state or op.
+        // Symbolizes the absence of a state or op.
         "xxx" = X,
         // A ref, refering to either a StateRef or OpRef depending on context.
         Ref(u32),
@@ -211,7 +211,7 @@ impl FindPlan for EggPlanner {
                     })
                 })
                 // Assume all outputs of an op are used. While this shouldn't cause any issues
-                // of correctness, it ignores the problem of two ops outputing the same state.
+                // of correctness, it ignores the problem of two ops outputting the same state.
                 // This implies further reduction of the completeness of the search. This plan
                 // leaves which state is prioritized undefined (though it should still be
                 // deterministic).
