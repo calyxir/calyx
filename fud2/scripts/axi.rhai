@@ -37,7 +37,7 @@ fn wrapper_setup(e) {
 
     e.rule(
         "remove-imports",
-        "sed '1,/component main/{/component main/!d; }' $in > $out",
+        "sed '/^import/d' $in > $out",
     );
 }
 
@@ -57,15 +57,11 @@ fn axi_wrapped_op(e, input, output) {
 
    e.build_cmd([tmp_yxi], "yxi", [input], []);
 
-   let refified_calyx = replace_ext(`refified_${file_name}`, "futil");
-   e.build_cmd([refified_calyx], "calyx-pass", [input], []);
-   e.arg("pass", "external-to-ref");
-
    let axi_wrapper = "axi_wrapper.futil";
    e.build_cmd([axi_wrapper], "gen-axi", [tmp_yxi], []);
 
-   let no_imports_calyx = `no_imports_${refified_calyx}`;
-   e.build_cmd([no_imports_calyx], "remove-imports", [refified_calyx], []);
+   let no_imports_calyx = `no_imports_${input}`;
+   e.build_cmd([no_imports_calyx], "remove-imports", [input], []);
 
    e.build_cmd([output], "combine", [axi_wrapper, no_imports_calyx], []);
 }
