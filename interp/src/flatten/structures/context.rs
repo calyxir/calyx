@@ -351,7 +351,7 @@ impl Context {
     ) -> ParentIdx {
         match target {
             PortRef::Local(l) => {
-                if self.secondary[comp].signature.contains(l) {
+                if self.secondary[comp].signature().contains(l) {
                     comp.into()
                 } else {
                     //I would not recommend looking at this code
