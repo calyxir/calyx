@@ -300,7 +300,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 let comp_ledger = self.cells[cell].as_comp().unwrap();
                 let comp_info =
                     self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
-                let port_ids = comp_info.signature.into_iter().map(|x| {
+                let port_ids = comp_info.signature().into_iter().map(|x| {
                     &self.ctx().secondary.local_port_defs
                         [comp_info.port_offset_map[x]]
                         .name
