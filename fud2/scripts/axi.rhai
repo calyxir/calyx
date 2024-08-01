@@ -24,7 +24,7 @@ fn wrapper_setup(e) {
     let dynamic =
         e.config_constrained_or("dynamic", ["true", "false"], "false");
     let generator_path = if dynamic == "true" {
-        "$calyx-base/yxi/axi-calyx/dynamic-axi-generator.py"
+        "$calyx-base/yxi/axi-calyx/dynamic_axi_generator.py"
     } else {
         "$calyx-base/yxi/axi-calyx/axi-generator.py"
     };

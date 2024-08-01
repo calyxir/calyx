@@ -1,4 +1,4 @@
-import "calyx" as c;
+// import "calyx" as c;
 import "axi" as axi;
 import "rtl_sim" as sim;
 import "testbench" as tb;
@@ -6,6 +6,9 @@ import "testbench" as tb;
 let xo = state("xo", ["xo"]);
 let xclbin = state("xclbin", ["xclbin"]);
 
+fn default_xml_generator() {
+    "$calyx-base/yxi/xml/xml_generator.py";
+}
 fn xilinx_setup(e) {
     // Locations for Vivado and Vitis installations.
     e.config_var("vivado-dir", "xilinx.vivado");
@@ -31,23 +34,26 @@ fn xilinx_setup(e) {
     e.arg("pool", "console");
 
     // Generate a kernel.xml from a yxi file.
-    e.rule("gen-kernel-xml", "$python $calyx-base/yxi/xml/xml_generator.py $in > $out");
+    e.config_var_or("xml-generator", "xml.generator", default_xml_generator());
+    e.rule("gen-kernel-xml", "$python $xml-generator $in > $out");
 };
 
-fn calyx_to_xo_op(e, input, output) {
-    let calyx_axi_wrapper =
-    e.config_constrained_or("calyx-axi-wrapper", ["true", "false"], "false");
-    if calyx_axi_wrapper == "true"{
-        let file_name = input.split("/")[-1];
-        let yxi_file = replace_ext(file_name, "yxi");
-        // import "axi" as axi; // Why is this needed again to avoid a "module not found error"?
-        axi::axi_wrapped_op(e, input, "axi_wrapped.futil");
-
-        e.build_cmd(["kernel.xml"], "gen-kernel-xml", [yxi_file], []);
-        
-        e.build_cmd(["axi_wrapped.v"], "calyx", ["axi_wrapped.futil"], []);
+op(
+    "xo",
+    [axi::c::calyx_setup, xilinx_setup],
+    axi::c::calyx_state,
+    xo,
+    |e, input, output| {
+        // Emit the Verilog itself in "synthesis mode."
+        e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
-        e.arg("args", "--disable-verify");
+        e.arg("args", "--synthesis -p external");
+
+        // Extra ingredients for the `.xo` package.
+        e.build_cmd(["toplevel.v"], "calyx", [input], []);
+        e.arg("backend", "xilinx");
+        e.build_cmd(["kernel.xml"], "calyx", [input], []);
+        e.arg("backend", "xilinx-xml");
 
         // Package the `.xo`.
         e.build_cmd(
@@ -55,46 +61,48 @@ fn calyx_to_xo_op(e, input, output) {
             "gen-xo",
             [],
             [
-               "axi_wrapped.v",
+               "main.sv",
+               "toplevel.v",
                "kernel.xml",
                "gen_xo.tcl",
                "get-ports.py",
             ],
         );
-    } else { // Uses the old calyx backends 
-    // Emit the Verilog itself in "synthesis mode."
-    e.build_cmd(["main.sv"], "calyx", [input], []);
-    e.arg("backend", "verilog");
-    e.arg("args", "--synthesis -p external");
-
-    // Extra ingredients for the `.xo` package.
-    e.build_cmd(["toplevel.v"], "calyx", [input], []);
-    e.arg("backend", "xilinx");
-    e.build_cmd(["kernel.xml"], "calyx", [input], []);
-    e.arg("backend", "xilinx-xml");
-
-    // Package the `.xo`.
-    e.build_cmd(
-        [output],
-        "gen-xo",
-        [],
-        [
-           "main.sv",
-           "toplevel.v",
-           "kernel.xml",
-           "gen_xo.tcl",
-           "get-ports.py",
-        ],
-    );
     }
-}
+);
 
+// Assumes that verilog was generated with the `--synthesis` flag.
+// `-p external` can also be used, but is not necesary for designs using `ref` memories.
 op(
-    "xo",
-    [c::calyx_setup, xilinx_setup, axi::yxi_setup, axi::wrapper_setup],
-    c::calyx_state,
+    "verilog-to-xo",
+    [axi::c::calyx_setup, xilinx_setup],
+    axi::c::verilog_state,
     xo,
-    calyx_to_xo_op
+    |e, input, output | {
+        let yxi_file = e.config_val("yxi.file");
+        let yxi_path = e.external_path(yxi_file);
+
+        e.build_cmd(
+            ["kernel.xml"],
+            "gen-kernel-xml",
+            [yxi_path],
+            ["$xml-generator"],
+        );
+        
+
+        e.build_cmd(
+            [output],
+            "gen-xo",
+            [], 
+            [
+                input,
+                yxi_path,
+                "gen_xo.tcl",
+                "get-ports.py",
+                "kernel.xml",
+            ],
+        );
+    }
 );
 
 op("xclbin", [xilinx_setup], xo, xclbin, |e, input, output| {
