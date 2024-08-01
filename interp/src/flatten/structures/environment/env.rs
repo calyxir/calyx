@@ -1019,6 +1019,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         )
     }
 
+    /// Lookup the value of a port on the entrypoint component by name. Will
+    /// error if the port is not found.
+    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+        // this is not the best way to do this but it's fine for now
+        let path = self.traverse_name_vec(&[port.to_string()]).unwrap();
+        let path_resolution = path.resolve_path(self).unwrap();
+        let idx = path_resolution.as_port().unwrap();
+
+        self.ports[*idx].as_option().map(|x| x.val().clone())
+    }
+
     /// Pins the port with the given name to the given value. This may only be
     /// used for input ports on the entrypoint component (excluding the go port)
     /// and will panic if used otherwise. Intended for external use. Unrelated
@@ -1132,6 +1143,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     /// and will panic if used otherwise. Intended for external use.
     pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
         self.env.pin_value(port, val)
+    }
+
+    /// Lookup the value of a port on the entrypoint component by name. Will
+    /// error if the port is not found.
+    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+        self.env.lookup_port_from_string(port)
     }
 }
 
