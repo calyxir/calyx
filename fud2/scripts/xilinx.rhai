@@ -1,4 +1,5 @@
 import "calyx" as c;
+import "axi" as axi;
 import "rtl_sim" as sim;
 import "testbench" as tb;
 
@@ -28,24 +29,25 @@ fn xilinx_setup(e) {
         "$vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in"
     );
     e.arg("pool", "console");
+
+    // Generate a kernel.xml from a yxi file.
+    e.rule("gen-kernel-xml", "$python $calyx-base/yxi/xml/xml_generator.py $in > $out");
 };
 
-op(
-    "xo",
-    [c::calyx_setup, xilinx_setup],
-    c::calyx_state,
-    xo,
-    |e, input, output| {
-        // Emit the Verilog itself in "synthesis mode."
-        e.build_cmd(["main.sv"], "calyx", [input], []);
-        e.arg("backend", "verilog");
-        e.arg("args", "--synthesis -p external");
+fn calyx_to_xo_op(e, input, output) {
+    let calyx_axi_wrapper =
+    e.config_constrained_or("calyx-axi-wrapper", ["true", "false"], "false");
+    if calyx_axi_wrapper == "true"{
+        let file_name = input.split("/")[-1];
+        let yxi_file = replace_ext(file_name, "yxi");
+        // import "axi" as axi; // Why is this needed again to avoid a "module not found error"?
+        axi::axi_wrapped_op(e, input, "axi_wrapped.futil");
 
-        // Extra ingredients for the `.xo` package.
-        e.build_cmd(["toplevel.v"], "calyx", [input], []);
-        e.arg("backend", "xilinx");
-        e.build_cmd(["kernel.xml"], "calyx", [input], []);
-        e.arg("backend", "xilinx-xml");
+        e.build_cmd(["kernel.xml"], "gen-kernel-xml", [yxi_file], []);
+        
+        e.build_cmd(["axi_wrapped.v"], "calyx", ["axi_wrapped.futil"], []);
+        e.arg("backend", "verilog");
+        e.arg("args", "--disable-verify");
 
         // Package the `.xo`.
         e.build_cmd(
@@ -53,14 +55,46 @@ op(
             "gen-xo",
             [],
             [
-               "main.sv",
-               "toplevel.v",
+               "axi_wrapped.v",
                "kernel.xml",
                "gen_xo.tcl",
                "get-ports.py",
             ],
         );
-    },
+    } else { // Uses the old calyx backends 
+    // Emit the Verilog itself in "synthesis mode."
+    e.build_cmd(["main.sv"], "calyx", [input], []);
+    e.arg("backend", "verilog");
+    e.arg("args", "--synthesis -p external");
+
+    // Extra ingredients for the `.xo` package.
+    e.build_cmd(["toplevel.v"], "calyx", [input], []);
+    e.arg("backend", "xilinx");
+    e.build_cmd(["kernel.xml"], "calyx", [input], []);
+    e.arg("backend", "xilinx-xml");
+
+    // Package the `.xo`.
+    e.build_cmd(
+        [output],
+        "gen-xo",
+        [],
+        [
+           "main.sv",
+           "toplevel.v",
+           "kernel.xml",
+           "gen_xo.tcl",
+           "get-ports.py",
+        ],
+    );
+    }
+}
+
+op(
+    "xo",
+    [c::calyx_setup, xilinx_setup, axi::yxi_setup, axi::wrapper_setup],
+    c::calyx_state,
+    xo,
+    calyx_to_xo_op
 );
 
 op("xclbin", [xilinx_setup], xo, xclbin, |e, input, output| {

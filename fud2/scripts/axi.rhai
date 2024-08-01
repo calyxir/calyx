@@ -1,7 +1,7 @@
 import "calyx" as c;
 
 export const yxi = state("yxi", ["yxi"]);
-
+export let yxi_setup = yxi_setup;
 fn yxi_setup(e) {
    e.config_var_or("yxi", "yxi", "$calyx-base/target/debug/yxi");
    e.rule("yxi", "$yxi -l $calyx-base $in > $out");
@@ -17,6 +17,7 @@ op(
     },
 );
 
+export let wrapper_setup = wrapper_setup;
 fn wrapper_setup(e) {
     // Define a `gen-axi` rule that invokes our Python code generator program.
     // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
@@ -50,7 +51,6 @@ fn replace_ext(path, new_ext) {
       return `${path}.${new_ext}`;
    }
 }
-
 fn axi_wrapped_op(e, input, output) {
    let file_name = input.split("/")[-1];
    let tmp_yxi = replace_ext(file_name, "yxi");
