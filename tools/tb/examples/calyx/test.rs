@@ -1,11 +1,19 @@
+use calyx_ffi::declare_calyx_interface;
 use calyx_ffi::prelude::*;
 
 use calyx_ffi::cider_ffi_backend;
 
+declare_calyx_interface! {
+    In2Out1(lhs, rhs) -> (result)
+}
+
 #[calyx_ffi(
     src = "/Users/ethan/Documents/GitHub/calyx/tools/tb/examples/calyx/adder.futil",
     comp = "main",
-    backend = cider_ffi_backend
+    backend = cider_ffi_backend,
+    derive = [
+        In2Out1(lhs, rhs) -> (result)
+    ]
 )]
 struct Adder;
 
@@ -14,9 +22,9 @@ struct Adder;
 mod tests {
     use super::*;
 
-    fn add(adder: &mut Adder, lhs: u64, rhs: u64) -> u64 {
-        adder.lhs = lhs;
-        adder.rhs = rhs;
+    fn add<I: In2Out1>(adder: &mut I, lhs: u64, rhs: u64) -> u64 {
+        *adder.lhs() = lhs;
+        *adder.rhs() = rhs;
         adder.go();
         adder.result()
     }
