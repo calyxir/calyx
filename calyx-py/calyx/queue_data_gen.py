@@ -70,20 +70,16 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - Optional memories `ranks` and `times` are included for queues primed for non-work-conserving algorithms.
-    - The `commands` memory has `num_cmds` items, which range from 0-2 for work-conserving policies,
-        and from 0-4 for non-work-conserving. They are as follows:
+    - The `commands` memory has `num_cmds` items, which range from 0-1 for work-conserving policies,
+        and from 0-1 for non-work-conserving. They are as follows:
 
     FOR WORK-CONSERVING POLICIES
         0 : pop
-        1 : peek
-        2 : push
+        1 : push
     
     FOR NON-WORK-CONSERVING POLICIES
         0 : pop by predicate
-        1 : peek by predicate
-        2 : push
-        3 : pop by value
-        4 : peek by value
+        1 : push
 
     If the `no_err` flag is set and the policy is work-conserving,
     then items are chosen from 0 and 2 using a helper.
@@ -110,13 +106,10 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
                 # If the `no_err` flag is set, then we use the special helper
                 # that ensures no overflow or overflow will occur.
                 else (
-                    [random.randint(0, 4) for _ in range(num_cmds)]
-                    if nwc
-                    else
-                    [random.randint(0, 2) for _ in range(num_cmds)]
+                    [random.randint(0, 1) for _ in range(num_cmds)]
                 )
             ),
-            "format": format_gen(3 if nwc else 2),
+            "format": format_gen(1),
         }
     }
     values = {

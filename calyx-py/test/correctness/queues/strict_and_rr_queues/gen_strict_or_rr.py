@@ -47,9 +47,8 @@ def insert_queue(
     """
 
     pifo: cb.ComponentBuilder = prog.component(name)
-    cmd = pifo.input("cmd", 2)  # the size in bits is 2
-    # If this is 0, we pop. If it is 1, we peek.
-    # If it is 2, we push `value` to the queue.
+    cmd = pifo.input("cmd", 1)  # the size in bits is 1
+    # If this is 0, we pop. If it is 1, we push `value` to the queue.
     value = pifo.input("value", 32)  # The value to push to the queue
 
     fifo_cells = [pifo.cell(f"queue_{i}", fifo_i) for i, fifo_i in enumerate(fifos)]
@@ -148,7 +147,7 @@ def insert_queue(
                     # Either we are here for the first time,
                     # or we are here because the previous iteration raised an error
                     # and incremented `hot` for us.
-                    # We'll try to peek from `fifo_cells[hot]`.
+                    # We'll try to pop from `fifo_cells[hot]`.
                     # We'll pass it a lowered `err`.
                     lower_err,
                     invoke_subqueues_hot_guard,
@@ -159,33 +158,6 @@ def insert_queue(
             ),
             len_decr,
             restore_hot if not round_robin else ast.Empty            
-        ],
-    )
-
-    peek_logic = cb.if_with(
-        len_eq_0,
-        raise_err,  # The queue is empty: underflow.
-        [  # The queue is not empty. Proceed.
-            raise_err,  # We raise err so we enter the loop body at least once.
-            copy_hot,  # We remember `hot` so we can restore it later.
-            [
-                cb.while_with(
-                    err_is_high,
-                    [  # We have entered the loop body because `err` is high.
-                        # Either we are here for the first time,
-                        # or we are here because the previous iteration raised an error
-                        # and incremented `hot` for us.
-                        # We'll try to peek from `fifo_cells[hot]`.
-                        # We'll pass it a lowered `err`.
-                        lower_err,
-                        invoke_subqueues_hot_guard,
-                        incr_hot_wraparound,  # Increment hot: this will be used
-                        # only if the current subqueue raised an error,
-                        # and another iteration is needed.
-                    ],
-                ),
-            ],
-            restore_hot,  # Peeking must not affect `hot`, so we restore it.
         ],
     )
 
@@ -201,15 +173,13 @@ def insert_queue(
         ],
     )
 
-    # Was it a pop, peek, push, or an invalid command?
-    # We can do those four cases in parallel.
+    # Was it a pop or push?
+    # We can do those two cases in parallel.
     pifo.control += pifo.case(
         cmd,
         {
             0: pop_logic,
-            1: peek_logic,
-            2: push_logic,
-            3: raise_err,
+            1: push_logic
         },
     )
 
