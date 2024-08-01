@@ -45,8 +45,19 @@ impl MyAdapter {
         path: Source,
         source: &Vec<SourceBreakpoint>,
     ) -> Vec<Breakpoint> {
+        fn is_valid(src_pt: &SourceBreakpoint, valid_lines: &Vec<i64>) -> bool {
+            valid_lines.contains(&src_pt.line)
+        }
         //Keep all the new breakpoints made
         let mut out_vec: Vec<Breakpoint> = vec![];
+
+        //may move - get list of allowed lines
+        let valids: Vec<i64> = self
+            .ids
+            .iter_pairs()
+            .into_iter()
+            .map(|(_, v)| v.start_line as i64)
+            .collect();
 
         //Loop over all breakpoints - why do we need to loop over all of them? is it bc input vec isnt mutable?
         for source_point in source {
@@ -54,7 +65,7 @@ impl MyAdapter {
             //Create new Breakpoint instance
             let breakpoint = make_breakpoint(
                 self.break_count.increment().into(),
-                true,
+                is_valid(source_point, &valids),
                 Some(path.clone()),
                 Some(source_point.line),
             );
@@ -225,23 +236,36 @@ impl Counter {
 /// This function takes in relevant fields in Breakpoint that are used
 /// by the adapter. This is subject to change.
 pub fn make_breakpoint(
-    //probably add debugger call here?
     id: Option<i64>,
     verified: bool,
     source: Option<Source>,
     line: Option<i64>,
 ) -> Breakpoint {
-    println!("bkpt");
-    Breakpoint {
-        id,
-        verified,
-        message: None,
-        source,
-        line,
-        column: None,
-        end_line: None,
-        end_column: None,
-        instruction_reference: None,
-        offset: None,
+    if verified {
+        Breakpoint {
+            id,
+            verified,
+            message: None,
+            source,
+            line,
+            column: None,
+            end_line: None,
+            end_column: None,
+            instruction_reference: None,
+            offset: None,
+        }
+    } else {
+        Breakpoint {
+            id,
+            verified,
+            message: Some(String::from("Invalid placement for breakpoint")),
+            source,
+            line,
+            column: None,
+            end_line: None,
+            end_column: None,
+            instruction_reference: None,
+            offset: None,
+        }
     }
 }

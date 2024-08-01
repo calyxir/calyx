@@ -8,7 +8,7 @@ use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
     errors::{InterpreterError, InterpreterResult},
     flatten::{
-        flat_ir::prelude::{CellInfo, GroupIdx, LocalRefPortOffset},
+        flat_ir::prelude::GroupIdx,
         setup_simulation_with_metadata,
         structures::{
             context::Context,
@@ -132,7 +132,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
-    pub fn breakpoint(&mut self, bkpt_lines: Vec<i64>) {
+    pub fn breakpoint(&mut self, _bkpt_lines: Vec<i64>) {
         //turn the lines into group name + component using the metadata table
     }
 

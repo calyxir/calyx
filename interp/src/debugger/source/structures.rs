@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
+use calyx_frontend::ast::Group;
+
 use crate::errors::InterpreterResult;
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
@@ -37,6 +39,12 @@ impl NewSourceMap {
     /// look up group name, if not present, return None
     pub fn lookup(&self, key: String) -> Option<&GroupContents> {
         self.0.get(&key)
+    }
+
+    pub fn iter_pairs(
+        &self,
+    ) -> impl IntoIterator<Item = (String, GroupContents)> {
+        self.0.clone().into_iter()
     }
 }
 
