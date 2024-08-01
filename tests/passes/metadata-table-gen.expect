@@ -12,8 +12,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   control {}
 }
 metadata #{
-    g1: tests/passes/metadata-table-gen.futil 8
-    g2: tests/passes/metadata-table-gen.futil 9
-    g3: tests/passes/metadata-table-gen.futil 10
+main.g1: tests/passes/metadata-table-gen.futil 8-8
+main.g2: tests/passes/metadata-table-gen.futil 9-9
+main.g3: tests/passes/metadata-table-gen.futil 10-10
 
 }#

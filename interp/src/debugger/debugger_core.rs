@@ -20,8 +20,6 @@ use crate::{
 
 use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
-use calyx_ir::Id;
-
 use owo_colors::OwoColorize;
 use std::path::Path as FilePath;
 
@@ -33,19 +31,14 @@ pub(super) const SPACING: &str = "    ";
 /// is finished or not. If program is done then the debugger is exited
 pub struct ProgramStatus {
     /// all groups currently running
-    status: HashSet<Id>,
+    status: HashSet<String>,
     /// states whether the program has finished
     done: bool,
 }
 
 impl ProgramStatus {
-    /// Create a new program status on the fly
-    pub fn generate() -> Self {
-        todo!()
-    }
-
     /// get status
-    pub fn get_status(&self) -> &HashSet<Id> {
+    pub fn get_status(&self) -> &HashSet<String> {
         &self.status
     }
 
@@ -116,7 +109,20 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     pub fn status(&self) -> ProgramStatus {
-        todo!()
+        ProgramStatus {
+            status: self
+                .interpreter
+                .get_currently_running_groups()
+                .map(|x| self.program_context.as_ref().lookup_name(x).clone())
+                .collect(),
+            done: self.interpreter.is_done(),
+        }
+    }
+
+    pub fn get_cells(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+        self.interpreter.env().iter_cells()
     }
 
     // Go to next step

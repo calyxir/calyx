@@ -174,6 +174,7 @@ impl Driver {
             &req.end_states,
             &req.through,
             &self.ops,
+            &self.states,
         )?;
 
         // Generate filenames for each step.

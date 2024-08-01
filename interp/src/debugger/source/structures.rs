@@ -18,12 +18,13 @@ impl From<(u64, String)> for NamedTag {
     }
 }
 
-/// GroupContents contains the file path of the group and the line number the
+/// GroupContents contains the file path of the group and the line numbers the
 /// group is on.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupContents {
     pub path: String,
-    pub line: u64,
+    pub start_line: u64,
+    pub end_line: u64,
 }
 
 /// impl struct with path and number
