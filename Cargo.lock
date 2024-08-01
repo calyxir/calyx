@@ -358,6 +358,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2ef034f05691a48569bd920a96c81b9d91bbad1ab5ac7c4616c1f6ef36cb79f"
 
 [[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
 name = "bytes"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -502,7 +508,7 @@ dependencies = [
  "serde",
  "serde_json",
  "string-interner",
- "symbol_table",
+ "symbol_table 0.3.0",
 ]
 
 [[package]]
@@ -1091,6 +1097,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "egg"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96beaf9d35dbc4686bc86a4ecb851fd6a406f0bf32d9f646b1225a5c5cf5b5d7"
+dependencies = [
+ "env_logger",
+ "fxhash",
+ "hashbrown 0.12.3",
+ "indexmap 1.9.3",
+ "instant",
+ "log",
+ "smallvec",
+ "symbol_table 0.2.0",
+ "symbolic_expressions",
+ "thiserror",
+]
+
+[[package]]
 name = "either"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1235,6 +1259,7 @@ dependencies = [
  "ariadne",
  "camino",
  "cranelift-entity",
+ "egg",
  "env_logger",
  "figment",
  "itertools 0.11.0",
@@ -1327,6 +1352,15 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
@@ -2814,6 +2848,16 @@ dependencies = [
 
 [[package]]
 name = "symbol_table"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32bf088d1d7df2b2b6711b06da3471bc86677383c57b27251e18c56df8deac14"
+dependencies = [
+ "ahash 0.7.8",
+ "hashbrown 0.12.3",
+]
+
+[[package]]
+name = "symbol_table"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "828f672b631c220bf6ea8a1d3b82c7d0fc998e5ba8373383d8604bc1e2a6245a"
@@ -2822,6 +2866,12 @@ dependencies = [
  "hashbrown 0.12.3",
  "serde",
 ]
+
+[[package]]
+name = "symbolic_expressions"
+version = "5.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c68d531d83ec6c531150584c42a4290911964d5f0d79132b193b67252a23b71"
 
 [[package]]
 name = "syn"

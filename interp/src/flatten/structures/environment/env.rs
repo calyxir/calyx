@@ -23,6 +23,7 @@ use crate::{
         },
         primitives::{self, prim_trait::UpdateStatus, Primitive},
         structures::{
+            context::LookupName,
             environment::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
@@ -276,6 +277,63 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
+    }
+    /// Returns the full name and port list of each cell in the context
+    pub fn iter_cells(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+        let env = self;
+        let cell_names = self.cells.iter().map(|(idx, _ledger)| {
+            (idx.get_full_name(env), self.get_ports_for_cell(idx))
+        });
+
+        cell_names
+        // get parent from cell, if not exist then lookup component ledger get base idxs, go to context and get signature to get ports
+        // for cells, same thing but in the cell ledger, subtract child offset from parent offset to get local offset, lookup in cell offset in component info
+    }
+
+    //not sure if beneficial to change this to be impl iterator as well
+    fn get_ports_for_cell(&self, cell: GlobalCellIdx) -> Vec<String> {
+        let parent = self.get_parent_cell_from_cell(cell);
+        match parent {
+            None => {
+                let comp_ledger = self.cells[cell].as_comp().unwrap();
+                let comp_info =
+                    self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
+                let port_ids = comp_info.signature.into_iter().map(|x| {
+                    &self.ctx().secondary.local_port_defs
+                        [comp_info.port_offset_map[x]]
+                        .name
+                });
+                let port_names = port_ids
+                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                    .collect_vec();
+                port_names
+            }
+            Some(parent_cell) => {
+                let parent_comp_ledger = self.cells[parent_cell].unwrap_comp();
+                let comp_info = self
+                    .ctx()
+                    .secondary
+                    .comp_aux_info
+                    .get(parent_comp_ledger.comp_id);
+                let local_offset = cell - &parent_comp_ledger.index_bases;
+
+                let port_ids = self.ctx().secondary.local_cell_defs
+                    [comp_info.cell_offset_map[local_offset]]
+                    .ports
+                    .into_iter()
+                    .map(|x| {
+                        &self.ctx().secondary.local_port_defs
+                            [comp_info.port_offset_map[x]]
+                            .name
+                    });
+                let names = port_ids
+                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                    .collect_vec();
+                names
+            }
+        }
     }
 
     pub fn new(ctx: C, data_map: Option<DataDump>) -> Self {
