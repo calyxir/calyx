@@ -19,11 +19,11 @@ def gen_xml(yxi):
 
   root = Element("root", {"versionMajor": "1", "versionMinor": "6"})
   kernel = SubElement(root, "kernel", {
-    "name" : yxi["toplevel"],
+    "name" : "wrapper",
     "language": "ip_c",
     # TODO: Make sure this matches component.xml, Namely the `Toplevel` part.
     #  See https://docs.amd.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
-    "vlnv": "capra.cs.cornell.edu:kernel:Toplevel:1.0",
+    "vlnv": "capra.cs.cornell.edu:kernel:wrapper:1.0",
     "attributes": "",
     "preferredWorkGroupSizeMultiple" : "0",
     "workGroupSize" : "1",
