@@ -79,6 +79,9 @@ op(
     axi::c::verilog_state,
     xo,
     |e, input, output | {
+        let file_name = input.split("/")[-1];
+        let sv_file_name = file_name;
+        sv_file_name.replace(`v`, `sv`);
         let yxi_file = e.config_val("yxi.file");
         let yxi_path = e.external_path(yxi_file);
 
@@ -88,14 +91,20 @@ op(
             [yxi_path],
             ["$xml-generator"],
         );
-        
+
+        e.build_cmd(
+            [sv_file_name],
+            "copy",
+            [input],
+            [],
+        );
 
         e.build_cmd(
             [output],
             "gen-xo",
             [], 
             [
-                input,
+                sv_file_name,
                 yxi_path,
                 "gen_xo.tcl",
                 "get-ports.py",

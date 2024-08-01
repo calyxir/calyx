@@ -15,6 +15,7 @@ fn calyx_setup(e) {
        "calyx-with-flags",
        "$calyx-exe -l $calyx-base $flags $args $in > $out",
    );
+   e.rule("copy", "cp $in $out");
 }
 
 op(
