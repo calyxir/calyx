@@ -1,8 +1,8 @@
 use super::{
-    commands::{Command, PrintMode},
+    commands::{Command, ParsedGroupName, PrintMode},
     debugging_context::context::DebuggingContext,
     io_utils::Input,
-    source::structures::NewSourceMap,
+    source::structures::{GroupContents, NewSourceMap},
 };
 use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
@@ -31,14 +31,14 @@ pub(super) const SPACING: &str = "    ";
 /// is finished or not. If program is done then the debugger is exited
 pub struct ProgramStatus {
     /// all groups currently running
-    status: HashSet<String>,
+    status: HashSet<(String, String)>,
     /// states whether the program has finished
     done: bool,
 }
 
 impl ProgramStatus {
     /// get status
-    pub fn get_status(&self) -> &HashSet<String> {
+    pub fn get_status(&self) -> &HashSet<(String, String)> {
         &self.status
     }
 
@@ -113,7 +113,29 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             status: self
                 .interpreter
                 .get_currently_running_groups()
-                .map(|x| self.program_context.as_ref().lookup_name(x).clone())
+                .map(|x| {
+                    let group_name =
+                        self.program_context.as_ref().lookup_name(x).clone();
+                    let parent_comp = self
+                        .program_context
+                        .as_ref()
+                        .primary
+                        .components
+                        .keys()
+                        .find(|comp_id| {
+                            self.program_context.as_ref().secondary[*comp_id]
+                                .definitions
+                                .groups()
+                                .contains(x)
+                        })
+                        .unwrap();
+                    let parent_name = self
+                        .program_context
+                        .as_ref()
+                        .lookup_name(parent_comp)
+                        .clone();
+                    (parent_name, group_name)
+                })
                 .collect(),
             done: self.interpreter.is_done(),
         }
@@ -132,8 +154,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
-    pub fn breakpoint(&mut self, _bkpt_lines: Vec<i64>) {
-        //turn the lines into group name + component using the metadata table
+    pub fn breakpoint(&mut self, breakpoints: Vec<ParsedGroupName>) {
+        self.create_breakpoints(breakpoints)
     }
 
     #[inline]

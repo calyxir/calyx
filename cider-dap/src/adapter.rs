@@ -2,6 +2,7 @@ use crate::error::AdapterResult;
 use dap::types::{
     Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread, Variable,
 };
+use interp::debugger::commands::ParsedGroupName;
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::OwnedDebugger;
 use std::collections::HashMap;
@@ -13,9 +14,9 @@ pub struct MyAdapter {
     break_count: Counter,
     thread_count: Counter,
     stack_count: Counter,
-    breakpoints: Vec<(Source, i64)>, // This field is a placeholder
-    stack_frames: Vec<StackFrame>,   // This field is a placeholder
-    threads: Vec<Thread>,            // This field is a placeholder
+    breakpoints: Vec<(Source, i64)>,
+    stack_frames: Vec<StackFrame>, // This field is a placeholder
+    threads: Vec<Thread>,          // This field is a placeholder
     object_references: HashMap<i64, Vec<String>>,
     source: String,
     ids: NewSourceMap,
@@ -45,34 +46,31 @@ impl MyAdapter {
         path: Source,
         source: &Vec<SourceBreakpoint>,
     ) -> Vec<Breakpoint> {
-        fn is_valid(src_pt: &SourceBreakpoint, valid_lines: &Vec<i64>) -> bool {
-            valid_lines.contains(&src_pt.line)
-        }
         //Keep all the new breakpoints made
         let mut out_vec: Vec<Breakpoint> = vec![];
 
-        //may move - get list of allowed lines
-        let valids: Vec<i64> = self
-            .ids
-            .iter_pairs()
-            .into_iter()
-            .map(|(_, v)| v.start_line as i64)
-            .collect();
+        let mut to_debugger: Vec<ParsedGroupName> = vec![];
 
-        //Loop over all breakpoints - why do we need to loop over all of them? is it bc input vec isnt mutable?
+        //Loop over all breakpoints in ui
         for source_point in source {
             self.breakpoints.push((path.clone(), source_point.line));
+            let name = self.ids.lookup_line(source_point.line as u64);
             //Create new Breakpoint instance
             let breakpoint = make_breakpoint(
                 self.break_count.increment().into(),
-                is_valid(source_point, &valids),
+                name.is_some(),
                 Some(path.clone()),
                 Some(source_point.line),
             );
-
+            if let Some((component, group)) = name {
+                to_debugger.push(ParsedGroupName::from_comp_and_group(
+                    component.clone(),
+                    group.clone(),
+                ))
+            }
             out_vec.push(breakpoint);
         }
-        //push breakpoints to cider debugger once have go ahead
+        self.debugger.breakpoint(to_debugger);
         out_vec
     }
 
@@ -147,7 +145,7 @@ impl MyAdapter {
             // the code for now goes to the line of the last group running in the map, should deal
             // with this in the future for when groups run in parallel.
             for id in map {
-                let value = self.ids.lookup(id.to_string()).unwrap().start_line;
+                let value = self.ids.lookup(id).unwrap().start_line;
                 line_number = value;
             }
             // Set line of the stack frame and tell debugger we're not finished.
