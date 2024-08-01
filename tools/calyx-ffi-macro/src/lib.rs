@@ -1,6 +1,6 @@
 use parse::CalyxFFIMacroArgs;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned};
 
 mod calyx;
@@ -116,9 +116,41 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    let mut derive_impls = Vec::new();
+
+    for derive in args.derives {
+        let trait_name = derive.name;
+
+        let mut getters = Vec::new();
+        for output in derive.outputs {
+            getters.push(quote! {
+                fn #output(&self) -> u64 {
+                    self.#output
+                }
+            })
+        }
+
+        let mut setters = Vec::new();
+        for input in derive.inputs {
+            setters.push(quote! {
+                fn #input(&mut self) -> &mut u64 {
+                    &mut self.#input
+                }
+            })
+        }
+
+        derive_impls.push(quote! {
+            impl #trait_name for #name {
+                #(#getters)*
+                #(#setters)*
+            }
+        });
+    }
+
     quote! {
         #struct_def
         #impl_block
+        #(#derive_impls)*
     }
     .into()
 }
