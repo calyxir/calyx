@@ -845,10 +845,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             e.rule("iverilog-fst-sed",
             r#"sed '/\/\/ COMPONENT END: wrapper/c\`ifdef COCOTB_SIM\n  initial begin\n    \$$dumpfile ("$fst_file_name");\n    \$$dumpvars (0, wrapper);\n    #1;\n  end\n`endif\n\/\/ COMPONENT END: wrapper' $in > $out"#)?;
         }
-<<<<<<< HEAD
-
-=======
->>>>>>> xilinx-subordinate
         e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
 
         e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL $cocotb-args > $out")?;
