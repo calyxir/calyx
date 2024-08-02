@@ -96,8 +96,9 @@ pub enum ConfigVar {
     VarOr(String, String),
 }
 
-/// The data required to emit a single op.
-pub struct OpEmitData {
+/// The data required to emit a single, simple op whose body is composed of an ordered set of
+/// commands.
+pub struct OrderedCommandOp {
     /// The name of the op.
     pub op_name: String,
 
@@ -120,7 +121,7 @@ pub fn io_file_var_name(index: usize, input: bool) -> String {
     }
 }
 
-impl EmitBuild for OpEmitData {
+impl EmitBuild for OrderedCommandOp {
     fn build(
         &self,
         emitter: &mut StreamEmitter,
