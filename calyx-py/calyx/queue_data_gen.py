@@ -46,7 +46,7 @@ def no_err_cmds_list(queue_size, num_cmds):
             running_count -= 1
             total_pop_count += 1
         # Put the command into `commands`.
-        commands.append(0 if command == "pop" else 2)
+        commands.append(0 if command == "pop" else 1)
 
         if total_push_count == push_goal:
             # Pad the `commands` list with (push_goal - total_pop_count) `pop`s,
@@ -100,7 +100,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     commands = {
         "commands": {
             "data": (
-                # The `commands` memory has `num_cmds` items, which are all 0, 1, or 2 (or 3 and 4, for nwc policies)
+                # The `commands` memory has `num_cmds` items, which are all 0 or 1
                 no_err_cmds_list(queue_size, num_cmds)
                 if no_err
                 # If the `no_err` flag is set, then we use the special helper
