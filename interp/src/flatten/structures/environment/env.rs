@@ -1108,6 +1108,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// to the rust pin.
     pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
         let port = self.get_root_input_port(port);
+
+        let go = self.get_comp_go(Self::get_root());
+        assert!(port != go, "Cannot pin the go port");
+
         self.pinned_ports.insert(port, val);
     }
 
