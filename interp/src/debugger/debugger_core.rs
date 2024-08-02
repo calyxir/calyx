@@ -1,8 +1,8 @@
 use super::{
-    commands::{Command, ParsedGroupName, PrintMode},
+    commands::{Command, ParsedBreakPointID, ParsedGroupName, PrintMode},
     debugging_context::context::DebuggingContext,
     io_utils::Input,
-    source::structures::{GroupContents, NewSourceMap},
+    source::structures::NewSourceMap,
 };
 use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
@@ -20,6 +20,7 @@ use crate::{
 
 use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use std::path::Path as FilePath;
 
@@ -154,10 +155,17 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
-    pub fn breakpoint(&mut self, breakpoints: Vec<ParsedGroupName>) {
+    pub fn set_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
         self.create_breakpoints(breakpoints)
     }
 
+    pub fn delete_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
+        let parsed_bp_ids: Vec<ParsedBreakPointID> = breakpoints
+            .into_iter()
+            .map(|x| ParsedBreakPointID::from(x))
+            .collect_vec();
+        self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
+    }
     #[inline]
     fn do_step(&mut self, n: u32) -> InterpreterResult<()> {
         for _ in 0..n {

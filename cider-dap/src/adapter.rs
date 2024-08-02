@@ -5,7 +5,7 @@ use dap::types::{
 use interp::debugger::commands::ParsedGroupName;
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::OwnedDebugger;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 pub struct MyAdapter {
@@ -14,7 +14,7 @@ pub struct MyAdapter {
     break_count: Counter,
     thread_count: Counter,
     stack_count: Counter,
-    breakpoints: Vec<(Source, i64)>,
+    breakpoints: HashSet<i64>,
     stack_frames: Vec<StackFrame>, // This field is a placeholder
     threads: Vec<Thread>,          // This field is a placeholder
     object_references: HashMap<i64, Vec<String>>,
@@ -31,7 +31,7 @@ impl MyAdapter {
             break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
-            breakpoints: Vec::new(),
+            breakpoints: HashSet::new(),
             stack_frames: Vec::new(),
             threads: Vec::new(),
             object_references: HashMap::new(),
@@ -40,43 +40,113 @@ impl MyAdapter {
         })
     }
 
-    ///Set breakpoints for adapter
-    pub fn set_breakpoint(
+    pub fn handle_breakpoint(
         &mut self,
         path: Source,
-        source: &Vec<SourceBreakpoint>,
+        points: &Vec<SourceBreakpoint>,
     ) -> Vec<Breakpoint> {
-        //Keep all the new breakpoints made
-        let mut out_vec: Vec<Breakpoint> = vec![];
+        // helper method to get diffs since it yelled at me about borrows when i had it in main method
+        fn calc_diffs(
+            new_set: &HashSet<i64>,
+            old_set: &HashSet<i64>,
+        ) -> (HashSet<i64>, HashSet<i64>) {
+            let to_set: HashSet<i64> =
+                new_set.difference(old_set).map(|x| *x).collect();
+            let to_delete: HashSet<i64> =
+                old_set.difference(new_set).map(|x| *x).collect();
+            (to_set, to_delete)
+        }
 
-        let mut to_debugger: Vec<ParsedGroupName> = vec![];
+        //check diffs
+        let mut new_point_set = HashSet::new();
+        for p in points {
+            new_point_set.insert(p.line);
+        }
+        let (to_set, to_delete) = calc_diffs(&new_point_set, &self.breakpoints);
 
-        //Loop over all breakpoints in ui
-        for source_point in source {
-            self.breakpoints.push((path.clone(), source_point.line));
+        //update adapter
+        self.breakpoints.clear();
+
+        let mut to_debugger_set: Vec<ParsedGroupName> = vec![];
+        let mut to_client: Vec<Breakpoint> = vec![];
+
+        // iterate over points recieved in request
+        for source_point in points {
+            self.breakpoints.insert(source_point.line);
             let name = self.ids.lookup_line(source_point.line as u64);
-            //Create new Breakpoint instance
+
             let breakpoint = make_breakpoint(
                 self.break_count.increment().into(),
                 name.is_some(),
                 Some(path.clone()),
                 Some(source_point.line),
             );
+            to_client.push(breakpoint);
+
+            if let Some((component, group)) = name {
+                if to_set.contains(&source_point.line) {
+                    to_debugger_set.push(ParsedGroupName::from_comp_and_group(
+                        component.clone(),
+                        group.clone(),
+                    ))
+                }
+            }
+        }
+        //send ones to set to debugger
+        self.debugger.set_breakpoints(to_debugger_set);
+        //delete from debugger
+        self.delete_breakpoints(to_delete);
+
+        //return list of created points to client
+        to_client
+    }
+
+    fn delete_breakpoints(&mut self, to_delete: HashSet<i64>) {
+        let mut to_debugger: Vec<ParsedGroupName> = vec![];
+        for point in to_delete {
+            let name = self.ids.lookup_line(point as u64);
             if let Some((component, group)) = name {
                 to_debugger.push(ParsedGroupName::from_comp_and_group(
                     component.clone(),
                     group.clone(),
                 ))
             }
-            out_vec.push(breakpoint);
         }
-        self.debugger.breakpoint(to_debugger);
-        out_vec
+        self.debugger.delete_breakpoints(to_debugger);
     }
+    // ///Set breakpoints for adapter
+    // fn set_delete_breakpoints(
+    //     &mut self,
+    //     path: Source,
+    //     source: &Vec<SourceBreakpoint>,
+    // ) -> Vec<Breakpoint> {
+    //     //Keep all the new breakpoints made
+    //     let mut out_vec: Vec<Breakpoint> = vec![];
 
-    pub fn clear_breakpoints(&mut self) {
-        self.breakpoints.clear()
-    }
+    //     let mut to_debugger: Vec<ParsedGroupName> = vec![];
+
+    //     //Loop over all breakpoints in ui
+    //     for source_point in source {
+    //         self.breakpoints.insert(source_point.line);
+    //         let name = self.ids.lookup_line(source_point.line as u64);
+    //         //Create new Breakpoint instance
+    //         let breakpoint = make_breakpoint(
+    //             self.break_count.increment().into(),
+    //             name.is_some(),
+    //             Some(path.clone()),
+    //             Some(source_point.line),
+    //         );
+    //         if let Some((component, group)) = name {
+    //             to_debugger.push(ParsedGroupName::from_comp_and_group(
+    //                 component.clone(),
+    //                 group.clone(),
+    //             ))
+    //         }
+    //         out_vec.push(breakpoint);
+    //     }
+    //     self.debugger.breakpoint(to_debugger);
+    //     out_vec
+    // }
 
     ///Creates a thread using the parameter name.
     pub fn create_thread(&mut self, name: String) -> Thread {

@@ -200,10 +200,9 @@ fn run_server<R: Read, W: Write>(
 
             Command::SetBreakpoints(args) => {
                 // Add breakpoints
-                adapter.clear_breakpoints();
                 if let Some(bkpts) = &args.breakpoints {
                     let out =
-                        adapter.set_breakpoint(args.source.clone(), bkpts);
+                        adapter.handle_breakpoint(args.source.clone(), bkpts);
 
                     // Success
                     let rsp = req.success(ResponseBody::SetBreakpoints(
@@ -355,7 +354,7 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
                     scopes: adapter.get_scopes(frame_id),
                 }));
-                info!(logger, "responded with {rsp:?}");
+                //info!(logger, "responded with {rsp:?}");
                 server.respond(rsp)?;
             }
             Command::Variables(args) => {
