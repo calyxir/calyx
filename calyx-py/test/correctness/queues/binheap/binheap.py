@@ -38,7 +38,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
 
     It has:
     - three inputs, `cmd`, `rank`, and `value`.
-        - `cmd` has width 2.
+        - `cmd` has width 1.
         - `rank` has width `rnk_w`.
         - `value` has width `val_w`.
     - one memory, `mem`, of size `2**queue_size_factor`.
@@ -370,7 +370,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
                     cb.if_(is_full.out, raise_err, push),
                     cb.if_with(size_eq_0, turn_full_on)
                 ]
-            ),
+            )
         )
     ]
 
@@ -420,7 +420,7 @@ def insert_main(prog):
             binheap,
             in_value=cb.const(32, value),
             in_rank=cb.const(64, rank),
-            in_cmd=cb.const(2, 2),
+            in_cmd=cb.const(1, 1),
             ref_ans=ans,
             ref_err=err,
         )
@@ -434,7 +434,7 @@ def insert_main(prog):
                 binheap,
                 in_value=cb.const(32, 50),
                 in_rank=cb.const(64, 50),
-                in_cmd=cb.const(2, 0),
+                in_cmd=cb.const(1, 0),
                 ref_ans=ans,
                 ref_err=err,
             ),
