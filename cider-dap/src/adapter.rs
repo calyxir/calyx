@@ -115,6 +115,10 @@ impl MyAdapter {
         self.debugger.delete_breakpoints(to_debugger);
     }
 
+    pub fn do_continue(&mut self, thread_id: i64, single_thread: bool) {
+        // if single thread, only thread id continues else all continue
+    }
+
     ///Creates a thread using the parameter name.
     pub fn create_thread(&mut self, name: String) -> Thread {
         //how do we attach the thread to the program

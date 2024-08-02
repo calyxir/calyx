@@ -152,7 +152,8 @@ where
     // Currently, we need two threads to run the debugger and step through,
     // not sure why but would be good to look into for the future.
     let thread = &adapter.create_thread(String::from("Main")); //does not seem as though this does anything
-    let thread2 = &adapter.create_thread(String::from("Thread 1"));
+
+    //let thread2 = &adapter.create_thread(String::from("Thread 1"));
 
     // Notify server of first thread
     server.send_event(Event::Thread(ThreadEventBody {
@@ -161,10 +162,10 @@ where
     }))?;
 
     //Notify server of second thread
-    server.send_event(Event::Thread(ThreadEventBody {
-        reason: types::ThreadEventReason::Started,
-        thread_id: thread2.id,
-    }))?;
+    // server.send_event(Event::Thread(ThreadEventBody {
+    //     reason: types::ThreadEventReason::Started,
+    //     thread_id: thread2.id,
+    // }))?;
 
     // Return the adapter instead of running the server
     Ok(adapter)
