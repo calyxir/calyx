@@ -162,9 +162,6 @@ class NWCSimple:
     - If a value is passed in, we pop the first (lowest-rank) instance of that value which is 'ripe'.
     - If no value is passed in but a time is,
         we pop the first (lowest-rank) value that passes the predicate.
-
-    We compactly represent these similar operations through `query`, which takes in an additional
-    optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
 
     def __init__(self, max_len: int):
@@ -187,7 +184,7 @@ class NWCSimple:
     def is_ripe(self, time) -> bool:
         return self.data[0].value[1] <= time
 
-    def query(self, time=0, val=None, remove=False) -> Optional[int]:
+    def query(self, time=0, val=None) -> Optional[int]:
         if len(self.data) == 0:
             raise QueueError("Underflow")
 
@@ -198,7 +195,7 @@ class NWCSimple:
             # Check for eligibility
             if self.is_ripe(time) and (val is None or self.data[0].value[0] == val):
                 # If eligible, we pop the element and push all cached elements back into the heap
-                result = heapq.heappop(self.data) if remove else self.data[0]
+                result = heapq.heappop(self.data)
 
                 for elem in temp:
                     heapq.heappush(self.data, elem)
@@ -214,7 +211,7 @@ class NWCSimple:
         raise QueueError("Underflow")
 
     def pop(self, time=0, val=None) -> Optional[int]:
-        return self.query(time, val, True)
+        return self.query(time, val)
 
 
 @dataclass
@@ -257,9 +254,6 @@ class Pieo:
     - If a value is passed in, we pop the first (lowest-rank) instance of that value which is 'ripe'.
     - If no value is passed in but a time is,
         we pop the first (lowest-rank) value that passes the predicate.
-
-    We compactly represent these similar operations through `query`, which takes in an additional
-    optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
 
     def __init__(self, max_len: int):
@@ -335,8 +329,8 @@ class Pieo:
             for x in range(len(self.data)):
                 if self.is_ripe(self.data[x], time):
                     if return_rank:
-                        return self.data.pop(x) if remove else self.data[x]
-                    return self.data.pop(x)["val"] if remove else self.data[x]["val"]
+                        return self.data.pop(x)
+                    return self.data.pop(x)["val"]
 
             # No ripe elements
             raise QueueError("Underflow")
@@ -345,8 +339,8 @@ class Pieo:
         for x in range(len(self.data)):
             if self.data[x]["val"] == val and self.is_ripe(self.data[x], time):
                 if return_rank:
-                    return self.data.pop(x) if remove else self.data[x]
-                return self.data.pop(x)["val"] if remove else self.data[x]["val"]
+                    return self.data.pop(x)
+                return self.data.pop(x)["val"]
 
         # No ripe elements matching value
         raise QueueError("Underflow")
@@ -355,6 +349,11 @@ class Pieo:
         """Pops a PIEO. See query() for specifics."""
 
         return self.query(time, val, True, return_rank)
+
+    def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
+        """Peeks a PIEO. See query() for specifics."""
+
+        return self.query(time, val, False, return_rank)
 
 
 @dataclass
@@ -389,8 +388,6 @@ class PCQ:
     - Otherwise, we pop the lowest-rank element in the queue.
     - If, following our pop, the bucket is empty, we rotate to the next bucket.
 
-    We compactly represent these similar operations through `query`, which takes in an additional
-    optional `remove` parameter (defaulted to False) to determine whether to pop or peek.
     """
 
     def __init__(self, max_len: int, num_buckets=200, width=10, initial_day=0):
@@ -426,7 +423,7 @@ class PCQ:
         except QueueError:
             raise QueueError("Overflow")
 
-    def query(self, remove=False, time=0, val=None) -> Optional[int]:
+    def query(self, time=0, val=None) -> Optional[int]:
         """Queries a PCQ."""
 
         if self.num_elements == 0:
@@ -444,21 +441,19 @@ class PCQ:
             possible_values.sort(key=lambda x: x[1]["rank"])
             bucket, element = possible_values[0]
             time, val = element["time"], element["val"]
-            if remove:
-                result = bucket.pop(time, val, False)
-                self.num_elements -= 1
-                if len(bucket.data) == 0:
-                    self.rotate()
-                return result
-            else:
-                return val
+
+            result = bucket.pop(time, val, False)
+            self.num_elements -= 1
+            if len(bucket.data) == 0:
+                self.rotate()
+            return result
 
         raise QueueError(str(self.data) + "Underflow")
 
     def pop(self, time=0, val=None) -> Optional[int]:
         """Pops a PCQ. If we iterate through every bucket and can't find a value, raise underflow."""
 
-        return self.query(True, time, val)
+        return self.query(time, val)
 
 
 @dataclass
