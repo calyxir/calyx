@@ -31,7 +31,7 @@ struct RhaiOp {
 
     /// An ordered list of the commands run when this op is required. The second element of the
     /// tuple is a list of the indecies of commands to be run before the given command.
-    cmds: Vec<crate::run::ShellCmd>,
+    cmds: Vec<crate::run::Rule>,
 
     /// A list of the values required from the config.
     config_vars: Vec<crate::run::ConfigVar>,
@@ -239,7 +239,7 @@ impl ScriptContext {
                     op_sig.seen_deps.insert(v.clone());
                 }
 
-                op_sig.cmds.push(crate::run::ShellCmd { cmd, deps, gens });
+                op_sig.cmds.push(crate::run::Rule { cmd, deps, gens });
 
                 Ok(())
             }

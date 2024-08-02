@@ -99,7 +99,7 @@ pub enum ConfigVar {
 
 /// A shell command tagged with required and generated files.
 #[derive(Debug, Clone)]
-pub struct ShellCmd {
+pub struct Rule {
     /// A shell command.
     pub cmd: String,
 
@@ -121,7 +121,7 @@ pub struct OpEmitData {
     ///
     /// The second and third element of the tuple is a list of the indecies of other commands the given
     /// command depends on.
-    pub cmds: Vec<ShellCmd>,
+    pub cmds: Vec<Rule>,
 
     /// Variables to be emitted
     pub config_vars: Vec<ConfigVar>,
