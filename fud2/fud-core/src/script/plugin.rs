@@ -191,7 +191,7 @@ impl ScriptContext {
                 let op_name = name.clone();
                 let config_vars = config_vars.clone();
                 let op_emitter = crate::run::RulesOp {
-                    op_name,
+                    rule_name: op_name,
                     cmds,
                     config_vars,
                 };
@@ -470,7 +470,7 @@ impl ScriptRunner {
             move |ctx: rhai::NativeCallContext, key: &str| -> RhaiResult<_> {
                 sctx.add_config_var(
                     ctx.position(),
-                    crate::run::ConfigVar::Var(key.to_string()),
+                    crate::run::ConfigVar::Required(key.to_string()),
                 )?;
                 Ok(format!("${{{}}}", key))
             },
@@ -488,7 +488,7 @@ impl ScriptRunner {
                   -> RhaiResult<_> {
                 sctx.add_config_var(
                     ctx.position(),
-                    crate::run::ConfigVar::VarOr(
+                    crate::run::ConfigVar::Optional(
                         key.to_string(),
                         default.to_string(),
                     ),

@@ -91,20 +91,21 @@ impl EmitBuild for EmitBuildFn {
 #[derive(Debug, Clone)]
 pub enum ConfigVar {
     /// The key for the config variable.
-    Var(String),
+    Required(String),
     /// The key for the config variable followed by the value it should be if the key is not found.
-    VarOr(String, String),
+    Optional(String, String),
 }
 
 /// The data required to emit a single, simple op whose body is composed of an ordered set of
 /// commands.
 pub struct RulesOp {
-    /// The name of the op.
-    pub op_name: String,
+    /// The name of the rule generated.
+    pub rule_name: String,
 
-    /// The commands run whenever the op run. Each of these must be run in order in a context where
-    /// the variables in each cmd are supplied. In particular, this means that variables of the
-    /// form "$[i|o]<digit>" are in scope.
+    /// The shell commands emitted by to the generated rule.
+    /// Each of these must be run in order in a context where the variables in each cmd are
+    /// supplied. In particular, this means that variables of the form "$[i|o]<digit>" are in
+    /// scope.
     pub cmds: Vec<String>,
 
     /// Variables to be emitted
@@ -130,7 +131,7 @@ impl EmitBuild for RulesOp {
     ) -> EmitResult {
         // Write the Ninja file.
         let cmd = self.cmds.join(" && ");
-        emitter.rule(&self.op_name, &cmd)?;
+        emitter.rule(&self.rule_name, &cmd)?;
         let in_vars = inputs
             .iter()
             .enumerate()
@@ -143,14 +144,14 @@ impl EmitBuild for RulesOp {
 
         for var in &self.config_vars {
             match var {
-                ConfigVar::Var(k) => emitter.config_var(k, k)?,
-                ConfigVar::VarOr(k, d) => emitter.config_var_or(k, k, d)?,
+                ConfigVar::Required(k) => emitter.config_var(k, k)?,
+                ConfigVar::Optional(k, d) => emitter.config_var_or(k, k, d)?,
             }
         }
 
         emitter.build_cmd_with_vars(
             outputs,
-            &self.op_name,
+            &self.rule_name,
             inputs,
             &[],
             &vars,
