@@ -162,7 +162,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     pub fn delete_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
         let parsed_bp_ids: Vec<ParsedBreakPointID> = breakpoints
             .into_iter()
-            .map(|x| ParsedBreakPointID::from(x))
+            .map(ParsedBreakPointID::from)
             .collect_vec();
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
