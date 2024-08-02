@@ -2155,9 +2155,9 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
         if state.has_state() {
             if let Some(name_override) = name {
-                write!(output, "{name_override}:").unwrap();
+                write!(output, "{name_override}: ").unwrap();
             } else {
-                write!(output, "{}:", self.get_full_name(cell_idx)).unwrap();
+                write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
             }
 
             writeln!(output, "{state}").unwrap();
