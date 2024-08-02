@@ -51,9 +51,9 @@ impl MyAdapter {
             old_set: &HashSet<i64>,
         ) -> (HashSet<i64>, HashSet<i64>) {
             let to_set: HashSet<i64> =
-                new_set.difference(old_set).map(|x| *x).collect();
+                new_set.difference(old_set).copied().collect();
             let to_delete: HashSet<i64> =
-                old_set.difference(new_set).map(|x| *x).collect();
+                old_set.difference(new_set).copied().collect();
             (to_set, to_delete)
         }
 
