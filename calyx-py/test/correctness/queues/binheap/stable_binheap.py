@@ -16,7 +16,7 @@ def insert_stable_binheap(prog, name, queue_len_factor=FACTOR):
 
     It has:
     - three inputs, `cmd`, `value`, and `rank`.
-        - `cmd` has width 2.
+        - `cmd` has width 1.
         - `rank` has width 32.
         - `value` has width 32.
     - one memory, `mem`, of size `2**queue_size_factor`.
@@ -26,7 +26,6 @@ def insert_stable_binheap(prog, name, queue_len_factor=FACTOR):
 
     We use `below`, a binary heap that accepts 64-bit ranks and 32-bit values, and counter `i`.
     - To push a pair `(r, v)`, we push `(r << 32 + i, v)` to `below` and increment `i`.
-    - To peak, we peak `below`.
     - To pop, we pop `below`.
     
     If we push `(r, v)` and then later `(r, v')`, we know `v` will be popped before `v'` 
@@ -37,7 +36,7 @@ def insert_stable_binheap(prog, name, queue_len_factor=FACTOR):
 
     below = comp.cell("below", insert_binheap(prog, "below", queue_len_factor, 64, 32))
 
-    cmd = comp.input("cmd", 2)
+    cmd = comp.input("cmd", 1)
 
     rank = comp.input("rank", 32)
     value = comp.input("value", 32)
