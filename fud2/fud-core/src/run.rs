@@ -149,7 +149,7 @@ impl EmitBuild for RulesOp {
             }
         }
 
-        emitter.build_cmd_with_vars(
+        emitter.build_cmd_with_bindings(
             outputs,
             &self.rule_name,
             inputs,
@@ -587,7 +587,7 @@ impl<W: Write> Emitter<W> {
     ///
     /// Here `variables` is an association list, the first element of each tuple a key and the
     /// second a value.
-    pub fn build_cmd_with_vars(
+    pub fn build_cmd_with_bindings(
         &mut self,
         targets: &[&str],
         rule: &str,
