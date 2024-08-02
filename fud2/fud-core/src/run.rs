@@ -149,7 +149,7 @@ impl EmitBuild for RulesOp {
             }
         }
 
-        emitter.build_cmd_with_bindings(
+        emitter.build_cmd_with_args(
             outputs,
             &self.rule_name,
             inputs,
@@ -587,7 +587,7 @@ impl<W: Write> Emitter<W> {
     ///
     /// Here `variables` is an association list, the first element of each tuple a key and the
     /// second a value.
-    pub fn build_cmd_with_bindings(
+    pub fn build_cmd_with_args(
         &mut self,
         targets: &[&str],
         rule: &str,
@@ -595,23 +595,9 @@ impl<W: Write> Emitter<W> {
         implicit_deps: &[&str],
         variables: &[(String, &str)],
     ) -> std::io::Result<()> {
-        write!(self.out, "build")?;
-        for target in targets {
-            write!(self.out, " {}", target)?;
-        }
-        write!(self.out, ": {}", rule)?;
-        for dep in deps {
-            write!(self.out, " {}", dep)?;
-        }
-        if !implicit_deps.is_empty() {
-            write!(self.out, " |")?;
-            for dep in implicit_deps {
-                write!(self.out, " {}", dep)?;
-            }
-        }
-        writeln!(self.out)?;
+        self.build_cmd(targets, rule, deps, implicit_deps)?;
         for (key, value) in variables {
-            writeln!(self.out, "  {} = {}", key, value)?;
+            self.arg(key, value)?;
         }
         writeln!(self.out)?;
         Ok(())
