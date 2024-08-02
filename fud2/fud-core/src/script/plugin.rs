@@ -190,7 +190,7 @@ impl ScriptContext {
                 let cmds = cmds.clone();
                 let op_name = name.clone();
                 let config_vars = config_vars.clone();
-                let op_emitter = crate::run::OrderedCommandOp {
+                let op_emitter = crate::run::RulesOp {
                     op_name,
                     cmds,
                     config_vars,
