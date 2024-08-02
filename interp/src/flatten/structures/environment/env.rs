@@ -34,9 +34,9 @@ use crate::{
     serialization::{DataDump, MemoryDeclaration, PrintCode},
     values::Value,
 };
-use ahash::HashMap;
 use ahash::HashSet;
 use ahash::HashSetExt;
+use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
@@ -226,27 +226,26 @@ impl Debug for CellLedger {
 
 #[derive(Debug, Clone)]
 struct PinnedPorts {
-    port_vals_list: Vec<(GlobalPortIdx, Value)>,
+    map: HashMap<GlobalPortIdx, Value>,
 }
 
 impl PinnedPorts {
-    pub fn iter(&self) -> impl Iterator<Item = &(GlobalPortIdx, Value)> + '_ {
-        self.port_vals_list.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&GlobalPortIdx, &Value)> + '_ {
+        self.map.iter()
     }
 
     pub fn new() -> Self {
         Self {
-            port_vals_list: vec![],
+            map: HashMap::new(),
         }
     }
 
     pub fn push(&mut self, port: GlobalPortIdx, val: Value) {
-        // linear scan is probably fine here since the list should be relatively small
-        assert!(
-            !self.port_vals_list.iter().any(|x| x.0 == port),
-            "attempting to pin the same port twice"
-        );
-        self.port_vals_list.push((port, val));
+        self.map.insert(port, val);
+    }
+
+    pub fn remove(&mut self, port: GlobalPortIdx) {
+        self.map.remove(&port);
     }
 }
 
@@ -1088,11 +1087,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.ports[*idx].as_option().map(|x| x.val().clone())
     }
 
-    /// Pins the port with the given name to the given value. This may only be
-    /// used for input ports on the entrypoint component (excluding the go port)
-    /// and will panic if used otherwise. Intended for external use. Unrelated
-    /// to the rust pin.
-    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+    fn get_root_input_port<S: AsRef<str>>(&self, port: S) -> GlobalPortIdx {
         let string = port.as_ref();
 
         let root = Self::get_root();
@@ -1104,14 +1099,21 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             self.ctx.as_ref().lookup_name(self.ctx.as_ref().secondary[def_idx].name) == string
         }).expect("Could not find port with given name in the entrypoint component's input ports");
 
-        assert!(
-            found != self.ctx.as_ref().primary[ledger.comp_id].go,
-            "Cannot pin the go port"
-        );
+        &ledger.index_bases + found
+    }
 
-        let found = &ledger.index_bases + found;
+    /// Pins the port with the given name to the given value. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use. Unrelated
+    /// to the rust pin.
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+        let port = self.get_root_input_port(port);
+        self.pinned_ports.push(port, val);
+    }
 
-        self.pinned_ports.push(found, val);
+    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
+        let port = self.get_root_input_port(port);
+        self.pinned_ports.remove(port);
     }
 }
 
@@ -1201,6 +1203,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     /// and will panic if used otherwise. Intended for external use.
     pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
         self.env.pin_value(port, val)
+    }
+
+    /// Unpins the port with the given name. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
+    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
+        self.env.unpin_value(port)
     }
 
     /// Lookup the value of a port on the entrypoint component by name. Will
