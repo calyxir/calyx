@@ -1087,6 +1087,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.ports[*idx].as_option().map(|x| x.val().clone())
     }
 
+    /// Returns an input port for the entrypoint component. Will error if the
+    /// port is not found.
     fn get_root_input_port<S: AsRef<str>>(&self, port: S) -> GlobalPortIdx {
         let string = port.as_ref();
 
@@ -1097,7 +1099,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let found = def_list.find(|offset| {
             let def_idx = self.ctx.as_ref().secondary[ledger.comp_id].port_offset_map[*offset];
             self.ctx.as_ref().lookup_name(self.ctx.as_ref().secondary[def_idx].name) == string
-        }).expect("Could not find port with given name in the entrypoint component's input ports");
+        }).unwrap_or_else(|| panic!("Could not find port '{string}' in the entrypoint component's input ports"));
 
         &ledger.index_bases + found
     }
@@ -1115,6 +1117,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.pinned_ports.insert(port, val);
     }
 
+    /// Unpins the port with the given name. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
     pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
         let port = self.get_root_input_port(port);
         self.pinned_ports.remove(port);
