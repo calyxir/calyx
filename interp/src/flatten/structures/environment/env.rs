@@ -240,7 +240,7 @@ impl PinnedPorts {
         }
     }
 
-    pub fn push(&mut self, port: GlobalPortIdx, val: Value) {
+    pub fn insert(&mut self, port: GlobalPortIdx, val: Value) {
         self.map.insert(port, val);
     }
 
@@ -1108,7 +1108,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// to the rust pin.
     pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
         let port = self.get_root_input_port(port);
-        self.pinned_ports.push(port, val);
+        self.pinned_ports.insert(port, val);
     }
 
     pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
