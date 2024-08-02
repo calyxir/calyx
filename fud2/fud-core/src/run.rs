@@ -584,6 +584,9 @@ impl<W: Write> Emitter<W> {
     }
 
     /// Emit a Ninja build command with variable list.
+    ///
+    /// Here `variables` is an association list, the first element of each tuple a key and the
+    /// second a value.
     pub fn build_cmd_with_vars(
         &mut self,
         targets: &[&str],
