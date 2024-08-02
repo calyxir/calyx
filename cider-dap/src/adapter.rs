@@ -39,7 +39,7 @@ impl MyAdapter {
             ids: metadata,
         })
     }
-
+    /// function to deal with setting breakpoints and updating debugger accordingly
     pub fn handle_breakpoint(
         &mut self,
         path: Source,
@@ -100,7 +100,7 @@ impl MyAdapter {
         //return list of created points to client
         to_client
     }
-
+    /// handles deleting breakpoints in the debugger
     fn delete_breakpoints(&mut self, to_delete: HashSet<i64>) {
         let mut to_debugger: Vec<ParsedGroupName> = vec![];
         for point in to_delete {
@@ -114,39 +114,6 @@ impl MyAdapter {
         }
         self.debugger.delete_breakpoints(to_debugger);
     }
-    // ///Set breakpoints for adapter
-    // fn set_delete_breakpoints(
-    //     &mut self,
-    //     path: Source,
-    //     source: &Vec<SourceBreakpoint>,
-    // ) -> Vec<Breakpoint> {
-    //     //Keep all the new breakpoints made
-    //     let mut out_vec: Vec<Breakpoint> = vec![];
-
-    //     let mut to_debugger: Vec<ParsedGroupName> = vec![];
-
-    //     //Loop over all breakpoints in ui
-    //     for source_point in source {
-    //         self.breakpoints.insert(source_point.line);
-    //         let name = self.ids.lookup_line(source_point.line as u64);
-    //         //Create new Breakpoint instance
-    //         let breakpoint = make_breakpoint(
-    //             self.break_count.increment().into(),
-    //             name.is_some(),
-    //             Some(path.clone()),
-    //             Some(source_point.line),
-    //         );
-    //         if let Some((component, group)) = name {
-    //             to_debugger.push(ParsedGroupName::from_comp_and_group(
-    //                 component.clone(),
-    //                 group.clone(),
-    //             ))
-    //         }
-    //         out_vec.push(breakpoint);
-    //     }
-    //     self.debugger.breakpoint(to_debugger);
-    //     out_vec
-    // }
 
     ///Creates a thread using the parameter name.
     pub fn create_thread(&mut self, name: String) -> Thread {
