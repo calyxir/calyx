@@ -254,7 +254,7 @@ impl WatchPointIndices {
     fn get_before(&self) -> Option<&[WatchpointIdx]> {
         match self {
             Self::Before(idx) => Some(idx),
-            Self::Both { after, .. } => Some(after),
+            Self::Both { before, .. } => Some(before),
             Self::After(_) => None,
         }
     }
@@ -263,7 +263,7 @@ impl WatchPointIndices {
         match self {
             Self::Before(_) => None,
             Self::After(idx) => Some(idx),
-            Self::Both { before, .. } => Some(before),
+            Self::Both { after, .. } => Some(after),
         }
     }
 
