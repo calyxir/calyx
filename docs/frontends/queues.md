@@ -3,7 +3,6 @@
 A queue is a standard data structure that maintains a set of elements in some total order.
 A new element is added to the queue using the `enqueue` operation, which is also known as `push` or `insert` in some contexts.
 Because of the total order, some element of the queue is the _most favorably ranked_ element.
-We can read this element using the `peek` operation.
 We can also remove this element from the queue using the `dequeue` operation, which is also known as `pop` or `remove` in some contexts.
 
 We provision four types of queues in Calyx. The first three follow the same shared interface, while the fourth follows a slightly extended interface.
@@ -17,12 +16,11 @@ All queues in Calyx expose the same interface.
 - Input port `cmd`, a 2-bit integer.
 Selects the operation to perform:
   - `0`: `pop`.
-  - `1`: `peek`.
-  - `2`: `push`.
+  - `1`: `push`.
 - Input port `value`, a 32-bit integer.
 The value to push.
 - Register `ans`, a 32-bit integer that is passed to the queue by reference.
-If `peek` or `pop` is selected, the queue writes the result to this register.
+If `pop` is selected, the queue writes the result to this register.
 - Register `err`, a 1-bit integer that is passed to the queue by reference.
 The queue raises this flag in case of overflow or underflow.
 
@@ -89,7 +87,7 @@ The most favorably ranked element is the one with the highest priority.
 Two elements may be pushed with the same priority.
 A priority queue that is additionally defined to break such ties in FIFO order is called a _push in, first out_ (PIFO) queue.
 
-There are two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop/peek from next. These PIFOs take n flows, which are represented with n subqueues.
+There are two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop from next. These PIFOs take n flows, which are represented with n subqueues.
 
 ### Round Robin Queues
 
@@ -110,19 +108,16 @@ and 305 would end up in flow 2 since 266 <= 305 <= 400.
 - Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
 it increments `hot` and therefore continues to check all other flows
 in round robin fashion.
-- Peek works in a similar fashion to `pop`, except
-`hot` is restored to its original value at the every end.
-Further, nothing is actually dequeued.
 
 The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
 is parameterized on round_robin being `true` or `false`.
 
 ### Strict Queues
 
-Strict queues support n flows as well, but instead, flows have a strict order of priority, which determines popping and peeking
+Strict queues support n flows as well, but instead, flows have a strict order of priority, which determines popping
 order. If the highest priority flow is silent when it is its turn, that flow
 simply skips its turn and the next priority flow is offered service. If a higher
-priority flow get pushed to in the interim, the next call to pop/peek will
+priority flow get pushed to in the interim, the next call to pop will
 return from that flow.
 
 Like round robin queues, it takes in a list `boundaries` that must be of length `n`, which divide the incoming traffic into `n` flows.
@@ -141,7 +136,6 @@ If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
 and 305 would end up in flow 2 since 266 <= 305 <= 400.
 - Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
 it tries `order[1]`, etc.
-- Peek works in a similar fashion to `pop`.
 
 The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
 is parameterized on red_robin being `true` or `false`.
@@ -172,13 +166,13 @@ A minimum binary heap is another tree-shaped data structure where each node has 
 However, unlike the queues discussed above, a heap exposes an extended interface:
 in addition to the input ports and reference registers discussed above, a heap has an additional input `rank`.
 The `push` operation now accepts both a `value` and the `rank` that the user wishes to associate with that value.
-Consequently, a heap _orders_ its elements by `rank`, with the `pop` (resp. `peek`) operation set to remove (resp. read) the element with minimal rank.
+Consequently, a heap _orders_ its elements by `rank`, with the `pop` operation set to remove (resp. read) the element with minimal rank.
 
 To maintain this ordering efficiently, a heap stores `(rank, value)` pairs in each node and takes special care to maintain the following invariant:
 > **Min-Heap Property**: for any given node `C`, if `P` is a parent of `C`, then the rank of `P` is less than or equal to the rank of `C`.
 
 To `push` or `pop` an element is easy at the top level: write to or read from the correct node, and then massage the tree to restore the Min-Heap Property.
-The `peek` operation is constant-time and `push` and `pop` are logarithmic in the size of the heap.
+The `push` and `pop` operations are logarithmic in the size of the heap.
 
 Our frontend allows for the creation of minimum binary heaps in Calyx; the source code is available in [`binheap.py`][binheap.py].
 
@@ -191,7 +185,6 @@ Our `stable_binheap` is a heap accepting 32-bit ranks and values.
 It uses a counter `i` and instantiates, in turn, a binary heap that accepts 64-bit ranks and 32-bit values.
 - To push a pair `(r, v)` into `stable_binheap`, we craft a new 64-bit rank that incorporates the counter `i` (specifically, we compute `r << 32 + i`), and we push `v` into our underlying binary heap with this new 64-bit rank. We also increment the counter `i`.
 - To pop `stable_binheap`, we pop the underlying binary heap.
-- To peek `stable_binheap`, we peek the underlying binary heap.
 
 The source code is available in [`stable_binheap.py`][stable_binheap.py].
 
