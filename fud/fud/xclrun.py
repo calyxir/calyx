@@ -86,12 +86,8 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
         buffer.sync_to_device()
 
     # Run the kernel.
-    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.Toplevel_1
-    # XXX(nathanielnrn) 2022-07-19: timeout is not currently used anywhere in
-    # generated verilog code, passed in because kernel.xml is generated to
-    # expect it as an argument
-    timeout = 1000
-    kernel.call(timeout, *buffers)
+    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.wrapper_1
+    kernel.call(*buffers)
 
     # Collect the output data.
     for buf in buffers:
