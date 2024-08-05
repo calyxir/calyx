@@ -165,7 +165,7 @@ impl EmitBuild for OpEmitData {
         // Write a sequence of rules and build statements for each cmd.
         for (i, cmd) in self.cmds.iter().enumerate() {
             // Don't need to output commands which never generate any outputs as these commands
-            // would never be rub.
+            // would never be run.
             if cmd.gens.is_empty() {
                 continue;
             }
