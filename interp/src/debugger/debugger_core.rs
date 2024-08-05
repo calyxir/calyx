@@ -288,6 +288,24 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     }
                 }
 
+                Command::EnableWatch(targets) => {
+                    for target in targets {
+                        let target = target
+                            .parse_to_watch_ids(self.program_context.as_ref());
+                        unwrap_error_message!(target);
+                        self.debugging_context.enable_watchpoint(target)
+                    }
+                }
+
+                Command::DisableWatch(targets) => {
+                    for target in targets {
+                        let target = target
+                            .parse_to_watch_ids(self.program_context.as_ref());
+                        unwrap_error_message!(target);
+                        self.debugging_context.disable_watchpoint(target)
+                    }
+                }
+
                 Command::Watch(
                     group,
                     watch_pos,
