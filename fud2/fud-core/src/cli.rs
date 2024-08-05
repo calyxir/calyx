@@ -314,7 +314,26 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     bail!("unknown resource file {}", cmd.filename);
 }
 
-pub fn cli(driver: &Driver) -> anyhow::Result<()> {
+/// Given the name of a Driver, returns a config based on that name and CLI arguments.
+pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+    let args: FakeArgs = argh::from_env();
+    let mut config = config::load_config(name);
+
+    // Use `--set` arguments to override configuration values.
+    for set in args.set {
+        let mut parts = set.splitn(2, '=');
+        let key = parts.next().unwrap();
+        let value = parts
+            .next()
+            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
+        let dict = figment::util::nest(key, value.into());
+        config = config.merge(figment::providers::Serialized::defaults(dict));
+    }
+
+    Ok(config)
+}
+
+pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
     // Configure logging.
@@ -345,7 +364,7 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
-    let mut run = Run::new(driver, plan);
+    let mut run = Run::new(driver, plan, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
@@ -353,19 +372,6 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     }
     if let Some(verbose) = args.verbose {
         run.global_config.verbose = verbose;
-    }
-
-    // Use `--set` arguments to override configuration values.
-    for set in args.set {
-        let mut parts = set.splitn(2, '=');
-        let key = parts.next().unwrap();
-        let value = parts
-            .next()
-            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
-        let dict = figment::util::nest(key, value.into());
-        run.config_data = run
-            .config_data
-            .merge(figment::providers::Serialized::defaults(dict));
     }
 
     // Execute.
