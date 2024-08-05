@@ -3,6 +3,7 @@ use calyx_ffi::prelude::*;
 
 use calyx_ffi::cider_ffi_backend;
 
+// not necessary, just to show it off
 declare_calyx_interface! {
     In2Out1(lhs, rhs) -> (result)
 }

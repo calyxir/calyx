@@ -30,6 +30,8 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
         .expect("failed to turn quoted path into string");
 
     let backend_macro = args.backend;
+    let mut input_names = Vec::new();
+    let mut output_names = Vec::new();
     let mut field_names = vec![];
     let mut fields = vec![];
     let mut getters = vec![];
@@ -47,6 +49,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 fields.push(quote! {
                     pub #port_name: u64
                 });
+                input_names.push(port_name);
             }
             calyx_ir::Direction::Output => {
                 fields.push(quote! {
@@ -57,6 +60,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
                         self.#port_name
                     }
                 });
+                output_names.push(port_name);
             }
             calyx_ir::Direction::Inout => {
                 todo!("inout ports not supported yet")
@@ -95,23 +99,23 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             fn init(&mut self, context: &calyx_ir::Context) {
-                #backend_macro!(@init self, context; #(#field_names),*);
+                #backend_macro!(@init self, context; #(#input_names),*; #(#output_names),*);
             }
 
             fn reset(&mut self) {
-                #backend_macro!(@reset self; #(#field_names),*);
+                #backend_macro!(@reset self;  #(#input_names),*; #(#output_names),*);
             }
 
             fn can_tick(&self) -> bool {
-                #backend_macro!(@can_tick self; #(#field_names),*)
+                #backend_macro!(@can_tick self;  #(#input_names),*; #(#output_names),*)
             }
 
             fn tick(&mut self) {
-                #backend_macro!(@tick self; #(#field_names),*);
+                #backend_macro!(@tick self; #(#input_names),*; #(#output_names),*);
             }
 
             fn go(&mut self) {
-                #backend_macro!(@go self; #(#field_names),*);
+                #backend_macro!(@go self; #(#input_names),*; #(#output_names),*);
             }
         }
     };

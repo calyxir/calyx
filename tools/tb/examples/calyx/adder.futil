@@ -5,9 +5,13 @@ component main(lhs: 64, rhs: 64) -> (result: 64) {
     adder = std_add(64);
   }
   wires {
-    adder.left = lhs;
-    adder.right = rhs;
-    result = adder.out;
+    group add {
+      adder.left = lhs;
+      adder.right = rhs;
+      result = adder.out;
+    }
   }
-  control {}
+  control {
+    add;
+  }
 }
