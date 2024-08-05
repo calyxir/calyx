@@ -63,10 +63,20 @@ struct Opts {
     #[argh(option, short = 'o')]
     output_path: Option<PathBuf>,
 
+    /// whether to round un-representable floating point instantiations rather than
+    /// throwing an error
+    #[argh(switch, short = 'r', long = "round-float")]
+    round_float: bool,
+
     /// optional specification of what action to perform. Can be "cider" or
     /// "json". If not provided, the converter will try to guess based on file names
     #[argh(option, short = 't', long = "to")]
     action: Option<Action>,
+
+    /// whether to use quotes around floating point numbers in the output. This
+    /// exists solely for backwards compatibility with the old display format.
+    #[argh(switch, long = "legacy-quotes")]
+    use_quotes: bool,
 }
 
 fn main() -> Result<(), CiderDataConverterError> {
@@ -108,13 +118,16 @@ fn main() -> Result<(), CiderDataConverterError> {
             Action::ToDataDump => {
                 let parsed_json: JsonData =
                     serde_json::from_reader(&mut input)?;
-                converter::convert_to_data_dump(&parsed_json)
+                converter::convert_to_data_dump(&parsed_json, opts.round_float)
                     .serialize(&mut output)?;
             }
             Action::ToJson => {
                 let data_dump =
                     serialization::DataDump::deserialize(&mut input)?;
-                let json_data = converter::convert_from_data_dump(&data_dump);
+                let json_data = converter::convert_from_data_dump(
+                    &data_dump,
+                    opts.use_quotes,
+                );
                 writeln!(
                     &mut output,
                     "{}",

@@ -87,6 +87,79 @@ impl EmitBuild for EmitBuildFn {
     }
 }
 
+/// A config variable.
+#[derive(Debug, Clone)]
+pub enum ConfigVar {
+    /// The key for the config variable.
+    Required(String),
+    /// The key for the config variable followed by the value it should be if the key is not found.
+    Optional(String, String),
+}
+
+/// The data required to emit a single, simple op whose body is composed of an ordered set of
+/// commands.
+pub struct RulesOp {
+    /// The name of the rule generated.
+    pub rule_name: String,
+
+    /// The shell commands emitted by to the generated rule.
+    /// Each of these must be run in order in a context where the variables in each cmd are
+    /// supplied. In particular, this means that variables of the form "$[i|o]<digit>" are in
+    /// scope.
+    pub cmds: Vec<String>,
+
+    /// Variables to be emitted
+    pub config_vars: Vec<ConfigVar>,
+}
+
+/// Given the `index` of a file in the list of input/output files and if the file is an
+/// `input`, returns a valid Ninja variable name.
+pub fn io_file_var_name(index: usize, input: bool) -> String {
+    if input {
+        format!("i{}", index)
+    } else {
+        format!("o{}", index)
+    }
+}
+
+impl EmitBuild for RulesOp {
+    fn build(
+        &self,
+        emitter: &mut StreamEmitter,
+        inputs: &[&str],
+        outputs: &[&str],
+    ) -> EmitResult {
+        // Write the Ninja file.
+        let cmd = self.cmds.join(" && ");
+        emitter.rule(&self.rule_name, &cmd)?;
+        let in_vars = inputs
+            .iter()
+            .enumerate()
+            .map(|(k, &v)| (io_file_var_name(k, true), v));
+        let out_vars = outputs
+            .iter()
+            .enumerate()
+            .map(|(k, &v)| (io_file_var_name(k, false), v));
+        let vars: Vec<_> = in_vars.chain(out_vars).collect();
+
+        for var in &self.config_vars {
+            match var {
+                ConfigVar::Required(k) => emitter.config_var(k, k)?,
+                ConfigVar::Optional(k, d) => emitter.config_var_or(k, k, d)?,
+            }
+        }
+
+        emitter.build_cmd_with_args(
+            outputs,
+            &self.rule_name,
+            inputs,
+            &[],
+            &vars,
+        )?;
+        Ok(())
+    }
+}
+
 // TODO make this unnecessary...
 /// A simple `build` emitter that just runs a Ninja rule.
 pub struct EmitRuleBuild {
@@ -126,9 +199,12 @@ pub struct Run<'a> {
 }
 
 impl<'a> Run<'a> {
-    pub fn new(driver: &'a Driver, plan: Plan) -> Self {
-        let config_data = config::load_config(&driver.name);
-        Self::with_config(driver, plan, config_data)
+    pub fn new(
+        driver: &'a Driver,
+        plan: Plan,
+        config: figment::Figment,
+    ) -> Self {
+        Self::with_config(driver, plan, config)
     }
 
     pub fn with_config(
@@ -502,6 +578,26 @@ impl<W: Write> Emitter<W> {
             for dep in implicit_deps {
                 write!(self.out, " {}", dep)?;
             }
+        }
+        writeln!(self.out)?;
+        Ok(())
+    }
+
+    /// Emit a Ninja build command with variable list.
+    ///
+    /// Here `variables` is an association list, the first element of each tuple a key and the
+    /// second a value.
+    pub fn build_cmd_with_args(
+        &mut self,
+        targets: &[&str],
+        rule: &str,
+        deps: &[&str],
+        implicit_deps: &[&str],
+        variables: &[(String, &str)],
+    ) -> std::io::Result<()> {
+        self.build_cmd(targets, rule, deps, implicit_deps)?;
+        for (key, value) in variables {
+            self.arg(key, value)?;
         }
         writeln!(self.out)?;
         Ok(())

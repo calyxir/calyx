@@ -129,3 +129,10 @@ calyx-frontend = { path = "calyx-frontend" }
 [[bench]]
 name = "component-sharing"
 harness = false
+
+
+[profile.test.package.proptest]
+opt-level = 3
+
+[profile.test.package.rand_chacha]
+opt-level = 3

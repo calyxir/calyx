@@ -143,7 +143,7 @@ where
         Self::new()
     }
 }
-
+#[allow(dead_code)]
 pub struct IndexedMapRangeIterator<'range, 'data, K, D>
 where
     K: IndexRef + PartialOrd,

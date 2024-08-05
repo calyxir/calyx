@@ -1,0 +1,31 @@
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external mem_0 = comb_mem_d1(32, 4, 2);
+    read_only_instance = read_only();
+  }
+  wires {}
+  control {
+    seq {
+      invoke read_only_instance[ref_mem_0 = mem_0]()();
+    }
+  }
+}
+component read_only(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    ref ref_mem_0 = comb_mem_d1(32, 4, 2);
+  }
+  wires {
+    group read_data {
+      ref_mem_0.write_en = 1'd1;
+      ref_mem_0.write_data = 32'd3;
+      ref_mem_0.addr0 = 2'd0;
+      read_data[done] = ref_mem_0.done;
+    }
+  }
+  control {
+    seq {
+      read_data;
+    }
+  }
+}

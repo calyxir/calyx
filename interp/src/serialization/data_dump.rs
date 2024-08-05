@@ -1,5 +1,3 @@
-use std::num::NonZeroUsize;
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -47,34 +45,105 @@ impl From<(usize, usize, usize, usize)> for Dimensions {
 }
 
 #[derive(Serialize, Debug, Deserialize, PartialEq, Clone)]
-pub struct MemoryDeclaration {
-    pub name: String,
-    pub width: NonZeroUsize,
-    pub size: NonZeroUsize,
-    pub dimensions: Dimensions,
+pub enum FormatInfo {
+    Bitnum {
+        signed: bool,
+        width: u32,
+    },
+    Fixed {
+        signed: bool,
+        int_width: u32,
+        frac_width: u32,
+    },
 }
 
-impl MemoryDeclaration {
-    pub fn new(
-        name: String,
-        width: usize,
-        size: usize,
-        dimensions: Dimensions,
-    ) -> Self {
-        assert!(
-            size == dimensions.size(),
-            "mismatch between stated size and the dimensions"
-        );
-        Self {
-            name,
-            width: NonZeroUsize::new(width).expect("width must be non-zero"),
-            size: NonZeroUsize::new(size).expect("size must be non-zero"),
-            dimensions,
+impl FormatInfo {
+    pub fn signed(&self) -> bool {
+        match self {
+            FormatInfo::Bitnum { signed, .. } => *signed,
+            FormatInfo::Fixed { signed, .. } => *signed,
         }
     }
 
+    pub fn width(&self) -> u32 {
+        match self {
+            FormatInfo::Bitnum { width, .. } => *width,
+            FormatInfo::Fixed {
+                int_width,
+                frac_width,
+                ..
+            } => *int_width + *frac_width,
+        }
+    }
+}
+
+#[derive(Serialize, Debug, Deserialize, PartialEq, Clone)]
+pub struct MemoryDeclaration {
+    pub name: String,
+    pub dimensions: Dimensions,
+    pub format: FormatInfo,
+}
+
+impl MemoryDeclaration {
+    pub fn new_bitnum(
+        name: String,
+        width: u32,
+        dimensions: Dimensions,
+        signed: bool,
+    ) -> Self {
+        Self {
+            name,
+            dimensions,
+            format: FormatInfo::Bitnum { signed, width },
+        }
+    }
+
+    pub fn new_fixed(
+        name: String,
+        dimensions: Dimensions,
+        signed: bool,
+        int_width: u32,
+        frac_width: u32,
+    ) -> Self {
+        assert!(int_width + frac_width > 0, "width must be greater than 0");
+
+        Self {
+            name,
+            dimensions,
+            format: FormatInfo::Fixed {
+                signed,
+                int_width,
+                frac_width,
+            },
+        }
+    }
+
+    pub fn new(
+        name: String,
+        dimensions: Dimensions,
+        format: FormatInfo,
+    ) -> Self {
+        Self {
+            name,
+            dimensions,
+            format,
+        }
+    }
+
+    pub fn size(&self) -> usize {
+        self.dimensions.size()
+    }
+
     pub fn byte_count(&self) -> usize {
-        self.width.get().div_ceil(8) * self.size.get()
+        self.format.width().div_ceil(8) as usize * self.dimensions.size()
+    }
+
+    pub fn width(&self) -> u32 {
+        self.format.width()
+    }
+
+    pub fn signed(&self) -> bool {
+        self.format.signed()
     }
 }
 
@@ -106,6 +175,9 @@ pub struct DataDump {
 }
 
 impl DataDump {
+    /// Magic number to identify a data dump file
+    const MAGIC_NUMBER: [u8; 4] = [216, 194, 228, 20];
+
     /// returns an empty data dump with a top level name
     pub fn new_empty_with_top_level(top_level: String) -> Self {
         Self {
@@ -126,29 +198,45 @@ impl DataDump {
     /// conversion so the data must already be configured into a byte iterator.
     pub fn push_memory<T: IntoIterator<Item = u8>>(
         &mut self,
-        name: String,
-        width: usize,
-        size: usize,
-        dimensions: Dimensions,
+        declaration: MemoryDeclaration,
         data: T,
     ) {
-        let declaration = MemoryDeclaration::new(name, width, size, dimensions);
         self.header.memories.push(declaration);
         self.data.extend(data);
+    }
+
+    pub fn push_reg<T: IntoIterator<Item = u8>>(
+        &mut self,
+        name: String,
+        width: u32,
+        data: T,
+    ) {
+        let declaration = MemoryDeclaration::new_bitnum(
+            name,
+            width,
+            Dimensions::D1(1),
+            false,
+        );
+        self.push_memory(declaration, data)
     }
 
     // TODO Griffin: handle the errors properly
     pub fn serialize(
         &self,
         writer: &mut dyn std::io::Write,
-    ) -> std::io::Result<()> {
-        let header_str = serde_json::to_string(&self.header).unwrap();
-        let len_bytes = header_str.len();
+    ) -> Result<(), SerializationError> {
+        let mut header_str = Vec::new();
+        ciborium::ser::into_writer(&self.header, &mut header_str)?;
+        writer.write_all(&Self::MAGIC_NUMBER)?;
+
+        let len_bytes: u32 = header_str
+            .len()
+            .try_into()
+            .expect("Header length cannot fit in u32");
         writer.write_all(&len_bytes.to_le_bytes())?;
-        write!(writer, "{}", header_str).unwrap();
+        writer.write_all(&header_str)?;
         writer.write_all(&self.data)?;
         writer.flush()?;
-
         Ok(())
     }
 
@@ -156,26 +244,50 @@ impl DataDump {
     pub fn deserialize(
         reader: &mut dyn std::io::Read,
     ) -> Result<Self, SerializationError> {
-        let mut raw_header_len = [0u8; 8];
-        reader.read_exact(&mut raw_header_len).unwrap();
-        let header_len = usize::from_le_bytes(raw_header_len);
+        let mut magic_number = [0u8; 4];
+        reader.read_exact(&mut magic_number).map_err(|e| {
+            if let std::io::ErrorKind::UnexpectedEof = e.kind() {
+                SerializationError::InvalidMagicNumber
+            } else {
+                SerializationError::IoError(e)
+            }
+        })?;
+        if magic_number != Self::MAGIC_NUMBER {
+            return Err(SerializationError::InvalidMagicNumber);
+        }
 
-        let mut raw_header = vec![0u8; header_len];
-        reader.read_exact(&mut raw_header)?;
-        let header_str = String::from_utf8(raw_header)?;
-        let header: DataHeader = serde_json::from_str(&header_str)?;
+        let mut raw_header_len = [0u8; 4];
+        reader.read_exact(&mut raw_header_len).map_err(|e| {
+            if let std::io::ErrorKind::UnexpectedEof = e.kind() {
+                SerializationError::MissingHeaderLength
+            } else {
+                SerializationError::IoError(e)
+            }
+        })?;
+        let header_len = u32::from_le_bytes(raw_header_len);
+
+        let mut raw_header = vec![0u8; header_len as usize];
+        reader.read_exact(&mut raw_header).map_err(|e| {
+            if let std::io::ErrorKind::UnexpectedEof = e.kind() {
+                SerializationError::MalformedHeader
+            } else {
+                SerializationError::IoError(e)
+            }
+        })?;
+        let header: DataHeader = ciborium::from_reader(raw_header.as_slice())?;
+
         let mut data: Vec<u8> = Vec::with_capacity(header.data_size());
 
         // we could do a read_exact here instead but I opted for read_to_end
         // instead to avoid allowing incorrect/malformed data files
         let amount_read = reader.read_to_end(&mut data)?;
-        assert_eq!(amount_read, header.data_size());
+        if amount_read != header.data_size() {
+            return Err(SerializationError::MalformedData);
+        }
 
         Ok(DataDump { header, data })
     }
 
-    // TODO Griffin: Replace the panic with a proper error and the standard
-    // handling
     pub fn get_data(&self, mem_name: &str) -> Option<&[u8]> {
         let mut current_base = 0_usize;
         for mem in &self.header.memories {
@@ -201,6 +313,26 @@ pub enum SerializationError {
 
     #[error(transparent)]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
+
+    #[error("failed to parse data header: {0}")]
+    CborDeError(#[from] ciborium::de::Error<std::io::Error>),
+
+    #[error("failed to serialize data header: {0}")]
+    CborSerError(#[from] ciborium::ser::Error<std::io::Error>),
+
+    #[error("Malformed data dump, missing header length")]
+    MissingHeaderLength,
+
+    #[error("Malformed data dump, file is too short for given header length")]
+    MalformedHeader,
+
+    #[error(
+        "Malformed data dump, data section does not match header description"
+    )]
+    MalformedData,
+
+    #[error("Input is not a valid data dump")]
+    InvalidMagicNumber,
 }
 
 #[cfg(test)]
@@ -212,23 +344,23 @@ mod tests {
         let header = DataHeader {
             top_level: "test".to_string(),
             memories: vec![
-                MemoryDeclaration::new(
+                MemoryDeclaration::new_bitnum(
                     "mem0".to_string(),
                     32,
-                    16,
                     Dimensions::D1(16),
+                    false,
                 ), // 64 bytes
-                MemoryDeclaration::new(
+                MemoryDeclaration::new_bitnum(
                     "mem1".to_string(),
                     4,
-                    17,
                     Dimensions::D1(17),
+                    false,
                 ), // 17 bytes
-                MemoryDeclaration::new(
+                MemoryDeclaration::new_bitnum(
                     "mem2".to_string(),
                     3,
-                    2,
                     Dimensions::D1(2),
+                    false,
                 ), // 2 bytes
                    // 83 bytes
             ],
@@ -257,8 +389,8 @@ mod tests {
     use proptest::prelude::*;
 
     prop_compose! {
-        fn arb_memory_declaration()(name in any::<String>(), width in 1_usize..=256, size in 1_usize..=500) -> MemoryDeclaration {
-            MemoryDeclaration::new(name.to_string(), width, size, Dimensions::D1(size))
+        fn arb_memory_declaration()(name in any::<String>(), signed in any::<bool>(), width in 1_u32..=256, size in 1_usize..=500) -> MemoryDeclaration {
+            MemoryDeclaration::new_bitnum(name.to_string(), width, Dimensions::D1(size), signed)
         }
     }
 
@@ -297,8 +429,8 @@ mod tests {
             // produced from the memory primitive to not match the one
             // serialized into it in the first place
             for mem in &header.memories {
-                let bytes_per_val = mem.width.get().div_ceil(8);
-                let rem = mem.width.get() % 8;
+                let bytes_per_val = mem.width().div_ceil(8) as usize;
+                let rem = mem.width() % 8;
                 let mask = if rem != 0 { 255u8 >> (8 - rem) } else { 255_u8 };
 
                 for bytes in &mut header_data[cursor..cursor + mem.byte_count()]
@@ -343,7 +475,7 @@ mod tests {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
@@ -352,7 +484,7 @@ mod tests {
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }

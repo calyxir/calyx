@@ -42,9 +42,9 @@ op(
     [sim::sim_setup, c::calyx_setup],
     c::calyx_state,
     cider_state,
-    |e, input, _output| {
+    |e, input, output| {
         e.build_cmd(
-            ["cider-input.futil"],
+            [output],
             "calyx-with-flags",
             [input],
             [],
@@ -58,12 +58,12 @@ op(
     [sim::sim_setup, c::calyx_setup, cider_setup],
     cider_state,
     sim::dat,
-    |e, _input, output| {
+    |e, input, output| {
         let out_file = "interp_out.dump";
         e.build_cmd(
             [out_file],
             "run-cider",
-            ["cider-input.futil"],
+            [input],
             ["data.dump"],
         );
         e.build_cmd(

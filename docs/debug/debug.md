@@ -8,7 +8,7 @@ produces the correct values with the [Calyx Interpreter][interp].
 The first step is disabling optimization passes and running the bare bones compilation pipeline.
 
 To disable the passes, add the flag `-p no-opt` to compiler invocation:
-1. For the compiler: `futil <filename> -p no-opt`.
+1. For the compiler: `calyx <filename> -p no-opt`.
 2. For `fud`: `fud ... -s calyx.flags " -p no-opt"`.
 
 If the output is still incorrect then one of the core compilation passes is incorrect.
@@ -85,7 +85,7 @@ programs.
 To get around this, run the [`dead-group-removal`][dgr] pass before the validation
 passes:
 ```
-futil -p dead-group-removal -p validate ...
+calyx -p dead-group-removal -p validate ...
 ```
 
 ### Reducing Dahlia Programs
@@ -123,7 +123,7 @@ Suppose that we want to make sure that `let0` is correctly performing its
 computation.
 We can generate the control FSM for the program using:
 
-      futil <filename> -p top-down-cc
+      calyx <filename> -p top-down-cc
 
 This generates a Calyx program with several new groups.
 We want to look for groups with the prefix `tdcc` which look something like
