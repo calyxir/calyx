@@ -119,7 +119,7 @@ pub struct OpEmitData {
     /// the variables in each cmd are supplied. In particular, this means that variables of the
     /// form "$[i|o]<digit>" are in scope.
     ///
-    /// The second and third element of the tuple is a list of the indecies of other commands the given
+    /// The second and third element of the tuple is a list of the indices of other commands the
     /// command depends on.
     pub cmds: Vec<Rule>,
 

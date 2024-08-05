@@ -23,10 +23,10 @@ use super::{
 /// This enum enforces if the input and output files of a shell command are unspecified, the
 /// dependancy graph for the commands is a linked-list.
 enum ShellCommands {
-    /// This is a collection of rules whose dependancy graph is guarenteed to form a sequence. It
+    /// This is a collection of rules whose dependency graph is guaranteed to form a sequence. It
     /// corresponds to commands added with the function defined by `reg_shell`.
     SeqCmds(Vec<crate::run::Rule>),
-    /// This is a collection of rules allowing an arbitrary dependancy graph. This corresponds to
+    /// This is a collection of rules allowing an arbitrary dependency graph. This corresponds to
     /// command added with the function defined by `reg_shell_deps`.
     Cmds(Vec<crate::run::Rule>),
 }
@@ -43,7 +43,7 @@ struct RhaiOp {
     output_states: Vec<StateRef>,
 
     /// An ordered list of the commands run when this op is required. The second element of the
-    /// tuple is a list of the indecies of commands to be run before the given command.
+    /// tuple is a list of the indices of commands to be run before the given command.
     cmds: Option<ShellCommands>,
 
     /// A list of the values required from the config.
