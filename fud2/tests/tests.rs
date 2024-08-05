@@ -2,7 +2,8 @@ use figment::providers::Format as _;
 use fud_core::{
     config::default_config,
     exec::{
-        EnumeratePlanner, FindPlan, Plan, Request, SingleOpOutputPlanner, IO,
+        plan::{EnumeratePlanner, FindPlan, LegacyPlanner},
+        Plan, Request, IO,
     },
     run::Run,
     Driver, DriverBuilder,
@@ -192,7 +193,7 @@ fn request(
     end: &[&str],
     through: &[&str],
 ) -> Request {
-    request_with_planner(driver, start, end, through, SingleOpOutputPlanner {})
+    request_with_planner(driver, start, end, through, LegacyPlanner {})
 }
 
 #[test]
@@ -277,8 +278,8 @@ fn sim_tests() {
 #[test]
 fn cider_tests() {
     let driver = test_driver();
-    request(&driver, &["calyx"], &["dat"], &["interp"]).test(&driver);
-    request(&driver, &["calyx"], &["debug"], &[]).test(&driver);
+    request(&driver, &["calyx"], &["dat"], &["cider"]).test(&driver);
+    request(&driver, &["calyx"], &["cider-debug"], &[]).test(&driver);
 }
 
 #[test]

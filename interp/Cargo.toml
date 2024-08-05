@@ -5,8 +5,6 @@ authors = ["The Calyx authors"]
 edition = "2021"
 rust-version = "1.73"
 
-[lib]
-doctest = false # Don't run doc tests
 
 [[bin]]
 name = "cider"
@@ -14,9 +12,6 @@ path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-change-based-sim = []
-default = ["change-based-sim"]
 
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
@@ -49,6 +44,8 @@ calyx-opt = { path = "../calyx-opt" }
 calyx-frontend = { path = "../calyx-frontend" }
 
 btor2i = { path = "../tools/btor2/btor2i" }
+
+ciborium = "0.2.2"
 
 [dev-dependencies]
 proptest = "1.0.0"

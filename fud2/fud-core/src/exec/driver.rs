@@ -22,12 +22,16 @@ impl Driver {
     /// Generate a filename with an extension appropriate for the given State, `state_ref` relative
     /// to `workdir`.
     ///
+    /// If `user_visible`, then the path should not be in the working directory because the user
+    /// should see the generated file (or provides the file).
+    ///
     /// If `used` is false, the state is neither an output to the user, or used as input an op. In
     /// this case, the filename associated with the state will be prefixed by `_unused_`.
     fn gen_name(
         &self,
         state_ref: StateRef,
         used: bool,
+        user_visible: bool,
         workdir: &Utf8PathBuf,
     ) -> IO {
         let state = &self.states[state_ref];
@@ -39,14 +43,21 @@ impl Driver {
             ""
         };
 
+        // Only make the path relative, i.e. not in the workdir if the file should be user visible.
+        let post_process = if user_visible {
+            utils::relative_path
+        } else {
+            |x: &Utf8Path, _y: &Utf8Path| x.to_path_buf()
+        };
+
         IO::File(if state.is_pseudo() {
-            utils::relative_path(
+            post_process(
                 &Utf8PathBuf::from(format!("{}pseudo_{}", prefix, state.name)),
                 workdir,
             )
         } else {
             // TODO avoid collisions in case of reused extensions...
-            utils::relative_path(
+            post_process(
                 &Utf8PathBuf::from(format!("{}{}", prefix, state.name))
                     .with_extension(extension),
                 workdir,
@@ -79,17 +90,24 @@ impl Driver {
             ""
         };
 
+        // If the state is found in `states` the user should see this file. Amoung other things,
+        // this means it should be in their directory and not the working directory.
+        let user_visible = states.contains(&state_ref);
+
         if let Some(idx) = states.iter().position(|&s| s == state_ref) {
             if let Some(filename) = files.get(idx) {
-                IO::File(utils::relative_path(&filename.clone(), workdir))
+                if user_visible {
+                    IO::File(utils::relative_path(&filename.clone(), workdir))
+                } else {
+                    IO::File(filename.clone())
+                }
             } else {
-                IO::StdIO(utils::relative_path(
-                    &Utf8PathBuf::from(stdio_name).with_extension(extension),
-                    workdir,
-                ))
+                IO::StdIO(
+                    Utf8PathBuf::from(stdio_name).with_extension(extension),
+                )
             }
         } else {
-            self.gen_name(state_ref, used, workdir)
+            self.gen_name(state_ref, used, user_visible, workdir)
         }
     }
 
@@ -132,6 +150,7 @@ impl Driver {
                 } else {
                     format!("_to_stdout_{}", self.states[state].name)
                 };
+
                 self.gen_name_or_use_given(
                     state,
                     req_states,
@@ -155,6 +174,7 @@ impl Driver {
             &req.end_states,
             &req.through,
             &self.ops,
+            &self.states,
         )?;
 
         // Generate filenames for each step.
