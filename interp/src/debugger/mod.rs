@@ -1,13 +1,12 @@
-mod cidr;
-mod commands;
-mod context;
-mod interactive_errors;
+pub mod commands;
+mod debugger_core;
+mod debugging_context;
 mod io_utils;
-pub(crate) mod name_tree;
-pub(crate) mod new_parser;
-pub(crate) mod parser;
+mod macros;
 pub mod source;
-pub use commands::PrintCode;
 
-pub use cidr::Debugger;
-pub use cidr::ProgramStatus;
+pub use debugger_core::{
+    Debugger, DebuggerInfo, DebuggerReturnStatus, OwnedDebugger, ProgramStatus,
+};
+
+pub(crate) use macros::unwrap_error_message;

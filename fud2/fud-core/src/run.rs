@@ -91,10 +91,10 @@ impl EmitBuild for EmitBuildFn {
 #[derive(Debug, Clone)]
 pub enum ConfigVar {
     /// The key for the config variable.
-    Var(String),
+    Required(String),
 
     /// The key for the config variable followed by the value it should be if the key is not found.
-    VarOr(String, String),
+    Optional(String, String),
 }
 
 /// A shell command tagged with required and generated files.
@@ -111,7 +111,7 @@ pub struct Rule {
 }
 
 /// The data required to emit a single op.
-pub struct OpEmitData {
+pub struct RulesOp {
     /// The name of the op.
     pub op_name: String,
 
@@ -137,7 +137,7 @@ pub fn io_file_var_name(index: usize, input: bool) -> String {
     }
 }
 
-impl EmitBuild for OpEmitData {
+impl EmitBuild for RulesOp {
     fn build(
         &self,
         emitter: &mut StreamEmitter,
@@ -157,8 +157,8 @@ impl EmitBuild for OpEmitData {
 
         for var in &self.config_vars {
             match var {
-                ConfigVar::Var(k) => emitter.config_var(k, k)?,
-                ConfigVar::VarOr(k, d) => emitter.config_var_or(k, k, d)?,
+                ConfigVar::Required(k) => emitter.config_var(k, k)?,
+                ConfigVar::Optional(k, d) => emitter.config_var_or(k, k, d)?,
             }
         }
 
@@ -174,7 +174,7 @@ impl EmitBuild for OpEmitData {
             emitter.rule(&rule_name, &cmd.cmd)?;
             let targets = cmd.gens.iter().map(|s| s.as_str()).collect_vec();
             let deps = cmd.deps.iter().map(|s| s.as_str()).collect_vec();
-            emitter.build_cmd_with_vars(
+            emitter.build_cmd_with_args(
                 &targets,
                 &rule_name,
                 &deps,
@@ -611,7 +611,10 @@ impl<W: Write> Emitter<W> {
     }
 
     /// Emit a Ninja build command with variable list.
-    pub fn build_cmd_with_vars(
+    ///
+    /// Here `variables` is an association list, the first element of each tuple a key and the
+    /// second a value.
+    pub fn build_cmd_with_args(
         &mut self,
         targets: &[&str],
         rule: &str,
@@ -619,23 +622,9 @@ impl<W: Write> Emitter<W> {
         implicit_deps: &[&str],
         variables: &[(String, &str)],
     ) -> std::io::Result<()> {
-        write!(self.out, "build")?;
-        for target in targets {
-            write!(self.out, " {}", target)?;
-        }
-        write!(self.out, ": {}", rule)?;
-        for dep in deps {
-            write!(self.out, " {}", dep)?;
-        }
-        if !implicit_deps.is_empty() {
-            write!(self.out, " |")?;
-            for dep in implicit_deps {
-                write!(self.out, " {}", dep)?;
-            }
-        }
-        writeln!(self.out)?;
+        self.build_cmd(targets, rule, deps, implicit_deps)?;
         for (key, value) in variables {
-            writeln!(self.out, "  {} = {}", key, value)?;
+            self.arg(key, value)?;
         }
         writeln!(self.out)?;
         Ok(())

@@ -285,7 +285,6 @@ impl ScriptContext {
                 } else {
                     ShellCommands::Cmds(cmd_list)
                 });
-
                 Ok(())
             }
             None => Err(RhaiSystemError::no_op().with_pos(pos).into()),
@@ -347,7 +346,7 @@ impl ScriptContext {
                 };
                 let op_name = name.clone();
                 let config_vars = config_vars.clone();
-                let op_emitter = crate::run::OpEmitData {
+                let op_emitter = crate::run::RulesOp {
                     op_name,
                     cmds,
                     config_vars,
@@ -366,7 +365,7 @@ impl ScriptContext {
 }
 
 /// All nodes in the parsing state machine.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 enum ParseNode {
     DefopS,
     IdentS,
@@ -385,7 +384,7 @@ enum ParseNode {
 }
 
 /// All of the state of the parser.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct ParseState {
     node: ParseNode,
     inputs: usize,
@@ -640,7 +639,7 @@ impl ScriptRunner {
             move |ctx: rhai::NativeCallContext, key: &str| -> RhaiResult<_> {
                 sctx.add_config_var(
                     ctx.position(),
-                    crate::run::ConfigVar::Var(key.to_string()),
+                    crate::run::ConfigVar::Required(key.to_string()),
                 )?;
                 Ok(format!("${{{}}}", key))
             },
@@ -658,7 +657,7 @@ impl ScriptRunner {
                   -> RhaiResult<_> {
                 sctx.add_config_var(
                     ctx.position(),
-                    crate::run::ConfigVar::VarOr(
+                    crate::run::ConfigVar::Optional(
                         key.to_string(),
                         default.to_string(),
                     ),
@@ -792,7 +791,7 @@ impl ScriptRunner {
                     .iter()
                     .skip(1 + 2 * state.inputs)
                     .step_by(2)
-                    .take(state.inputs)
+                    .take(state.outputs)
                     .map(|n| {
                         Dynamic::from(n.get_string_value().unwrap().to_string())
                     })
@@ -801,7 +800,7 @@ impl ScriptRunner {
                     .iter()
                     .skip(2 + 2 * state.inputs)
                     .step_by(2)
-                    .take(state.inputs)
+                    .take(state.outputs)
                     .map(|s| s.eval_with_context(context))
                     .collect::<RhaiResult<Vec<_>>>()?;
                 let body = inputs.last().unwrap();
