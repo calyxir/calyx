@@ -339,6 +339,16 @@ impl ScriptContext {
                                 outputs.iter().map(|v| format!("${}", v));
                             v.gens.extend(outputs);
                         }
+
+                        // Similarly, the first command should depend on all inputs.
+                        let inputs: Vec<_> = (0..input_states.len())
+                            .map(|i| crate::run::io_file_var_name(i, true))
+                            .collect();
+                        if let Some(v) = c.first_mut() {
+                            let inputs =
+                                inputs.iter().map(|v| format!("${}", v));
+                            v.deps.extend(inputs);
+                        }
                         c
                     }
                     Some(ShellCommands::Cmds(c)) => c.clone(),

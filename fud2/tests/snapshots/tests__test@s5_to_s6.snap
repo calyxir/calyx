@@ -8,7 +8,7 @@ rule get-rsrc
 
 rule t3_rule_1
   command = echo Char
-build _t3_rule_1.fake: t3_rule_1
+build _t3_rule_1.fake: t3_rule_1 $i0
   i0 = _from_stdin_s5
   o0 = _to_stdout_s6
 
