@@ -18,6 +18,19 @@ use super::{
     resolver::Resolver,
 };
 
+/// A collection of rules created from Rhai shell commands.
+///
+/// This enum enforces if the input and output files of a shell command are unspecified, the
+/// dependancy graph for the commands is a linked-list.
+enum ShellCommands {
+    /// This is a collection of rules whose dependancy graph is guarenteed to form a sequence. It
+    /// corresponds to commands added with the function defined by `reg_shell`.
+    SeqCmds(Vec<crate::run::Rule>),
+    /// This is a collection of rules allowing an arbitrary dependancy graph. This corresponds to
+    /// command added with the function defined by `reg_shell_deps`.
+    Cmds(Vec<crate::run::Rule>),
+}
+
 /// The signature and implementation of an operation specified in Rhai.
 struct RhaiOp {
     /// Operation name.
@@ -31,7 +44,7 @@ struct RhaiOp {
 
     /// An ordered list of the commands run when this op is required. The second element of the
     /// tuple is a list of the indecies of commands to be run before the given command.
-    cmds: Vec<crate::run::Rule>,
+    cmds: Option<ShellCommands>,
 
     /// A list of the values required from the config.
     config_vars: Vec<crate::run::ConfigVar>,
@@ -133,7 +146,7 @@ impl ScriptContext {
                     name: name.to_string(),
                     input_states: inputs,
                     output_states: outputs,
-                    cmds: vec![],
+                    cmds: None,
                     config_vars: vec![],
                     seen_deps: HashSet::from_iter((0..num_inputs).map(|i| {
                         format!("${}", crate::run::io_file_var_name(i, true))
@@ -166,23 +179,52 @@ impl ScriptContext {
         cmd: String,
         deps: rhai::Array,
         gens: rhai::Array,
-        dep_on_all: bool,
+        is_shell: bool,
     ) -> RhaiResult<()> {
         let mut cur_op = self.cur_op.borrow_mut();
         match *cur_op {
-            Some(ref mut op_sig) => {
+            Some(RhaiOp {
+                ref mut cmds,
+                ref name,
+                ref mut seen_deps,
+                ..
+            }) => {
+                // Guard against mixing `shell` and `shell_deps`.
+                if matches!(cmds, Some(ShellCommands::SeqCmds(_))) && !is_shell
+                {
+                    return Err(RhaiSystemError::expected_shell()
+                        .with_pos(pos)
+                        .into());
+                } else if matches!(cmds, Some(ShellCommands::Cmds(_)))
+                    && is_shell
+                {
+                    return Err(RhaiSystemError::expected_shell_deps()
+                        .with_pos(pos)
+                        .into());
+                }
+
+                // If cmds has not yet been initialized, initilized it.
+                let mut cmd_list = match cmds.take() {
+                    Some(ShellCommands::Cmds(cmds))
+                    | Some(ShellCommands::SeqCmds(cmds)) => cmds,
+                    None => {
+                        vec![]
+                    }
+                };
+
                 // Extract dependancies.
-                let deps = if dep_on_all {
-                    // Depends on all previously run commands. All commands generate a file
-                    // specified by `fake_file_name` so make this a dependancy.
-                    op_sig
-                        .cmds
-                        .iter()
-                        .enumerate()
-                        .map(|(i, _)| Self::fake_file_name(&op_sig.name, i))
-                        .collect()
+                let deps = if is_shell {
+                    // Depends on all previously run command in sequence. If none exists, depend on
+                    // nothing.
+                    //
+                    // Because this is a `shell` command, the last element, if it exists, is
+                    // guarenteed to have a single output.
+                    cmd_list
+                        .last()
+                        .map(|v| vec![v.gens[0].clone()])
+                        .unwrap_or(vec![])
                 } else {
-                    // Depends on file specified in `deps`.
+                    // Depends on files specified in `deps`.
                     deps.into_iter()
                         .map(|d| {
                             let type_name = d.type_name();
@@ -191,8 +233,7 @@ impl ScriptContext {
                                     RhaiSystemError::expected_string(type_name)
                                         .with_pos(pos)
                                 })?;
-                            op_sig
-                                .seen_deps
+                            seen_deps
                                 .get(&dep)
                                 .ok_or_else(|| {
                                     RhaiSystemError::no_dep(&dep).with_pos(pos)
@@ -214,16 +255,15 @@ impl ScriptContext {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                // All commands generate a "fake" file for dependancy tracking.
-                gens.push(Self::fake_file_name(
-                    &op_sig.name,
-                    op_sig.cmds.len(),
-                ));
+                // All shell commands generate a "fake" file for dependancy tracking because
+                // generated and depended on files aren't tracked.
+                if is_shell {
+                    gens.push(Self::fake_file_name(name, cmd_list.len()));
+                }
 
                 // Duplicated targets should be an error.
                 for target in &gens {
-                    let matched_target = op_sig
-                        .cmds
+                    let matched_target = cmd_list
                         .iter()
                         .flat_map(|c| &c.gens)
                         .find(|s| *s == target);
@@ -236,10 +276,15 @@ impl ScriptContext {
 
                 // Add all generated files to seen dependancies.
                 for v in &gens {
-                    op_sig.seen_deps.insert(v.clone());
+                    seen_deps.insert(v.clone());
                 }
 
-                op_sig.cmds.push(crate::run::Rule { cmd, deps, gens });
+                cmd_list.push(crate::run::Rule { cmd, deps, gens });
+                *cmds = Some(if is_shell {
+                    ShellCommands::SeqCmds(cmd_list)
+                } else {
+                    ShellCommands::Cmds(cmd_list)
+                });
 
                 Ok(())
             }
@@ -282,7 +327,24 @@ impl ScriptContext {
                 seen_deps: _,
             }) => {
                 // Create the emitter.
-                let cmds = cmds.clone();
+                let cmds = match cmds {
+                    Some(ShellCommands::SeqCmds(c)) => {
+                        // The final command should generate the outputs otherwise none of the
+                        // rules would get called.
+                        let outputs: Vec<_> = (0..output_states.len())
+                            .map(|i| crate::run::io_file_var_name(i, false))
+                            .collect();
+                        let mut c = c.clone();
+                        if let Some(v) = c.last_mut() {
+                            let outputs =
+                                outputs.iter().map(|v| format!("${}", v));
+                            v.gens.extend(outputs);
+                        }
+                        c
+                    }
+                    Some(ShellCommands::Cmds(c)) => c.clone(),
+                    None => vec![],
+                };
                 let op_name = name.clone();
                 let config_vars = config_vars.clone();
                 let op_emitter = crate::run::OpEmitData {

@@ -162,60 +162,21 @@ impl EmitBuild for OpEmitData {
             }
         }
 
-        // Some outputs are created by user specified `shell_deps`. Others are not and have to be
-        // created by running every `shell`/`shell_deps` command.
-        let mut uncreated_outputs: HashSet<String> =
-            HashSet::from_iter((0..outputs.len()).map(|i| {
-                format!("${}", crate::run::io_file_var_name(i, false))
-            }));
-
-        // Write a sequence of rules for each cmd.
+        // Write a sequence of rules and build statements for each cmd.
         for (i, cmd) in self.cmds.iter().enumerate() {
+            // Don't need to output commands which never generate any outputs as these commands
+            // would never be rub.
+            if cmd.gens.is_empty() {
+                continue;
+            }
+
             let rule_name = format!("{}_rule_{}", self.op_name, i + 1);
             emitter.rule(&rule_name, &cmd.cmd)?;
             let targets = cmd.gens.iter().map(|s| s.as_str()).collect_vec();
             let deps = cmd.deps.iter().map(|s| s.as_str()).collect_vec();
-            for &t in &targets {
-                uncreated_outputs.remove(t);
-            }
             emitter.build_cmd_with_vars(
                 &targets,
                 &rule_name,
-                &deps,
-                &[],
-                &vars,
-            )?;
-        }
-
-        // Depend on all shell commands. The illusion is all shell commands are run in order, with
-        // the option to specify some shell commands as having explicit targets and dependancies as
-        // an optimization. They still all have to get run though.
-        let deps = inputs
-            .iter()
-            .cloned()
-            .chain(
-                self.cmds
-                    .iter()
-                    .map(|cmd| cmd.gens.last().unwrap().as_str()),
-            )
-            .collect_vec();
-
-        if uncreated_outputs.is_empty() {
-            // Even if all outputs have said to have been created by the user, all the calls to `shell`
-            // should still get run.
-            let fake_output = format!("_{}_output.fake", self.op_name);
-            emitter.build_cmd_with_vars(
-                &[&fake_output],
-                "phony",
-                &deps,
-                &[],
-                &vars,
-            )?;
-            writeln!(emitter.out, "default {}", fake_output)?;
-        } else {
-            emitter.build_cmd_with_vars(
-                &uncreated_outputs.iter().map(|s| s.as_str()).collect_vec(),
-                "phony",
                 &deps,
                 &[],
                 &vars,

@@ -19,6 +19,8 @@ pub(super) enum RhaiSystemErrorKind {
 
     /// The string is the type name of non-string value.
     ExpectedString(String),
+    ExpectedShell,
+    ExpectedShellDeps,
 }
 
 impl RhaiSystemError {
@@ -74,6 +76,20 @@ impl RhaiSystemError {
         }
     }
 
+    pub(super) fn expected_shell() -> Self {
+        Self {
+            kind: RhaiSystemErrorKind::ExpectedShell,
+            position: rhai::Position::NONE,
+        }
+    }
+
+    pub(super) fn expected_shell_deps() -> Self {
+        Self {
+            kind: RhaiSystemErrorKind::ExpectedShellDeps,
+            position: rhai::Position::NONE,
+        }
+    }
+
     pub(super) fn with_pos(mut self, p: rhai::Position) -> Self {
         self.position = p;
         self
@@ -103,6 +119,12 @@ impl Display for RhaiSystemError {
             }
             RhaiSystemErrorKind::DupTarget(target) => {
                 write!(f, "Duplicate target: `{target:?}`. Consider removing a shell command generating `{target:?}`.")
+            }
+            RhaiSystemErrorKind::ExpectedShell => {
+                write!(f, "Expected `shell`, got `shell_deps`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
+            }
+            RhaiSystemErrorKind::ExpectedShellDeps => {
+                write!(f, "Expected `shell_deps`, got shell. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
             }
         }
     }
