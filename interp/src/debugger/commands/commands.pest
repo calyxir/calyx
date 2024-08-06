@@ -59,8 +59,11 @@ delete = { (^"delete" | ^"del") ~ brk_id+ }
 
 delete_watch = { (^"delete-watch" | ^"del-watch") ~ brk_id+ }
 
-enable  = { (^"enable") ~ brk_id+ }
-disable = { (^"disable") ~ brk_id+ }
+enable  = { (^"enable" | ^"en") ~ brk_id+ }
+disable = { (^"disable" | ^"dis") ~ brk_id+ }
+
+enable_watch  = { (^"enable-watch" | ^"enw") ~ brk_id+ }
+disable_watch = { (^"disable-watch" | ^"disw") ~ brk_id+ }
 
 exit = { ^"exit" | ^"quit" }
 
@@ -71,6 +74,6 @@ explain = { ^"explain" }
 restart = { ^"restart" }
 
 command = {
-    SOI ~ (watch | comm_where | print_state | print | print_fail | delete_watch | delete | brk | enable | disable | step_over | step // commands without input
+    SOI ~ (watch | comm_where | print_state | print | print_fail | delete_watch | delete | brk | enable_watch | disable_watch | enable | disable | step_over | step // commands without input
   | cont | help | info_break | info_watch | display | exit | explain | restart)? ~ EOI
 }
