@@ -70,7 +70,7 @@ impl MyAdapter {
         let mut to_debugger_set: Vec<ParsedGroupName> = vec![];
         let mut to_client: Vec<Breakpoint> = vec![];
 
-        // iterate over points recieved in request
+        // iterate over points received in request
         for source_point in points {
             self.breakpoints.insert(source_point.line);
             let name = self.ids.lookup_line(source_point.line as u64);

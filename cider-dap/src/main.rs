@@ -354,7 +354,7 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
                     scopes: adapter.get_scopes(frame_id),
                 }));
-                //info!(logger, "responded with {rsp:?}");
+                info!(logger, "responded with {rsp:?}");
                 server.respond(rsp)?;
             }
             Command::Variables(args) => {

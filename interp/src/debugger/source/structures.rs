@@ -1,7 +1,5 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
-// use calyx_frontend::ast::Group;
-
 use crate::errors::InterpreterResult;
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
