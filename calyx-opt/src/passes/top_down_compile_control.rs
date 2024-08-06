@@ -255,7 +255,7 @@ enum RegisterSpread {
     Duplicate,
     /// Split the schedule with `n` states between two `n/2`-state registers;
     /// available only for `Seq` schedules
-    Split,
+    Offload,
 }
 
 #[derive(Clone, Copy)]
@@ -497,7 +497,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
             RegisterSpread::Single | RegisterSpread::Duplicate => {
                 fsm_rep.last_state + 1
             }
-            RegisterSpread::Split => (fsm_rep.last_state + 2) / 2,
+            RegisterSpread::Offload => (fsm_rep.last_state + 2) / 2,
         };
         // get fsm bit width and build constant emitting fsm first state
         let (fsm_size, first_state) = match fsm_rep.encoding {
@@ -539,7 +539,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 },
                 match fsm_rep.spread {
                     RegisterSpread::Single => 1,
-                    RegisterSpread::Duplicate | RegisterSpread::Split => 2,
+                    RegisterSpread::Duplicate | RegisterSpread::Offload => 2,
                 },
                 fsm_size,
             ),
@@ -548,7 +548,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 "std_reg",
                 match fsm_rep.spread {
                     RegisterSpread::Single | RegisterSpread::Duplicate => 0,
-                    RegisterSpread::Split => 2,
+                    RegisterSpread::Offload => 2,
                 },
                 1,
             ),
@@ -684,11 +684,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     };
 
                 let fsm_end_constant = match fsm_rep.spread {
-                    RegisterSpread::Split => e % ((fsm_rep.last_state + 2) / 2),
+                    RegisterSpread::Offload => {
+                        e % ((fsm_rep.last_state + 2) / 2)
+                    }
                     RegisterSpread::Single | RegisterSpread::Duplicate => e,
                 };
 
-                // // parent & fsm (child) transitions
+                // parent & fsm (child) transitions
                 [
                     create_transitions(
                         &parents,
@@ -1195,6 +1197,8 @@ pub struct TopDownCompileControl {
     one_hot_cutoff: u64,
     /// Number of states the dynamic FSM must have before picking duplicate over single register
     duplicate_cutoff: u64,
+    /// Sequential schedules with length above `duplicate_cutoff` will be offloaded to child
+    offload_seqs: bool,
 }
 
 impl TopDownCompileControl {
@@ -1221,9 +1225,9 @@ impl TopDownCompileControl {
                 match (last_state) <= self.duplicate_cutoff {
                     true => RegisterSpread::Single,
                     false => {
-                        // must be sequential schedule w/ # states >= 2 to split
-                        if is_seq && last_state > 1 {
-                            RegisterSpread::Split
+                        // to split, must be sequential schedule w/ # states >= 2 w/ offload chosen
+                        if is_seq && last_state > 1 && self.offload_seqs {
+                            RegisterSpread::Offload
                         } else {
                             RegisterSpread::Duplicate
                         }
@@ -1253,6 +1257,7 @@ impl ConstructVisitor for TopDownCompileControl {
             duplicate_cutoff: opts[&"duplicate-cutoff"]
                 .pos_num()
                 .expect("requires non-negative duplicate cutoff parameter"),
+            offload_seqs: opts[&"offload-seqs"].bool(),
         })
     }
 
@@ -1302,6 +1307,12 @@ impl Named for TopDownCompileControl {
                 ParseVal::Num(i64::MAX),
                 PassOpt::parse_num,
             ),
+            PassOpt::new(
+                "offload-seqs",
+                "If selected, sequential schedules with length above `duplicate_cutoff` will be offloaded to child",
+                ParseVal::Bool(false),
+                PassOpt::parse_bool
+            )
         ]
     }
 }

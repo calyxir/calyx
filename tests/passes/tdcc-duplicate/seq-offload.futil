@@ -1,4 +1,4 @@
-// -x tdcc:duplicate-cutoff=0 -p tdcc
+// -x tdcc:duplicate-cutoff=0 -x tdcc:offload-seqs -p tdcc
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
@@ -31,6 +31,6 @@ component main() -> () {
   }
 
   control {
-    seq {A; B; C;}
+    seq { A; B; C; }
   }
 }
