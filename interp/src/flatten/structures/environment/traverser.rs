@@ -157,14 +157,136 @@ impl Traverser {
         target: S,
     ) -> Result<Path, TraversalError> {
         if let Some(first_ref) = self.first_ref {
-            let current_comp_idx = if !self.abstract_path.is_empty() {
-                self.compute_current_comp_def(env)
+            let (outer_comp, last_cell): (ComponentIdx, CellRef) = if !self
+                .abstract_path
+                .is_empty()
+            {
+                let current_comp_ledger = env.cells
+                    [*self.concrete_path.last().unwrap()]
+                .as_comp()
+                .unwrap();
+
+                let ref_offset = first_ref - &current_comp_ledger.index_bases;
+                let mut current_comp_id = *env
+                    .get_def_info_ref(current_comp_ledger.comp_id, ref_offset)
+                    .prototype
+                    .as_component()
+                    .unwrap();
+
+                // iterate over the cells which must be components
+                for abstract_cell in
+                    self.abstract_path.iter().take(self.abstract_path.len() - 1)
+                {
+                    match abstract_cell {
+                        CellRef::Local(l) => {
+                            let info = env.get_def_info(current_comp_id, *l);
+                            current_comp_id =
+                                *info.prototype.as_component().unwrap();
+                        }
+                        CellRef::Ref(r) => {
+                            let info =
+                                env.get_def_info_ref(current_comp_id, *r);
+                            current_comp_id =
+                                *info.prototype.as_component().unwrap();
+                        }
+                    }
+                }
+
+                let last_ref = self.abstract_path.last().unwrap();
+                (current_comp_id, *last_ref)
             } else {
-                let last_comp = *self.concrete_path.last().unwrap();
-                let last_comp_ledger = env.cells[last_comp].as_comp().unwrap();
-                last_comp_ledger.comp_id
+                let last_comp_idx = *self.concrete_path.last().unwrap();
+                let last_comp_ledger =
+                    env.cells[last_comp_idx].as_comp().unwrap();
+                let local_offset = first_ref - &last_comp_ledger.index_bases;
+                (last_comp_ledger.comp_id, local_offset.into())
             };
 
+            let current_comp_idx = match last_cell {
+                CellRef::Local(l) => {
+                    let info = env.get_def_info(outer_comp, l);
+
+                    // first check component ports for the target
+                    for offset in info.ports.iter() {
+                        let def_info =
+                            env.get_port_def_info(outer_comp, offset);
+                        if env.ctx().lookup_name(def_info.name)
+                            == target.as_ref()
+                        {
+                            return Ok(Path::AbstractPort {
+                                cell: LazyCellPath {
+                                    concrete_prefix: self.concrete_path,
+                                    first_ref,
+                                    abstract_suffix: self.abstract_path,
+                                },
+                                port: offset.into(),
+                            });
+                        }
+                    }
+
+                    // it's not a port
+                    if let Some(cell) = info.prototype.as_component() {
+                        *cell
+                    } else {
+                        return Err(TraversalError::Unknown(
+                            target.as_ref().to_string(),
+                        ));
+                    }
+                }
+                CellRef::Ref(r) => {
+                    let info = env.get_def_info_ref(outer_comp, r);
+
+                    // first check component ports for the target
+                    for offset in info.ports.iter() {
+                        let name =
+                            env.get_port_def_info_ref(outer_comp, offset);
+                        if env.ctx().lookup_name(name) == target.as_ref()
+                            && info.prototype.is_component()
+                        {
+                            let comp = info.prototype.as_component().unwrap();
+                            let sig = env.ctx().secondary[*comp].signature();
+                            for port in sig {
+                                let port_def =
+                                    env.get_port_def_info(*comp, port);
+                                if env.ctx().lookup_name(port_def.name)
+                                    == target.as_ref()
+                                {
+                                    return Ok(Path::AbstractPort {
+                                        cell: LazyCellPath {
+                                            concrete_prefix: self.concrete_path,
+                                            first_ref,
+                                            abstract_suffix: self.abstract_path,
+                                        },
+                                        port: port.into(),
+                                    });
+                                }
+                            }
+                            unreachable!("port exists on cell but not in signature. Internal structure is in an inconsistent state. This is an error please report it");
+                        } else if env.ctx().lookup_name(name) == target.as_ref()
+                        {
+                            return Ok(Path::AbstractPort {
+                                cell: LazyCellPath {
+                                    concrete_prefix: self.concrete_path,
+                                    first_ref,
+                                    abstract_suffix: self.abstract_path,
+                                },
+                                port: offset.into(),
+                            });
+                        }
+                    }
+
+                    // it's not a port
+                    if let Some(cell) = info.prototype.as_component() {
+                        *cell
+                    } else {
+                        return Err(TraversalError::Unknown(
+                            target.as_ref().to_string(),
+                        ));
+                    }
+                }
+            };
+
+            // Check cells
             let current_comp_def = &env.ctx().secondary[current_comp_idx];
             for (offset, def_idx) in current_comp_def.cell_offset_map.iter() {
                 if env.ctx().lookup_name(env.ctx().secondary[*def_idx].name)
@@ -177,23 +299,9 @@ impl Traverser {
                         abstract_suffix: self.abstract_path,
                     }));
                 }
-
-                for port in env.ctx().secondary[*def_idx].ports.iter() {
-                    let port_def_idx = current_comp_def.port_offset_map[port];
-                    let port_name = env.ctx().secondary[port_def_idx].name;
-                    if env.ctx().lookup_name(port_name) == target.as_ref() {
-                        return Ok(Path::AbstractPort {
-                            cell: LazyCellPath {
-                                concrete_prefix: self.concrete_path,
-                                first_ref,
-                                abstract_suffix: self.abstract_path,
-                            },
-                            port: port.into(),
-                        });
-                    }
-                }
             }
 
+            // check ref_cells
             for (offset, def_idx) in current_comp_def.ref_cell_offset_map.iter()
             {
                 if env.ctx().lookup_name(env.ctx().secondary[*def_idx].name)
@@ -206,26 +314,7 @@ impl Traverser {
                         abstract_suffix: self.abstract_path,
                     }));
                 }
-
-                for port in env.ctx().secondary[*def_idx].ports.iter() {
-                    let port_def_idx =
-                        current_comp_def.ref_port_offset_map[port];
-                    let port_name = env.ctx().secondary[port_def_idx];
-                    if env.ctx().lookup_name(port_name) == target.as_ref() {
-                        return Ok(Path::AbstractPort {
-                            cell: LazyCellPath {
-                                concrete_prefix: self.concrete_path,
-                                first_ref,
-                                abstract_suffix: self.abstract_path,
-                            },
-                            port: port.into(),
-                        });
-                    }
-                }
             }
-
-            // wasn't able to find it as a cell, so it must be a port if it
-            // exists
         } else {
             let current_comp = *self.concrete_path.last().unwrap();
 
@@ -441,10 +530,9 @@ impl Path {
                             current = ref_actual;
                         } else {
                             // todo griffin: improve error message
-                            return Err(ResolvePathError(format!(
-                                "<PLACEHOLDER {:?}>",
-                                ref_global_offset
-                            )));
+                            return Err(ResolvePathError(
+                                env.get_full_name(ref_global_offset),
+                            ));
                         }
                     }
                 }
@@ -452,10 +540,7 @@ impl Path {
             Ok(current)
         } else {
             // todo griffin: improve error message
-            Err(ResolvePathError(format!(
-                "<PLACEHOLDER {:?}>",
-                path.first_ref
-            )))
+            Err(ResolvePathError(env.get_full_name(path.first_ref)))
         }
     }
 
