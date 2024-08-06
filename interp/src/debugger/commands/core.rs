@@ -263,7 +263,7 @@ impl PrintTuple {
         write!(
             string,
             " {}",
-            &self.0.iter().map(|x| dbg!(x).as_string(env)).join(" "),
+            &self.0.iter().map(|x| x.as_string(env)).join(" "),
         )
         .unwrap();
 

@@ -447,15 +447,15 @@ impl LazyCellPath {
         env: &Environment<C>,
     ) -> String {
         let last = self.concrete_prefix.last().unwrap();
-        let mut path = dbg!(env.get_full_name(last));
+        let mut path = env.get_full_name(last);
         let ledger = env.cells[*last].as_comp().unwrap();
         let offset = self.first_ref - &ledger.index_bases;
         let cell_idx =
             env.ctx().secondary[ledger.comp_id].ref_cell_offset_map[offset];
         path.push('.');
-        path.push_str(dbg!(env
-            .ctx()
-            .lookup_name(env.ctx().secondary[cell_idx].name)));
+        path.push_str(
+            env.ctx().lookup_name(env.ctx().secondary[cell_idx].name),
+        );
 
         let mut current_comp = *env.ctx().secondary[cell_idx]
             .prototype
@@ -595,7 +595,6 @@ impl Path {
             Path::Port(p) => env.get_full_name(p),
             Path::AbstractCell(path) => path.as_string(env),
             Path::AbstractPort { cell, port } => {
-                dbg!("confusion");
                 let mut path = cell.as_string(env);
                 let comp = cell.terminal_comp(env);
                 match port {
