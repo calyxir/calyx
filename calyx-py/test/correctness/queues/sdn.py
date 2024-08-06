@@ -110,21 +110,15 @@ def build(static=False):
 
     fifo_purple = fifo.insert_fifo(prog, "fifo_purple")
     fifo_tangerine = fifo.insert_fifo(prog, "fifo_tangerine")
-    pifo_red = pifo.insert_queue(prog, "pifo_red", [fifo_purple, fifo_tangerine], [0, 100, 200], 2, [], True)
+    pifo_red = pifo.insert_queue(
+        prog, "pifo_red", [fifo_purple, fifo_tangerine], [0, 100, 200], 2, [], True
+    )
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
     pifo_root = pifo.insert_queue(
-        prog,
-        "pifo_root",
-        [pifo_red, fifo_blue],
-        [0, 200, 400], 2, [], True
+        prog, "pifo_root", [pifo_red, fifo_blue], [0, 200, 400], 2, [], True
     )
 
-    queue_call.insert_main(
-        prog,
-        pifo_root,
-        num_cmds,
-        keepgoing=keepgoing
-    )
+    queue_call.insert_main(prog, pifo_root, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 
