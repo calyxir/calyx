@@ -70,8 +70,8 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - Optional memories `ranks` and `times` are included for queues primed for non-work-conserving algorithms.
-    - The `commands` memory has `num_cmds` items, which range from 0-1 for work-conserving policies,
-        and from 0-1 for non-work-conserving. They are as follows:
+    - The `commands` memory has `num_cmds` items, which are 0 or 1 for both work-conserving and 
+        non-work-conserving policies. They are as follows:
 
     FOR WORK-CONSERVING POLICIES
         0 : pop
