@@ -34,15 +34,22 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
 
 
 def insert_queue(
-    prog, name, fifos, boundaries, numflows, order, round_robin, queue_len_factor=QUEUE_LEN_FACTOR
+    prog,
+    name,
+    fifos,
+    boundaries,
+    numflows,
+    order,
+    round_robin,
+    queue_len_factor=QUEUE_LEN_FACTOR,
 ):
     """
     Inserts the component `pifo` into the program. If round_robin is true, it
     inserts a round robin queue, otherwise it inserts a strict queue. `numflows`
     is the number of flows, which must be an integer greater than 0. Boundaries
-    must be of length `numflows` + 1, where the first boundary is the smallest 
+    must be of length `numflows` + 1, where the first boundary is the smallest
     number a value can take (eg. 0). `order` is used for strict queues to determine
-    the order of priority of the subqueues. `order` must be a list of length 
+    the order of priority of the subqueues. `order` must be a list of length
     `numflows`.
     """
 
@@ -65,7 +72,6 @@ def insert_queue(
     hot = pifo.reg(32, "hot")
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
-    restore_hot = pifo.reg_store(hot, og_hot.out)  # hot := og_hot.out
 
     max_queue_len = 2**queue_len_factor
 
@@ -105,20 +111,24 @@ def insert_queue(
                 # In the specical case when b = 0,
                 # we don't need to check the lower bound and we can just `invoke`.
                 if b == 0 and round_robin
-                
-                else
-                invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err)
-
-                if b == 0 and not round_robin
-                else cb.if_with(
-                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                    invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err),)
-                if not round_robin 
-                # Otherwise, we need to check the lower bound and `invoke`
-                # only if the value is in the interval.
-                else cb.if_with(
-                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                    invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
+                else (
+                    invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err)
+                    if b == 0 and not round_robin
+                    else (
+                        cb.if_with(
+                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                            invoke_subqueue(
+                                fifo_cells[order.index(b)], cmd, value, ans, err
+                            ),
+                        )
+                        if not round_robin
+                        # Otherwise, we need to check the lower bound and `invoke`
+                        # only if the value is in the interval.
+                        else cb.if_with(
+                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                            invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
+                        )
+                    )
                 )
             ),
         )
@@ -157,7 +167,14 @@ def insert_queue(
                 ],
             ),
             len_decr,
-            restore_hot if not round_robin else ast.Empty            
+            (
+                pifo.reg_store(hot, og_hot.out)
+                if not round_robin
+                else ast.Empty
+                # If we are not generating a round-robin PIFO,
+                # we are generating a strict PIFO.
+                # We need to restore `hot` to its original value.
+            ),
         ],
     )
 
@@ -177,10 +194,7 @@ def insert_queue(
     # We can do those two cases in parallel.
     pifo.control += pifo.case(
         cmd,
-        {
-            0: pop_logic,
-            1: push_logic
-        },
+        {0: pop_logic, 1: push_logic},
     )
 
     return pifo
@@ -217,6 +231,8 @@ def build(numflows, roundrobin):
     sub_fifos = [
         fifo.insert_fifo(prog, f"fifo{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
     ]
-    pifo = insert_queue(prog, "pifo", sub_fifos, boundaries, numflows, order, roundrobin)
+    pifo = insert_queue(
+        prog, "pifo", sub_fifos, boundaries, numflows, order, roundrobin
+    )
     qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
