@@ -98,7 +98,7 @@ class CiderDebugAdapter {
       });
       this.adapterProcess.on("spawn", () => {
         logToPanel("Debugger started on port " + port + "!");
-        setTimeout(() => resolve(port), 200) //short wait to let the thing start running 
+        setTimeout(() => resolve(port), 700) //short wait to let the thing start running 
       });
       this.adapterProcess.on("error", () => {
         logToPanel("Debugger failed to start");
@@ -141,9 +141,12 @@ function activate(context) {
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory)
   );
+  logToPanel("before disposables push")
   disposables.push(vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory))
   // Update the adapter path with the serverPort and use it for starting the debug adapter - ??
-  logToPanel("Hello, your extension is now activated!");
+  logToPanel("Hello, your extension is now activated! after disposables push");
+
+
 }
 
 function stopDebugging() {

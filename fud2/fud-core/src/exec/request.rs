@@ -1,4 +1,4 @@
-use super::{planner::FindPlan, OpRef, StateRef};
+use super::{plan::FindPlan, OpRef, StateRef};
 use camino::Utf8PathBuf;
 
 /// A request to the Driver directing it what to build.
