@@ -17,7 +17,7 @@ use crate::{
         },
         structures::{
             context::{Context, InterpretationContext, SecondaryContext},
-            index_trait::IndexRange,
+            index_trait::{IndexRange, SignatureRange},
         },
     },
 };
@@ -369,19 +369,29 @@ fn compute_local_layout(
 
     let mut layout = Layout::default();
 
-    // need this to set the appropriate signature range on the component
-    let sig_base = aux.port_offset_map.peek_next_index();
+    let mut sigs_input = SignatureRange::new();
+    let mut sigs_output = SignatureRange::new();
 
-    // first, handle the signature ports
-    for port in comp.signature.borrow().ports() {
+    // first, handle the input signature ports
+    for port in comp.signature.borrow().ports().into_iter() {
         let local_offset =
             insert_port(&mut ctx.secondary, aux, port, ContainmentType::Local);
+        match &port.borrow().direction {
+            cir::Direction::Input => {
+                sigs_output.append_item(*local_offset.as_local().unwrap());
+            }
+            cir::Direction::Output => {
+                sigs_input.append_item(*local_offset.as_local().unwrap());
+            }
+            _ => unreachable!("inout port in component signature"),
+        }
+
         layout.port_map.insert(port.as_raw(), local_offset);
     }
 
     // update the aux info with the signature layout
-    aux.signature =
-        IndexRange::new(sig_base, aux.port_offset_map.peek_next_index());
+    aux.signature_in = sigs_input;
+    aux.signature_out = sigs_output;
 
     // second the group holes
     for group in &comp.groups {

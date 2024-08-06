@@ -636,6 +636,14 @@ target/debug/calyx {} -b xilinx-xml
 """
 
 [[tests]]
+name = "kernel.xml generation from yxi"
+paths = ["yxi/tests/axi/xml/*.yxi"]
+cmd = """
+python3 yxi/xml/xml_generator.py {}
+"""
+
+
+[[tests]]
 name = "Cocotb correctness tests"
 paths = [
   "tests/xilinx/cocotb/dot-product/",
