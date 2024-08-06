@@ -58,17 +58,7 @@ impl BreakPoint {
     }
 
     pub fn format(&self, ctx: &Context) -> String {
-        let parent_comp = ctx
-            .primary
-            .components
-            .keys()
-            .find(|comp_id| {
-                ctx.secondary[*comp_id]
-                    .definitions
-                    .groups()
-                    .contains(self.group)
-            })
-            .unwrap();
+        let parent_comp = ctx.get_component_from_group(self.group);
         let parent_name = ctx.lookup_name(parent_comp);
 
         let group_name = ctx.lookup_name(self.group);

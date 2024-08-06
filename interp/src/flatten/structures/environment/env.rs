@@ -34,9 +34,9 @@ use crate::{
     serialization::{DataDump, MemoryDeclaration, PrintCode},
     values::Value,
 };
-use ahash::HashMap;
 use ahash::HashSet;
 use ahash::HashSetExt;
+use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
@@ -224,6 +224,31 @@ impl Debug for CellLedger {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PinnedPorts {
+    map: HashMap<GlobalPortIdx, Value>,
+}
+
+impl PinnedPorts {
+    pub fn iter(&self) -> impl Iterator<Item = (&GlobalPortIdx, &Value)> + '_ {
+        self.map.iter()
+    }
+
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, port: GlobalPortIdx, val: Value) {
+        self.map.insert(port, val);
+    }
+
+    pub fn remove(&mut self, port: GlobalPortIdx) {
+        self.map.remove(&port);
+    }
+}
+
 #[derive(Debug)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
@@ -237,6 +262,8 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     /// The program counter for the whole program execution.
     pub(super) pc: ProgramCounter,
+
+    pinned_ports: PinnedPorts,
 
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
@@ -272,7 +299,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 let comp_ledger = self.cells[cell].as_comp().unwrap();
                 let comp_info =
                     self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
-                let port_ids = comp_info.signature.into_iter().map(|x| {
+                let port_ids = comp_info.signature().into_iter().map(|x| {
                     &self.ctx().secondary.local_port_defs
                         [comp_info.port_offset_map[x]]
                         .name
@@ -324,6 +351,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             pc: ProgramCounter::new_empty(),
             ctx,
             memory_header: None,
+            pinned_ports: PinnedPorts::new(),
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -386,7 +414,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
 
         // first layout the signature
-        for sig_port in comp_aux.signature.iter() {
+        for sig_port in comp_aux.signature().iter() {
             let idx = self.ports.push(PortValue::new_undef());
             debug_assert_eq!(index_bases + sig_port, idx);
         }
@@ -860,7 +888,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 // signature ports
                 if let Some(local) = target.as_port() {
                     let offset = local - &current_ledger.index_bases;
-                    if current_info.signature.contains(offset) {
+                    if current_info.signature().contains(offset) {
                         return Some((path, None));
                     }
                 }
@@ -1020,7 +1048,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         } else {
             let ledger = self.cells[cell].as_comp().unwrap();
             let comp = &self.ctx.as_ref().secondary[ledger.comp_id];
-            Box::new(comp.signature.iter().map(|x| {
+            Box::new(comp.signature().into_iter().map(|x| {
                 let def_idx = comp.port_offset_map[x];
                 let def = &self.ctx.as_ref().secondary[def_idx];
                 (def.name, &ledger.index_bases + x)
@@ -1046,6 +1074,55 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 acc + "." + &self.ctx.as_ref().secondary[id]
             },
         )
+    }
+
+    /// Lookup the value of a port on the entrypoint component by name. Will
+    /// error if the port is not found.
+    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+        // this is not the best way to do this but it's fine for now
+        let path = self.traverse_name_vec(&[port.to_string()]).unwrap();
+        let path_resolution = path.resolve_path(self).unwrap();
+        let idx = path_resolution.as_port().unwrap();
+
+        self.ports[*idx].as_option().map(|x| x.val().clone())
+    }
+
+    /// Returns an input port for the entrypoint component. Will error if the
+    /// port is not found.
+    fn get_root_input_port<S: AsRef<str>>(&self, port: S) -> GlobalPortIdx {
+        let string = port.as_ref();
+
+        let root = Self::get_root();
+
+        let ledger = self.cells[root].as_comp().unwrap();
+        let mut def_list = self.ctx.as_ref().secondary[ledger.comp_id].inputs();
+        let found = def_list.find(|offset| {
+            let def_idx = self.ctx.as_ref().secondary[ledger.comp_id].port_offset_map[*offset];
+            self.ctx.as_ref().lookup_name(self.ctx.as_ref().secondary[def_idx].name) == string
+        }).unwrap_or_else(|| panic!("Could not find port '{string}' in the entrypoint component's input ports"));
+
+        &ledger.index_bases + found
+    }
+
+    /// Pins the port with the given name to the given value. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use. Unrelated
+    /// to the rust pin.
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+        let port = self.get_root_input_port(port);
+
+        let go = self.get_comp_go(Self::get_root());
+        assert!(port != go, "Cannot pin the go port");
+
+        self.pinned_ports.insert(port, val);
+    }
+
+    /// Unpins the port with the given name. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
+    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
+        let port = self.get_root_input_port(port);
+        self.pinned_ports.remove(port);
     }
 }
 
@@ -1128,6 +1205,26 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     pub fn print_pc(&self) {
         self.env.print_pc()
+    }
+
+    /// Pins the port with the given name to the given value. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+        self.env.pin_value(port, val)
+    }
+
+    /// Unpins the port with the given name. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
+    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
+        self.env.unpin_value(port)
+    }
+
+    /// Lookup the value of a port on the entrypoint component by name. Will
+    /// error if the port is not found.
+    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+        self.env.lookup_port_from_string(port)
     }
 }
 
@@ -1364,6 +1461,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn converge(&mut self) -> InterpreterResult<()> {
         self.undef_all_ports();
         self.set_root_go_high();
+        // set the pinned values
+        for (port, val) in self.env.pinned_ports.iter() {
+            self.env.ports[*port] = PortValue::new_implicit(val.clone());
+        }
 
         for comp in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);

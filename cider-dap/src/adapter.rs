@@ -51,9 +51,9 @@ impl MyAdapter {
             old_set: &HashSet<i64>,
         ) -> (HashSet<i64>, HashSet<i64>) {
             let to_set: HashSet<i64> =
-                new_set.difference(old_set).map(|x| *x).collect();
+                new_set.difference(old_set).copied().collect();
             let to_delete: HashSet<i64> =
-                old_set.difference(new_set).map(|x| *x).collect();
+                old_set.difference(new_set).copied().collect();
             (to_set, to_delete)
         }
 
@@ -70,7 +70,7 @@ impl MyAdapter {
         let mut to_debugger_set: Vec<ParsedGroupName> = vec![];
         let mut to_client: Vec<Breakpoint> = vec![];
 
-        // iterate over points recieved in request
+        // iterate over points received in request
         for source_point in points {
             self.breakpoints.insert(source_point.line);
             let name = self.ids.lookup_line(source_point.line as u64);
@@ -113,10 +113,6 @@ impl MyAdapter {
             }
         }
         self.debugger.delete_breakpoints(to_debugger);
-    }
-
-    pub fn do_continue(&mut self, thread_id: i64, single_thread: bool) {
-        // if single thread, only thread id continues else all continue
     }
 
     ///Creates a thread using the parameter name.

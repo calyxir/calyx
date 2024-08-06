@@ -120,16 +120,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     let parent_comp = self
                         .program_context
                         .as_ref()
-                        .primary
-                        .components
-                        .keys()
-                        .find(|comp_id| {
-                            self.program_context.as_ref().secondary[*comp_id]
-                                .definitions
-                                .groups()
-                                .contains(x)
-                        })
-                        .unwrap();
+                        .get_component_from_group(x);
                     let parent_name = self
                         .program_context
                         .as_ref()
