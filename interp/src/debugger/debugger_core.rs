@@ -166,6 +166,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             .collect_vec();
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
+
+    pub fn cont(&mut self) -> InterpreterResult<()> {
+        self.do_continue()
+    }
+
     #[inline]
     fn do_step(&mut self, n: u32) -> InterpreterResult<()> {
         for _ in 0..n {
