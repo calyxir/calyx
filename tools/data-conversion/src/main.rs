@@ -1,5 +1,10 @@
 //use std::env;
 use argh::FromArgs;
+// use core::num;
+use num_bigint::BigInt;
+use num_bigint::BigUint;
+// use num_traits::sign;
+use num_traits::Num;
 use std::error::Error;
 use std::fmt;
 use std::fs::read_to_string;
@@ -7,8 +12,16 @@ use std::fs::File;
 use std::io::stdout;
 use std::io::{self, Write};
 use std::str::FromStr;
-
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
+
+// Threshold for using fast-track functions
+const FAST_TRACK_THRESHOLD: u32 = 1 << 24; // Example threshold value, adjust as needed
+
+struct IntermediateRepresentation {
+    sign: bool,
+    mantissa: BigUint,
+    exponent: i32,
+}
 
 #[derive(Debug)]
 struct ParseNumTypeError;
@@ -80,6 +93,7 @@ struct Arguments {
     /// optional for fixed_to_binary using bit slicing. If choosen, will use bit slicing.
     #[argh(switch, short = 'b')]
     bits: bool,
+    // optional switch for
 }
 
 fn main() {
@@ -128,44 +142,108 @@ fn convert(
     match (convert_from, convert_to) {
         (NumType::Hex, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                hex_to_binary(line, &mut converted)
+                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                    hex_to_binary(line, &mut converted)
+                        .expect("Failed to write binary to file");
+                } else {
+                    intermediate_to_binary(
+                        hex_to_intermediate(line),
+                        &mut converted,
+                    )
                     .expect("Failed to write binary to file");
+                }
             }
         }
         (NumType::Float, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                float_to_binary(line, &mut converted)
+                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                    float_to_binary(line, &mut converted)
+                        .expect("Failed to write binary to file");
+                } else {
+                    intermediate_to_binary(
+                        float_to_intermediate(line),
+                        &mut converted,
+                    )
                     .expect("Failed to write binary to file");
+                }
             }
         }
         (NumType::Fixed, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                fixed_to_binary(line, &mut converted, exponent)
+                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                    fixed_to_binary(line, &mut converted, exponent)
+                        .expect("Failed to write binary to file");
+                } else {
+                    intermediate_to_binary(
+                        fixed_to_intermediate(line, exponent),
+                        &mut converted,
+                    )
                     .expect("Failed to write binary to file");
+                }
             }
         }
         (NumType::Binary, NumType::Hex) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                binary_to_hex(line, &mut converted)
-                    .expect("Failed to write hex to file");
+                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                    binary_to_hex(line, &mut converted)
+                        .expect("Failed to write hex to file");
+                } else {
+                    intermediate_to_hex(
+                        binary_to_intermediate(line),
+                        &mut converted,
+                    )
+                    .expect("Failed to write binary to file");
+                }
             }
         }
         (NumType::Binary, NumType::Float) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                binary_to_float(line, &mut converted)
-                    .expect("Failed to write float to file");
+                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                    binary_to_float(line, &mut converted)
+                        .expect("Failed to write float to file");
+                } else {
+                    intermediate_to_float(
+                        binary_to_intermediate(line),
+                        &mut converted,
+                    )
+                    .expect("Failed to write binary to file");
+                }
             }
         }
         (NumType::Binary, NumType::Fixed) => {
             if !bits {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    binary_to_fixed(line, &mut converted, exponent)
-                        .expect("Failed to write fixed-point to file");
+                    if line.parse::<f32>().unwrap()
+                        <= FAST_TRACK_THRESHOLD as f32
+                    {
+                        binary_to_fixed(line, &mut converted, exponent)
+                            .expect("Failed to write fixed-point to file");
+                    } else {
+                        intermediate_to_fixed(
+                            binary_to_intermediate(line),
+                            &mut converted,
+                        )
+                        .expect("Failed to write binary to file");
+                    }
                 }
             } else {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    binary_to_fixed_bit_slice(line, &mut converted, exponent)
+                    if line.parse::<f32>().unwrap()
+                        <= FAST_TRACK_THRESHOLD as f32
+                    {
+                        binary_to_fixed_bit_slice(
+                            line,
+                            &mut converted,
+                            exponent,
+                        )
                         .expect("Failed to write fixed-point to file");
+                    } else {
+                        intermediate_to_fixed(
+                            binary_to_intermediate(line),
+                            &mut converted,
+                        )
+                        .expect("Failed to write binary to file");
+                    }
                 }
             }
         }
@@ -549,3 +627,261 @@ fn binary_to_fixed_bit_slice(
 
     Ok(())
 }
+
+fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
+    let bit_width = binary_string.len();
+
+    let sign = binary_string.chars().next() == Some('0');
+
+    let binary_value = BigUint::from_str_radix(binary_string, 2)
+        .expect("Invalid binary string");
+
+    let mantissa = if sign {
+        binary_value
+    } else {
+        // Calculate the two's complement for negative values
+        let max_value = BigUint::from(1u32) << bit_width;
+        &max_value - &binary_value
+    };
+
+    IntermediateRepresentation {
+        sign,
+        mantissa,
+        exponent: 0,
+    }
+}
+
+fn intermediate_to_binary(
+    inter_rep: IntermediateRepresentation,
+    filepath_send: &mut Option<File>,
+) -> io::Result<()> {
+    let inter_value = if inter_rep.sign {
+        BigInt::from(inter_rep.mantissa)
+    } else {
+        -BigInt::from(inter_rep.mantissa)
+    };
+
+    let binary_str = inter_value.to_str_radix(2);
+
+    if let Some(file) = filepath_send {
+        file.write_all(binary_str.as_bytes())?;
+        file.write_all(b"\n")?;
+    } else {
+        std::io::stdout().write_all(binary_str.as_bytes())?;
+        std::io::stdout().write_all(b"\n")?;
+    }
+
+    Ok(())
+}
+
+fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
+    let sign = !float_string.starts_with("-");
+    let float_trimmed = float_string.trim_start_matches("-");
+
+    let parts: Vec<&str> = float_trimmed.split('.').collect();
+    let integer_part = parts[0];
+    let fractional_part = if parts.len() > 1 { parts[1] } else { "0" };
+    // Prob not the best way to do this
+    let mantissa_string = format!("{integer_part}{fractional_part}");
+
+    IntermediateRepresentation {
+        sign,
+        mantissa: BigUint::from_str(&mantissa_string).expect("Invalid number"),
+        exponent: -(fractional_part.len() as i32),
+    }
+}
+
+fn intermediate_to_float(
+    inter_rep: IntermediateRepresentation,
+    filepath_send: &mut Option<File>,
+) -> io::Result<()> {
+    let mut mantissa_str = inter_rep.mantissa.to_string();
+
+    // Determine the position to insert the decimal point
+    let mut decimal_pos = mantissa_str.len() as i32 - inter_rep.exponent;
+
+    // Handle cases where the decimal position is before the first digit
+    if decimal_pos <= 0 {
+        let zero_padding = "0".repeat(-decimal_pos as usize);
+        mantissa_str = format!("{}{}", zero_padding, mantissa_str);
+        decimal_pos = 1; // Decimal point will be at the first digit position
+    }
+
+    // Convert to &str for split_at
+    let mantissa_str = mantissa_str.as_str();
+
+    // Insert the decimal point
+    let decimal_position = decimal_pos as usize;
+    let (integer_part, fractional_part) = if decimal_position > 0 {
+        mantissa_str.split_at(decimal_position)
+    } else {
+        ("0", mantissa_str)
+    };
+
+    let result = if inter_rep.sign {
+        format!("{}.{}", integer_part, fractional_part)
+    } else {
+        format!("-{}.{}", integer_part, fractional_part)
+    };
+
+    if let Some(file) = filepath_send.as_mut() {
+        // Write string to the file
+        file.write_all(result.as_bytes())?;
+        file.write_all(b"\n")?;
+    } else {
+        io::stdout().write_all(result.as_bytes())?;
+        io::stdout().write_all(b"\n")?;
+    }
+
+    Ok(())
+}
+
+fn fixed_to_intermediate(
+    fixed_string: &str,
+    exp_int: i32,
+) -> IntermediateRepresentation {
+    let sign = !fixed_string.starts_with("-");
+    let fixed_trimmed = fixed_string.trim_start_matches("-");
+
+    let mantissa_string = &format!("{fixed_trimmed}");
+
+    IntermediateRepresentation {
+        sign,
+        mantissa: BigUint::from_str(mantissa_string).expect("Invalid number"),
+        exponent: exp_int,
+    }
+}
+
+fn intermediate_to_fixed(
+    inter_rep: IntermediateRepresentation,
+    filepath_send: &mut Option<File>,
+) -> io::Result<()> {
+    // Negate exp
+    let neg_exponent = -inter_rep.exponent;
+
+    // 10^-exp
+    let scale_factor = BigInt::from(10).pow(neg_exponent as u32);
+
+    // Convert mantissa to BigInt
+    let mantissa_bigint = BigInt::from(inter_rep.mantissa);
+
+    let mantissa_mult = mantissa_bigint * scale_factor;
+
+    // Apply the sign
+    let signed_value = if inter_rep.sign {
+        mantissa_mult
+    } else {
+        -mantissa_mult
+    };
+
+    // Handle placement of decimal point
+    let mantissa_str = signed_value.to_string();
+    let mantissa_len = mantissa_str.len();
+    let adjusted_exponent = inter_rep.exponent + mantissa_len as i32;
+
+    let string = if adjusted_exponent <= 0 {
+        // Handle case where the exponent indicates a number less than 1
+        let zero_padding = "0".repeat(-adjusted_exponent as usize);
+        format!("0.{}{}", zero_padding, mantissa_str)
+    } else if adjusted_exponent as usize >= mantissa_len {
+        // Handle case where the exponent is larger than the length of the mantissa
+        format!(
+            "{}{}",
+            mantissa_str,
+            "0".repeat(adjusted_exponent as usize - mantissa_len)
+        )
+    } else {
+        // Normal case
+        let integer_part = &mantissa_str[..adjusted_exponent as usize];
+        let fractional_part = &mantissa_str[adjusted_exponent as usize..];
+        format!("{}.{}", integer_part, fractional_part)
+    };
+
+    // Write the result to the file or stdout
+    if let Some(file) = filepath_send.as_mut() {
+        file.write_all(string.as_bytes())?;
+        file.write_all(b"\n")?;
+    } else {
+        io::stdout().write_all(string.as_bytes())?;
+        io::stdout().write_all(b"\n")?;
+    }
+
+    Ok(())
+}
+
+fn hex_to_intermediate(hex_string: &str) -> IntermediateRepresentation {
+    // Get sign value before converting string
+    let sign = hex_string.chars().next() != Some('-');
+
+    // Remove the '-' sign if present
+    let cleaned_hex_string = if sign { hex_string } else { &hex_string[1..] };
+
+    // Convert the cleaned hexadecimal string to BigUint
+    let hex_value = BigUint::from_str_radix(cleaned_hex_string, 16)
+        .expect("Invalid hexadecimal string");
+
+    IntermediateRepresentation {
+        sign,
+        mantissa: hex_value,
+        exponent: 0,
+    }
+}
+
+fn intermediate_to_hex(
+    inter_rep: IntermediateRepresentation,
+    filepath_send: &mut Option<File>,
+) -> io::Result<()> {
+    // Apply the sign
+    let hex_value = if inter_rep.sign {
+        inter_rep.mantissa.to_str_radix(16)
+    } else {
+        format!("-{}", inter_rep.mantissa.to_str_radix(16))
+    };
+
+    // Write the result to the file or stdout
+    if let Some(file) = filepath_send.as_mut() {
+        file.write_all(hex_value.as_bytes())?;
+        file.write_all(b"\n")?;
+    } else {
+        io::stdout().write_all(hex_value.as_bytes())?;
+        io::stdout().write_all(b"\n")?;
+    }
+
+    Ok(())
+}
+
+// ChatGPT stuff below
+
+// fn format_scientific_notation(num_str: &str, exponent: i32) -> String {
+//     // Check for an empty string
+//     if num_str.is_empty() {
+//         return "0.0e0".to_string();
+//     }
+
+//     // Find the position of the decimal point
+//     let (integer_part, fractional_part) = if num_str.contains('.') {
+//         let parts: Vec<&str> = num_str.split('.').collect();
+//         (parts[0], parts.get(1).unwrap_or(&""))
+//     } else {
+//         (num_str, "")
+//     };
+
+//     // Calculate the new exponent after including the fractional part
+//     let new_exponent = exponent + integer_part.len() as i32;
+
+//     // Format integer part and fractional part
+//     let integer_part = integer_part.to_string();
+//     let mut fractional_part = fractional_part.to_string();
+//     let mut result = String::new();
+
+//     if !integer_part.is_empty() {
+//         result.push_str(&integer_part);
+//     }
+
+//     if !fractional_part.is_empty() {
+//         result.push('.');
+//         result.push_str(&fractional_part);
+//     }
+
+//     format!("{:+.8e}", result.to_f64().unwrap_or(0.0)) // Converting to f64 for formatting
+// }
