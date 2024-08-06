@@ -15,7 +15,7 @@ use std::str::FromStr;
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
 
 // Threshold for using fast-track functions
-const FAST_TRACK_THRESHOLD: u32 = 1 << 24; // Example threshold value, adjust as needed
+const FAST_TRACK_THRESHOLD: u32 = 1 << 24; 
 
 struct IntermediateRepresentation {
     sign: bool,
