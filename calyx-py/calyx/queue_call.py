@@ -123,7 +123,6 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
             ],
         ),
         runner.incr(i),  # i++
-        runner.reg_store(err, 0, "lower_err"),  # Lower the error flag.
     ]
 
     return runner
@@ -139,7 +138,9 @@ def insert_main(
     stats_component=None,
 ):
     """Inserts the component `main` into the program.
-    It triggers the dataplane and controller components.
+    It triggers the dataplane and controller components. If there is an error,
+    the value 2^32 - 1 is used as the value. If there is a push, the value 2^32 - 2
+    is used as the value.
     """
 
     main: cb.ComponentBuilder = prog.component("main")
@@ -164,7 +165,6 @@ def insert_main(
         else None
     )
     i = main.reg(32)  # A counter for how many times we have invoked the dataplane.
-    j = main.reg(32)  # The index on the answer-list we'll write to
     keep_looping = main.and_(1)  # If this is high, we keep going. Otherwise, we stop.
     lt = main.lt(32)
     not_err = main.not_(1)
@@ -186,6 +186,7 @@ def insert_main(
         cb.CellAndGroup(keep_looping, compute_keep_looping),
         [
             main.reg_store(has_ans, 0, "lower_has_ans"),  # Lower the has-ans flag.
+            main.reg_store(dataplane_err, 0, "lower_err"),  # Lower the has-err flag.
             (
                 cb.invoke(
                     # Invoke the dataplane component with a stats component.
@@ -222,13 +223,19 @@ def insert_main(
                 )
             ),
             # If the dataplane component has an answer,
-            # write it to the answer-list and increment the index `j`.
+            # write it to the answer-list and increment the index `i`.
             cb.if_(
-                has_ans.out,
-                [
-                    main.mem_store_d1(ans_mem, j.out, dataplane_ans.out, "write_ans"),
-                    main.incr(j),
-                ],
+                has_ans.out, # an answer exists, so we'll store it to `ans_mem` in the next line
+                main.mem_store_d1(ans_mem, i.out, dataplane_ans.out, "write_ans"),
+                cb.if_(
+                    dataplane_err.out, # there was an error
+                    main.mem_store_d1(
+                        ans_mem, i.out, cb.const(32, 4294967295), "write_err" # store the value 2^32 - 1 (code for error) to `ans_mem`
+                    ),  
+                    main.mem_store_d1( # if we're here, we must be here because we were a successful push.
+                        ans_mem, i.out, cb.const(32, 4294967294), "write_push" # store the value 2^32 - 2 (code for push) to `ans_mem`
+                    ),
+                ), 
             ),
             (
                 cb.invoke(  # Invoke the controller component.
