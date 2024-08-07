@@ -664,7 +664,17 @@ impl<W: Write> Emitter<W> {
 
 /// Check whether a Ninja executable supports the `--quiet` flag.
 fn ninja_supports_quiet(ninja: &str) -> std::io::Result<bool> {
-    let version_output = Command::new(ninja).arg("--version").output()?;
+    let version_output = Command::new(ninja)
+        .arg("--version")
+        .output()
+        .map_err(|e| {
+            std::io::Error::new(
+                e.kind(),
+                format!(
+                    "Unable to run ninja \"{e}\"\nHint: Is ninja installed correctly?",
+                ),
+            )
+        })?;
     if let Ok(version) = String::from_utf8(version_output.stdout) {
         let parts: Vec<&str> = version.split('.').collect();
         if parts.len() >= 2 {
