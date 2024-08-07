@@ -73,7 +73,11 @@ pub enum BoolAttr {
     /// Denotes a group that was generated from a `staticpar` during static
     /// inlining.
     ParCtrl,
+    #[strum(serialize = "fast")]
+    /// https://github.com/calyxir/calyx/issues/1828
+    Fast,
 }
+
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {
         Attribute::Bool(attr)

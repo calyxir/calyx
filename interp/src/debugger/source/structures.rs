@@ -31,17 +31,24 @@ pub struct GroupContents {
 #[derive(Debug, Clone)]
 /// NewSourceMap contains the group name as the key and the line it lies on with
 ///  as respect to its corresponding .futil file
-pub struct NewSourceMap(HashMap<String, GroupContents>);
+pub struct NewSourceMap(HashMap<(String, String), GroupContents>);
 
 impl NewSourceMap {
     /// look up group name, if not present, return None
-    pub fn lookup(&self, key: String) -> Option<&GroupContents> {
-        self.0.get(&key)
+    pub fn lookup(&self, key: &(String, String)) -> Option<&GroupContents> {
+        self.0.get(key)
+    }
+
+    pub fn lookup_line(&self, line_num: u64) -> Option<(&String, &String)> {
+        self.0
+            .iter()
+            .find(|(_, v)| v.start_line == line_num)
+            .map(|(k, _)| (&k.0, &k.1))
     }
 }
 
-impl From<HashMap<String, GroupContents>> for NewSourceMap {
-    fn from(i: HashMap<String, GroupContents>) -> Self {
+impl From<HashMap<(String, String), GroupContents>> for NewSourceMap {
+    fn from(i: HashMap<(String, String), GroupContents>) -> Self {
         Self(i)
     }
 }

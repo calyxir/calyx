@@ -2,9 +2,10 @@ use crate::error::AdapterResult;
 use dap::types::{
     Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread, Variable,
 };
+use interp::debugger::commands::ParsedGroupName;
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::OwnedDebugger;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 pub struct MyAdapter {
@@ -13,9 +14,9 @@ pub struct MyAdapter {
     break_count: Counter,
     thread_count: Counter,
     stack_count: Counter,
-    breakpoints: Vec<(Source, i64)>, // This field is a placeholder
-    stack_frames: Vec<StackFrame>,   // This field is a placeholder
-    threads: Vec<Thread>,            // This field is a placeholder
+    breakpoints: HashSet<i64>,
+    stack_frames: Vec<StackFrame>, // This field is a placeholder
+    threads: Vec<Thread>,          // This field is a placeholder
     object_references: HashMap<i64, Vec<String>>,
     source: String,
     ids: NewSourceMap,
@@ -30,7 +31,7 @@ impl MyAdapter {
             break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
-            breakpoints: Vec::new(),
+            breakpoints: HashSet::new(),
             stack_frames: Vec::new(),
             threads: Vec::new(),
             object_references: HashMap::new(),
@@ -38,31 +39,80 @@ impl MyAdapter {
             ids: metadata,
         })
     }
-
-    ///Set breakpoints for adapter
-    pub fn set_breakpoint(
+    /// function to deal with setting breakpoints and updating debugger accordingly
+    pub fn handle_breakpoint(
         &mut self,
         path: Source,
-        source: &Vec<SourceBreakpoint>,
+        points: &Vec<SourceBreakpoint>,
     ) -> Vec<Breakpoint> {
-        //Keep all the new breakpoints made
-        let mut out_vec: Vec<Breakpoint> = vec![];
+        // helper method to get diffs since it yelled at me about borrows when i had it in main method
+        fn calc_diffs(
+            new_set: &HashSet<i64>,
+            old_set: &HashSet<i64>,
+        ) -> (HashSet<i64>, HashSet<i64>) {
+            let to_set: HashSet<i64> =
+                new_set.difference(old_set).copied().collect();
+            let to_delete: HashSet<i64> =
+                old_set.difference(new_set).copied().collect();
+            (to_set, to_delete)
+        }
 
-        //Loop over all breakpoints - why do we need to loop over all of them? is it bc input vec isnt mutable?
-        for source_point in source {
-            self.breakpoints.push((path.clone(), source_point.line));
-            //Create new Breakpoint instance
+        //check diffs
+        let mut new_point_set = HashSet::new();
+        for p in points {
+            new_point_set.insert(p.line);
+        }
+        let (to_set, to_delete) = calc_diffs(&new_point_set, &self.breakpoints);
+
+        //update adapter
+        self.breakpoints.clear();
+
+        let mut to_debugger_set: Vec<ParsedGroupName> = vec![];
+        let mut to_client: Vec<Breakpoint> = vec![];
+
+        // iterate over points received in request
+        for source_point in points {
+            self.breakpoints.insert(source_point.line);
+            let name = self.ids.lookup_line(source_point.line as u64);
+
             let breakpoint = make_breakpoint(
                 self.break_count.increment().into(),
-                true,
+                name.is_some(),
                 Some(path.clone()),
                 Some(source_point.line),
             );
+            to_client.push(breakpoint);
 
-            out_vec.push(breakpoint);
+            if let Some((component, group)) = name {
+                if to_set.contains(&source_point.line) {
+                    to_debugger_set.push(ParsedGroupName::from_comp_and_group(
+                        component.clone(),
+                        group.clone(),
+                    ))
+                }
+            }
         }
-        //push breakpoints to cider debugger once have go ahead
-        out_vec
+        //send ones to set to debugger
+        self.debugger.set_breakpoints(to_debugger_set);
+        //delete from debugger
+        self.delete_breakpoints(to_delete);
+
+        //return list of created points to client
+        to_client
+    }
+    /// handles deleting breakpoints in the debugger
+    fn delete_breakpoints(&mut self, to_delete: HashSet<i64>) {
+        let mut to_debugger: Vec<ParsedGroupName> = vec![];
+        for point in to_delete {
+            let name = self.ids.lookup_line(point as u64);
+            if let Some((component, group)) = name {
+                to_debugger.push(ParsedGroupName::from_comp_and_group(
+                    component.clone(),
+                    group.clone(),
+                ))
+            }
+        }
+        self.debugger.delete_breakpoints(to_debugger);
     }
 
     ///Creates a thread using the parameter name.
@@ -132,7 +182,7 @@ impl MyAdapter {
             // the code for now goes to the line of the last group running in the map, should deal
             // with this in the future for when groups run in parallel.
             for id in map {
-                let value = self.ids.lookup(id.to_string()).unwrap().start_line;
+                let value = self.ids.lookup(id).unwrap().start_line;
                 line_number = value;
             }
             // Set line of the stack frame and tell debugger we're not finished.
@@ -221,23 +271,36 @@ impl Counter {
 /// This function takes in relevant fields in Breakpoint that are used
 /// by the adapter. This is subject to change.
 pub fn make_breakpoint(
-    //probably add debugger call here?
     id: Option<i64>,
     verified: bool,
     source: Option<Source>,
     line: Option<i64>,
 ) -> Breakpoint {
-    println!("bkpt");
-    Breakpoint {
-        id,
-        verified,
-        message: None,
-        source,
-        line,
-        column: None,
-        end_line: None,
-        end_column: None,
-        instruction_reference: None,
-        offset: None,
+    if verified {
+        Breakpoint {
+            id,
+            verified,
+            message: None,
+            source,
+            line,
+            column: None,
+            end_line: None,
+            end_column: None,
+            instruction_reference: None,
+            offset: None,
+        }
+    } else {
+        Breakpoint {
+            id,
+            verified,
+            message: Some(String::from("Invalid placement for breakpoint")),
+            source,
+            line,
+            column: None,
+            end_line: None,
+            end_column: None,
+            instruction_reference: None,
+            offset: None,
+        }
     }
 }

@@ -200,9 +200,9 @@ fn run_server<R: Read, W: Write>(
 
             Command::SetBreakpoints(args) => {
                 // Add breakpoints
-                if let Some(breakpoint) = &args.breakpoints {
+                if let Some(bkpts) = &args.breakpoints {
                     let out =
-                        adapter.set_breakpoint(args.source.clone(), breakpoint);
+                        adapter.handle_breakpoint(args.source.clone(), bkpts);
 
                     // Success
                     let rsp = req.success(ResponseBody::SetBreakpoints(

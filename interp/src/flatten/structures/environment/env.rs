@@ -10,6 +10,10 @@ use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
+            base::{
+                LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
+                LocalRefPortOffset,
+            },
             cell_prototype::{CellPrototype, SingleWidthType},
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices,
@@ -23,7 +27,7 @@ use crate::{
         },
         primitives::{self, prim_trait::UpdateStatus, Primitive},
         structures::{
-            context::LookupName,
+            context::{LookupName, PortDefinitionInfo},
             environment::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
@@ -691,8 +695,15 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                             &self.cells[point.comp].unwrap_comp().index_bases
                                 + l,
                         ),
-                        CellRef::Ref(_) => {
-                            "<REF CELLS NOT YET SUPPORTED>".to_string()
+                        CellRef::Ref(r) => {
+                            let ref_global_offset = &self.cells[point.comp]
+                                .unwrap_comp()
+                                .index_bases
+                                + r;
+                            let ref_actual =
+                                self.ref_cells[ref_global_offset].unwrap();
+
+                            self.get_full_name(ref_actual)
                         }
                     };
 
@@ -843,12 +854,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                                         break;
                                     }
                                 }
+                            }
 
-                                if let Some(highest_found) = highest_found {
-                                    path.push(highest_found);
-                                } else {
-                                    return None;
-                                }
+                            if let Some(highest_found) = highest_found {
+                                path.push(highest_found);
+                            } else {
+                                return None;
                             }
                         }
                     }
@@ -1078,9 +1089,14 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     /// Lookup the value of a port on the entrypoint component by name. Will
     /// error if the port is not found.
-    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+    pub fn lookup_port_from_string<S: AsRef<str>>(
+        &self,
+        port: S,
+    ) -> Option<Value> {
         // this is not the best way to do this but it's fine for now
-        let path = self.traverse_name_vec(&[port.to_string()]).unwrap();
+        let path = self
+            .traverse_name_vec(&[port.as_ref().to_string()])
+            .unwrap();
         let path_resolution = path.resolve_path(self).unwrap();
         let idx = path_resolution.as_port().unwrap();
 
@@ -1123,6 +1139,48 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
         let port = self.get_root_input_port(port);
         self.pinned_ports.remove(port);
+    }
+
+    pub fn get_def_info(
+        &self,
+        comp_idx: ComponentIdx,
+        cell: LocalCellOffset,
+    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalPortOffset>
+    {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.cell_offset_map[cell];
+        &self.ctx.as_ref().secondary[idx]
+    }
+
+    pub fn get_def_info_ref(
+        &self,
+        comp_idx: ComponentIdx,
+        cell: LocalRefCellOffset,
+    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalRefPortOffset>
+    {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.ref_cell_offset_map[cell];
+        &self.ctx.as_ref().secondary[idx]
+    }
+
+    pub fn get_port_def_info(
+        &self,
+        comp_idx: ComponentIdx,
+        port: LocalPortOffset,
+    ) -> &PortDefinitionInfo {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.port_offset_map[port];
+        &self.ctx.as_ref().secondary[idx]
+    }
+
+    pub fn get_port_def_info_ref(
+        &self,
+        comp_idx: ComponentIdx,
+        port: LocalRefPortOffset,
+    ) -> Identifier {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.ref_port_offset_map[port];
+        self.ctx.as_ref().secondary[idx]
     }
 }
 
@@ -2155,9 +2213,9 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
         if state.has_state() {
             if let Some(name_override) = name {
-                write!(output, "{name_override}:").unwrap();
+                write!(output, "{name_override}: ").unwrap();
             } else {
-                write!(output, "{}:", self.get_full_name(cell_idx)).unwrap();
+                write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
             }
 
             writeln!(output, "{state}").unwrap();
@@ -2210,6 +2268,31 @@ impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalPortIdx {
         let port_def_idx = &comp_def.port_offset_map[local_offset];
         let port_def = &env.ctx().secondary[*port_def_idx];
         let name = env.ctx().lookup_name(port_def.name);
+
+        format!("{path_str}.{name}")
+    }
+}
+
+impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalRefCellIdx {
+    fn get_full_name(&self, env: &Environment<C>) -> String {
+        let parent_path = env.get_parent_path_from_cell(*self).unwrap();
+        let path_str = env.format_path(&parent_path);
+
+        let immediate_parent = parent_path.last().unwrap();
+        let comp = if env.cells[*immediate_parent].as_comp().is_some() {
+            *immediate_parent
+        } else {
+            // get second-to-last parent
+            parent_path[parent_path.len() - 2]
+        };
+
+        let ledger = env.cells[comp].as_comp().unwrap();
+
+        let local_offset = *self - &ledger.index_bases;
+        let comp_def = &env.ctx().secondary[ledger.comp_id];
+        let ref_cell_def_idx = &comp_def.ref_cell_offset_map[local_offset];
+        let ref_cell_def = &env.ctx().secondary[*ref_cell_def_idx];
+        let name = env.ctx().lookup_name(ref_cell_def.name);
 
         format!("{path_str}.{name}")
     }
