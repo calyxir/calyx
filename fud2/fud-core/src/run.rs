@@ -665,12 +665,15 @@ impl<W: Write> Emitter<W> {
 /// Improve error message of `e` if it is known `e` should be the result of running a `ninja`
 /// command.
 fn ninja_cmd_io_error(e: std::io::Error) -> std::io::Error {
-    std::io::Error::new(
-        e.kind(),
-        format!(
+    match e.kind() {
+        std::io::ErrorKind::NotFound => std::io::Error::new(
+            e.kind(),
+            format!(
             "Unable to run ninja \"{e}\"\nHint: Is ninja installed correctly?",
         ),
-    )
+        ),
+        _ => e,
+    }
 }
 
 /// Check whether a Ninja executable supports the `--quiet` flag.
