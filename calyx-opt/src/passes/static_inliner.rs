@@ -1,4 +1,4 @@
-use crate::analysis::GraphColoring;
+use crate::analysis::{FSMEncoding, GraphColoring};
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
@@ -515,10 +515,9 @@ impl StaticInliner {
                             // number of bits as latency, then we might as
                             // well just increase the latency of the group to
                             // avoid making this guard.
-                            // if group.borrow().latency < *latency
-                            //     && get_bit_width_from(group.borrow().latency)
-                            //         == get_bit_width_from(*latency)
-                            // {
+                            // XXX(Caleb): we don't know whether this will be
+                            // one-hot or binary... should encode some way to
+                            // do this.
                             if group.borrow().latency + 1 == *latency
                                 || group.borrow().latency + 2 == *latency
                             {
@@ -527,7 +526,6 @@ impl StaticInliner {
                                     *latency,
                                 );
                             }
-                            // }
 
                             structure!( builder;
                                 let signal_on = constant(1,1);
