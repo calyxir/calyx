@@ -139,7 +139,7 @@ def insert_main(
 ):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components. If there is an error,
-    the value 20000 is used as the value. If there is a push, the value 10000
+    the value 2^32 - 1 is used as the value. If there is a push, the value 2^32 - 2
     is used as the value.
     """
 
@@ -230,10 +230,10 @@ def insert_main(
                 cb.if_(
                     dataplane_err.out, # there was an error
                     main.mem_store_d1(
-                        ans_mem, i.out, cb.const(32, 20000), "write_err" # store the value 20000 (code for error) to `ans_mem`
+                        ans_mem, i.out, cb.const(32, 4294967295), "write_err" # store the value 2^32 - 1 (code for error) to `ans_mem`
                     ),  
                     main.mem_store_d1( # if we're here, we must be here because we were a successful push.
-                        ans_mem, i.out, cb.const(32, 10000), "write_push" # store the value 10000 (code for push) to `ans_mem`
+                        ans_mem, i.out, cb.const(32, 4294967294), "write_push" # store the value 2^32 - 2 (code for push) to `ans_mem`
                     ),
                 ), 
             ),
