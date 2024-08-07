@@ -27,7 +27,9 @@ impl Named for StaticInliner {
     fn opts() -> Vec<PassOpt> {
         vec![PassOpt::new(
             "offload-pause",
-            "Whether to pause the static FSM when offloading",
+            "Whether to pause the static FSM when offloading. Note that this
+            parameter must be in sync with the static-inliner's offload-pause
+            parameter for compilation to work correctly",
             ParseVal::Bool(true),
             PassOpt::parse_bool,
         )]

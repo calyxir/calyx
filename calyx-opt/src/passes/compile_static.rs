@@ -58,14 +58,16 @@ impl Named for CompileStatic {
     fn opts() -> Vec<PassOpt> {
         vec![PassOpt::new(
             "one-hot-cutoff",
-            "The upper limit on the number of states the static FSM must have before we pick binary \
+            "The upper limit on the number of states the static FSM must have before we pick binary
             encoding over one-hot. Defaults to 0 (i.e., always choose binary encoding)",
             ParseVal::Num(0),
             PassOpt::parse_num,
         ),
         PassOpt::new(
             "offload-pause",
-            "Whether to pause the static FSM when offloading",
+            "Whether to pause the static FSM when offloading. Note that this
+            parameter must be in sync with the static-inliner's offload-pause
+            parameter for compilation to work correctly",
             ParseVal::Bool(true),
             PassOpt::parse_bool,
         ),
