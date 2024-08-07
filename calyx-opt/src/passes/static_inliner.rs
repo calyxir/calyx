@@ -1,4 +1,4 @@
-use crate::analysis::{FSMEncoding, GraphColoring};
+use crate::analysis::GraphColoring;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
