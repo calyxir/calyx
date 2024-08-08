@@ -302,6 +302,22 @@ impl CalyxParser {
         Ok(float_val)
     }
 
+    fn ieee754_const(input: Node) -> ParseResult<BitNum> {
+        println!("parsing iee754");
+        let span = Self::get_span(&input);
+        let val = match_nodes!(
+            input.clone().into_children();
+            [float(val)] => val
+        );
+        let bit_pattern = val.to_bits();
+        Ok(BitNum {
+            width: 64,
+            num_type: NumType::Hex,
+            val: bit_pattern,
+            span,
+        })
+    }
+
     fn num_lit(input: Node) -> ParseResult<BitNum> {
         let span = Self::get_span(&input);
         let num = match_nodes!(
@@ -330,21 +346,7 @@ impl CalyxParser {
                     val,
                     span
                 },
-            [bitwidth(width), float(val)] => {
-                let bit_pattern = if width == 32 {
-                    (val as f32).to_bits() as u64
-                } else if width == 64 {
-                    val.to_bits()
-                } else {
-                    return Err(input.error("Unsupported bitwidth for floating-point number"));
-                };
-                BitNum {
-                    width,
-                    num_type: NumType::Hex,
-                    val: bit_pattern,
-                    span
-                }
-            },
+            [ieee754_const(val)] => val,
 
         );
 
