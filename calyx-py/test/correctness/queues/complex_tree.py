@@ -3,7 +3,7 @@ import sys
 import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
-import strict_and_rr_queues.gen_strict_or_rr as pifo
+import strict_and_rr_queues.gen_strict_or_rr as strict_or_rr
 
 # rr(strict(A, B, C), rr(D, E, F), strict(G, H))
 
@@ -23,7 +23,7 @@ def build():
     fifo_G = fifo.insert_fifo(prog, "fifo_G")
     fifo_H = fifo.insert_fifo(prog, "fifo_H")
 
-    pifo_strict1 = pifo.insert_queue(
+    pifo_strict1 = strict_or_rr.insert_queue(
         prog,
         "pifo_strict1",
         [fifo_A, fifo_B, fifo_C],
@@ -32,7 +32,7 @@ def build():
         [0, 1, 2],
         False,
     )
-    pifo_rr = pifo.insert_queue(
+    pifo_rr = strict_or_rr.insert_queue(
         prog,
         "pifo_rr",
         [fifo_D, fifo_E, fifo_F],
@@ -41,10 +41,10 @@ def build():
         [0, 1, 2],
         True,
     )
-    pifo_strict2 = pifo.insert_queue(
+    pifo_strict2 = strict_or_rr.insert_queue(
         prog, "pifo_strict2", [fifo_G, fifo_H], [266, 333, 400], 2, [0, 1], False
     )
-    pifo_root = pifo.insert_queue(
+    pifo_root = strict_or_rr.insert_queue(
         prog,
         "pifo_root",
         [pifo_strict1, pifo_rr, pifo_strict2],

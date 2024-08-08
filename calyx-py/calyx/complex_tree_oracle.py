@@ -13,12 +13,16 @@ if __name__ == "__main__":
     # Our complex PIFO is a tree of queues. It has the shape
     # rr(strict(A, B, C), rr(D, E, F), strict(G, H)).
 
-    pifo = queues.RRQueue2(
+    subqueues3 = [queues.Fifo(len) for _ in range(3)]
+    subqueues2 = [queues.Fifo(len) for _ in range(2)]
+
+
+    pifo = queues.RRQueue(
         3,
         [133, 266, 400],
         (
-            queues.StrictPifo(3, [44, 88, 133], [0, 1, 2], 16),
-            queues.RRQueue(3, [177, 221, 266], len),
+            queues.StrictPifo(3, [44, 88, 133], [0, 1, 2], len),
+            queues.RRQueue(3, [177, 221, 266], subqueues3, len),
             queues.StrictPifo(2, [333, 400], [0, 1], len),
         ),
         len,
