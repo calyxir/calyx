@@ -1,0 +1,22 @@
+{
+  "mem_read": {
+    "data": [
+        4.2
+    ],
+    "format": {
+      "is_signed": true,
+      "numeric_type": "floating_point",
+      "width": 32
+    }
+  },
+  "mem_write": {
+    "data": [
+        0.0
+    ],
+    "format": {
+      "is_signed": true,
+      "numeric_type": "floating_point",
+      "width": 32
+    }
+  }
+}
