@@ -352,8 +352,16 @@ impl ScriptContext {
                         c
                     }
                     Some(ShellCommands::Cmds(c)) => c.clone(),
-                    None => vec![],
+
+                    None => {
+                        // If cmds is empty, then the op doesn't do anything and should be considered
+                        // erroneous.
+                        return Err(RhaiSystemError::empty_op()
+                            .with_pos(pos)
+                            .into());
+                    }
                 };
+
                 let op_name = name.clone();
                 let config_vars = config_vars.clone();
                 let op_emitter = crate::run::RulesOp {

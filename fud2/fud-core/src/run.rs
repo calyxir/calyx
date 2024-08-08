@@ -183,11 +183,6 @@ impl EmitBuild for RulesOp {
             )?;
         }
 
-        // If the sequences of rules was empty, output a phoney rule creating the desired output.
-        if self.cmds.is_empty() {
-            emitter.build_cmd(outputs, "phony", inputs, &[])?;
-        }
-
         Ok(())
     }
 }
