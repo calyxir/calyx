@@ -1,0 +1,29 @@
+// -p compile-static
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/pipelined.futil";
+
+component main() -> () {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+
+  wires {
+    static<5> group offload0 {}
+    static<10> group offload1 {}
+    static<100> group ctrl {
+      offload0[go] = %[20:40] ? 1'd1;
+      offload1[go] = %[60:80] ? 1'd1;
+      r1.write_en = %[27:90] ? 1'd1;
+      r1.in = %[27:90] ? 32'd2;
+      r2.write_en = %[10:72] ? 1'd1;
+      r2.in = %[10:72] ? 32'd2;
+    }
+  }
+
+  control {
+    ctrl;
+  }
+}

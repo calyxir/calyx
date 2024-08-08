@@ -1,0 +1,98 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+static<10> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+    r1 = std_reg(32);
+    @generated fsm = std_reg(4);
+    @generated fsm0 = std_reg(3);
+    @generated adder = std_add(4);
+    @generated adder0 = std_add(3);
+    @generated ud = undef(1);
+    @generated ud0 = undef(1);
+    @generated ud1 = undef(1);
+    @generated ud2 = undef(1);
+    @generated ud3 = undef(1);
+    @generated ud4 = undef(1);
+  }
+  wires {
+    group early_reset_static_par_wrapper {
+      early_reset_static_par[go] = 1'd1;
+      early_reset_static_par_wrapper[done] = ud.out;
+    }
+    group early_reset_static_par<"par"=1> {
+      early_reset_static_par_thread[go] = 1'd1;
+      early_reset_static_par_thread0[go] = fsm.out < 4'd5 & 1'b1 ? 1'd1;
+      early_reset_static_par[done] = ud0.out;
+    }
+    group early_reset_static_par_thread {
+      early_reset_a[go] = 1'd1;
+      early_reset_static_par_thread[done] = ud1.out;
+    }
+    group early_reset_a {
+      r.write_en = 1'd1;
+      add.right = right;
+      add.left = r.out;
+      r.in = add.out;
+      early_reset_a[done] = ud2.out;
+      adder.left = fsm.out;
+      adder.right = 4'd1;
+      fsm.in = fsm.out != 4'd9 ? adder.out;
+      fsm.write_en = fsm.out != 4'd9 ? 1'd1;
+      fsm.in = fsm.out == 4'd9 ? 4'd0;
+      fsm.write_en = fsm.out == 4'd9 ? 1'd1;
+    }
+    group early_reset_static_par_thread0 {
+      early_reset_c[go] = 1'd1;
+      early_reset_static_par_thread0[done] = ud3.out;
+    }
+    group early_reset_c {
+      r1.write_en = 1'd1;
+      r1.in = 32'd2;
+      early_reset_c[done] = ud4.out;
+      adder0.left = fsm0.out;
+      adder0.right = 3'd1;
+      fsm0.in = fsm0.out != 3'd4 ? adder0.out;
+      fsm0.write_en = fsm0.out != 3'd4 ? 1'd1;
+      fsm0.in = fsm0.out == 3'd4 ? 3'd0;
+      fsm0.write_en = fsm0.out == 3'd4 ? 1'd1;
+    }
+    early_reset_static_par[go] = 1'd1;
+  }
+  control {}
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = do_add();
+    @generated fsm = std_reg(4);
+    @generated adder = std_add(4);
+    @generated ud = undef(1);
+    @generated signal_reg = std_reg(1);
+  }
+  wires {
+    group early_reset_static_invoke {
+      a.go = fsm.out == 4'd0 ? 1'd1;
+      a.left = 32'd5;
+      a.right = 32'd6;
+      early_reset_static_invoke[done] = ud.out;
+      adder.left = fsm.out;
+      adder.right = 4'd1;
+      fsm.in = fsm.out != 4'd9 ? adder.out;
+      fsm.write_en = fsm.out != 4'd9 ? 1'd1;
+      fsm.in = fsm.out == 4'd9 ? 4'd0;
+      fsm.write_en = fsm.out == 4'd9 ? 1'd1;
+    }
+    group wrapper_early_reset_static_invoke {
+      early_reset_static_invoke[go] = 1'd1;
+      signal_reg.write_en = fsm.out == 4'd9 & 1'b1 & !signal_reg.out ? 1'd1;
+      signal_reg.in = fsm.out == 4'd9 & 1'b1 & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_static_invoke[done] = signal_reg.out ? 1'd1;
+    }
+    signal_reg.write_en = signal_reg.out ? 1'd1;
+    signal_reg.in = signal_reg.out ? 1'd0;
+  }
+  control {
+    wrapper_early_reset_static_invoke;
+  }
+}
