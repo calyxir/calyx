@@ -15,7 +15,7 @@ use std::str::FromStr;
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
 
 // Threshold for using fast-track functions
-const FAST_TRACK_THRESHOLD: u32 = 1 << 24; 
+const FAST_TRACK_THRESHOLD: u32 = 1 << 24;
 
 struct IntermediateRepresentation {
     sign: bool,
@@ -628,7 +628,6 @@ fn binary_to_fixed_bit_slice(
     Ok(())
 }
 
-
 /// Converts a string representation of a binary number the intermediate representation.
 ///
 /// This function takes a string slice representing a binary number,
@@ -651,7 +650,7 @@ fn binary_to_fixed_bit_slice(
 fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
     let bit_width = binary_string.len();
 
-    let sign = binary_string.chars().next() == Some('0');
+    let sign = binary_string.starts_with('0');
 
     let binary_value = BigUint::from_str_radix(binary_string, 2)
         .expect("Invalid binary string");
@@ -670,7 +669,6 @@ fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
         exponent: 0,
     }
 }
-
 
 /// Converts the intermediate representation to a binary string and writes it to a file or stdout.
 ///
@@ -712,7 +710,6 @@ fn intermediate_to_binary(
     Ok(())
 }
 
-
 /// Converts a string representation of a floating-point number to the intermediate representation.
 ///
 /// This function takes a string slice representing a floating-point number,
@@ -733,8 +730,8 @@ fn intermediate_to_binary(
 ///
 /// This function will panic if the input string cannot be parsed as a number.
 fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
-    let sign = !float_string.starts_with("-");
-    let float_trimmed = float_string.trim_start_matches("-");
+    let sign = !float_string.starts_with('-');
+    let float_trimmed = float_string.trim_start_matches('-');
 
     let parts: Vec<&str> = float_trimmed.split('.').collect();
     let integer_part = parts[0];
@@ -748,7 +745,6 @@ fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
         exponent: -(fractional_part.len() as i32),
     }
 }
-
 
 /// Converts the intermediate representation to a floating-point number string and writes it to a file or stdout.
 ///
@@ -813,7 +809,6 @@ fn intermediate_to_float(
     Ok(())
 }
 
-
 /// Converts a string representation of a fixed-point number to the intermediate representation.
 ///
 /// This function takes a string slice representing a fixed-point number and an exponent value,
@@ -837,8 +832,8 @@ fn fixed_to_intermediate(
     fixed_string: &str,
     exp_int: i32,
 ) -> IntermediateRepresentation {
-    let sign = !fixed_string.starts_with("-");
-    let fixed_trimmed = fixed_string.trim_start_matches("-");
+    let sign = !fixed_string.starts_with('-');
+    let fixed_trimmed = fixed_string.trim_start_matches('-');
 
     let mantissa_string = &format!("{fixed_trimmed}");
 
@@ -848,7 +843,6 @@ fn fixed_to_intermediate(
         exponent: exp_int,
     }
 }
-
 
 /// Converts the intermediate representation to a fixed-point number string and writes it to a file or stdout.
 ///
@@ -924,7 +918,6 @@ fn intermediate_to_fixed(
     Ok(())
 }
 
-
 /// Converts a string representation of a hexadecimal number to the intermediate representation.
 ///
 /// This function takes a string slice representing a hexadecimal number,
@@ -946,7 +939,7 @@ fn intermediate_to_fixed(
 
 fn hex_to_intermediate(hex_string: &str) -> IntermediateRepresentation {
     // Get sign value before converting string
-    let sign = hex_string.chars().next() != Some('-');
+    let sign = !hex_string.starts_with('-');
 
     // Remove the '-' sign if present
     let cleaned_hex_string = if sign { hex_string } else { &hex_string[1..] };
