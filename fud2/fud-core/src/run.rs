@@ -388,7 +388,15 @@ impl<'a> Run<'a> {
                 }
             }) {
                 let stdout_files =
-                    std::fs::File::open(self.plan.workdir.join(filename))?;
+                    std::fs::File::open(self.plan.workdir.join(filename))
+                        .map_err(|e| if let std::io::ErrorKind::NotFound = e.kind() {
+                            std::io::Error::new(
+                                e.kind(),
+                                format!("{}\nHint: Check ops actually generate all of their targets.", e)
+                            )
+                        } else {
+                            e
+                })?;
                 std::io::copy(
                     &mut std::io::BufReader::new(stdout_files),
                     &mut std::io::stdout(),
