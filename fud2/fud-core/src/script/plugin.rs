@@ -354,8 +354,8 @@ impl ScriptContext {
                     Some(ShellCommands::Cmds(c)) => c.clone(),
 
                     None => {
-                        // If cmds is empty, then the op doesn't do anything and should be considered
-                        // erroneous.
+                        // If cmds is empty, then the op doesn't create any of it's targets and
+                        // should be considered erroneous.
                         return Err(RhaiSystemError::empty_op()
                             .with_pos(pos)
                             .into());
