@@ -13,10 +13,9 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     of items that are passed to this component by reference.
     #
     - 1: `commands`, a list of commands.
-       Where each command is a 2-bit unsigned integer with the following format:
+       Where each command is a 1-bit unsigned integer with the following format:
        `0`: pop
-       `1`: peek
-       `2`: push
+       `1`: push
     - 2: `values`, a list of values.
        Where each value is a 32-bit unsigned integer.
        The value at `i` is pushed if the command at `i` is `2`.
@@ -47,15 +46,14 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     # - input `cmd`
     #    where each command is a 2-bit unsigned integer, with the following format:
     #    `0`: pop
-    #    `1`: peek
-    #    `2`: push
+    #    `1`: push
     # - input `value`
-    #   which is a 32-bit unsigned integer. If `cmd` is `2`, push this value.
+    #   which is a 32-bit unsigned integer. If `cmd` is `1`, push this value.
     # - ref register `ans`, into which the result of a pop or peek is written.
     # - ref register `err`, which is raised if an error occurs.
 
     # Our memories and registers, all of which are passed to us by reference.
-    commands = runner.seq_mem_d1("commands", 2, num_cmds, 32, is_ref=True)
+    commands = runner.seq_mem_d1("commands", 1, num_cmds, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, num_cmds, 32, is_ref=True)
     ranks = (
         runner.seq_mem_d1("ranks", 32, num_cmds, 32, is_ref=True) if use_ranks else None
@@ -65,7 +63,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     err = runner.reg(1, "component_err", is_ref=True)
 
     i = runner.reg(32)  # The index of the command we're currently processing
-    cmd = runner.reg(2)  # The command we're currently processing
+    cmd = runner.reg(1)  # The command we're currently processing
     value = runner.reg(32)  # The value we're currently processing
     rank = runner.reg(32)  # The rank we're currently processing
 
@@ -117,9 +115,9 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
         cb.if_with(
             runner.not_use(err.out),  # If there was no error
             [
-                # If cmd <= 1, meaning cmd is pop or peek, raise the `has_ans` flag.
+                # If cmd = 1, meaning cmd is pop, raise the `has_ans` flag.
                 # Otherwise, lower the `has_ans` flag.
-                runner.le_store_in_reg(cmd.out, 1, has_ans)[0]
+                runner.eq_store_in_reg(cmd.out, 0, has_ans)[0]
             ],
         ),
         runner.incr(i),  # i++
@@ -156,7 +154,7 @@ def insert_main(
     dataplane_ans = main.reg(32)
     dataplane_err = main.reg(1)
 
-    commands = main.seq_mem_d1("commands", 2, num_cmds, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 1, num_cmds, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
     ranks = (

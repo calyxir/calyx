@@ -14,7 +14,7 @@ def insert_binheap_fifo(prog, name, queue_size_factor=FACTOR):
 
     It has:
     - two inputs, `cmd` and `value`.
-        - `cmd` has width 2.
+        - `cmd` has width 1.
         - `value` has width 32.
     - one memory, `mem`, of size `2**queue_size_factor`.
     - two ref registers, `ans` and `err`.
@@ -33,7 +33,7 @@ def insert_binheap_fifo(prog, name, queue_size_factor=FACTOR):
     binheap = insert_stable_binheap(prog, "binheap", queue_size_factor)
     binheap = comp.cell("binheap", binheap)
 
-    cmd = comp.input("cmd", 2)
+    cmd = comp.input("cmd", 1)
     value = comp.input("value", 32)
 
     ans = comp.reg(32, "ans", is_ref=True)
