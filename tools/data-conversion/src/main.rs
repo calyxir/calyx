@@ -628,6 +628,26 @@ fn binary_to_fixed_bit_slice(
     Ok(())
 }
 
+
+/// Converts a string representation of a binary number the intermediate representation.
+///
+/// This function takes a string slice representing a binary number,
+/// converts it to a `BigUint`, determines the sign, and constructs an
+/// `IntermediateRepresentation` containing the sign, mantissa, and exponent.
+///
+/// # Arguments
+///
+/// * `binary_string` - A string slice containing the binary number to be converted.
+///
+/// # Returns
+///
+/// This function returns an `IntermediateRepresentation` containing the sign, mantissa,
+/// and exponent of the binary number.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a binary number.
+
 fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
     let bit_width = binary_string.len();
 
@@ -650,6 +670,24 @@ fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
         exponent: 0,
     }
 }
+
+
+/// Converts the intermediate representation to a binary string and writes it to a file or stdout.
+///
+/// This function takes an `IntermediateRepresentation`, converts the mantissa to a `BigInt`
+/// applying the sign, converts the resulting `BigInt` to a binary string, and writes
+/// the binary string to the specified file or stdout.
+///
+/// # Arguments
+///
+/// * `inter_rep` - The intermediate representation to be converted.
+/// * `filepath_send` - A mutable reference to an optional `File` where the binary string
+///   will be written. If `None`, the result is written to stdout.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
 
 fn intermediate_to_binary(
     inter_rep: IntermediateRepresentation,
@@ -674,6 +712,26 @@ fn intermediate_to_binary(
     Ok(())
 }
 
+
+/// Converts a string representation of a floating-point number to the intermediate representation.
+///
+/// This function takes a string slice representing a floating-point number,
+/// splits it into integer and fractional parts, constructs the mantissa,
+/// sets the exponent based on the length of the fractional part, and
+/// constructs an `IntermediateRepresentation` containing the sign, mantissa, and exponent.
+///
+/// # Arguments
+///
+/// * `float_string` - A string slice containing the floating-point number to be converted.
+///
+/// # Returns
+///
+/// This function returns an `IntermediateRepresentation` containing the sign, mantissa,
+/// and exponent of the floating-point number.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a number.
 fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
     let sign = !float_string.starts_with("-");
     let float_trimmed = float_string.trim_start_matches("-");
@@ -690,6 +748,25 @@ fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
         exponent: -(fractional_part.len() as i32),
     }
 }
+
+
+/// Converts the intermediate representation to a floating-point number string and writes it to a file or stdout.
+///
+/// This function takes an `IntermediateRepresentation`, converts the mantissa to a string,
+/// inserts the decimal point at the correct position based on the exponent, constructs
+/// the floating-point number string applying the sign, and writes the resulting string
+/// to the specified file or stdout.
+///
+/// # Arguments
+///
+/// * `inter_rep` - The intermediate representation to be converted.
+/// * `filepath_send` - A mutable reference to an optional `File` where the floating-point
+///   number string will be written. If `None`, the result is written to stdout.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
 
 fn intermediate_to_float(
     inter_rep: IntermediateRepresentation,
@@ -736,6 +813,26 @@ fn intermediate_to_float(
     Ok(())
 }
 
+
+/// Converts a string representation of a fixed-point number to the intermediate representation.
+///
+/// This function takes a string slice representing a fixed-point number and an exponent value,
+/// determines the sign, constructs the mantissa, sets the exponent to the given value, and
+/// constructs an `IntermediateRepresentation` containing the sign, mantissa, and exponent.
+///
+/// # Arguments
+///
+/// * `fixed_string` - A string slice containing the fixed-point number to be converted.
+/// * `exp_int` - The exponent value for the fixed-point number.
+///
+/// # Returns
+///
+/// This function returns an `IntermediateRepresentation` containing the sign, mantissa,
+/// and exponent of the fixed-point number.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a number.
 fn fixed_to_intermediate(
     fixed_string: &str,
     exp_int: i32,
@@ -752,6 +849,24 @@ fn fixed_to_intermediate(
     }
 }
 
+
+/// Converts the intermediate representation to a fixed-point number string and writes it to a file or stdout.
+///
+/// This function takes an `IntermediateRepresentation`, computes the scale factor based on
+/// the negative exponent, converts the mantissa to a `BigInt` and multiplies by the scale factor,
+/// constructs the fixed-point number string applying the sign, and writes the resulting string
+/// to the specified file or stdout.
+///
+/// # Arguments
+///
+/// * `inter_rep` - The intermediate representation to be converted.
+/// * `filepath_send` - A mutable reference to an optional `File` where the fixed-point
+///   number string will be written. If `None`, the result is written to stdout.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
 fn intermediate_to_fixed(
     inter_rep: IntermediateRepresentation,
     filepath_send: &mut Option<File>,
@@ -809,6 +924,26 @@ fn intermediate_to_fixed(
     Ok(())
 }
 
+
+/// Converts a string representation of a hexadecimal number to the intermediate representation.
+///
+/// This function takes a string slice representing a hexadecimal number,
+/// converts it to a `BigUint`, determines the sign, and constructs an
+/// `IntermediateRepresentation` containing the sign, mantissa, and exponent.
+///
+/// # Arguments
+///
+/// * `hex_string` - A string slice containing the hexadecimal number to be converted.
+///
+/// # Returns
+///
+/// This function returns an `IntermediateRepresentation` containing the sign, mantissa,
+/// and exponent of the hexadecimal number.
+///
+/// # Panics
+///
+/// This function will panic if the input string cannot be parsed as a hexadecimal number.
+
 fn hex_to_intermediate(hex_string: &str) -> IntermediateRepresentation {
     // Get sign value before converting string
     let sign = hex_string.chars().next() != Some('-');
@@ -826,6 +961,22 @@ fn hex_to_intermediate(hex_string: &str) -> IntermediateRepresentation {
         exponent: 0,
     }
 }
+
+/// Converts the intermediate representation to a hexadecimal string and writes it to a file or stdout.
+///
+/// This function takes an `IntermediateRepresentation`, converts the mantissa to a hexadecimal string,
+/// applies the sign, and writes the resulting string to the specified file or stdout.
+///
+/// # Arguments
+///
+/// * `inter_rep` - The intermediate representation to be converted.
+/// * `filepath_send` - A mutable reference to an optional `File` where the hexadecimal string
+///   will be written. If `None`, the result is written to stdout.
+///
+/// # Returns
+///
+/// This function returns a `std::io::Result<()>` which is `Ok` if the operation
+/// is successful, or an `Err` if an I/O error occurs while writing to the file.
 
 fn intermediate_to_hex(
     inter_rep: IntermediateRepresentation,
@@ -849,39 +1000,3 @@ fn intermediate_to_hex(
 
     Ok(())
 }
-
-// ChatGPT stuff below
-
-// fn format_scientific_notation(num_str: &str, exponent: i32) -> String {
-//     // Check for an empty string
-//     if num_str.is_empty() {
-//         return "0.0e0".to_string();
-//     }
-
-//     // Find the position of the decimal point
-//     let (integer_part, fractional_part) = if num_str.contains('.') {
-//         let parts: Vec<&str> = num_str.split('.').collect();
-//         (parts[0], parts.get(1).unwrap_or(&""))
-//     } else {
-//         (num_str, "")
-//     };
-
-//     // Calculate the new exponent after including the fractional part
-//     let new_exponent = exponent + integer_part.len() as i32;
-
-//     // Format integer part and fractional part
-//     let integer_part = integer_part.to_string();
-//     let mut fractional_part = fractional_part.to_string();
-//     let mut result = String::new();
-
-//     if !integer_part.is_empty() {
-//         result.push_str(&integer_part);
-//     }
-
-//     if !fractional_part.is_empty() {
-//         result.push('.');
-//         result.push_str(&fractional_part);
-//     }
-
-//     format!("{:+.8e}", result.to_f64().unwrap_or(0.0)) // Converting to f64 for formatting
-// }
