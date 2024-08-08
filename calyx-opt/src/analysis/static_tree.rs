@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 use super::GraphColoring;
 
+/// Optional Rc of a RefCell of a StaticFSM object.
 type OptionalStaticFSM = Option<ir::RRC<StaticFSM>>;
 /// Query (i ,(j,k)) that corresponds to:
 /// Am I in iteration i, and between cylces j and k within
@@ -35,8 +36,8 @@ pub enum StateType {
 /// Node can either be a SingleNode (i.e., a single node) or ParNodes (i.e., a group of
 /// nodes that are executing in parallel).
 /// Most methods in `Node` simply call the equivalent methods for each
-/// of the two possible variants. Perhaps could be more compactly implemented
-/// as a Trait, but enums have their benefits too.
+/// of the two possible variants.
+/// Perhaps could be more compactly implemented as a Trait.
 pub enum Node {
     Single(SingleNode),
     Par(ParNodes),
@@ -48,6 +49,9 @@ impl Node {
     /// Instantiate the necessary registers.
     /// The equivalent methods for the two variants contain more implementation
     /// details.
+    /// `coloring`, `colors_to_max_values`, and `colors_to_fsm` are necessary
+    /// to know whether we actually need to instantiate a new FSM, or we can
+    /// juse use another node's FSM.
     pub fn instantiate_fsms(
         &mut self,
         builder: &mut ir::Builder,
@@ -80,6 +84,7 @@ impl Node {
     /// Count to n. Need to call `instantiate_fsms` before calling `count_to_n`.
     /// The equivalent methods for the two variants contain more implementation
     /// details.
+    /// `incr_start_cond` can optionally guard the 0->1 transition.
     pub fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,
@@ -97,10 +102,12 @@ impl Node {
 
     /// "Realize" the static groups into dynamic groups.
     /// The main challenge is converting %[i:j] into fsm guards.
-    /// Need to call `instantiate_fsms` and (probably)
+    /// Need to call `instantiate_fsms` and
     /// `count_to_n` before calling `realize`.
     /// The equivalent methods for the two variants contain more implementation
     /// details.
+    /// `reset_early_map`, `fsm_info_map`, and `group_rewrites` are just metadata
+    /// to make it easier to rewrite control, add wrappers, etc.
     pub fn realize(
         &mut self,
         ignore_timing_guards: bool,
@@ -154,8 +161,8 @@ impl Node {
 /// The following methods are used to help build the conflict graph for coloring
 /// to share FSMs
 impl Node {
-    /// Get the names of all nodes (i.e., the names of the groups for all
-    /// the `Tree` variants).
+    /// Get the names of all nodes (i.e., the names of the groups for each node
+    /// in the tree).
     pub fn get_all_nodes(&self) -> Vec<ir::Id> {
         match self {
             Node::Single(single_node) => single_node.get_all_nodes(),
@@ -188,6 +195,7 @@ impl Node {
 
 // Used to compile static interface
 impl Node {
+    // Helper to `preprocess_static_interface_assigns`
     // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
     fn preprocess_static_interface_guard(
         guard: ir::Guard<ir::StaticTiming>,
@@ -1153,7 +1161,7 @@ impl SingleNode {
 
     // Produce a guard that checks:
     //   - whether iteration == repeat_query AND
-    //   - whether fsm_query.0 <= cycle count < fsm_query.1
+    //   - whether %[fsm_query.0:fsm_query.1]
     fn check_iteration_and_fsm_state(
         &mut self,
         (repeat_query, fsm_query): (u64, (u64, u64)),

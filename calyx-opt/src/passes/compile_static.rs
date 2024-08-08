@@ -443,7 +443,7 @@ impl CompileStatic {
     }
 
     /// Given a coloring of group names, returns a Hashmap that maps:
-    /// colors -> (max num states for that colro, max num repeats for color).
+    /// colors -> (max num states for that color, max num repeats for color).
     pub fn get_color_max_values(
         coloring: &HashMap<ir::Id, ir::Id>,
         tree_objects: &Vec<Node>,
@@ -662,9 +662,12 @@ impl CompileStatic {
     }
 
     /// Builds a dummy tree, solely for the purposes of determining conflicts
-    /// so we can greedily color when assigning FSMs.
+    /// so we can greedily color when assigning FSMs. This should only be occuring
+    /// when we count during offloading (i.e., don't pause).
     /// This tree should never actually be turned into hardware!! (Thd trees that we
     /// build here do not make sense if you want to actually do that.)
+    /// We can't call `build_tree_object` on this because that looks for the
+    /// `par` attribute, which isn't present when we're counting.
     fn build_dummy_tree(
         target_name: ir::Id,
         static_groups: &[ir::RRC<ir::StaticGroup>],
@@ -683,12 +686,8 @@ impl CompileStatic {
         for assign in &target_group_ref.assignments {
             // Looking for static_child[go] = %[i:j] ? 1'd1; to build children.
             match &assign.dst.borrow().parent {
-                PortParent::Cell(_) => {
-                    if target_group_ref.attributes.has(ir::BoolAttr::ParCtrl) {
-                        panic!("")
-                    }
-                }
-                PortParent::Group(_) => panic!(""),
+                PortParent::Cell(_) => (),
+                PortParent::Group(_) => unreachable!(""),
                 PortParent::StaticGroup(sgroup) => {
                     assert!(assign.src.borrow().is_constant(1, 1));
                     let (beg, end) = Self::get_interval_from_guard(

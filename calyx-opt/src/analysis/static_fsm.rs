@@ -16,12 +16,14 @@ pub enum FSMEncoding {
 #[derive(Debug)]
 /// Represents a static FSM (i.e., the actual register in hardware that counts)
 pub struct StaticFSM {
+    /// The actual register cell
     fsm_cell: ir::RRC<ir::Cell>,
+    /// Type of encoding (binary or one-hot)
     encoding: FSMEncoding,
-    // The fsm's bitwidth (this redundant information bc  we have `cell`)
-    // but makes it easier if we easily have access to this.
+    /// The fsm's bitwidth (this redundant information bc  we have `cell`)
+    /// but makes it easier if we easily have access to this.
     bitwidth: u64,
-    // Mapping of queries from (u64, u64) -> Port
+    /// Mapping of queries: (u64, u64) -> Port
     queries: HashMap<(u64, u64), ir::RRC<ir::Port>>,
 }
 impl StaticFSM {
@@ -58,8 +60,7 @@ impl StaticFSM {
     // Builds an incrementer, and returns the assignments and incrementer cell itself.
     // assignments are:
     // adder.left = fsm.out; adder.right = 1;
-    // cell is:
-    // adder
+    // Returns tuple: (assignments, adder)
     pub fn build_incrementer(
         &self,
         builder: &mut ir::Builder,
@@ -92,6 +93,7 @@ impl StaticFSM {
     // The assignments are:
     // fsm.in = guard ? adder.out;
     // fsm.write_en = guard ? 1'd1;
+    // Returns a vec of these assignments.
     pub fn conditional_increment(
         &self,
         guard: ir::Guard<Nothing>,
@@ -114,6 +116,7 @@ impl StaticFSM {
     // The assignments are:
     // fsm.in = guard ? 0;
     // fsm.write_en = guard ? 1'd1;
+    // Returns a vec of these assignments.
     pub fn conditional_reset(
         &self,
         guard: ir::Guard<Nothing>,
