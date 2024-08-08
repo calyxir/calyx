@@ -370,7 +370,7 @@ impl<'a> Run<'a> {
         }
 
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
-        let status = cmd.status()?;
+        let status = cmd.status().map_err(ninja_cmd_io_error)?;
 
         // Emit to stdout, only when Ninja succeeded.
         if status.success() {
@@ -662,9 +662,26 @@ impl<W: Write> Emitter<W> {
     }
 }
 
+/// Improve error message of `e` if it is known `e` should be the result of running a `ninja`
+/// command.
+fn ninja_cmd_io_error(e: std::io::Error) -> std::io::Error {
+    match e.kind() {
+        std::io::ErrorKind::NotFound => std::io::Error::new(
+            e.kind(),
+            format!(
+            "Unable to run ninja \"{e}\"\nHint: Is ninja installed correctly?",
+        ),
+        ),
+        _ => e,
+    }
+}
+
 /// Check whether a Ninja executable supports the `--quiet` flag.
 fn ninja_supports_quiet(ninja: &str) -> std::io::Result<bool> {
-    let version_output = Command::new(ninja).arg("--version").output()?;
+    let version_output = Command::new(ninja)
+        .arg("--version")
+        .output()
+        .map_err(ninja_cmd_io_error)?;
     if let Ok(version) = String::from_utf8(version_output.stdout) {
         let parts: Vec<&str> = version.split('.').collect();
         if parts.len() >= 2 {
