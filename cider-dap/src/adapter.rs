@@ -1,22 +1,24 @@
 use crate::error::AdapterResult;
+use dap::events::{Event, StoppedEventBody};
 use dap::types::{
-    Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread, Variable,
+    self, Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread,
+    Variable,
 };
 use interp::debugger::commands::ParsedGroupName;
 use interp::debugger::source::structures::NewSourceMap;
-use interp::debugger::OwnedDebugger;
+use interp::debugger::{OwnedDebugger, StoppedReason};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 pub struct MyAdapter {
     #[allow(dead_code)]
     debugger: OwnedDebugger,
-    break_count: Counter,
+    _break_count: Counter,
     thread_count: Counter,
     stack_count: Counter,
     breakpoints: HashSet<i64>,
-    stack_frames: Vec<StackFrame>, // This field is a placeholder
-    threads: Vec<Thread>,          // This field is a placeholder
+    stack_frames: Vec<StackFrame>,
+    threads: Vec<Thread>, // This field is a placeholder
     object_references: HashMap<i64, Vec<String>>,
     source: String,
     ids: NewSourceMap,
@@ -28,7 +30,7 @@ impl MyAdapter {
             OwnedDebugger::from_file(&PathBuf::from(path), &std_path).unwrap();
         Ok(MyAdapter {
             debugger,
-            break_count: Counter::new(),
+            _break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
             breakpoints: HashSet::new(),
@@ -76,7 +78,7 @@ impl MyAdapter {
             let name = self.ids.lookup_line(source_point.line as u64);
 
             let breakpoint = make_breakpoint(
-                self.break_count.increment().into(),
+                Some(source_point.line),
                 name.is_some(),
                 Some(path.clone()),
                 Some(source_point.line),
@@ -131,37 +133,45 @@ impl MyAdapter {
         self.threads.clone()
     }
 
-    //Returns a dummy stack frame, set to change.
-    pub fn create_stack(&mut self) -> Vec<StackFrame> {
-        let frame = StackFrame {
-            id: self.stack_count.increment(),
-            // Maybe automate the name in the future?
-            name: String::from("Frame"),
-            source: Some(Source {
-                name: None,
-                path: Some(self.source.clone()),
-                source_reference: None,
-                presentation_hint: None,
-                origin: None,
-                sources: None,
-                adapter_data: None,
-                checksums: None,
-            }),
-            line: 1,
-            column: 0,
-            end_line: None,
-            end_column: None,
-            can_restart: None,
-            instruction_pointer_reference: None,
-            module_id: None,
-            presentation_hint: None,
-        };
-        self.stack_frames.push(frame);
-        // Return all stack frames
+    pub fn get_stack(&mut self) -> Vec<StackFrame> {
+        if self.stack_frames.is_empty() {
+            self.create_stack();
+        }
         self.stack_frames.clone()
     }
 
-    pub fn clone_stack(&self) -> Vec<StackFrame> {
+    //Returns a dummy stack frame, set to change.
+    fn create_stack(&mut self) -> Vec<StackFrame> {
+        let components = self.debugger.get_components();
+        //turn the names into stack frames, ignore lines for right now
+        let frames = components.map(|comp| {
+            StackFrame {
+                id: self.stack_count.increment(),
+                // Maybe automate the name in the future?
+                name: String::from(comp),
+                source: Some(Source {
+                    name: None,
+                    path: Some(self.source.clone()),
+                    source_reference: None,
+                    presentation_hint: None,
+                    origin: None,
+                    sources: None,
+                    adapter_data: None,
+                    checksums: None,
+                }),
+                line: 1,
+                column: 0,
+                end_line: None,
+                end_column: None,
+                can_restart: None,
+                instruction_pointer_reference: None,
+                module_id: None,
+                presentation_hint: None,
+            }
+        });
+
+        self.stack_frames.extend(frames);
+        // Return all stack frames
         self.stack_frames.clone()
     }
 
@@ -244,7 +254,42 @@ impl MyAdapter {
     }
 
     pub fn on_pause(&mut self) {
+        self.debugger.pause();
         self.object_references.clear();
+    }
+
+    pub fn on_continue(&mut self, thread_id: i64) -> Event {
+        dbg!("continue - adapter");
+        let result = self.debugger.cont();
+        match result {
+            StoppedReason::Done => Event::Terminated(None),
+            StoppedReason::Breakpoint(names) => {
+                let bp_lines: Vec<i64> = names
+                    .into_iter()
+                    .map(|x| self.ids.lookup(&x).unwrap().start_line as i64)
+                    .collect();
+                dbg!(&bp_lines);
+                //in map add adjusting stack frame lines
+                Event::Stopped(StoppedEventBody {
+                    reason: types::StoppedEventReason::Breakpoint,
+                    description: Some(String::from("hit breakpoint")),
+                    thread_id: Some(thread_id),
+                    preserve_focus_hint: None,
+                    all_threads_stopped: Some(true),
+                    text: None,
+                    hit_breakpoint_ids: Some(bp_lines),
+                })
+            }
+            StoppedReason::PauseReq => Event::Stopped(StoppedEventBody {
+                reason: types::StoppedEventReason::Pause,
+                description: Some(String::from("Paused")),
+                thread_id: Some(thread_id),
+                preserve_focus_hint: None,
+                all_threads_stopped: Some(true),
+                text: None,
+                hit_breakpoint_ids: None,
+            }),
+        }
     }
 }
 

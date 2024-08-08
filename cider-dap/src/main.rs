@@ -108,7 +108,6 @@ where
                     // Not sure if we need it
                     // Make VSCode send disassemble request
                     supports_stepping_granularity: Some(true),
-                    supports_single_thread_execution_requests: Some(true),
                     ..Default::default()
                 }));
             server.respond(rsp)?;
@@ -243,11 +242,7 @@ fn run_server<R: Read, W: Write>(
             // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
                 // Create new frame if empty, SUBJECT TO CHANGE
-                let frames = if adapter.clone_stack().is_empty() {
-                    adapter.create_stack()
-                } else {
-                    adapter.clone_stack()
-                };
+                let frames = adapter.get_stack();
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {
                         stack_frames: frames,
@@ -256,14 +251,16 @@ fn run_server<R: Read, W: Write>(
                 server.respond(rsp)?;
             }
             // Continue the debugger
-            Command::Continue(_args) => {
+            Command::Continue(args) => {
                 // need to run debugger, ngl not really sure how to implement this functionality
                 // run debugger until breakpoint or paused -> maybe have a process to deal w running debugger?
+                let stopped = adapter.on_continue(args.thread_id);
                 let rsp =
                     req.success(ResponseBody::Continue(ContinueResponse {
-                        all_threads_continued: None,
+                        all_threads_continued: Some(true),
                     }));
                 server.respond(rsp)?;
+                server.send_event(stopped)?;
             }
             // Send a Stopped event with reason Pause
             Command::Pause(args) => {

@@ -60,6 +60,12 @@ pub enum DebuggerReturnStatus {
     Exit,
 }
 
+pub enum StoppedReason {
+    Done,
+    Breakpoint(Vec<(String, String)>), //adapter then looks up line
+    PauseReq,
+}
+
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [Debugger::main_loop] function while this struct holds auxiliary
 /// information used to coordinate the debugging process.
@@ -69,6 +75,7 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
     program_context: C,
     debugging_context: DebuggingContext,
     _source_map: Option<SourceMap>,
+    is_running: bool,
 }
 
 pub type OwnedDebugger = Debugger<Rc<Context>>;
@@ -106,6 +113,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             program_context,
             debugging_context: DebuggingContext::new(),
             _source_map: None,
+            is_running: false,
         })
     }
 
@@ -114,29 +122,39 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             status: self
                 .interpreter
                 .get_currently_running_groups()
-                .map(|x| {
-                    let group_name =
-                        self.program_context.as_ref().lookup_name(x).clone();
-                    let parent_comp = self
-                        .program_context
-                        .as_ref()
-                        .get_component_from_group(x);
-                    let parent_name = self
-                        .program_context
-                        .as_ref()
-                        .lookup_name(parent_comp)
-                        .clone();
-                    (parent_name, group_name)
-                })
+                .map(|x| self.grp_idx_to_name(x))
                 .collect(),
             done: self.interpreter.is_done(),
         }
+    }
+
+    fn grp_idx_to_name(&self, x: GroupIdx) -> (String, String) {
+        let group_name = self.program_context.as_ref().lookup_name(x).clone();
+        let parent_comp =
+            self.program_context.as_ref().get_component_from_group(x);
+        let parent_name = self
+            .program_context
+            .as_ref()
+            .lookup_name(parent_comp)
+            .clone();
+        (parent_name, group_name)
     }
 
     pub fn get_cells(
         &self,
     ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
         self.interpreter.env().iter_cells()
+    }
+
+    pub fn get_components(&self) -> impl Iterator<Item = &String> + '_ {
+        let comps = self
+            .program_context
+            .as_ref()
+            .primary
+            .components
+            .iter()
+            .map(|(k, _)| self.program_context.as_ref().lookup_name(k));
+        comps
     }
 
     // Go to next step
@@ -158,8 +176,25 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
 
-    pub fn cont(&mut self) -> InterpreterResult<()> {
-        self.do_continue()
+    pub fn cont(&mut self) -> StoppedReason {
+        self.is_running = true;
+        let _ = self.do_continue(); //need to error handle
+        let bps = self
+            .debugging_context
+            .hit_breakpoints()
+            .map(|x| self.grp_idx_to_name(x))
+            .collect_vec();
+        if self.interpreter.is_done() {
+            StoppedReason::Done
+        } else if !bps.is_empty() {
+            StoppedReason::Breakpoint(bps)
+        } else {
+            StoppedReason::PauseReq
+        }
+    }
+
+    pub fn pause(&mut self) {
+        self.is_running = false;
     }
 
     #[inline]
@@ -172,12 +207,14 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     fn do_continue(&mut self) -> InterpreterResult<()> {
+        dbg!("entered do_continue debugger_core");
         self.debugging_context
             .set_current_time(self.interpreter.get_currently_running_groups());
 
         let mut breakpoints: Vec<GroupIdx> = vec![];
 
         while breakpoints.is_empty() && !self.interpreter.is_done() {
+            dbg!("stepped");
             self.interpreter.step()?;
             // TODO griffin: figure out how to skip this convergence
             self.interpreter.converge()?;
@@ -200,7 +237,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
             breakpoints.extend(self.debugging_context.hit_breakpoints());
         }
-
         if !self.interpreter.is_done() {
             for group in breakpoints {
                 println!(
