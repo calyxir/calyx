@@ -34,7 +34,14 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
 
 
 def insert_queue(
-    prog, name, subqueues, boundaries, numflows, order, round_robin, queue_len_factor=QUEUE_LEN_FACTOR
+    prog,
+    name,
+    subqueues,
+    boundaries,
+    numflows,
+    order,
+    round_robin,
+    queue_len_factor=QUEUE_LEN_FACTOR,
 ):
     """
     Inserts the component `pifo` into the program. If round_robin is true, it
@@ -51,7 +58,9 @@ def insert_queue(
     # If this is 0, we pop. If it is 1, we push `value` to the queue.
     value = pifo.input("value", 32)  # The value to push to the queue
 
-    subqueue_cells = [pifo.cell(f"queue_{i}", queue_i) for i, queue_i in enumerate(subqueues)]
+    subqueue_cells = [
+        pifo.cell(f"queue_{i}", queue_i) for i, queue_i in enumerate(subqueues)
+    ]
 
     ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -66,7 +75,7 @@ def insert_queue(
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
 
-    max_queue_len = 2**queue_len_factor
+    max_queue_len = 2 ** queue_len_factor
 
     # Some equality checks.
     len_eq_0 = pifo.eq_use(length.out, 0)
@@ -104,15 +113,17 @@ def insert_queue(
                 # In the specical case when b = 0,
                 # we don't need to check the lower bound and we can just `invoke`.
                 if b == 0 and round_robin
-                
-                else
-                invoke_subqueue(subqueue_cells[order.index(b)], cmd, value, ans, err)
-
+                else invoke_subqueue(
+                    subqueue_cells[order.index(b)], cmd, value, ans, err
+                )
                 if b == 0 and not round_robin
                 else cb.if_with(
                     pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                    invoke_subqueue(subqueue_cells[order.index(b)], cmd, value, ans, err),)
-                if not round_robin 
+                    invoke_subqueue(
+                        subqueue_cells[order.index(b)], cmd, value, ans, err
+                    ),
+                )
+                if not round_robin
                 # Otherwise, we need to check the lower bound and `invoke`
                 # only if the value is in the interval.
                 else cb.if_with(
@@ -218,8 +229,11 @@ def build(numflows, roundrobin):
 
     prog = cb.Builder()
     subqueues = [
-        fifo.insert_fifo(prog, f"subqueue{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
+        fifo.insert_fifo(prog, f"subqueue{i}", QUEUE_LEN_FACTOR)
+        for i in range(numflows)
     ]
-    pifo = insert_queue(prog, "pifo", subqueues, boundaries, numflows, order, roundrobin)
+    pifo = insert_queue(
+        prog, "pifo", subqueues, boundaries, numflows, order, roundrobin
+    )
     qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program

@@ -573,6 +573,7 @@ class RRQueue:
     def __len__(self) -> int:
         return self.pifo_len
 
+
 @dataclass
 class RRQueue2:
     """
@@ -725,6 +726,7 @@ class StrictPifo:
     def __len__(self) -> int:
         return self.pifo_len
 
+
 @dataclass
 class StrictPifo2:
     """
@@ -783,7 +785,7 @@ class StrictPifo2:
         """Increments priority, taking into account wrap around."""
         self.priority = 0 if self.priority == (self.n - 1) else self.priority + 1
 
-    def pop(self,  *_):
+    def pop(self, *_):
         """Pops the PIFO."""
         if self.pifo_len == 0:
             raise QueueError("Cannot pop from empty PIFO.")
@@ -802,7 +804,7 @@ class StrictPifo2:
             except QueueError:
                 self.next_priority()
 
-    def peek(self,  *_) -> Optional[int]:
+    def peek(self, *_) -> Optional[int]:
         """Peeks into the PIFO."""
         if self.pifo_len == 0:
             raise QueueError("Cannot peek into empty PIFO.")
