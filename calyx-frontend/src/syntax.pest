@@ -18,17 +18,20 @@ octal =   @{ ASCII_HEX_DIGIT+ }
 hex =     @{ ASCII_HEX_DIGIT+ }
 float =   @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 
+ieee754_const = { "ieee754_const(" ~ float ~ ")" }
+
 // `$` creates a compound rule which ignores whitespace while allowing for
 // inner rules (`@` makes inner rules silent).
 // See: https://pest.rs/book/print.html#atomic
 num_lit = ${
-      bitwidth
+      (bitwidth
       ~ "'"
       ~ ( "d" ~ decimal
         | "b" ~ binary
         | "x" ~ hex
-        | "o" ~ octal
-        | "f" ~ float)
+        | "o" ~ octal)
+      )
+      | ieee754_const
 }
 
 char = { !"\"" ~ ANY }

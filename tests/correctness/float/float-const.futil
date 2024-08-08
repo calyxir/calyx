@@ -10,7 +10,7 @@ component main<"toplevel"=1,>(@clk clk: 1, @reset reset: 1, @go go: 1) -> (@done
   wires {
     group read {
         mem_read.addr0 = 1'b0;
-        reg0.in = mem_read.read_data;
+        reg0.in = ieee754_const(1.00);
         reg0.write_en = 1'b1;
         read[done] = reg0.done;
     }
