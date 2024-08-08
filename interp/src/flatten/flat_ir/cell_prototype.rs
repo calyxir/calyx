@@ -64,7 +64,7 @@ pub enum SingleWidthType {
 
 /// An enum for encoding FP primitives operator types
 #[derive(Debug, Clone)]
-pub enum FPType {
+pub enum FXType {
     Add,
     Sub,
     Mult,
@@ -196,7 +196,7 @@ pub enum CellPrototype {
         width: ParamWidth,
     },
     FixedPoint {
-        op: FPType,
+        op: FXType,
         width: ParamWidth,
         int_width: ParamWidth,
         frac_width: ParamWidth,
@@ -313,9 +313,9 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: if n == "std_fp_add" {
-                            FPType::Add
+                            FXType::Add
                         } else {
-                            FPType::SignedAdd
+                            FXType::SignedAdd
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -331,9 +331,9 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: if n == "std_fp_sub" {
-                            FPType::Sub
+                            FXType::Sub
                         } else {
-                            FPType::SignedSub
+                            FXType::SignedSub
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -380,7 +380,7 @@ impl CellPrototype {
                     ];
 
                     Self::FixedPoint {
-                        op: FPType::Sqrt,
+                        op: FXType::Sqrt,
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
                         frac_width: frac_width.try_into().unwrap(),
@@ -397,10 +397,10 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: match n {
-                            "std_fp_mult_pipe" => FPType::Mult,
-                            "std_fp_smult_pipe" => FPType::SignedMult,
-                            "std_fp_div_pipe" => FPType::Div,
-                            _ => FPType::SignedDiv,
+                            "std_fp_mult_pipe" => FXType::Mult,
+                            "std_fp_smult_pipe" => FXType::SignedMult,
+                            "std_fp_div_pipe" => FXType::Div,
+                            _ => FXType::SignedDiv,
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -484,11 +484,11 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: if n == "std_fp_gt" {
-                            FPType::Gt
+                            FXType::Gt
                         } else if n == "std_fp_sgt" {
-                            FPType::SignedGt
+                            FXType::SignedGt
                         } else {
-                            FPType::SignedLt
+                            FXType::SignedLt
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),

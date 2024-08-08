@@ -657,7 +657,7 @@ def operate_queue(
             try:
                 ans.append(queue.pop(time))
             except QueueError:
-                ans.append(20000)
+                ans.append(4294967295)
                 if keepgoing:
                     continue
                 break
@@ -665,9 +665,9 @@ def operate_queue(
         elif cmd == 1:  # Push
             try:
                 queue.push(val, rank, time)
-                ans.append(10000)
+                ans.append(4294967294)
             except QueueError:
-                ans.append(20000)
+                ans.append(4294967295)
                 if keepgoing:
                     continue
                 break
