@@ -186,13 +186,15 @@ impl GPosIdx {
 
     /// returns:
     /// 1. the name of the file the span is in
-    /// 2. the starting line of a span
-    pub fn get_line_num(&self) -> (&String, usize) {
+    /// 2. the (inclusive) range of lines within the span
+    pub fn get_line_num(&self) -> (&String, (usize, usize)) {
         let table = GlobalPositionTable::as_ref();
         let pos_data = table.get_pos(self.0);
         let file_name = &table.get_file_data(pos_data.file).name;
-        let (_, _, line_num) = self.get_lines();
-        (file_name, line_num)
+        let (buf, _, line_num) = self.get_lines();
+        //reformat to return the range (inclusive)
+        let rng = (line_num, line_num + buf.len() - 1);
+        (file_name, rng)
     }
 
     /// Format this position with the error message `err_msg`

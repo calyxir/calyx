@@ -324,7 +324,10 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
     }
 }
 
-pub fn convert_from_data_dump(dump: &DataDump) -> JsonPrintDump {
+pub fn convert_from_data_dump(
+    dump: &DataDump,
+    use_quotes: bool,
+) -> JsonPrintDump {
     let mut map = HashMap::new();
     for declaration in &dump.header.memories {
         let data = dump.get_data(&declaration.name).unwrap();
@@ -333,7 +336,13 @@ pub fn convert_from_data_dump(dump: &DataDump) -> JsonPrintDump {
         map.insert(declaration.name.clone(), formatted_data);
     }
 
-    JsonPrintDump(map)
+    if use_quotes {
+        let map: HashMap<String, PrintVec> =
+            map.into_iter().map(|(k, v)| (k, v.into())).collect();
+        map.into()
+    } else {
+        map.into()
+    }
 }
 
 /// This is catastrophically stupid.
@@ -504,10 +513,10 @@ mod tests {
 
             let dump = convert_to_data_dump(&json_data, true);
 
-            let json_print_dump = convert_from_data_dump(&dump);
+            let json_print_dump = convert_from_data_dump(&dump, false);
 
             for (name, entry) in &json_data.0 {
-                prop_assert_eq!(&entry.data, json_print_dump.0.get(name).unwrap())
+                prop_assert_eq!(&entry.data, json_print_dump.as_normal().unwrap().get(name).unwrap())
             }
         }
 

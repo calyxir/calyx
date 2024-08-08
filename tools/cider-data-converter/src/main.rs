@@ -72,6 +72,11 @@ struct Opts {
     /// "json". If not provided, the converter will try to guess based on file names
     #[argh(option, short = 't', long = "to")]
     action: Option<Action>,
+
+    /// whether to use quotes around floating point numbers in the output. This
+    /// exists solely for backwards compatibility with the old display format.
+    #[argh(switch, long = "legacy-quotes")]
+    use_quotes: bool,
 }
 
 fn main() -> Result<(), CiderDataConverterError> {
@@ -119,7 +124,10 @@ fn main() -> Result<(), CiderDataConverterError> {
             Action::ToJson => {
                 let data_dump =
                     serialization::DataDump::deserialize(&mut input)?;
-                let json_data = converter::convert_from_data_dump(&data_dump);
+                let json_data = converter::convert_from_data_dump(
+                    &data_dump,
+                    opts.use_quotes,
+                );
                 writeln!(
                     &mut output,
                     "{}",
