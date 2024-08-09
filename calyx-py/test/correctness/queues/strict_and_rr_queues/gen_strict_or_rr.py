@@ -62,19 +62,15 @@ def insert_queue(
         pifo.cell(f"queue_{i}", queue_i) for i, queue_i in enumerate(subqueues)
     ]
 
-    ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
-
-    err = pifo.reg(1, "err", is_ref=True)
+    ans = pifo.reg(32, "ans", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
+    err = pifo.reg(1, "err", is_ref=True)
 
     length = pifo.reg(32, "length")  # The active length of the PIFO.
-
-    # A register that marks the next sub-queue to `pop` from.
-    hot = pifo.reg(32, "hot")
+    hot = pifo.reg(32, "hot")  # A register that marks the next sub-queue to `pop` from.
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
-
     max_queue_len = 2**queue_len_factor
 
     # Some equality checks.
@@ -85,7 +81,6 @@ def insert_queue(
 
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
-
     len_incr = pifo.incr(length)  # len++
     len_decr = pifo.decr(length)  # len--
 
