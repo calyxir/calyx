@@ -1268,6 +1268,7 @@ dependencies = [
  "once_cell",
  "pathdiff",
  "rand 0.8.5",
+ "rand_chacha",
  "rhai",
  "serde",
 ]
