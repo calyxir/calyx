@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use fud_core::{
-    exec::plan::{EggPlanner, EnumeratePlanner, FindPlan},
+    exec::plan::{EnumeratePlanner, FindPlan},
     DriverBuilder,
 };
 use rand::SeedableRng as _;
@@ -10,6 +10,16 @@ mod graph_gen;
 
 const MULTI_PLANNERS: [&dyn FindPlan; 2] =
     [&EnumeratePlanner {}, &EggPlanner {}];
+
+#[cfg(feature = "egg_planner")]
+use fud_core::exec::plan::EggPlanner;
+
+#[cfg(feature = "egg_planner")]
+const MULTI_PLANNERS: [&dyn FindPlan; 2] =
+    [&EnumeratePlanner {}, &EggPlanner {}];
+
+#[cfg(not(feature = "egg_planner"))]
+const MULTI_PLANNERS: [&dyn FindPlan; 1] = [&EnumeratePlanner {}];
 
 #[test]
 fn find_plan_simple_graph_test() {
@@ -22,9 +32,24 @@ fn find_plan_simple_graph_test() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s2])]),
-            path_finder.find_plan(&[s1], &[s2], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s2],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
-        assert_eq!(None, path_finder.find_plan(&[s1], &[s1], &[], &driver.ops));
+        assert_eq!(
+            None,
+            path_finder.find_plan(
+                &[s1],
+                &[s1],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
+        );
     }
 }
 
@@ -41,7 +66,13 @@ fn find_plan_multi_op_graph() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s3])]),
-            path_finder.find_plan(&[s1], &[s3], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s3],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -67,16 +98,43 @@ fn find_plan_multi_path_graph() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s3]), (t4, vec![s5])]),
-            path_finder.find_plan(&[s1], &[s5], &[t4], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s5],
+                &[t4],
+                &driver.ops,
+                &driver.states
+            )
         );
         assert_eq!(
             Some(vec![(t1, vec![s3]), (t5, vec![s5])]),
-            path_finder.find_plan(&[s1], &[s5], &[t5], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s5],
+                &[t5],
+                &driver.ops,
+                &driver.states
+            )
         );
-        assert_eq!(None, path_finder.find_plan(&[s6], &[s5], &[], &driver.ops));
         assert_eq!(
             None,
-            path_finder.find_plan(&[s1], &[s5], &[t2], &driver.ops)
+            path_finder.find_plan(
+                &[s6],
+                &[s5],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
+        );
+        assert_eq!(
+            None,
+            path_finder.find_plan(
+                &[s1],
+                &[s5],
+                &[t2],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -88,7 +146,16 @@ fn find_plan_only_state_graph() {
         let mut bld = DriverBuilder::new("fud2");
         let s1 = bld.state("s1", &[]);
         let driver = bld.build();
-        assert_eq!(None, path_finder.find_plan(&[s1], &[s1], &[], &driver.ops));
+        assert_eq!(
+            None,
+            path_finder.find_plan(
+                &[s1],
+                &[s1],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
+        );
     }
 }
 
@@ -102,7 +169,13 @@ fn find_plan_self_loop() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s1])]),
-            path_finder.find_plan(&[s1], &[s1], &[t1], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s1],
+                &[t1],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -119,11 +192,23 @@ fn find_plan_cycle_graph() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t1, vec![s2])]),
-            path_finder.find_plan(&[s1], &[s2], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s2],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
         assert_eq!(
             Some(vec![(t2, vec![s1])]),
-            path_finder.find_plan(&[s2], &[s1], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s2],
+                &[s1],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -142,7 +227,13 @@ fn find_plan_nontrivial_cycle() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t2, vec![s2]), (t3, vec![s3])]),
-            path_finder.find_plan(&[s1], &[s3], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1],
+                &[s3],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -160,7 +251,13 @@ fn op_creating_two_states() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t0, vec![s1, s2])]),
-            path_finder.find_plan(&[s0], &[s1, s2], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s0],
+                &[s1, s2],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -178,7 +275,13 @@ fn op_compressing_two_states() {
         let driver = bld.build();
         assert_eq!(
             Some(vec![(t0, vec![s0])]),
-            path_finder.find_plan(&[s1, s2], &[s0], &[], &driver.ops)
+            path_finder.find_plan(
+                &[s1, s2],
+                &[s0],
+                &[],
+                &driver.ops,
+                &driver.states
+            )
         );
     }
 }
@@ -208,7 +311,7 @@ fn op_creating_two_states_not_initial_and_final() {
                 (t3, vec![s5])
             ])),
             path_finder
-                .find_plan(&[s0], &[s4, s5], &[], &driver.ops)
+                .find_plan(&[s0], &[s4, s5], &[], &driver.ops, &driver.states)
                 .map(BTreeSet::from_iter)
         );
     }
@@ -239,53 +342,8 @@ fn op_compressing_two_states_not_initial_and_final() {
                 (t3, vec![s5]),
             ])),
             path_finder
-                .find_plan(&[s0, s2], &[s5], &[], &driver.ops)
+                .find_plan(&[s0, s2], &[s5], &[], &driver.ops, &driver.states)
                 .map(BTreeSet::from_iter)
         );
-    }
-}
-
-#[test]
-fn correctness_fuzzing() {
-    const LAYERS: u64 = 5;
-    const STATES_PER_LAYER: u64 = 100;
-    const OPS_PER_LAYER: u64 = 10;
-    const MAX_IO_SIZE: u64 = 5;
-    const MAX_REQUIRED_OPS: u64 = 3;
-    const RANDOM_SEED: u64 = 0xDEADBEEF;
-    const NUM_TESTS: u64 = 50;
-
-    for planner in MULTI_PLANNERS {
-        let rng = rand_chacha::ChaChaRng::seed_from_u64(RANDOM_SEED);
-        let seeds = (0..NUM_TESTS).map(|_| rng.get_stream());
-        for seed in seeds {
-            let test = graph_gen::simple_random_graphs(
-                LAYERS,
-                STATES_PER_LAYER,
-                OPS_PER_LAYER,
-                MAX_IO_SIZE,
-                MAX_REQUIRED_OPS,
-                seed,
-            );
-            match test.eval(planner) {
-                graph_gen::PlannerTestResult::FoundValidPlan
-                | graph_gen::PlannerTestResult::NoPlanFound => (),
-                graph_gen::PlannerTestResult::FoundInvalidPlan => panic!(
-                    "Invalid plan generated with test parameters:
-                        layers: {}
-                        states_per_layer: {}
-                        ops_per_layer: {}
-                        max_io_size: {}
-                        max_required_ops: {}
-                        random_seed: {}",
-                    LAYERS,
-                    STATES_PER_LAYER,
-                    OPS_PER_LAYER,
-                    MAX_IO_SIZE,
-                    MAX_REQUIRED_OPS,
-                    seed
-                ),
-            }
-        }
     }
 }

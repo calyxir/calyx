@@ -4,7 +4,7 @@ use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, MemType, SingleWidthType},
+            cell_prototype::{CellPrototype, FXType, MemType, SingleWidthType},
             prelude::{CellInfo, GlobalPortIdx},
         },
         structures::context::Context,
@@ -108,11 +108,36 @@ pub fn build_primitive(
             base_port, *start_idx, *end_idx, *out_width,
         )),
         CellPrototype::FixedPoint {
-            op: _,
-            width: _,
-            int_width: _,
-            frac_width: _,
-        } => todo!("Fixed point implementations not available yet"),
+            op,
+            width,
+            int_width,
+            frac_width,
+        } => match op {
+            FXType::Add | FXType::SignedAdd => Box::new(StdAdd::new(base_port)),
+            FXType::Sub | FXType::SignedSub => Box::new(StdSub::new(base_port)),
+            FXType::Mult | FXType::SignedMult => Box::new(
+                FxpMultPipe::<2>::new(base_port, *int_width, *frac_width),
+            ),
+            FXType::Div => Box::new(FxpDivPipe::<2, false>::new(
+                base_port,
+                *int_width,
+                *frac_width,
+            )),
+
+            FXType::SignedDiv => Box::new(FxpDivPipe::<2, true>::new(
+                base_port,
+                *int_width,
+                *frac_width,
+            )),
+            FXType::Gt => Box::new(StdGt::new(base_port)),
+            FXType::SignedGt => Box::new(StdSgt::new(base_port)),
+            FXType::SignedLt => Box::new(StdSlt::new(base_port)),
+            FXType::Sqrt => Box::new(Sqrt::<true>::new(
+                base_port,
+                *width,
+                Some(*frac_width),
+            )),
+        },
         CellPrototype::Slice {
             in_width: _, // Not actually needed, should probably remove
             out_width,

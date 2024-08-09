@@ -1,5 +1,7 @@
 use cranelift_entity::PrimaryMap;
 
+use crate::exec::State;
+
 use super::super::{OpRef, Operation, StateRef};
 
 /// `Step` is an op paired with its used outputs.
@@ -18,5 +20,6 @@ pub trait FindPlan: std::fmt::Debug {
         end: &[StateRef],
         through: &[OpRef],
         ops: &PrimaryMap<OpRef, Operation>,
+        states: &PrimaryMap<StateRef, State>,
     ) -> Option<Vec<Step>>;
 }

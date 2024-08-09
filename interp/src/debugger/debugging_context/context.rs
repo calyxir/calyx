@@ -58,17 +58,7 @@ impl BreakPoint {
     }
 
     pub fn format(&self, ctx: &Context) -> String {
-        let parent_comp = ctx
-            .primary
-            .components
-            .keys()
-            .find(|comp_id| {
-                ctx.secondary[*comp_id]
-                    .definitions
-                    .groups()
-                    .contains(self.group)
-            })
-            .unwrap();
+        let parent_comp = ctx.get_component_from_group(self.group);
         let parent_name = ctx.lookup_name(parent_comp);
 
         let group_name = ctx.lookup_name(self.group);
@@ -84,11 +74,11 @@ pub struct WatchPoint {
 }
 
 impl WatchPoint {
-    pub fn _enable(&mut self) {
+    pub fn enable(&mut self) {
         self.state = PointStatus::Enabled;
     }
 
-    pub fn _disable(&mut self) {
+    pub fn disable(&mut self) {
         self.state = PointStatus::Disabled;
     }
 
@@ -264,7 +254,7 @@ impl WatchPointIndices {
     fn get_before(&self) -> Option<&[WatchpointIdx]> {
         match self {
             Self::Before(idx) => Some(idx),
-            Self::Both { after, .. } => Some(after),
+            Self::Both { before, .. } => Some(before),
             Self::After(_) => None,
         }
     }
@@ -273,7 +263,7 @@ impl WatchPointIndices {
         match self {
             Self::Before(_) => None,
             Self::After(idx) => Some(idx),
-            Self::Both { before, .. } => Some(before),
+            Self::Both { after, .. } => Some(after),
         }
     }
 
@@ -541,14 +531,22 @@ impl DebuggingContext {
         self.watchpoints.delete_by_idx(target)
     }
 
-    fn _act_watchpoint(&mut self, target: WatchID, action: PointAction) {
+    pub fn enable_watchpoint(&mut self, target: WatchID) {
+        self.act_watchpoint(target, PointAction::Enable)
+    }
+
+    pub fn disable_watchpoint(&mut self, target: WatchID) {
+        self.act_watchpoint(target, PointAction::Disable)
+    }
+
+    fn act_watchpoint(&mut self, target: WatchID, action: PointAction) {
         fn act(target: &mut WatchPoint, action: PointAction) {
             match action {
                 PointAction::Enable => {
-                    target._enable();
+                    target.enable();
                 }
                 PointAction::Disable => {
-                    target._disable();
+                    target.disable();
                 }
             }
         }
@@ -592,11 +590,11 @@ impl DebuggingContext {
     }
 
     pub fn _enable_watchpoint(&mut self, target: WatchID) {
-        self._act_watchpoint(target, PointAction::Enable)
+        self.act_watchpoint(target, PointAction::Enable)
     }
 
     pub fn _disable_watchpoint(&mut self, target: WatchID) {
-        self._act_watchpoint(target, PointAction::Disable)
+        self.act_watchpoint(target, PointAction::Disable)
     }
 
     pub fn hit_breakpoints(&self) -> impl Iterator<Item = GroupIdx> + '_ {
