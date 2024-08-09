@@ -36,7 +36,7 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
 
     It has:
     - two inputs, `cmd` and `value`.
-        - `cmd` has width 2.
+        - `cmd` has width 1.
         - `value` has width 32.
     - one memory, `mem`, of size `2**queue_size_factor`.
     - two ref registers, `ans` and `err`.
@@ -62,7 +62,6 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
     - To pop, we pop `binheap`; say we obtain `v`.
         - if the flow `v` belongs to matches `turn`, switch `turn` to the other flow.
         - Otherwise, if `v` belongs to flow A (resp. B), `r_b += 2` (resp. `r_a += 2`).
-    - To peek, we peek `binheap`.
 
     This mechanism for moving `r_a` and `r_b` ensures flows A and B are
     interleaved correctly.
@@ -72,14 +71,14 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
     binheap = insert_stable_binheap(prog, "binheap", queue_size_factor)
     binheap = comp.cell("binheap", binheap)
 
-    cmd = comp.input("cmd", 2)
+    cmd = comp.input("cmd", 1)
     value = comp.input("value", 32)
 
     ans = comp.reg(32, "ans", is_ref=True)
     err = comp.reg(1, "err", is_ref=True)
 
     cmd_eq_0 = comp.eq_use(cmd, 0)
-    cmd_eq_2 = comp.eq_use(cmd, 2)
+    cmd_eq_1 = comp.eq_use(cmd, 1)
     err_eq_0 = comp.eq_use(err.out, 0)
 
     flow_in = comp.reg(1, "flow_in")
@@ -136,7 +135,7 @@ def insert_binheap_pifo(prog, name, boundary=BOUNDARY, queue_size_factor=FACTOR)
                         ),
                     ],
                 ),
-                cb.if_with(cmd_eq_2, cb.if_(flow_in.out, r_b_incr_2, r_a_incr_2)),
+                cb.if_with(cmd_eq_1, cb.if_(flow_in.out, r_b_incr_2, r_a_incr_2)),
             ],
         ),
     ]

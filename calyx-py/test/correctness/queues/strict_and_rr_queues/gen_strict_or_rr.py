@@ -34,25 +34,33 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
 
 
 def insert_queue(
-    prog, name, fifos, boundaries, numflows, order, round_robin, queue_len_factor=QUEUE_LEN_FACTOR
+    prog,
+    name,
+    subqueues,
+    boundaries,
+    numflows,
+    order,
+    round_robin,
+    queue_len_factor=QUEUE_LEN_FACTOR,
 ):
     """
     Inserts the component `pifo` into the program. If round_robin is true, it
     inserts a round robin queue, otherwise it inserts a strict queue. `numflows`
     is the number of flows, which must be an integer greater than 0. Boundaries
-    must be of length `numflows` + 1, where the first boundary is the smallest 
+    must be of length `numflows` + 1, where the first boundary is the smallest
     number a value can take (eg. 0). `order` is used for strict queues to determine
-    the order of priority of the subqueues. `order` must be a list of length 
+    the order of priority of the subqueues. `order` must be a list of length
     `numflows`.
     """
 
     pifo: cb.ComponentBuilder = prog.component(name)
-    cmd = pifo.input("cmd", 2)  # the size in bits is 2
-    # If this is 0, we pop. If it is 1, we peek.
-    # If it is 2, we push `value` to the queue.
+    cmd = pifo.input("cmd", 1)  # the size in bits is 1
+    # If this is 0, we pop. If it is 1, we push `value` to the queue.
     value = pifo.input("value", 32)  # The value to push to the queue
 
-    fifo_cells = [pifo.cell(f"queue_{i}", fifo_i) for i, fifo_i in enumerate(fifos)]
+    subqueue_cells = [
+        pifo.cell(f"queue_{i}", queue_i) for i, queue_i in enumerate(subqueues)
+    ]
 
     ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -66,9 +74,8 @@ def insert_queue(
     hot = pifo.reg(32, "hot")
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
-    restore_hot = pifo.reg_store(hot, og_hot.out)  # hot := og_hot.out
 
-    max_queue_len = 2**queue_len_factor
+    max_queue_len = 2 ** queue_len_factor
 
     # Some equality checks.
     len_eq_0 = pifo.eq_use(length.out, 0)
@@ -89,7 +96,7 @@ def insert_queue(
     invoke_subqueues_hot_guard = pifo.case(
         hot.out,
         {
-            n: invoke_subqueue(fifo_cells[n], cmd, value, ans, err)
+            n: invoke_subqueue(subqueue_cells[n], cmd, value, ans, err)
             for n in range(numflows)
         },
     )
@@ -102,24 +109,26 @@ def insert_queue(
         cb.if_with(
             pifo.le_use(value, boundaries[b + 1]),  # value <= boundaries[b+1]
             (
-                invoke_subqueue(fifo_cells[b], cmd, value, ans, err)
+                invoke_subqueue(subqueue_cells[b], cmd, value, ans, err)
                 # In the specical case when b = 0,
                 # we don't need to check the lower bound and we can just `invoke`.
                 if b == 0 and round_robin
-                
-                else
-                invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err)
-
+                else invoke_subqueue(
+                    subqueue_cells[order.index(b)], cmd, value, ans, err
+                )
                 if b == 0 and not round_robin
                 else cb.if_with(
                     pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                    invoke_subqueue(fifo_cells[order.index(b)], cmd, value, ans, err),)
-                if not round_robin 
+                    invoke_subqueue(
+                        subqueue_cells[order.index(b)], cmd, value, ans, err
+                    ),
+                )
+                if not round_robin
                 # Otherwise, we need to check the lower bound and `invoke`
                 # only if the value is in the interval.
                 else cb.if_with(
                     pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                    invoke_subqueue(fifo_cells[b], cmd, value, ans, err),
+                    invoke_subqueue(subqueue_cells[b], cmd, value, ans, err),
                 )
             ),
         )
@@ -148,7 +157,7 @@ def insert_queue(
                     # Either we are here for the first time,
                     # or we are here because the previous iteration raised an error
                     # and incremented `hot` for us.
-                    # We'll try to peek from `fifo_cells[hot]`.
+                    # We'll try to peek from `subqueue_cells[hot]`.
                     # We'll pass it a lowered `err`.
                     lower_err,
                     invoke_subqueues_hot_guard,
@@ -158,34 +167,14 @@ def insert_queue(
                 ],
             ),
             len_decr,
-            restore_hot if not round_robin else ast.Empty            
-        ],
-    )
-
-    peek_logic = cb.if_with(
-        len_eq_0,
-        raise_err,  # The queue is empty: underflow.
-        [  # The queue is not empty. Proceed.
-            raise_err,  # We raise err so we enter the loop body at least once.
-            copy_hot,  # We remember `hot` so we can restore it later.
-            [
-                cb.while_with(
-                    err_is_high,
-                    [  # We have entered the loop body because `err` is high.
-                        # Either we are here for the first time,
-                        # or we are here because the previous iteration raised an error
-                        # and incremented `hot` for us.
-                        # We'll try to peek from `fifo_cells[hot]`.
-                        # We'll pass it a lowered `err`.
-                        lower_err,
-                        invoke_subqueues_hot_guard,
-                        incr_hot_wraparound,  # Increment hot: this will be used
-                        # only if the current subqueue raised an error,
-                        # and another iteration is needed.
-                    ],
-                ),
-            ],
-            restore_hot,  # Peeking must not affect `hot`, so we restore it.
+            (
+                pifo.reg_store(hot, og_hot.out)
+                if not round_robin
+                else ast.Empty
+                # If we are not generating a round-robin PIFO,
+                # we are generating a strict PIFO.
+                # We need to restore `hot` to its original value.
+            ),
         ],
     )
 
@@ -201,16 +190,11 @@ def insert_queue(
         ],
     )
 
-    # Was it a pop, peek, push, or an invalid command?
-    # We can do those four cases in parallel.
+    # Was it a pop or push?
+    # We can do those two cases in parallel.
     pifo.control += pifo.case(
         cmd,
-        {
-            0: pop_logic,
-            1: peek_logic,
-            2: push_logic,
-            3: raise_err,
-        },
+        {0: pop_logic, 1: push_logic},
     )
 
     return pifo
@@ -244,9 +228,12 @@ def build(numflows, roundrobin):
     keepgoing = "--keepgoing" in sys.argv
 
     prog = cb.Builder()
-    sub_fifos = [
-        fifo.insert_fifo(prog, f"fifo{i}", QUEUE_LEN_FACTOR) for i in range(numflows)
+    subqueues = [
+        fifo.insert_fifo(prog, f"subqueue{i}", QUEUE_LEN_FACTOR)
+        for i in range(numflows)
     ]
-    pifo = insert_queue(prog, "pifo", sub_fifos, boundaries, numflows, order, roundrobin)
+    pifo = insert_queue(
+        prog, "pifo", subqueues, boundaries, numflows, order, roundrobin
+    )
     qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program

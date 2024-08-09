@@ -342,6 +342,19 @@ impl Context {
             .find(|x| self.resolve_id(self.primary[*x].name()) == name)
     }
 
+    pub fn get_component_from_group(&self, group: GroupIdx) -> ComponentIdx {
+        self.primary
+            .components
+            .keys()
+            .find(|comp_id| {
+                self.secondary[*comp_id]
+                    .definitions
+                    .groups()
+                    .contains(group)
+            })
+            .unwrap()
+    }
+
     /// This is a wildly inefficient search, only used for debugging right now.
     /// TODO Griffin: if relevant, replace with something more efficient.
     pub(crate) fn find_parent_cell(
@@ -351,7 +364,7 @@ impl Context {
     ) -> ParentIdx {
         match target {
             PortRef::Local(l) => {
-                if self.secondary[comp].signature.contains(l) {
+                if self.secondary[comp].signature().contains(l) {
                     comp.into()
                 } else {
                     //I would not recommend looking at this code
