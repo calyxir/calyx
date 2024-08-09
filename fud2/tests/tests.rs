@@ -100,7 +100,7 @@ impl InstaTest for Plan {
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
             .merge(("dahlia", "/test/bin/dahlia"))
             .merge(("c0", "v1"));
-        let run = Run::with_config(driver, self, config);
+        let run = Run::with_config(driver, self, config, false);
         let mut buf = vec![];
         run.emit(&mut buf).unwrap();
         // turn into string, and remove comments

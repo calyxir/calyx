@@ -223,6 +223,10 @@ pub struct Run<'a> {
     pub plan: Plan,
     pub config_data: figment::Figment,
     pub global_config: config::GlobalConfig,
+
+    /// If this is true, run ninja with `-t commands` to print out commands instead of running
+    /// them.
+    pub print_commands: bool,
 }
 
 impl<'a> Run<'a> {
@@ -230,14 +234,16 @@ impl<'a> Run<'a> {
         driver: &'a Driver,
         plan: Plan,
         config: figment::Figment,
+        print_commands: bool,
     ) -> Self {
-        Self::with_config(driver, plan, config)
+        Self::with_config(driver, plan, config, print_commands)
     }
 
     pub fn with_config(
         driver: &'a Driver,
         plan: Plan,
         config_data: figment::Figment,
+        print_commands: bool,
     ) -> Self {
         let global_config: config::GlobalConfig =
             config_data.extract().expect("failed to load config");
@@ -246,6 +252,7 @@ impl<'a> Run<'a> {
             plan,
             config_data,
             global_config,
+            print_commands,
         }
     }
 
@@ -367,6 +374,10 @@ impl<'a> Run<'a> {
             }
         } else {
             cmd.arg("--verbose");
+        }
+
+        if self.print_commands {
+            cmd.arg("-tcommands");
         }
 
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
