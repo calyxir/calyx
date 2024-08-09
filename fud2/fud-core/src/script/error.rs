@@ -109,7 +109,7 @@ impl Display for RhaiSystemError {
                 write!(f, "Unable to build two ops at once: trying to build `{new_name:?}` but already building `{old_name:?}`")
             }
             RhaiSystemErrorKind::NoOp => {
-                write!(f, "Unable to find current op being built. Consider calling start_op_stmts earlier in the program.")
+                write!(f, "Unable to find current op being built. Function may only be called within the body of an op.")
             }
             RhaiSystemErrorKind::NoDep(dep) => {
                 write!(f, "Unable to find dep: `{dep:?}`. A call to `shell` with `{dep:?}` as an output must occur prior to this call.")
@@ -124,7 +124,7 @@ impl Display for RhaiSystemError {
                 write!(f, "Expected `shell`, got `shell_deps`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
             }
             RhaiSystemErrorKind::ExpectedShellDeps => {
-                write!(f, "Expected `shell_deps`, got shell. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
+                write!(f, "Expected `shell_deps`, got `shell`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
             }
         }
     }
