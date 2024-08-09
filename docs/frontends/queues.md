@@ -3,7 +3,7 @@
 A queue is a standard data structure that maintains a set of elements in some total order.
 A new element is added to the queue using the `enqueue` operation, which is also known as `push` or `insert` in some contexts.
 Because of the total order, some element of the queue is the _most favorably ranked_ element.
-We can also remove this element from the queue using the `dequeue` operation, which is also known as `pop` or `remove` in some contexts.
+We can remove this element from the queue using the `dequeue` operation, which is also known as `pop` or `remove` in some contexts.
 
 We provision four types of queues in Calyx. The first three follow the same shared interface, while the fourth follows a slightly extended interface.
 The frontend is implemented using the [Calyx builder library][builder], and the source code is heavily commented.
@@ -79,66 +79,64 @@ Using a circular buffer usually entails incrementing indices modulo the buffer s
 We use a trick to avoid this: we require the FIFO's length to be a power of two, say `2^k`, and we use adders of width `k` to increment the indices.
 This means we can just naively increment the indices forever and the wrap-around behavior we want is automatically provided by overflow.
 
-## PIFO
+## Specialized PIFOs
 
 A more complex instance is the priority queue.
 At time of enqueue, an element is associated with a priority.
 The most favorably ranked element is the one with the highest priority.
-Two elements may be pushed with the same priority.
-A priority queue that is additionally defined to break such ties in FIFO order is called a _push in, first out_ (PIFO) queue.
+Two elements may be pushed with the same priority; a priority queue that is additionally defined to break such ties in FIFO order is called a _push in, first out_ (PIFO) queue.
 
-There are two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop from next. These PIFOs take n flows, which are represented with n subqueues.
+We provide PIFOs in the general sense (i.e., queues that accept `(item, rank)` pairs and enqueue based on `rank`) [shortly](#minimum-binary-heap). For now, let's focus on specialized PIFOs that have a policy "baked in" to the queue itself.
 
-### Round Robin Queues
+We have two types of specialized PIFOs - Round Robin and Strict - that implement policies which determine which flow to pop from next. These PIFOs are parameterized over the number of flows, `n`, that they can arbitrate between.
 
-Round robin queues are PIFOs generalized to n flows that operate in a work 
-conserving round robin fashion. That is, if a flow is silent when it is its turn, that flow
+### Round-Robin Queues
+
+Round robin queues are PIFOs generalized to `n` flows that operate in a work
+conserving round-robin fashion. That is, if a flow is silent when it is its turn, that flow
 simply skips its turn and the next flow is offered service.
 
-Internally, it operates n subqueues.
+Internally, it operates `n` subqueues.
 It takes in a list `boundaries` that must be of length `n`, using which the
 client can divide the incoming traffic into `n` flows.
-For example, if n = 3 and the client passes boundaries [133, 266, 400],
-packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+For example, if `n = 3` and the client passes boundaries `[133, 266, 400]`,
+packets will be divided into three flows according to the intervals: `[0, 133]`, `[134, 266]`, `[267, 400]`.
 
-- At push, we check the `boundaries` list to determine which flow to push to.
-Take the boundaries example given earlier, [133, 266, 400].
-If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
-and 305 would end up in flow 2 since 266 <= 305 <= 400.
-- Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
-it increments `hot` and therefore continues to check all other flows
+- At `push`, we check the `boundaries` list to determine which flow to push to.
+Take the boundaries example given earlier, `[133, 266, 400]`.
+If we push the value `89`, it will, under the hood, be pushed into subqueue 0 becuase `0 <= 89 <= 133`,
+and `305` will be pushed into subqueue 2 since `266 <= 305 <= 400`.
+- The program maintains a `hot` pointer that starts off at 0, meaning the next subqueue to pop from is queue 0.
+At `pop` we first try to pop from `hot`. If this succeeds, great. If it fails,
+we increment `hot` and therefore continue to check all other flows
 in round robin fashion.
 
-The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
-is parameterized on round_robin being `true` or `false`.
+The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which takes as arguments `n`, `boundaries`, and handles to the subqueues it must administer. It also takes a boolean parameter `round_robin`, which, if `true`, results in the generation of a round-robin queue.
+
 
 ### Strict Queues
 
-Strict queues support n flows as well, but instead, flows have a strict order of priority, which determines popping
-order. If the highest priority flow is silent when it is its turn, that flow
-simply skips its turn and the next priority flow is offered service. If a higher
-priority flow get pushed to in the interim, the next call to pop will
-return from that flow.
+Strict queues support `n` flows as well, but instead, flows have a strict order of priority and this which determines popping
+order. That is, the second-highest priority subqueue will only be allowed to pop if the highest priority subqueue is empty.
+If the higher-priority flow get pushed to in the interim, the next call to `pop` will again try to pop from the highest priority flow.
 
-Like round robin queues, it takes in a list `boundaries` that must be of length `n`, which divide the incoming traffic into `n` flows.
-For example, if n = 3 and the client passes boundaries [133, 266, 400],
-packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+Like round-robin queues, it takes in a list `boundaries` that must be of length `n`, which divide the incoming traffic into `n` flows.
+For example, if `n = 3` and the client passes boundaries `[133, 266, 400]`,
+packets will be divided into three flows according to the intervals: `[0, 133]`, `[134, 266]`, `[267, 400]`.
 
 It takes a list `order` that must be of length `n`, which specifies the order
-of priority of the flows. For example, if n = 3 and the client passes order
-[1, 2, 0], flow 1 (packets in range [134, 266]) is first priority, flow 2
-(packets in range [267, 400]) is second priority, and flow 0 (packets in range
-[0, 133]) is last priority.
+of priority of the flows. For example, if `n = 3` and the client passes order
+`[1, 2, 0]`, then flow 1 (packets in range `[134, 266]`) has first priority, flow 2
+(packets in range `[267, 400]`) has second priority, and flow 0 (packets in range
+`[0, 133]`) has last priority.
 
 - At push, we check the `boundaries` list to determine which flow to push to.
-Take the boundaries example given earlier, [133, 266, 400].
-If we push the value 89, it will end up in flow 0 becuase 89 <= 133,
-and 305 would end up in flow 2 since 266 <= 305 <= 400.
-- Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
-it tries `order[1]`, etc.
+Take the boundaries example given earlier, `[133, 266, 400]`.
+If we push the value `89`, it will, under the hood, be pushed into subqueue 0 becuase `0 <= 89 <= 133`,
+and `305` will be pushed into subqueue 2 since `266 <= 305 <= 400`.
+- Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails, it tries `order[1]`, and so on.
 
-The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which
-is parameterized on red_robin being `true` or `false`.
+The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which takes as arguments `n`, `boundaries`, `order`, and handles to the subqueues it must administer. It also takes a boolean parameter `round_robin`, which, if `false`, results in the generation of a strict queue.
 
 ## PIFO Tree
 
@@ -168,7 +166,7 @@ A minimum binary heap is another tree-shaped data structure where each node has 
 However, unlike the queues discussed above, a heap exposes an extended interface:
 in addition to the input ports and reference registers discussed above, a heap has an additional input `rank`.
 The `push` operation now accepts both a `value` and the `rank` that the user wishes to associate with that value.
-Consequently, a heap _orders_ its elements by `rank`, with the `pop` operation set to remove (resp. read) the element with minimal rank.
+Consequently, a heap _orders_ its elements by `rank`, with the `pop` operation set to remove the element with minimal rank.
 
 To maintain this ordering efficiently, a heap stores `(rank, value)` pairs in each node and takes special care to maintain the following invariant:
 > **Min-Heap Property**: for any given node `C`, if `P` is a parent of `C`, then the rank of `P` is less than or equal to the rank of `C`.
