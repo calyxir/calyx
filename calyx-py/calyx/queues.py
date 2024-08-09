@@ -4,7 +4,7 @@ import heapq
 
 
 class QueueError(Exception):
-    """An error that occurs when we try to pop/peek from an empty queue,"""
+    """An error that occurs when we try to pop from an empty queue,"""
 
 
 class CmdError(Exception):
@@ -48,9 +48,9 @@ class Pifo:
     Supports the operations `push` and `pop`.
 
     We do this by maintaining two sub-queues that are given to us at initialization.
-    We toggle between these sub-queues when popping/peeking.
+    We toggle between these sub-queues when popping.
     We have a variable called `hot` that says which sub-queue is to be
-    popped/peeked next.
+    popped next.
     `hot` starts at 0.
     We also take at initialization a `boundary` value.
 
@@ -350,11 +350,6 @@ class Pieo:
 
         return self.query(time, val, True, return_rank)
 
-    def peek(self, time=0, val=None, return_rank=False) -> Optional[int]:
-        """Peeks a PIEO. See query() for specifics."""
-
-        return self.query(time, val, False, return_rank)
-
 
 @dataclass
 class PCQ:
@@ -494,12 +489,12 @@ class RRQueue:
     round robin policy. If a flow is silent when it is its turn, that flow
     simply skips its turn and the next flow is offered service.
 
-    Supports the operations `push`, `pop`, and `peek`.
+    Supports the operations `push` and `pop`.
     It takes in a list `boundaries` that must be of length `n`, using which the
     client can divide the incoming traffic into `n` flows.
     For example, if n = 3 and the client passes boundaries [133, 266, 400],
     packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
-    The argument `subqueues` is a list of subqueues, which can be any type of 
+    The argument `subqueues` is a list of subqueues, which can be any type of
     queue from this module.
 
     - At push, we check the `boundaries` list to determine which flow to push to.
@@ -509,10 +504,6 @@ class RRQueue:
     - Pop first tries to pop from `hot`. If this succeeds, great. If it fails,
     it increments `hot` and therefore continues to check all other flows
     in round robin fashion.
-    - Peek allows the client to see which element is at the head of the queue
-    without removing it. Thus, peek works in a similar fashion to `pop`, except
-    `hot` is restored to its original value at the every end.
-    Further, nothing is actually dequeued.
     """
 
     def __init__(self, n, boundaries, subqueues, max_len: int):
@@ -568,13 +559,13 @@ class RRQueue:
 class StrictPifo:
     """
     This is a version of a PIFO generalized to `n` flows, with a strict policy.
-    Flows have a strict order of priority, which determines popping and peeking
+    Flows have a strict order of priority, which determines popping
     order. If the highest priority flow is silent when it is its turn, that flow
     simply skips its turn and the next flow is offered service. If a higher
-    priority flow get pushed to in the interim, the next call to pop/peek will
+    priority flow get pushed to in the interim, the next call to pop will
     return from that flow.
 
-    Supports the operations `push`, `pop`, and `peek`.
+    Supports the operations `push`, and `pop`.
     It takes in a list `boundaries` that must be of length `n`, using which the
     client can divide the incoming traffic into `n` flows.
     For example, if n = 3 and the client passes boundaries [133, 266, 400],
@@ -593,9 +584,6 @@ class StrictPifo:
     and 305 would end up in flow 2 since 266 <= 305 <= 400.
     - Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails,
     it tries `order[1]`, etc.
-    - Peek allows the client to see which element is at the head of the queue
-    without removing it. Thus, peek works in a similar fashion to `pop`. Further,
-    nothing is actually dequeued.
     """
 
     def __init__(self, n, boundaries, order, subqueues, max_len: int):
@@ -635,23 +623,6 @@ class StrictPifo:
                 val = self.data[self.priority].pop()
                 if val is not None:
                     self.pifo_len -= 1
-                    self.priority = original_priority
-                    return val
-                else:
-                    self.next_priority()
-            except QueueError:
-                self.next_priority()
-
-    def peek(self, *_) -> Optional[int]:
-        """Peeks into the PIFO."""
-        if self.pifo_len == 0:
-            raise QueueError("Cannot peek into empty PIFO.")
-
-        original_priority = self.priority
-        while True:
-            try:
-                val = self.data[self.priority].peek()
-                if val is not None:
                     self.priority = original_priority
                     return val
                 else:

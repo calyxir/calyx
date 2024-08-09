@@ -33,7 +33,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     # simulate a circular queue of size 2^queue_len_factor.
 
     ans = fifo.reg(val_width, "ans", is_ref=True)
-    # If the user wants to pop or peek, we will write the value to `ans`.
+    # If the user wants to pop, we will write the value to `ans`.
     err = fifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
     len = fifo.reg(bits_needed(max_queue_len))  # The active length of the FIFO.
@@ -72,10 +72,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     # We can do those two cases in parallel.
     fifo.control += fifo.case(
         cmd,
-        {
-            0: pop_logic,
-            1: push_logic
-        },
+        {0: pop_logic, 1: push_logic},
     )
 
     return fifo

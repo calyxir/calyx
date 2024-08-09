@@ -49,7 +49,7 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     #    `1`: push
     # - input `value`
     #   which is a 32-bit unsigned integer. If `cmd` is `1`, push this value.
-    # - ref register `ans`, into which the result of a pop or peek is written.
+    # - ref register `ans`, into which the result of a pop is written.
     # - ref register `err`, which is raised if an error occurs.
 
     # Our memories and registers, all of which are passed to us by reference.
@@ -223,17 +223,23 @@ def insert_main(
             # If the dataplane component has an answer,
             # write it to the answer-list and increment the index `i`.
             cb.if_(
-                has_ans.out, # an answer exists, so we'll store it to `ans_mem` in the next line
+                has_ans.out,  # an answer exists, so we'll store it to `ans_mem` in the next line
                 main.mem_store_d1(ans_mem, i.out, dataplane_ans.out, "write_ans"),
                 cb.if_(
-                    dataplane_err.out, # there was an error
+                    dataplane_err.out,  # there was an error
                     main.mem_store_d1(
-                        ans_mem, i.out, cb.const(32, 4294967295), "write_err" # store the value 2^32 - 1 (code for error) to `ans_mem`
-                    ),  
-                    main.mem_store_d1( # if we're here, we must be here because we were a successful push.
-                        ans_mem, i.out, cb.const(32, 4294967294), "write_push" # store the value 2^32 - 2 (code for push) to `ans_mem`
+                        ans_mem,
+                        i.out,
+                        cb.const(32, 4294967295),
+                        "write_err",  # store the value 2^32 - 1 (code for error) to `ans_mem`
                     ),
-                ), 
+                    main.mem_store_d1(  # if we're here, we must be here because we were a successful push.
+                        ans_mem,
+                        i.out,
+                        cb.const(32, 4294967294),
+                        "write_push",  # store the value 2^32 - 2 (code for push) to `ans_mem`
+                    ),
+                ),
             ),
             (
                 cb.invoke(  # Invoke the controller component.

@@ -60,9 +60,13 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     rank = comp.input("rank", rnk_w)
     value = comp.input("value", val_w)
 
-    swap = comp.cell("swap", insert_swap(prog, "swap", rnk_w + val_w, max_queue_size, addr_size))
+    swap = comp.cell(
+        "swap", insert_swap(prog, "swap", rnk_w + val_w, max_queue_size, addr_size)
+    )
     tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", rnk_w, val_w))
-    untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", rnk_w, val_w))
+    untuplify = comp.cell(
+        "untuplify", insert_untuplify(prog, "untuplify", rnk_w, val_w)
+    )
 
     mem = comp.seq_mem_d1("mem", 96, max_queue_size, addr_size)
     # The memory to store the heap, represented as an array.
@@ -295,7 +299,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         while_or.right = and_r_2.out
 
     pop = [
-        extract_snd("peek", 0, ans),
+        extract_snd("read_root", 0, ans),
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
@@ -359,19 +363,20 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         cb.par(
             cb.if_with(
                 cmd_eq_0,
-                cb.if_(is_full.out, 
-                       [pop, turn_full_off], 
-                       cb.if_with(size_eq_0, raise_err, pop)
-                )
+                cb.if_(
+                    is_full.out,
+                    [pop, turn_full_off],
+                    cb.if_with(size_eq_0, raise_err, pop),
+                ),
             ),
             cb.if_with(
-                cmd_eq_1, 
+                cmd_eq_1,
                 [
                     cb.if_(is_full.out, raise_err, push),
-                    cb.if_with(size_eq_0, turn_full_on)
-                ]
-            )
-        )
+                    cb.if_with(size_eq_0, turn_full_on),
+                ],
+            ),
+        ),
     ]
 
     return comp

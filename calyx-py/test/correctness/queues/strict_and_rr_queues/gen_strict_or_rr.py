@@ -75,7 +75,7 @@ def insert_queue(
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
 
-    max_queue_len = 2 ** queue_len_factor
+    max_queue_len = 2**queue_len_factor
 
     # Some equality checks.
     len_eq_0 = pifo.eq_use(length.out, 0)
@@ -113,22 +113,26 @@ def insert_queue(
                 # In the specical case when b = 0,
                 # we don't need to check the lower bound and we can just `invoke`.
                 if b == 0 and round_robin
-                else invoke_subqueue(
-                    subqueue_cells[order.index(b)], cmd, value, ans, err
-                )
-                if b == 0 and not round_robin
-                else cb.if_with(
-                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                else (
                     invoke_subqueue(
                         subqueue_cells[order.index(b)], cmd, value, ans, err
-                    ),
-                )
-                if not round_robin
-                # Otherwise, we need to check the lower bound and `invoke`
-                # only if the value is in the interval.
-                else cb.if_with(
-                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                    invoke_subqueue(subqueue_cells[b], cmd, value, ans, err),
+                    )
+                    if b == 0 and not round_robin
+                    else (
+                        cb.if_with(
+                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                            invoke_subqueue(
+                                subqueue_cells[order.index(b)], cmd, value, ans, err
+                            ),
+                        )
+                        if not round_robin
+                        # Otherwise, we need to check the lower bound and `invoke`
+                        # only if the value is in the interval.
+                        else cb.if_with(
+                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                            invoke_subqueue(subqueue_cells[b], cmd, value, ans, err),
+                        )
+                    )
                 )
             ),
         )
@@ -157,7 +161,7 @@ def insert_queue(
                     # Either we are here for the first time,
                     # or we are here because the previous iteration raised an error
                     # and incremented `hot` for us.
-                    # We'll try to peek from `subqueue_cells[hot]`.
+                    # We'll try to pop from `subqueue_cells[hot]`.
                     # We'll pass it a lowered `err`.
                     lower_err,
                     invoke_subqueues_hot_guard,
