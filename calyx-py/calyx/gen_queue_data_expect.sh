@@ -14,7 +14,7 @@ cat ../test/correctness/queues/sdn.data | python3 pifo_tree_oracle.py $num_cmds 
 # - pifo_oracle.py
 # - pifo_tree_oracle.py
 
-for queue_kind in fifo pifo pifo_tree; do
+for queue_kind in fifo pifo pifo_tree complex_tree; do
     python3 queue_data_gen.py $num_cmds > ../test/correctness/queues/$queue_kind.data
     [[ "$queue_kind" != "pifo_tree" ]] && cp ../test/correctness/queues/$queue_kind.data ../test/correctness/queues/binheap/$queue_kind.data
     cat ../test/correctness/queues/$queue_kind.data | python3 ${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > ../test/correctness/queues/$queue_kind.expect
