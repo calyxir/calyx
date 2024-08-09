@@ -14,8 +14,13 @@ use std::io::{self, Write};
 use std::str::FromStr;
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
 
-// Threshold for using fast-track functions
-const FAST_TRACK_THRESHOLD: u64 = 1 << 24;
+// Thresholds for using fast-track functions
+const FAST_TRACK_THRESHOLD_BINARY_TO_FIXED: usize = 53; //52 bits for the significand (plus 1 implicit bit)b
+const FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY: usize = 53;
+const FAST_TRACK_THRESHOLD_BINARY_TO_FLOAT: usize = 53;
+const FAST_TRACK_THRESHOLD_FIXED_TO_BINARY: usize = 53;
+const FAST_TRACK_THRESHOLD_HEX_TO_BINARY: usize = 64;
+const FAST_TRACK_THRESHOLD_BINARY_TO_HEX: usize = 64;
 
 struct IntermediateRepresentation {
     sign: bool,
@@ -34,7 +39,7 @@ impl fmt::Display for ParseNumTypeError {
 
 impl Error for ParseNumTypeError {}
 
-#[derive(Debug, PartialEq, Clone, Copy)] // Add PartialEq derivation here - What is this?
+#[derive(Debug, PartialEq, Clone, Copy)] // Add PartialEq derivation here
 enum NumType {
     Binary,
     Float,
@@ -142,7 +147,7 @@ fn convert(
     match (convert_from, convert_to) {
         (NumType::Hex, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
+                if line.len() <= FAST_TRACK_THRESHOLD_HEX_TO_BINARY {
                     hex_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
@@ -156,7 +161,7 @@ fn convert(
         }
         (NumType::Float, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
+                if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY {
                     float_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
@@ -170,7 +175,7 @@ fn convert(
         }
         (NumType::Fixed, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
+                if line.len() <= FAST_TRACK_THRESHOLD_FIXED_TO_BINARY {
                     fixed_to_binary(line, &mut converted, exponent)
                         .expect("Failed to write binary to file");
                 } else {
@@ -184,10 +189,12 @@ fn convert(
         }
         (NumType::Binary, NumType::Hex) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
+                print!("used fastpath");
+                if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_HEX {
                     binary_to_hex(line, &mut converted)
                         .expect("Failed to write hex to file");
                 } else {
+                    print!("used intermediate");
                     intermediate_to_hex(
                         binary_to_intermediate(line),
                         &mut converted,
@@ -198,7 +205,7 @@ fn convert(
         }
         (NumType::Binary, NumType::Float) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
+                if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FLOAT {
                     binary_to_float(line, &mut converted)
                         .expect("Failed to write float to file");
                 } else {
@@ -213,9 +220,7 @@ fn convert(
         (NumType::Binary, NumType::Fixed) => {
             if !bits {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    if line.parse::<f64>().unwrap()
-                        <= FAST_TRACK_THRESHOLD as f64
-                    {
+                    if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FIXED {
                         binary_to_fixed(line, &mut converted, exponent)
                             .expect("Failed to write fixed-point to file");
                     } else {
@@ -228,9 +233,7 @@ fn convert(
                 }
             } else {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    if line.parse::<f64>().unwrap()
-                        <= FAST_TRACK_THRESHOLD as f64
-                    {
+                    if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FIXED {
                         binary_to_fixed_bit_slice(
                             line,
                             &mut converted,
