@@ -160,6 +160,8 @@ Internally, our PIFO tree is implemented by leveraging the PIFO frontend.
 The PIFO frontend seeks to orchestrate two queues, which in the simple case will just be two FIFOs.
 However, it is easy to generalize those two queues: instead of being FIFOs, they can be PIFOs or even PIFO trees.
 
+We see a more complex example of a PIFO tree in [`complex_tree.py`] [complex_tree.py]. This tree does round robin between three children, two of which are strict queues and the other is a round robin queue. This tree has a height of 3. The overall structure is `rr(strict(A, B, C), rr(D, E, F), strict(G, H))`.
+
 ## Minimum Binary Heap
 
 A minimum binary heap is another tree-shaped data structure where each node has at most two children.
@@ -206,3 +208,4 @@ The source code is available in [`stable_binheap.py`][stable_binheap.py].
 [queue_call.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queue_call.py
 [runt-queues]: https://github.com/calyxir/calyx/blob/a4c2442675d3419be6d2f5cf912aa3f804b3c4ab/runt.toml#L131-L144
 [gen_strict_or_rr.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/strict_and_rr_queues/gen_strict_or_rr.py
+[complex_tree.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/complex_tree.py
