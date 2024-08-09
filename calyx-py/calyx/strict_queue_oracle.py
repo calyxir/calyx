@@ -5,7 +5,7 @@ from calyx import queue_util
 if __name__ == "__main__":
     num_cmds, len, numflows = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
     keepgoing = "--keepgoing" in sys.argv
-    commands, values, _ = queue_util.parse_json()
+    commands, values, _, _ = queue_util.parse_json()
 
     if numflows == 2:
         boundaries = [200, 400]
@@ -25,11 +25,13 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unsupported number of flows")
 
-    # Our Strict queue orchestrates n FIFOs. It takes in a list of
-    # boundaries of length n, as well as a list `order` which specifies the ranked 
+    subqueues = [queues.Fifo(len) for _ in range(numflows)]
+
+    # Our Strict queue orchestrates n subqueues. It takes in a list of
+    # boundaries of length n, as well as a list `order` which specifies the ranked
     # order of the flows.
-    pifo = queues.StrictPifo(numflows, boundaries, order, len)
+    pifo = queues.StrictPifo(numflows, boundaries, order, subqueues, len)
 
     ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)
 
-    queue_util.dump_json(ans, commands, values)
+    queue_util.dump_json(commands, values, ans)
