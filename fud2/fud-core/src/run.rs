@@ -224,8 +224,7 @@ pub struct Run<'a> {
     pub config_data: figment::Figment,
     pub global_config: config::GlobalConfig,
 
-    /// If this is true, run ninja with `-t commands` to print out commands instead of running
-    /// them.
+    /// If this is true, run ninja with `-tcommands` to print out commands instead of running them.
     pub print_commands: bool,
 }
 
