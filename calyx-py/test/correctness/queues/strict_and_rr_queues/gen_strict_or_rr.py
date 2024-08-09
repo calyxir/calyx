@@ -71,7 +71,7 @@ def insert_queue(
     hot = pifo.reg(32, "hot")  # A register that marks the next sub-queue to `pop` from.
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
-    max_queue_len = 2**queue_len_factor
+    max_queue_len = 2 ** queue_len_factor
 
     # Some equality checks.
     len_eq_0 = pifo.eq_use(length.out, 0)
