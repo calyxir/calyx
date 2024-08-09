@@ -287,9 +287,7 @@ timeout = 120
 
 [[tests]]
 name = "correctness static timing one-hot encoding"
-paths = [
-  "tests/correctness/static-interface/*.futil",
-]
+paths = ["tests/correctness/static-interface/*.futil"]
 cmd = """
 fud exec --from calyx --to jq \
          --through verilog \
@@ -443,6 +441,32 @@ fud e --from systolic --to jq \
       {}_dynamic.systolic -q
 """
 expect_dir = "tests/correctness/systolic/mmult-expect"
+
+[[tests]]
+name = "[correctness] `@fast` attribute should not change program behavior"
+paths = ["tests/correctness/fast-attr/valid/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through icarus-verilog \
+         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
+         -s verilog.data {}.data \
+         -s jq.expr "." \
+         {} -q
+"""
+
+[[tests]]
+name = "[correctness] `@fast` attribute should reject unoptimizable sequences"
+paths = ["tests/correctness/fast-attr/invalid/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through icarus-verilog \
+         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
+         -s verilog.data {}.data \
+         -s jq.expr "." \
+         {} -q
+"""
 
 [[tests]]
 name = "[frontend] systolic array relu static correctness"

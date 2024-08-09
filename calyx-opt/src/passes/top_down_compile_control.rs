@@ -711,6 +711,8 @@ impl Schedule<'_, '_> {
         preds: Vec<PredEdge>,
         // True if early_transitions are allowed
         early_transitions: bool,
+        // True if the `@fast` attribute has successfully been applied to the parent of this control
+        has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
@@ -746,7 +748,7 @@ impl Schedule<'_, '_> {
             // NOTE: We explicilty do not add `not_done` to the guard.
             // See explanation in [ir::TopDownCompileControl] to understand
             // why.
-            if early_transitions {
+            if early_transitions || has_fast_guarantee {
                 for (st, g) in &prev_states {
                     let early_go = build_assignments!(self.builder;
                         group["go"] = g ? signal_on["out"];
@@ -793,9 +795,13 @@ impl Schedule<'_, '_> {
         early_transitions: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         let mut prev = preds;
-        for stmt in &seq.stmts {
-            prev =
-                self.calculate_states_recur(stmt, prev, early_transitions)?;
+        for (i, stmt) in seq.stmts.iter().enumerate() {
+            prev = self.calculate_states_recur(
+                stmt,
+                prev,
+                early_transitions,
+                i > 0 && seq.get_attributes().has(BoolAttr::Fast),
+            )?;
         }
         Ok(prev)
     }
@@ -828,6 +834,7 @@ impl Schedule<'_, '_> {
             &if_stmt.tbranch,
             tru_transitions,
             early_transitions,
+            false,
         )?;
         // Previous states transitioning into false branch need the conditional
         // to be false.
@@ -845,6 +852,7 @@ impl Schedule<'_, '_> {
                 &if_stmt.fbranch,
                 fal_transitions,
                 early_transitions,
+                false,
             )?
         };
 
@@ -887,6 +895,7 @@ impl Schedule<'_, '_> {
             &while_stmt.body,
             transitions,
             early_transitions,
+            false,
         )?;
 
         // Step 3: The final out edges from the while come from:
@@ -991,6 +1000,7 @@ impl Schedule<'_, '_> {
             con,
             vec![first_state],
             early_transitions,
+            false,
         )?;
         self.add_nxt_transition(prev);
         Ok(())

@@ -5,7 +5,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
 };
-use calyx_ir::{self as ir, LibrarySignatures};
+use calyx_ir::{self as ir, BoolAttr, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use ir::GetAttributes;
 use itertools::Itertools;
@@ -490,6 +490,12 @@ impl Visitor for StaticPromotion {
             })
         };
         self.inference_analysis.fixup_ctrl(&mut new_ctrl);
+
+        // this might be part of a larger issue where passes remove some attributes they shouldn't
+        if s.get_attributes().has(BoolAttr::Fast) {
+            new_ctrl.get_mut_attributes().insert(BoolAttr::Fast, 1);
+        }
+
         Ok(Action::change(new_ctrl))
     }
 

@@ -1089,9 +1089,14 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     /// Lookup the value of a port on the entrypoint component by name. Will
     /// error if the port is not found.
-    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+    pub fn lookup_port_from_string<S: AsRef<str>>(
+        &self,
+        port: S,
+    ) -> Option<Value> {
         // this is not the best way to do this but it's fine for now
-        let path = self.traverse_name_vec(&[port.to_string()]).unwrap();
+        let path = self
+            .traverse_name_vec(&[port.as_ref().to_string()])
+            .unwrap();
         let path_resolution = path.resolve_path(self).unwrap();
         let idx = path_resolution.as_port().unwrap();
 
