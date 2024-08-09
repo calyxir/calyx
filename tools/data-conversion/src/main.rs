@@ -15,12 +15,12 @@ use std::str::FromStr;
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
 
 // Threshold for using fast-track functions
-const FAST_TRACK_THRESHOLD: u32 = 1 << 24;
+const FAST_TRACK_THRESHOLD: u64 = 1 << 24;
 
 struct IntermediateRepresentation {
     sign: bool,
     mantissa: BigUint,
-    exponent: i32,
+    exponent: i64,
 }
 
 #[derive(Debug)]
@@ -88,7 +88,7 @@ struct Arguments {
 
     /// optional exponent for fixed_to_binary -> default is -1
     #[argh(option, default = "-1")]
-    exp: i32,
+    exp: i64,
 
     /// optional for fixed_to_binary using bit slicing. If choosen, will use bit slicing.
     #[argh(switch, short = 'b')]
@@ -120,7 +120,7 @@ fn main() {
 ///   where the converted data will be written.
 /// * `convert_from` - A reference to a `NumType` enum indicating the type of the input data.
 /// * `convert_to` - A reference to a `NumType` enum indicating the type of the output data.
-/// * `exponent` - An `i32` value used as the exponent for conversions involving fixed-point numbers.
+/// * `exponent` - An `i64` value used as the exponent for conversions involving fixed-point numbers.
 ///
 /// # Returns
 ///
@@ -131,7 +131,7 @@ fn convert(
     filepath_send: &Option<String>,
     convert_from: NumType,
     convert_to: NumType,
-    exponent: i32,
+    exponent: i64,
     bits: bool,
 ) {
     // Create the output file if filepath_send is Some
@@ -142,7 +142,7 @@ fn convert(
     match (convert_from, convert_to) {
         (NumType::Hex, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
                     hex_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
@@ -156,7 +156,7 @@ fn convert(
         }
         (NumType::Float, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
                     float_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
@@ -170,7 +170,7 @@ fn convert(
         }
         (NumType::Fixed, NumType::Binary) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
                     fixed_to_binary(line, &mut converted, exponent)
                         .expect("Failed to write binary to file");
                 } else {
@@ -184,7 +184,7 @@ fn convert(
         }
         (NumType::Binary, NumType::Hex) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
                     binary_to_hex(line, &mut converted)
                         .expect("Failed to write hex to file");
                 } else {
@@ -198,7 +198,7 @@ fn convert(
         }
         (NumType::Binary, NumType::Float) => {
             for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.parse::<f32>().unwrap() <= FAST_TRACK_THRESHOLD as f32 {
+                if line.parse::<f64>().unwrap() <= FAST_TRACK_THRESHOLD as f64 {
                     binary_to_float(line, &mut converted)
                         .expect("Failed to write float to file");
                 } else {
@@ -213,8 +213,8 @@ fn convert(
         (NumType::Binary, NumType::Fixed) => {
             if !bits {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    if line.parse::<f32>().unwrap()
-                        <= FAST_TRACK_THRESHOLD as f32
+                    if line.parse::<f64>().unwrap()
+                        <= FAST_TRACK_THRESHOLD as f64
                     {
                         binary_to_fixed(line, &mut converted, exponent)
                             .expect("Failed to write fixed-point to file");
@@ -228,8 +228,8 @@ fn convert(
                 }
             } else {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    if line.parse::<f32>().unwrap()
-                        <= FAST_TRACK_THRESHOLD as f32
+                    if line.parse::<f64>().unwrap()
+                        <= FAST_TRACK_THRESHOLD as f64
                     {
                         binary_to_fixed_bit_slice(
                             line,
@@ -270,8 +270,8 @@ fn convert(
 }
 
 /// Formats [to_format] properly for float values
-fn format_binary(to_format: u32) -> String {
-    let binary_str = format!("{:032b}", to_format);
+fn format_binary(to_format: u64) -> String {
+    let binary_str = format!("{:064b}", to_format);
     format!(
         "{} {} {}",
         &binary_str[0..1], // Sign bit
@@ -280,7 +280,7 @@ fn format_binary(to_format: u32) -> String {
     )
 }
 
-fn format_hex(to_format: u32) -> String {
+fn format_hex(to_format: u64) -> String {
     format!("0x{:X}", to_format)
 }
 
@@ -288,7 +288,7 @@ fn format_hex(to_format: u32) -> String {
 /// format and appends the result to the specified file.
 ///
 /// This function takes a string slice representing a floating-point number,
-/// converts it to a 32-bit floating-point number (`f32`), then converts this
+/// converts it to a 64-bit floating-point number (`f64`), then converts this
 /// number to its binary representation. The binary representation is formatted
 /// as a string and written to the specified file, followed by a newline.
 ///
@@ -310,9 +310,9 @@ fn float_to_binary(
     float_string: &str,
     filepath_send: &mut Option<File>,
 ) -> std::io::Result<()> {
-    let float_of_string: f32;
+    let float_of_string: f64;
     // Convert string to float
-    match float_string.parse::<f32>() {
+    match float_string.parse::<f64>() {
         Ok(parsed_num) => float_of_string = parsed_num,
         Err(_) => {
             panic!("Failed to parse float from string")
@@ -338,7 +338,7 @@ fn float_to_binary(
 /// format and appends the result to the specified file.
 ///
 /// This function takes a string slice representing a hexadecimal number,
-/// converts it to a 32-bit integer (`u32`), then converts this number to its
+/// converts it to a 64-bit integer (`u64`), then converts this number to its
 /// binary representation. The binary representation is formatted as a string
 /// and written to the specified file, followed by a newline.
 ///
@@ -361,7 +361,7 @@ fn hex_to_binary(
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
     // Convert hex to binary
-    let binary_of_hex = u32::from_str_radix(hex_string, 16)
+    let binary_of_hex = u64::from_str_radix(hex_string, 16)
         .expect("Failed to parse hex string");
 
     // Format nicely
@@ -385,7 +385,7 @@ fn hex_to_binary(
 /// format and appends the result to the specified file.
 ///
 /// This function takes a string slice representing a binary number,
-/// converts it to a 32-bit integer (`u32`), then converts this number to its
+/// converts it to a 64-bit integer (`u64`), then converts this number to its
 /// hexadecimal representation. The hexadecimal representation is formatted
 /// as a string and written to the specified file, followed by a newline.
 ///
@@ -407,7 +407,7 @@ fn binary_to_hex(
     binary_string: &str,
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
-    let hex_of_binary = u32::from_str_radix(binary_string, 2)
+    let hex_of_binary = u64::from_str_radix(binary_string, 2)
         .expect("Failed to parse binary string");
 
     let formatted_hex_str = format_hex(hex_of_binary);
@@ -428,8 +428,8 @@ fn binary_to_hex(
 /// format and appends the result to the specified file.
 ///
 /// This function takes a string slice representing a binary number,
-/// converts it to a 32-bit integer (`u32`), then interprets this integer as
-/// the binary representation of a 32-bit floating-point number (`f32`).
+/// converts it to a 64-bit integer (`u64`), then interprets this integer as
+/// the binary representation of a 64-bit floating-point number (`f64`).
 /// The floating-point representation is formatted as a string and written
 /// to the specified file, followed by a newline.
 ///
@@ -451,11 +451,11 @@ fn binary_to_float(
     binary_string: &str,
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
-    let binary_value = u32::from_str_radix(binary_string, 2)
+    let binary_value = u64::from_str_radix(binary_string, 2)
         .expect("Failed to parse binary string");
 
     // Interpret the integer as the binary representation of a floating-point number
-    let float_value = f32::from_bits(binary_value);
+    let float_value = f64::from_bits(binary_value);
 
     let formated_float_str = format!("{:?}", float_value);
 
@@ -476,7 +476,7 @@ fn binary_to_float(
 ///
 /// This function takes a string slice representing a fixed-point number,
 /// multiplies it by 2 raised to the power of the negative exponent, converts the result
-/// to a 32-bit integer, and then to its binary representation. The binary representation
+/// to a 64-bit integer, and then to its binary representation. The binary representation
 /// is formatted as a string and written to the specified file, followed by a newline.
 ///
 /// # Arguments
@@ -498,11 +498,11 @@ fn binary_to_float(
 fn fixed_to_binary(
     fixed_string: &str,
     filepath_send: &mut Option<File>,
-    exp_int: i32,
+    exp_int: i64,
 ) -> io::Result<()> {
     // Convert fixed value from string to int
-    let fixed_value: f32;
-    match fixed_string.parse::<f32>() {
+    let fixed_value: f64;
+    match fixed_string.parse::<f64>() {
         Ok(parsed_num) => fixed_value = parsed_num,
         Err(_) => {
             panic!("Bad fixed value input")
@@ -510,16 +510,16 @@ fn fixed_to_binary(
     }
 
     //exponent int to float so we can multiply
-    let exponent = exp_int as f32;
+    let exponent = exp_int as f64;
 
     // Exponent math
-    let multiplied_fixed = fixed_value * 2_f32.powf(-exponent);
+    let multiplied_fixed = fixed_value * 2_f64.powf(-exponent);
 
-    // Convert to a 32-bit integer
-    let multiplied_fixed_as_i32 = multiplied_fixed as i32;
+    // Convert to a 64-bit integer
+    let multiplied_fixed_as_i64 = multiplied_fixed as i64;
 
-    // Convert to a binary string with 32 bits
-    let binary_of_fixed = format!("{:032b}", multiplied_fixed_as_i32);
+    // Convert to a binary string with 64 bits
+    let binary_of_fixed = format!("{:064b}", multiplied_fixed_as_i64);
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
@@ -537,7 +537,7 @@ fn fixed_to_binary(
 /// format and appends the result to the specified file.
 ///
 /// This function takes a string slice representing a binary number,
-/// converts it to a 32-bit unsigned integer, interprets this integer as
+/// converts it to a 64-bit unsigned integer, interprets this integer as
 /// a floating-point number, divides it by 2 raised to the power of the negative exponent,
 /// and converts the result to its fixed-point representation. The fixed-point
 /// representation is formatted as a string and written to the specified file,
@@ -562,22 +562,22 @@ fn fixed_to_binary(
 fn binary_to_fixed(
     binary_string: &str,
     filepath_send: &mut Option<File>,
-    exp_int: i32,
+    exp_int: i64,
 ) -> io::Result<()> {
     // Convert binary value from string to int
-    let binary_value = match u32::from_str_radix(binary_string, 2) {
+    let binary_value = match u64::from_str_radix(binary_string, 2) {
         Ok(parsed_num) => parsed_num,
         Err(_) => panic!("Bad binary value input"),
     };
 
     // Convert to fixed
-    let int_of_binary = binary_value as f32;
+    let int_of_binary = binary_value as f64;
 
     //exponent int to float so we can multiply
-    let exponent = exp_int as f32;
+    let exponent = exp_int as f64;
 
     // Exponent math
-    let divided: f32 = int_of_binary / 2_f32.powf(-exponent);
+    let divided: f64 = int_of_binary / 2_f64.powf(-exponent);
 
     let string_of_divided = format!("{:+.8e}", divided);
 
@@ -596,23 +596,23 @@ fn binary_to_fixed(
 fn binary_to_fixed_bit_slice(
     binary_string: &str,
     filepath_send: &mut Option<File>,
-    exp_int: i32,
+    exp_int: i64,
 ) -> io::Result<()> {
     // Convert binary string to an integer (assuming binary_string is a valid binary representation)
-    let binary_int = u32::from_str_radix(binary_string, 2).unwrap();
+    let binary_int = u64::from_str_radix(binary_string, 2).unwrap();
 
     // Adjust the binary point based on the exponent
     let mut result = binary_int;
     if exp_int < 0 {
         // If exponent is negative, shift right (multiply by 2^(-exp_int))
-        result >>= -exp_int as u32;
+        result >>= -exp_int as u64;
     } else {
         // If exponent is positive, shift left (multiply by 2^(exp_int))
-        result <<= exp_int as u32;
+        result <<= exp_int as u64;
     }
 
     // Convert result to a fixed-point decimal representation
-    let fixed_value = result as f32;
+    let fixed_value = result as f64;
 
     let string_of_fixed = format!("{:.8e}", fixed_value);
 
@@ -659,7 +659,7 @@ fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
         binary_value
     } else {
         // Calculate the two's complement for negative values
-        let max_value = BigUint::from(1u32) << bit_width;
+        let max_value = BigUint::from(1u64) << bit_width;
         &max_value - &binary_value
     };
 
@@ -742,7 +742,7 @@ fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
     IntermediateRepresentation {
         sign,
         mantissa: BigUint::from_str(&mantissa_string).expect("Invalid number"),
-        exponent: -(fractional_part.len() as i32),
+        exponent: -(fractional_part.len() as i64),
     }
 }
 
@@ -771,7 +771,7 @@ fn intermediate_to_float(
     let mut mantissa_str = inter_rep.mantissa.to_string();
 
     // Determine the position to insert the decimal point
-    let mut decimal_pos = mantissa_str.len() as i32 - inter_rep.exponent;
+    let mut decimal_pos = mantissa_str.len() as i64 - inter_rep.exponent;
 
     // Handle cases where the decimal position is before the first digit
     if decimal_pos <= 0 {
@@ -830,7 +830,7 @@ fn intermediate_to_float(
 /// This function will panic if the input string cannot be parsed as a number.
 fn fixed_to_intermediate(
     fixed_string: &str,
-    exp_int: i32,
+    exp_int: i64,
 ) -> IntermediateRepresentation {
     let sign = !fixed_string.starts_with('-');
     let fixed_trimmed = fixed_string.trim_start_matches('-');
@@ -886,7 +886,7 @@ fn intermediate_to_fixed(
     // Handle placement of decimal point
     let mantissa_str = signed_value.to_string();
     let mantissa_len = mantissa_str.len();
-    let adjusted_exponent = inter_rep.exponent + mantissa_len as i32;
+    let adjusted_exponent = inter_rep.exponent + mantissa_len as i64;
 
     let string = if adjusted_exponent <= 0 {
         // Handle case where the exponent indicates a number less than 1
