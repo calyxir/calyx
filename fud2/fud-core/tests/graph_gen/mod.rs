@@ -28,6 +28,9 @@ pub struct PlannerTest {
 
     /// Op graph of the test case.
     ops: PrimaryMap<OpRef, Operation>,
+
+    /// Op graph of the test case.
+    states: PrimaryMap<StateRef, State>,
 }
 
 impl PlannerTest {
@@ -42,12 +45,14 @@ impl PlannerTest {
         outputs: &[StateRef],
         through: &[OpRef],
         ops: PrimaryMap<OpRef, Operation>,
+        states: PrimaryMap<StateRef, State>,
     ) -> Self {
         Self {
             inputs: inputs.to_vec(),
             outputs: outputs.to_vec(),
             through: through.to_vec(),
             ops,
+            states,
         }
     }
 
@@ -65,6 +70,7 @@ impl PlannerTest {
             &self.outputs,
             &self.through,
             &self.ops,
+            &self.states,
         );
 
         if let Some(plan) = plan {
@@ -236,5 +242,6 @@ pub fn simple_random_graphs(
         &output_refs.into_iter().collect::<Vec<_>>(),
         &through.into_iter().collect::<Vec<_>>(),
         ops,
+        states,
     )
 }
