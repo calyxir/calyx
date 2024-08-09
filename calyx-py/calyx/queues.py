@@ -499,6 +499,8 @@ class RRQueue:
     client can divide the incoming traffic into `n` flows.
     For example, if n = 3 and the client passes boundaries [133, 266, 400],
     packets will be divided into three flows: [0, 133], [134, 266], [267, 400].
+    The argument `subqueues` is a list of subqueues, which can be any type of 
+    queue from this module.
 
     - At push, we check the `boundaries` list to determine which flow to push to.
     Take the boundaries example given earlier, [133, 266, 400].
@@ -582,7 +584,8 @@ class StrictPifo:
     of priority of the flows. For example, if n = 3 and the client passes order
     [1, 2, 0], flow 1 (packets in range [134, 266]) is first priority, flow 2
     (packets in range [267, 400]) is second priority, and flow 0 (packets in range
-    [0, 133]) is last priority.
+    [0, 133]) is last priority. The argument `subqueues` is a list of subqueues,
+    which can be any type of queue from this module.
 
     - At push, we check the `boundaries` list to determine which flow to push to.
     Take the boundaries example given earlier, [133, 266, 400].
@@ -595,13 +598,13 @@ class StrictPifo:
     nothing is actually dequeued.
     """
 
-    def __init__(self, n, boundaries, order, max_len: int):
+    def __init__(self, n, boundaries, order, subqueues, max_len: int):
         self.order = order
         self.priority = 0
         self.n = n
         self.pifo_len = 0
         self.boundaries = boundaries
-        self.data = [Fifo(max_len) for _ in range(n)]
+        self.data = subqueues
 
         self.max_len = max_len
 

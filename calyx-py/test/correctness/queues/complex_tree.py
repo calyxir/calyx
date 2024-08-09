@@ -5,7 +5,7 @@ import calyx.builder as cb
 import calyx.queue_call as qc
 import strict_and_rr_queues.gen_strict_or_rr as strict_or_rr
 
-# rr(strict(A, B, C), rr(D, E, F), strict(G, H))
+# This complex tree has the shape rr(strict(A, B, C), rr(D, E, F), strict(G, H))
 
 
 def build():

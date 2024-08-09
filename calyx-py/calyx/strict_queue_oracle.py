@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # Our Strict queue orchestrates n subqueues. It takes in a list of
     # boundaries of length n, as well as a list `order` which specifies the ranked
     # order of the flows.
-    pifo = queues.StrictPifo(numflows, boundaries, order, len)
+    pifo = queues.StrictPifo(numflows, boundaries, order, subqueues, len)
 
     ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)
 
