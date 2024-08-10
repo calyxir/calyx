@@ -22,6 +22,9 @@ const FAST_TRACK_THRESHOLD_FIXED_TO_BINARY: usize = 53;
 const FAST_TRACK_THRESHOLD_HEX_TO_BINARY: usize = 64;
 const FAST_TRACK_THRESHOLD_BINARY_TO_HEX: usize = 64;
 
+/// * 'sign' - `true` indicates that the value is negative; `false` indicates that it is positive.
+/// * 'mantissa' - The absolute value represented as an integer without a decimal point.
+/// * 'exponent' - The exponent to apply to the mantissa, where the actual value is calculated as `mantissa * 2^exponent`. The exponent can be negative.
 struct IntermediateRepresentation {
     sign: bool,
     mantissa: BigUint,
@@ -151,8 +154,8 @@ fn convert(
                     hex_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
-                    intermediate_to_binary(
-                        hex_to_intermediate(line),
+                    to_binary(
+                        from_hex(line),
                         &mut converted,
                     )
                     .expect("Failed to write binary to file");
@@ -165,8 +168,8 @@ fn convert(
                     float_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
-                    intermediate_to_binary(
-                        float_to_intermediate(line),
+                    to_binary(
+                        from_float(line),
                         &mut converted,
                     )
                     .expect("Failed to write binary to file");
@@ -179,8 +182,8 @@ fn convert(
                     fixed_to_binary(line, &mut converted, exponent)
                         .expect("Failed to write binary to file");
                 } else {
-                    intermediate_to_binary(
-                        fixed_to_intermediate(line, exponent),
+                    to_binary(
+                        from_fixed(line, exponent),
                         &mut converted,
                     )
                     .expect("Failed to write binary to file");
@@ -195,8 +198,8 @@ fn convert(
                         .expect("Failed to write hex to file");
                 } else {
                     print!("used intermediate");
-                    intermediate_to_hex(
-                        binary_to_intermediate(line),
+                    to_hex(
+                        from_binary(line),
                         &mut converted,
                     )
                     .expect("Failed to write binary to file");
@@ -209,8 +212,8 @@ fn convert(
                     binary_to_float(line, &mut converted)
                         .expect("Failed to write float to file");
                 } else {
-                    intermediate_to_float(
-                        binary_to_intermediate(line),
+                    to_float(
+                        from_binary(line),
                         &mut converted,
                     )
                     .expect("Failed to write binary to file");
@@ -224,8 +227,8 @@ fn convert(
                         binary_to_fixed(line, &mut converted, exponent)
                             .expect("Failed to write fixed-point to file");
                     } else {
-                        intermediate_to_fixed(
-                            binary_to_intermediate(line),
+                        to_fixed(
+                            from_binary(line),
                             &mut converted,
                         )
                         .expect("Failed to write binary to file");
@@ -241,8 +244,8 @@ fn convert(
                         )
                         .expect("Failed to write fixed-point to file");
                     } else {
-                        intermediate_to_fixed(
-                            binary_to_intermediate(line),
+                        to_fixed(
+                            from_binary(line),
                             &mut converted,
                         )
                         .expect("Failed to write binary to file");
@@ -650,7 +653,7 @@ fn binary_to_fixed_bit_slice(
 ///
 /// This function will panic if the input string cannot be parsed as a binary number.
 
-fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
+fn from_binary(binary_string: &str) -> IntermediateRepresentation {
     let bit_width = binary_string.len();
 
     let sign = binary_string.starts_with('0');
@@ -690,7 +693,7 @@ fn binary_to_intermediate(binary_string: &str) -> IntermediateRepresentation {
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
 
-fn intermediate_to_binary(
+fn to_binary(
     inter_rep: IntermediateRepresentation,
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
@@ -732,7 +735,7 @@ fn intermediate_to_binary(
 /// # Panics
 ///
 /// This function will panic if the input string cannot be parsed as a number.
-fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
+fn from_float(float_string: &str) -> IntermediateRepresentation {
     let sign = !float_string.starts_with('-');
     let float_trimmed = float_string.trim_start_matches('-');
 
@@ -767,7 +770,7 @@ fn float_to_intermediate(float_string: &str) -> IntermediateRepresentation {
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
 
-fn intermediate_to_float(
+fn to_float(
     inter_rep: IntermediateRepresentation,
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
@@ -831,7 +834,7 @@ fn intermediate_to_float(
 /// # Panics
 ///
 /// This function will panic if the input string cannot be parsed as a number.
-fn fixed_to_intermediate(
+fn from_fixed(
     fixed_string: &str,
     exp_int: i64,
 ) -> IntermediateRepresentation {
@@ -864,7 +867,7 @@ fn fixed_to_intermediate(
 ///
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
-fn intermediate_to_fixed(
+fn to_fixed(
     inter_rep: IntermediateRepresentation,
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
@@ -940,7 +943,7 @@ fn intermediate_to_fixed(
 ///
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
 
-fn hex_to_intermediate(hex_string: &str) -> IntermediateRepresentation {
+fn from_hex(hex_string: &str) -> IntermediateRepresentation {
     // Get sign value before converting string
     let sign = !hex_string.starts_with('-');
 
@@ -974,7 +977,7 @@ fn hex_to_intermediate(hex_string: &str) -> IntermediateRepresentation {
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
 
-fn intermediate_to_hex(
+fn to_hex(
     inter_rep: IntermediateRepresentation,
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
