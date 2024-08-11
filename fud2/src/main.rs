@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
 
     #[cfg(feature = "migrate_to_scripts")]
     {
-        bld = bld.load_plugins(&config);
+        bld = bld.load_plugins(&config)?;
     }
 
     let driver = bld.build();

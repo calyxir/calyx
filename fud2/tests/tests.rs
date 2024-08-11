@@ -22,7 +22,7 @@ fn test_driver() -> Driver {
     let mut bld = DriverBuilder::new("fud2-plugins");
     let config = figment::Figment::new();
     bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
-    bld.load_plugins(&config).build()
+    bld.load_plugins(&config).unwrap().build()
 }
 
 fn driver_from_path_with_config(
@@ -36,7 +36,7 @@ fn driver_from_path_with_config(
         path
     );
     bld.scripts_dir(&path);
-    bld.load_plugins(&config).build()
+    bld.load_plugins(&config).unwrap().build()
 }
 
 fn driver_from_path(path: &str) -> Driver {
