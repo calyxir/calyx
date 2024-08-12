@@ -8,9 +8,16 @@ use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use regex::Regex;
+use serde_json::{Map, Value};
+use std::env;
+use std::fs;
 use std::io;
-use std::{collections::HashMap, rc::Rc};
-use std::{fs::File, time::Instant};
+use std::io::Write;
+use std::path::Path;
+use std::process::Command;
+use std::{collections::HashMap, collections::HashSet, rc::Rc};
+use std::{fs::OpenOptions, time::Instant};
 use vast::v17::ast as v;
 
 /// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
@@ -110,20 +117,145 @@ impl Backend for VerilogBackend {
         ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
-        let fw = &mut file.get_write();
-        for extern_path in &ctx.lib.extern_paths() {
-            // The extern file is guaranteed to exist by the frontend.
-            let mut ext = File::open(extern_path).unwrap();
-            io::copy(&mut ext, fw).map_err(|err| {
-                let std::io::Error { .. } = err;
-                Error::write_error(format!(
-                    "File not found: {}",
-                    file.as_path_string()
-                ))
-            })?;
-            // Add a newline after appending a library file
-            writeln!(fw)?;
+        // Paths containing dependencies
+        let mut file_strings: Vec<String> = ctx
+            .lib
+            .extern_paths()
+            .into_iter()
+            .map(|pb| pb.to_string_lossy().into_owned())
+            .collect();
+
+        // JSON object to build for Morty
+        let mut json_map = Map::new();
+        let mut include_dirs = Vec::new();
+
+        // Determine if HardFloat is needed
+        let contains_float = file_strings.iter().any(|s| s.contains("float"));
+        let current_dir =
+            env::current_dir().unwrap().to_str().unwrap().to_string();
+        if contains_float {
+            include_dirs.push(Value::String(
+                current_dir.clone() + "/primitives/float/HardFloat-1/source/",
+            ));
+            include_dirs.push(Value::String(
+                current_dir.clone()
+                    + "/primitives/float/HardFloat-1/source/RISCV/",
+            ));
+            let hardfloat_path =
+                Path::new("primitives/float/HardFloat-1/source");
+            for entry in fs::read_dir(hardfloat_path)? {
+                let path = entry?.path();
+                let current_dir =
+                    env::current_dir().unwrap().to_str().unwrap().to_string();
+                if path.is_file()
+                    && !file_strings.contains(
+                        &(current_dir.clone() + "/" + path.to_str().unwrap()),
+                    )
+                {
+                    let extension = path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("");
+                    if extension == "v" || extension == "sv" {
+                        file_strings.push(
+                            current_dir.clone() + "/" + path.to_str().unwrap(),
+                        );
+                    }
+                }
+            }
         }
+
+        // Extract module names from a file
+        fn extract_modules(file_path: &str) -> HashSet<String> {
+            let mut modules = HashSet::new();
+            if let Ok(content) = fs::read_to_string(file_path) {
+                let re = Regex::new(r"\bmodule\s+(\w+)").unwrap();
+                for cap in re.captures_iter(&content) {
+                    if let Some(module_name) = cap.get(1) {
+                        modules.insert(module_name.as_str().to_string());
+                    }
+                }
+            }
+            modules
+        }
+
+        // Check if any of the given strings exist in the content of a file
+        fn any_string_in_file(
+            file_path: &str,
+            strings_to_search: &HashSet<String>,
+        ) -> bool {
+            if let Ok(content) = fs::read_to_string(file_path) {
+                for string in strings_to_search {
+                    if content.contains(string) {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+
+        // Filter out files that are not referenced by any other files within the HardFloat directory
+        let mut referenced_files = HashSet::new();
+        for file_path in &file_strings {
+            if file_path.contains("float/HardFloat-1") {
+                let module_names = extract_modules(file_path);
+                for other_file in &file_strings {
+                    if file_path != other_file
+                        && any_string_in_file(other_file, &module_names)
+                    {
+                        referenced_files.insert(file_path.clone());
+                        break;
+                    }
+                }
+            } else {
+                referenced_files.insert(file_path.clone());
+            }
+        }
+
+        // Update file_strings to only include referenced files
+        file_strings = file_strings
+            .into_iter()
+            .filter(|f| referenced_files.contains(f))
+            .collect();
+
+        json_map.insert("include_dirs".to_string(), Value::Array(include_dirs));
+
+        let file_paths: Vec<Value> = file_strings
+            .into_iter()
+            .map(|s| Value::String(s.to_string()))
+            .collect();
+
+        // Create Morty object
+        json_map.insert("defines".to_string(), Value::Object(Map::new()));
+        json_map.insert("files".to_string(), Value::Array(file_paths));
+        let final_data = Value::Array(vec![Value::Object(json_map)]);
+
+        let mut morty = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open("target/tmp/morty.json")?;
+
+        writeln!(morty, "{}", serde_json::to_string_pretty(&final_data)?)?;
+        morty.flush()?;
+
+        // Invoke Morty
+        let cmd = Command::new("morty")
+            .arg("-f")
+            .arg("target/tmp/morty.json")
+            .output()
+            .expect("failed to execute command");
+
+        if cmd.status.success() {
+            let stdout = String::from_utf8_lossy(&cmd.stdout);
+            println!("{}", stdout);
+        } else {
+            let stderr = String::from_utf8_lossy(&cmd.stderr);
+            eprintln!("Error: {}", stderr);
+        }
+
+        let fw = &mut file.get_write();
+
         for (prim, _) in ctx.lib.prim_inlines() {
             emit_prim_inline(prim, fw)?;
         }
