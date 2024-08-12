@@ -223,9 +223,6 @@ pub struct Run<'a> {
     pub plan: Plan,
     pub config_data: figment::Figment,
     pub global_config: config::GlobalConfig,
-
-    /// If this is true, run ninja with `-tcommands` to print out commands instead of running them.
-    pub print_commands: bool,
 }
 
 impl<'a> Run<'a> {
@@ -233,16 +230,14 @@ impl<'a> Run<'a> {
         driver: &'a Driver,
         plan: Plan,
         config: figment::Figment,
-        print_commands: bool,
     ) -> Self {
-        Self::with_config(driver, plan, config, print_commands)
+        Self::with_config(driver, plan, config)
     }
 
     pub fn with_config(
         driver: &'a Driver,
         plan: Plan,
         config_data: figment::Figment,
-        print_commands: bool,
     ) -> Self {
         let global_config: config::GlobalConfig =
             config_data.extract().expect("failed to load config");
@@ -251,7 +246,6 @@ impl<'a> Run<'a> {
             plan,
             config_data,
             global_config,
-            print_commands,
         }
     }
 
@@ -342,8 +336,10 @@ impl<'a> Run<'a> {
         Ok(dir)
     }
 
-    /// Emit `build.ninja` to a temporary directory and then actually execute ninja.
-    pub fn emit_and_run(&self, dir: &Utf8Path) -> EmitResult {
+    /// Emit `build.ninja` to a temporary directory and then actually execute Ninja.
+    ///
+    /// If `print_cmds` is true, Ninja will print commands it is to run instead of executing them.
+    pub fn emit_and_run(&self, dir: &Utf8Path, print_cmds: bool) -> EmitResult {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 
@@ -375,7 +371,7 @@ impl<'a> Run<'a> {
             cmd.arg("--verbose");
         }
 
-        if self.print_commands {
+        if print_cmds {
             cmd.arg("-tcommands");
         }
 

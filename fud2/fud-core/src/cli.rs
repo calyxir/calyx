@@ -13,6 +13,7 @@ enum Mode {
     ShowDot,
     Generate,
     Run,
+    Cmds,
 }
 
 impl FromStr for Mode {
@@ -25,6 +26,7 @@ impl FromStr for Mode {
             "gen" => Ok(Mode::Generate),
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
+            "cmds" => Ok(Mode::Cmds),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -38,6 +40,7 @@ impl Display for Mode {
             Mode::Generate => write!(f, "gen"),
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
+            Mode::Cmds => write!(f, "cmds"),
         }
     }
 }
@@ -175,10 +178,6 @@ struct FakeArgs {
     /// planner for the backend
     #[argh(option, default = "Planner::Legacy")]
     planner: Planner,
-
-    /// print commands which would be run instead of running them
-    #[argh(switch)]
-    print_commands: bool,
 }
 
 fn get_states_with_errors(
@@ -368,7 +367,7 @@ pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
     let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
-    let mut run = Run::new(driver, plan, config.clone(), args.print_commands);
+    let mut run = Run::new(driver, plan, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
@@ -384,7 +383,8 @@ pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir)?,
+        Mode::Run => run.emit_and_run(&workdir, false)?,
+        Mode::Cmds => run.emit_and_run(&workdir, true)?,
     }
 
     Ok(())
