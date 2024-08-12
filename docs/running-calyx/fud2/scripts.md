@@ -44,7 +44,7 @@ defop calyx_to_verilog(c: calyx_state) >> v: verilog_state {
 }
 ```
 
-Counterintuitively, `c`, `v`, `calyx_base`, `calyx_exe`, and `args` do not contain the actual variable values. They contain identifiers which are replaced by the values at runtime. For example, `print(args)` would print a `$args` instead of the value assigned by the config. This thwarts the possibility of the different config values or different input/output file names causing different code paths of a given op to run.
+Counterintuitively, `c`, `v`, `calyx_base`, `calyx_exe`, and `args` do not contain the actual variable values. They contain identifiers which are replaced by the values at runtime. For example, `print(args)` would print a `$args` instead of the value assigned by the config. An op cannot take different code paths based on config values or different input/output file names.
 
 This example shows off nearly all of the features available for defining ops. Scripts can reuse functionality by exploiting the tools of Rhai scripting. For example, if we wanted to create a second, similar op `calyx_noverify`, we could factor the contents of `calyx_to_verilog` into a new function and call that function in both ops.
 
