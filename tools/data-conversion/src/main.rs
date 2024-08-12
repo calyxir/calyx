@@ -102,7 +102,7 @@ struct Arguments {
     #[argh(switch, short = 'b')]
     bits: bool,
 
-    /// optional  for use with to_binary
+    /// optional for use with to_binary and from_binary
     #[argh(option, short = 'w')]
     width: usize,
 }
@@ -159,7 +159,7 @@ fn convert(
                     hex_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
-                    to_binary(from_hex(line), &mut converted)
+                    to_binary(from_hex(line, width), &mut converted, width)
                         .expect("Failed to write binary to file");
                 }
             }
@@ -170,7 +170,7 @@ fn convert(
                     float_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
-                    to_binary(from_float(line), &mut converted)
+                    to_binary(from_float(line), &mut converted, width)
                         .expect("Failed to write binary to file");
                 }
             }
@@ -181,8 +181,12 @@ fn convert(
                     fixed_to_binary(line, &mut converted, exponent)
                         .expect("Failed to write binary to file");
                 } else {
-                    to_binary(from_fixed(line, exponent), &mut converted)
-                        .expect("Failed to write binary to file");
+                    to_binary(
+                        from_fixed(line, exponent),
+                        &mut converted,
+                        width,
+                    )
+                    .expect("Failed to write binary to file");
                 }
             }
         }
@@ -627,6 +631,7 @@ fn binary_to_fixed_bit_slice(
 /// # Arguments
 ///
 /// * `binary_string` - A string slice containing the binary number to be converted.
+/// * `bit_width` - A number representing the width of each binary number
 ///
 /// # Returns
 ///
@@ -672,6 +677,7 @@ fn from_binary(
 /// * `inter_rep` - The intermediate representation to be converted.
 /// * `filepath_send` - A mutable reference to an optional `File` where the binary string
 ///   will be written. If `None`, the result is written to stdout.
+/// * `bit_width` - A number representing the width of each binary number
 ///
 /// # Returns
 ///
@@ -681,6 +687,7 @@ fn from_binary(
 fn to_binary(
     inter_rep: IntermediateRepresentation,
     filepath_send: &mut Option<File>,
+    bit_width: usize, // Bit width specified by the user
 ) -> io::Result<()> {
     let inter_value = if inter_rep.sign {
         BigInt::from(inter_rep.mantissa)
@@ -688,8 +695,20 @@ fn to_binary(
         -BigInt::from(inter_rep.mantissa)
     };
 
-    let binary_str = inter_value.to_str_radix(2);
+    // Convert the value to a binary string
+    let mut binary_str = inter_value.to_str_radix(2);
 
+    // Handle two's complement for negative numbers
+    if inter_value < BigInt::from(0) {
+        let max_value = BigInt::from(1) << bit_width;
+        let two_complement = max_value + inter_value;
+        binary_str = two_complement.to_str_radix(2);
+    }
+
+    // At this point, binary_str should already be at the correct bit width
+    // No padding or truncation is necessary
+
+    // Write to file or stdout
     if let Some(file) = filepath_send {
         file.write_all(binary_str.as_bytes())?;
         file.write_all(b"\n")?;
@@ -925,20 +944,26 @@ fn to_fixed(
 ///
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
 
-fn from_hex(hex_string: &str) -> IntermediateRepresentation {
-    // Get sign value before converting string
-    let sign = !hex_string.starts_with('-');
-
-    // Remove the '-' sign if present
-    let cleaned_hex_string = if sign { hex_string } else { &hex_string[1..] };
-
+fn from_hex(hex_string: &str, width: usize) -> IntermediateRepresentation {
     // Convert the cleaned hexadecimal string to BigUint
-    let hex_value = BigUint::from_str_radix(cleaned_hex_string, 16)
+    let hex_value = BigUint::from_str_radix(hex_string, 16)
         .expect("Invalid hexadecimal string");
+
+    // Determine if the value is negative based on the MSB
+    let sign_bit = BigUint::from(1u64) << (width - 1);
+    let sign = &hex_value & &sign_bit == BigUint::from(0u64);
+
+    let mantissa = if sign {
+        hex_value
+    } else {
+        // Calculate the two's complement for negative values
+        let max_value = BigUint::from(1u64) << width;
+        &max_value - &hex_value
+    };
 
     IntermediateRepresentation {
         sign,
-        mantissa: hex_value,
+        mantissa,
         exponent: 0,
     }
 }
