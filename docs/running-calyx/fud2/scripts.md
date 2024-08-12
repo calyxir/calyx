@@ -187,6 +187,8 @@ shell(<string>)
 ```
 When called in the body of an op, that op will run `<string>` as a shell command to generate its targets. It is an error to call `shell` outside of the body of an op. Additionally, it is an error to call `shell` in the body of an op in which `shell_deps` was called prior.
 
+In the generated Ninja code, `shell` will create both a `rule` wrapping the shell command and a `build` command that invokes that rule. When a `defop` contains multiple `shell` commands, `fud2` automatically generates Ninja dependencies among the `build` command to ensure they run in order.
+
 #### shell_deps
 
 ```
