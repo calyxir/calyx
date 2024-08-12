@@ -384,6 +384,8 @@ impl<'a> Run<'a> {
             }) {
                 let stdout_files =
                     std::fs::File::open(self.plan.workdir.join(filename))
+                        // The output file we're emitting to stdout should exist. If it doesn't,
+                        // some op didn't produce the output file it claimed to.
                         .map_err(|e| if let std::io::ErrorKind::NotFound = e.kind() {
                             std::io::Error::new(
                                 e.kind(),
