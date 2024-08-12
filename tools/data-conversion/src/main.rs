@@ -101,7 +101,10 @@ struct Arguments {
     /// optional for fixed_to_binary using bit slicing. If choosen, will use bit slicing.
     #[argh(switch, short = 'b')]
     bits: bool,
-    // optional switch for
+
+    /// optional  for use with to_binary
+    #[argh(option, short = 'w')]
+    width: usize,
 }
 
 fn main() {
@@ -114,6 +117,7 @@ fn main() {
         args.totype,
         args.exp,
         args.bits,
+        args.width,
     );
 }
 
@@ -141,6 +145,7 @@ fn convert(
     convert_to: NumType,
     exponent: i64,
     bits: bool,
+    width: usize,
 ) {
     // Create the output file if filepath_send is Some
     let mut converted: Option<File> = filepath_send
@@ -154,11 +159,8 @@ fn convert(
                     hex_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
-                    to_binary(
-                        from_hex(line),
-                        &mut converted,
-                    )
-                    .expect("Failed to write binary to file");
+                    to_binary(from_hex(line), &mut converted)
+                        .expect("Failed to write binary to file");
                 }
             }
         }
@@ -168,11 +170,8 @@ fn convert(
                     float_to_binary(line, &mut converted)
                         .expect("Failed to write binary to file");
                 } else {
-                    to_binary(
-                        from_float(line),
-                        &mut converted,
-                    )
-                    .expect("Failed to write binary to file");
+                    to_binary(from_float(line), &mut converted)
+                        .expect("Failed to write binary to file");
                 }
             }
         }
@@ -182,11 +181,8 @@ fn convert(
                     fixed_to_binary(line, &mut converted, exponent)
                         .expect("Failed to write binary to file");
                 } else {
-                    to_binary(
-                        from_fixed(line, exponent),
-                        &mut converted,
-                    )
-                    .expect("Failed to write binary to file");
+                    to_binary(from_fixed(line, exponent), &mut converted)
+                        .expect("Failed to write binary to file");
                 }
             }
         }
@@ -198,11 +194,8 @@ fn convert(
                         .expect("Failed to write hex to file");
                 } else {
                     print!("used intermediate");
-                    to_hex(
-                        from_binary(line),
-                        &mut converted,
-                    )
-                    .expect("Failed to write binary to file");
+                    to_hex(from_binary(line, width), &mut converted)
+                        .expect("Failed to write binary to file");
                 }
             }
         }
@@ -212,11 +205,8 @@ fn convert(
                     binary_to_float(line, &mut converted)
                         .expect("Failed to write float to file");
                 } else {
-                    to_float(
-                        from_binary(line),
-                        &mut converted,
-                    )
-                    .expect("Failed to write binary to file");
+                    to_float(from_binary(line, width), &mut converted)
+                        .expect("Failed to write binary to file");
                 }
             }
         }
@@ -227,11 +217,8 @@ fn convert(
                         binary_to_fixed(line, &mut converted, exponent)
                             .expect("Failed to write fixed-point to file");
                     } else {
-                        to_fixed(
-                            from_binary(line),
-                            &mut converted,
-                        )
-                        .expect("Failed to write binary to file");
+                        to_fixed(from_binary(line, width), &mut converted)
+                            .expect("Failed to write binary to file");
                     }
                 }
             } else {
@@ -244,11 +231,8 @@ fn convert(
                         )
                         .expect("Failed to write fixed-point to file");
                     } else {
-                        to_fixed(
-                            from_binary(line),
-                            &mut converted,
-                        )
-                        .expect("Failed to write binary to file");
+                        to_fixed(from_binary(line, width), &mut converted)
+                            .expect("Failed to write binary to file");
                     }
                 }
             }
@@ -653,9 +637,10 @@ fn binary_to_fixed_bit_slice(
 ///
 /// This function will panic if the input string cannot be parsed as a binary number.
 
-fn from_binary(binary_string: &str) -> IntermediateRepresentation {
-    let bit_width = binary_string.len();
-
+fn from_binary(
+    binary_string: &str,
+    bit_width: usize,
+) -> IntermediateRepresentation {
     let sign = binary_string.starts_with('0');
 
     let binary_value = BigUint::from_str_radix(binary_string, 2)
@@ -834,18 +819,15 @@ fn to_float(
 /// # Panics
 ///
 /// This function will panic if the input string cannot be parsed as a number.
-fn from_fixed(
-    fixed_string: &str,
-    exp_int: i64,
-) -> IntermediateRepresentation {
+fn from_fixed(fixed_string: &str, exp_int: i64) -> IntermediateRepresentation {
     let sign = !fixed_string.starts_with('-');
     let fixed_trimmed = fixed_string.trim_start_matches('-');
 
-    let mantissa_string = &format!("{fixed_trimmed}");
+    let mantissa_string = fixed_trimmed.to_string();
 
     IntermediateRepresentation {
         sign,
-        mantissa: BigUint::from_str(mantissa_string).expect("Invalid number"),
+        mantissa: BigUint::from_str(&mantissa_string).expect("Invalid number"),
         exponent: exp_int,
     }
 }
