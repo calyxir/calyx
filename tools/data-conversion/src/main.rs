@@ -7,6 +7,8 @@ use std::fs::File;
 use std::io::stdout;
 use std::io::{self, Write};
 use std::str::FromStr;
+mod write_to_file;
+use write_to_file::BinaryOutputFile;
 
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
 
@@ -97,7 +99,7 @@ fn main() {
 
 /// Converts [filepath_get] from type [convert_from] to type
 /// [convert_to] in [filepath_send]
-
+///
 /// # Arguments
 ///
 /// * `filepath_get` - A reference to a `String` representing the path to the input file
