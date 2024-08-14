@@ -103,7 +103,7 @@ struct Arguments {
     bits: bool,
 
     /// optional for use with to_binary and from_binary
-    #[argh(option, short = 'w')]
+    #[argh(option, default = "0")]
     width: usize,
 }
 
@@ -448,10 +448,7 @@ fn binary_to_float(
     let binary_value = u64::from_str_radix(binary_string, 2)
         .expect("Failed to parse binary string");
 
-    // Interpret the integer as the binary representation of a floating-point number
-    let float_value = f64::from_bits(binary_value);
-
-    let formated_float_str = format!("{:?}", float_value);
+    let formated_float_str = format!("{:?}", binary_value);
 
     if let Some(file) = filepath_send.as_mut() {
         // Write binary string to the file
