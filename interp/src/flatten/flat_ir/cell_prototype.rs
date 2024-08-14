@@ -59,6 +59,8 @@ pub enum SingleWidthType {
     UnsynSMult,
     UnsynSDiv,
     UnsynSMod,
+    /// Represents the `undef` primitive. Not to be confused with undefined
+    /// port values during simulation.
     Undef,
 }
 
