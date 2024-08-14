@@ -723,4 +723,18 @@ impl CellPrototype {
     pub fn is_component(&self) -> bool {
         matches!(self, Self::Component(..))
     }
+
+    /// Returns `true` if the cell prototype is a [`Constant`] constructed from
+    /// a literal.
+    ///
+    /// [`Constant`]: CellPrototype::Constant
+    pub fn is_literal_constant(&self) -> bool {
+        matches!(
+            self,
+            Self::Constant {
+                c_type: ConstantType::Literal,
+                ..
+            }
+        )
+    }
 }
