@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{self, Write};
+use std::io::stdout;
 
 pub struct BinaryOutputFile {
     file: File,
@@ -48,3 +49,22 @@ impl BinaryOutputFile {
     }
 }
 
+fn to_text_file (
+    input: &str,
+    file: &mut File) -> std::io::Result<()> {
+
+    file.write_all(input.as_bytes())?;
+    file.write_all(b"\n")?;
+
+    Ok(())
+    
+}
+
+fn to_std_out (
+    input: &str,
+) -> std::io::Result<()> {
+    stdout().write_all(input.as_bytes())?;
+    stdout().write_all(b"\n")?;
+
+    Ok(())
+}
