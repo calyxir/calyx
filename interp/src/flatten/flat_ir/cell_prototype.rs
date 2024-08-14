@@ -8,7 +8,7 @@ use crate::{
 use super::prelude::ComponentIdx;
 
 #[derive(Debug, Clone)]
-pub enum LiteralOrPrimitive {
+pub enum ConstantType {
     Literal,
     Primitive,
 }
@@ -189,7 +189,7 @@ pub enum CellPrototype {
     Constant {
         value: u64,
         width: ParamWidth,
-        c_type: LiteralOrPrimitive,
+        c_type: ConstantType,
     },
     SingleWidth {
         op: SingleWidthType,
@@ -277,7 +277,7 @@ impl CellPrototype {
                     Self::Constant {
                         value,
                         width: width.try_into().unwrap(),
-                        c_type: LiteralOrPrimitive::Primitive,
+                        c_type: ConstantType::Primitive,
                     }
                 }
                 n @ ("std_add" | "std_sadd") => {

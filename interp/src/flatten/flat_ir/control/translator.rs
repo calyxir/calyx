@@ -6,7 +6,7 @@ use crate::{
     as_raw::AsRaw,
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, LiteralOrPrimitive},
+            cell_prototype::{CellPrototype, ConstantType},
             component::{AuxillaryComponentInfo, ComponentCore},
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
@@ -493,7 +493,7 @@ fn create_cell_prototype(
         cir::CellType::Constant { val, width } => CellPrototype::Constant {
             value: *val,
             width: (*width).try_into().unwrap(),
-            c_type: LiteralOrPrimitive::Literal,
+            c_type: ConstantType::Literal,
         },
         cir::CellType::ThisComponent => unreachable!(
             "the flattening should not have this cell type, this is an error"
