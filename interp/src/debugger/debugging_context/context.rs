@@ -276,6 +276,16 @@ impl WatchPointIndices {
             }
         }
     }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::Before(idx) => idx.is_empty(),
+            Self::After(idx) => idx.is_empty(),
+            Self::Both { before, after } => {
+                before.is_empty() && after.is_empty()
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -368,6 +378,10 @@ impl WatchpointMap {
                         before.retain(|i| *i != idx);
                         after.retain(|i| *i != idx);
                     }
+                }
+
+                if idxs.is_empty() {
+                    self.group_idx_map.remove(&point.group);
                 }
             }
         }
