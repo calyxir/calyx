@@ -62,6 +62,22 @@ pub enum SingleWidthType {
     Undef,
 }
 
+#[derive(Debug, Clone)]
+pub enum DoubleWidthType {
+    /// 1: input width, 2: output width
+    Slice,
+    /// 1: input width, 2: output width
+    Pad,
+}
+
+#[derive(Debug, Clone)]
+pub enum TripleWidthType {
+    /// 1: left width, 2: right width, 3: output width
+    Cat,
+    /// 1: start index, 2: end index, 3: output width
+    BitSlice,
+}
+
 /// An enum for encoding FP primitives operator types
 #[derive(Debug, Clone)]
 pub enum FXType {
@@ -185,42 +201,44 @@ pub type ParamWidth = u32;
 
 #[derive(Debug, Clone)]
 pub enum CellPrototype {
+    /// This cell is an instance of a Calyx component
     Component(ComponentIdx),
+    /// This cell is a constant. Either constant literal or use of the primitive `std_const`
     Constant {
         value: u64,
         width: ParamWidth,
         c_type: ConstantType,
     },
+    /// This cell is a primitive type that only has a single width parameter.
+    /// See [`SingleWidthType`] for the list of primitives.
     SingleWidth {
         op: SingleWidthType,
         width: ParamWidth,
     },
+    /// This cell is a primitive type that has two width parameters.
+    /// See [`DoubleWidthType`] for the list of primitives.
+    DoubleWidth {
+        op: DoubleWidthType,
+        width1: ParamWidth,
+        width2: ParamWidth,
+    },
+    /// This cell is a primitive type that has three width parameters.
+    /// See [`TripleWidthType`] for the list of primitives.
+    TripleWidth {
+        op: TripleWidthType,
+        width1: ParamWidth,
+        width2: ParamWidth,
+        width3: ParamWidth,
+    },
+    /// This cell is a fixed point primitive. See [`FXType`] for the list of primitives.
     FixedPoint {
         op: FXType,
+        // TODO griffin: Consider deleting width
         width: ParamWidth,
         int_width: ParamWidth,
         frac_width: ParamWidth,
     },
-    // The awkward three that don't fit the other patterns
-    Slice {
-        in_width: ParamWidth,
-        out_width: ParamWidth,
-    },
-    Pad {
-        in_width: ParamWidth,
-        out_width: ParamWidth,
-    },
-    Cat {
-        left: ParamWidth,
-        right: ParamWidth,
-        out: ParamWidth,
-    },
-    BitSlice {
-        start_idx: ParamWidth,
-        end_idx: ParamWidth,
-        out_width: ParamWidth,
-    },
-    // Memories
+    /// This cell is a memory primitive. Either a combinational or sequential memory.
     Memory {
         mem_type: MemType,
         width: ParamWidth,
@@ -228,7 +246,8 @@ pub enum CellPrototype {
         is_external: bool,
     },
 
-    // TODO Griffin: lots more
+    /// This cell is a primitive that lacks an implementation in Cider. Its name
+    /// and parameter bindings are stored for use in error messages.
     Unknown(String, Box<cir::Binding>),
 }
 
@@ -502,9 +521,10 @@ impl CellPrototype {
                         out_width: "OUT_WIDTH"
                     ];
 
-                    Self::Slice {
-                        in_width: in_width.try_into().unwrap(),
-                        out_width: out_width.try_into().unwrap(),
+                    Self::DoubleWidth {
+                        op: DoubleWidthType::Slice,
+                        width1: in_width.try_into().unwrap(),
+                        width2: out_width.try_into().unwrap(),
                     }
                 }
                 "std_pad" => {
@@ -513,9 +533,10 @@ impl CellPrototype {
                         out_width: "OUT_WIDTH"
                     ];
 
-                    Self::Pad {
-                        in_width: in_width.try_into().unwrap(),
-                        out_width: out_width.try_into().unwrap(),
+                    Self::DoubleWidth {
+                        op: DoubleWidthType::Pad,
+                        width1: in_width.try_into().unwrap(),
+                        width2: out_width.try_into().unwrap(),
                     }
                 }
                 "std_cat" => {
@@ -524,10 +545,11 @@ impl CellPrototype {
                         right_width: "RIGHT_WIDTH",
                         out_width: "OUT_WIDTH"
                     ];
-                    Self::Cat {
-                        left: left_width.try_into().unwrap(),
-                        right: right_width.try_into().unwrap(),
-                        out: out_width.try_into().unwrap(),
+                    Self::TripleWidth {
+                        op: TripleWidthType::Cat,
+                        width1: left_width.try_into().unwrap(),
+                        width2: right_width.try_into().unwrap(),
+                        width3: out_width.try_into().unwrap(),
                     }
                 }
                 n @ ("comb_mem_d1" | "seq_mem_d1") => {
@@ -674,10 +696,11 @@ impl CellPrototype {
                         end_idx: "END_IDX",
                         out_width: "OUT_WIDTH"
                     ];
-                    Self::BitSlice {
-                        start_idx: start_idx.try_into().unwrap(),
-                        end_idx: end_idx.try_into().unwrap(),
-                        out_width: out_width.try_into().unwrap(),
+                    Self::TripleWidth {
+                        op: TripleWidthType::BitSlice,
+                        width1: start_idx.try_into().unwrap(),
+                        width2: end_idx.try_into().unwrap(),
+                        width3: out_width.try_into().unwrap(),
                     }
                 }
 
