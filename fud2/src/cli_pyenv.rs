@@ -1,69 +1,14 @@
-use std::{fs, path::Path, process::Command, sync::OnceLock};
+use std::{fs, path::Path, process::Command};
 
-use argh::{CommandInfo, DynamicSubCommand, EarlyExit};
-use fud_core::{cli::FakeDynamic, config};
+use argh::FromArgs;
+use fud_core::{cli::FakeSubCommand, config};
 
-#[derive(PartialEq, Debug)]
+/// initialize a fud2 python environment
+#[derive(FromArgs)]
+#[argh(subcommand, name = "env")]
 pub struct PyenvCommand {}
 
-impl DynamicSubCommand for PyenvCommand {
-    fn commands() -> &'static [&'static CommandInfo] {
-        static RET: OnceLock<Vec<&'static CommandInfo>> = OnceLock::new();
-        RET.get_or_init(|| {
-            let mut commands = Vec::new();
-
-            let env_cmdinfo = CommandInfo {
-                name: "env",
-                description: "initialize fud2 python environment",
-            };
-
-            commands.push(&*Box::leak(Box::new(env_cmdinfo)));
-
-            commands
-        })
-    }
-
-    fn try_redact_arg_values(
-        command_name: &[&str],
-        args: &[&str],
-    ) -> Option<Result<Vec<String>, EarlyExit>> {
-        for command in Self::commands() {
-            if command_name.last() == Some(&command.name) {
-                // Process arguments and redact values here.
-                if !args.is_empty() {
-                    return Some(Err(
-                        "Our example dynamic command never takes arguments!"
-                            .to_string()
-                            .into(),
-                    ));
-                }
-                return Some(Ok(Vec::new()));
-            }
-        }
-        None
-    }
-
-    fn try_from_args(
-        command_name: &[&str],
-        args: &[&str],
-    ) -> Option<Result<Self, EarlyExit>> {
-        for command in Self::commands() {
-            if command_name.last() == Some(&command.name) {
-                if !args.is_empty() {
-                    return Some(Err(
-                        "Our example dynamic command never takes arguments!"
-                            .to_string()
-                            .into(),
-                    ));
-                }
-                return Some(Ok(PyenvCommand {}));
-            }
-        }
-        None
-    }
-}
-
-impl FakeDynamic for PyenvCommand {
+impl FakeSubCommand for PyenvCommand {
     fn run(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
         let data_dir = config::data_dir(&driver.name);
 

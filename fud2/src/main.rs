@@ -1,6 +1,6 @@
 use fud2::PyenvCommand;
 use fud_core::{
-    cli::{self, FakeArgs},
+    cli::{self},
     DriverBuilder,
 };
 
@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Get config values from cli.
-    let config = cli::config_from_cli(&bld.name)?;
+    let config = cli::config_from_cli::<PyenvCommand>(&bld.name)?;
 
     #[cfg(feature = "migrate_to_scripts")]
     {
@@ -49,6 +49,5 @@ fn main() -> anyhow::Result<()> {
     }
 
     let driver = bld.build();
-    let args: FakeArgs<PyenvCommand> = argh::from_env();
-    cli::cli_dynamic(args, &driver, &config)
+    cli::cli::<PyenvCommand>(&driver, &config)
 }
