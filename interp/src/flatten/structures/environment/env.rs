@@ -10,7 +10,11 @@ use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, PrimType1},
+            base::{
+                LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
+                LocalRefPortOffset,
+            },
+            cell_prototype::{CellPrototype, SingleWidthType},
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices,
                 CellDefinitionRef::{Local, Ref},
@@ -23,6 +27,7 @@ use crate::{
         },
         primitives::{self, prim_trait::UpdateStatus, Primitive},
         structures::{
+            context::{LookupName, PortDefinitionInfo},
             environment::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
@@ -30,12 +35,12 @@ use crate::{
         },
     },
     logging,
-    serialization::{DataDump, Dimensions, PrintCode},
+    serialization::{DataDump, MemoryDeclaration, PrintCode},
     values::Value,
 };
-use ahash::HashMap;
 use ahash::HashSet;
 use ahash::HashSetExt;
+use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
@@ -223,6 +228,31 @@ impl Debug for CellLedger {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PinnedPorts {
+    map: HashMap<GlobalPortIdx, Value>,
+}
+
+impl PinnedPorts {
+    pub fn iter(&self) -> impl Iterator<Item = (&GlobalPortIdx, &Value)> + '_ {
+        self.map.iter()
+    }
+
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, port: GlobalPortIdx, val: Value) {
+        self.map.insert(port, val);
+    }
+
+    pub fn remove(&mut self, port: GlobalPortIdx) {
+        self.map.remove(&port);
+    }
+}
+
 #[derive(Debug)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
@@ -237,15 +267,76 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     /// The program counter for the whole program execution.
     pub(super) pc: ProgramCounter,
 
+    pinned_ports: PinnedPorts,
+
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
     pub(super) ctx: C,
+
+    memory_header: Option<Vec<MemoryDeclaration>>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
+    }
+    /// Returns the full name and port list of each cell in the context
+    pub fn iter_cells(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+        let env = self;
+        let cell_names = self.cells.iter().map(|(idx, _ledger)| {
+            (idx.get_full_name(env), self.get_ports_for_cell(idx))
+        });
+
+        cell_names
+        // get parent from cell, if not exist then lookup component ledger get base idxs, go to context and get signature to get ports
+        // for cells, same thing but in the cell ledger, subtract child offset from parent offset to get local offset, lookup in cell offset in component info
+    }
+
+    //not sure if beneficial to change this to be impl iterator as well
+    fn get_ports_for_cell(&self, cell: GlobalCellIdx) -> Vec<String> {
+        let parent = self.get_parent_cell_from_cell(cell);
+        match parent {
+            None => {
+                let comp_ledger = self.cells[cell].as_comp().unwrap();
+                let comp_info =
+                    self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
+                let port_ids = comp_info.signature().into_iter().map(|x| {
+                    &self.ctx().secondary.local_port_defs
+                        [comp_info.port_offset_map[x]]
+                        .name
+                });
+                let port_names = port_ids
+                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                    .collect_vec();
+                port_names
+            }
+            Some(parent_cell) => {
+                let parent_comp_ledger = self.cells[parent_cell].unwrap_comp();
+                let comp_info = self
+                    .ctx()
+                    .secondary
+                    .comp_aux_info
+                    .get(parent_comp_ledger.comp_id);
+                let local_offset = cell - &parent_comp_ledger.index_bases;
+
+                let port_ids = self.ctx().secondary.local_cell_defs
+                    [comp_info.cell_offset_map[local_offset]]
+                    .ports
+                    .into_iter()
+                    .map(|x| {
+                        &self.ctx().secondary.local_port_defs
+                            [comp_info.port_offset_map[x]]
+                            .name
+                    });
+                let names = port_ids
+                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                    .collect_vec();
+                names
+            }
+        }
     }
 
     pub fn new(ctx: C, data_map: Option<DataDump>) -> Self {
@@ -263,11 +354,13 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ),
             pc: ProgramCounter::new_empty(),
             ctx,
+            memory_header: None,
+            pinned_ports: PinnedPorts::new(),
         };
 
         let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
-        env.layout_component(root, data_map, &mut HashSet::new());
+        env.layout_component(root, &data_map, &mut HashSet::new());
 
         // Initialize program counter
         // TODO griffin: Maybe refactor into a separate function
@@ -284,6 +377,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             }
         }
 
+        if let Some(header) = data_map {
+            env.memory_header = Some(header.header.memories);
+        }
+
         env
     }
 
@@ -298,7 +395,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     fn layout_component(
         &mut self,
         comp: GlobalCellIdx,
-        data_map: Option<DataDump>,
+        data_map: &Option<DataDump>,
         memories_initialized: &mut HashSet<String>,
     ) {
         // for mutability reasons, see note in `[Environment::new]`
@@ -321,7 +418,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
 
         // first layout the signature
-        for sig_port in comp_aux.signature.iter() {
+        for sig_port in comp_aux.signature().iter() {
             let idx = self.ports.push(PortValue::new_undef());
             debug_assert_eq!(index_bases + sig_port, idx);
         }
@@ -370,7 +467,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     info,
                     port_base,
                     self.ctx.as_ref(),
-                    &data_map,
+                    data_map,
                     memories_initialized,
                 );
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
@@ -390,7 +487,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 );
 
                 // layout sub-component but don't include the data map
-                self.layout_component(cell, None, memories_initialized);
+                self.layout_component(cell, &None, memories_initialized);
             }
         }
 
@@ -598,8 +695,15 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                             &self.cells[point.comp].unwrap_comp().index_bases
                                 + l,
                         ),
-                        CellRef::Ref(_) => {
-                            "<REF CELLS NOT YET SUPPORTED>".to_string()
+                        CellRef::Ref(r) => {
+                            let ref_global_offset = &self.cells[point.comp]
+                                .unwrap_comp()
+                                .index_bases
+                                + r;
+                            let ref_actual =
+                                self.ref_cells[ref_global_offset].unwrap();
+
+                            self.get_full_name(ref_actual)
                         }
                     };
 
@@ -750,12 +854,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                                         break;
                                     }
                                 }
+                            }
 
-                                if let Some(highest_found) = highest_found {
-                                    path.push(highest_found);
-                                } else {
-                                    return None;
-                                }
+                            if let Some(highest_found) = highest_found {
+                                path.push(highest_found);
+                            } else {
+                                return None;
                             }
                         }
                     }
@@ -795,7 +899,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 // signature ports
                 if let Some(local) = target.as_port() {
                     let offset = local - &current_ledger.index_bases;
-                    if current_info.signature.contains(offset) {
+                    if current_info.signature().contains(offset) {
                         return Some((path, None));
                     }
                 }
@@ -955,7 +1059,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         } else {
             let ledger = self.cells[cell].as_comp().unwrap();
             let comp = &self.ctx.as_ref().secondary[ledger.comp_id];
-            Box::new(comp.signature.iter().map(|x| {
+            Box::new(comp.signature().into_iter().map(|x| {
                 let def_idx = comp.port_offset_map[x];
                 let def = &self.ctx.as_ref().secondary[def_idx];
                 (def.name, &ledger.index_bases + x)
@@ -981,6 +1085,102 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 acc + "." + &self.ctx.as_ref().secondary[id]
             },
         )
+    }
+
+    /// Lookup the value of a port on the entrypoint component by name. Will
+    /// error if the port is not found.
+    pub fn lookup_port_from_string<S: AsRef<str>>(
+        &self,
+        port: S,
+    ) -> Option<Value> {
+        // this is not the best way to do this but it's fine for now
+        let path = self
+            .traverse_name_vec(&[port.as_ref().to_string()])
+            .unwrap();
+        let path_resolution = path.resolve_path(self).unwrap();
+        let idx = path_resolution.as_port().unwrap();
+
+        self.ports[*idx].as_option().map(|x| x.val().clone())
+    }
+
+    /// Returns an input port for the entrypoint component. Will error if the
+    /// port is not found.
+    fn get_root_input_port<S: AsRef<str>>(&self, port: S) -> GlobalPortIdx {
+        let string = port.as_ref();
+
+        let root = Self::get_root();
+
+        let ledger = self.cells[root].as_comp().unwrap();
+        let mut def_list = self.ctx.as_ref().secondary[ledger.comp_id].inputs();
+        let found = def_list.find(|offset| {
+            let def_idx = self.ctx.as_ref().secondary[ledger.comp_id].port_offset_map[*offset];
+            self.ctx.as_ref().lookup_name(self.ctx.as_ref().secondary[def_idx].name) == string
+        }).unwrap_or_else(|| panic!("Could not find port '{string}' in the entrypoint component's input ports"));
+
+        &ledger.index_bases + found
+    }
+
+    /// Pins the port with the given name to the given value. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use. Unrelated
+    /// to the rust pin.
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+        let port = self.get_root_input_port(port);
+
+        let go = self.get_comp_go(Self::get_root());
+        assert!(port != go, "Cannot pin the go port");
+
+        self.pinned_ports.insert(port, val);
+    }
+
+    /// Unpins the port with the given name. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
+    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
+        let port = self.get_root_input_port(port);
+        self.pinned_ports.remove(port);
+    }
+
+    pub fn get_def_info(
+        &self,
+        comp_idx: ComponentIdx,
+        cell: LocalCellOffset,
+    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalPortOffset>
+    {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.cell_offset_map[cell];
+        &self.ctx.as_ref().secondary[idx]
+    }
+
+    pub fn get_def_info_ref(
+        &self,
+        comp_idx: ComponentIdx,
+        cell: LocalRefCellOffset,
+    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalRefPortOffset>
+    {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.ref_cell_offset_map[cell];
+        &self.ctx.as_ref().secondary[idx]
+    }
+
+    pub fn get_port_def_info(
+        &self,
+        comp_idx: ComponentIdx,
+        port: LocalPortOffset,
+    ) -> &PortDefinitionInfo {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.port_offset_map[port];
+        &self.ctx.as_ref().secondary[idx]
+    }
+
+    pub fn get_port_def_info_ref(
+        &self,
+        comp_idx: ComponentIdx,
+        port: LocalRefPortOffset,
+    ) -> Identifier {
+        let comp = &self.ctx.as_ref().secondary[comp_idx];
+        let idx = comp.ref_port_offset_map[port];
+        self.ctx.as_ref().secondary[idx]
     }
 }
 
@@ -1063,6 +1263,26 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     pub fn print_pc(&self) {
         self.env.print_pc()
+    }
+
+    /// Pins the port with the given name to the given value. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+        self.env.pin_value(port, val)
+    }
+
+    /// Unpins the port with the given name. This may only be
+    /// used for input ports on the entrypoint component (excluding the go port)
+    /// and will panic if used otherwise. Intended for external use.
+    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
+        self.env.unpin_value(port)
+    }
+
+    /// Lookup the value of a port on the entrypoint component by name. Will
+    /// error if the port is not found.
+    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+        self.env.lookup_port_from_string(port)
     }
 }
 
@@ -1299,6 +1519,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn converge(&mut self) -> InterpreterResult<()> {
         self.undef_all_ports();
         self.set_root_go_high();
+        // set the pinned values
+        for (port, val) in self.env.pinned_ports.iter() {
+            self.env.ports[*port] = PortValue::new_implicit(val.clone());
+        }
 
         for comp in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
@@ -1870,26 +2094,51 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     dims,
                     is_external,
                     ..
-                } if *is_external | all_mems => dump.push_memory(
-                    name,
-                    *width as usize,
-                    dims.size(),
-                    dims.as_serializing_dim(),
-                    self.env.cells[cell_index]
-                        .unwrap_primitive()
-                        .dump_memory_state()
-                        .unwrap(),
-                ),
+                } if *is_external | all_mems => {
+                    let declaration =
+                        if *is_external && self.env.memory_header.is_some() {
+                            if let Some(dec) = self
+                                .env
+                                .memory_header
+                                .as_ref()
+                                .unwrap()
+                                .iter()
+                                .find(|x| x.name == name)
+                            {
+                                dec.clone()
+                            } else {
+                                MemoryDeclaration::new_bitnum(
+                                    name,
+                                    *width,
+                                    dims.as_serializing_dim(),
+                                    false,
+                                )
+                            }
+                        } else {
+                            MemoryDeclaration::new_bitnum(
+                                name,
+                                *width,
+                                dims.as_serializing_dim(),
+                                false,
+                            )
+                        };
+
+                    dump.push_memory(
+                        declaration,
+                        self.env.cells[cell_index]
+                            .unwrap_primitive()
+                            .dump_memory_state()
+                            .unwrap(),
+                    )
+                }
                 CellPrototype::SingleWidth {
-                    op: PrimType1::Reg,
+                    op: SingleWidthType::Reg,
                     width,
                 } => {
                     if dump_registers {
-                        dump.push_memory(
+                        dump.push_reg(
                             name,
-                            *width as usize,
-                            1,
-                            Dimensions::D1(1),
+                            *width,
                             self.env.cells[cell_index]
                                 .unwrap_primitive()
                                 .dump_memory_state()
@@ -1964,9 +2213,9 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
         if state.has_state() {
             if let Some(name_override) = name {
-                write!(output, "{name_override}:").unwrap();
+                write!(output, "{name_override}: ").unwrap();
             } else {
-                write!(output, "{}:", self.get_full_name(cell_idx)).unwrap();
+                write!(output, "{}: ", self.get_full_name(cell_idx)).unwrap();
             }
 
             writeln!(output, "{state}").unwrap();
@@ -2019,6 +2268,31 @@ impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalPortIdx {
         let port_def_idx = &comp_def.port_offset_map[local_offset];
         let port_def = &env.ctx().secondary[*port_def_idx];
         let name = env.ctx().lookup_name(port_def.name);
+
+        format!("{path_str}.{name}")
+    }
+}
+
+impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalRefCellIdx {
+    fn get_full_name(&self, env: &Environment<C>) -> String {
+        let parent_path = env.get_parent_path_from_cell(*self).unwrap();
+        let path_str = env.format_path(&parent_path);
+
+        let immediate_parent = parent_path.last().unwrap();
+        let comp = if env.cells[*immediate_parent].as_comp().is_some() {
+            *immediate_parent
+        } else {
+            // get second-to-last parent
+            parent_path[parent_path.len() - 2]
+        };
+
+        let ledger = env.cells[comp].as_comp().unwrap();
+
+        let local_offset = *self - &ledger.index_bases;
+        let comp_def = &env.ctx().secondary[ledger.comp_id];
+        let ref_cell_def_idx = &comp_def.ref_cell_offset_map[local_offset];
+        let ref_cell_def = &env.ctx().secondary[*ref_cell_def_idx];
+        let name = env.ctx().lookup_name(ref_cell_def.name);
 
         format!("{path_str}.{name}")
     }

@@ -20,10 +20,9 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     """
 
     fifo: cb.ComponentBuilder = prog.component(name)
-    cmd = fifo.input("cmd", 2)
+    cmd = fifo.input("cmd", 1)
     # If it is 0, we pop.
-    # If it is 1, we peek.
-    # If it is 2, we push `value` to the queue.
+    # If it is 1, we push `value` to the queue.
     value = fifo.input("value", val_width)  # The value to push to the queue
 
     max_queue_len = 2**queue_len_factor
@@ -55,19 +54,6 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
         ],
     )
 
-    # The user called peek.
-    # If the queue is empty, we should raise an error.
-    # Otherwise, we should proceed with the core logic
-    peek_logic = cb.if_with(
-        fifo.eq_use(len.out, 0),
-        raise_err,
-        [
-            # `peek` has been called, and the queue is not empty.
-            # Write the answer to the answer register.
-            fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_peek"),
-        ],
-    )
-
     # The user called push.
     # If the queue is full, we should raise an error.
     # Otherwise, we should proceed with the core logic.
@@ -82,15 +68,13 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
         ],
     )
 
-    # Was it a pop, peek, push, or an invalid command?
-    # We can do those four cases in parallel.
+    # Was it a pop or push?
+    # We can do those two cases in parallel.
     fifo.control += fifo.case(
         cmd,
         {
             0: pop_logic,
-            1: peek_logic,
-            2: push_logic,
-            3: raise_err,
+            1: push_logic
         },
     )
 

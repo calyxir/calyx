@@ -3,10 +3,10 @@ dot         = _{ "." }
 colon       = _{ ":" }
 ident_syms  = _{ "_" | "-" | "'" }
 num         = @{ ASCII_DIGIT+ }
-group_name  = @{ (ASCII_ALPHA | ASCII_DIGIT | ident_syms | dot)+ }
+group_name  = @{ (ASCII_ALPHA | ASCII_DIGIT | ident_syms)+ }
 path        = @{ (ASCII_ALPHA | ASCII_DIGIT | ident_syms | dot | "/")+ }
 
-entry = { group_name ~ colon ~ WHITE_SPACE ~ path ~ WHITE_SPACE ~ num ~ (",")* ~ WHITE_SPACE* }
+entry = { WHITE_SPACE* ~ group_name ~ dot ~ group_name ~ colon ~ WHITE_SPACE ~ path ~ WHITE_SPACE ~ num ~ ("-") ~ num ~ (",")* ~ WHITE_SPACE* }
 
 metadata = {
     SOI ~ entry* ~ EOI

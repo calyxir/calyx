@@ -38,7 +38,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
 
     It has:
     - three inputs, `cmd`, `rank`, and `value`.
-        - `cmd` has width 2.
+        - `cmd` has width 1.
         - `rank` has width `rnk_w`.
         - `value` has width `val_w`.
     - one memory, `mem`, of size `2**queue_size_factor`.
@@ -52,10 +52,9 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     max_queue_size = 2**queue_size_factor
     addr_size = queue_size_factor
 
-    cmd = comp.input("cmd", 2)
+    cmd = comp.input("cmd", 1)
     # If it is 0, we pop.
-    # If it is 1, we peek.
-    # If it is 2, we push `(rank, value)` to the queue.
+    # If it is 1, we push `(rank, value)` to the queue.
 
     # The value and associated rank to push to the heap.
     rank = comp.input("rank", rnk_w)
@@ -70,7 +69,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     # Each cell of the memory is 96 bits wide: a `rnk_w`-bit rank and a `val_w`-bit value.
 
     ans = comp.reg(val_w, "ans", is_ref=True)
-    # If the user wants to pop or peek, we will write the value to `ans`.
+    # If the user wants to pop, we will write the value to `ans`.
 
     err = comp.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
@@ -80,8 +79,6 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     # Cells and groups to check which command we got.
     cmd_eq_0 = comp.eq_use(cmd, 0)
     cmd_eq_1 = comp.eq_use(cmd, 1)
-    cmd_eq_2 = comp.eq_use(cmd, 2)
-    cmd_eq_3 = comp.eq_use(cmd, 3)
 
     # Cells and groups to check for overflow and underflow.
     size_eq_0 = comp.eq_use(size.out, 0)
@@ -297,10 +294,8 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         while_or.left = and_l_2.out
         while_or.right = and_r_2.out
 
-    peek = extract_snd("peek", 0, ans)
-
     pop = [
-        peek,
+        extract_snd("peek", 0, ans),
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
@@ -370,20 +365,12 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
                 )
             ),
             cb.if_with(
-                cmd_eq_1,
-                cb.if_(is_full.out, 
-                       peek,
-                       cb.if_with(size_eq_0, raise_err, peek)
-                )
-            ),
-            cb.if_with(
-                cmd_eq_2, 
+                cmd_eq_1, 
                 [
                     cb.if_(is_full.out, raise_err, push),
                     cb.if_with(size_eq_0, turn_full_on)
                 ]
-            ),
-            cb.if_with(cmd_eq_3, raise_err)
+            )
         )
     ]
 
@@ -399,12 +386,10 @@ def insert_main(prog):
         push(6, 6),
         push(3, 3),
         pop(),
-        peek(),
         push(8, 8),
         push(10, 10),
         pop(),
         pop(),
-        peek(),
         pop(),
         pop(),
         pop(),
@@ -435,7 +420,7 @@ def insert_main(prog):
             binheap,
             in_value=cb.const(32, value),
             in_rank=cb.const(64, rank),
-            in_cmd=cb.const(2, 2),
+            in_cmd=cb.const(1, 1),
             ref_ans=ans,
             ref_err=err,
         )
@@ -449,23 +434,7 @@ def insert_main(prog):
                 binheap,
                 in_value=cb.const(32, 50),
                 in_rank=cb.const(64, 50),
-                in_cmd=cb.const(2, 0),
-                ref_ans=ans,
-                ref_err=err,
-            ),
-            comp.mem_store_d1(out, index - 1, ans.out, f"store_ans_{index}"),
-        ]
-
-    def peek_and_store():
-        nonlocal index
-        index += 1
-
-        return [
-            cb.invoke(
-                binheap,
-                in_value=cb.const(32, 50),
-                in_rank=cb.const(64, 50),
-                in_cmd=cb.const(2, 1),
+                in_cmd=cb.const(1, 0),
                 ref_ans=ans,
                 ref_err=err,
             ),
@@ -478,12 +447,10 @@ def insert_main(prog):
         push(6, 6),
         push(3, 3),
         pop_and_store(),
-        peek_and_store(),
         push(8, 8),
         push(10, 10),
         pop_and_store(),
         pop_and_store(),
-        peek_and_store(),
         pop_and_store(),
         pop_and_store(),
         pop_and_store(),
