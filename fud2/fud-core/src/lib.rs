@@ -5,5 +5,4 @@ pub mod run;
 pub mod script;
 pub mod utils;
 
-pub use cli::DefaultDynamic;
 pub use exec::{Driver, DriverBuilder};

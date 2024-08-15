@@ -1,5 +1,5 @@
 mod cli_pyenv;
-pub use cli_pyenv::PyenvCommand;
+pub use cli_pyenv::Fud2CliExt;
 
 use std::str::FromStr;
 

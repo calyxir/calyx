@@ -2,7 +2,7 @@ use crate::config;
 use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
-use argh::{FromArgs, SubCommand};
+use argh::{DynamicSubCommand, FromArgs};
 use camino::Utf8PathBuf;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -104,16 +104,34 @@ pub struct GetResource {
 #[argh(subcommand, name = "list")]
 pub struct ListCommand {}
 
-pub trait FakeSubCommand: SubCommand {
+pub trait FakeCliExt: DynamicSubCommand {
     fn run(&self, driver: &Driver) -> anyhow::Result<()>;
 }
 
 /// no extra command
-#[derive(FromArgs)]
-#[argh(subcommand, name = "none")]
-pub struct DefaultDynamic {}
+struct EmptyCliExt {}
 
-impl FakeSubCommand for DefaultDynamic {
+impl DynamicSubCommand for EmptyCliExt {
+    fn commands() -> &'static [&'static argh::CommandInfo] {
+        &[]
+    }
+
+    fn try_redact_arg_values(
+        _command_name: &[&str],
+        _args: &[&str],
+    ) -> Option<Result<Vec<String>, argh::EarlyExit>> {
+        None
+    }
+
+    fn try_from_args(
+        _command_name: &[&str],
+        _args: &[&str],
+    ) -> Option<Result<Self, argh::EarlyExit>> {
+        None
+    }
+}
+
+impl FakeCliExt for EmptyCliExt {
     fn run(&self, _driver: &Driver) -> anyhow::Result<()> {
         Ok(())
     }
@@ -124,7 +142,7 @@ impl FakeSubCommand for DefaultDynamic {
 #[argh(subcommand)]
 pub enum Subcommand<T>
 where
-    T: FakeSubCommand,
+    T: FakeCliExt,
 {
     /// edit the configuration file
     EditConfig(EditConfig),
@@ -135,6 +153,7 @@ where
     /// list the available states and ops
     List(ListCommand),
 
+    #[argh(dynamic)]
     Extended(T),
 }
 
@@ -142,7 +161,7 @@ where
 /// A generic compiler driver.
 pub struct FakeArgs<T>
 where
-    T: FakeSubCommand,
+    T: FakeCliExt,
 {
     #[argh(subcommand)]
     pub sub: Option<Subcommand<T>>,
@@ -228,7 +247,7 @@ fn get_states_with_errors(
     Ok(states)
 }
 
-fn from_states<T: FakeSubCommand>(
+fn from_states<T: FakeCliExt>(
     driver: &Driver,
     args: &FakeArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
@@ -242,7 +261,7 @@ fn from_states<T: FakeSubCommand>(
     )
 }
 
-fn to_state<T: FakeSubCommand>(
+fn to_state<T: FakeCliExt>(
     driver: &Driver,
     args: &FakeArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
@@ -256,7 +275,7 @@ fn to_state<T: FakeSubCommand>(
     )
 }
 
-fn get_request<T: FakeSubCommand>(
+fn get_request<T: FakeCliExt>(
     driver: &Driver,
     args: &FakeArgs<T>,
 ) -> anyhow::Result<Request> {
@@ -344,7 +363,11 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
 }
 
 /// Given the name of a Driver, returns a config based on that name and CLI arguments.
-pub fn config_from_cli<T: FakeSubCommand>(
+pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+    config_from_cli_ext::<EmptyCliExt>(name)
+}
+
+pub fn config_from_cli_ext<T: FakeCliExt>(
     name: &str,
 ) -> anyhow::Result<figment::Figment> {
     let args: FakeArgs<T> = argh::from_env();
@@ -364,7 +387,11 @@ pub fn config_from_cli<T: FakeSubCommand>(
     Ok(config)
 }
 
-pub fn cli<T: FakeSubCommand>(
+pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
+    cli_ext::<EmptyCliExt>(driver, config)
+}
+
+pub fn cli_ext<T: FakeCliExt>(
     driver: &Driver,
     config: &figment::Figment,
 ) -> anyhow::Result<()> {
