@@ -1,3 +1,6 @@
+mod cli_pyenv;
+pub use cli_pyenv::PyenvCommand;
+
 use std::str::FromStr;
 
 use fud_core::{

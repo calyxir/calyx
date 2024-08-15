@@ -2,7 +2,7 @@ use crate::config;
 use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
-use argh::FromArgs;
+use argh::{DynamicSubCommand, FromArgs};
 use camino::Utf8PathBuf;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -104,10 +104,45 @@ pub struct GetResource {
 #[argh(subcommand, name = "list")]
 pub struct ListCommand {}
 
+pub struct DefaultDynamic {}
+
+pub trait FakeDynamic: DynamicSubCommand {
+    fn run(&self, driver: &Driver) -> anyhow::Result<()>;
+}
+
+impl DynamicSubCommand for DefaultDynamic {
+    fn commands() -> &'static [&'static argh::CommandInfo] {
+        &[]
+    }
+
+    fn try_redact_arg_values(
+        _command_name: &[&str],
+        _args: &[&str],
+    ) -> Option<Result<Vec<String>, argh::EarlyExit>> {
+        None
+    }
+
+    fn try_from_args(
+        _command_name: &[&str],
+        _args: &[&str],
+    ) -> Option<Result<Self, argh::EarlyExit>> {
+        None
+    }
+}
+
+impl FakeDynamic for DefaultDynamic {
+    fn run(&self, _driver: &Driver) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
 /// supported subcommands
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
-pub enum Subcommand {
+pub enum Subcommand<T>
+where
+    T: FakeDynamic,
+{
     /// edit the configuration file
     EditConfig(EditConfig),
 
@@ -116,13 +151,19 @@ pub enum Subcommand {
 
     /// list the available states and ops
     List(ListCommand),
+
+    #[argh(dynamic)]
+    Dynamic(T),
 }
 
 #[derive(FromArgs)]
 /// A generic compiler driver.
-struct FakeArgs {
+pub struct FakeArgs<T>
+where
+    T: FakeDynamic,
+{
     #[argh(subcommand)]
-    pub sub: Option<Subcommand>,
+    pub sub: Option<Subcommand<T>>,
 
     /// the input file
     #[argh(positional)]
@@ -205,9 +246,9 @@ fn get_states_with_errors(
     Ok(states)
 }
 
-fn from_states(
+fn from_states<T: FakeDynamic>(
     driver: &Driver,
-    args: &FakeArgs,
+    args: &FakeArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
@@ -219,7 +260,10 @@ fn from_states(
     )
 }
 
-fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
+fn to_state<T: FakeDynamic>(
+    driver: &Driver,
+    args: &FakeArgs<T>,
+) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
         &args.to,
@@ -230,7 +274,10 @@ fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
     )
 }
 
-fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
+fn get_request<T: FakeDynamic>(
+    driver: &Driver,
+    args: &FakeArgs<T>,
+) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
     let workdir = args.dir.clone().unwrap_or_else(|| match args.mode {
         Mode::Generate | Mode::Run => {
@@ -316,7 +363,7 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
 
 /// Given the name of a Driver, returns a config based on that name and CLI arguments.
 pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
-    let args: FakeArgs = argh::from_env();
+    let args: FakeArgs<DefaultDynamic> = argh::from_env();
     let mut config = config::load_config(name);
 
     // Use `--set` arguments to override configuration values.
@@ -334,8 +381,15 @@ pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
 }
 
 pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
-    let args: FakeArgs = argh::from_env();
+    let args: FakeArgs<DefaultDynamic> = argh::from_env();
+    cli_dynamic(args, driver, config)
+}
 
+pub fn cli_dynamic<T: FakeDynamic>(
+    args: FakeArgs<T>,
+    driver: &Driver,
+    config: &figment::Figment,
+) -> anyhow::Result<()> {
     // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
@@ -354,6 +408,9 @@ pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
         Some(Subcommand::List(_)) => {
             driver.print_info();
             return Ok(());
+        }
+        Some(Subcommand::Dynamic(cmd)) => {
+            return cmd.run(driver);
         }
         None => {}
     }

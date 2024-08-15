@@ -1,4 +1,8 @@
-use fud_core::{cli, DriverBuilder};
+use fud2::PyenvCommand;
+use fud_core::{
+    cli::{self, FakeArgs},
+    DriverBuilder,
+};
 
 fn main() -> anyhow::Result<()> {
     let mut bld = DriverBuilder::new("fud2");
@@ -45,5 +49,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     let driver = bld.build();
-    cli::cli(&driver, &config)
+    let args: FakeArgs<PyenvCommand> = argh::from_env();
+    cli::cli_dynamic(args, &driver, &config)
 }
