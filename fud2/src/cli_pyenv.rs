@@ -1,18 +1,39 @@
 use std::{fs, path::Path, process::Command};
 
+use anyhow::Context;
 use argh::{CommandInfo, FromArgs};
 use fud_core::{
     cli::{CliExt, FromArgFn, RedactArgFn},
     config,
 };
 
-/// initialize a fud2 python environment
+/// manage a fud2 python environment
 #[derive(FromArgs)]
 #[argh(subcommand, name = "env")]
-pub struct PyenvCommand {}
+pub struct PyenvCommand {
+    #[argh(subcommand)]
+    sub: PyenvAction,
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand)]
+pub enum PyenvAction {
+    Init(InitCommand),
+    Activate(ActivateCommand),
+}
+
+/// initialize python venv and install necessary packages
+#[derive(FromArgs)]
+#[argh(subcommand, name = "init")]
+pub struct InitCommand {}
+
+/// activate the fud2 python venv for manual management
+#[derive(FromArgs)]
+#[argh(subcommand, name = "activate")]
+pub struct ActivateCommand {}
 
 impl PyenvCommand {
-    fn run(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
+    fn init(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
         let data_dir = config::data_dir(&driver.name);
 
         fs::create_dir_all(&data_dir)?;
@@ -68,6 +89,26 @@ impl PyenvCommand {
 
         Ok(())
     }
+
+    fn activate(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
+        let data_dir = config::data_dir(&driver.name);
+        let pyenv = data_dir.join("venv");
+
+        if !pyenv.exists() {
+            anyhow::bail!("You need to run `fud2 env init` before you can activate the venv")
+        }
+
+        println!("{}", pyenv.join("bin").join("activate").to_str().unwrap());
+
+        Ok(())
+    }
+
+    fn run(&self, driver: &fud_core::Driver) -> anyhow::Result<()> {
+        match self.sub {
+            PyenvAction::Init(_) => self.init(driver),
+            PyenvAction::Activate(_) => self.activate(driver),
+        }
+    }
 }
 
 pub enum Fud2CliExt {
@@ -78,7 +119,7 @@ impl CliExt for Fud2CliExt {
     fn inner_command_info() -> Vec<CommandInfo> {
         vec![CommandInfo {
             name: "env",
-            description: "initialize a fud2 python environment",
+            description: "manage the fud2 python environment",
         }]
     }
 
