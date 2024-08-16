@@ -1,6 +1,5 @@
 use std::{fs, path::Path, process::Command};
 
-use anyhow::Context;
 use argh::{CommandInfo, FromArgs};
 use fud_core::{
     cli::{CliExt, FromArgFn, RedactArgFn},
