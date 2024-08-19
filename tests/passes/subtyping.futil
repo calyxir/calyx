@@ -1,0 +1,95 @@
+// -p well-formed -p validate -p compile-invoke
+import "primitives/core.futil";
+
+//Toy program which has a small_comp and a big_comp.
+//big_comp is a subtype of small_comp w.r.t port names, and bit widths.
+component small_comp(in_1 : 32) -> (out_1: 64) {
+    cells {
+        add = std_add(32);
+        pad = std_pad(32,64);
+        my_reg = std_reg(64);
+    }
+
+    wires{
+        out_1 = my_reg.out;
+        group double{
+          add.left = in_1;
+          add.right = in_1;
+          pad.in = add.out;
+          my_reg.in = pad.out;
+          my_reg.write_en = 1'b1;
+          double[done] = my_reg.done;
+        }
+    }
+
+    control{
+        double;
+    }
+}
+
+
+component big_comp(in_1 : 32, in_2: 1) -> (out_1: 64, out_2: 2) {
+    cells {
+        add = std_add(32);
+        pad = std_pad(32,64);
+        my_reg = std_reg(64);
+
+        add2 = std_add(2);
+        pad2 = std_pad(1,2);
+        reg2 = std_reg(2);
+    }
+
+    wires{
+        out_1 = my_reg.out;
+        out_2 = reg2.out;
+        group double{
+          add.left = in_1;
+          add.right = in_1;
+          pad.in = add.out;
+          my_reg.in = pad.out;
+          my_reg.write_en = 1'b1;
+          double[done] = my_reg.done;
+        }
+
+        group incr{
+            pad2.in = in_2;
+            add2.left = pad2.out;
+            add2.right = 2'b1;
+            reg2.in = add2.out;
+            reg2.write_en = 1'b1;
+            incr[done] = reg2.done;
+        }
+    }
+
+    control{
+        incr;
+        double;
+    }
+}
+
+component ref_comp() -> (out_ref:64) {
+    cells{
+        ref small_ref_cell = small_comp(); // (in_1) -> (out_1)
+    }
+
+    wires{
+    }
+
+    control{
+        invoke small_ref_cell(in_1 = 32'd10)(out_1 = out_ref);
+    }
+}
+
+component main() -> (out_main:64){
+    cells{
+        my_ref_cell = ref_comp();
+        big_cell = big_comp();
+    }
+
+    wires{
+    }
+
+    control{
+        invoke my_ref_cell[small_ref_cell=big_cell]()(out_ref = out_main); //tries to pass a big_comp to a small_comp
+    }
+}

@@ -1,0 +1,19 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: firrtl"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+firrtl-exe = /test/bin/firrtl
+rule firrtl
+  command = $firrtl-exe -i $in -o $out -X sverilog
+build primitives-for-firrtl.sv: get-rsrc
+rule add-verilog-primitives
+  command = cat primitives-for-firrtl.sv $in > $out
+
+build partial.sv: firrtl /input.ext
+build /output.ext: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
+
+default /output.ext

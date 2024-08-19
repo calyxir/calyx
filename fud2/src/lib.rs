@@ -1,6 +1,9 @@
+use std::str::FromStr;
+
 use fud_core::{
     exec::{SetupRef, StateRef},
     run::{EmitResult, StreamEmitter},
+    utils::basename,
     DriverBuilder,
 };
 
@@ -25,6 +28,14 @@ fn setup_calyx(
             "calyx-pass",
             "$calyx-exe -l $calyx-base -p $pass $args $in > $out",
         )?;
+
+        e.config_var_or("flags", "calyx.flags", "-p none")?;
+
+        e.rule(
+            "calyx-with-flags",
+            "$calyx-exe -l $calyx-base $flags $args $in > $out",
+        )?;
+
         Ok(())
     });
     bld.op(
@@ -33,7 +44,7 @@ fn setup_calyx(
         calyx,
         verilog,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
             e.arg("backend", "verilog")?;
             Ok(())
         },
@@ -124,11 +135,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         dat,
         |e, input, output| {
-            e.build_cmd(&["sim.log"], "sim-run", &[input, "$datadir"], &[])?;
-            e.arg("bin", input)?;
+            e.build_cmd(&["sim.log"], "sim-run", &[input[0], "$datadir"], &[])?;
+            e.arg("bin", input[0])?;
             e.arg("args", "+NOTRACE=1")?;
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "json-data",
                 &["$datadir", "sim.log"],
                 &["json-dat.py"],
@@ -138,13 +149,13 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op("trace", &[sim_setup], simulator, vcd, |e, input, output| {
         e.build_cmd(
-            &["sim.log", output],
+            &["sim.log", output[0]],
             "sim-run",
-            &[input, "$datadir"],
+            &[input[0], "$datadir"],
             &[],
         )?;
-        e.arg("bin", input)?;
-        e.arg("args", &format!("+NOTRACE=0 +OUT={}", output))?;
+        e.arg("bin", input[0])?;
+        e.arg("args", &format!("+NOTRACE=0 +OUT={}", output[0]))?;
         Ok(())
     });
 
@@ -155,7 +166,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let verilog_refmem_noverify = bld.state("verilog-refmem-noverify", &["sv"]);
 
     // Icarus Verilog.
-    let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
+    let verilog_noverify = bld.state("verilog-noverify", &["sv", "v"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
         e.rule(
@@ -204,7 +215,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify,
         |e, input, output| {
             // Icarus requires a special --disable-verify version of Calyx code.
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
             e.arg("backend", "verilog")?;
             e.arg("args", "--disable-verify")?;
             Ok(())
@@ -218,9 +229,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         |e, input, output| {
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "icarus-compile-standalone-tb",
-                &[input],
+                &[input[0]],
                 &["tb.sv"],
             )?;
             Ok(())
@@ -233,9 +244,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         |e, input, output| {
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "icarus-compile-custom-tb",
-                &[input],
+                &[input[0]],
                 &["tb.sv", "memories.sv"],
             )?;
             Ok(())
@@ -275,8 +286,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.build_cmd(&[only_externals_calyx], "ref-to-external", &[input], &[])?;
 
         // Get YXI to generate JSON for testbench generation
-        e.build_cmd(&[memories_json], "calyx", &[only_externals_calyx], &[])?;
-        e.arg("backend", "yxi")?;
+        e.build_cmd(&[memories_json], "yxi", &[only_externals_calyx], &[])?;
         // generate custom testbench
         e.build_cmd(
             &[testbench],
@@ -331,7 +341,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[calyx_setup, custom_testbench_setup],
         calyx,
         firrtl,
-        |e, input, output| calyx_to_firrtl_helper(e, input, output, false),
+        |e, input, output| {
+            calyx_to_firrtl_helper(e, input[0], output[0], false)
+        },
     );
 
     bld.op(
@@ -339,7 +351,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[calyx_setup, firrtl_primitives_setup, custom_testbench_setup],
         calyx,
         firrtl_with_primitives,
-        |e, input, output| calyx_to_firrtl_helper(e, input, output, true),
+        |e, input, output| calyx_to_firrtl_helper(e, input[0], output[0], true),
     );
 
     // The FIRRTL compiler.
@@ -387,7 +399,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl,
         verilog_refmem,
-        |e, input, output| firrtl_compile_helper(e, input, output, false),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], false),
     );
     // FIRRTL --> Verilog compilation using Verilog primitive implementations for Icarus
     // This is a bit of a hack, but the Icarus-friendly "noverify" state is identical for this path
@@ -397,7 +409,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl,
         verilog_refmem_noverify,
-        |e, input, output| firrtl_compile_helper(e, input, output, false),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], false),
     );
     // FIRRTL --> Verilog compilation using FIRRTL primitive implementations for Verilator
     bld.op(
@@ -405,7 +417,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl_with_primitives,
         verilog_refmem,
-        |e, input, output| firrtl_compile_helper(e, input, output, true),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], true),
     );
     // FIRRTL --> Verilog compilation using FIRRTL primitive implementations for Icarus
     bld.op(
@@ -413,7 +425,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[firrtl_setup],
         firrtl_with_primitives,
         verilog_refmem_noverify,
-        |e, input, output| firrtl_compile_helper(e, input, output, true),
+        |e, input, output| firrtl_compile_helper(e, input[0], output[0], true),
     );
 
     // primitive-uses backend
@@ -424,7 +436,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         primitive_uses_json,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.build_cmd(&[output[0]], "calyx", &[input[0]], &[])?;
             e.arg("backend", "primitive-uses")?;
             Ok(())
         },
@@ -478,7 +490,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[sim_setup, standalone_testbench_setup, verilator_setup],
         verilog,
         simulator,
-        |e, input, output| verilator_build(e, input, output, true),
+        |e, input, output| verilator_build(e, input[0], output[0], true),
     );
 
     bld.op(
@@ -486,11 +498,14 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[sim_setup, custom_testbench_setup, verilator_setup],
         verilog_refmem,
         simulator,
-        |e, input, output| verilator_build(e, input, output, false),
+        |e, input, output| verilator_build(e, input[0], output[0], false),
     );
 
     // Interpreter.
-    let debug = bld.state("debug", &[]); // A pseudo-state.
+    let debug = bld.state("cider-debug", &[]); // A pseudo-state.
+                                               // A pseudo-state for cider input
+    let cider_state = bld.state("cider", &[]);
+
     let cider_setup = bld.setup("Cider interpreter", |e| {
         e.config_var_or(
             "cider-exe",
@@ -503,33 +518,14 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             "$calyx-base/target/debug/cider-data-converter",
         )?;
         e.rule(
-            "cider",
-            "$cider-exe -l $calyx-base --raw --data data.json $in > $out",
-        )?;
-        e.rule(
-            "cider-debug",
-            "$cider-exe -l $calyx-base --data data.json $in debug || true",
+            "run-cider-debug",
+            "$cider-exe -l $calyx-base --data data.dump $in debug || true",
         )?;
         e.arg("pool", "console")?;
 
-        // TODO Can we reduce the duplication around and `$python`?
-        e.rsrc("interp-dat.py")?;
-        e.config_var_or("python", "python", "python3")?;
-        e.rule("dat-to-interp", "$python interp-dat.py --to-interp $in")?;
         e.rule(
-            "interp-to-dat",
-            "$python interp-dat.py --from-interp $in $sim_data > $out",
-        )?;
-        e.build_cmd(
-            &["data.json"],
-            "dat-to-interp",
-            &["$sim_data"],
-            &["interp-dat.py"],
-        )?;
-
-        e.rule(
-            "cider2",
-            "$cider-exe -l $calyx-base --data data.dump $in flat > $out",
+            "run-cider",
+            "$cider-exe -l $calyx-base --data data.dump $in > $out",
         )?;
 
         e.rule("dump-to-interp", "$cider-converter --to cider $in > $out")?;
@@ -544,37 +540,36 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
     bld.op(
-        "interp",
-        &[
-            sim_setup,
-            standalone_testbench_setup,
-            calyx_setup,
-            cider_setup,
-        ],
+        "calyx-to-cider",
+        &[sim_setup, calyx_setup],
         calyx,
-        dat,
-        |e, input, output| {
-            let out_file = "interp_out.json";
-            e.build_cmd(&[out_file], "cider", &[input], &["data.json"])?;
+        cider_state,
+        |e, input, _output| {
             e.build_cmd(
-                &[output],
-                "interp-to-dat",
-                &[out_file],
-                &["$sim_data", "interp-dat.py"],
+                &["cider-input.futil"],
+                "calyx-with-flags",
+                input,
+                &[],
             )?;
             Ok(())
         },
     );
+
     bld.op(
-        "interp-flat",
+        "cider",
         &[sim_setup, calyx_setup, cider_setup],
-        calyx,
+        cider_state,
         dat,
-        |e, input, output| {
+        |e, _input, output| {
             let out_file = "interp_out.dump";
-            e.build_cmd(&[out_file], "cider2", &[input], &["data.dump"])?;
             e.build_cmd(
-                &[output],
+                &[out_file],
+                "run-cider",
+                &["cider-input.futil"],
+                &["data.dump"],
+            )?;
+            e.build_cmd(
+                &[output[0]],
                 "interp-to-dump",
                 &[out_file],
                 &["$sim_data", "$cider-converter"],
@@ -583,7 +578,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
     bld.op(
-        "debug",
+        "cider-debug",
         &[
             sim_setup,
             standalone_testbench_setup,
@@ -593,7 +588,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         debug,
         |e, input, output| {
-            e.build_cmd(&[output], "cider-debug", &[input], &["data.json"])?;
+            e.build_cmd(
+                &[output[0]],
+                "run-cider-debug",
+                &[input[0]],
+                &["data.dump"],
+            )?;
             Ok(())
         },
     );
@@ -628,19 +628,19 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         xo,
         |e, input, output| {
             // Emit the Verilog itself in "synthesis mode."
-            e.build_cmd(&["main.sv"], "calyx", &[input], &[])?;
+            e.build_cmd(&["main.sv"], "calyx", &[input[0]], &[])?;
             e.arg("backend", "verilog")?;
             e.arg("args", "--synthesis -p external")?;
 
             // Extra ingredients for the `.xo` package.
-            e.build_cmd(&["toplevel.v"], "calyx", &[input], &[])?;
+            e.build_cmd(&["toplevel.v"], "calyx", &[input[0]], &[])?;
             e.arg("backend", "xilinx")?;
-            e.build_cmd(&["kernel.xml"], "calyx", &[input], &[])?;
+            e.build_cmd(&["kernel.xml"], "calyx", &[input[0]], &[])?;
             e.arg("backend", "xilinx-xml")?;
 
             // Package the `.xo`.
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "gen-xo",
                 &[],
                 &[
@@ -655,7 +655,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
     bld.op("xclbin", &[xilinx_setup], xo, xclbin, |e, input, output| {
-        e.build_cmd(&[output], "compile-xclbin", &[input], &[])?;
+        e.build_cmd(&[output[0]], "compile-xclbin", &[input[0]], &[])?;
         Ok(())
     });
 
@@ -693,9 +693,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             e.rsrc("xrt.ini")?;
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "xclrun",
-                &[input, "$sim_data"],
+                &[input[0], "$sim_data"],
                 &["emconfig.json", "xrt.ini"],
             )?;
             e.arg("xrt_ini", "xrt.ini")?;
@@ -715,9 +715,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             e.rsrc("xrt_trace.ini")?;
             e.build_cmd(
-                &[output], // TODO not the VCD, yet...
+                &[output[0]], // TODO not the VCD, yet...
                 "xclrun",
-                &[input, "$sim_data"],
+                &[input[0], "$sim_data"],
                 &[
                     "emconfig.json",
                     "pre_sim.tcl",
@@ -730,15 +730,20 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
 
+    let yxi_setup = bld.setup("YXI setup", |e| {
+        e.config_var_or("yxi", "yxi", "$calyx-base/target/debug/yxi")?;
+        e.rule("yxi", "$yxi -l $calyx-base $in > $out")?;
+        Ok(())
+    });
+
     let yxi = bld.state("yxi", &["yxi"]);
     bld.op(
         "calyx-to-yxi",
-        &[calyx_setup],
+        &[calyx_setup, yxi_setup],
         calyx,
         yxi,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
-            e.arg("backend", "yxi")?;
+            e.build_cmd(output, "yxi", input, &[])?;
             Ok(())
         },
     );
@@ -746,12 +751,18 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let wrapper_setup = bld.setup("YXI and AXI generation", |e| {
         // Define a `gen-axi` rule that invokes our Python code generator program.
         // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
-        e.config_var_or(
-            "axi-generator",
-            "axi.generator",
-            "$calyx-base/yxi/axi-calyx/axi-generator.py",
-        )?;
+        let dynamic =
+            e.config_constrained_or("dynamic", vec!["true", "false"], "false")?;
+        let generator_path = if FromStr::from_str(&dynamic)
+            .expect("The dynamic flag should be either 'true' or 'false'.")
+        {
+            "$calyx-base/yxi/axi-calyx/dynamic-axi-generator.py"
+        } else {
+            "$calyx-base/yxi/axi-calyx/axi-generator.py"
+        };
+        e.config_var_or("axi-generator", "axi.generator", generator_path)?;
         e.config_var_or("python", "python", "python3")?;
+
         e.rule("gen-axi", "$python $axi-generator $in > $out")?;
 
         // Define a simple `combine` rule that just concatenates any numer of files.
@@ -759,35 +770,27 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
         e.rule(
             "remove-imports",
-            "sed '1,/component main/{/component main/!d}' $in > $out",
+            "sed '1,/component main/{/component main/!d; }' $in > $out",
         )?;
         Ok(())
     });
     bld.op(
         "axi-wrapped",
-        &[calyx_setup, wrapper_setup],
+        &[calyx_setup, yxi_setup, wrapper_setup],
         calyx,
         calyx,
         |e, input, output| {
             // Generate the YXI file.
-            //no extension
-            let file_name = input
-                .rsplit_once('/')
-                .unwrap()
-                .1
-                .rsplit_once('.')
-                .unwrap()
-                .0;
-            let tmp_yxi = format!("{}.yxi", file_name);
+            // no extension
+            let file_name = basename(input[0]);
 
-            //Get yxi file from main compute program.
-            //TODO(nate): Can this use the `yxi` operation instead of hardcoding the build cmd calyx rule with arguments?
-            e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
-            e.arg("backend", "yxi")?;
+            // Get yxi file from main compute program.
+            let tmp_yxi = format!("{}.yxi", file_name);
+            e.build_cmd(&[&tmp_yxi], "yxi", input, &[])?;
 
             // Generate the AXI wrapper.
             let refified_calyx = format!("refified_{}.futil", file_name);
-            e.build_cmd(&[&refified_calyx], "calyx-pass", &[input], &[])?;
+            e.build_cmd(&[&refified_calyx], "calyx-pass", &[input[0]], &[])?;
             e.arg("pass", "external-to-ref")?;
 
             let axi_wrapper = "axi_wrapper.futil";
@@ -804,11 +807,92 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
             // Combine the original Calyx and the wrapper.
             e.build_cmd(
-                &[output],
+                &[output[0]],
                 "combine",
                 &[axi_wrapper, &no_imports_calyx],
                 &[],
             )?;
+            Ok(())
+        },
+    );
+
+    let cocotb_setup = bld.setup("cocotb", |e| {
+        e.config_var_or("cocotb-makefile-dir", "cocotb.makefile-dir", "$calyx-base/yxi/axi-calyx/cocotb")?;
+        // TODO (nate): this is duplicated from the sim_setup above. Can this be shared?
+        // The input data file. `sim.data` is required.
+        let data_name = e.config_val("sim.data")?;
+        let data_path = e.external_path(data_name.as_ref());
+        e.var("sim_data", data_path.as_str())?;
+
+        // Cocotb wants files relative to the location of the makefile.
+        // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
+        e.rule("copy", "cp $in $out")?;
+
+        let waves = e.config_constrained_or("waves", vec!["true", "false"], "false")?;
+        let waves = FromStr::from_str(&waves).expect("The 'waves' flag should be either 'true' or 'false'.");
+        if waves{
+            //adds lines based on what is needed for icarus fst output.
+            e.rule("iverilog-fst-sed",
+            r#"sed '/\/\/ COMPONENT END: wrapper/c\`ifdef COCOTB_SIM\n  initial begin\n    \$$dumpfile ("$fst_file_name");\n    \$$dumpvars (0, wrapper);\n    #1;\n  end\n`endif\n\/\/ COMPONENT END: wrapper' $in > $out"#)?;
+        }
+
+e.var("cocotb-args", if waves {"WAVES=1"} else {""})?;
+
+        e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL $cocotb-args > $out")?;
+        // This cleans up the extra `make` and `FST warning` cruft, leaving what is in between `{` and `}.`
+        e.rule("cleanup-cocotb", r#"sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in | sed -n ':a;N;$$!ba;s/^[^{]*{\(.*\)}[^}]*$$/\1/p' | sed '1d;$$d' > $out"#)?;
+        Ok(())
+    });
+
+    let cocotb_axi = bld.state("cocotb-axi", &["dat"]);
+    // Example invocation: `fud2 <path to axi wrapped verilog> --from verilog-noverify --to cocotb-axi --set sim.data=<path to .data/json file>`
+    bld.op(
+        "calyx-to-cocotb-axi",
+        &[calyx_setup, cocotb_setup],
+        verilog_noverify,
+        cocotb_axi,
+        |e, input, output| {
+            e.build_cmd(
+                &["Makefile"],
+                "copy",
+                &["$cocotb-makefile-dir/Makefile"],
+                &[],
+            )?;
+            e.build_cmd(
+                &["axi_test.py"],
+                "copy",
+                &["$cocotb-makefile-dir/axi_test.py"],
+                &[],
+            )?;
+            e.build_cmd(
+                &["run_axi_test.py"],
+                "copy",
+                &["$cocotb-makefile-dir/run_axi_test.py"],
+                &[],
+            )?;
+            let waves = e.config_constrained_or(
+                "waves",
+                vec!["true", "false"],
+                "false",
+            )?;
+            let waves = FromStr::from_str(&waves)
+                .expect("The 'waves' flag should be either 'true' or 'false'.");
+
+            let vcd_file_name = format!("{}.fst", basename(input[0]));
+            let mut make_in = input[0];
+            if waves {
+                make_in = "dumpvars.v";
+                e.build_cmd(&[make_in], "iverilog-fst-sed", input, &[])?;
+                e.arg("fst_file_name", &vcd_file_name)?;
+            }
+            e.build_cmd(
+                &["tmp.dat"],
+                "make-cocotb",
+                &[make_in],
+                &["Makefile", "axi_test.py", "run_axi_test.py"],
+            )?;
+            e.build_cmd(output, "cleanup-cocotb", &["tmp.dat"], &[])?;
+
             Ok(())
         },
     );

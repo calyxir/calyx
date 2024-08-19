@@ -56,6 +56,11 @@ cargo build # Builds the compiler
 ./target/debug/calyx --help # Executes the compiler binary
 ```
 
+We recommend installing the git hooks to run linting and formatting checks before each commit:
+```shell
+/bin/sh setup_hooks.sh
+```
+
 ## Running Core Tests
 
 The core test suite tests the Calyx compiler's various passes.

@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/errors/papercut/multi-done.futil
-10 |    read_done = mem_0.read_done;
-   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Undefined port name: read_done
+2 |component mem_0_comp<"toplevel"=1>(addr0: 3, @go read_en: 1, write_data: 32, @go(2) write_en: 1, @clk clk: 1, @reset reset: 1) -> (read_data: 32, @done read_done: 1, @done(2) write_done: 1) {
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ [Papercut] Component `mem_0_comp` has an empty control program and does not assign to the done port `write_done`. Without an assignment to the done port, the component cannot return control flow.

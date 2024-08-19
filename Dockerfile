@@ -15,8 +15,9 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install python dependencies
-RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
+# Install python dependencies cocotb==1.6.2 seems to be for Xilinx cocotb tests
+# Need to pin the numpy version since there are TVM issues with versions 2 and above
+RUN python3 -m pip install numpy==1.26.4 flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
@@ -65,7 +66,7 @@ WORKDIR /home
 ADD . calyx
 # Build the compiler
 WORKDIR /home/calyx
-RUN cargo build --all && \
+RUN cargo build --workspace && \
     cargo install vcdump && \
     cargo install runt --version 0.4.1
 
@@ -80,7 +81,8 @@ ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
 WORKDIR /home/calyx
 run mkdir -p ~/.local/bin
 RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
-RUN printf "[calyx]\nbase = \"/home/calyx\"" >> ~/.config/fud2.toml
+RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
+RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
 
 # Install calyx-py
 WORKDIR /home/calyx/calyx-py

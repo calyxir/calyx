@@ -7,11 +7,10 @@ use crate::{
         flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
         primitives::{
             all_defined, comb_primitive, declare_ports, ports,
-            prim_trait::UpdateStatus, Primitive,
+            prim_trait::UpdateStatus, utils::floored_division, Primitive,
         },
         structures::environment::PortMap,
     },
-    primitives::stateful::floored_division,
     values::Value,
 };
 
@@ -43,7 +42,7 @@ impl Primitive for StdConst {
     }
 
     fn has_comb(&self) -> bool {
-        false
+        true
     }
 
     fn has_stateful(&self) -> bool {
@@ -121,8 +120,10 @@ comb_primitive!(StdAdd(left [0], right [1]) -> (out [2]) {
 });
 comb_primitive!(StdSub(left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
-    // TODO griffin: the old approach is not possible with the way primitives work
-    let result = Value::from(left.as_unsigned() - right.as_unsigned(), left.width());
+    // TODO griffin: the old approach is not possible with the way primitives
+    // work.
+    // this is dubious
+    let result = Value::from(left.as_signed() - right.as_signed(), left.width());
     Ok(Some(result))
 });
 
@@ -509,6 +510,15 @@ comb_primitive!(StdCat(left [0], right [1]) -> (out [2]) {
     Ok(Some(Value::concat(left, right)))
 });
 
+comb_primitive!(StdBitSlice[START_IDX, END_IDX, OUT_WIDTH](input [0]) -> (out [1]) {
+    all_defined!(input);
+    let output = input.clone();
+    let output = output.slice_out( START_IDX as usize, END_IDX as usize);
+    assert_eq!(output.len(), OUT_WIDTH as usize);
+
+    Ok(Some(output))
+});
+
 // ===================== Unsynthesizeable Operations ======================
 comb_primitive!(StdUnsynMult[WIDTH](left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
@@ -547,3 +557,18 @@ comb_primitive!(StdUnsynSmod[WIDTH](left [0], right [1]) -> (out [2]) {
             &left.as_signed(),
             &right.as_signed()), WIDTH)))
 });
+
+pub struct StdUndef(GlobalPortIdx);
+
+impl StdUndef {
+    pub fn new(base_port: GlobalPortIdx, _width: u32) -> Self {
+        Self(base_port)
+    }
+}
+
+impl Primitive for StdUndef {
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+        port_map.write_undef(self.0)?;
+        Ok(UpdateStatus::Unchanged)
+    }
+}

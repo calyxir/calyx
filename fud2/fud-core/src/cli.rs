@@ -1,5 +1,5 @@
 use crate::config;
-use crate::exec::{Driver, Request, StateRef};
+use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
@@ -38,6 +38,41 @@ impl Display for Mode {
             Mode::Generate => write!(f, "gen"),
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
+        }
+    }
+}
+
+/// Types of planners to use on the backend. Except for legacy, they "should" all match
+/// specification, but may perform at different efficiencies or choose different paths when there
+/// is more than one correct path to choose.
+enum Planner {
+    Legacy,
+    #[cfg(feature = "egg_planner")]
+    Egg,
+    Enumerate,
+}
+
+impl FromStr for Planner {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "legacy" => Ok(Planner::Legacy),
+            #[cfg(feature = "egg_planner")]
+            "egg" => Ok(Planner::Egg),
+            "enumerate" => Ok(Planner::Enumerate),
+            _ => Err("unknown planner".to_string()),
+        }
+    }
+}
+
+impl Display for Planner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Planner::Legacy => write!(f, "legacy"),
+            #[cfg(feature = "egg_planner")]
+            Planner::Egg => write!(f, "egg"),
+            Planner::Enumerate => write!(f, "enumerate"),
         }
     }
 }
@@ -91,19 +126,23 @@ struct FakeArgs {
 
     /// the input file
     #[argh(positional)]
-    input: Option<Utf8PathBuf>,
+    input: Vec<Utf8PathBuf>,
 
     /// the output file
     #[argh(option, short = 'o')]
-    output: Option<Utf8PathBuf>,
+    output: Vec<Utf8PathBuf>,
 
-    /// the state to start from
+    /// the states to start from.
+    /// The ith state is applied to the ith input file.
+    /// If more states are specified than files, files for these states are read from stdin.
     #[argh(option)]
-    from: Option<String>,
+    from: Vec<String>,
 
     /// the state to produce
+    /// The ith state is applied to the ith output file.
+    /// If more states are specified than files, files for these states are written to stdout
     #[argh(option)]
-    to: Option<String>,
+    to: Vec<String>,
 
     /// execution mode (run, plan, emit, gen, dot)
     #[argh(option, short = 'm', default = "Mode::Run")]
@@ -132,34 +171,63 @@ struct FakeArgs {
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
+
+    /// planner for the backend
+    #[argh(option, default = "Planner::Legacy")]
+    planner: Planner,
 }
 
-fn from_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
-    match &args.from {
-        Some(name) => driver
-            .get_state(name)
-            .ok_or(anyhow!("unknown --from state")),
-        None => match args.input {
-            Some(ref input) => driver
-                .guess_state(input)
-                .ok_or(anyhow!("could not infer input state")),
-            None => bail!("specify an input file or use --from"),
-        },
+fn get_states_with_errors(
+    driver: &Driver,
+    explicit_states: &[String],
+    files: &[Utf8PathBuf],
+    unknown_state: &str,
+    uninferable_file: &str,
+    no_states: &str,
+) -> anyhow::Result<Vec<StateRef>> {
+    let explicit_states = explicit_states.iter().map(|state_str| {
+        driver
+            .get_state(state_str)
+            .ok_or(anyhow!("{unknown_state}"))
+    });
+    let inferred_states =
+        files.iter().skip(explicit_states.len()).map(|input_str| {
+            driver
+                .guess_state(input_str)
+                .ok_or(anyhow!("{uninferable_file}"))
+        });
+    let states = explicit_states
+        .chain(inferred_states)
+        .collect::<Result<Vec<_>, _>>()?;
+    if states.is_empty() {
+        bail!("{no_states}");
     }
+    Ok(states)
 }
 
-fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
-    match &args.to {
-        Some(name) => {
-            driver.get_state(name).ok_or(anyhow!("unknown --to state"))
-        }
-        None => match &args.output {
-            Some(out) => driver
-                .guess_state(out)
-                .ok_or(anyhow!("could not infer output state")),
-            None => Err(anyhow!("specify an output file or use --to")),
-        },
-    }
+fn from_states(
+    driver: &Driver,
+    args: &FakeArgs,
+) -> anyhow::Result<Vec<StateRef>> {
+    get_states_with_errors(
+        driver,
+        &args.from,
+        &args.input,
+        "unknown --from state",
+        "could not infer input state",
+        "specify and input file or use --from",
+    )
+}
+
+fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
+    get_states_with_errors(
+        driver,
+        &args.to,
+        &args.output,
+        "unknown --to state",
+        "could no infer output state",
+        "specify an output file or use --to",
+    )
 }
 
 fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
@@ -185,14 +253,19 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
                 .ok_or(anyhow!("unknown --through op {}", s))
         })
         .collect();
-
     Ok(Request {
-        start_file: args.input.clone(),
-        start_state: from_state(driver, args)?,
-        end_file: args.output.clone(),
-        end_state: to_state(driver, args)?,
+        start_files: args.input.clone(),
+        start_states: from_states(driver, args)?,
+        end_files: args.output.clone(),
+        end_states: to_state(driver, args)?,
         through: through?,
         workdir,
+        planner: match args.planner {
+            Planner::Legacy => Box::new(plan::LegacyPlanner {}),
+            #[cfg(feature = "egg_planner")]
+            Planner::Egg => Box::new(plan::EggPlanner {}),
+            Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
+        },
     })
 }
 
@@ -241,7 +314,26 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     bail!("unknown resource file {}", cmd.filename);
 }
 
-pub fn cli(driver: &Driver) -> anyhow::Result<()> {
+/// Given the name of a Driver, returns a config based on that name and CLI arguments.
+pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+    let args: FakeArgs = argh::from_env();
+    let mut config = config::load_config(name);
+
+    // Use `--set` arguments to override configuration values.
+    for set in args.set {
+        let mut parts = set.splitn(2, '=');
+        let key = parts.next().unwrap();
+        let value = parts
+            .next()
+            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
+        let dict = figment::util::nest(key, value.into());
+        config = config.merge(figment::providers::Serialized::defaults(dict));
+    }
+
+    Ok(config)
+}
+
+pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
     // Configure logging.
@@ -272,7 +364,7 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
-    let mut run = Run::new(driver, plan);
+    let mut run = Run::new(driver, plan, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
@@ -280,19 +372,6 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     }
     if let Some(verbose) = args.verbose {
         run.global_config.verbose = verbose;
-    }
-
-    // Use `--set` arguments to override configuration values.
-    for set in args.set {
-        let mut parts = set.splitn(2, '=');
-        let key = parts.next().unwrap();
-        let value = parts
-            .next()
-            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
-        let dict = figment::util::nest(key, value.into());
-        run.config_data = run
-            .config_data
-            .merge(figment::providers::Serialized::defaults(dict));
     }
 
     // Execute.

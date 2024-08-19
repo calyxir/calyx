@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import sys
 import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
@@ -6,6 +7,7 @@ import calyx.queue_call as qc
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
 QUEUE_LEN_FACTOR = 4
+
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
@@ -97,9 +99,8 @@ def insert_pifo(
     """
 
     pifo: cb.ComponentBuilder = prog.component(name)
-    cmd = pifo.input("cmd", 2)
-    # If this is 0, we pop. If it is 1, we peek.
-    # If it is 2, we push `value` to the queue.
+    cmd = pifo.input("cmd", 1)
+    # If this is 0, we pop. If it is 1, we push `value` to the queue.
     value = pifo.input("value", 32)  # The value to push to the queue
 
     # Declare the two sub-queues as cells of this component.
@@ -134,7 +135,6 @@ def insert_pifo(
     len_eq_max_queue_len = pifo.eq_use(len.out, max_queue_len)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
     cmd_eq_1 = pifo.eq_use(cmd, 1)
-    cmd_eq_2 = pifo.eq_use(cmd, 2)
     err_eq_0 = pifo.eq_use(err.out, 0)
     err_neq_0 = pifo.neq_use(err.out, 0)
 
@@ -202,52 +202,10 @@ def insert_pifo(
                 ],
             ),
         ),
-        cb.if_with(
-            # Did the user call peek?
-            cmd_eq_1,
-            cb.if_with(
-                # Yes, the user called peek. But is the queue empty?
-                len_eq_0,
-                raise_err,  # The queue is empty: underflow.
-                [  # The queue is not empty. Proceed.
-                    # We must check if `hot` is 0 or 1.
-                    lower_err,
-                    cb.if_with(
-                        # Check if `hot` is 0.
-                        hot_eq_0,
-                        [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
-                            invoke_subqueue(queue_l, cmd, value, ans, err),
-                            # Our next step depends on whether `queue_l`
-                            # raised the error flag.
-                            cb.if_with(
-                                err_neq_0,
-                                [  # `queue_l` raised an error.
-                                    # We'll try to peek from `queue_r`.
-                                    # We'll pass it a lowered `err`.
-                                    lower_err,
-                                    invoke_subqueue(queue_r, cmd, value, ans, err),
-                                ],
-                            ),
-                            # Peeking does not affect `hot`.
-                            # Peeking does not affect the length.
-                        ],
-                        [
-                            invoke_subqueue(queue_r, cmd, value, ans, err),
-                            cb.if_with(
-                                err_neq_0,
-                                [
-                                    lower_err,
-                                    invoke_subqueue(queue_l, cmd, value, ans, err),
-                                ],
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-        ),
+
         cb.if_with(
             # Did the user call push?
-            cmd_eq_2,
+            cmd_eq_1,
             cb.if_with(
                 # Yes, the user called push. But is the queue full?
                 len_eq_max_queue_len,
@@ -293,11 +251,13 @@ def insert_pifo(
 
 def build():
     """Top-level function to build the program."""
+    num_cmds = int(sys.argv[1])
+    keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
     fifo_l = fifo.insert_fifo(prog, "fifo_l", QUEUE_LEN_FACTOR)
     fifo_r = fifo.insert_fifo(prog, "fifo_r", QUEUE_LEN_FACTOR)
     pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
-    qc.insert_main(prog, pifo)
+    qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 

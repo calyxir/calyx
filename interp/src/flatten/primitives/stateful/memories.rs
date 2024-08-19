@@ -11,7 +11,7 @@ use crate::{
         },
         structures::{environment::PortMap, index_trait::IndexRef},
     },
-    serialization::{Entry, Serializable, Shape},
+    serialization::{Entry, PrintCode, Serializable, Shape},
     values::Value,
 };
 
@@ -51,7 +51,7 @@ impl Primitive for StdReg {
         } else if port_map[write_en].as_bool().unwrap_or_default() {
             self.internal_state = port_map[input]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite)?
+                .ok_or(InterpreterError::UndefinedWrite(String::new()))?
                 .val()
                 .clone();
 
@@ -97,10 +97,7 @@ impl Primitive for StdReg {
         Ok(out_signal | done_signal)
     }
 
-    fn serialize(
-        &self,
-        code: Option<crate::debugger::PrintCode>,
-    ) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         Serializable::Val(Entry::from_val_code(
             &self.internal_state,
             &code.unwrap_or_default(),
@@ -109,6 +106,10 @@ impl Primitive for StdReg {
 
     fn has_serializable_state(&self) -> bool {
         true
+    }
+
+    fn dump_memory_state(&self) -> Option<Vec<u8>> {
+        Some(self.internal_state.clone().to_bytes())
     }
 }
 
@@ -344,11 +345,12 @@ impl Primitive for CombMem {
         let (read_data, done) = (self.read_data(), self.done());
 
         let done = if write_en && !reset {
-            let addr = addr.ok_or(InterpreterError::UndefinedWriteAddr)?;
+            let addr = addr
+                .ok_or(InterpreterError::UndefinedWriteAddr(String::new()))?;
 
             let write_data = port_map[self.write_data()]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite)?;
+                .ok_or(InterpreterError::UndefinedWrite(String::new()))?;
             self.internal_state[addr] = write_data.val().clone();
             self.done_is_high = true;
             port_map.insert_val(done, AssignedValue::cell_b_high())?
@@ -368,10 +370,7 @@ impl Primitive for CombMem {
         }
     }
 
-    fn serialize(
-        &self,
-        code: Option<crate::debugger::PrintCode>,
-    ) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         let code = code.unwrap_or_default();
 
         Serializable::Array(
@@ -539,16 +538,16 @@ impl Primitive for SeqMem {
         } else if content_en && write_en {
             self.done_is_high = true;
             self.read_out = PortValue::new_undef();
-            let addr_actual =
-                addr.ok_or(InterpreterError::UndefinedWriteAddr)?;
+            let addr_actual = addr
+                .ok_or(InterpreterError::UndefinedWriteAddr(String::new()))?;
             let write_data = port_map[self.write_data()]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite)?;
+                .ok_or(InterpreterError::UndefinedWrite(String::new()))?;
             self.internal_state[addr_actual] = write_data.val().clone();
         } else if content_en {
             self.done_is_high = true;
             let addr_actual =
-                addr.ok_or(InterpreterError::UndefinedReadAddr)?;
+                addr.ok_or(InterpreterError::UndefinedReadAddr(String::new()))?;
             self.read_out =
                 PortValue::new_cell(self.internal_state[addr_actual].clone());
         } else {
@@ -576,7 +575,7 @@ impl Primitive for SeqMem {
         true
     }
 
-    fn serialize(&self, code: Option<crate::utils::PrintCode>) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         let code = code.unwrap_or_default();
 
         Serializable::Array(
