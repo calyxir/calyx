@@ -29,10 +29,6 @@ firtool = "<path to extracted firtool directory>/bin/firtool"
 
 [fud2]: ./fud2.md
 
-Lastly, build Calyx with the YXI feature by running the following from the Calyx root directory:
-
-    $ cargo build --features yxi
-
 ### Obtaining FIRRTL
 
 > The FIRRTL backend on fud2 currently requires Calyx with the YXI feature to be built. (Refer to the above)

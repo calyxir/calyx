@@ -17,6 +17,10 @@ flags = -p none
 rule calyx-with-flags
   command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
+yxi = $calyx-base/target/debug/yxi
+rule yxi
+  command = $yxi -l $calyx-base $in > $out
+
 rule ref-to-external
   command = sed 's/ref /@external /g' $in > $out
 rule external-to-ref
@@ -28,9 +32,9 @@ rule generate-refmem-testbench
 rule dummy
   command = sh -c 'cat $$0' $in > $out
 
-firrtl-exe = /test/bin/firrtl
+firrtl-exe = /test/bin/firtool
 rule firrtl
-  command = $firrtl-exe -i $in -o $out -X sverilog
+  command = $firrtl-exe $in -o $out --disable-all-randomization
 build primitives-for-firrtl.sv: get-rsrc
 rule add-verilog-primitives
   command = cat primitives-for-firrtl.sv $in > $out
