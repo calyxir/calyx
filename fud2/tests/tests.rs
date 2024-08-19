@@ -1,6 +1,10 @@
+use figment::providers::Format as _;
 use fud_core::{
     config::default_config,
-    exec::{Plan, Request, SingleOpOutputPlanner, IO},
+    exec::{
+        plan::{EnumeratePlanner, FindPlan, LegacyPlanner},
+        Plan, Request, IO,
+    },
     run::Run,
     Driver, DriverBuilder,
 };
@@ -16,8 +20,27 @@ fn test_driver() -> Driver {
 #[cfg(feature = "migrate_to_scripts")]
 fn test_driver() -> Driver {
     let mut bld = DriverBuilder::new("fud2-plugins");
+    let config = figment::Figment::new();
     bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
-    bld.load_plugins().build()
+    bld.load_plugins(&config).unwrap().build()
+}
+
+fn driver_from_path_with_config(
+    path: &str,
+    config: figment::Figment,
+) -> Driver {
+    let mut bld = DriverBuilder::new("fud2-plugins");
+    let path = format!(
+        "{}/{}",
+        manifest_dir_macros::directory_path!("tests/scripts"),
+        path
+    );
+    bld.scripts_dir(&path);
+    bld.load_plugins(&config).unwrap().build()
+}
+
+fn driver_from_path(path: &str) -> Driver {
+    driver_from_path_with_config(path, figment::Figment::new())
 }
 
 trait InstaTest: Sized {
@@ -75,7 +98,8 @@ impl InstaTest for Plan {
             .merge(("xilinx.vivado", "/test/xilinx/vivado"))
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
-            .merge(("dahlia", "/test/bin/dahlia"));
+            .merge(("dahlia", "/test/bin/dahlia"))
+            .merge(("c0", "v1"));
         let run = Run::with_config(driver, self, config);
         let mut buf = vec![];
         run.emit(&mut buf).unwrap();
@@ -91,11 +115,17 @@ impl InstaTest for Plan {
 
 impl InstaTest for Request {
     fn desc(&self, driver: &Driver) -> String {
-        let mut desc = format!(
-            "emit request: {} -> {}",
-            driver.states[self.start_states[0]].name,
-            driver.states[self.end_states[0]].name
-        );
+        let start_str = self
+            .start_states
+            .iter()
+            .map(|&state| &driver.states[state].name)
+            .join(" ");
+        let end_str = &self
+            .end_states
+            .iter()
+            .map(|&state| &driver.states[state].name)
+            .join(" ");
+        let mut desc = format!("emit request: {} -> {}", start_str, end_str);
         if !self.through.is_empty() {
             desc.push_str(" through");
             for op in &self.through {
@@ -107,13 +137,26 @@ impl InstaTest for Request {
     }
 
     fn slug(&self, driver: &Driver) -> String {
-        let mut desc = driver.states[self.start_states[0]].name.to_string();
-        for op in &self.through {
-            desc.push('_');
-            desc.push_str(&driver.ops[*op].name);
+        let mut desc = self
+            .start_states
+            .iter()
+            .map(|&state| &driver.states[state].name)
+            .join("_");
+        if !self.through.is_empty() {
+            desc.push_str("_through");
+            for op in &self.through {
+                desc.push('_');
+                desc.push_str(&driver.ops[*op].name);
+            }
         }
-        desc.push('_');
-        desc.push_str(&driver.states[self.end_states[0]].name);
+        desc.push_str("_to_");
+        desc.push_str(
+            &self
+                .end_states
+                .iter()
+                .map(|&state| &driver.states[state].name)
+                .join("_"),
+        );
         desc
     }
 
@@ -123,21 +166,34 @@ impl InstaTest for Request {
     }
 }
 
-fn request(
+fn request_with_planner(
     driver: &Driver,
-    start: &str,
-    end: &str,
+    start: &[&str],
+    end: &[&str],
     through: &[&str],
+    planner: impl FindPlan + 'static,
 ) -> Request {
     fud_core::exec::Request {
         start_files: vec![],
-        start_states: vec![driver.get_state(start).unwrap()],
+        start_states: start
+            .iter()
+            .map(|s| driver.get_state(s).unwrap())
+            .collect(),
         end_files: vec![],
-        end_states: vec![driver.get_state(end).unwrap()],
+        end_states: end.iter().map(|s| driver.get_state(s).unwrap()).collect(),
         through: through.iter().map(|s| driver.get_op(s).unwrap()).collect(),
         workdir: ".".into(),
-        planner: Box::new(SingleOpOutputPlanner {}),
+        planner: Box::new(planner),
     }
+}
+
+fn request(
+    driver: &Driver,
+    start: &[&str],
+    end: &[&str],
+    through: &[&str],
+) -> Request {
+    request_with_planner(driver, start, end, through, LegacyPlanner {})
 }
 
 #[test]
@@ -199,13 +255,14 @@ fn list_ops() {
 #[test]
 fn calyx_to_verilog() {
     let driver = test_driver();
-    request(&driver, "calyx", "verilog", &[]).test(&driver);
+    request(&driver, &["calyx"], &["verilog"], &[]).test(&driver);
 }
 
 #[test]
 fn calyx_via_firrtl() {
     let driver = test_driver();
-    request(&driver, "calyx", "verilog-refmem", &["firrtl"]).test(&driver);
+    request(&driver, &["calyx"], &["verilog-refmem"], &["firrtl"])
+        .test(&driver);
 }
 
 #[test]
@@ -213,7 +270,7 @@ fn sim_tests() {
     let driver = test_driver();
     for dest in &["dat", "vcd"] {
         for sim in &["icarus", "verilator"] {
-            request(&driver, "calyx", dest, &[sim]).test(&driver);
+            request(&driver, &["calyx"], &[dest], &[sim]).test(&driver);
         }
     }
 }
@@ -221,21 +278,77 @@ fn sim_tests() {
 #[test]
 fn cider_tests() {
     let driver = test_driver();
-    request(&driver, "calyx", "dat", &["cider"]).test(&driver);
-    request(&driver, "calyx", "cider-debug", &[]).test(&driver);
+    request(&driver, &["calyx"], &["dat"], &["cider"]).test(&driver);
+    request(&driver, &["calyx"], &["cider-debug"], &[]).test(&driver);
 }
 
 #[test]
 fn xrt_tests() {
     let driver = test_driver();
-    request(&driver, "calyx", "dat", &["xrt"]).test(&driver);
-    request(&driver, "calyx", "vcd", &["xrt-trace"]).test(&driver);
+    request(&driver, &["calyx"], &["dat"], &["xrt"]).test(&driver);
+    request(&driver, &["calyx"], &["vcd"], &["xrt-trace"]).test(&driver);
 }
 
 #[test]
 fn frontend_tests() {
     let driver = test_driver();
     for frontend in &["dahlia", "mrxl"] {
-        request(&driver, frontend, "calyx", &[]).test(&driver);
+        request(&driver, &[frontend], &["calyx"], &[]).test(&driver);
     }
+}
+
+#[test]
+fn shell_deps_tests() {
+    let driver = driver_from_path("shell_deps");
+    request(&driver, &["s1"], &["s2"], &[]).test(&driver);
+    request(&driver, &["s3"], &["s4"], &[]).test(&driver);
+}
+
+#[test]
+fn shell_tests() {
+    let driver = driver_from_path("shell_deps");
+    request(&driver, &["s5"], &["s6"], &[]).test(&driver);
+}
+
+#[test]
+fn simple_defops() {
+    let driver = driver_from_path("defop");
+    request(&driver, &["state0"], &["state1"], &[]).test(&driver);
+    request_with_planner(
+        &driver,
+        &["state0", "state1"],
+        &["state2"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
+    request_with_planner(
+        &driver,
+        &["state0"],
+        &["state2", "state1"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
+    request_with_planner(
+        &driver,
+        &["state0", "state1", "state2"],
+        &["state3", "state4"],
+        &[],
+        EnumeratePlanner {},
+    )
+    .test(&driver);
+}
+
+#[test]
+fn config() {
+    let config = figment::Figment::from({
+        let source = r#"
+                c0 = "v0"
+            "#;
+        figment::providers::Toml::string(source)
+    });
+    let driver = driver_from_path_with_config("defop", config);
+    request(&driver, &["state0"], &["state1"], &["t4"]).test(&driver);
+    request(&driver, &["state0"], &["state1"], &["t5"]).test(&driver);
 }

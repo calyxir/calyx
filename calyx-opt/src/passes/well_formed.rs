@@ -4,6 +4,7 @@ use calyx_ir::{
     self as ir, Cell, CellType, Component, GetAttributes, LibrarySignatures,
     RESERVED_NAMES,
 };
+use calyx_ir::{BoolAttr, Seq};
 use calyx_utils::{CalyxResult, Error, WithPos};
 use ir::Nothing;
 use ir::StaticTiming;
@@ -280,6 +281,30 @@ fn subtype(cell_out: &Cell, cell_in: &Cell) -> bool {
         }
     }
     true
+}
+
+/// Confirms (in agreement with [this discussion](https://github.com/calyxir/calyx/issues/1828))
+/// that the `@fast` sequence `seq` is composed of alternating static-dynamic controls.
+fn check_fast_seq_invariant(seq: &Seq) -> CalyxResult<()> {
+    if seq.stmts.is_empty() {
+        return Ok(());
+    }
+    let mut last_is_static = seq
+        .stmts
+        .first()
+        .expect("non-empty already asserted")
+        .is_static();
+    for stmt in seq.stmts.iter().skip(1) {
+        if stmt.is_static() == last_is_static {
+            return Err(
+                Error::malformed_control(
+                    "`seq` marked `@fast` does not contain alternating static-dynamic control children (see #1828)"
+                )
+            );
+        }
+        last_is_static = stmt.is_static();
+    }
+    Ok(())
 }
 
 impl Visitor for WellFormed {
@@ -738,6 +763,20 @@ impl Visitor for WellFormed {
             .with_pos(&s.attributes);
             self.diag.warning(err);
         }
+        Ok(Action::Continue)
+    }
+
+    fn start_seq(
+        &mut self,
+        s: &mut calyx_ir::Seq,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        if s.attributes.has(BoolAttr::Fast) {
+            check_fast_seq_invariant(s)?;
+        }
+
         Ok(Action::Continue)
     }
 

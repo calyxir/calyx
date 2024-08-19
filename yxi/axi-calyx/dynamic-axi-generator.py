@@ -746,7 +746,7 @@ def clog2_or_1(x):
 
 def build():
     prog = Builder()
-    check_mems_welformed(mems)
+    check_mems_wellformed(mems)
     for mem in mems:
         add_arread_channel(prog, mem)
         add_awwrite_channel(prog, mem)
@@ -761,7 +761,7 @@ def build():
     return prog.program
 
 
-def check_mems_welformed(mems):
+def check_mems_wellformed(mems):
     """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
     for mem in mems:
         assert (

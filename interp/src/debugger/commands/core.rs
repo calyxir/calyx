@@ -291,6 +291,8 @@ pub enum Command {
     Disable(Vec<ParsedBreakPointID>),
     Enable(Vec<ParsedBreakPointID>),
     Delete(Vec<ParsedBreakPointID>),
+    EnableWatch(Vec<ParsedBreakPointID>),
+    DisableWatch(Vec<ParsedBreakPointID>),
     DeleteWatch(Vec<ParsedBreakPointID>),
     StepOver(ParsedGroupName),
     Watch(

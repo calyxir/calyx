@@ -45,6 +45,8 @@ calyx-frontend = { path = "../calyx-frontend" }
 
 btor2i = { path = "../tools/btor2/btor2i" }
 
+ciborium = "0.2.2"
+
 [dev-dependencies]
 proptest = "1.0.0"
 

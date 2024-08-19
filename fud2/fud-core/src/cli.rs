@@ -1,7 +1,5 @@
 use crate::config;
-use crate::exec::{
-    Driver, EnumeratePlanner, Request, SingleOpOutputPlanner, StateRef,
-};
+use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
 use argh::FromArgs;
@@ -40,6 +38,41 @@ impl Display for Mode {
             Mode::Generate => write!(f, "gen"),
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
+        }
+    }
+}
+
+/// Types of planners to use on the backend. Except for legacy, they "should" all match
+/// specification, but may perform at different efficiencies or choose different paths when there
+/// is more than one correct path to choose.
+enum Planner {
+    Legacy,
+    #[cfg(feature = "egg_planner")]
+    Egg,
+    Enumerate,
+}
+
+impl FromStr for Planner {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "legacy" => Ok(Planner::Legacy),
+            #[cfg(feature = "egg_planner")]
+            "egg" => Ok(Planner::Egg),
+            "enumerate" => Ok(Planner::Enumerate),
+            _ => Err("unknown planner".to_string()),
+        }
+    }
+}
+
+impl Display for Planner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Planner::Legacy => write!(f, "legacy"),
+            #[cfg(feature = "egg_planner")]
+            Planner::Egg => write!(f, "egg"),
+            Planner::Enumerate => write!(f, "enumerate"),
         }
     }
 }
@@ -139,9 +172,9 @@ struct FakeArgs {
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
 
-    /// use new enumeration algorithm for finding operation sequences
-    #[argh(switch)]
-    planner: bool,
+    /// planner for the backend
+    #[argh(option, default = "Planner::Legacy")]
+    planner: Planner,
 }
 
 fn get_states_with_errors(
@@ -227,10 +260,11 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         end_states: to_state(driver, args)?,
         through: through?,
         workdir,
-        planner: if args.planner {
-            Box::new(EnumeratePlanner {})
-        } else {
-            Box::new(SingleOpOutputPlanner {})
+        planner: match args.planner {
+            Planner::Legacy => Box::new(plan::LegacyPlanner {}),
+            #[cfg(feature = "egg_planner")]
+            Planner::Egg => Box::new(plan::EggPlanner {}),
+            Planner::Enumerate => Box::new(plan::EnumeratePlanner {}),
         },
     })
 }
@@ -280,7 +314,26 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     bail!("unknown resource file {}", cmd.filename);
 }
 
-pub fn cli(driver: &Driver) -> anyhow::Result<()> {
+/// Given the name of a Driver, returns a config based on that name and CLI arguments.
+pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+    let args: FakeArgs = argh::from_env();
+    let mut config = config::load_config(name);
+
+    // Use `--set` arguments to override configuration values.
+    for set in args.set {
+        let mut parts = set.splitn(2, '=');
+        let key = parts.next().unwrap();
+        let value = parts
+            .next()
+            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
+        let dict = figment::util::nest(key, value.into());
+        config = config.merge(figment::providers::Serialized::defaults(dict));
+    }
+
+    Ok(config)
+}
+
+pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
     // Configure logging.
@@ -311,7 +364,7 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
-    let mut run = Run::new(driver, plan);
+    let mut run = Run::new(driver, plan, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
@@ -319,19 +372,6 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     }
     if let Some(verbose) = args.verbose {
         run.global_config.verbose = verbose;
-    }
-
-    // Use `--set` arguments to override configuration values.
-    for set in args.set {
-        let mut parts = set.splitn(2, '=');
-        let key = parts.next().unwrap();
-        let value = parts
-            .next()
-            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
-        let dict = figment::util::nest(key, value.into());
-        run.config_data = run
-            .config_data
-            .merge(figment::providers::Serialized::defaults(dict));
     }
 
     // Execute.

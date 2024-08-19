@@ -510,6 +510,15 @@ comb_primitive!(StdCat(left [0], right [1]) -> (out [2]) {
     Ok(Some(Value::concat(left, right)))
 });
 
+comb_primitive!(StdBitSlice[START_IDX, END_IDX, OUT_WIDTH](input [0]) -> (out [1]) {
+    all_defined!(input);
+    let output = input.clone();
+    let output = output.slice_out( START_IDX as usize, END_IDX as usize);
+    assert_eq!(output.len(), OUT_WIDTH as usize);
+
+    Ok(Some(output))
+});
+
 // ===================== Unsynthesizeable Operations ======================
 comb_primitive!(StdUnsynMult[WIDTH](left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);

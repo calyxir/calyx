@@ -1,5 +1,5 @@
 use super::{
-    commands::{Command, PrintMode},
+    commands::{Command, ParsedBreakPointID, ParsedGroupName, PrintMode},
     debugging_context::context::DebuggingContext,
     io_utils::Input,
     source::structures::NewSourceMap,
@@ -20,8 +20,7 @@ use crate::{
 
 use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
-use calyx_ir::Id;
-
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use std::path::Path as FilePath;
 
@@ -33,19 +32,14 @@ pub(super) const SPACING: &str = "    ";
 /// is finished or not. If program is done then the debugger is exited
 pub struct ProgramStatus {
     /// all groups currently running
-    status: HashSet<Id>,
+    status: HashSet<(String, String)>,
     /// states whether the program has finished
     done: bool,
 }
 
 impl ProgramStatus {
-    /// Create a new program status on the fly
-    pub fn generate() -> Self {
-        todo!()
-    }
-
     /// get status
-    pub fn get_status(&self) -> &HashSet<Id> {
+    pub fn get_status(&self) -> &HashSet<(String, String)> {
         &self.status
     }
 
@@ -116,7 +110,33 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     pub fn status(&self) -> ProgramStatus {
-        todo!()
+        ProgramStatus {
+            status: self
+                .interpreter
+                .get_currently_running_groups()
+                .map(|x| {
+                    let group_name =
+                        self.program_context.as_ref().lookup_name(x).clone();
+                    let parent_comp = self
+                        .program_context
+                        .as_ref()
+                        .get_component_from_group(x);
+                    let parent_name = self
+                        .program_context
+                        .as_ref()
+                        .lookup_name(parent_comp)
+                        .clone();
+                    (parent_name, group_name)
+                })
+                .collect(),
+            done: self.interpreter.is_done(),
+        }
+    }
+
+    pub fn get_cells(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+        self.interpreter.env().iter_cells()
     }
 
     // Go to next step
@@ -126,6 +146,17 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
+    pub fn set_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
+        self.create_breakpoints(breakpoints)
+    }
+
+    pub fn delete_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
+        let parsed_bp_ids: Vec<ParsedBreakPointID> = breakpoints
+            .into_iter()
+            .map(ParsedBreakPointID::from)
+            .collect_vec();
+        self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
+    }
     #[inline]
     fn do_step(&mut self, n: u32) -> InterpreterResult<()> {
         for _ in 0..n {
@@ -279,6 +310,24 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                             .parse_to_watch_ids(self.program_context.as_ref());
                         unwrap_error_message!(target);
                         self.debugging_context.remove_watchpoint(target)
+                    }
+                }
+
+                Command::EnableWatch(targets) => {
+                    for target in targets {
+                        let target = target
+                            .parse_to_watch_ids(self.program_context.as_ref());
+                        unwrap_error_message!(target);
+                        self.debugging_context.enable_watchpoint(target)
+                    }
+                }
+
+                Command::DisableWatch(targets) => {
+                    for target in targets {
+                        let target = target
+                            .parse_to_watch_ids(self.program_context.as_ref());
+                        unwrap_error_message!(target);
+                        self.debugging_context.disable_watchpoint(target)
                     }
                 }
 
