@@ -1459,12 +1459,16 @@ impl Visitor for TopDownCompileControl {
         let comp_group =
             sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
+        Ok(Action::change(ir::Control::enable(comp_group)))
+    }
+
+    fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
         if let Some(json_out_file) = &self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
                 &self.fsm_groups,
             );
         }
-        Ok(Action::change(ir::Control::enable(comp_group)))
+        Ok(Action::Continue)
     }
 }
