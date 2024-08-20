@@ -1215,7 +1215,7 @@ impl Named for TopDownCompileControl {
 }
 
 /// Helper function to emit profiling information when the control consists of a single group.
-fn record_single_enable(
+fn extract_single_enable(
     con: &mut ir::Control,
     component: Id,
 ) -> Option<SingleEnableInfo> {
@@ -1225,7 +1225,7 @@ fn record_single_enable(
             group: enable.group.borrow().name(),
         });
     } else {
-        return None;
+        None
     }
 }
 
@@ -1238,10 +1238,11 @@ impl Visitor for TopDownCompileControl {
     ) -> VisResult {
         let mut con = comp.control.borrow_mut();
         if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
-            let res = record_single_enable(&mut con, comp.name);
-            if res.is_some() {
+            if let Some(enable_info) =
+                extract_single_enable(&mut con, comp.name)
+            {
                 self.fsm_groups
-                    .insert(ProfilingInfo::SingleEnable(res.unwrap()));
+                    .insert(ProfilingInfo::SingleEnable(enable_info));
             }
             return Ok(Action::Stop);
         }
