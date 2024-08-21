@@ -352,8 +352,16 @@ impl ScriptContext {
                         c
                     }
                     Some(ShellCommands::Cmds(c)) => c.clone(),
-                    None => vec![],
+
+                    None => {
+                        // If cmds is empty, then the op doesn't create any of it's targets and
+                        // should be considered erroneous.
+                        return Err(RhaiSystemError::empty_op()
+                            .with_pos(pos)
+                            .into());
+                    }
                 };
+
                 let op_name = name.clone();
                 let config_vars = config_vars.clone();
                 let op_emitter = crate::run::RulesOp {
@@ -462,14 +470,24 @@ impl ScriptRunner {
     pub fn add_files(
         &mut self,
         files: impl Iterator<Item = PathBuf>,
-    ) -> &mut Self {
+    ) -> anyhow::Result<&mut Self> {
         for f in files {
-            let ast = self.engine.compile_file(f.clone()).unwrap();
+            let res = self.engine.compile_file(f.clone());
+            let ast = match res {
+                Err(e) => {
+                    return Err(anyhow::format_err!(
+                        "{} in {}",
+                        e,
+                        f.to_str().unwrap()
+                    ))
+                }
+                Ok(ast) => ast,
+            };
             let functions =
                 self.resolver.as_mut().unwrap().register_path(f, ast);
             self.rhai_functions = self.rhai_functions.merge(&functions);
         }
-        self
+        Ok(self)
     }
 
     pub fn add_static_files(

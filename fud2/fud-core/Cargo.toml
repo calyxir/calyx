@@ -26,5 +26,8 @@ itertools.workspace = true
 rand = "0.8.5"
 egg = { version = "0.9.5", optional = true }
 
+[dev-dependencies]
+rand_chacha = "0.3.1"
+
 [features]
 egg_planner = ["dep:egg"]
