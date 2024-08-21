@@ -20,19 +20,19 @@ class ProfilingInfo:
         return (f"Group {self.name}:\n" +
         f"\tFSM name: {self.fsm_name}\n" +
         f"\tFSM state ids: {self.fsm_values}\n" +
-        f"\tTotal cycles: {self.total_cycles}\n" +   
+        f"\tTotal cycles: {self.total_cycles}\n" +
         f"\tSegments: {self.closed_segments}\n"
         )
-    
+
     def is_active(self):
         return self.current_segment is not None
-    
+
     def start_clock_cycle(self):
         if self.current_segment is None:
             return -1
         else:
             return self.current_segment["start"]
-    
+
     def summary(self):
         if len(self.closed_segments) == 0:
             average_cycles = 0
@@ -81,7 +81,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
             self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
-        
+
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
         refs = [(k, v) for k, v in vcd.references_to_ids.items()]
@@ -162,6 +162,18 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 # Update internal signal value
                 self.signal_to_curr_value[signal_name] = signal_new_value                
 
+def read_component_cell_names_json(json_file): # TODO: the keys in the json may change
+    component_cell_infos = json.load(open(json_file))
+    # For each component, contains a map from each cell name to its corresponding component
+    # component name --> { cell name --> component name}
+    cells_to_components = {} 
+    for item in component_cell_infos:
+        cell_map = {} # mapping cell names to component names for all cells in the current component
+        for cell_info in item["cell_info"]:
+            cell_map[cell_info["name"]] = cell_info["component"]
+        cells_to_components[item["component"]] = cell_map
+    return cells_to_components
+
 def remap_tdcc_json(json_file):
     profiling_infos = json.load(open(json_file))
     single_enable_names = set()
@@ -187,8 +199,10 @@ def remap_tdcc_json(json_file):
     return fsms, single_enable_names, tdcc_group_names, groups_to_fsms
 
 
-def main(vcd_filename, json_file):
-    fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(json_file)
+def main(vcd_filename, groups_json_file, cells_json_file):
+    cells_to_components = read_component_cell_names_json(cells_json_file)
+    print(cells_to_components)
+    fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(groups_json_file)
     converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
@@ -202,14 +216,16 @@ def main(vcd_filename, json_file):
         print(group_info)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 3:
         vcd_filename = sys.argv[1]
         fsm_json = sys.argv[2]
-        main(vcd_filename, fsm_json)
+        cells_json = sys.argv[3]
+        main(vcd_filename, fsm_json, cells_json)
     else:
         args_desc = [
             "VCD_FILE",
-            "TDCC_JSON"
+            "TDCC_JSON",
+            "CELLS_JSON"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         sys.exit(-1)
