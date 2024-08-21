@@ -62,19 +62,15 @@ def insert_queue(
         pifo.cell(f"queue_{i}", queue_i) for i, queue_i in enumerate(subqueues)
     ]
 
-    ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
-
-    err = pifo.reg(1, "err", is_ref=True)
+    ans = pifo.reg(32, "ans", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
+    err = pifo.reg(1, "err", is_ref=True)
 
     length = pifo.reg(32, "length")  # The active length of the PIFO.
-
-    # A register that marks the next sub-queue to `pop` from.
-    hot = pifo.reg(32, "hot")
+    hot = pifo.reg(32, "hot")  # A register that marks the next sub-queue to `pop` from.
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
-
     max_queue_len = 2 ** queue_len_factor
 
     # Some equality checks.
@@ -85,7 +81,6 @@ def insert_queue(
 
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
-
     len_incr = pifo.incr(length)  # len++
     len_decr = pifo.decr(length)  # len--
 
@@ -113,22 +108,26 @@ def insert_queue(
                 # In the specical case when b = 0,
                 # we don't need to check the lower bound and we can just `invoke`.
                 if b == 0 and round_robin
-                else invoke_subqueue(
-                    subqueue_cells[order.index(b)], cmd, value, ans, err
-                )
-                if b == 0 and not round_robin
-                else cb.if_with(
-                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                else (
                     invoke_subqueue(
                         subqueue_cells[order.index(b)], cmd, value, ans, err
-                    ),
-                )
-                if not round_robin
-                # Otherwise, we need to check the lower bound and `invoke`
-                # only if the value is in the interval.
-                else cb.if_with(
-                    pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                    invoke_subqueue(subqueue_cells[b], cmd, value, ans, err),
+                    )
+                    if b == 0 and not round_robin
+                    else (
+                        cb.if_with(
+                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                            invoke_subqueue(
+                                subqueue_cells[order.index(b)], cmd, value, ans, err
+                            ),
+                        )
+                        if not round_robin
+                        # Otherwise, we need to check the lower bound and `invoke`
+                        # only if the value is in the interval.
+                        else cb.if_with(
+                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
+                            invoke_subqueue(subqueue_cells[b], cmd, value, ans, err),
+                        )
+                    )
                 )
             ),
         )
@@ -157,7 +156,7 @@ def insert_queue(
                     # Either we are here for the first time,
                     # or we are here because the previous iteration raised an error
                     # and incremented `hot` for us.
-                    # We'll try to peek from `subqueue_cells[hot]`.
+                    # We'll try to pop from `subqueue_cells[hot]`.
                     # We'll pass it a lowered `err`.
                     lower_err,
                     invoke_subqueues_hot_guard,

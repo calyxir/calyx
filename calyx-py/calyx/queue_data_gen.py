@@ -54,10 +54,10 @@ def no_err_cmds_list(queue_size, num_cmds):
             commands += (push_goal - total_pop_count) * [0]
             break
 
-    # If the total number of commands is not `num_cmds`, pad it with `peek`s.
+    # If the total number of commands is not `num_cmds`, pad it with `pop`s.
     # This is because the `commands` list must have `num_cmds` items.
-    commands += (num_cmds - len(commands)) * [1]
-    # The above command will add either zero or one `peek` command to the end.
+    commands += (num_cmds - len(commands)) * [0]
+    # The above command will add either zero or one `pop` commands to the end.
 
     assert (
         len(commands) == num_cmds
@@ -65,18 +65,20 @@ def no_err_cmds_list(queue_size, num_cmds):
     return commands
 
 
-def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False, use_ranks=False):
+def dump_json(
+    num_cmds, no_err: bool, queue_size: Optional[int] = None, nwc=False, use_ranks=False
+):
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - Optional memories `ranks` and `times` are included for queues primed for non-work-conserving algorithms.
-    - The `commands` memory has `num_cmds` items, which are 0 or 1 for both work-conserving and 
+    - The `commands` memory has `num_cmds` items, which are 0 or 1 for both work-conserving and
         non-work-conserving policies. They are as follows:
 
     FOR WORK-CONSERVING POLICIES
         0 : pop
         1 : push
-    
+
     FOR NON-WORK-CONSERVING POLICIES
         0 : pop by predicate
         1 : push
@@ -96,7 +98,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
     - The `ans_mem` memory has `num_cmds` items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
-        
+
     commands = {
         "commands": {
             "data": (
@@ -105,9 +107,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
                 if no_err
                 # If the `no_err` flag is set, then we use the special helper
                 # that ensures no overflow or overflow will occur.
-                else (
-                    [random.randint(0, 1) for _ in range(num_cmds)]
-                )
+                else ([random.randint(0, 1) for _ in range(num_cmds)])
             ),
             "format": format_gen(1),
         }
@@ -134,7 +134,7 @@ def dump_json(num_cmds, no_err: bool, queue_size: Optional[int]=None, nwc=False,
             # The `times` memory has `num_cmds` items, which are all
             # random values between 0 and 50.
             "format": format_gen(32),
-        }        
+        }
     }
     ans_mem = {
         "ans_mem": {

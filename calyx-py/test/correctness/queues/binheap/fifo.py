@@ -9,7 +9,7 @@ FACTOR = 4
 
 def insert_binheap_fifo(prog, name, queue_size_factor=FACTOR):
     """Inserts the component `fifo` into the program.
-    
+
     It is a first in, first out queue implemented via binary heap.
 
     It has:
@@ -21,12 +21,12 @@ def insert_binheap_fifo(prog, name, queue_size_factor=FACTOR):
         - `ans` has width 32.
         - `err` has width 1.
 
-    We use `stable_binheap`, a binary heap that resolves ties based on insertion order. 
-    That is, If two elements with the same rank are inserted, the element that was inserted 
-    first is the one that gets popped first.
+    We use `stable_binheap`, a binary heap that resolves ties based on insertion order.
+    That is, If two elements with the same rank are inserted,
+    the element that was inserted first is the one that gets popped first.
 
-    Hence, we insert all elements with the same rank into `stable_binheap`, as our 
-    tie-breaking mechanism ensures FIFO order. 
+    Hence, we insert all elements with the same rank into `stable_binheap`, as our
+    tie-breaking mechanism ensures FIFO order.
     """
     comp = prog.component(name)
 
