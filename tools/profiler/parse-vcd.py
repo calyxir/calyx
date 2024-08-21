@@ -100,6 +100,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             sys.exit(1)
 
         for name, id in refs:
+            # print(name, id)
             # We may want to optimize these nested for loops
             for tdcc_group in self.tdcc_group_to_go_id:
                 if f"{tdcc_group}_go.out[" in name:
@@ -163,6 +164,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 # Update internal signal value
                 self.signal_to_curr_value[signal_name] = signal_new_value                
 
+# Not sure if I need this, but generating a list of all of the components to potential cell names
+def make_mappings(prefix, curr_component, cells_to_components, mapping):
+    prefix = prefix + "." + curr_component
+    for (cell, cell_component) in cells_to_components[curr_component].items():
+        mapping[cell_component] = prefix + "." + cell
+        make_mappings(prefix, cell_component, cells_to_components, mapping)
+
+
 def read_component_cell_names_json(json_file): # TODO: the keys in the json may change
     component_cell_infos = json.load(open(json_file))
     # For each component, contains a map from each cell name to its corresponding component
@@ -173,6 +182,10 @@ def read_component_cell_names_json(json_file): # TODO: the keys in the json may 
         for cell_info in item["cell_info"]:
             cell_map[cell_info["name"]] = cell_info["component"]
         cells_to_components[item["component"]] = cell_map
+    # FIXME: assuming for now that "TOP.TOP.main" is the toplevel component. Need to fix this
+    mapping = {"main" : "TOP.TOP.main"} # come up with a better name for this
+    make_mappings("TOP.TOP", "main", cells_to_components, mapping)
+    print(mapping)
     return cells_to_components
 
 def remap_tdcc_json(json_file):
@@ -202,7 +215,6 @@ def remap_tdcc_json(json_file):
 
 def main(vcd_filename, groups_json_file, cells_json_file):
     cells_to_components = read_component_cell_names_json(cells_json_file)
-    print(cells_to_components)
     fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(groups_json_file)
     converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
