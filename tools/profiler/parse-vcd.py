@@ -103,6 +103,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # print(name, id)
             # We may want to optimize these nested for loops
             for tdcc_group in self.tdcc_group_to_go_id:
+                print(tdcc_group)
+                exit()
                 if f"{tdcc_group}_go.out[" in name:
                     self.tdcc_group_to_go_id[tdcc_group] = id
             for fsm in self.fsms:
@@ -168,9 +170,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 def make_mappings(prefix, curr_component, cells_to_components, mapping):
     prefix = prefix + "." + curr_component
     for (cell, cell_component) in cells_to_components[curr_component].items():
-        mapping[cell_component] = prefix + "." + cell
+        if cell_component not in mapping:
+            mapping[cell_component] = [prefix + "." + cell]
+        else:
+            mapping[cell_component].append(prefix + "." + cell)
         make_mappings(prefix, cell_component, cells_to_components, mapping)
-
 
 def read_component_cell_names_json(json_file): # TODO: the keys in the json may change
     component_cell_infos = json.load(open(json_file))
@@ -186,9 +190,9 @@ def read_component_cell_names_json(json_file): # TODO: the keys in the json may 
     mapping = {"main" : "TOP.TOP.main"} # come up with a better name for this
     make_mappings("TOP.TOP", "main", cells_to_components, mapping)
     print(mapping)
-    return cells_to_components
+    return mapping
 
-def remap_tdcc_json(json_file):
+def remap_tdcc_json(json_file, components_to_cells):
     profiling_infos = json.load(open(json_file))
     single_enable_names = set()
     tdcc_group_names = set()
@@ -201,22 +205,27 @@ def remap_tdcc_json(json_file):
             fsms[fsm_name] = {}
             for state in fsm["states"]:
                 fsms[fsm_name][state["id"]] = state["group"]
-                group_name = state["group"]
-                if group_name not in groups_to_fsms:
-                    groups_to_fsms[group_name] = {"fsm": fsm_name, "tdcc-group-name": fsm["group"], "ids": [state["id"]]}
-                    tdcc_group_names.add(fsm["group"]) # Hack: Keep track of the TDCC group for use later
-                else:     
-                    groups_to_fsms[group_name]["ids"].append(state["id"])  
+                # create entries for all possibilities of cells
+                print(components_to_cells[fsm["component"]])
+                for cell in components_to_cells[fsm["component"]]:
+                    group_name = cell + "." + fsm["group"]
+                    print(group_name)
+                    if group_name not in groups_to_fsms:
+                        groups_to_fsms[group_name] = {"fsm": fsm_name, "tdcc-group-name": fsm["group"], "ids": [state["id"]]}
+                        tdcc_group_names.add(group_name) # Hack: Keep track of the TDCC group for use later
+                    else:     
+                        groups_to_fsms[group_name]["ids"].append(state["id"])  
         else:
-            single_enable_names.add(profiling_info["SingleEnable"]["group"])
+            for cell in profiling_info["SingleEnable"]["component"]: # get all possibilities of cells
+                single_enable_names.add(cell + "." + profiling_info["SingleEnable"]["group"])
 
     return fsms, single_enable_names, tdcc_group_names, groups_to_fsms
 
 
 def main(vcd_filename, groups_json_file, cells_json_file):
-    cells_to_components = read_component_cell_names_json(cells_json_file)
-    fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(groups_json_file)
-    converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms, cells_to_components)
+    components_to_cells = read_component_cell_names_json(cells_json_file)
+    fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(groups_json_file, components_to_cells)
+    converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms, components_to_cells)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
     print("=====SUMMARY=====")
