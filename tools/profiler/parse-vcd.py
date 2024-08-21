@@ -61,10 +61,11 @@ class ProfilingInfo:
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsms, single_enable_names, tdcc_group_names, groups_to_fsms):
+    def __init__(self, fsms, single_enable_names, tdcc_group_names, groups_to_fsms, cells_to_components):
         super().__init__()
         self.fsms = fsms
         self.single_enable_names = single_enable_names
+        self.cells_to_components = cells_to_components
         self.tdcc_group_to_values = {tdcc_group_name : [] for tdcc_group_name in tdcc_group_names}
         self.tdcc_group_to_go_id = {tdcc_group_name : None for tdcc_group_name in tdcc_group_names}
         self.profiling_info = {}
@@ -203,7 +204,7 @@ def main(vcd_filename, groups_json_file, cells_json_file):
     cells_to_components = read_component_cell_names_json(cells_json_file)
     print(cells_to_components)
     fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(groups_json_file)
-    converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms)
+    converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
     print("=====SUMMARY=====")
