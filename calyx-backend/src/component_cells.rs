@@ -2,6 +2,7 @@
 //!
 //! Transforms an [`ir::Context`](crate::ir::Context) into a JSON file that
 //! records all of the component (non-primitive) cells in a program.
+//! This is used for multi-component program profiling.
 //! Usage: -b component_cells [-o <OUTPUT_FILE>]
 //! Adapted from resources.rs.
 
@@ -69,8 +70,10 @@ struct ComponentCellInfo {
     pub component: Id,
 }
 
-/// Accumulates a set with each primitive with a given set of parameters
-/// in the program with entrypoint `main_comp`.
+/// Accumulates a set of components to the cells that they contain
+/// in the program with entrypoint `main_comp`. The contained cells
+/// are denoted with the name of the cell and the name of the component
+/// the cell is associated with.
 fn gen_component_info(
     ctx: &ir::Context,
     comp: &ir::Component,
@@ -100,7 +103,7 @@ fn gen_component_info(
     component_info.insert(curr_comp_info);
 }
 
-/// Write the collected set of primitive instantiations to a JSON file.
+/// Write the collected set of component information to a JSON file.
 fn write_json(
     component_info: HashSet<ComponentInfo>,
     file: &mut OutputFile,

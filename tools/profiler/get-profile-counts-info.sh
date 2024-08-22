@@ -11,11 +11,12 @@ CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
 TMP_DIR=${SCRIPT_DIR}/tmp
 TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
 FSM_JSON=${TMP_DIR}/fsm.json
+CELLS_JSON=${TMP_DIR}/cells.json
 VCD_FILE=${TMP_DIR}/trace-info.vcd
 LOGS_DIR=${SCRIPT_DIR}/logs
 mkdir -p ${TMP_DIR} ${LOGS_DIR}
 
-rm -f ${TMP_VERILOG} ${FSM_JSON}
+rm -f ${TMP_DIR}/* ${LOGS_DIR}/* # remove data from last run
 
 INPUT_FILE=$1
 SIM_DATA_JSON=$2
@@ -29,6 +30,14 @@ echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-tdcc
 
+# Run component-cells backend to get cell information
+echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"
+(
+    cd ${CALYX_DIR}
+    set -o xtrace
+    cargo run -- ${INPUT_FILE} -p no-opt -b component-cells -o ${CELLS_JSON}
+) &> ${LOGS_DIR}/gol-cells
+
 # Run simuation to get VCD
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
@@ -40,5 +49,5 @@ echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 # Run script to get cycle level counts
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
-    python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON}
+    python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON} ${CELLS_JSON}
 ) # &> ${LOGS_DIR}/gol-process
