@@ -110,12 +110,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if name.startswith(f"{tdcc_group}_go.out["):
                     self.tdcc_group_to_go_id[tdcc_group] = id
             for fsm in self.fsms:
-                if f"{fsm}.out[" in name:
+                if name.startswith(f"{fsm}.out["):
                     self.signal_to_signal_id[fsm] = id
             for single_enable_group in self.single_enable_names:
-                if f"{single_enable_group}_go.out[" in name:
+                if name.startswith(f"{single_enable_group}_go.out["):
                     self.signal_to_signal_id[f"{single_enable_group}_go"] = id
-                if f"{single_enable_group}_done.out[" in name:
+                if name.startswith(f"{single_enable_group}_done.out["):
                     self.signal_to_signal_id[f"{single_enable_group}_done"] = id
         
 
