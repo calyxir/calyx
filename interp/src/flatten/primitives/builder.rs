@@ -4,7 +4,10 @@ use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, FXType, MemType, SingleWidthType},
+            cell_prototype::{
+                CellPrototype, DoubleWidthType, FXType, MemType,
+                SingleWidthType, TripleWidthType,
+            },
             prelude::{CellInfo, GlobalPortIdx},
         },
         structures::context::Context,
@@ -100,13 +103,6 @@ pub fn build_primitive(
                 Box::new(StdUndef::new(base_port, *width))
             }
         },
-        CellPrototype::BitSlice {
-            start_idx,
-            end_idx,
-            out_width,
-        } => Box::new(StdBitSlice::new(
-            base_port, *start_idx, *end_idx, *out_width,
-        )),
         CellPrototype::FixedPoint {
             op,
             width,
@@ -138,21 +134,28 @@ pub fn build_primitive(
                 Some(*frac_width),
             )),
         },
-        CellPrototype::Slice {
-            in_width: _, // Not actually needed, should probably remove
-            out_width,
-        } => Box::new(StdSlice::new(base_port, *out_width)),
-        CellPrototype::Pad {
-            in_width: _, // Not actually needed, should probably remove
-            out_width,
-        } => Box::new(StdPad::new(base_port, *out_width)),
-        CellPrototype::Cat {
-            // Turns out under the assumption that the primitive is well formed,
-            // none of these parameter values are actually needed
-            left: _,
-            right: _,
-            out: _,
-        } => Box::new(StdCat::new(base_port)),
+        CellPrototype::DoubleWidth { op, width2, .. } => match op {
+            DoubleWidthType::Slice => {
+                Box::new(StdSlice::new(base_port, *width2))
+            }
+            DoubleWidthType::Pad => Box::new(StdPad::new(base_port, *width2)),
+        },
+        CellPrototype::TripleWidth {
+            op,
+            width1,
+            width2,
+            width3,
+        } => match op {
+            TripleWidthType::Cat => {
+                // Turns out under the assumption that the primitive is well formed,
+                // none of these parameter values are actually needed
+                Box::new(StdCat::new(base_port))
+            }
+            TripleWidthType::BitSlice => {
+                Box::new(StdBitSlice::new(base_port, *width1, *width2, *width3))
+            }
+        },
+
         CellPrototype::Memory {
             mem_type,
             width,

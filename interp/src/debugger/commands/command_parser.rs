@@ -285,6 +285,7 @@ impl CommandParser {
     }
 }
 
+/// Parse the given string into a debugger command.
 pub fn parse_command(input_str: &str) -> InterpreterResult<Command> {
     let inputs = CommandParser::parse(Rule::command, input_str)?;
     let input = inputs.single()?;
