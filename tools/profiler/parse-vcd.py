@@ -77,6 +77,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.clock_id = None
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
         for group in groups_to_fsms:
+            print(group)
             self.profiling_info[group] = ProfilingInfo(group, groups_to_fsms[group]["fsm"], groups_to_fsms[group]["ids"], groups_to_fsms[group]["tdcc-group-name"])
         for single_enable_group in single_enable_names:
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
@@ -103,9 +104,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # print(name, id)
             # We may want to optimize these nested for loops
             for tdcc_group in self.tdcc_group_to_go_id:
-                print(tdcc_group)
-                exit()
-                if f"{tdcc_group}_go.out[" in name:
+                if name.startswith(f"{tdcc_group}_go.out["):
                     self.tdcc_group_to_go_id[tdcc_group] = id
             for fsm in self.fsms:
                 if f"{fsm}.out[" in name:
@@ -115,6 +114,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.signal_to_signal_id[f"{single_enable_group}_go"] = id
                 if f"{single_enable_group}_done.out[" in name:
                     self.signal_to_signal_id[f"{single_enable_group}_done"] = id
+
+        print(self.tdcc_group_to_go_id)
+        
 
     def value(
         self,
@@ -134,6 +136,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         if identifier_code == self.clock_id and value == "1":
             self.clock_cycle_acc += 1
             # Update TDCC group signals first
+            print("TDCC GROUP TO GO ID")
+            print(self.tdcc_group_to_go_id)
             for (tdcc_group_name, tdcc_signal_id) in self.tdcc_group_to_go_id.items():
                 self.tdcc_group_to_values[tdcc_group_name].append(int(cur_sig_vals[tdcc_signal_id], 2))
             # for each signal that we want to check, we need to sample the values
@@ -152,11 +156,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     group = "_".join(signal_name.split("_")[0:-1])
                     self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
                 elif "fsm" in signal_name:
-                    next_group = self.fsms[signal_name][signal_new_value]
+                    # hack: extract the prefix of signal_name to use for next_group
+                    prefix = ".".join(signal_name.split(".")[:-1])
+                    next_group = prefix + "." + self.fsms[signal_name][signal_new_value]
+                    
                     tdcc_group_values = self.tdcc_group_to_values[self.profiling_info[next_group].tdcc_group]
                     # if the FSM value changed, then we must end the previous group (regardless of whether we can start the next group)
                     if signal_new_value != fsm_curr_value and fsm_curr_value != -1:
-                        prev_group = self.fsms[signal_name][fsm_curr_value]
+                        prev_group = prefix + "." + self.fsms[signal_name][fsm_curr_value]
                         self.profiling_info[prev_group].end_current_segment(self.clock_cycle_acc)
                     # if the FSM value didn't change but the TDCC group just got enabled, then we must start the next group
                     if signal_new_value == fsm_curr_value and (tdcc_group_values[-1] == 1 and (len(tdcc_group_values) == 1 or tdcc_group_values[-2] == 0)):
@@ -187,9 +194,8 @@ def read_component_cell_names_json(json_file): # TODO: the keys in the json may 
             cell_map[cell_info["name"]] = cell_info["component"]
         cells_to_components[item["component"]] = cell_map
     # FIXME: assuming for now that "TOP.TOP.main" is the toplevel component. Need to fix this
-    mapping = {"main" : "TOP.TOP.main"} # come up with a better name for this
+    mapping = {"main" : ["TOP.TOP.main"]} # come up with a better name for this
     make_mappings("TOP.TOP", "main", cells_to_components, mapping)
-    print(mapping)
     return mapping
 
 def remap_tdcc_json(json_file, components_to_cells):
@@ -201,23 +207,24 @@ def remap_tdcc_json(json_file, components_to_cells):
     for profiling_info in profiling_infos:
         if "Fsm" in profiling_info:
             fsm = profiling_info["Fsm"]
-            fsm_name = fsm["fsm"]
-            fsms[fsm_name] = {}
-            for state in fsm["states"]:
-                fsms[fsm_name][state["id"]] = state["group"]
-                # create entries for all possibilities of cells
-                print(components_to_cells[fsm["component"]])
-                for cell in components_to_cells[fsm["component"]]:
-                    group_name = cell + "." + fsm["group"]
-                    print(group_name)
+            # create entries for all possibilities of cells
+            for cell in components_to_cells[fsm["component"]]:
+                fsm_name = cell + "." + fsm["fsm"]
+                fsms[fsm_name] = {}
+                for state in fsm["states"]:
+                    fsms[fsm_name][state["id"]] = state["group"]
+                    group_name = cell + "." + state["group"]
+                    tdcc_group = cell + "." + fsm["group"]
                     if group_name not in groups_to_fsms:
-                        groups_to_fsms[group_name] = {"fsm": fsm_name, "tdcc-group-name": fsm["group"], "ids": [state["id"]]}
-                        tdcc_group_names.add(group_name) # Hack: Keep track of the TDCC group for use later
+                        groups_to_fsms[group_name] = {"fsm": fsm_name, "tdcc-group-name": tdcc_group, "ids": [state["id"]]}
+                        tdcc_group_names.add(tdcc_group) # Hack: Keep track of the TDCC group for use later
                     else:     
                         groups_to_fsms[group_name]["ids"].append(state["id"])  
         else:
-            for cell in profiling_info["SingleEnable"]["component"]: # get all possibilities of cells
+            for cell in components_to_cells[profiling_info["SingleEnable"]["component"]]: # get all possibilities of cells
                 single_enable_names.add(cell + "." + profiling_info["SingleEnable"]["group"])
+
+    print(groups_to_fsms)
 
     return fsms, single_enable_names, tdcc_group_names, groups_to_fsms
 
