@@ -94,8 +94,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         refs = [(k, v) for k, v in vcd.references_to_ids.items()]
         refs = sorted(refs, key=lambda e: e[0])
         names = [remove_size_from_name(e[0]) for e in refs]
-
-        # FIXME: When we get to profiling multi-component programs, we want to search for each component's go signal
         self.main_go_id = vcd.references_to_ids[f"{self.main_component}.go"]
 
         clock_name = f"{self.main_component}.clk"
@@ -118,7 +116,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.signal_to_signal_id[f"{single_enable_group}_go"] = id
                 if name.startswith(f"{single_enable_group}_done.out["):
                     self.signal_to_signal_id[f"{single_enable_group}_done"] = id
-        
 
     def value(
         self,
