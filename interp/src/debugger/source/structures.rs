@@ -1,9 +1,9 @@
+//! This module contains the data structures used by the debugger for source mapping
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use crate::errors::InterpreterResult;
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
-
 pub struct NamedTag(u64, String);
 
 impl NamedTag {

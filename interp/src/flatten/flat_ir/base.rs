@@ -21,44 +21,64 @@ use super::{cell_prototype::CellPrototype, prelude::Identifier};
 pub struct ComponentIdx(u32);
 impl_index!(ComponentIdx);
 
-/// An index for auxillary definition information for cells
+/// An index for auxillary definition information for cells. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_cell_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct CellDefinitionIdx(u32);
 impl_index!(CellDefinitionIdx);
 
-/// An index for auxillary definition information for ports
+/// An index for auxillary definition information for ports. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_port_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct PortDefinitionIdx(u32);
 impl_index!(PortDefinitionIdx);
 
-/// An index for auxillary definition information for ref cells
+/// An index for auxillary definition information for ref cells. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_cell_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct RefCellDefinitionIdx(u32);
 impl_index!(RefCellDefinitionIdx);
 
-/// An index for auxillary definition information for ref ports
+/// An index for auxillary definition information for ref ports. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_port_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct RefPortDefinitionIdx(u32);
 impl_index!(RefPortDefinitionIdx);
 
 // Global indices
 
-/// The index of a port instance in the global value map
+/// The index of a port instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalPortIdx(NonZeroU32);
 impl_index_nonzero!(GlobalPortIdx);
 
-/// The index of a cell instance in the global value map
+/// The index of a cell instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalCellIdx(NonZeroU32);
 impl_index_nonzero!(GlobalCellIdx);
 
-/// The index of a ref cell instance in the global value map
+/// The index of a ref cell instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalRefCellIdx(u32);
 impl_index!(GlobalRefCellIdx);
 
-/// The index of a ref port instance in the global value map
+/// The index of a ref port instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalRefPortIdx(u32);
 impl_index!(GlobalRefPortIdx);
@@ -67,14 +87,16 @@ impl_index!(GlobalRefPortIdx);
 
 /// A local port offset for a component. These are used in the definition of
 /// assignments and can only be understood in the context of the component they
-/// are defined under.
+/// are defined under. Combined with a base index from a component instance this
+/// can be resolved to a [`GlobalPortIdx`].
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct LocalPortOffset(u32);
 impl_index!(LocalPortOffset);
 
 /// A local ref port offset for a component. These are used in the definition of
 /// assignments and can only be understood in the context of the component they
-/// are defined under.
+/// are defined under. Combined with a base index from a component instance this
+/// can be resolved to a [`GlobalRefPortIdx`].
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct LocalRefPortOffset(u32);
 impl_index!(LocalRefPortOffset);
@@ -102,6 +124,8 @@ pub enum PortRef {
 }
 
 impl PortRef {
+    /// Returns the local offset of the port reference if it is a local port
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_local(&self) -> Option<&LocalPortOffset> {
         if let Self::Local(v) = self {
@@ -111,6 +135,8 @@ impl PortRef {
         }
     }
 
+    /// Returns the local offset of the port reference if it is a ref port
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_ref(&self) -> Option<&LocalRefPortOffset> {
         if let Self::Ref(v) = self {
@@ -120,10 +146,14 @@ impl PortRef {
         }
     }
 
+    /// Returns the local port offset of the port reference if it is a local port
+    /// reference. Otherwise panics.
     pub fn unwrap_local(&self) -> &LocalPortOffset {
         self.as_local().unwrap()
     }
 
+    /// Returns the local ref port offset of the port reference if it is a ref port
+    /// reference. Otherwise panics.
     pub fn unwrap_ref(&self) -> &LocalRefPortOffset {
         self.as_ref().unwrap()
     }
@@ -151,6 +181,8 @@ pub enum GlobalPortRef {
 }
 
 impl GlobalPortRef {
+    /// Constructs a global port reference from a local port reference and a base
+    /// index.
     pub fn from_local(local: PortRef, base_info: &BaseIndices) -> Self {
         match local {
             PortRef::Local(l) => (base_info + l).into(),
@@ -172,6 +204,8 @@ impl From<GlobalPortIdx> for GlobalPortRef {
 }
 
 impl GlobalPortRef {
+    /// Returns the global port index of the port reference if it is a global port
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_port(&self) -> Option<&GlobalPortIdx> {
         if let Self::Port(v) = self {
@@ -180,19 +214,12 @@ impl GlobalPortRef {
             None
         }
     }
-
-    #[must_use]
-    pub fn _as_ref(&self) -> Option<&GlobalRefPortIdx> {
-        if let Self::Ref(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
 }
 /// An enum wrapping the two different types of port definitions (ref/local)
 pub enum PortDefinitionRef {
+    /// A local port definition
     Local(PortDefinitionIdx),
+    /// A ref port definition
     Ref(RefPortDefinitionIdx),
 }
 
@@ -215,11 +242,15 @@ impl From<PortDefinitionIdx> for PortDefinitionRef {
 /// because of alignment
 #[derive(Debug, Copy, Clone)]
 pub enum CellRef {
+    /// A local cell offset
     Local(LocalCellOffset),
+    /// A ref cell offset
     Ref(LocalRefCellOffset),
 }
 
 impl CellRef {
+    /// Returns the local cell offset if it is a local cell reference. Otherwise
+    /// returns `None`.
     #[must_use]
     pub fn as_local(&self) -> Option<&LocalCellOffset> {
         if let Self::Local(v) = self {
@@ -229,6 +260,8 @@ impl CellRef {
         }
     }
 
+    /// Returns the local ref cell offset if it is a ref cell reference. Otherwise
+    /// returns `None`.
     #[must_use]
     pub fn as_ref(&self) -> Option<&LocalRefCellOffset> {
         if let Self::Ref(v) = self {
@@ -251,9 +284,13 @@ impl From<LocalCellOffset> for CellRef {
     }
 }
 
+/// An enum wrapping the two different type of global cell references
+/// (ref/local). This is the global analogue to [CellRef].
 #[derive(Debug)]
 pub enum GlobalCellRef {
+    /// A global cell index
     Cell(GlobalCellIdx),
+    /// A global ref cell index
     Ref(GlobalRefCellIdx),
 }
 
@@ -270,6 +307,8 @@ impl From<GlobalCellIdx> for GlobalCellRef {
 }
 
 impl GlobalCellRef {
+    /// Constructs a global cell reference from a local cell reference and a base
+    /// index.
     pub fn from_local(local: CellRef, base_info: &BaseIndices) -> Self {
         match local {
             CellRef::Local(l) => (base_info + l).into(),
@@ -277,6 +316,8 @@ impl GlobalCellRef {
         }
     }
 
+    /// Returns the global cell index if the reference is a global cell
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_cell(&self) -> Option<&GlobalCellIdx> {
         if let Self::Cell(v) = self {
@@ -286,6 +327,8 @@ impl GlobalCellRef {
         }
     }
 
+    /// Returns the global ref cell index if the reference is a global ref cell
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_ref(&self) -> Option<&GlobalRefCellIdx> {
         if let Self::Ref(v) = self {
@@ -295,7 +338,7 @@ impl GlobalCellRef {
         }
     }
 
-    /// Returns `true` if the global cell ref is [`Cell`].
+    /// Returns `true` if the global cell ref is [`Cell`][].
     ///
     /// [`Cell`]: GlobalCellRef::Cell
     #[must_use]
@@ -303,7 +346,7 @@ impl GlobalCellRef {
         matches!(self, Self::Cell(..))
     }
 
-    /// Returns `true` if the global cell ref is [`Ref`].
+    /// Returns `true` if the global cell ref is [`Ref`][].
     ///
     /// [`Ref`]: GlobalCellRef::Ref
     #[must_use]

@@ -1,3 +1,5 @@
+//! This module contains the core data structures and commands used by the debugger
+
 use itertools::{self, Itertools};
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;

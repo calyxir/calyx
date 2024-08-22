@@ -90,15 +90,12 @@ impl Index<ControlIdx> for InterpretationContext {
     }
 }
 
-impl InterpretationContext {
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
-
+/// Information about a port definition
 #[derive(Debug)]
 pub struct PortDefinitionInfo {
+    /// The name of the port
     pub name: Identifier,
+    /// The width of the port
     pub width: usize,
 }
 
@@ -169,10 +166,7 @@ impl Index<ComponentIdx> for SecondaryContext {
 }
 
 impl SecondaryContext {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
+    /// Insert a new local port definition into the context and return its index
     pub fn push_local_port(
         &mut self,
         name: Identifier,
@@ -182,10 +176,12 @@ impl SecondaryContext {
             .push(PortDefinitionInfo { name, width })
     }
 
+    /// Insert a new reference port definition into the context and return its index
     pub fn push_ref_port(&mut self, id: Identifier) -> RefPortDefinitionIdx {
         self.ref_port_defs.push(id)
     }
 
+    /// Insert a new local cell definition into the context and return its index
     pub fn push_local_cell(
         &mut self,
         name: Identifier,
@@ -197,6 +193,7 @@ impl SecondaryContext {
             .push(CellInfo::new(name, ports, parent, prototype))
     }
 
+    /// Insert a new reference cell definition into the context and return its index
     pub fn push_ref_cell(
         &mut self,
         name: Identifier,
@@ -258,19 +255,24 @@ impl From<(InterpretationContext, SecondaryContext)> for Context {
 }
 
 impl Context {
+    /// Create a new empty context
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Resolve the string associated with the given identifier
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
         self.secondary.string_table.lookup_string(&id).unwrap()
     }
 
+    /// Create a new printer for the given context
     pub fn printer(&self) -> Printer {
         Printer::new(self)
     }
 
+    /// lookup the port definition for a port offset in a given component. This
+    /// will error is the offset is not valid.
     pub fn lookup_port_def(
         &self,
         comp: &ComponentIdx,
@@ -280,6 +282,8 @@ impl Context {
             [self.secondary.comp_aux_info[*comp].port_offset_map[port]]
     }
 
+    /// Lookup the reference port definition for a port offset in a given
+    /// component. This will error is the offset is not valid.
     pub fn lookup_ref_port_def(
         &self,
         comp: &ComponentIdx,
@@ -289,6 +293,8 @@ impl Context {
             [self.secondary.comp_aux_info[*comp].ref_port_offset_map[port]]
     }
 
+    /// Lookup the local cell definition for a cell offset in a given component.
+    /// This will error is the offset is not valid.
     pub fn lookup_cell_def(
         &self,
         comp: &ComponentIdx,
@@ -298,6 +304,8 @@ impl Context {
             [self.secondary.comp_aux_info[*comp].cell_offset_map[cell]]
     }
 
+    /// Lookup the reference cell definition for a cell offset in a given
+    /// component. This will error is the offset is not valid.
     pub fn lookup_ref_cell_def(
         &self,
         comp: &ComponentIdx,
@@ -323,6 +331,7 @@ impl Context {
         }
     }
 
+    /// Returns the component index with the given name, if such a component exists
     pub fn lookup_comp_by_name(&self, name: &str) -> Option<ComponentIdx> {
         self.primary
             .components
@@ -330,6 +339,7 @@ impl Context {
             .find(|c| self.resolve_id(self.secondary[*c].name) == name)
     }
 
+    /// Returns the group index with the given name within the given component, if such a group exists
     pub fn lookup_group_by_name(
         &self,
         name: &str,
@@ -342,6 +352,7 @@ impl Context {
             .find(|x| self.resolve_id(self.primary[*x].name()) == name)
     }
 
+    /// Return the index of the component which defines the given group
     pub fn get_component_from_group(&self, group: GroupIdx) -> ComponentIdx {
         self.primary
             .components
@@ -398,6 +409,8 @@ impl Context {
         }
     }
 
+    /// Lookup the name of the given object. This is used for definitions. For
+    /// instances, see [`Environment::get_full_name`](crate::flatten::structures::environment::Environment::get_full_name)
     pub fn lookup_name<T: LookupName>(&self, id: T) -> &String {
         id.lookup_name(self)
     }
@@ -409,7 +422,10 @@ impl AsRef<Context> for &Context {
     }
 }
 
+/// A trait for objects which have a name associated with them in the context.
+/// This is used for definitions.
 pub trait LookupName {
+    /// Lookup the name of the object
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String;
 }
 

@@ -1,17 +1,20 @@
 use crate::flatten::flat_ir::prelude::AssignedValue;
 use crate::values::Value;
-use calyx_ir::{self as ir, Assignment, Id};
+use calyx_ir::Id;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
-// Utility type
+/// A type alias for a result with an [BoxedInterpreterError] as the error type
 pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
 
+/// A wrapper type for [InterpreterError]. This exists to allow a smaller return
+/// size for results since the error type is large.
 pub struct BoxedInterpreterError(Box<InterpreterError>);
 
 impl BoxedInterpreterError {
-    pub fn into_inner(&mut self) -> &mut InterpreterError {
+    /// Get a mutable reference to the inner error
+    pub fn inner_mut(&mut self) -> &mut InterpreterError {
         &mut self.0
     }
 }
@@ -51,6 +54,8 @@ where
     }
 }
 
+/// An enum representing the different types of errors that can occur during
+/// simulation and debugging
 #[derive(Error)]
 pub enum InterpreterError {
     /// The given debugger command is invalid/malformed
@@ -74,13 +79,13 @@ pub enum InterpreterError {
         #[from]
         pest_consume::Error<crate::debugger::source::metadata_parser::Rule>,
     ),
-    // Unable to parse metadata
+    /// Unable to parse metadata
     #[error(transparent)]
     NewMetadataParseError(
         #[from] pest_consume::Error<crate::debugger::source::new_parser::Rule>,
     ),
 
-    // Missing metadata
+    /// Metadata is unavailable
     #[error("missing metadata")]
     MissingMetaData,
 
@@ -100,20 +105,6 @@ pub enum InterpreterError {
     #[error("no main component")]
     MissingMainComponent,
 
-    /// Multiple assignments conflicting during interpretation
-    #[error(
-        "multiple assignments to one port: {parent_id}.{port_id}
-    Conflict between:
-     1. {a1}
-     2. {a2}"
-    )]
-    ConflictingAssignments {
-        port_id: Id,
-        parent_id: Id,
-        a1: String,
-        a2: String,
-    },
-
     #[error(
         "conflicting assigns
         1. {a1}
@@ -125,9 +116,7 @@ pub enum InterpreterError {
         a2: AssignedValue,
     },
 
-    #[error("unable to find component named \"{0}\"")]
-    UnknownComponent(String),
-
+    /// A currently defunct error type for cross branch conflicts
     #[error(
         "par assignments not disjoint: {parent_id}.{port_id}
     1. {v1}
@@ -139,14 +128,6 @@ pub enum InterpreterError {
         v1: Value,
         v2: Value,
     },
-    #[error("invalid internal seq state. This should never happen, please report it")]
-    InvalidSeqState,
-    #[error(
-        "invalid internal if state. This should never happen, please report it"
-    )]
-    InvalidIfState,
-    #[error("invalid internal while state. This should never happen, please report it")]
-    InvalidWhileState,
 
     #[error("{mem_dim} Memory given initialization data with invalid dimension.
     When flattened, expected {expected} entries, but the memory was supplied with {given} entries instead.
@@ -157,76 +138,47 @@ pub enum InterpreterError {
         given: usize,
     },
 
-    #[error("interpreter does not have an implementation of the \"{0}\" primitive. If the interpreter should have an implementation of this primitive please open a github issue or PR.")]
-    UnknownPrimitive(String),
-    #[error("program evaluated the truth value of a wire \"{}.{}\" which is not one bit. Wire is {} bits wide.", 0.0, 0.1, 1)]
-    InvalidBoolCast((Id, Id), u64),
-    #[error("the interpreter attempted to exit the group \"{0}\" before it finished. This should never happen, please report it.")]
-    InvalidGroupExitNamed(Id),
-    #[error("the interpreter attempted to exit a phantom group before it finished. This should never happen, please report it")]
-    InvalidGroupExitUnnamed,
-
     #[error("invalid memory access to memory {}. Given index ({}) but memory has dimension ({})", name, access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), dims.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
     InvalidMemoryAccess {
         access: Vec<u64>,
         dims: Vec<u64>,
         name: Id,
     },
-    #[error("Both read and write signals provided to the sequential memory.")]
-    SeqMemoryError,
 
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]
     OverflowError,
 
+    /// A wrapper for IO errors
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
+    /// The error for attempting to write `undef` values to a register or
+    /// memory. Contains the name of the register or memory as a string
     //TODO Griffin: Make this more descriptive
     #[error(
         "Attempted to write an undefined value to register or memory named \"{0}\""
     )]
     UndefinedWrite(String),
 
+    /// The error for attempting to write to an undefined memory address. This
+    /// is distinct from writing to an out of bounds address.
     //TODO Griffin: Make this more descriptive
     #[error(
         "Attempted to write an undefined memory address in memory named \"{0}\""
     )]
     UndefinedWriteAddr(String),
 
-    // TODO Griffin: Make this more descriptive
+    /// The error for attempting to read from an undefined memory address. This
+    /// is distinct from reading from an out of bounds address.
     #[error(
         "Attempted to read an undefined memory address from memory named \"{0}\""
     )]
     UndefinedReadAddr(String),
 
+    /// A wrapper for serialization errors
     #[error(transparent)]
     SerializationError(#[from] crate::serialization::SerializationError),
-}
-
-pub fn assignment_to_string(
-    assignment: &ir::Assignment<ir::Nothing>,
-) -> String {
-    let mut str = vec![];
-    ir::Printer::write_assignment(assignment, 0, &mut str)
-        .expect("Write Failed");
-    String::from_utf8(str).expect("Found invalid UTF-8")
-}
-
-impl InterpreterError {
-    pub fn conflicting_assignments(
-        port_id: Id,
-        parent_id: Id,
-        a1: &Assignment<ir::Nothing>,
-        a2: &Assignment<ir::Nothing>,
-    ) -> Self {
-        Self::ConflictingAssignments {
-            port_id,
-            parent_id,
-            a1: assignment_to_string(a1),
-            a2: assignment_to_string(a2),
-        }
-    }
 }
 
 // this is silly but needed to make the program print something sensible when returning
