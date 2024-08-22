@@ -1192,13 +1192,6 @@ impl Named for TopDownCompileControl {
                 ParseVal::OutStream(OutputFile::Null),
                 PassOpt::parse_outstream,
             ),
-            // AYAKA FIXME: write a better description
-            PassOpt::new(
-                "dump-component-cell-json",
-                "Write the component cell information to a JSON file",
-                ParseVal::OutStream(OutputFile::Null),
-                PassOpt::parse_outstream,
-            ),
             PassOpt::new(
                 "early-transitions",
                 "Experimental: Enable early transitions for group enables",
