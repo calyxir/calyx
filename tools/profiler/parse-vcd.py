@@ -17,11 +17,16 @@ class ProfilingInfo:
         self.tdcc_group = tdcc_group_name
 
     def __repr__ (self):
+        segments_str = ""
+        for segment in self.closed_segments:
+            if (segments_str != ""):
+                segments_str += ", "
+            segments_str += f"[{segment['start']}, {segment['end']}]"
         return (f"Group {self.name}:\n" +
         f"\tFSM name: {self.fsm_name}\n" +
         f"\tFSM state ids: {self.fsm_values}\n" +
         f"\tTotal cycles: {self.total_cycles}\n" +
-        f"\tSegments: {self.closed_segments}\n"
+        f"\tSegments: {segments_str}\n"
         )
 
     def is_active(self):
@@ -61,7 +66,7 @@ class ProfilingInfo:
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsms, single_enable_names, tdcc_group_names, groups_to_fsms, cells_to_components):
+    def __init__(self, fsms, single_enable_names, tdcc_group_names, fsm_group_maps, cells_to_components):
         super().__init__()
         self.fsms = fsms
         self.single_enable_names = single_enable_names
@@ -76,8 +81,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.main_go_on_time = None
         self.clock_id = None
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
-        for group in groups_to_fsms:
-            self.profiling_info[group] = ProfilingInfo(group, groups_to_fsms[group]["fsm"], groups_to_fsms[group]["ids"], groups_to_fsms[group]["tdcc-group-name"])
+        for group in fsm_group_maps:
+            self.profiling_info[group] = ProfilingInfo(group, fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
         for single_enable_group in single_enable_names:
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
@@ -150,14 +155,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     group = "_".join(signal_name.split("_")[0:-1])
                     self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
                 elif "fsm" in signal_name:
-                    # hack: extract the prefix of signal_name to use for next_group
-                    prefix = ".".join(signal_name.split(".")[:-1])
-                    next_group = prefix + "." + self.fsms[signal_name][signal_new_value]
-                    
+                    next_group = self.fsms[signal_name][signal_new_value]                    
                     tdcc_group_values = self.tdcc_group_to_values[self.profiling_info[next_group].tdcc_group]
                     # if the FSM value changed, then we must end the previous group (regardless of whether we can start the next group)
                     if signal_new_value != fsm_curr_value and fsm_curr_value != -1:
-                        prev_group = prefix + "." + self.fsms[signal_name][fsm_curr_value]
+                        prev_group = self.fsms[signal_name][fsm_curr_value]
                         self.profiling_info[prev_group].end_current_segment(self.clock_cycle_acc)
                     # if the FSM value didn't change but the TDCC group just got enabled, then we must start the next group
                     if signal_new_value == fsm_curr_value and (tdcc_group_values[-1] == 1 and (len(tdcc_group_values) == 1 or tdcc_group_values[-2] == 0)):
@@ -167,64 +169,71 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 # Update internal signal value
                 self.signal_to_curr_value[signal_name] = signal_new_value                
 
-# Not sure if I need this, but generating a list of all of the components to potential cell names
-def make_mappings(prefix, curr_component, cells_to_components, mapping):
-    prefix = prefix + "." + curr_component
+# Generates a list of all of the components to potential cell names
+# prefix is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.TOP.main")
+# The initial value of curr_component should be the top level/main component
+def build_components_to_cells(prefix, curr_component, cells_to_components, components_to_cells):
+    prefix += f".{curr_component}"
     for (cell, cell_component) in cells_to_components[curr_component].items():
-        if cell_component not in mapping:
-            mapping[cell_component] = [prefix + "." + cell]
+        if cell_component not in components_to_cells:
+            components_to_cells[cell_component] = [f"{prefix}.{cell}"]
         else:
-            mapping[cell_component].append(prefix + "." + cell)
-        make_mappings(prefix, cell_component, cells_to_components, mapping)
+            components_to_cells[cell_component].append(f"{prefix}.{cell}")
+        build_components_to_cells(prefix, cell_component, cells_to_components, components_to_cells)
 
-def read_component_cell_names_json(json_file): # TODO: the keys in the json may change
-    component_cell_infos = json.load(open(json_file))
+# Reads json generated by component-cells backend to produce a mapping from all components
+# to cell names they could have.
+def read_component_cell_names_json(json_file):
+    cell_json = json.load(open(json_file))
     # For each component, contains a map from each cell name to its corresponding component
     # component name --> { cell name --> component name}
-    cells_to_components = {} 
-    for item in component_cell_infos:
+    cells_to_components = {}
+    main_component = ""
+    for curr_component_entry in cell_json:
+        if curr_component_entry["is_main_component"]:
+            main_component = curr_component_entry["component"]
         cell_map = {} # mapping cell names to component names for all cells in the current component
-        for cell_info in item["cell_info"]:
-            cell_map[cell_info["name"]] = cell_info["component"]
-        cells_to_components[item["component"]] = cell_map
-    # FIXME: assuming for now that "TOP.TOP.main" is the toplevel component. Need to fix this
-    mapping = {"main" : ["TOP.TOP.main"]} # come up with a better name for this
-    make_mappings("TOP.TOP", "main", cells_to_components, mapping)
-    return mapping
+        for cell_info in curr_component_entry["cell_info"]:
+            cell_map[cell_info["cell_name"]] = cell_info["component_name"]
+        cells_to_components[curr_component_entry["component"]] = cell_map
+    components_to_cells = {main_component : [f"TOP.TOP.{main_component}"]} # come up with a better name for this
+    build_components_to_cells("TOP.TOP", main_component, cells_to_components, components_to_cells)
+    return components_to_cells
 
+# Reads json generated by TDCC (via dump-fsm-json option) to produce 
 def remap_tdcc_json(json_file, components_to_cells):
     profiling_infos = json.load(open(json_file))
-    single_enable_names = set()
-    tdcc_group_names = set()
-    groups_to_fsms = {}
+    single_enable_names = set() # groups that aren't managed by FSMs
+    tdcc_group_names = set() # TDCC-generated groups that manage control flow using FSMs
+    fsm_group_maps = {} # fsm-managed groups info (fsm register, TDCC group that manages fsm, id of group within fsm)
     fsms = {} # Remapping of JSON data for easy access
     for profiling_info in profiling_infos:
         if "Fsm" in profiling_info:
             fsm = profiling_info["Fsm"]
-            # create entries for all possibilities of cells
+            # create entries for all possible cells of component
             for cell in components_to_cells[fsm["component"]]:
                 fsm_name = cell + "." + fsm["fsm"]
                 fsms[fsm_name] = {}
                 for state in fsm["states"]:
-                    fsms[fsm_name][state["id"]] = state["group"]
                     group_name = cell + "." + state["group"]
+                    fsms[fsm_name][state["id"]] = group_name
                     tdcc_group = cell + "." + fsm["group"]
-                    if group_name not in groups_to_fsms:
-                        groups_to_fsms[group_name] = {"fsm": fsm_name, "tdcc-group-name": tdcc_group, "ids": [state["id"]]}
-                        tdcc_group_names.add(tdcc_group) # Hack: Keep track of the TDCC group for use later
+                    if group_name not in fsm_group_maps:
+                        fsm_group_maps[group_name] = {"fsm": fsm_name, "tdcc-group-name": tdcc_group, "ids": [state["id"]]}
+                        tdcc_group_names.add(tdcc_group) # Keep track of the TDCC group to figure out when first group starts
                     else:     
-                        groups_to_fsms[group_name]["ids"].append(state["id"])  
+                        fsm_group_maps[group_name]["ids"].append(state["id"])  
         else:
             for cell in components_to_cells[profiling_info["SingleEnable"]["component"]]: # get all possibilities of cells
                 single_enable_names.add(cell + "." + profiling_info["SingleEnable"]["group"])
 
-    return fsms, single_enable_names, tdcc_group_names, groups_to_fsms
+    return fsms, single_enable_names, tdcc_group_names, fsm_group_maps
 
 
 def main(vcd_filename, groups_json_file, cells_json_file):
     components_to_cells = read_component_cell_names_json(cells_json_file)
-    fsms, single_enable_names, tdcc_group_names, groups_to_fsms = remap_tdcc_json(groups_json_file, components_to_cells)
-    converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, groups_to_fsms, components_to_cells)
+    fsms, single_enable_names, tdcc_group_names, fsm_group_maps = remap_tdcc_json(groups_json_file, components_to_cells)
+    converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, fsm_group_maps, components_to_cells)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
     print("=====SUMMARY=====")
@@ -249,4 +258,6 @@ if __name__ == "__main__":
             "CELLS_JSON"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
+        print("TDCC_JSON: Run Calyx with `tdcc:dump-fsm-json` option")
+        print("CELLS_JSON: Run Calyx with `component-cells` backend")
         sys.exit(-1)

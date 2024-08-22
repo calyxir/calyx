@@ -65,9 +65,9 @@ struct ComponentInfo {
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct ComponentCellInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
-    pub name: Id,
+    pub cell_name: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
-    pub component: Id,
+    pub component_name: Id,
 }
 
 /// Accumulates a set of components to the cells that they contain
@@ -89,8 +89,8 @@ fn gen_component_info(
         let cell_ref = cell.borrow();
         if let ir::CellType::Component { name } = cell_ref.prototype {
             curr_comp_info.cell_info.push(ComponentCellInfo {
-                name: cell_ref.name(),
-                component: name,
+                cell_name: cell_ref.name(),
+                component_name: name,
             });
             let component = ctx
                 .components
