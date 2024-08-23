@@ -35,7 +35,7 @@ echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"
 (
     cd ${CALYX_DIR}
     set -o xtrace
-    cargo run -- ${INPUT_FILE} -p no-opt -b component-cells -o ${CELLS_JSON}
+    cargo run --manifest-path tools/component_cells/Cargo.toml ${INPUT_FILE} -o ${CELLS_JSON}
 ) &> ${LOGS_DIR}/gol-cells
 
 # Run simuation to get VCD
