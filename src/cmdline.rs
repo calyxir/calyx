@@ -4,8 +4,8 @@ use argh::FromArgs;
 use calyx_backend::SexpBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
-    Backend, BackendOpt, ComponentCellsBackend, FirrtlBackend, MlirBackend,
-    PrimitiveUsesBackend, ResourcesBackend, VerilogBackend,
+    Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
+    ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -177,10 +177,6 @@ impl Opts {
             }
             BackendOpt::PrimitiveUses => {
                 let backend = PrimitiveUsesBackend;
-                backend.run(context, self.output)
-            }
-            BackendOpt::ComponentCells => {
-                let backend = ComponentCellsBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {

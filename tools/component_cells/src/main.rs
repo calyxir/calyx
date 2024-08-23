@@ -1,50 +1,47 @@
-//! Component cells backend for the Calyx compiler.
-//!
-//! Transforms an [`ir::Context`](crate::ir::Context) into a JSON file that
-//! records all of the component (non-primitive) cells in a program.
-//! This is used for multi-component program profiling.
-//! Usage: -b component_cells [-o <OUTPUT_FILE>]
-//! Adapted from resources.rs.
-
-use std::{collections::HashSet, io};
-
-use crate::traits::Backend;
+use argh::FromArgs;
+use calyx_frontend as frontend;
 use calyx_ir::{self as ir, Id};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
+use std::path::{Path, PathBuf};
+use std::{collections::HashSet, io};
+
+#[derive(FromArgs)]
+/// Path for library and path for file to read from
+struct Args {
+    /// file path to read data from
+    #[argh(positional, from_str_fn(read_path))]
+    file_path: Option<PathBuf>,
+
+    /// library path
+    #[argh(option, short = 'l', default = "Path::new(\".\").into()")]
+    pub lib_path: PathBuf,
+
+    /// output file
+    #[argh(option, short = 'o', default = "OutputFile::Stdout")]
+    pub output: OutputFile,
+}
+
+fn read_path(path: &str) -> Result<PathBuf, String> {
+    Ok(Path::new(path).into())
+}
 
 #[derive(Default)]
 pub struct ComponentCellsBackend;
 
-impl Backend for ComponentCellsBackend {
-    fn name(&self) -> &'static str {
-        "component_cells"
-    }
+fn main() -> CalyxResult<()> {
+    let p: Args = argh::from_env();
 
-    /// OK to run this analysis on any Calyx program
-    fn validate(_ctx: &ir::Context) -> CalyxResult<()> {
-        Ok(())
-    }
+    let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
 
-    /// Don't need to take care of this for this pass
-    fn link_externs(
-        _ctx: &ir::Context,
-        _file: &mut OutputFile,
-    ) -> CalyxResult<()> {
-        Ok(())
-    }
+    let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
 
-    fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let main_comp = ctx.entrypoint();
+    let main_comp = ctx.entrypoint();
 
-        let mut component_info: HashSet<ComponentInfo> = HashSet::new();
-
-        gen_component_info(ctx, main_comp, true, &mut component_info);
-
-        write_json(component_info.clone(), file)?;
-
-        Ok(())
-    }
+    let mut component_info: HashSet<ComponentInfo> = HashSet::new();
+    gen_component_info(&ctx, main_comp, true, &mut component_info);
+    write_json(component_info.clone(), p.output)?;
+    Ok(())
 }
 
 fn id_serialize_passthrough<S>(id: &Id, ser: S) -> Result<S::Ok, S::Error>
@@ -106,7 +103,7 @@ fn gen_component_info(
 /// Write the collected set of component information to a JSON file.
 fn write_json(
     component_info: HashSet<ComponentInfo>,
-    file: &mut OutputFile,
+    file: OutputFile,
 ) -> Result<(), io::Error> {
     let created_vec: Vec<ComponentInfo> = component_info.into_iter().collect();
     serde_json::to_writer_pretty(file.get_write(), &created_vec)?;

@@ -26,6 +26,7 @@ class ProfilingInfo:
         f"\tFSM name: {self.fsm_name}\n" +
         f"\tFSM state ids: {self.fsm_values}\n" +
         f"\tTotal cycles: {self.total_cycles}\n" +
+        f"\t# of times active: {len(self.closed_segments)}\n" +
         f"\tSegments: {segments_str}\n"
         )
 
