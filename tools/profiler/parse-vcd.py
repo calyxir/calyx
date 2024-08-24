@@ -168,7 +168,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             self.profiling_info[curr_group].end_current_segment(self.clock_cycle_acc)
                     if signal_new_value in self.fsms[signal_name]:
                         next_group = self.fsms[signal_name][signal_new_value]
-                        tdcc_group_active_cycle = self.tdcc_group_active_cycle[self.profiling_info[curr_group].tdcc_group]
+                        tdcc_group_active_cycle = self.tdcc_group_active_cycle[self.profiling_info[next_group].tdcc_group]
                         if tdcc_group_active_cycle == -1: # If the TDCC group is not active, then no segments should start
                             continue
                         # if the FSM value didn't change but the TDCC group just got enabled, then we must start the next group
