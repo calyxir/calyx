@@ -288,7 +288,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         standalone_testbench: bool,
     ) -> EmitResult {
         let out_dir = "verilator-out";
-        let sim_bin = format!("{}/VTOP", out_dir);
+        let sim_bin = format!("{}/Vtoplevel", out_dir);
         if standalone_testbench {
             e.build_cmd(
                 &[&sim_bin],
