@@ -57,7 +57,7 @@ impl UpdateStatus {
     }
 
     #[inline]
-    /// Returns `true` if the update status is [`Changed`].
+    /// Returns `true` if the update status is [`Changed`][].
     ///
     /// [`Changed`]: UpdateStatus::Changed
     #[must_use]

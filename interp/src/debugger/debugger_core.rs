@@ -49,14 +49,19 @@ impl ProgramStatus {
     }
 }
 
-/// An opaque wrapper type for internal debugging information
+/// An opaque wrapper type for internal debugging information. This can only be
+/// obtained by calling [Debugger::main_loop] and receiving a [DebuggerReturnStatus::Restart] return
+/// value.
 pub struct DebuggerInfo {
     ctx: DebuggingContext,
     input_stream: Input,
 }
-
+/// An enum indicating the non-error return status of the debugger
 pub enum DebuggerReturnStatus {
+    /// Debugger exited with a restart command and should be reinitialized with
+    /// the returned information. Comes from [Command::Restart].
     Restart(Box<DebuggerInfo>),
+    /// Debugger exited normally with an exit command. Comes from [Command::Exit].
     Exit,
 }
 
@@ -71,6 +76,8 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
     _source_map: Option<SourceMap>,
 }
 
+/// A type alias for the debugger using an Rc of the context. Use this in cases
+/// where the use of lifetimes would be a hinderance.
 pub type OwnedDebugger = Debugger<Rc<Context>>;
 
 impl OwnedDebugger {
@@ -93,6 +100,7 @@ impl OwnedDebugger {
 }
 
 impl<C: AsRef<Context> + Clone> Debugger<C> {
+    /// Construct a new debugger instance from the target calyx file
     pub fn new(
         program_context: C,
         data_file: &Option<std::path::PathBuf>,
@@ -214,6 +222,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     // so on and so forth
 
+    /// The main loop of the debugger. This function is the entry point for the
+    /// debugger. It takes an optional [DebuggerInfo] struct which contains the
+    /// input stream and the debugging context which allows the debugger to
+    /// retain command history and other state after a restart. If not provided,
+    /// a fresh context and input stream will be used instead.
     pub fn main_loop(
         mut self,
         info: Option<DebuggerInfo>,

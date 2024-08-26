@@ -25,17 +25,17 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     # If it is 1, we push `value` to the queue.
     value = fifo.input("value", val_width)  # The value to push to the queue
 
-    max_queue_len = 2**queue_len_factor
+    max_queue_len = 2 ** queue_len_factor
     mem = fifo.seq_mem_d1("mem", val_width, max_queue_len, queue_len_factor)
     write = fifo.reg(queue_len_factor)  # The next address to write to
     read = fifo.reg(queue_len_factor)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size 2^queue_len_factor.
 
+    # If the user wants to pop, we will write the value to `ans`.
     ans = fifo.reg(val_width, "ans", is_ref=True)
-    # If the user wants to pop or peek, we will write the value to `ans`.
-    err = fifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
+    err = fifo.reg(1, "err", is_ref=True)
     len = fifo.reg(bits_needed(max_queue_len))  # The active length of the FIFO.
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
@@ -47,7 +47,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
         raise_err,
         [
             # `pop` has been called, and the queue is not empty.
-            # Write the answer to the answer register, increment `read`, and decrement `len`.
+            # Write answer to answer register, increment `read`, decrement `len`.
             fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem_pop"),
             fifo.incr(read),
             fifo.decr(len),
@@ -74,7 +74,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
         cmd,
         {
             0: pop_logic,
-            1: push_logic
+            1: push_logic,
         },
     )
 

@@ -19,14 +19,17 @@ def insert_swap(prog, name, width, size, idx_w):
 
     val_a = comp.reg(width)
     val_b = comp.reg(width)
-
     load_a_a = comp.mem_load_d1(mem, a, val_a, "load_a")  # val_a := mem[a]
     load_b_b = comp.mem_load_d1(mem, b, val_b, "load_b")  # val_b := mem[b]
-
     store_a_b = comp.mem_store_d1(mem, a, val_b.out, "store_a")  # mem[a] := val_b
     store_b_a = comp.mem_store_d1(mem, b, val_a.out, "store_b")  # mem[b] := val_a
 
-    comp.control += [load_a_a, load_b_b, store_a_b, store_b_a]
+    comp.control += [
+        load_a_a,
+        load_b_b,
+        store_a_b,
+        store_b_a,
+    ]
 
     return comp
 
@@ -49,7 +52,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
 
     comp = prog.component(name)
 
-    max_queue_size = 2**queue_size_factor
+    max_queue_size = 2 ** queue_size_factor
     addr_size = queue_size_factor
 
     cmd = comp.input("cmd", 1)
@@ -60,13 +63,18 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     rank = comp.input("rank", rnk_w)
     value = comp.input("value", val_w)
 
-    swap = comp.cell("swap", insert_swap(prog, "swap", rnk_w + val_w, max_queue_size, addr_size))
+    swap = comp.cell(
+        "swap", insert_swap(prog, "swap", rnk_w + val_w, max_queue_size, addr_size)
+    )
     tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", rnk_w, val_w))
-    untuplify = comp.cell("untuplify", insert_untuplify(prog, "untuplify", rnk_w, val_w))
+    untuplify = comp.cell(
+        "untuplify", insert_untuplify(prog, "untuplify", rnk_w, val_w)
+    )
 
     mem = comp.seq_mem_d1("mem", 96, max_queue_size, addr_size)
     # The memory to store the heap, represented as an array.
-    # Each cell of the memory is 96 bits wide: a `rnk_w`-bit rank and a `val_w`-bit value.
+    # Each cell of the memory is 96 bits wide:
+    # a `rnk_w`-bit rank and a `val_w`-bit value.
 
     ans = comp.reg(val_w, "ans", is_ref=True)
     # If the user wants to pop, we will write the value to `ans`.
@@ -100,24 +108,17 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
 
     # current_idx := 0
     set_idx_zero = comp.reg_store(current_idx, 0, "set_idx_zero")
-
     # current_idx := size
     set_idx_size = comp.reg_store(current_idx, size.out, "set_idx_size")
-
     # current_idx := child_l_idx
     set_idx_child_l = comp.reg_store(current_idx, child_l_idx.out, "set_idx_child_l")
-
     # current_idx := child_r_idx
     set_idx_child_r = comp.reg_store(current_idx, child_r_idx.out, "set_idx_child_r")
-
     # current_idx := parent_idx
     set_idx_parent = comp.reg_store(current_idx, parent_idx.out, "set_idx_parent")
 
-    # err := 1
-    raise_err = comp.reg_store(err, 1, "raise_err")
-
-    # err := 0
-    lower_err = comp.reg_store(err, 0, "lower_err")
+    raise_err = comp.reg_store(err, 1, "raise_err")  # err := 1
+    lower_err = comp.reg_store(err, 0, "lower_err")  # err := 0
 
     sub = comp.sub(addr_size)
     rsh = comp.rsh(addr_size)
@@ -171,7 +172,6 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
             out.write_en = mem.done @ cb.HI
             out.in_ = mem.done @ untuplify.fst
             extract_fst.done = out.done
-
         return extract_fst
 
     # (_, out) := mem[indx]
@@ -183,7 +183,6 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
             out.write_en = mem.done @ cb.HI
             out.in_ = mem.done @ untuplify.snd
             extract_snd.done = out.done
-
         return extract_snd
 
     extract_current_rank = extract_fst(
@@ -294,8 +293,8 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         while_or.left = and_l_2.out
         while_or.right = and_r_2.out
 
-    pop = [
-        extract_snd("peek", 0, ans),
+    pop_logic = [
+        extract_snd("read_root", 0, ans),
         comp.decr(size),
         set_idx_zero,
         cb.invoke(swap, in_a=current_idx.out, in_b=size.out, ref_mem=mem),
@@ -335,7 +334,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         ),
     ]
 
-    push = [
+    push_logic = [
         set_idx_size,
         store_rank_and_value,
         comp.incr(size),
@@ -359,19 +358,20 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
         cb.par(
             cb.if_with(
                 cmd_eq_0,
-                cb.if_(is_full.out, 
-                       [pop, turn_full_off], 
-                       cb.if_with(size_eq_0, raise_err, pop)
-                )
+                cb.if_(
+                    is_full.out,
+                    [pop_logic, turn_full_off],
+                    cb.if_with(size_eq_0, raise_err, pop_logic),
+                ),
             ),
             cb.if_with(
-                cmd_eq_1, 
+                cmd_eq_1,
                 [
-                    cb.if_(is_full.out, raise_err, push),
-                    cb.if_with(size_eq_0, turn_full_on)
-                ]
-            )
-        )
+                    cb.if_(is_full.out, raise_err, push_logic),
+                    cb.if_with(size_eq_0, turn_full_on),
+                ],
+            ),
+        ),
     ]
 
     return comp

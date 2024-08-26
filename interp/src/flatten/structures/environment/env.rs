@@ -256,7 +256,7 @@ impl PinnedPorts {
 #[derive(Debug)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
-    pub(crate) ports: PortMap,
+    ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
     pub(super) cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
@@ -278,6 +278,9 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
+    /// A utility function to get the context from the environment. This is not
+    /// suitable for cases in which mutation is required. In such cases, the
+    /// context should be accessed directly.
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
     }
@@ -988,7 +991,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         cell: GlobalCellIdx,
         mut err: BoxedInterpreterError,
     ) -> BoxedInterpreterError {
-        let mut_err = err.into_inner();
+        let mut_err = err.inner_mut();
 
         match mut_err {
             InterpreterError::UndefinedWrite(s)

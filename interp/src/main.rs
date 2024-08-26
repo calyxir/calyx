@@ -1,3 +1,5 @@
+//! Cider: The Calyx Interpreter and Debugger.
+
 use argh::FromArgs;
 
 use calyx_utils::OutputFile;
