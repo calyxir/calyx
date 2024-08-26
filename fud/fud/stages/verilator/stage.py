@@ -167,7 +167,7 @@ class VerilatorStage(Stage):
                 testbench_sv,
                 "--binary",
                 "--top-module",
-                "TOP",  # The wrapper module name from `tb.sv`.
+                "toplevel",  # The wrapper module name from `tb.sv`.
                 "--Mdir",
                 "{tmpdir_name}",
                 "-fno-inline",
@@ -192,7 +192,7 @@ class VerilatorStage(Stage):
             cycle_limit = config["stages", self.name, "cycle_limit"]
             return shell(
                 [
-                    f"{tmpdir.name}/VTOP",
+                    f"{tmpdir.name}/Vtoplevel",
                     f"+DATA={tmpdir.name}",
                     f"+CYCLE_LIMIT={str(cycle_limit)}",
                     f"+OUT={tmpdir.name}/output.vcd",
