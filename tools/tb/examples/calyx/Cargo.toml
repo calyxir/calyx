@@ -19,3 +19,4 @@ path = "test.rs"
 calyx-ffi = { path = "../../../calyx-ffi" }
 interp = { path = "../../../../interp" }
 calyx-ir.workspace = true
+rand = "0.8.5"

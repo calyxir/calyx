@@ -45,7 +45,6 @@ impl CiderFFIBackend {
 
     pub fn go(&mut self) {
         self.simulator.run_program().expect("failed to run program");
-        panic!();
         self.step(); // since griffin said so
     }
 }

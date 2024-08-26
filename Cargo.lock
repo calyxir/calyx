@@ -427,6 +427,7 @@ dependencies = [
  "calyx-ffi",
  "calyx-ir",
  "interp",
+ "rand 0.8.5",
 ]
 
 [[package]]

@@ -18,26 +18,50 @@ declare_calyx_interface! {
 )]
 struct Adder;
 
+#[calyx_ffi(
+    src = "/Users/ethan/Documents/GitHub/calyx/tools/tb/examples/calyx/subber.futil",
+    comp = "main",
+    backend = cider_ffi_backend,
+    derive = [
+        In2Out1(lhs, rhs) -> (result)
+    ]
+)]
+struct Subber;
+
 #[cfg(test)]
 #[calyx_ffi_tests]
 mod tests {
     use super::*;
+    use rand::Rng;
+    use std::mem;
 
-    fn add<I: In2Out1>(adder: &mut I, lhs: u64, rhs: u64) -> u64 {
-        *adder.lhs() = lhs;
-        *adder.rhs() = rhs;
-        adder.go();
-        adder.result()
+    // inv: the left argument will always be greater than the right
+    fn fuzz_in2out1<I: In2Out1, F: Fn(u64, u64) -> u64>(
+        comp: &mut I,
+        oracle: &F,
+    ) {
+        comp.reset();
+        let mut rng = rand::thread_rng();
+        for (mut x, mut y) in (0..100).map(|_| (rng.gen(), rng.gen())) {
+            if y > x {
+                mem::swap(&mut x, &mut y);
+            }
+            *comp.lhs() = x;
+            *comp.rhs() = y;
+            comp.go();
+            assert_eq!(oracle(x, y), comp.result(), "testing f({}, {})", x, y);
+        }
     }
 
     #[calyx_ffi_test]
-    fn test(adder: &mut Adder) {
+    fn test_add(adder: &mut Adder) {
         println!("testing adder");
-        adder.reset();
-        for i in 0..10 {
-            for j in 0..10 {
-                assert!(add(adder, i, j) == i + j);
-            }
-        }
+        fuzz_in2out1(adder, &|x, y| x.wrapping_add(y))
+    }
+
+    #[calyx_ffi_test]
+    fn test_sub(subber: &mut Subber) {
+        println!("testing subber");
+        fuzz_in2out1(subber, &|x, y| x - y)
     }
 }
