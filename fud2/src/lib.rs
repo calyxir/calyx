@@ -272,11 +272,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile-standalone-tb",
-            "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
         )?;
         e.rule(
             "verilator-compile-custom-tb",
-            "$verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
@@ -288,7 +288,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         standalone_testbench: bool,
     ) -> EmitResult {
         let out_dir = "verilator-out";
-        let sim_bin = format!("{}/VTOP", out_dir);
+        let sim_bin = format!("{}/Vtoplevel", out_dir);
         if standalone_testbench {
             e.build_cmd(
                 &[&sim_bin],
