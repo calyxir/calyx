@@ -262,7 +262,6 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
     print("=====SUMMARY=====")
     print()
     groups_to_emit = list(filter(lambda group : not group.name.startswith("tdcc") and not group.name.endswith("END"), converter.profiling_info.values()))
-    csv_keys = ["name", "total-cycles", "times-active", "avg"]
     csv_acc = []
     for group_info in groups_to_emit:
         csv_acc.append(group_info.emit_csv_data())
@@ -274,6 +273,8 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
     # emitting a CSV file for easier eyeballing
     print(f"Writing summary to {out_csv}")
     with open(out_csv, 'w') as csvfile:
+        csv_keys = ["name", "total-cycles", "times-active", "avg"]
+        csv_acc.sort(key=lambda x : x["total-cycles"], reverse=True)
         writer = csv.DictWriter(csvfile, csv_keys)
         writer.writeheader()
         writer.writerows(csv_acc)
