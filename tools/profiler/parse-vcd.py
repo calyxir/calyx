@@ -130,7 +130,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.signal_to_signal_id[f"{single_enable_group}_go"] = id
                 if name.startswith(f"{single_enable_group}_done.out["):
                     self.signal_to_signal_id[f"{single_enable_group}_done"] = id
-        print(self.tdcc_group_to_go_id)
 
     def value(
         self,
@@ -262,6 +261,7 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
     print("=====SUMMARY=====")
     print()
     groups_to_emit = list(filter(lambda group : not group.name.startswith("tdcc") and not group.name.endswith("END"), converter.profiling_info.values()))
+    groups_to_emit.sort(key=lambda x : x.total_cycles, reverse=True)
     csv_acc = []
     for group_info in groups_to_emit:
         csv_acc.append(group_info.emit_csv_data())
@@ -274,7 +274,7 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
     print(f"Writing summary to {out_csv}")
     with open(out_csv, 'w') as csvfile:
         csv_keys = ["name", "total-cycles", "times-active", "avg"]
-        csv_acc.sort(key=lambda x : x["total-cycles"], reverse=True)
+        # csv_acc.sort(key=lambda x : x["total-cycles"], reverse=True)
         writer = csv.DictWriter(csvfile, csv_keys)
         writer.writeheader()
         writer.writerows(csv_acc)
