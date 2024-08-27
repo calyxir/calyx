@@ -1,0 +1,3 @@
+name,total-cycles,times-active,avg
+TOP.toplevel.main.write,2,1,2.0
+TOTAL,2,-,-

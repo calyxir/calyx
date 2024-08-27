@@ -63,3 +63,6 @@ temp/
 
 # for running a venv
 .venv
+
+# emacs
+*~
