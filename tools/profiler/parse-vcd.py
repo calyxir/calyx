@@ -22,7 +22,7 @@ class ProfilingInfo:
         for segment in self.closed_segments:
             if (segments_str != ""):
                 segments_str += ", "
-            segments_str += f"[{segment['start']}, {segment['end']}]"
+            segments_str += f"[{segment['start']}, {segment['end']})"
         return (f"Group {self.name}:\n" +
         f"\tFSM name: {self.fsm_name}\n" +
         f"\tFSM state ids: {self.fsm_values}\n" +
