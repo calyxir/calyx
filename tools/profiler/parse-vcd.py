@@ -261,6 +261,7 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
     print("=====SUMMARY=====")
     print()
     groups_to_emit = list(filter(lambda group : not group.name.startswith("tdcc") and not group.name.endswith("END"), converter.profiling_info.values()))
+    groups_to_emit.sort(key=lambda x : x.name) # to preserve stability
     groups_to_emit.sort(key=lambda x : x.total_cycles, reverse=True)
     csv_acc = []
     for group_info in groups_to_emit:
