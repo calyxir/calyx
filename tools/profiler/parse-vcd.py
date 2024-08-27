@@ -274,7 +274,7 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
     print(f"Writing summary to {out_csv}")
     with open(out_csv, 'w') as csvfile:
         csv_keys = ["name", "total-cycles", "times-active", "avg"]
-        # csv_acc.sort(key=lambda x : x["total-cycles"], reverse=True)
+        csv_acc.append({ "name": "TOTAL", "total-cycles": converter.clock_cycle_acc, "times-active": "-", "avg": "-"})
         writer = csv.DictWriter(csvfile, csv_keys)
         writer.writeheader()
         writer.writerows(csv_acc)
