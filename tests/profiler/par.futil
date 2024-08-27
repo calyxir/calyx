@@ -1,0 +1,41 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    @external(1) a = comb_mem_d1(32, 1, 1);
+    @external(1) b = comb_mem_d1(32, 1, 1);
+    @external(1) c = comb_mem_d1(32, 1, 1);
+  }
+
+  wires {
+    group wr_a<"static"=1> {
+      a.addr0 = 1'b0;
+      a.write_en = 1'b1;
+      a.write_data = 32'd1;
+      wr_a[done] = a.done;
+    }
+
+    group wr_b<"static"=1> {
+      b.addr0 = 1'b0;
+      b.write_en = 1'b1;
+      b.write_data = 32'd1;
+      wr_b[done] = b.done;
+    }
+
+    group wr_c<"static"=1> {
+      c.addr0 = 1'b0;
+      c.write_en = 1'b1;
+      c.write_data = 32'd1;
+      wr_c[done] = c.done;
+    }
+  }
+
+  control {
+    par {
+      wr_a;
+      wr_b;
+      wr_c;
+    }
+  }
+}

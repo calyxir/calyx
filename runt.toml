@@ -687,3 +687,12 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   rm -f results.xml
 
 """
+
+### Profiling tests
+[[tests]]
+name = "profiling"
+paths = ["tests/profiler/*.futil"]
+cmd = """
+bash tools/profiler/get-profile-counts-info.sh {} {}.data summary.csv &> /dev/null
+cat summary.csv
+"""
