@@ -273,12 +273,18 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
         print(group_info)
     # emitting a CSV file for easier eyeballing
     print(f"Writing summary to {out_csv}")
-    with open(out_csv, 'w') as csvfile:
-        csv_keys = ["name", "total-cycles", "times-active", "avg"]
-        csv_acc.append({ "name": "TOTAL", "total-cycles": converter.clock_cycle_acc, "times-active": "-", "avg": "-"})
-        writer = csv.DictWriter(csvfile, csv_keys, lineterminator="\n")
+    csv_keys = ["name", "total-cycles", "times-active", "avg"]
+    csv_acc.append({ "name": "TOTAL", "total-cycles": converter.clock_cycle_acc, "times-active": "-", "avg": "-"})
+    # FIXME: resolve code clone
+    if (out_csv == "STDOUT"):
+        writer = csv.DictWriter(sys.stdout, csv_keys, lineterminator="\n")
         writer.writeheader()
         writer.writerows(csv_acc)
+    else:
+        with open(out_csv, 'w') as csvfile:
+            writer = csv.DictWriter(csvfile, csv_keys, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(csv_acc)
 
 if __name__ == "__main__":
     if len(sys.argv) > 4:
@@ -297,4 +303,5 @@ if __name__ == "__main__":
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         print("TDCC_JSON: Run Calyx with `tdcc:dump-fsm-json` option")
         print("CELLS_JSON: Run Calyx with `component-cells` backend")
+        print("If SUMMARY_OUT_CSV is STDOUT, then summary CSV will be printed to stdout")
         sys.exit(-1)
