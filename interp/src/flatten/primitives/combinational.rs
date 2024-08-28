@@ -123,7 +123,7 @@ comb_primitive!(StdSub(left [0], right [1]) -> (out [2]) {
     // TODO griffin: the old approach is not possible with the way primitives
     // work.
     // this is dubious
-    let result = Value::from(left.as_signed() - right.as_signed(), left.width());
+    let result = Value::from(left.as_unsigned() - right.as_unsigned(), left.width());
     Ok(Some(result))
 });
 
