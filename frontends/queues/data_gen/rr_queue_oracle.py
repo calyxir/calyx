@@ -1,8 +1,8 @@
 # For usage, see gen_queue_data_expect.sh
 
 import sys
-import oracles.queues as queues
-import oracles.util as util
+import queues 
+import util 
 
 
 if __name__ == "__main__":
