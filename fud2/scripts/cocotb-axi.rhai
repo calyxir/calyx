@@ -11,9 +11,6 @@ fn cocotb_setup(e) {
     let data_path = e.external_path(data_name);
     e.var_("sim_data", data_path);
 
-    // Cocotb is wants files relative to the location of the makefile.
-    // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
-    e.rule("copy", "cp $in $out");
     e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out");
     // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
     e.rule("cleanup-cocotb", "sed -n '/Output:/,/make\\[1\\]/{/Output:/d;/make\\[1\\]/d;p}' $in > $out");
@@ -25,6 +22,8 @@ op(
     c::verilog_noverify,
     cocotb_axi,
     |e, input, output| {
+        // Cocotb wants files relative to the location of the makefile.
+        // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
         e.build_cmd(
             ["Makefile"],
             "copy",

@@ -1,3 +1,6 @@
+# NOTE(nathanielnrn): As of August 2024 this gen_xo.tcl should not be modified and should eventually be deleted, as
+# fud2 contains its own version in the `rsrc` directory.
+
 if { $::argc < 1 } {
     #puts "ERROR: Program \"$::argv0\" requires 1 argument!\n"
     puts "ERROR: Executable name unspecified\n"

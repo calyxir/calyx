@@ -66,7 +66,7 @@ def buf_to_mem(fmt, buf):
         raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
 
 
-def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
+def run(xclbin: Path, data: Mapping[str, Any], calyx_wrapper: bool) -> Dict[str, Any]:
     """Takes in a json data output and runs pynq using the data provided
     returns a dictionary that can be converted into json
 
@@ -86,12 +86,15 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
         buffer.sync_to_device()
 
     # Run the kernel.
-    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.Toplevel_1
-    # XXX(nathanielnrn) 2022-07-19: timeout is not currently used anywhere in
-    # generated verilog code, passed in because kernel.xml is generated to
-    # expect it as an argument
-    timeout = 1000
-    kernel.call(timeout, *buffers)
+    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.wrapper_1
+    
+    # The old verilog AXI wrapper requires a timeout value
+    # (although I don't think it is used in the verilog anywhere)
+    if calyx_wrapper:
+        kernel.call(*buffers)
+    else:
+        timeout = 1000
+        kernel.call(timeout, *buffers)
 
     # Collect the output data.
     for buf in buffers:
@@ -129,6 +132,7 @@ def xclrun():
         metavar="FILE",
         help="write JSON results to a file instead of stdout",
     )
+    parser.add_agument("--calyx-wrapper", help="pass when using the newer calyx AXI wrappers", action="store_true")
     args = parser.parse_args()
 
     # Load the input JSON data file.
@@ -136,7 +140,7 @@ def xclrun():
         in_data = sjson.load(f, use_decimal=True)
 
     # Run the program.
-    out_data = run(Path(args.bin), in_data)
+    out_data = run(Path(args.bin), in_data, args.calyx_wrapper)
 
     # Dump the output JSON data.
     outfile = open(args.out, "w") if args.out else sys.stdout

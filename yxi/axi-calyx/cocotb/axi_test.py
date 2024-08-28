@@ -1,7 +1,7 @@
 import json
 import cocotb
 from cocotb.clock import Clock
-from cocotbext.axi import AxiBus, AxiRam
+from cocotbext.axi import AxiBus, AxiRam, AxiLiteMaster, AxiLiteBus
 from cocotb.triggers import Timer, FallingEdge, with_timeout, RisingEdge, ClockCycles
 from typing import Literal, Mapping, Any, Union, List
 from pathlib import Path
@@ -19,9 +19,16 @@ class KernelTB:
             self.data_path
         ), "data_path must be a data path to a valid file"
 
+    async def setup_control_manager(self):
+        self.control_manager = AxiLiteMaster(
+            AxiLiteBus.from_prefix(self.toplevel, "s_axi_control"),
+            self.toplevel.clk,
+            reset=self.toplevel.reset,
+        )
+
     #Go through each mem, create an AxiRam, write data to it
     async def setup_rams(self, data: Mapping[str, Any]):
-        # Create cocotb AxiRams
+        # Create cocotb AxiRams for each `ref` memory
         rams = {}
         for mem in data.keys():
             assert not isinstance(data[mem]["data"][0], list)
@@ -69,6 +76,7 @@ async def run_kernel_test(toplevel, data_path: str):
         f.close()
     assert data_map is not None
     await tb.setup_rams(data_map)
+    await tb.setup_control_manager()
     #print(data_map)
 
     
@@ -78,10 +86,25 @@ async def run_kernel_test(toplevel, data_path: str):
     await Timer(100, "ns")
     await FallingEdge(toplevel.clk)
 
-
     # Finish when ap_done is high or 100 us of simulation have passed.
     timeout = 5000
+    # Base addresses for memories
+    # The od verilog wrapper seemed to be ok with base addresses of 0x0000
+    # for every memory, so trying that here.
+    # Xilinx spec has the first argument offset at 0x0010
+    # Note this differs from the old verilog testrunner because we assume no
+    # timeout argument with the new calyx wrapper.
+    register_offset = 0x0010
+    for mem in data_map.keys():
+        await tb.control_manager.write(register_offset, encode([0x0],4))
+        register_offset += 4
+        await tb.control_manager.write(register_offset, encode([0x0],4))
+        register_offset += 4
+    #Assert ap_start by writing 1 to 0x0000
+    await tb.control_manager.write(0x0000, encode([0x1],1))
     await with_timeout(RisingEdge(toplevel.done), timeout, "us")
+
+
 
     
     # Get data from ram
@@ -144,7 +167,6 @@ def encode(
     width,
     byteorder: Union[Literal["little"], Literal["big"]] = "little",
     signed: bool = False
-) -> bytes:
-
+    ) -> bytes:
     """Return the `width`-wide byte representation of lst with byteorder"""
     return b''.join(i.to_bytes(width, byteorder, signed=signed) for i in lst)

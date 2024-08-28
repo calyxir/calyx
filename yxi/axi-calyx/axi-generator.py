@@ -436,7 +436,7 @@ def add_bresp_channel(prog, mem):
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
 def add_main_comp(prog, mems):
-    wrapper_comp = prog.component("wrapper")
+    wrapper_comp = prog.component("Toplevel")
     wrapper_comp.attribute("toplevel", 1)
     # Get handles to be used later
     read_channel = prog.get_component("m_read_channel")
