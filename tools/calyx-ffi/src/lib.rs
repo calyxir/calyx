@@ -55,7 +55,7 @@ impl CalyxFFI {
     pub fn new_comp<T: CalyxFFIComponent + Default>(
         &mut self,
     ) -> CalyxFFIComponentRef {
-        let mut comp = unsafe { T::default() };
+        let mut comp = T::default();
         let path = comp.path();
         let context = self.contexts.entry(path).or_insert_with_key(|path| {
             // there has to be a better way to find lib

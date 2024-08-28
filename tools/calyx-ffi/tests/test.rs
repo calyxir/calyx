@@ -3,7 +3,7 @@ use calyx_ffi::prelude::*;
 use calyx_ffi::useless_ffi_backend;
 
 #[calyx_ffi(
-    src = "/Users/ethan/Documents/GitHub/calyx/tools/calyx-ffi/tests/file.futil",
+    src = "/home/runner/work/calyx/calyx/tools/calyx-ffi/tests/file.futil",
     comp = "main",
     backend = useless_ffi_backend
 )]

@@ -1,5 +1,4 @@
 use calyx_ir::Context;
-use core::panic;
 use interp::{
     flatten::{
         flat_ir,
@@ -16,7 +15,8 @@ pub struct CiderFFIBackend {
 }
 
 impl CiderFFIBackend {
-    pub fn from(ctx: &Context, name: &'static str) -> Self {
+    pub fn from(ctx: &Context, _name: &'static str) -> Self {
+        // TODO(ethan, maybe griffin): use _name to select the component somehow
         let ctx = flat_ir::translate(ctx);
         let simulator = Simulator::build_simulator(Rc::new(ctx), &None)
             .expect("we live on the edge");
