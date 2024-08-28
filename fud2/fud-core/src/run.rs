@@ -4,7 +4,6 @@ use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::io::Write;
 use std::process::{Command, ExitStatus};
 
