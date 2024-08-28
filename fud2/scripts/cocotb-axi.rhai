@@ -24,7 +24,6 @@ fn cocotb_setup(e) {
     // Cocotb is wants files relative to the location of the makefile.
     // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
     e.rule("copy", "cp $in $out");
-    e.rule("make-cocotb", "make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out");
     // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
     e.rule(
       "cleanup-cocotb", `sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in | sed -n ':a;N;$$!ba;s/^[^{]*{\(.*\)}[^}]*$$/\1/p' | sed '1d;$$d' > $out`
