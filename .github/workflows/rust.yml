@@ -197,8 +197,8 @@ jobs:
     - name: Profiler tests
       working-directory: /home/calyx
       run: |
-      	runt -i 'profiler' -d -o fail -j 1 --max-futures 1   
-
+        runt -i 'profiler' -d -o fail -j 1 --max-futures 1
+	
     - name: Run Python Tests
       working-directory: /home/calyx
       run: pytest calyx-py/test/numeric_types.py
