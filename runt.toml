@@ -693,6 +693,5 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
 name = "profiler"
 paths = ["tests/profiler/*.futil"]
 cmd = """
-bash tools/profiler/get-profile-counts-info.sh {} {}.data &> /dev/null
-cat tools/profiler/tmp/summary.csv
+bash tools/profiler/get-profile-counts-info.sh {} {}.data STDOUT
 """
