@@ -2,7 +2,7 @@
 import sys
 import calyx.builder as cb
 import tests.queue_call as qc
-import queues.gen_strict_or_rr as strict_or_rr
+import queues.strict_or_rr as strict_or_rr
 import fifo
 
 
