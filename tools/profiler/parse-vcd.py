@@ -252,7 +252,7 @@ def remap_tdcc_json(json_file, components_to_cells):
 
     return fsms, single_enable_names, tdcc_group_names, fsm_group_maps
 
-def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
+def main(vcd_filename, groups_json_file, cells_json_file, out_csv, dump_out_json):
     main_component, components_to_cells = read_component_cell_names_json(cells_json_file)
     fsms, single_enable_names, tdcc_group_names, fsm_group_maps = remap_tdcc_json(groups_json_file, components_to_cells)
     converter = VCDConverter(fsms, single_enable_names, tdcc_group_names, fsm_group_maps, components_to_cells, main_component)
@@ -264,41 +264,45 @@ def main(vcd_filename, groups_json_file, cells_json_file, out_csv):
     groups_to_emit.sort(key=lambda x : x.name) # to preserve stability
     groups_to_emit.sort(key=lambda x : x.total_cycles, reverse=True)
     csv_acc = []
+    dump_json_acc = []
     for group_info in groups_to_emit:
         csv_acc.append(group_info.emit_csv_data())
+        dump_json_acc.append(group_info.__dict__)
         print(group_info.summary())
     print("=====DUMP=====")
     print()
     for group_info in groups_to_emit:
         print(group_info)
+    # emit a json for visualizer script
+    print(f"Writing dump JSON to {dump_out_json}")
+    with open(dump_out_json, "w", encoding="utf-8") as dump_file:
+        dump_file.write(json.dumps(dump_json_acc, indent=4))
     # emitting a CSV file for easier eyeballing
     print(f"Writing summary to {out_csv}")
     csv_keys = ["name", "total-cycles", "times-active", "avg"]
     csv_acc.append({ "name": "TOTAL", "total-cycles": converter.clock_cycle_acc, "times-active": "-", "avg": "-"})
-    # FIXME: resolve code clone
     if (out_csv == "STDOUT"):
         writer = csv.DictWriter(sys.stdout, csv_keys, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(csv_acc)
     else:
-        with open(out_csv, 'w') as csvfile:
-            writer = csv.DictWriter(csvfile, csv_keys, lineterminator="\n")
-            writer.writeheader()
-            writer.writerows(csv_acc)
+        writer = csv.DictWriter(open(out_csv, "w"), csv_keys, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(csv_acc)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 4:
+    if len(sys.argv) > 5:
         vcd_filename = sys.argv[1]
         fsm_json = sys.argv[2]
         cells_json = sys.argv[3]
         out_csv = sys.argv[4]
-        main(vcd_filename, fsm_json, cells_json, out_csv)
+        dump_out_json = sys.argv[5]
+        main(vcd_filename, fsm_json, cells_json, out_csv, dump_out_json)
     else:
         args_desc = [
             "VCD_FILE",
             "TDCC_JSON",
             "CELLS_JSON",
-            "SUMMARY_OUT_CSV"
+            "SUMMARY_OUT_CSV",
+            "DUMP_OUT_JSON"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         print("TDCC_JSON: Run Calyx with `tdcc:dump-fsm-json` option")
