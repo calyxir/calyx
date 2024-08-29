@@ -61,5 +61,9 @@ tools/profiler/logs
 
 temp/
 
+# large queue .data and .expect files ignore
+frontends/queues/tests/**/*.data
+frontends/queues/tests/**/*.expect
+
 # for running a venv
 .venv
