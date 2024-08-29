@@ -1,5 +1,6 @@
+import sys
 import calyx.builder as cb
-import tests.queue_call as qc
+import queues.queue_call as qc
 from queues.strict_or_rr import generate
 
 

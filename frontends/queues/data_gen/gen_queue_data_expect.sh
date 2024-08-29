@@ -20,8 +20,8 @@ cat $test_dir/sdn_test.data | python3 $data_gen_dir/pifo_tree_oracle.py $num_cmd
 # - pifo_tree_oracle.py
 
 for queue_kind in fifo pifo pifo_tree complex_tree; do
-    python3 $data_gen_dir/queue_data_gen.py $num_cmds > $test_dir/$queue_kind_test.data
-    cat $test_dir/$queue_kind_test.data | python3 $data_gen_dir/${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > $test_dir/$queue_kind_test.expect
+    python3 $data_gen_dir/queue_data_gen.py $num_cmds > $test_dir/${queue_kind}_test.data
+    cat $test_dir/${queue_kind}_test.data | python3 $data_gen_dir/${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > $test_dir/${queue_kind}_test.expect
 done
 
 # Copying/Moving into binheap/
@@ -38,8 +38,8 @@ mv $test_dir/pifo_test.expect $test_dir/binheap/
 # - pcq_oracle.py
 
 for queue_kind in pieo nwc_simple; do
-    python3 $data_gen_dir/queue_data_gen.py $num_cmds --nwc-en > $test_dir/$queue_kind.data
-    cat $test_dir/$queue_kind.data | python3 $data_gen_dir/${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > $test_dir/$queue_kind.expect
+    python3 $data_gen_dir/queue_data_gen.py $num_cmds --nwc-en > $test_dir/${queue_kind}_test.data
+    cat $test_dir/${queue_kind}_test.data | python3 $data_gen_dir/${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > $test_dir/${queue_kind}_test.expect
 done  
 
 # For the Binary Heap, we drop piezo mode and enable ranks for data gen and

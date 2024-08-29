@@ -1,6 +1,6 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from queues.binheap.binheap import insert_binheap
+from queues.binheap import insert_binheap
 
 
 def insert_main(prog):

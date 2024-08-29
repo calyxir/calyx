@@ -1,9 +1,9 @@
 # pylint: disable=import-error
 import sys
 import calyx.builder as cb
-import tests.queue_call as qc
+import queues.queue_call as qc
 import queues.strict_or_rr as strict_or_rr
-import fifo
+import queues.fifo as fifo
 
 
 def insert_stats(prog, name, static=False):
@@ -118,7 +118,7 @@ def build(static=False):
         prog, "pifo_root", [pifo_red, fifo_blue], [0, 200, 400], 2, [], True
     )
 
-    queue_call.insert_main(prog, pifo_root, num_cmds, keepgoing=keepgoing)
+    qc.insert_main(prog, pifo_root, num_cmds, keepgoing=keepgoing)
     return prog.program
 
 

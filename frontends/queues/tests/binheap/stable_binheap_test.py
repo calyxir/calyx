@@ -1,8 +1,8 @@
 # pylint: disable=import-error
 import sys
 import calyx.builder as cb
-import tests.queue_call as qc
-from queues.binheap.stable_binheap import insert_stable_binheap
+import queues.queue_call as qc
+from queues.stable_binheap import insert_stable_binheap
 
 
 def build():

@@ -1,9 +1,9 @@
 # pylint: disable=import-error
 import sys
-import fifo
 import calyx.builder as cb
-import tests.queue_call as qc
+import queues.queue_call as qc
 import queues.strict_or_rr as strict_or_rr
+import queues.fifo as fifo
 
 # This complex tree has the shape rr(strict(A, B, C), rr(D, E, F), strict(G, H))
 

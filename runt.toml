@@ -107,6 +107,25 @@ paths = ["tests/frontend/exp/*.txt"]
 cmd = "python3 calyx-py/calyx/gen_exp.py {}"
 
 [[tests]]
+name = "[frontend] queues correctness"
+paths = [
+    "frontends/queues/tests/*.py",
+    "frontends/queues/tests/round_robin/*.py",
+    "frontends/queues/tests/strict/*.py"
+]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20000 --keepgoing |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
 name = "[calyx-py] builder"
 paths = ["calyx-py/test/*.py"]
 cmd = """
@@ -120,27 +139,6 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
-"""
-
-[[tests]]
-name = "[calyx-py] queues correctness"
-paths = [
-    "calyx-py/test/correctness/queues/*.py",
-    "calyx-py/test/correctness/queues/binheap/*.py",
-    "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
-    "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"
-]
-
-cmd = """
-name=$(basename {} .py) &&
-dir=$(dirname {}) &&
-python3 {} 20000 --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
