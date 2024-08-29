@@ -172,7 +172,10 @@ jobs:
         cd -
         cd frontends/queues
         FLIT_ROOT_INSTALL=1 flit install --symlink
-        ./test_data_gen/gen_test_data.sh
+
+    - name: Generate queue .data and .expect files
+      working-directory: /home/calyx
+      run: ./frontends/queues/test_data_gen/gen_test_data.sh
 
     - name: Build
       uses: actions-rs/cargo@v1
