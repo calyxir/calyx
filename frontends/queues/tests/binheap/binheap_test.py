@@ -1,6 +1,6 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from queues.binheap import insert_binheap
+from queues import binheap
 
 
 def insert_main(prog):
@@ -31,8 +31,8 @@ def insert_main(prog):
 
     queue_size_factor = 4
 
-    binheap = insert_binheap(prog, "binheap", queue_size_factor, 64, 32)
-    binheap = comp.cell("binheap", binheap)
+    heap = binheap.insert_binheap(prog, "heap", queue_size_factor, 64, 32)
+    heap = comp.cell("heap", heap)
 
     out = comp.seq_mem_d1("out", 32, 15, queue_size_factor, is_external=True)
 
@@ -43,7 +43,7 @@ def insert_main(prog):
 
     def push(value, rank):
         return cb.invoke(
-            binheap,
+            heap,
             in_value=cb.const(32, value),
             in_rank=cb.const(64, rank),
             in_cmd=cb.const(1, 1),
@@ -57,7 +57,7 @@ def insert_main(prog):
 
         return [
             cb.invoke(
-                binheap,
+                heap,
                 in_value=cb.const(32, 50),
                 in_rank=cb.const(64, 50),
                 in_cmd=cb.const(1, 0),

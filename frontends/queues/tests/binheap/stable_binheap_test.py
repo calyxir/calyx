@@ -2,7 +2,7 @@
 import sys
 import calyx.builder as cb
 import queues.queue_call as qc
-from queues.stable_binheap import insert_stable_binheap
+from queues import stable_binheap
 
 
 def build():
@@ -10,7 +10,7 @@ def build():
     num_cmds = int(sys.argv[1])
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
-    binheap = insert_stable_binheap(prog, "binheap")
+    binheap = stable_binheap.insert_stable_binheap(prog, "binheap")
     qc.insert_main(prog, binheap, num_cmds, keepgoing=keepgoing, use_ranks=True)
     return prog.program
 

@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import calyx.builder as cb
 from queues.binheap.binheap import insert_binheap
 
 FACTOR = 4

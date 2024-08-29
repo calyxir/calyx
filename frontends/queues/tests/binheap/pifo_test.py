@@ -2,7 +2,7 @@
 import sys
 import calyx.builder as cb
 import queues.queue_call as qc
-from queues.binheap_pifo import insert_binheap_pifo
+from queues import binheap_pifo
 
 
 def build():
@@ -10,7 +10,7 @@ def build():
     num_cmds = int(sys.argv[1])
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
-    pifo = insert_binheap_pifo(prog, "pifo")
+    pifo = binheap_pifo.insert_binheap_pifo(prog, "pifo")
     qc.insert_main(prog, pifo, num_cmds, keepgoing=keepgoing)
     return prog.program
 
