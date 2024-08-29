@@ -188,6 +188,12 @@ jobs:
       run: |
         runt -i 'cocotb' -d -o fail -j 1 --max-futures 1
 
+    # Run these sequentially
+    - name: Profiler tests
+      working-directory: /home/calyx
+      run: |
+        runt -i 'profiler' -d -o fail -j 1 --max-futures 1
+
     - name: Runt tests
       working-directory: /home/calyx
       run: |
