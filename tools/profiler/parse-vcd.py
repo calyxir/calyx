@@ -105,28 +105,43 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         refs = [(k, v) for k, v in vcd.references_to_ids.items()]
         refs = sorted(refs, key=lambda e: e[0])
         names = [remove_size_from_name(e[0]) for e in refs]
-        self.main_go_id = vcd.references_to_ids[f"{self.main_component}.go"]
+        signal_id_dict = {sid : [] for sid in vcd.references_to_ids.values()} # one id can map to multiple signal names since wires are connected
+        main_go_name = f"{self.main_component}.go"
+        self.main_go_id = vcd.references_to_ids[main_go_name]
+        signal_id_dict[main_go_name] = self.main_go_id
 
         clock_name = f"{self.main_component}.clk"
-        if clock_name in names:
-            self.clock_id = vcd.references_to_ids[clock_name]
-        else:
+        if clock_name not in names:
             print("Can't find the clock? Exiting...")
             sys.exit(1)
+        self.clock_id = vcd.references_to_ids[clock_name]
+        signal_id_dict[self.clock_id] = clock_name            
 
-        for name, id in refs:
+        for name, sid in refs:
+            print(name)
             # We may want to optimize these nested for loops
             for tdcc_group in self.tdcc_group_to_go_id:
                 if name.startswith(f"{tdcc_group}_go.out["):
-                    self.tdcc_group_to_go_id[tdcc_group] = id
+                    self.tdcc_group_to_go_id[tdcc_group] = sid
+                    signal_id_dict[sid].append(name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
-                    self.signal_to_signal_id[fsm] = id
+                    self.signal_to_signal_id[fsm] = sid
+                    signal_id_dict[sid].append(name)
             for single_enable_group in self.single_enable_names:
+                print("SIGNAL")
+                print(single_enable_group)
                 if name.startswith(f"{single_enable_group}_go.out["):
-                    self.signal_to_signal_id[f"{single_enable_group}_go"] = id
+                    self.signal_to_signal_id[f"{single_enable_group}_go"] = sid
+                    signal_id_dict[sid].append(name)
                 if name.startswith(f"{single_enable_group}_done.out["):
-                    self.signal_to_signal_id[f"{single_enable_group}_done"] = id
+                    self.signal_to_signal_id[f"{single_enable_group}_done"] = sid
+                    signal_id_dict[sid].append(name)
+
+        print("SIGNAL ID DICT")
+        print(signal_id_dict)
+        # don't need to check for signal ids that don't pertain to signals we're interested in
+        self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
 
     def value(
         self,
@@ -139,54 +154,65 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # Start profiling after main's go is on
         if identifier_code == self.main_go_id and value == "1":
             self.main_go_on_time = time
+            # probably want to do some setup here (some fsms starting at 0 n stuff)
         if self.main_go_on_time is None :
+            return
+        
+        # ignore all signals we don't care about
+        if identifier_code not in self.signal_id_to_names:
             return
 
         # detect rising edge on clock
         if identifier_code == self.clock_id and value == "1":
             self.clock_cycle_acc += 1
-            # Update TDCC group signals first
-            for (tdcc_group_name, tdcc_signal_id) in self.tdcc_group_to_go_id.items():
-                tdcc_group_is_active = int(cur_sig_vals[tdcc_signal_id], 2) == 1
-                if self.tdcc_group_active_cycle[tdcc_group_name] == -1 and tdcc_group_is_active: # the tdcc group just became active
-                    self.tdcc_group_active_cycle[tdcc_group_name] = self.clock_cycle_acc
-                elif self.tdcc_group_active_cycle[tdcc_group_name] > -1 and not tdcc_group_is_active:
-                    self.tdcc_group_active_cycle[tdcc_group_name] = -1
-            # for each signal that we want to check, we need to sample the values
-            for (signal_name, signal_id) in self.signal_to_signal_id.items():
-                signal_curr_value = self.signal_to_curr_value[signal_name]
-                signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
-                if "_go" in signal_name and signal_new_value == 1:
-                    # start of group ground truth
-                    group = "_".join(signal_name.split("_")[0:-1])
-                    curr_group_info = self.profiling_info[group]
-                    # We want to start a segment regardless of whether it changed
-                    if self.main_go_on_time == time or signal_new_value != signal_curr_value:
-                        curr_group_info.start_new_segment(self.clock_cycle_acc)
-                elif "_done" in signal_name and signal_new_value == 1:
-                    # end of single enable group
-                    group = "_".join(signal_name.split("_")[0:-1])
-                    self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
-                elif "fsm" in signal_name:
-                    # Workarounds because the value 0 may not correspond to a group
-                    if signal_curr_value in self.fsms[signal_name]:
-                        # group that is recorded to be active last cycle. If the signal changed then it would be the previous group
-                        curr_group = self.fsms[signal_name][signal_curr_value]
-                        # if the FSM value changed, then we must end the current group (regardless of whether we can start the next group)
-                        if signal_new_value != signal_curr_value and signal_curr_value != -1:
-                            self.profiling_info[curr_group].end_current_segment(self.clock_cycle_acc)
-                    if signal_new_value in self.fsms[signal_name]:
-                        next_group = self.fsms[signal_name][signal_new_value]
-                        tdcc_group_active_cycle = self.tdcc_group_active_cycle[self.profiling_info[next_group].tdcc_group]
-                        if tdcc_group_active_cycle == -1: # If the TDCC group is not active, then no segments should start
-                            continue
-                        # if the FSM value didn't change but the TDCC group just got enabled, then we must start the next group
-                        if signal_new_value == signal_curr_value and tdcc_group_active_cycle == self.clock_cycle_acc:
-                            self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
-                        elif signal_new_value != signal_curr_value: # otherwise we start a new segment when the signal changed
-                            self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
-                # Update internal signal value
-                self.signal_to_curr_value[signal_name] = signal_new_value                
+
+        signal_name = self.signal_id_to_names[identifier_code]
+        print(signal_name)
+        if "_go" in signal_name and value == 1:
+            # start of group ground truth
+            group = "_".join(signal_name.split("_")[0:-1])
+            curr_group_info = self.profiling_info[group]
+            # We want to start a segment regardless of whether it changed
+            # if self.main_go_on_time == time or signal_new_value != signal_curr_value:
+            curr_group_info.start_new_segment(self.clock_cycle_acc)
+        elif "_done" in signal_name and value == 1:
+            # end of group ground truth
+            group = "_".join(signal_name.split("_")[0:-1])
+            self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
+
+            # # Update TDCC group signals first
+            # for (tdcc_group_name, tdcc_signal_id) in self.tdcc_group_to_go_id.items():
+            #     tdcc_group_is_active = int(cur_sig_vals[tdcc_signal_id], 2) == 1
+            #     if self.tdcc_group_active_cycle[tdcc_group_name] == -1 and tdcc_group_is_active: # the tdcc group just became active
+            #         self.tdcc_group_active_cycle[tdcc_group_name] = self.clock_cycle_acc
+            #     elif self.tdcc_group_active_cycle[tdcc_group_name] > -1 and not tdcc_group_is_active:
+            #         self.tdcc_group_active_cycle[tdcc_group_name] = -1
+            # # for each signal that we want to check, we need to sample the values
+            # for (signal_name, signal_id) in self.signal_to_signal_id.items():
+            #     signal_curr_value = self.signal_to_curr_value[signal_name]
+            #     signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
+                
+
+            #     elif "fsm" in signal_name:
+            #         # Workarounds because the value 0 may not correspond to a group
+            #         if signal_curr_value in self.fsms[signal_name]:
+            #             # group that is recorded to be active last cycle. If the signal changed then it would be the previous group
+            #             curr_group = self.fsms[signal_name][signal_curr_value]
+            #             # if the FSM value changed, then we must end the current group (regardless of whether we can start the next group)
+            #             if signal_new_value != signal_curr_value and signal_curr_value != -1:
+            #                 self.profiling_info[curr_group].end_current_segment(self.clock_cycle_acc)
+            #         if signal_new_value in self.fsms[signal_name]:
+            #             next_group = self.fsms[signal_name][signal_new_value]
+            #             tdcc_group_active_cycle = self.tdcc_group_active_cycle[self.profiling_info[next_group].tdcc_group]
+            #             if tdcc_group_active_cycle == -1: # If the TDCC group is not active, then no segments should start
+            #                 continue
+            #             # if the FSM value didn't change but the TDCC group just got enabled, then we must start the next group
+            #             if signal_new_value == signal_curr_value and tdcc_group_active_cycle == self.clock_cycle_acc:
+            #                 self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
+            #             elif signal_new_value != signal_curr_value: # otherwise we start a new segment when the signal changed
+            #                 self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
+            #     # Update internal signal value
+            #     self.signal_to_curr_value[signal_name] = signal_new_value                
 
 # Generates a list of all of the components to potential cell names
 # prefix is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
