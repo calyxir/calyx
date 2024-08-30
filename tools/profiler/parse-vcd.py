@@ -173,19 +173,26 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         if identifier_code == self.clock_id and value == "1":
             self.clock_cycle_acc += 1
 
-        signal_name = self.signal_id_to_names[identifier_code]
-        print(f"Signal name: {signal_name}")
-        if "_go" in signal_name and value == 1:
-            # start of group ground truth
-            group = "_".join(signal_name.split("_")[0:-1])
-            curr_group_info = self.profiling_info[group]
-            # We want to start a segment regardless of whether it changed
-            # if self.main_go_on_time == time or signal_new_value != signal_curr_value:
-            curr_group_info.start_new_segment(self.clock_cycle_acc)
-        elif "_done" in signal_name and value == 1:
-            # end of group ground truth
-            group = "_".join(signal_name.split("_")[0:-1])
-            self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
+        signal_names = self.signal_id_to_names[identifier_code]
+        for signal_name in signal_names:
+            print(f"Signal name: {signal_name}, value: {value}")
+            int_value = int(value, 2)
+            if "tdcc" in signal_name:
+                continue
+            if "_go" in signal_name and int_value == 1:
+                print("GO!!!")
+                # start of group ground truth
+                group = "_".join(signal_name.split("_")[0:-1])
+                curr_group_info = self.profiling_info[group]
+                print(signal_name)
+                print(curr_group_info)
+                # We want to start a segment regardless of whether it changed
+                # if self.main_go_on_time == time or signal_new_value != signal_curr_value:
+                curr_group_info.start_new_segment(self.clock_cycle_acc)
+            elif "_done" in signal_name and int_value == 1:
+                # end of group ground truth
+                group = "_".join(signal_name.split("_")[0:-1])
+                self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
 
             # # Update TDCC group signals first
             # for (tdcc_group_name, tdcc_signal_id) in self.tdcc_group_to_go_id.items():
