@@ -55,9 +55,8 @@ results.xml
 # btor2i ignore
 tools/btor2/btor2i/build/
 
-# vcd-parsing tmp files ignore
-tools/profiler/tmp/
-tools/profiler/logs
+# profiling ignore
+tools/profiler/data
 
 temp/
 
