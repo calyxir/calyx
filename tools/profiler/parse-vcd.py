@@ -1,4 +1,5 @@
 import csv
+import csv
 import sys
 import json
 import vcdvcd
@@ -23,16 +24,26 @@ class ProfilingInfo:
             if (segments_str != ""):
                 segments_str += ", "
             segments_str += f"[{segment['start']}, {segment['end']})"
+        segments_str = ""
+        for segment in self.closed_segments:
+            if (segments_str != ""):
+                segments_str += ", "
+            segments_str += f"[{segment['start']}, {segment['end']})"
         return (f"Group {self.name}:\n" +
         f"\tFSM name: {self.fsm_name}\n" +
         f"\tFSM state ids: {self.fsm_values}\n" +
         f"\tTotal cycles: {self.total_cycles}\n" +
         f"\t# of times active: {len(self.closed_segments)}\n" +
         f"\tSegments: {segments_str}\n"
+        f"\tTotal cycles: {self.total_cycles}\n" +
+        f"\t# of times active: {len(self.closed_segments)}\n" +
+        f"\tSegments: {segments_str}\n"
         )
+
 
     def is_active(self):
         return self.current_segment is not None
+
 
     def start_clock_cycle(self):
         if self.current_segment is None:
@@ -41,9 +52,21 @@ class ProfilingInfo:
             return self.current_segment["start"]
 
     def compute_average_cycles(self):
+
+    def compute_average_cycles(self):
         if len(self.closed_segments) == 0:
             return 0
+            return 0
         else:
+            return round(self.total_cycles / len(self.closed_segments), 2)
+
+    def emit_csv_data(self):
+        return {"name": self.name, 
+                "total-cycles" : self.total_cycles,
+                "times-active" : len(self.closed_segments),
+                "avg" : self.compute_average_cycles()}
+
+    def summary(self):
             return round(self.total_cycles / len(self.closed_segments), 2)
 
     def emit_csv_data(self):
@@ -56,6 +79,7 @@ class ProfilingInfo:
         return (f"Group {self.name} Summary:\n" +
         f"\tTotal cycles: {self.total_cycles}\n" +
         f"\t# of times active: {len(self.closed_segments)}\n" +
+        f"\tAvg runtime: {self.compute_average_cycles()}\n"
         f"\tAvg runtime: {self.compute_average_cycles()}\n"
         )
 
@@ -79,12 +103,15 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, fsms, single_enable_names, tdcc_group_names, fsm_group_maps, cells_to_components, main_component):
         super().__init__()
         self.main_component = main_component
+        self.main_component = main_component
         self.fsms = fsms
         self.single_enable_names = single_enable_names
         self.cells_to_components = cells_to_components
         # Recording the first cycle when the TDCC group became active
         self.tdcc_group_active_cycle = {tdcc_group_name : -1 for tdcc_group_name in tdcc_group_names}
         self.tdcc_group_to_go_id = {tdcc_group_name : None for tdcc_group_name in tdcc_group_names}
+        # self.tdcc_group_active_cycle = {} # filled in enddefinitions
+        # self.tdcc_group_to_go_id = {} # filled in enddefinitions
         self.profiling_info = {}
         self.signal_to_signal_id = {fsm : None for fsm in fsms}
         self.signal_to_curr_value = {fsm : 0 for fsm in fsms}
@@ -93,6 +120,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.main_go_on_time = None
         self.clock_id = None
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
+        for group in fsm_group_maps:
+            self.profiling_info[group] = ProfilingInfo(group, fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
         for group in fsm_group_maps:
             self.profiling_info[group] = ProfilingInfo(group, fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
         for single_enable_group in single_enable_names:
@@ -106,7 +135,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         refs = sorted(refs, key=lambda e: e[0])
         names = [remove_size_from_name(e[0]) for e in refs]
         self.main_go_id = vcd.references_to_ids[f"{self.main_component}.go"]
+        self.main_go_id = vcd.references_to_ids[f"{self.main_component}.go"]
 
+        clock_name = f"{self.main_component}.clk"
         clock_name = f"{self.main_component}.clk"
         if clock_name in names:
             self.clock_id = vcd.references_to_ids[clock_name]
@@ -118,13 +149,17 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # We may want to optimize these nested for loops
             for tdcc_group in self.tdcc_group_to_go_id:
                 if name.startswith(f"{tdcc_group}_go.out["):
+                if name.startswith(f"{tdcc_group}_go.out["):
                     self.tdcc_group_to_go_id[tdcc_group] = id
             for fsm in self.fsms:
+                if name.startswith(f"{fsm}.out["):
                 if name.startswith(f"{fsm}.out["):
                     self.signal_to_signal_id[fsm] = id
             for single_enable_group in self.single_enable_names:
                 if name.startswith(f"{single_enable_group}_go.out["):
+                if name.startswith(f"{single_enable_group}_go.out["):
                     self.signal_to_signal_id[f"{single_enable_group}_go"] = id
+                if name.startswith(f"{single_enable_group}_done.out["):
                 if name.startswith(f"{single_enable_group}_done.out["):
                     self.signal_to_signal_id[f"{single_enable_group}_done"] = id
 
@@ -188,6 +223,40 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 # Update internal signal value
                 self.signal_to_curr_value[signal_name] = signal_new_value                
 
+# Generates a list of all of the components to potential cell names
+# prefix is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
+# The initial value of curr_component should be the top level/main component
+def build_components_to_cells(prefix, curr_component, cells_to_components, components_to_cells):
+    # prefix += f".{curr_component}"
+    for (cell, cell_component) in cells_to_components[curr_component].items():
+        if cell_component not in components_to_cells:
+            components_to_cells[cell_component] = [f"{prefix}.{cell}"]
+        else:
+            components_to_cells[cell_component].append(f"{prefix}.{cell}")
+        build_components_to_cells(prefix + f".{cell}", cell_component, cells_to_components, components_to_cells)
+
+# Reads json generated by component-cells backend to produce a mapping from all components
+# to cell names they could have.
+def read_component_cell_names_json(json_file):
+    cell_json = json.load(open(json_file))
+    # For each component, contains a map from each cell name to its corresponding component
+    # component name --> { cell name --> component name}
+    cells_to_components = {}
+    main_component = ""
+    for curr_component_entry in cell_json:
+        cell_map = {} # mapping cell names to component names for all cells in the current component
+        if curr_component_entry["is_main_component"]:
+            main_component = curr_component_entry["component"]
+        for cell_info in curr_component_entry["cell_info"]:
+            cell_map[cell_info["cell_name"]] = cell_info["component_name"]
+        cells_to_components[curr_component_entry["component"]] = cell_map
+    full_main_component = f"TOP.toplevel.{main_component}"
+    components_to_cells = {main_component : [full_main_component]} # come up with a better name for this
+    build_components_to_cells(full_main_component, main_component, cells_to_components, components_to_cells)
+    return full_main_component, components_to_cells
+
+# Reads json generated by TDCC (via dump-fsm-json option) to produce 
+def remap_tdcc_json(json_file, components_to_cells):
 # Generates a list of all of the components to potential cell names
 # prefix is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
 # The initial value of curr_component should be the top level/main component
