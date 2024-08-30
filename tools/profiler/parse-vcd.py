@@ -118,17 +118,16 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_id_dict = {sid : [] for sid in vcd.references_to_ids.values()} # one id can map to multiple signal names since wires are connected
         main_go_name = f"{self.main_component}.go"
         self.main_go_id = vcd.references_to_ids[main_go_name]
-        signal_id_dict[main_go_name] = self.main_go_id
+        signal_id_dict[self.main_go_id] = [main_go_name]
 
         clock_name = f"{self.main_component}.clk"
         if clock_name not in names:
             print("Can't find the clock? Exiting...")
             sys.exit(1)
         self.clock_id = vcd.references_to_ids[clock_name]
-        signal_id_dict[self.clock_id] = clock_name            
+        signal_id_dict[self.clock_id] = [clock_name]
 
         for name, sid in refs:
-            print(name)
             # We may want to optimize these nested for loops
             for tdcc_group in self.tdcc_group_to_go_id:
                 if name.startswith(f"{tdcc_group}_go.out["):
@@ -139,8 +138,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.signal_to_signal_id[fsm] = sid
                     signal_id_dict[sid].append(name)
             for single_enable_group in self.single_enable_names:
-                print("SINGLE ENABLE NAMES")
-                print(single_enable_group)
                 if name.startswith(f"{single_enable_group}_go.out["):
                     self.signal_to_signal_id[f"{single_enable_group}_go"] = sid
                     signal_id_dict[sid].append(name)
@@ -148,10 +145,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.signal_to_signal_id[f"{single_enable_group}_done"] = sid
                     signal_id_dict[sid].append(name)
 
-        print("SIGNAL ID DICT")
-        print(signal_id_dict)
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
+        print("OFFICIAL SIGNAL ID DICT")
+        print(self.signal_id_to_names)
 
     def value(
         self,
@@ -161,7 +158,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         identifier_code,
         cur_sig_vals,
     ):
-        print(f"{identifier_code}@{time}")
         # Start profiling after main's go is on
         if identifier_code == self.main_go_id and value == "1":
             self.main_go_on_time = time
@@ -178,7 +174,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             self.clock_cycle_acc += 1
 
         signal_name = self.signal_id_to_names[identifier_code]
-        print(signal_name)
+        print(f"Signal name: {signal_name}")
         if "_go" in signal_name and value == 1:
             # start of group ground truth
             group = "_".join(signal_name.split("_")[0:-1])
@@ -229,7 +225,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 # prefix is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
 # The initial value of curr_component should be the top level/main component
 def build_components_to_cells(prefix, curr_component, cells_to_components, components_to_cells):
-    # prefix += f".{curr_component}"
     for (cell, cell_component) in cells_to_components[curr_component].items():
         if cell_component not in components_to_cells:
             components_to_cells[cell_component] = [f"{prefix}.{cell}"]
