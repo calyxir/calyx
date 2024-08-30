@@ -83,11 +83,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.single_enable_names = single_enable_names
         self.cells_to_components = cells_to_components
         # Recording the first cycle when the TDCC group became active
-        # FIXME: remove after fixing enddefinitions
         self.tdcc_group_active_cycle = {tdcc_group_name : -1 for tdcc_group_name in tdcc_group_names}
         self.tdcc_group_to_go_id = {tdcc_group_name : None for tdcc_group_name in tdcc_group_names}
-        # self.tdcc_group_active_cycle = {} # filled in enddefinitions
-        # self.tdcc_group_to_go_id = {} # filled in enddefinitions
         self.profiling_info = {}
         self.signal_to_signal_id = {fsm : None for fsm in fsms}
         self.signal_to_curr_value = {fsm : 0 for fsm in fsms}
@@ -160,7 +157,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 signal_curr_value = self.signal_to_curr_value[signal_name]
                 signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
                 if "_go" in signal_name and signal_new_value == 1:
-                    # start of single enable group
+                    # start of group ground truth
                     group = "_".join(signal_name.split("_")[0:-1])
                     curr_group_info = self.profiling_info[group]
                     # We want to start a segment regardless of whether it changed
