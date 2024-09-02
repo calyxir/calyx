@@ -53,7 +53,10 @@ class ProfilingInfo:
             return round(self.total_cycles / len(self.closed_segments), 2)
 
     def emit_csv_data(self):
-        return {"name": self.name, 
+        name = self.name
+        if self.fsm_name is not None:
+            name += "[FSM]"
+        return {"name": name, 
                 "total-cycles" : self.total_cycles,
                 "times-active" : len(self.closed_segments),
                 "avg" : self.compute_average_cycles()}
