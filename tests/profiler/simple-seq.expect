@@ -19,7 +19,9 @@ Group TOP.toplevel.main.write:
 	# of times active: 1
 	Segments: [0, 2)
 
+Writing dump JSON to /home/ayaka/projects/calyx/tools/profiler/data//tmp/dump.json
 Writing summary to STDOUT
 name,total-cycles,times-active,avg
 TOP.toplevel.main.write,2,1,2.0
 TOTAL,2,-,-
+[get-profile-counts-info.sh] Writing visualization to /home/ayaka/projects/calyx/tools/profiler/data//tmp/visual.json

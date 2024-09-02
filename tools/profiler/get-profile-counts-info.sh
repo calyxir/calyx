@@ -8,20 +8,21 @@ fi
 SCRIPT_DIR=$( cd $( dirname $0 ) && pwd )
 SCRIPT_NAME=$( echo "$0" | rev | cut -d/ -f1 | rev )
 CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
-
-INPUT_FILE=$1
-SIM_DATA_JSON=$2
-if [ $# -eq 3 ]; then
-   OUT_CSV=$3
-fi
-
 name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
 DATA_DIR=${SCRIPT_DIR}/data/${name}
 TMP_DIR=${DATA_DIR}/tmp
+
+INPUT_FILE=$1
+SIM_DATA_JSON=$2
+if [[ $# -ge 3 ]]; then
+   OUT_CSV=$3
+else
+   OUT_CSV=${TMP_DIR}/summary.csv
+fi
+
 TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
 FSM_JSON=${TMP_DIR}/fsm.json
 CELLS_JSON=${TMP_DIR}/cells.json
-OUT_CSV=${TMP_DIR}/summary.csv
 OUT_JSON=${TMP_DIR}/dump.json
 VISUALS_JSON=${TMP_DIR}/visual.json
 VCD_FILE=${TMP_DIR}/trace.vcd
@@ -64,7 +65,11 @@ echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
     python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON} ${CELLS_JSON} ${OUT_CSV} ${OUT_JSON}
 ) &> ${LOGS_DIR}/gol-process
 
-tail -2 ${LOGS_DIR}/gol-process
+if [ "$4" == "-d" ]; then
+    cat ${LOGS_DIR}/gol-process
+else
+    tail -2 ${LOGS_DIR}/gol-process
+fi
 
 echo "[${SCRIPT_NAME}] Writing visualization to ${VISUALS_JSON}"
 (
