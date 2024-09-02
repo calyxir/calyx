@@ -217,7 +217,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     # FIXME: we need to start all of the FSMs that depend on this TDCC group here
                 elif self.tdcc_group_active_cycle[tdcc_group] > -1 and tdcc_event["value"] == 0: # tdcc group that was active's signal turned to 0
                     self.tdcc_group_active_cycle[tdcc_group] = -1
-            print(self.tdcc_group_active_cycle)
             for event in events:
                 signal_name = event["signal"]
                 value = event["value"]
@@ -232,10 +231,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 elif "fsm" in signal_name:
                     fsm = ".".join(signal_name.split(".")[0:-1])
                     fsm_to_curr_value[fsm] = value
-                    print(f"FSM {fsm} new value: {value} cycle: {clock_cycles}")
-                    # need the original
                     # Workarounds because the value 0 may not correspond to a group
-                    print(f"FSM to active group: {fsm_to_active_group}")
                     if fsm_to_active_group[fsm] is not None:
                         prev_group = fsm_to_active_group[fsm] # getting the "FSM" variant of the group
                         self.profiling_info[prev_group].end_current_segment(clock_cycles)
@@ -245,7 +241,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         if tdcc_group_active_cycle == -1: # If the TDCC group is not active, then no segments should start
                             print("continue")
                             continue
-                        print(f"Starting group {next_group} at clock cycle {clock_cycles}")
                         fsm_to_active_group[fsm] = next_group
                         self.profiling_info[next_group].start_new_segment(clock_cycles)
 
@@ -315,7 +310,6 @@ def remap_tdcc_json(json_file, components_to_cells):
     return fsms, group_names, tdcc_groups, fsm_group_maps
 
 def output_result(out_csv, dump_out_json, converter):
-    print("="*50)
     print(f"Total clock cycles: {converter.clock_cycles}")
     print("=====SUMMARY=====")
     print()
@@ -350,7 +344,6 @@ def output_result(out_csv, dump_out_json, converter):
 def main(vcd_filename, groups_json_file, cells_json_file, out_csv, dump_out_json):
     main_component, components_to_cells = read_component_cell_names_json(cells_json_file)
     fsms, group_names, tdcc_group_names, fsm_group_maps = remap_tdcc_json(groups_json_file, components_to_cells)
-    print(f"GROUP NAMES: {group_names}")
     converter = VCDConverter(fsms, group_names, tdcc_group_names, fsm_group_maps, components_to_cells, main_component)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     converter.postprocess()
