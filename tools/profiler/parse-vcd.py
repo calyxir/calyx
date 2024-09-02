@@ -149,8 +149,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
-        print("OFFICIAL SIGNAL ID DICT")
-        print(self.signal_id_to_names)
 
     def value(
         self,
@@ -244,16 +242,27 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     def postprocess(self):
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1
+        fsm_to_active_group = {fsm : None for fsm in self.fsms}
+        print(fsm_to_active_group)
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
             # checking whether the timestamp has a rising edge (hacky)
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
+            # TDCC groups need to be recorded for tracking FSM values
+            # (ex. if the FSM has value 0 but the TDCC group isn't active, then the group represented by the 
+            # FSM's 0 value should not be considered as active)
+            for tdcc_event in filter(lambda e : "tdcc_go" in e["signal"], events):
+                tdcc_group = "_".join(tdcc_event["signal"].split("_")[0:-1])
+                if self.tdcc_group_active_cycle[tdcc_group] == -1 and tdcc_event["value"] == 1: # value changed to 1
+                    self.tdcc_group_active_cycle[tdcc_group] = clock_cycles
+                    # FIXME: we need to start all of the FSMs that depend on this TDCC group here
+                elif self.tdcc_group_active_cycle[tdcc_group] > -1 and tdcc_event["value"] == 0: # tdcc group that was active's signal turned to 0
+                    self.tdcc_group_active_cycle[tdcc_group] = -1
             for event in events:
                 signal_name = event["signal"]
                 value = event["value"]
-                # FIXME: need to process TDCC groups first
-                if "tdcc_go" in signal_name:
+                if "tdcc_go" in signal_name: # skip all tdcc events since we've already processed them
                     continue
                 if "_go" in signal_name and value == 1:
                     group = "_".join(signal_name.split("_")[0:-1])
@@ -262,14 +271,21 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     group = "_".join(signal_name.split("_")[0:-1])
                     self.profiling_info[group].end_current_segment(clock_cycles)
                 elif "fsm" in signal_name:
+                    fsm = ".".join(signal_name.split(".")[0:-1])
                     # need the original
                     # Workarounds because the value 0 may not correspond to a group
-                    if value in self.fsms[signal_name]:
-                        # group that is recorded to be active last cycle. If the signal changed then it would be the previous group
-                        curr_group = self.fsms[signal_name][value]
-                        # if the FSM value changed, then we must end the current group (regardless of whether we can start the next group)
-                        # if signal_new_value != signal_curr_value and signal_curr_value != -1:
-                        #     self.profiling_info[curr_group].end_current_segment(self.clock_cycle_acc)
+                    if fsm_to_active_group[fsm] is not None:
+                        prev_group = f"{fsm_to_active_group[fsm]}FSM" # getting the "FSM" variant of the group
+                        self.profiling_info[prev_group].end_current_segment(clock_cycles)
+                    if value in self.fsms[fsm]:
+                        next_group = f"{self.fsms[fsm][value]}FSM"  # getting the "FSM" variant of the group
+                        print(self.profiling_info[next_group].tdcc_group)
+                        tdcc_group_active_cycle = self.tdcc_group_active_cycle[self.profiling_info[next_group].tdcc_group]
+                        if tdcc_group_active_cycle == -1: # If the TDCC group is not active, then no segments should start
+                            print("continue")
+                            continue
+                        self.profiling_info[next_group].start_new_segment(clock_cycles)
+
 
         self.clock_cycles = clock_cycles
 
