@@ -29,10 +29,8 @@ Total clock cycles: 2
 	# of times active: 1
 	Segments: [0, 1)
 
-Writing dump JSON to /Users/ayakayorihiro/projects/calyx/tools/profiler/data/simple-seq/tmp/dump.json
-Writing summary to STDOUT
 name,total-cycles,times-active,avg
 TOP.toplevel.main.write[FSM],2,1,2.0
 TOP.toplevel.main.write,1,1,1.0
 TOTAL,2,-,-
-[get-profile-counts-info.sh] Writing visualization to /Users/ayakayorihiro/projects/calyx/tools/profiler/data/simple-seq/tmp/visual.json
+[get-profile-counts-info.sh] Writing visualization
