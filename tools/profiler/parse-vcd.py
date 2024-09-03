@@ -322,6 +322,8 @@ def output_result(out_csv, dump_out_json, converter):
     print()
     for group_info in groups_to_emit:
         print(group_info)
+    # Add total cycles for visualizer script (probably want to do this in a neater fashion in the future)
+    dump_json_acc.append({"name": "TOTAL", "total_cycles": converter.clock_cycles, "main_full_path": converter.main_component})
     # emit a json for visualizer script
     print(f"Writing dump JSON to {dump_out_json}")
     with open(dump_out_json, "w", encoding="utf-8") as dump_file:

@@ -24,7 +24,8 @@ TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
 FSM_JSON=${TMP_DIR}/fsm.json
 CELLS_JSON=${TMP_DIR}/cells.json
 OUT_JSON=${TMP_DIR}/dump.json
-VISUALS_JSON=${TMP_DIR}/visual.json
+TIMELINE_VIEW_JSON=${TMP_DIR}/timeline.json
+FLAME_GRAPH_FOLDED=${TMP_DIR}/flame.folded
 VCD_FILE=${TMP_DIR}/trace.vcd
 LOGS_DIR=${DATA_DIR}/logs
 if [ -d ${DATA_DIR} ]; then
@@ -62,7 +63,9 @@ echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 # Run script to get cycle level counts
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
+    set -o xtrace
     python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON} ${CELLS_JSON} ${OUT_CSV} ${OUT_JSON}
+    set +o xtrace
 ) &> ${LOGS_DIR}/gol-process
 
 if [ "$4" == "-d" ]; then
@@ -73,5 +76,7 @@ fi
 
 echo "[${SCRIPT_NAME}] Writing visualization"
 (
-    python3 ${SCRIPT_DIR}/convert-dump.py ${OUT_JSON} ${VISUALS_JSON}
+    set -o xtrace
+    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED}
+    set +o xtrace
 ) &> ${LOGS_DIR}/gol-visuals
