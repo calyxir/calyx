@@ -89,30 +89,25 @@ class ProfilingInfo:
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsms, single_enable_names, tdcc_groups, fsm_group_maps, cells_to_components, main_component):
+    def __init__(self, fsms, single_enable_names, tdcc_groups, fsm_group_maps, main_component):
         super().__init__()
         self.main_component = main_component
         self.fsms = fsms
         self.single_enable_names = single_enable_names
-        self.cells_to_components = cells_to_components
         # Recording the first cycle when the TDCC group became active
         self.tdcc_group_active_cycle = {tdcc_group_name : -1 for tdcc_group_name in tdcc_groups}
-        self.tdcc_group_to_go_id = {tdcc_group_name : None for tdcc_group_name in tdcc_groups}
-        self.tdcc_group_to_dep_fsms = tdcc_groups # map from a TDCC group to all FSMs that depend on it. maybe a 1:1 mapping
+        # Map from a TDCC group to all FSMs that depend on it. maybe a 1:1 mapping
+        self.tdcc_group_to_dep_fsms = tdcc_groups
+        # Group name --> ProfilingInfo object
         self.profiling_info = {}
-        self.signal_name_to_id = {}
         self.signal_to_curr_value = {fsm : -1 for fsm in fsms}
-        self.main_go_id = None
-        self.main_go_on = False
-        self.main_go_on_time = None
-        self.clock_id = None
         for group in fsm_group_maps:
+            # Differentiate FSM versions from ground truth versions
             self.profiling_info[f"{group}FSM"] = ProfilingInfo(group, fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
         for single_enable_group in single_enable_names:
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
             self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
-        # probably need to clean up a lot of stuff later, but adding new stuff first
         # Map from timestamps [ns] to value change events that happened on that timestamp
         self.timestamps_to_events = {}
 
@@ -123,33 +118,26 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         names = [remove_size_from_name(e[0]) for e in refs]
         signal_id_dict = {sid : [] for sid in vcd.references_to_ids.values()} # one id can map to multiple signal names since wires are connected
         main_go_name = f"{self.main_component}.go"
-        self.main_go_id = vcd.references_to_ids[main_go_name]
-        signal_id_dict[self.main_go_id] = [main_go_name]
+        signal_id_dict[vcd.references_to_ids[main_go_name]] = [main_go_name]
 
         clock_name = f"{self.main_component}.clk"
         if clock_name not in names:
             print("Can't find the clock? Exiting...")
             sys.exit(1)
-        self.clock_id = vcd.references_to_ids[clock_name]
-        signal_id_dict[self.clock_id] = [clock_name]
+        signal_id_dict[vcd.references_to_ids[clock_name]] = [clock_name]
 
         for name, sid in refs:
-            # We may want to optimize these nested for loops
-            for tdcc_group in self.tdcc_group_to_go_id:
+            # FIXME: We may want to optimize these nested for loops
+            for tdcc_group in self.tdcc_group_to_dep_fsms:
                 if name.startswith(f"{tdcc_group}_go.out["):
-                    self.tdcc_group_to_go_id[tdcc_group] = sid
                     signal_id_dict[sid].append(name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
-                    self.signal_name_to_id[f"{fsm}.out"] = sid
                     signal_id_dict[sid].append(name)
             for single_enable_group in self.single_enable_names:
                 if name.startswith(f"{single_enable_group}_go.out["):
-                    print(f"found {name}")
-                    self.signal_name_to_id[f"{single_enable_group}_go"] = sid
                     signal_id_dict[sid].append(name)
                 if name.startswith(f"{single_enable_group}_done.out["):
-                    self.signal_name_to_id[f"{single_enable_group}_done"] = sid
                     signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
@@ -175,18 +163,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_names = self.signal_id_to_names[identifier_code]
         int_value = int(value, 2)
 
-        # Start profiling after main's go is on
-        if identifier_code == self.main_go_id and value == "1":
-            self.main_go_on_time = time
-            # # setup: FSM values may start from 0, so we want to record this information ("placeholder" in case the FSM value actually changes in cycle 0)
-            # for fsm in self.fsms:
-            #     signal_name = f"{fsm}.out"
-            #     fsm_id = self.signal_name_to_id[signal_name]
-            #     fsm_value = int(cur_sig_vals[fsm_id], 2)
-            #     if time not in self.timestamps_to_events: # FIXME: resolve code clone at some point
-            #         self.timestamps_to_events[time] = []
-            #     self.timestamps_to_events[time].append({"signal": signal_name, "value": fsm_value, "placeholder": True})
-
         if time not in self.timestamps_to_events:
             self.timestamps_to_events[time] = []
 
@@ -200,14 +176,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     # *before* or *after* the clock change on the VCD file (hence why we can't process
     # everything within a stream if we wanted to be precise)
     def postprocess(self):
-        # for ts in self.timestamps_to_events:
-        #     print(ts)
-        #     print(self.timestamps_to_events[ts])
-        # exit()
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1
         fsm_to_active_group = {fsm : None for fsm in self.fsms}
-        fsm_to_curr_value = {fsm: -1 for fsm in self.fsms} # FIXME: remove later if unnecessary
+        # current values of FSM registers. This is different from fsm_to_active_group since the TDCC group for the FSM
+        # may not be active (which means that no group managed by the FSM is active)
+        fsm_to_curr_value = {fsm: -1 for fsm in self.fsms}
         started = False
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
@@ -232,7 +206,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 tdcc_group = "_".join(tdcc_event["signal"].split("_")[0:-1])
                 if self.tdcc_group_active_cycle[tdcc_group] == -1 and tdcc_event["value"] == 1: # value changed to 1
                     self.tdcc_group_active_cycle[tdcc_group] = clock_cycles
-                    # FIXME: we need to start all of the FSMs that depend on this TDCC group here
                     for fsm in self.tdcc_group_to_dep_fsms[tdcc_group]:
                         value = fsm_to_curr_value[fsm]
                         if value != -1:
@@ -263,7 +236,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         next_group = f"{self.fsms[fsm][value]}FSM"  # getting the "FSM" variant of the group
                         tdcc_group_active_cycle = self.tdcc_group_active_cycle[self.profiling_info[next_group].tdcc_group]
                         if tdcc_group_active_cycle == -1: # If the TDCC group is not active, then no segments should start
-                            print("continue")
                             continue
                         fsm_to_active_group[fsm] = next_group
                         self.profiling_info[next_group].start_new_segment(clock_cycles)
@@ -271,7 +243,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.clock_cycles = clock_cycles
 
 # Generates a list of all of the components to potential cell names
-# prefix is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
+# `prefix` is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
 # The initial value of curr_component should be the top level/main component
 def build_components_to_cells(prefix, curr_component, cells_to_components, components_to_cells):
     for (cell, cell_component) in cells_to_components[curr_component].items():
@@ -368,7 +340,7 @@ def output_result(out_csv, dump_out_json, converter):
 def main(vcd_filename, groups_json_file, cells_json_file, out_csv, dump_out_json):
     main_component, components_to_cells = read_component_cell_names_json(cells_json_file)
     fsms, group_names, tdcc_group_names, fsm_group_maps = remap_tdcc_json(groups_json_file, components_to_cells)
-    converter = VCDConverter(fsms, group_names, tdcc_group_names, fsm_group_maps, components_to_cells, main_component)
+    converter = VCDConverter(fsms, group_names, tdcc_group_names, fsm_group_maps, main_component)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     converter.postprocess()
     output_result(out_csv, dump_out_json, converter)
