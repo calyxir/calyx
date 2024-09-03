@@ -8,22 +8,31 @@ fi
 SCRIPT_DIR=$( cd $( dirname $0 ) && pwd )
 SCRIPT_NAME=$( echo "$0" | rev | cut -d/ -f1 | rev )
 CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
-TMP_DIR=${SCRIPT_DIR}/tmp
-TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
-FSM_JSON=${TMP_DIR}/fsm.json
-CELLS_JSON=${TMP_DIR}/cells.json
-OUT_CSV=${TMP_DIR}/summary.csv
-VCD_FILE=${TMP_DIR}/trace-info.vcd
-LOGS_DIR=${SCRIPT_DIR}/logs
-mkdir -p ${TMP_DIR} ${LOGS_DIR}
-
-rm -f ${TMP_DIR}/* ${LOGS_DIR}/* # remove data from last run
+name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
+DATA_DIR=${SCRIPT_DIR}/data/${name}
+TMP_DIR=${DATA_DIR}/tmp
 
 INPUT_FILE=$1
 SIM_DATA_JSON=$2
-if [ $# -eq 3 ]; then
+if [[ $# -ge 3 ]]; then
    OUT_CSV=$3
+else
+   OUT_CSV=${TMP_DIR}/summary.csv
 fi
+
+TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
+FSM_JSON=${TMP_DIR}/fsm.json
+CELLS_JSON=${TMP_DIR}/cells.json
+OUT_JSON=${TMP_DIR}/dump.json
+VISUALS_JSON=${TMP_DIR}/visual.json
+VCD_FILE=${TMP_DIR}/trace.vcd
+LOGS_DIR=${DATA_DIR}/logs
+if [ -d ${DATA_DIR} ]; then
+    rm -rf ${DATA_DIR} # clean out directory for run each time
+fi
+mkdir -p ${TMP_DIR} ${LOGS_DIR}
+rm -f ${TMP_DIR}/* ${LOGS_DIR}/* # remove data from last run
+
 
 # Run TDCC to get the FSM info
 echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
@@ -46,12 +55,23 @@ echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
     set -o xtrace
-    fud2 ${INPUT_FILE} -o ${VCD_FILE} -s calyx.args='-p no-opt' -s sim.data=${SIM_DATA_JSON}
+    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args='-p no-opt' -s sim.data=${SIM_DATA_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
 
 # Run script to get cycle level counts
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
-    python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON} ${CELLS_JSON} ${OUT_CSV}
-) # &> ${LOGS_DIR}/gol-process
+    python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON} ${CELLS_JSON} ${OUT_CSV} ${OUT_JSON}
+) &> ${LOGS_DIR}/gol-process
+
+if [ "$4" == "-d" ]; then
+    cat ${LOGS_DIR}/gol-process
+else
+    tail -2 ${LOGS_DIR}/gol-process
+fi
+
+echo "[${SCRIPT_NAME}] Writing visualization to ${VISUALS_JSON}"
+(
+    python3 ${SCRIPT_DIR}/convert-dump.py ${OUT_JSON} ${VISUALS_JSON}
+) &> ${LOGS_DIR}/gol-visuals
