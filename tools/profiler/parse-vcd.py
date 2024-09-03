@@ -98,7 +98,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # Recording the first cycle when the TDCC group became active
         self.tdcc_group_active_cycle = {tdcc_group_name : -1 for tdcc_group_name in tdcc_groups}
         self.tdcc_group_to_go_id = {tdcc_group_name : None for tdcc_group_name in tdcc_groups}
-        self.tdcc_group_to_dep_fsms = tdcc_groups # maybe this is a 1:1 mapping?
+        self.tdcc_group_to_dep_fsms = tdcc_groups # map from a TDCC group to all FSMs that depend on it. maybe a 1:1 mapping
         self.profiling_info = {}
         self.signal_name_to_id = {}
         self.signal_to_curr_value = {fsm : -1 for fsm in fsms}
@@ -106,7 +106,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.main_go_on = False
         self.main_go_on_time = None
         self.clock_id = None
-        self.tdcc_to_fsms = {} # map from a TDCC group to all FSMs that depend on it
         for group in fsm_group_maps:
             self.profiling_info[f"{group}FSM"] = ProfilingInfo(group, fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
         for single_enable_group in single_enable_names:
@@ -220,7 +219,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 # but trying to be extra safe here.
                 for event in filter(lambda e : "fsm" in e["signal"], events):
                     fsm = ".".join(event["signal"].split(".")[0:-1])
-                    fsm_to_curr_value[fsm] = event["value"]
+                    if event["value"] in self.fsms[fsm]:
+                        fsm_to_curr_value[fsm] = event["value"]
                 continue
             # checking whether the timestamp has a rising edge (hacky)
             if {"signal": clock_name, "value": 1} in events:
@@ -233,6 +233,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if self.tdcc_group_active_cycle[tdcc_group] == -1 and tdcc_event["value"] == 1: # value changed to 1
                     self.tdcc_group_active_cycle[tdcc_group] = clock_cycles
                     # FIXME: we need to start all of the FSMs that depend on this TDCC group here
+                    for fsm in self.tdcc_group_to_dep_fsms[tdcc_group]:
+                        value = fsm_to_curr_value[fsm]
+                        if value != -1:
+                            next_group = f"{self.fsms[fsm][value]}FSM"
+                            fsm_to_active_group[fsm] = next_group
+                            self.profiling_info[next_group].start_new_segment(clock_cycles)
                 elif self.tdcc_group_active_cycle[tdcc_group] > -1 and tdcc_event["value"] == 0: # tdcc group that was active's signal turned to 0
                     self.tdcc_group_active_cycle[tdcc_group] = -1
             for event in events:
