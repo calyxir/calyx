@@ -161,7 +161,7 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
-    - name: Install calyx-py & MrXL
+    - name: Install calyx-py, MrXL, and queues
       working-directory: /home/calyx
       run: |
         cd calyx-py
@@ -169,6 +169,13 @@ jobs:
         cd -
         cd frontends/mrxl
         FLIT_ROOT_INSTALL=1 flit install --symlink
+        cd -
+        cd frontends/queues
+        FLIT_ROOT_INSTALL=1 flit install --symlink
+
+    - name: Generate queue .data and .expect files
+      working-directory: /home/calyx
+      run: ./frontends/queues/test_data_gen/gen_test_data.sh
 
     - name: Build
       uses: actions-rs/cargo@v1
