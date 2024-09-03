@@ -114,6 +114,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
             self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
         # probably need to clean up a lot of stuff later, but adding new stuff first
+        # Map from timestamps [ns] to value change events that happened on that timestamp
         self.timestamps_to_events = {}
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
@@ -145,6 +146,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     signal_id_dict[sid].append(name)
             for single_enable_group in self.single_enable_names:
                 if name.startswith(f"{single_enable_group}_go.out["):
+                    print(f"found {name}")
                     self.signal_name_to_id[f"{single_enable_group}_go"] = sid
                     signal_id_dict[sid].append(name)
                 if name.startswith(f"{single_enable_group}_done.out["):
@@ -154,6 +156,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
 
+    # Stream processes the events recorded in the VCD and stores them in self.timestamps_to_events
+    # NOTE: Stream processing doesn't work because value changes that happen in the same timestamp
+    # are not processed at the same time.
+    # NOTE: when we reimplement this script, we probably want to separate this part from the
+    # clock cycle processing
     def value(
         self,
         vcd,
@@ -162,6 +169,13 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         identifier_code,
         cur_sig_vals,
     ):
+        # ignore all signals we don't care about
+        if identifier_code not in self.signal_id_to_names:
+            return
+        
+        signal_names = self.signal_id_to_names[identifier_code]
+        int_value = int(value, 2)
+
         # Start profiling after main's go is on
         if identifier_code == self.main_go_id and value == "1":
             self.main_go_on_time = time
@@ -173,22 +187,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if time not in self.timestamps_to_events: # FIXME: resolve code clone at some point
                     self.timestamps_to_events[time] = []
                 self.timestamps_to_events[time].append({"signal": signal_name, "value": fsm_value, "placeholder": True})
-
-        if self.main_go_on_time is None:
-            return
-        
-        # ignore all signals we don't care about
-        if identifier_code not in self.signal_id_to_names:
-            return
         
         if time not in self.timestamps_to_events:
             self.timestamps_to_events[time] = []
 
-        signal_names = self.signal_id_to_names[identifier_code]
-        int_value = int(value, 2)
-
         for signal_name in signal_names:
-            self.timestamps_to_events[time].append({"signal": signal_name, "value": int_value})
+            event = {"signal": signal_name, "value": int_value}
+            print(f"[{time}] event: {event}")
+            self.timestamps_to_events[time].append(event)
 
     # Postprocess data mapping timestamps to events (signal changes)
     # We have to postprocess instead of processing signals in a stream because
@@ -199,13 +205,19 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # for ts in self.timestamps_to_events:
         #     print(ts)
         #     print(self.timestamps_to_events[ts])
-        #     exit()
+        # exit()
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1
         fsm_to_active_group = {fsm : None for fsm in self.fsms}
         fsm_to_curr_value = {fsm: -1 for fsm in self.fsms} # FIXME: remove later if unnecessary
+        started = False
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
+            started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
+            if not started:
+                continue
+            else:
+                print(f"Started on ts {ts}")
             # FIXME: if there are any duplicate signals, remove the placeholder
             # checking whether the timestamp has a rising edge (hacky)
             if {"signal": clock_name, "value": 1} in events:
