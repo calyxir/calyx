@@ -11,15 +11,15 @@ CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
 
 INPUT_FILE=$1
 SIM_DATA_JSON=$2
+name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
+DATA_DIR=${SCRIPT_DIR}/data/${name}
+TMP_DIR=${DATA_DIR}/tmp
 if [ $# -ge 3 ]; then
     OUT_CSV=$3
 else
     OUT_CSV=${TMP_DIR}/summary.csv
 fi
 
-name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
-DATA_DIR=${SCRIPT_DIR}/data/${name}
-TMP_DIR=${DATA_DIR}/tmp
 TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
 FSM_JSON=${TMP_DIR}/fsm.json
 CELLS_JSON=${TMP_DIR}/cells.json
