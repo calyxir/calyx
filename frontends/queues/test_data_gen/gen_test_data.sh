@@ -98,3 +98,15 @@ for i in $tests_dir/round_robin/*.expect; do
     cp $i $tests_dir/binheap/round_robin/$file
     [[ $? -eq 0 ]] && echo "Generated binheap/round_robin/$file"
 done
+
+for i in $tests_dir/strict/*.data; do
+    file="$(basename $i)"
+    cp $i $tests_dir/binheap/strict/$file
+    [[ $? -eq 0 ]] && echo "Generated binheap/strict/$file"
+done
+
+for i in $tests_dir/strict/*.expect; do
+    file="$(basename $i)"
+    cp $i $tests_dir/binheap/strict/$file
+    [[ $? -eq 0 ]] && echo "Generated binheap/strict/$file"
+done
