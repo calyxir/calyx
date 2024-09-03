@@ -179,21 +179,20 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # Start profiling after main's go is on
         if identifier_code == self.main_go_id and value == "1":
             self.main_go_on_time = time
-            # setup: FSM values may start from 0, so we want to record this information ("placeholder" in case the FSM value actually changes in cycle 0)
-            for fsm in self.fsms:
-                signal_name = f"{fsm}.out"
-                fsm_id = self.signal_name_to_id[signal_name]
-                fsm_value = int(cur_sig_vals[fsm_id], 2)
-                if time not in self.timestamps_to_events: # FIXME: resolve code clone at some point
-                    self.timestamps_to_events[time] = []
-                self.timestamps_to_events[time].append({"signal": signal_name, "value": fsm_value, "placeholder": True})
-        
+            # # setup: FSM values may start from 0, so we want to record this information ("placeholder" in case the FSM value actually changes in cycle 0)
+            # for fsm in self.fsms:
+            #     signal_name = f"{fsm}.out"
+            #     fsm_id = self.signal_name_to_id[signal_name]
+            #     fsm_value = int(cur_sig_vals[fsm_id], 2)
+            #     if time not in self.timestamps_to_events: # FIXME: resolve code clone at some point
+            #         self.timestamps_to_events[time] = []
+            #     self.timestamps_to_events[time].append({"signal": signal_name, "value": fsm_value, "placeholder": True})
+
         if time not in self.timestamps_to_events:
             self.timestamps_to_events[time] = []
 
         for signal_name in signal_names:
             event = {"signal": signal_name, "value": int_value}
-            print(f"[{time}] event: {event}")
             self.timestamps_to_events[time].append(event)
 
     # Postprocess data mapping timestamps to events (signal changes)
@@ -215,10 +214,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             events = self.timestamps_to_events[ts]
             started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
             if not started:
+                # Update fsm_to_curr_value for any FSM signals that got updated. We will start the events corresponding
+                # to those values once the TDCC group for the FSM starts.
+                # Realistically this will most likely only happen on the 0th cycle just to set the FSM value to 0,
+                # but trying to be extra safe here.
+                for event in filter(lambda e : "fsm" in e["signal"], events):
+                    fsm = ".".join(event["signal"].split(".")[0:-1])
+                    fsm_to_curr_value[fsm] = event["value"]
                 continue
-            else:
-                print(f"Started on ts {ts}")
-            # FIXME: if there are any duplicate signals, remove the placeholder
             # checking whether the timestamp has a rising edge (hacky)
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
