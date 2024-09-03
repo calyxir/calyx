@@ -125,7 +125,7 @@ def insert_queue(
         for b in range(numflows)
     ]
     invoke_subqueues_value_guard = cb.par(
-        invoke_subqueues_value_guard_seq
+        *invoke_subqueues_value_guard_seq
     )  # Execute in parallel.
 
     incr_hot_wraparound = cb.if_with(

@@ -221,7 +221,7 @@ class ComponentBuilder:
         width = self.infer_width(signal)
         ifs = []
         for branch, controllable in cases.items():
-            std_eq = self.eq(width, f"{signal.name}_eq_{branch}", signed)
+            std_eq = self.eq(width, self.generate_name(f"{signal.name}_eq_{branch}"), signed)
 
             with self.continuous:
                 std_eq.left = signal
