@@ -5,34 +5,45 @@
 Total clock cycles: 3
 =====SUMMARY=====
 
-Group TOP.toplevel.main.par0 Summary:
+[FSM] Group TOP.toplevel.main.par0 Summary:
 	Total cycles: 3
 	# of times active: 1
 	Avg runtime: 3.0
 
-Group TOP.toplevel.main.write Summary:
+[GT]  Group TOP.toplevel.main.par0 Summary:
+	Total cycles: 2
+	# of times active: 1
+	Avg runtime: 2.0
+
+[GT]  Group TOP.toplevel.main.write Summary:
 	Total cycles: 1
 	# of times active: 1
 	Avg runtime: 1.0
 
 =====DUMP=====
 
-Group TOP.toplevel.main.par0:
+[FSM] Group TOP.toplevel.main.par0:
 	FSM name: TOP.toplevel.main.fsm
 	FSM state ids: [0]
 	Total cycles: 3
 	# of times active: 1
 	Segments: [0, 3)
 
-Group TOP.toplevel.main.write:
-	FSM name: None
-	FSM state ids: None
+[GT]  Group TOP.toplevel.main.par0:
+	Total cycles: 2
+	# of times active: 1
+	Segments: [0, 2)
+
+[GT]  Group TOP.toplevel.main.write:
 	Total cycles: 1
 	# of times active: 1
 	Segments: [0, 1)
 
+Writing dump JSON to /Users/ayakayorihiro/projects/calyx/tools/profiler/data/simple-par/tmp/dump.json
 Writing summary to STDOUT
 name,total-cycles,times-active,avg
-TOP.toplevel.main.par0,3,1,3.0
+TOP.toplevel.main.par0[FSM],3,1,3.0
+TOP.toplevel.main.par0,2,1,2.0
 TOP.toplevel.main.write,1,1,1.0
 TOTAL,3,-,-
+[get-profile-counts-info.sh] Writing visualization to /Users/ayakayorihiro/projects/calyx/tools/profiler/data/simple-par/tmp/visual.json
