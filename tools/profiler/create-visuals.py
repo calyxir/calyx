@@ -3,10 +3,11 @@ import json
 import sys
 
 class FlameInfo:
-    def __init__(self, name, backptr, cycles):
+    def __init__(self, name, backptr, cycles, is_fsm):
         self.name = name
         self.backptr = backptr
         self.cycles = cycles
+        self.is_fsm = is_fsm
 
     def make_folded_log_entry(self):
         if self.backptr is not None:
@@ -19,22 +20,39 @@ def create_flame_graph(profiled_info, flame_out, fsm_flame_out):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
     total_cycles = summary["total_cycles"]
-    # FIXME: maybe make an object instead of a dictionary
-    stacks = [FlameInfo(main_component, None, total_cycles)]
-    # FIXME: NOT going to deal with multicompoinent programs for now
+    stacks = {}
+    # FIXME: NOT going to deal with multicomponent programs for now
     # in the future I think we need to create and chase back pointers
     for group_info in profiled_info:
         if group_info["name"] == "TOTAL": # already processed the summary
             continue
-        # FIXME: ignore the FSM entries for now. Later we probably want to make a separate folded log for those
+        name = group_info["name"].split(".")[-1] # FIXME: assumes that there are no multicomponent programs... need to do better here
+        backptr = main_component # FIXME: will NOT be true for multicomponent, pars, etc
+        cycles = group_info["total_cycles"]
+        if name not in stacks:
+            stacks[name] = {}
         if group_info["fsm_name"] is None:
-            name = group_info["name"].split(".")[-1] # FIXME: assumes that there are no multicomponent programs... need to do better here
-            backptr = main_component # FIXME: will NOT be true for multicomponent
-            cycles = group_info["total_cycles"]
-            stacks.append(FlameInfo(name, backptr, cycles))
-    with open(flame_out, "w") as f:
-        for entry in stacks:
-            f.write(entry.make_folded_log_entry() + "\n")
+            stacks[name]["gt"] = FlameInfo(name, backptr, cycles, False)
+        else:
+            stacks[name]["fsm"] = FlameInfo(name, backptr, cycles, True)
+    f = open(flame_out, "w")
+    f_fsm = open(fsm_flame_out, "w")
+    # The cycle count entry for main_component needs to be the *difference* between all groups and the total number
+    # of cycles
+    gt_aggregate = 0
+    fsm_aggregate = 0
+    for group_name in stacks:
+        entry = stacks[group_name]
+        gt_aggregate += entry["gt"].cycles
+        f.write(entry["gt"].make_folded_log_entry() + "\n")
+        if "fsm" in entry:
+            fsm_aggregate += entry["fsm"].cycles
+            f_fsm.write(entry["fsm"].make_folded_log_entry() + "\n")
+        else:
+            fsm_aggregate += entry["gt"].cycles
+            f_fsm.write(entry["gt"].make_folded_log_entry() + "\n")
+    f.write(FlameInfo(main_component, None, total_cycles - gt_aggregate, False).make_folded_log_entry() + "\n")
+    f_fsm.write(FlameInfo(main_component, None, total_cycles - fsm_aggregate, False).make_folded_log_entry() + "\n")
 
 # Starting with the JSON array format for now... [Needs to be fixed]
 # example
