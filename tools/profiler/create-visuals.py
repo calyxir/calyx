@@ -2,13 +2,25 @@
 import json
 import sys
 
+class FlameInfo:
+    def __init__(self, name, backptr, cycles):
+        self.name = name
+        self.backptr = backptr
+        self.cycles = cycles
+
+    def make_folded_log_entry(self):
+        if self.backptr is not None:
+            return f'{self.backptr};{self.name} {self.cycles}'
+        else:
+            return f'{self.name} {self.cycles}'
+
 # Creates folded log
-def create_flame_graph(profiled_info, flame_out):
+def create_flame_graph(profiled_info, flame_out, fsm_flame_out):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
     total_cycles = summary["total_cycles"]
     # FIXME: maybe make an object instead of a dictionary
-    stacks = [{"name": main_component, "backptr": None, "cycles" : total_cycles}]
+    stacks = [FlameInfo(main_component, None, total_cycles)]
     # FIXME: NOT going to deal with multicompoinent programs for now
     # in the future I think we need to create and chase back pointers
     for group_info in profiled_info:
@@ -19,13 +31,10 @@ def create_flame_graph(profiled_info, flame_out):
             name = group_info["name"].split(".")[-1] # FIXME: assumes that there are no multicomponent programs... need to do better here
             backptr = main_component # FIXME: will NOT be true for multicomponent
             cycles = group_info["total_cycles"]
-            stacks.append({"name": name, "backptr" : backptr, "cycles": cycles})
+            stacks.append(FlameInfo(name, backptr, cycles))
     with open(flame_out, "w") as f:
         for entry in stacks:
-            if entry["backptr"] is not None:
-                f.write(f'{entry["backptr"]};{entry["name"]} {entry["cycles"]}\n')
-            else:
-                f.write(f'{entry["name"]} {entry["cycles"]}\n')
+            f.write(entry.make_folded_log_entry() + "\n")
 
 # Starting with the JSON array format for now... [Needs to be fixed]
 # example
@@ -54,22 +63,24 @@ def create_timeline_view(profiled_info, out_file):
     with open(out_file, "w") as out:
         json.dump(events, out, indent=4)
 
-def main(profiler_dump_file, timeline_out, flame_out):
+def main(profiler_dump_file, timeline_out, flame_out, fsm_flame_out):
     profiled_info = json.load(open(profiler_dump_file, "r"))
     create_timeline_view(profiled_info, timeline_out)
-    create_flame_graph(profiled_info, flame_out)
+    create_flame_graph(profiled_info, flame_out, fsm_flame_out)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 3:
+    if len(sys.argv) > 4:
         profiler_dump_json = sys.argv[1]
         timeline_out = sys.argv[2]
         flame_out = sys.argv[3]
-        main(profiler_dump_json, timeline_out, flame_out)
+        fsm_flame_out = sys.argv[4]
+        main(profiler_dump_json, timeline_out, flame_out, fsm_flame_out)
     else:
         args_desc = [
             "PROFILER_JSON",
             "TIMELINE_VIEW_JSON",
-            "FLAME_GRAPH_FOLDED"
+            "FLAME_GRAPH_FOLDED",
+            "FSM_FLAME_GRAPH_FOLDED",
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         sys.exit(-1)
