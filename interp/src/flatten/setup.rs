@@ -49,6 +49,9 @@ fn do_setup(
     Ok((crate::flatten::flat_ir::translate(&ctx), mapping))
 }
 
+/// This function sets up the simulation context for the given program. This is
+/// meant to be used in contexts where calyx metadata is not required. For other
+/// cases, use [setup_simulation_with_metadata]
 pub fn setup_simulation(
     file: &Option<PathBuf>,
     lib_path: &Path,
@@ -58,6 +61,11 @@ pub fn setup_simulation(
     Ok(ctx)
 }
 
+/// Constructs the simulation context for the given program. Additionally
+/// attempts to construct the metadata table for the program.
+///
+/// For cases where the metadata is not required, use [setup_simulation], which
+/// has less of a performance impact.
 pub fn setup_simulation_with_metadata(
     file: &Option<PathBuf>,
     lib_path: &Path,
