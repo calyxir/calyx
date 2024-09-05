@@ -202,7 +202,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # TDCC groups need to be recorded for tracking FSM values
             # (ex. if the FSM has value 0 but the TDCC group isn't active, then the group represented by the
             # FSM's 0 value should not be considered as active)
-            for tdcc_event in filter(lambda e : "tdcc_go" in e["signal"], events):
+            for tdcc_event in filter(lambda e : "tdcc" in e["signal"] and "go" in e["signal"], events):
                 tdcc_group = "_".join(tdcc_event["signal"].split("_")[0:-1])
                 if self.tdcc_group_active_cycle[tdcc_group] == -1 and tdcc_event["value"] == 1: # value changed to 1
                     self.tdcc_group_active_cycle[tdcc_group] = clock_cycles
@@ -217,7 +217,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for event in events:
                 signal_name = event["signal"]
                 value = event["value"]
-                if "tdcc_go" in signal_name: # skip all tdcc events since we've already processed them
+                if "tdcc" in signal_name and "go" in signal_name: # skip all tdcc events since we've already processed them
                     continue
                 if "_go" in signal_name and value == 1:
                     group = "_".join(signal_name.split("_")[0:-1])
