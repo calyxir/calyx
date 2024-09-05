@@ -26,8 +26,15 @@ def create_flame_graph(profiled_info, flame_out, fsm_flame_out):
     for group_info in profiled_info:
         if group_info["name"] == "TOTAL": # already processed the summary
             continue
-        name = group_info["name"].split(f"{main_component}.")[1] # FIXME: still not correct for multicomponent programs
-        backptr = main_component # FIXME: will NOT be true for multicomponent, pars, etc
+        name_split = group_info["name"].split(".")
+        name = name_split[-1] # FIXME: still not correct for multicomponent programs
+        prefix = ".".join(name_split[:-1])
+        if prefix == main_component:
+            backptr = prefix # FIXME: will NOT be true for multicomponent, pars, etc
+        else:
+            after_main = prefix.split(f"{main_component}.")[1]
+            after_main.replace(".", ";")
+            backptr = main_component + ";" + after_main
         cycles = group_info["total_cycles"]
         if name not in stacks:
             stacks[name] = {}
