@@ -19,7 +19,6 @@ members = [
     "tools/calyx-pass-explorer",
     "tools/cider-data-converter",
     "tools/component_cells",
-    "tools/component_groups",
     "tools/yxi",
     "tools/calyx-writer",
 ]
