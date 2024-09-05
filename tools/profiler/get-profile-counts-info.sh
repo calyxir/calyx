@@ -70,9 +70,9 @@ echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 ) &> ${LOGS_DIR}/gol-process
 
 if [ "$4" == "-d" ]; then
-    cat ${LOGS_DIR}/gol-process | grep -v Writing
+    cat ${LOGS_DIR}/gol-process | grep -v Writing # exclude lines that show paths
 else
-    tail -2 ${LOGS_DIR}/gol-process
+    tail -3 ${LOGS_DIR}/gol-process | head -2 # last line is the set +o xtrace, which we don't need to show
 fi
 
 echo "[${SCRIPT_NAME}] Writing visualization"

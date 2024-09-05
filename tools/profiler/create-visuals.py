@@ -26,7 +26,7 @@ def create_flame_graph(profiled_info, flame_out, fsm_flame_out):
     for group_info in profiled_info:
         if group_info["name"] == "TOTAL": # already processed the summary
             continue
-        name = group_info["name"].split(".")[-1] # FIXME: assumes that there are no multicomponent programs... need to do better here
+        name = group_info["name"].split(f"{main_component}.")[1] # FIXME: still not correct for multicomponent programs
         backptr = main_component # FIXME: will NOT be true for multicomponent, pars, etc
         cycles = group_info["total_cycles"]
         if name not in stacks:
@@ -51,8 +51,8 @@ def create_flame_graph(profiled_info, flame_out, fsm_flame_out):
         else:
             fsm_aggregate += entry["gt"].cycles
             f_fsm.write(entry["gt"].make_folded_log_entry() + "\n")
-    f.write(FlameInfo(main_component, None, total_cycles - gt_aggregate, False).make_folded_log_entry() + "\n")
-    f_fsm.write(FlameInfo(main_component, None, total_cycles - fsm_aggregate, False).make_folded_log_entry() + "\n")
+    f.write(FlameInfo(main_component, None, max(total_cycles - gt_aggregate, 0), False).make_folded_log_entry() + "\n")
+    f_fsm.write(FlameInfo(main_component, None, max(total_cycles - fsm_aggregate, 0), False).make_folded_log_entry() + "\n")
 
 # Starting with the JSON array format for now... [Needs to be fixed]
 # example
