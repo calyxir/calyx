@@ -30,8 +30,9 @@ def create_flame_graph(profiled_info, flame_out, fsm_flame_out):
         name = name_split[-1] # FIXME: still not correct for multicomponent programs
         prefix = ".".join(name_split[:-1])
         if prefix == main_component:
-            backptr = prefix # FIXME: will NOT be true for multicomponent, pars, etc
+            backptr = prefix # base case?
         else:
+            # FIXME: this would be wrong if the cell had a FSM? maybe?
             after_main = prefix.split(f"{main_component}.")[1]
             after_main.replace(".", ";")
             backptr = main_component + ";" + after_main

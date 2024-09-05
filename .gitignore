@@ -57,6 +57,7 @@ tools/btor2/btor2i/build/
 
 # profiling ignore
 tools/profiler/data
+tools/profiler/fg-tmp
 
 temp/
 

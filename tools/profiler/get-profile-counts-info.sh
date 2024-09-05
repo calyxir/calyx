@@ -20,13 +20,24 @@ else
     OUT_CSV=${TMP_DIR}/summary.csv
 fi
 
+FLAMEGRAPH_DIR=${SCRIPT_DIR}/fg-tmp
+
+if [ ! -d ${FLAMEGRAPH_DIR} ]; then
+    (
+	cd ${SCRIPT_DIR}
+	git clone git@github.com:brendangregg/FlameGraph.git fg-tmp
+    )
+fi
+
 TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
 FSM_JSON=${TMP_DIR}/fsm.json
 CELLS_JSON=${TMP_DIR}/cells.json
 OUT_JSON=${TMP_DIR}/dump.json
 TIMELINE_VIEW_JSON=${TMP_DIR}/timeline.json
 FLAME_GRAPH_FOLDED=${TMP_DIR}/flame.folded
+FLAME_GRAPH_SVG=${TMP_DIR}/flame.svg
 FSM_FLAME_GRAPH_FOLDED=${TMP_DIR}/fsm-flame.folded
+FSM_FLAME_GRAPH_SVG=${TMP_DIR}/fsm-flame.svg
 VCD_FILE=${TMP_DIR}/trace.vcd
 LOGS_DIR=${DATA_DIR}/logs
 if [ -d ${DATA_DIR} ]; then
@@ -81,3 +92,12 @@ echo "[${SCRIPT_NAME}] Writing visualization"
     python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-visuals
+
+echo "[${SCRIPT_NAME}] Creating flame graph svg"
+(
+    set -o xtrace
+    ${FLAMEGRAPH_DIR}/flamegraph.pl ${FLAME_GRAPH_FOLDED} > ${FLAME_GRAPH_SVG}
+    echo
+    ${FLAMEGRAPH_DIR}/flamegraph.pl ${FSM_FLAME_GRAPH_FOLDED} > ${FSM_FLAME_GRAPH_SVG}
+    set +o xtrace
+) &> ${LOGS_DIR}/gol-flamegraph
