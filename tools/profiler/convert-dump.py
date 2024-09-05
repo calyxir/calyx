@@ -9,12 +9,15 @@ import sys
 
 def main(profiler_dump_file, out_file):
     profiled_info = json.load(open(profiler_dump_file, "r"))
-    cat = "C" # Category... might do something with this later
+    cat = "GT" # Ground truth category (will overwrite if it's FSM)
     events = []
     id_acc = 1
     ts_multiplier = 100 # some arbitrary number to multiply by so that it's easier to see in the viewer
     for group_info in profiled_info:
         name = group_info["name"].split("TOP.toplevel.", 1)[1]
+        if group_info["fsm_name"] is not None:
+            cat = "FSM"
+            name = "[FSM] " + name
         for segment in group_info["closed_segments"]:
             # beginning of segment
             begin_time = segment["start"] * ts_multiplier

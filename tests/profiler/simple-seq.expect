@@ -5,23 +5,32 @@
 Total clock cycles: 2
 =====SUMMARY=====
 
-Group TOP.toplevel.main.write Summary:
+[FSM] Group TOP.toplevel.main.write Summary:
 	Total cycles: 2
 	# of times active: 1
 	Avg runtime: 2.0
 
+[GT]  Group TOP.toplevel.main.write Summary:
+	Total cycles: 1
+	# of times active: 1
+	Avg runtime: 1.0
+
 =====DUMP=====
 
-Group TOP.toplevel.main.write:
+[FSM] Group TOP.toplevel.main.write:
 	FSM name: TOP.toplevel.main.fsm
 	FSM state ids: [0]
 	Total cycles: 2
 	# of times active: 1
 	Segments: [0, 2)
 
-Writing dump JSON to /home/ayaka/projects/calyx/tools/profiler/data//tmp/dump.json
-Writing summary to STDOUT
+[GT]  Group TOP.toplevel.main.write:
+	Total cycles: 1
+	# of times active: 1
+	Segments: [0, 1)
+
 name,total-cycles,times-active,avg
-TOP.toplevel.main.write,2,1,2.0
+TOP.toplevel.main.write[FSM],2,1,2.0
+TOP.toplevel.main.write,1,1,1.0
 TOTAL,2,-,-
-[get-profile-counts-info.sh] Writing visualization to /home/ayaka/projects/calyx/tools/profiler/data//tmp/visual.json
+[get-profile-counts-info.sh] Writing visualization
