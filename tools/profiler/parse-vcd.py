@@ -24,13 +24,15 @@ class ProfilingInfo:
             if (segments_str != ""):
                 segments_str += ", "
             segments_str += f"[{segment['start']}, {segment['end']})"
-        if self.fsm_name is None:
-            header = f"[GT]  Group {self.name}:\n"
-        else:
+        if self.fsm_name is not None:
             header = (f"[FSM] Group {self.name}:\n" + 
             f"\tFSM name: {self.fsm_name}\n" +
             f"\tFSM state ids: {self.fsm_values}\n"
             )
+        elif self.component is None:
+            header = f"[CMP] Group {self.name}:\n"
+        else:
+            header = f"[GT]  Group {self.name}:\n"
 
         return (header +
         f"\tTotal cycles: {self.total_cycles}\n" +
@@ -57,6 +59,8 @@ class ProfilingInfo:
         name = self.name
         if self.fsm_name is not None:
             name += "[FSM]"
+        if self.component is None:
+            name += "[CMP]"
         return {"name": name, 
                 "total-cycles" : self.total_cycles,
                 "times-active" : len(self.closed_segments),
