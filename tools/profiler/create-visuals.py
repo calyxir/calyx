@@ -23,8 +23,7 @@ class FlameInfo:
 def create_timeline_map(profiled_info):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     total_cycles = summary["total_cycles"]
-    timeline_map = {i : set() for i in range(total_cycles)}
-    timeline_map_fsm = {i : set() for i in range(total_cycles)}
+    timeline_map = {i : {} for i in range(total_cycles)}
     for group_info in profiled_info:
         if group_info["name"] == "TOTAL" or group_info["component"] is None: # only care about actual groups
             continue
@@ -32,7 +31,7 @@ def create_timeline_map(profiled_info):
             continue
         for segment in group_info["closed_segments"]:
             for i in range(segment["start"], segment["end"]): # really janky, I wonder if there's a better way to do this?
-                timeline_map[i].add((group_info["name"], group_info["component"]))
+                timeline_map[i][group_info["component"]] = group_info["name"]
 
     print(timeline_map)
     return timeline_map
@@ -46,12 +45,14 @@ def create_flame_graph_2(profiled_info, flame_out):
     total_cycles = summary["total_cycles"]
     stacks = {} # each stack to the # of cycles it was active for?
     for i in timeline: # keys in the timeline are clock time stamps
-        for group_full_name, group_component in timeline[i]:
+        for group_component, group_full_name in timeline[i].items():
             stack = ""
             group_name = group_full_name.split(".")[-1]
             if group_component == main_shortname: # group within main so it has to be at the bottom
                 stack = main_component + ";" + group_name
             else:
+                after_main = group_full_name.split(f"{main_component}.")[1]
+                # need to walk through every cell...
                 stack = ";".join((main_component, group_component, group_name)) # FIXME: temp
             
             if stack not in stacks:
