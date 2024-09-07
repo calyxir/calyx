@@ -37,7 +37,7 @@ def create_timeline_map(profiled_info):
     return timeline_map
 
 # attempt to rehash the create_flame_graph to take care of stacks
-def create_flame_graph_2(profiled_info, flame_out):
+def create_flame_graph_2(profiled_info, cells_map, flame_out):
     timeline = create_timeline_map(profiled_info)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
@@ -52,8 +52,20 @@ def create_flame_graph_2(profiled_info, flame_out):
                 stack = main_component + ";" + group_name
             else:
                 after_main = group_full_name.split(f"{main_component}.")[1]
-                # need to walk through every cell...
-                stack = ";".join((main_component, group_component, group_name)) # FIXME: temp
+                after_main_split = after_main.split(".")[:-1]
+                # first, find the group in main that is simulatenous
+                if main_shortname not in timeline[i]:
+                    print(f"Error: A group from the main component ({main_shortname}) should be active at cycle {i}!")
+                    exit(1)
+                backptrs = [main_component]
+                group_from_main = timeline[i][main_shortname].split(main_component + ".")[1]
+                backptrs.append(group_from_main)
+                prev_component = main_shortname
+                for cell_name in after_main_split:
+                    cell_component = cells_map[prev_component][cell_name]
+                    backptrs.append(f"{cell_component}[{prev_component}.{cell_name}]")
+                backptrs.append(group_name)
+                stack = ";".join(backptrs) # FIXME: temp
             
             if stack not in stacks:
                 stacks[stack] = 0
@@ -61,7 +73,9 @@ def create_flame_graph_2(profiled_info, flame_out):
 
     print("STACKS")
     print(stacks)
-    return stacks
+    with open(flame_out, "w") as f:
+        for stack in stacks:
+            f.write(f"{stack}  {stacks[stack]}\n")
 
 # Creates folded log
 def create_flame_graph(profiled_info, cells_map, flame_out, fsm_flame_out):
@@ -138,11 +152,19 @@ def create_timeline_view(profiled_info, out_file):
 
 def build_cells_map(json_file):
     cell_json = json.load(open(json_file))
-    return {x["name"] : x for x in cell_json}        
+    cells_map = {}
+    for component_entry in cell_json:
+        inner_cells_map = {}
+        for cell_entry in component_entry["cell_info"]:
+            inner_cells_map[cell_entry["cell_name"]] = cell_entry["component_name"]
+        cells_map[component_entry["component"]] = inner_cells_map
+    return cells_map
 
 def main(profiler_dump_file, cells_json, timeline_out, flame_out, fsm_flame_out):
     profiled_info = json.load(open(profiler_dump_file, "r"))
-    create_flame_graph_2(profiled_info, flame_out)
+    # This cells_map is different from the one in parse-vcd.py
+    cells_map = build_cells_map(cells_json)
+    create_flame_graph_2(profiled_info, cells_map, flame_out)
     # create_timeline_view(profiled_info, timeline_out)
     # create_flame_graph(profiled_info, cells_json, flame_out, fsm_flame_out)
 
