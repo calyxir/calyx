@@ -15,11 +15,6 @@ class FlameInfo:
         else:
             return f'{self.name} {self.cycles}'
 
-# def create_backptrs(name, main_component, cells_map):
-#     after_main = prefix.split(f"{main_component}.")[1]
-
-#     return
-
 def create_timeline_map(profiled_info):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     total_cycles = summary["total_cycles"]
@@ -33,7 +28,6 @@ def create_timeline_map(profiled_info):
             for i in range(segment["start"], segment["end"]): # really janky, I wonder if there's a better way to do this?
                 timeline_map[i][group_info["component"]] = group_info["name"]
 
-    print(timeline_map)
     return timeline_map
 
 # attempt to rehash the create_flame_graph to take care of stacks
@@ -52,7 +46,7 @@ def create_flame_graph(profiled_info, cells_map, flame_out):
         if len(timeline[i]) == 0:
             nonactive_cycles += 1
             continue
-        group_component = sorted(timeline[i], key=lambda k : len(timeline[i][k]), reverse=True)[0]
+        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].count("."), reverse=True)[0]
         group_full_name = timeline[i][group_component]
         stack = ""
         group_name = group_full_name.split(".")[-1]
@@ -66,13 +60,14 @@ def create_flame_graph(profiled_info, cells_map, flame_out):
                 print(f"Error: A group from the main component ({main_shortname}) should be active at cycle {i}!")
                 exit(1)
             backptrs = [main_component]
-            group_from_main = timeline[i][main_shortname].split(main_component + ".")[1]
+            group_from_main = timeline[i][main_shortname].split(main_component + ".")[-1]
             backptrs.append(group_from_main)
             prev_component = main_shortname
             for cell_name in after_main_split:
                 cell_component = cells_map[prev_component][cell_name]
-                backptrs.append(f"{cell_component}[{prev_component}.{cell_name}]")
-            backptrs.append(group_name)
+                group_from_component = timeline[i][cell_component].split(cell_name + ".")[-1]
+                backptrs.append(f"{cell_component}[{prev_component}.{cell_name}];{group_from_component}")
+                prev_component = cell_component
             stack = ";".join(backptrs)
             
         if stack not in stacks:
