@@ -37,7 +37,7 @@ def create_timeline_map(profiled_info):
     return timeline_map
 
 # attempt to rehash the create_flame_graph to take care of stacks
-def create_flame_graph_2(profiled_info, cells_map, flame_out):
+def create_flame_graph(profiled_info, cells_map, flame_out):
     timeline = create_timeline_map(profiled_info)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
@@ -85,52 +85,6 @@ def create_flame_graph_2(profiled_info, cells_map, flame_out):
         for stack in sorted(stacks, key=lambda k : len(k)): # main needs to come first for flame graph script to not make two boxes for main?
             f.write(f"{stack}  {stacks[stack]}\n")
 
-# Creates folded log
-def create_flame_graph(profiled_info, cells_map, flame_out, fsm_flame_out):
-    summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
-    main_component = summary["main_full_path"]
-    total_cycles = summary["total_cycles"]
-    stacks = {}
-    for group_info in profiled_info:
-        if group_info["name"] == "TOTAL" or group_info["name"] == main_component: # already processed the summary
-            continue
-        name_split = group_info["name"].split(".")
-        name = name_split[-1] # FIXME: still not correct for multicomponent programs
-        prefix = ".".join(name_split[:-1])
-        if prefix == main_component:
-            backptr = prefix # base case?
-        else: # multicomponent
-            after_main = prefix.split(f"{main_component}.")[1]
-            backptr = main_component
-            # for cell in after_main.split("."):
-                
-            # after_main.replace(".", ";")
-        cycles = group_info["total_cycles"]
-        if name not in stacks:
-            stacks[name] = {}
-        if group_info["fsm_name"] is None:
-            stacks[name]["gt"] = FlameInfo(name, backptr, cycles, False)
-        else:
-            stacks[name]["fsm"] = FlameInfo(name, backptr, cycles, True)
-    f = open(flame_out, "w")
-    f_fsm = open(fsm_flame_out, "w")
-    # The cycle count entry for main_component needs to be the *difference* between all groups and the total number
-    # of cycles
-    gt_aggregate = 0
-    fsm_aggregate = 0
-    for group_name in stacks:
-        entry = stacks[group_name]
-        gt_aggregate += entry["gt"].cycles
-        f.write(entry["gt"].make_folded_log_entry() + "\n")
-        if "fsm" in entry:
-            fsm_aggregate += entry["fsm"].cycles
-            f_fsm.write(entry["fsm"].make_folded_log_entry() + "\n")
-        else:
-            fsm_aggregate += entry["gt"].cycles
-            f_fsm.write(entry["gt"].make_folded_log_entry() + "\n")
-    f.write(FlameInfo(main_component, None, max(total_cycles - gt_aggregate, 0), False).make_folded_log_entry() + "\n")
-    f_fsm.write(FlameInfo(main_component, None, max(total_cycles - fsm_aggregate, 0), False).make_folded_log_entry() + "\n")
-
 # Starting with the JSON array format for now... [Needs to be fixed]
 # example
 # [ {"name": "Asub", "cat": "PERF", "ph": "B", "pid": 22630, "tid": 22630, "ts": 829},
@@ -172,9 +126,8 @@ def main(profiler_dump_file, cells_json, timeline_out, flame_out, fsm_flame_out)
     profiled_info = json.load(open(profiler_dump_file, "r"))
     # This cells_map is different from the one in parse-vcd.py
     cells_map = build_cells_map(cells_json)
-    create_flame_graph_2(profiled_info, cells_map, flame_out)
+    create_flame_graph(profiled_info, cells_map, flame_out)
     # create_timeline_view(profiled_info, timeline_out)
-    # create_flame_graph(profiled_info, cells_json, flame_out, fsm_flame_out)
 
 if __name__ == "__main__":
     if len(sys.argv) > 5:

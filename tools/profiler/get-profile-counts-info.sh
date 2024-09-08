@@ -89,7 +89,7 @@ fi
 echo "[${SCRIPT_NAME}] Writing visualization"
 (
     set -o xtrace
-    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED}
+    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-visuals
 
