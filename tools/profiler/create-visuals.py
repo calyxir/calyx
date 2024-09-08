@@ -42,39 +42,47 @@ def create_flame_graph_2(profiled_info, cells_map, flame_out):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
     main_shortname = main_component.split("TOP.toplevel.")[1]
-    total_cycles = summary["total_cycles"]
+    # total_cycles = summary["total_cycles"]
     stacks = {} # each stack to the # of cycles it was active for?
+    nonactive_cycles = 0 # cycles where no group was active
     for i in timeline: # keys in the timeline are clock time stamps
-        for group_component, group_full_name in timeline[i].items():
-            stack = ""
-            group_name = group_full_name.split(".")[-1]
-            if group_component == main_shortname: # group within main so it has to be at the bottom
-                stack = main_component + ";" + group_name
-            else:
-                after_main = group_full_name.split(f"{main_component}.")[1]
-                after_main_split = after_main.split(".")[:-1]
-                # first, find the group in main that is simulatenous
-                if main_shortname not in timeline[i]:
-                    print(f"Error: A group from the main component ({main_shortname}) should be active at cycle {i}!")
-                    exit(1)
-                backptrs = [main_component]
-                group_from_main = timeline[i][main_shortname].split(main_component + ".")[1]
-                backptrs.append(group_from_main)
-                prev_component = main_shortname
-                for cell_name in after_main_split:
-                    cell_component = cells_map[prev_component][cell_name]
-                    backptrs.append(f"{cell_component}[{prev_component}.{cell_name}]")
-                backptrs.append(group_name)
-                stack = ";".join(backptrs) # FIXME: temp
+        # Right now we are assuming that there are no pars. So for any time stamp, *if there are multiple* groups active,
+        # we need to find the one that is the longest (since that's the innermost one).
+        # NOTE: This might be generalizable for even the 1 group active case? Going to try it out
+        if len(timeline[i]) == 0:
+            nonactive_cycles += 1
+            continue
+        group_component = sorted(timeline[i], key=lambda k : len(timeline[i][k]), reverse=True)[0]
+        group_full_name = timeline[i][group_component]
+        stack = ""
+        group_name = group_full_name.split(".")[-1]
+        if group_component == main_shortname:
+            stack = main_component + ";" + group_name
+        else:
+            after_main = group_full_name.split(f"{main_component}.")[1]
+            after_main_split = after_main.split(".")[:-1]
+            # first, find the group in main that is simulatenous
+            if main_shortname not in timeline[i]:
+                print(f"Error: A group from the main component ({main_shortname}) should be active at cycle {i}!")
+                exit(1)
+            backptrs = [main_component]
+            group_from_main = timeline[i][main_shortname].split(main_component + ".")[1]
+            backptrs.append(group_from_main)
+            prev_component = main_shortname
+            for cell_name in after_main_split:
+                cell_component = cells_map[prev_component][cell_name]
+                backptrs.append(f"{cell_component}[{prev_component}.{cell_name}]")
+            backptrs.append(group_name)
+            stack = ";".join(backptrs)
             
-            if stack not in stacks:
-                stacks[stack] = 0
-            stacks[stack] += 1
+        if stack not in stacks:
+            stacks[stack] = 0
+        stacks[stack] += 1
 
-    print("STACKS")
-    print(stacks)
+    stacks[main_component] = nonactive_cycles
+
     with open(flame_out, "w") as f:
-        for stack in stacks:
+        for stack in sorted(stacks, key=lambda k : len(k)): # main needs to come first for flame graph script to not make two boxes for main?
             f.write(f"{stack}  {stacks[stack]}\n")
 
 # Creates folded log
