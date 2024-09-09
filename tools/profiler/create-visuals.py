@@ -56,18 +56,32 @@ def create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_
     write_flame_graph(fsm_flame_out, fsm_stacks)
 
 def create_timeline_stacks(timeline, main_component):
-    main_shortname = main_component.split("TOP.toplevel.")[1]
+    print(timeline)
     events = []
     currently_active = {} # group name to beginning traceEvent entry (so end event can copy)
     ts_multiplier = 100 # some arbitrary number to multiply by so that it's easier to see in the viewer
-    cell_to_stackframe_info = {main_component : (2, None)} # (stack_number, parent_stack_number)
+    cell_to_stackframe_info = {main_component : (2, 1)} # (stack_number, parent_stack_number)
     stack_number_acc = 3 # To guarantee that we get unique stack numbers when we need a new one
+
+    # Beginning and end events for main signify the overall running time (stack 1)
+    main_event_details = {"name": main_component, "sf": 1, "cat": "MAIN", "pid": 1, "tid": 1}
+    main_start = main_event_details.copy()
+    main_start["ts"] = 0
+    main_start["ph"] = "B"
+    events.append(main_start)
+    main_end = main_event_details.copy()
+    main_end["ts"] = len(timeline) * ts_multiplier
+    main_end["ph"] = "E"
+    events.append(main_end)
+    cell_to_stackframe_info["MAIN"] = (1, None)
+
     for i in timeline:
         active_this_cycle = set()
         # Differently from compute_flame_stacks, we start from the bottom up. (easier to see parent)
         sorted_active_groups = list(sorted(timeline[i], key=lambda k : timeline[i][k].count(".")))
         for group_component in sorted_active_groups:
             group_full_name = timeline[i][group_component]
+            active_this_cycle.add(group_full_name)
             if group_full_name not in currently_active: # first cycle of the group. We need to figure out the stack
                 group_split = group_full_name.split(".")
                 group_cell = ".".join(group_split[:-1])
@@ -86,30 +100,51 @@ def create_timeline_stacks(timeline, main_component):
                 start_event = {"name": group_shortname, "cat": group_component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
                 events.append(start_event)
                 currently_active[group_full_name] = start_event
-                active_this_cycle.add(group_full_name)
         for non_active_group in set(currently_active.keys()).difference(active_this_cycle):
+            print(f"group {non_active_group} is no longer active at cycle {i}")
             # create end event
             end_event = currently_active[non_active_group].copy()
             del currently_active[non_active_group]
-            end_event["ts"] = (i - 1) * ts_multiplier
+            end_event["ts"] = (i) * ts_multiplier - 1
             end_event["ph"] = "E"
             events.append(end_event)
-
-    # we probably want to add beginning and end events for main?
+    # postprocess - add end events for all events still active
+    for event in currently_active:
+        # FIXME: should clean up and remove code clone w the above
+        end_event = currently_active[event].copy()
+        end_event["ts"] = (len(timeline)) * ts_multiplier - 1 # only difference w the above
+        end_event["ph"] = "E"
+        events.append(end_event)
 
     # "stackFrames" field of the Trace Format JSON
     stacks = {}
     stack_category = "C"
     for cell in cell_to_stackframe_info:
         stack_id, parent_stack_id = cell_to_stackframe_info[cell]
-        stacks[stack_id] = {"name" : cell, "parent": parent_stack_id, "category" : stack_category}
+        if parent_stack_id is None:
+            stacks[stack_id] = {"name" : "MAIN", "category": stack_category}
+        else:
+            stacks[stack_id] = {"name" : cell, "parent": parent_stack_id, "category" : stack_category}
 
-    print("events!!!")
-    print(events)
-    print("stacks!!!")
-    print(stacks)
+    # print("events!!!")
+    # print(events)
+    # print("stacks!!!")
+    # print(stacks)
 
     return { "traceEvents": events, "stackFrames": stacks }
+
+def create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out):
+    timeline_json_data = create_timeline_stacks(timeline, main_component)
+    with open(timeline_out, "w", encoding="utf-8") as timeline_file:
+        timeline_file.write(json.dumps(timeline_json_data, indent=4))
+    print("ORIGINAL TIMELINE")
+    print(timeline)
+    print("FSM TIEMLINE")
+    print(fsm_timeline)
+    fsm_timeline_json_data = create_timeline_stacks(fsm_timeline, main_component)
+    with open(fsm_timeline_out, "w", encoding="utf-8") as fsm_timeline_file:
+        fsm_timeline_file.write(json.dumps(fsm_timeline_json_data, indent=4))
+
 
 def compute_flame_stacks(cells_map, timeline, main_component):
     main_shortname = main_component.split("TOP.toplevel.")[1]
@@ -195,7 +230,7 @@ def build_cells_map(json_file):
         cells_map[component_entry["component"]] = inner_cells_map
     return cells_map
 
-def main(profiler_dump_file, cells_json, timeline_out, flame_out, fsm_flame_out):
+def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_out, fsm_flame_out):
     profiled_info = json.load(open(profiler_dump_file, "r"))
     fsm_groups, all_groups = get_fsm_groups(profiled_info)
     # This cells_map is different from the one in parse-vcd.py
@@ -204,21 +239,23 @@ def main(profiler_dump_file, cells_json, timeline_out, flame_out, fsm_flame_out)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
     create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out)
-    create_timeline_stacks(timeline, main_component)
+    create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out)
 
 if __name__ == "__main__":
     if len(sys.argv) > 5:
         profiler_dump_json = sys.argv[1]
         cells_json = sys.argv[2]
         timeline_out = sys.argv[3]
-        flame_out = sys.argv[4]
-        fsm_flame_out = sys.argv[5]
-        main(profiler_dump_json, cells_json, timeline_out, flame_out, fsm_flame_out)
+        fsm_timeline_out = sys.argv[4]
+        flame_out = sys.argv[5]
+        fsm_flame_out = sys.argv[6]
+        main(profiler_dump_json, cells_json, timeline_out, fsm_timeline_out, flame_out, fsm_flame_out)
     else:
         args_desc = [
             "PROFILER_JSON",
             "CELLS_JSON",
             "TIMELINE_VIEW_JSON",
+            "FSM_TIMELINE_VIEW_JSON",
             "FLAME_GRAPH_FOLDED",
             "FSM_FLAME_GRAPH_FOLDED",
         ]
