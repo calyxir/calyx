@@ -15,24 +15,46 @@ class FlameInfo:
         else:
             return f'{self.name} {self.cycles}'
 
-def create_timeline_map(profiled_info):
+# Computes which groups have a FSM-recorded group
+def get_fsm_groups(profiled_info):
+    fsm_groups = set()
+    all_groups = set()
+    for group_info in profiled_info:
+        if group_info["name"] == "TOTAL" or group_info["component"] is None:
+            continue
+        all_groups.add(group_info["name"])
+        if group_info["fsm_name"] is not None:
+            fsm_groups.add(group_info["name"])
+    print(fsm_groups)
+    return fsm_groups, all_groups
+
+def create_timeline_map(profiled_info, fsm_groups, all_groups):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     total_cycles = summary["total_cycles"]
+    only_gt_groups = all_groups.difference(fsm_groups)
     timeline_map = {i : {} for i in range(total_cycles)}
+    fsm_timeline_map = {i : {} for i in range(total_cycles)}
     for group_info in profiled_info:
         if group_info["name"] == "TOTAL" or group_info["component"] is None: # only care about actual groups
-            continue
-        if group_info["fsm_name"] is not None: # FIXME: get FSM version of events later as well
-            continue
+            continue            
         for segment in group_info["closed_segments"]:
             for i in range(segment["start"], segment["end"]): # really janky, I wonder if there's a better way to do this?
-                timeline_map[i][group_info["component"]] = group_info["name"]
+                if group_info["fsm_name"] is not None: # FSM version
+                    fsm_timeline_map[i][group_info["component"]] = group_info["name"]
+                elif group_info["name"] in only_gt_groups: # A group that isn't managed by an FSM. In which case it has to be in both FSM and GT
+                    fsm_timeline_map[i][group_info["component"]] = group_info["name"]
+                    timeline_map[i][group_info["component"]] = group_info["name"]
+                else: # The ground truth info about a group managed by an FSM.
+                    timeline_map[i][group_info["component"]] = group_info["name"]
 
-    return timeline_map
+    return timeline_map, fsm_timeline_map
 
 # attempt to rehash the create_flame_graph to take care of stacks
-def create_flame_graph(profiled_info, cells_map, flame_out):
-    timeline = create_timeline_map(profiled_info)
+def create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out):
+    timeline, fsm_timeline = create_timeline_map(profiled_info, fsm_groups, all_groups)
+    print(timeline)
+    print(fsm_timeline)
+    # FIXME: do something with the fsm_timeline (probably want to stick the below routine in a helper function and call it twice)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
     main_shortname = main_component.split("TOP.toplevel.")[1]
@@ -119,9 +141,10 @@ def build_cells_map(json_file):
 
 def main(profiler_dump_file, cells_json, timeline_out, flame_out, fsm_flame_out):
     profiled_info = json.load(open(profiler_dump_file, "r"))
+    fsm_groups, all_groups = get_fsm_groups(profiled_info)
     # This cells_map is different from the one in parse-vcd.py
     cells_map = build_cells_map(cells_json)
-    create_flame_graph(profiled_info, cells_map, flame_out)
+    create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out)
     # create_timeline_view(profiled_info, timeline_out)
 
 if __name__ == "__main__":
