@@ -50,15 +50,21 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
     return timeline_map, fsm_timeline_map
 
 # attempt to rehash the create_flame_graph to take care of stacks
-def create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out):
+def create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out, fsm_flame_out):
     timeline, fsm_timeline = create_timeline_map(profiled_info, fsm_groups, all_groups)
     print(timeline)
     print(fsm_timeline)
     # FIXME: do something with the fsm_timeline (probably want to stick the below routine in a helper function and call it twice)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
+    stacks = compute_stacks_from_timeline(cells_map, timeline, main_component)
+    write_flame_graph(flame_out, stacks)
+
+    fsm_stacks = compute_stacks_from_timeline(cells_map, fsm_timeline, main_component)
+    write_flame_graph(fsm_flame_out, fsm_stacks)
+
+def compute_stacks_from_timeline(cells_map, timeline, main_component):
     main_shortname = main_component.split("TOP.toplevel.")[1]
-    # total_cycles = summary["total_cycles"]
     stacks = {} # each stack to the # of cycles it was active for?
     nonactive_cycles = 0 # cycles where no group was active
     for i in timeline: # keys in the timeline are clock time stamps
@@ -97,7 +103,9 @@ def create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_o
         stacks[stack] += 1
 
     stacks[main_component] = nonactive_cycles
+    return stacks
 
+def write_flame_graph(flame_out, stacks):
     with open(flame_out, "w") as f:
         for stack in sorted(stacks, key=lambda k : len(k)): # main needs to come first for flame graph script to not make two boxes for main?
             f.write(f"{stack}  {stacks[stack]}\n")
@@ -144,7 +152,7 @@ def main(profiler_dump_file, cells_json, timeline_out, flame_out, fsm_flame_out)
     fsm_groups, all_groups = get_fsm_groups(profiled_info)
     # This cells_map is different from the one in parse-vcd.py
     cells_map = build_cells_map(cells_json)
-    create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out)
+    create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out, fsm_flame_out)
     # create_timeline_view(profiled_info, timeline_out)
 
 if __name__ == "__main__":
