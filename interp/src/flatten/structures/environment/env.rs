@@ -1188,8 +1188,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 }
 
 /// A wrapper struct for the environment that provides the functions used to
-/// simulate the actual program. This is just to keep the simulation logic under
-/// a different namespace than the environment to avoid confusion
+/// simulate the actual program.
+///
+/// This is just to keep the simulation logic under a different namespace than
+/// the environment to avoid confusion
 pub struct Simulator<C: AsRef<Context> + Clone> {
     env: Environment<C>,
 }
