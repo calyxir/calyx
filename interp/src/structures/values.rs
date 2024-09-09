@@ -1,11 +1,10 @@
-use std::ops::Not;
+use std::iter::once;
 use std::{fmt::Write, ops::Index};
 
 use bitvec::prelude::*;
 use fraction::Fraction;
-use ibig::{ibig, ops::UnsignedAbs, IBig, UBig};
 use itertools::Itertools;
-use serde::de::{self, Deserialize, Visitor};
+use num_bigint::{BigInt, BigUint};
 use serde::Serialize;
 
 pub type BitString = BitVec<usize, Lsb0>;
@@ -59,14 +58,14 @@ pub enum InputNumber {
     U32(u32),
     U64(u64),
     U128(u128),
-    U(UBig),
+    U(BigUint),
     // signed
     I8(i8),
     I16(i16),
     I32(i32),
     I64(i64),
     I128(i128),
-    I(IBig),
+    I(BigInt),
     // usize
     Usize(usize),
 }
@@ -127,14 +126,14 @@ impl From<usize> for InputNumber {
     }
 }
 
-impl From<UBig> for InputNumber {
-    fn from(u: UBig) -> Self {
+impl From<BigUint> for InputNumber {
+    fn from(u: BigUint) -> Self {
         Self::U(u)
     }
 }
 
-impl From<IBig> for InputNumber {
-    fn from(i: IBig) -> Self {
+impl From<BigInt> for InputNumber {
+    fn from(i: BigInt) -> Self {
         Self::I(i)
     }
 }
@@ -193,62 +192,51 @@ impl InputNumber {
             InputNumber::Usize(i) => BitVec::from_element(*i),
             InputNumber::U(u) => {
                 let bytes_64: Vec<_> = u
-                    .to_le_bytes()
-                    .into_iter()
-                    .chunks(8)
-                    .into_iter()
+                    .iter_u64_digits()
                     .map(|x| {
-                        let mut acc: usize = 0;
-                        for (byte_number, u) in x.enumerate() {
-                            acc |= (u as usize) << (byte_number * 8)
-                        }
-                        acc
+                        x.try_into().expect("u64 to usize conversion failed")
                     })
                     .collect();
 
                 BitString::from_slice(&bytes_64)
             }
-            InputNumber::I(i) => {
-                if i.signum() == ibig!(-1) {
-                    let mut carry = true;
-                    // manually do the twos complement conversion
-                    let fun: Vec<_> = i
-                        .unsigned_abs()
-                        .to_le_bytes()
-                        .into_iter()
-                        .chunks(8)
-                        .into_iter()
-                        .map(|x| {
-                            let mut acc: usize = 0;
-                            for (byte_number, u) in x.enumerate() {
-                                acc |= (u as usize) << (byte_number * 8)
-                            }
-                            acc = acc.not();
-
-                            if carry {
-                                let (new_acc, new_carry) =
-                                    acc.overflowing_add(1);
-                                carry = new_carry;
-                                acc = new_acc;
-                            }
-                            acc
+            InputNumber::I(i) => match i.sign() {
+                num_bigint::Sign::Minus => {
+                    let signed_bytes_le = i.to_signed_bytes_le();
+                    let chunks = signed_bytes_le.chunks_exact(8);
+                    let rem = chunks.remainder();
+                    let mut bv: BitString = chunks
+                        .map(|bytes| {
+                            let mut array = [0_u8; 8];
+                            array.copy_from_slice(bytes);
+                            usize::from_le_bytes(array)
                         })
+                        .chain(once({
+                            // in the case of even division this will add an
+                            // extra
+                            let mut array = [0_u8; 8];
+                            array[..rem.len()].copy_from_slice(rem);
+                            usize::from_le_bytes(array)
+                        }))
                         .collect();
-
-                    let mut bv = BitVec::from_slice(&fun);
-
-                    if carry {
-                        bv.push(true)
-                    }
-
-                    bv.truncate(bv.last_one().unwrap() + 1);
+                    // this truncation is _critically_ important for getting the
+                    // correct result
+                    bv.truncate(bv.last_one().map(|x| x + 1).unwrap_or(0));
 
                     bv
-                } else {
-                    let unsigned: InputNumber = i.unsigned_abs().into();
-                    unsigned.as_bit_vec()
                 }
-            }
+                num_bigint::Sign::NoSign | num_bigint::Sign::Plus => i
+                    .magnitude()
+                    .to_u64_digits()
+                    .into_iter()
+                    .map(|x| {
+                        let x: usize = x
+                            .try_into()
+                            .expect("u64 to usize conversion failed");
+                        x
+                    })
+                    .collect(),
+            },
         }
     }
 }
@@ -586,37 +574,46 @@ impl Value {
             })
     }
 
-    pub fn as_signed(&self) -> IBig {
-        let mut acc: IBig = 0.into();
-
-        // skip the msb for the moment
-        for bit in self.vec.iter().take(self.vec.len() - 1).rev() {
-            acc <<= 1;
-            let bit: IBig = (*bit).into();
-            acc |= bit
-        }
-
-        if let Some(bit) = self.vec.last() {
-            if *bit {
-                let neg: IBig = (-1).into();
-                let two: IBig = (2).into();
-
-                acc += neg * two.pow(self.vec.len() - 1)
-            }
-        }
-
-        acc
+    fn as_bytes_le(&self) -> Vec<u8> {
+        self.vec
+            .iter()
+            .chunks(8)
+            .into_iter()
+            .map(|bits| {
+                let mut out = 0_u8;
+                for (idx, bit) in bits.enumerate() {
+                    out |= (*bit as u8) << idx;
+                }
+                out
+            })
+            .collect_vec()
     }
 
-    pub fn as_unsigned(&self) -> UBig {
-        let mut acc: UBig = 0_u32.into();
-        for bit in self.vec.iter().rev() {
-            acc <<= 1;
-            let bit: UBig = (*bit).into();
-            acc |= bit;
+    pub fn as_signed(&self) -> BigInt {
+        let mut bytes = self.as_bytes_le();
+        let width_bits = self.vec.len();
+
+        let rem = width_bits % 8;
+        let msb = 1u8 << if rem != 0 { rem - 1 } else { 7 };
+
+        if (bytes.last().unwrap() & msb) != 0 {
+            // The value is negative
+            if msb != 0b1000_0000 {
+                let mask = 0b1111_1111u8 << if rem != 0 { rem - 1 } else { 7 };
+                *(bytes.last_mut().unwrap()) |= mask;
+            }
+        } else {
+            // The value is positive. No additional work needed
         }
 
-        acc
+        BigInt::from_signed_bytes_le(&bytes)
+    }
+
+    pub fn as_unsigned(&self) -> BigUint {
+        let vec = self.as_bytes_le();
+        // don't need to sign extend here
+
+        BigUint::from_bytes_le(&vec)
     }
 
     /// Interprets a 1bit value as a bool, will not panic for non-1-bit values
@@ -699,17 +696,7 @@ impl Value {
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
-        // there has got to be a better way to do this
-        self.vec
-            .chunks(8)
-            .map(|bits| {
-                let mut byte = 0_u8;
-                for (i, bit) in bits.iter().enumerate() {
-                    byte |= (*bit as u8) << i;
-                }
-                byte
-            })
-            .collect()
+        self.as_bytes_le()
     }
 }
 
@@ -778,39 +765,8 @@ impl Serialize for Value {
     where
         S: serde::Serializer,
     {
-        base64::encode(self.as_unsigned().to_le_bytes()).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct BitVecVisitor;
-
-        impl<'de> Visitor<'de> for BitVecVisitor {
-            type Value = (UBig, usize);
-
-            fn expecting(
-                &self,
-                formatter: &mut std::fmt::Formatter,
-            ) -> std::fmt::Result {
-                formatter.write_str("Expected bitstring")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                let s = base64::decode(value)
-                    .expect("Couldn't convert from base64");
-                Ok((UBig::from_le_bytes(&s), s.len()))
-            }
-        }
-
-        let (val, bytes) = deserializer.deserialize_str(BitVecVisitor)?;
-        Ok(Value::from(val, bytes * 8))
+        // this is stupid
+        self.to_bytes().serialize(serializer)
     }
 }
 

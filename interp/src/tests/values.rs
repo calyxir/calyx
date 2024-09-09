@@ -239,89 +239,111 @@ mod signed_fixed_point_tests {
 #[cfg(test)]
 mod property_tests {
     use crate::values::Value;
-    use ibig::{ops::UnsignedAbs, IBig, UBig};
+    use num_bigint::{BigInt, BigUint};
     use proptest::prelude::*;
 
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
+
+
         #[test]
         fn u8_round_trip(input: u8) {
-            assert_eq!(input as u64, Value::from(input, 8).as_u64())
+            prop_assert_eq!(input as u64, Value::from(input, 8).as_u64())
         }
 
         #[test]
         fn u16_round_trip(input: u16) {
-            assert_eq!(input as u64, Value::from(input, 16).as_u64())
+            prop_assert_eq!(input as u64, Value::from(input, 16).as_u64())
         }
 
         #[test]
         fn u32_round_trip(input: u32) {
-            assert_eq!(input as u64, Value::from(input, 32).as_u64())
+            prop_assert_eq!(input as u64, Value::from(input, 32).as_u64())
         }
 
         #[test]
         fn u64_round_trip(input: u64) {
-            assert_eq!(input, Value::from(input, 64).as_u64())
+            prop_assert_eq!(input, Value::from(input, 64).as_u64())
         }
 
         #[test]
         fn u128_round_trip(input: u128) {
-            assert_eq!(input, Value::from(input, 128).as_u128())
+            prop_assert_eq!(input, Value::from(input, 128).as_u128())
         }
 
         #[test]
         fn i8_round_trip(input: i8) {
-            assert_eq!(input as i64, Value::from(input, 8).as_i64())
+            prop_assert_eq!(input as i64, Value::from(input, 8).as_i64())
         }
 
         #[test]
         fn i16_round_trip(input: i16) {
-            assert_eq!(input as i64, Value::from(input, 16).as_i64())
+            prop_assert_eq!(input as i64, Value::from(input, 16).as_i64())
         }
 
         #[test]
         fn i32_round_trip(input: i32) {
-            assert_eq!(input as i64, Value::from(input, 32).as_i64())
+            prop_assert_eq!(input as i64, Value::from(input, 32).as_i64())
         }
 
         #[test]
         fn i64_round_trip(input: i64) {
-            assert_eq!(input, Value::from(input, 64).as_i64())
+            prop_assert_eq!(input, Value::from(input, 64).as_i64())
         }
 
         #[test]
         fn i128_round_trip(input: i128) {
-            assert_eq!(input, Value::from(input, 128).as_i128())
+            prop_assert_eq!(input, Value::from(input, 128).as_i128())
         }
 
         #[test]
         fn i128_to_ibig(input: i128) {
             let val = Value::from(input, 128);
-            assert_eq!(val.as_signed(), input.into())
+            prop_assert_eq!(val.as_signed(), input.into())
         }
 
         #[test]
         fn u128_to_ubig(input: u128) {
             let val = Value::from(input, 128);
-            assert_eq!(val.as_unsigned(), input.into())
+            prop_assert_eq!(val.as_unsigned(), input.into())
+        }
+
+
+        #[test]
+        fn u32_to_ubig(input: u32) {
+            let val = Value::from(input, 32);
+            prop_assert_eq!(val.as_unsigned(), input.into())
+        }
+
+        #[test]
+        fn i32_to_ibig(input: i32) {
+            let val = Value::from(input, 32);
+            prop_assert_eq!(val.as_signed(), input.into())
+        }
+          #[test]
+        fn ibig_to_ibig_neg(input in -350_i32..350_i32) {
+            dbg!(input);
+            let val = Value::from(BigInt::from(input), 32);
+            prop_assert_eq!(val.as_signed(), BigInt::from(input))
         }
 
         #[test]
         fn ubig_roundtrip(input: u128, mul: u128) {
-            let in_big: UBig = input.into();
-            let mul_big: UBig = mul.into();
-            let target: UBig = in_big * mul_big;
-            let val = Value::from(target.clone(), target.bit_len());
-            assert_eq!(val.as_unsigned(), target)
+            let in_big: BigUint = input.into();
+            let mul_big: BigUint = mul.into();
+            let target: BigUint = in_big * mul_big;
+            let val = Value::from(target.clone(), target.bits());
+            prop_assert_eq!(val.as_unsigned(), target)
         }
 
         #[test]
         fn ibig_roundtrip(input: i128, mul: i128) {
-            let in_big: IBig = input.into();
-            let mul_big: IBig = mul.into();
-            let target: IBig = in_big * mul_big;
-            let val = Value::from(target.clone(), (&target).unsigned_abs().bit_len()+1);
+            let in_big: BigInt = input.into();
+            let mul_big: BigInt = mul.into();
+            let target: BigInt = in_big * mul_big;
+            let val = Value::from(target.clone(), target.magnitude().bits() + 1);
             println!("{}", val);
-            assert_eq!(val.as_signed(), target)
+            prop_assert_eq!(val.as_signed(), target)
         }
     }
 }
