@@ -25,7 +25,6 @@ def get_fsm_groups(profiled_info):
         all_groups.add(group_info["name"])
         if group_info["fsm_name"] is not None:
             fsm_groups.add(group_info["name"])
-    print(fsm_groups)
     return fsm_groups, all_groups
 
 def create_timeline_map(profiled_info, fsm_groups, all_groups):
@@ -50,28 +49,45 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
     return timeline_map, fsm_timeline_map
 
 # attempt to rehash the create_flame_graph to take care of stacks
-def create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out, fsm_flame_out):
-    timeline, fsm_timeline = create_timeline_map(profiled_info, fsm_groups, all_groups)
-    print(timeline)
-    print(fsm_timeline)
-    summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
-    main_component = summary["main_full_path"]
-    stacks = compute_flame_stacks_from_timeline(cells_map, timeline, main_component)
+def create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out):
+    stacks = compute_flame_stacks(cells_map, timeline, main_component)
     write_flame_graph(flame_out, stacks)
-    fsm_stacks = compute_flame_stacks_from_timeline(cells_map, fsm_timeline, main_component)
+    fsm_stacks = compute_flame_stacks(cells_map, fsm_timeline, main_component)
     write_flame_graph(fsm_flame_out, fsm_stacks)
 
-def create_timeline_stacks(cells_map, timeline, main_component):
+def create_timeline_stacks(timeline, main_component):
     main_shortname = main_component.split("TOP.toplevel.")[1]
     events = []
-    stacks = []
     currently_active = {} # group name to beginning traceEvent entry (so end event can copy)
     ts_multiplier = 100 # some arbitrary number to multiply by so that it's easier to see in the viewer
+    cell_to_stackframe_info = {main_component : (2, None)} # (stack_number, parent_stack_number)
+    stack_number_acc = 3 # To guarantee that we get unique stack numbers when we need a new one
     for i in timeline:
         active_this_cycle = set()
-        for group_component in sorted(timeline[i], key=lambda k : timeline[i][k].count("."), reverse=True)[0]:
+        # Differently from compute_flame_stacks, we start from the bottom up. (easier to see parent)
+        sorted_active_groups = list(sorted(timeline[i], key=lambda k : timeline[i][k].count(".")))
+        for group_component in sorted_active_groups:
             group_full_name = timeline[i][group_component]
-        for non_active_group in currently_active.keys().difference(active_this_cycle.keys()):
+            if group_full_name not in currently_active: # first cycle of the group. We need to figure out the stack
+                group_split = group_full_name.split(".")
+                group_cell = ".".join(group_split[:-1])
+                group_shortname = group_split[-1]
+                stackframe = -1 # FIXME: find the appropriate stack frame
+                if group_cell in cell_to_stackframe_info:
+                    (stackframe, _) = cell_to_stackframe_info[main_component]
+                else:
+                    # Since we are iterating from the shortest to longest name (based on cell counts)
+                    # The group's cell's parent *must* be in cell_to_stackframe_info
+                    group_cell_parent = ".".join(group_split[:-2])
+                    (parent_stackframe, _) = cell_to_stackframe_info[group_cell_parent]
+                    stackframe = stack_number_acc
+                    stack_number_acc += 1
+                    cell_to_stackframe_info[group_cell] = (stackframe, parent_stackframe)
+                start_event = {"name": group_shortname, "cat": group_component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
+                events.append(start_event)
+                currently_active[group_full_name] = start_event
+                active_this_cycle.add(group_full_name)
+        for non_active_group in set(currently_active.keys()).difference(active_this_cycle):
             # create end event
             end_event = currently_active[non_active_group].copy()
             del currently_active[non_active_group]
@@ -79,9 +95,23 @@ def create_timeline_stacks(cells_map, timeline, main_component):
             end_event["ph"] = "E"
             events.append(end_event)
 
-    return events, stacks
+    # we probably want to add beginning and end events for main?
 
-def compute_flame_stacks_from_timeline(cells_map, timeline, main_component):
+    # "stackFrames" field of the Trace Format JSON
+    stacks = {}
+    stack_category = "C"
+    for cell in cell_to_stackframe_info:
+        stack_id, parent_stack_id = cell_to_stackframe_info[cell]
+        stacks[stack_id] = {"name" : cell, "parent": parent_stack_id, "category" : stack_category}
+
+    print("events!!!")
+    print(events)
+    print("stacks!!!")
+    print(stacks)
+
+    return { "traceEvents": events, "stackFrames": stacks }
+
+def compute_flame_stacks(cells_map, timeline, main_component):
     main_shortname = main_component.split("TOP.toplevel.")[1]
     stacks = {} # each stack to the # of cycles it was active for?
     nonactive_cycles = 0 # cycles where no group was active
@@ -128,7 +158,6 @@ def write_flame_graph(flame_out, stacks):
         for stack in sorted(stacks, key=lambda k : len(k)): # main needs to come first for flame graph script to not make two boxes for main?
             f.write(f"{stack}  {stacks[stack]}\n")
 
-
 # Starting with the JSON array format for now... [Needs to be fixed]
 # example
 # [ {"name": "Asub", "cat": "PERF", "ph": "B", "pid": 22630, "tid": 22630, "ts": 829},
@@ -171,8 +200,11 @@ def main(profiler_dump_file, cells_json, timeline_out, flame_out, fsm_flame_out)
     fsm_groups, all_groups = get_fsm_groups(profiled_info)
     # This cells_map is different from the one in parse-vcd.py
     cells_map = build_cells_map(cells_json)
-    create_flame_graph(profiled_info, cells_map, fsm_groups, all_groups, flame_out, fsm_flame_out)
-    # create_timeline_view(profiled_info, timeline_out)
+    timeline, fsm_timeline = create_timeline_map(profiled_info, fsm_groups, all_groups)
+    summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
+    main_component = summary["main_full_path"]
+    create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out)
+    create_timeline_stacks(timeline, main_component)
 
 if __name__ == "__main__":
     if len(sys.argv) > 5:
