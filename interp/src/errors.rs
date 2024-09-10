@@ -1,5 +1,5 @@
 use crate::flatten::flat_ir::prelude::AssignedValue;
-use crate::values::BitVecValue;
+use baa::BitVecValue;
 use calyx_ir::Id;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use rustyline::error::ReadlineError;

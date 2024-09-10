@@ -3,15 +3,14 @@ use std::{
     ops::{Add, Sub},
 };
 
+use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
     flatten::structures::index_trait::{
         impl_index, impl_index_nonzero, IndexRange, IndexRef,
     },
     serialization::PrintCode,
-    values::BitVecValue,
 };
-
-use super::{cell_prototype::CellPrototype, prelude::Identifier};
+use baa::{BitVecOps, BitVecValue};
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
@@ -419,7 +418,7 @@ pub struct AssignedValue {
 impl std::fmt::Debug for AssignedValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AssignedValue")
-            .field("val", &format!("{}", &self.val))
+            .field("val", &format!("{}", self.val.to_bit_str()))
             .field("winner", &self.winner)
             .finish()
     }
@@ -530,16 +529,15 @@ impl PortValue {
     }
 
     /// If the value is defined, returns the value cast to a boolean. Otherwise
-    /// returns `None`. It uses the [`BitVecValue::to_bool`] method and will panic if
-    /// the given value is not one bit wide.
+    /// returns `None`. It will panic if the given value is not one bit wide.
     pub fn as_bool(&self) -> Option<bool> {
-        self.0.as_ref().map(|x| x.val().to_bool())
+        self.0.as_ref().map(|x| x.val().to_bool().unwrap())
     }
 
-    /// If the value is defined, returns the value cast to a usize. Otherwise
+    /// If the value is defined, returns the value cast to a u64. Otherwise,
     /// returns `None`. It uses the [`BitVecValue::to_u64`] method.
-    pub fn as_usize(&self) -> Option<usize> {
-        self.0.as_ref().map(|x| x.val().to_u64())
+    pub fn as_u64(&self) -> Option<u64> {
+        self.0.as_ref().map(|x| x.val().to_u64().unwrap())
     }
 
     /// Returns a reference to the underlying value if it is defined. Otherwise
@@ -599,7 +597,7 @@ impl PortValue {
                 PrintCode::SFixed(num) => {
                     format!("{}", v.to_signed_fixed_point(num))
                 }
-                PrintCode::Binary => format!("{}", v),
+                PrintCode::Binary => format!("{}", v.to_bit_str()),
             }
         } else {
             "undef".to_string()

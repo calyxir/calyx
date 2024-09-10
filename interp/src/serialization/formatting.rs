@@ -3,9 +3,8 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::fmt::{Debug, Display};
 
-use crate::{
-    flatten::flat_ir::cell_prototype::MemoryDimensions, values::BitVecValue,
-};
+use crate::flatten::flat_ir::cell_prototype::MemoryDimensions;
+use baa::{BitVecOps, BitVecValue, WidthInt};
 
 /// An enum wrapping over a tuple representing the shape of a multi-dimensional
 /// array
@@ -131,8 +130,8 @@ impl From<Fraction> for Entry {
 impl Entry {
     pub fn from_val_code(val: &BitVecValue, code: &PrintCode) -> Self {
         match code {
-            PrintCode::Unsigned => val.as_u64().into(),
-            PrintCode::Signed => val.as_i64().into(),
+            PrintCode::Unsigned => val.to_u64().unwrap().into(),
+            PrintCode::Signed => val.to_i64().unwrap().into(),
             PrintCode::UFixed(f) => val.to_unsigned_fixed_point(*f).into(),
             PrintCode::SFixed(f) => val.to_signed_fixed_point(*f).into(),
             PrintCode::Binary => Entry::Value(val.clone()),
@@ -146,7 +145,7 @@ impl Display for Entry {
             Entry::U(v) => write!(f, "{}", v),
             Entry::I(v) => write!(f, "{}", v),
             Entry::Frac(v) => write!(f, "{}", v),
-            Entry::Value(v) => write!(f, "{}", v),
+            Entry::Value(v) => write!(f, "{}", v.to_bit_str()),
         }
     }
 }
@@ -162,8 +161,8 @@ pub enum PrintCode {
     Binary,
     Unsigned,
     Signed,
-    UFixed(usize),
-    SFixed(usize),
+    UFixed(WidthInt),
+    SFixed(WidthInt),
 }
 
 impl Default for PrintCode {

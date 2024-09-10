@@ -3,8 +3,9 @@ use crate::{
     flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
     serialization::PrintCode,
     serialization::Serializable,
-    values::BitVecValue,
 };
+
+use baa::BitVecValue;
 
 pub struct AssignResult {
     pub destination: GlobalPortIdx,

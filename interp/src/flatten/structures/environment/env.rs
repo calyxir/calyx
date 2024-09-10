@@ -36,11 +36,11 @@ use crate::{
     },
     logging,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
-    values::BitVecValue,
 };
 use ahash::HashSet;
 use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
+use baa::BitVecValue;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;

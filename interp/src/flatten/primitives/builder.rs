@@ -13,8 +13,9 @@ use crate::{
         structures::context::Context,
     },
     serialization::DataDump,
-    values::BitVecValue,
 };
+
+use baa::BitVecValue;
 
 pub fn build_primitive(
     prim: &CellInfo,
@@ -30,7 +31,7 @@ pub fn build_primitive(
             width,
             c_type: _,
         } => {
-            let v = BitVecValue::from(*val, *width);
+            let v = BitVecValue::from_u64(*val, *width);
             Box::new(StdConst::new(v, base_port))
         }
 

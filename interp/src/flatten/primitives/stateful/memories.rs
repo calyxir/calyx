@@ -12,8 +12,9 @@ use crate::{
         structures::{environment::PortMap, index_trait::IndexRef},
     },
     serialization::{Entry, PrintCode, Serializable, Shape},
-    values::BitVecValue,
 };
+
+use baa::BitVecValue;
 
 pub struct StdReg {
     base_port: GlobalPortIdx,
@@ -164,25 +165,25 @@ impl<const SEQ: bool> MemDx<SEQ> {
         };
 
         match self.shape {
-            Shape::D1(_d0_size) => port_map[addr0].as_usize(),
+            Shape::D1(_d0_size) => port_map[addr0].as_u64(),
             Shape::D2(_d0_size, d1_size) => {
-                let a0 = port_map[addr0].as_usize()?;
-                let a1 = port_map[addr1].as_usize()?;
+                let a0 = port_map[addr0].as_u64()?;
+                let a1 = port_map[addr1].as_u64()?;
 
                 Some(a0 * d1_size + a1)
             }
             Shape::D3(_d0_size, d1_size, d2_size) => {
-                let a0 = port_map[addr0].as_usize()?;
-                let a1 = port_map[addr1].as_usize()?;
-                let a2 = port_map[addr2].as_usize()?;
+                let a0 = port_map[addr0].as_u64()?;
+                let a1 = port_map[addr1].as_u64()?;
+                let a2 = port_map[addr2].as_u64()?;
 
                 Some(a0 * (d1_size * d2_size) + a1 * d2_size + a2)
             }
             Shape::D4(_d0_size, d1_size, d2_size, d3_size) => {
-                let a0 = port_map[addr0].as_usize()?;
-                let a1 = port_map[addr1].as_usize()?;
-                let a2 = port_map[addr2].as_usize()?;
-                let a3 = port_map[addr3].as_usize()?;
+                let a0 = port_map[addr0].as_u64()?;
+                let a1 = port_map[addr1].as_u64()?;
+                let a2 = port_map[addr2].as_u64()?;
+                let a3 = port_map[addr3].as_u64()?;
 
                 Some(
                     a0 * (d1_size * d2_size * d3_size)

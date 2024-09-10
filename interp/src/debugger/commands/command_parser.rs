@@ -1,6 +1,7 @@
 use super::core::{
     Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
 };
+use baa::WidthInt;
 use pest_consume::{match_nodes, Error, Parser};
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
@@ -87,15 +88,15 @@ impl CommandParser {
         ))
     }
 
-    fn pc_ufx(input: Node) -> ParseResult<usize> {
+    fn pc_ufx(input: Node) -> ParseResult<WidthInt> {
         Ok(match_nodes!(input.into_children();
-            [num(n)] => n as usize
+            [num(n)] => n as WidthInt
         ))
     }
 
-    fn pc_sfx(input: Node) -> ParseResult<usize> {
+    fn pc_sfx(input: Node) -> ParseResult<WidthInt> {
         Ok(match_nodes!(input.into_children();
-            [num(n)] => n as usize
+            [num(n)] => n as WidthInt
         ))
     }
 

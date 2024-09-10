@@ -2,17 +2,16 @@ use std::ops::Not;
 
 use bitvec::vec::BitVec;
 
-use crate::{
-    flatten::{
-        flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
-        primitives::{
-            all_defined, comb_primitive, declare_ports, ports,
-            prim_trait::UpdateStatus, utils::floored_division, Primitive,
-        },
-        structures::environment::PortMap,
+use crate::flatten::{
+    flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
+    primitives::{
+        all_defined, comb_primitive, declare_ports, ports,
+        prim_trait::UpdateStatus, utils::floored_division, Primitive,
     },
-    values::BitVecValue,
+    structures::environment::PortMap,
 };
+
+use baa::BitVecValue;
 
 use super::prim_trait::UpdateResult;
 

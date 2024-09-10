@@ -216,6 +216,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "baa"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8729e2c940680672118878ce0ddf972d4fa25fc3f3a2399f9b1bf6bab626954"
+dependencies = [
+ "fraction",
+ "num-bigint",
+ "serde",
+ "smallvec",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1595,6 +1607,7 @@ version = "0.1.1"
 dependencies = [
  "ahash 0.8.10",
  "argh",
+ "baa",
  "bitvec",
  "btor2i",
  "calyx-frontend",
@@ -2766,9 +2779,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.13.1"
+version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
+checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 dependencies = [
  "serde",
 ]

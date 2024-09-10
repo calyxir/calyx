@@ -1,15 +1,13 @@
-use crate::{
-    flatten::{
-        flat_ir::prelude::*,
-        primitives::{
-            declare_ports, ports,
-            prim_trait::*,
-            utils::{floored_division, int_sqrt, ShiftBuffer},
-        },
-        structures::environment::PortMap,
+use crate::flatten::{
+    flat_ir::prelude::*,
+    primitives::{
+        declare_ports, ports,
+        prim_trait::*,
+        utils::{floored_division, int_sqrt, ShiftBuffer},
     },
-    values::{BitVecValue, InputNumber},
+    structures::environment::PortMap,
 };
+use baa::BitVecValue;
 use num_traits::Euclid;
 
 pub struct StdMultPipe<const DEPTH: usize> {
