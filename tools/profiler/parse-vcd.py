@@ -218,13 +218,15 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # TDCC groups need to be recorded (before FSMs) for tracking FSM values
             # (ex. if the FSM has value 0 but the TDCC group isn't active, then the group represented by the
             # FSM's 0 value should not be considered as active)
-            for tdcc_event in filter(lambda e : "tdcc_go" in e["signal"], events):
+            for tdcc_event in filter(lambda e : "tdcc" in e["signal"] and "go" in e["signal"], events):
                 tdcc_group = "_".join(tdcc_event["signal"].split("_")[0:-1])
                 if self.tdcc_group_active_cycle[tdcc_group] == -1 and tdcc_event["value"] == 1: # value changed to 1
                     self.tdcc_group_active_cycle[tdcc_group] = clock_cycles
                     for fsm in self.tdcc_group_to_dep_fsms[tdcc_group]:
                         value = fsm_to_curr_value[fsm]
                         if value != -1:
+                            if value not in self.fsms[fsm]:
+                                continue
                             next_group = f"{self.fsms[fsm][value]}FSM"
                             fsm_to_active_group[fsm] = next_group
                             self.profiling_info[next_group].start_new_segment(clock_cycles)
@@ -233,7 +235,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for event in events:
                 signal_name = event["signal"]
                 value = event["value"]
-                if "tdcc_go" in signal_name: # skip all tdcc events since we've already processed them
+                if "tdcc" in signal_name and "go" in signal_name: # skip all tdcc events since we've already processed them
                     continue
                 if signal_name.endswith(".go") and value == 1: # cells have .go and .done
                     cell = signal_name.split(".go")[0]

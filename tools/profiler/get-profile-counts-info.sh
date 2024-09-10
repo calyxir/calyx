@@ -53,7 +53,7 @@ echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
 (
     cd ${CALYX_DIR}
     set -o xtrace
-    cargo run -- ${INPUT_FILE} -p no-opt -x tdcc:dump-fsm-json="${FSM_JSON}"
+    cargo run -- ${INPUT_FILE} -p compile-repeat -p no-opt -x tdcc:dump-fsm-json="${FSM_JSON}"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-tdcc
 
@@ -69,7 +69,7 @@ echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
     set -o xtrace
-    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args='-p no-opt' -s sim.data=${SIM_DATA_JSON}
+    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args='-p compile-repeat -p no-opt' -s sim.data=${SIM_DATA_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
 
