@@ -57,6 +57,11 @@ echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-tdcc
 
+if [ ! -f ${FSM_JSON} ]; then
+    echo "[${SCRIPT_NAME}] Failed to generate ${FSM_JSON}! Exiting"
+    exit 1
+fi
+
 # Run component-cells backend to get cell information
 echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"
 (
@@ -65,6 +70,11 @@ echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"
     cargo run --manifest-path tools/component_cells/Cargo.toml ${INPUT_FILE} -o ${CELLS_JSON}
 ) &> ${LOGS_DIR}/gol-cells
 
+if [ ! -f ${CELLS_JSON} ]; then
+    echo "[${SCRIPT_NAME}] Failed to generate ${CELLS_JSON}! Exiting"
+    exit 1
+fi
+
 # Run simuation to get VCD
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
@@ -72,6 +82,11 @@ echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
     fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args='-p compile-repeat -p no-opt' -s sim.data=${SIM_DATA_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
+
+if [ ! -f ${VCD_FILE} ]; then
+    echo "[${SCRIPT_NAME}] Failed to generate ${VCD_FILE}! Exiting"
+    exit 1
+fi
 
 # Run script to get cycle level counts
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
