@@ -36,7 +36,7 @@ use crate::{
     },
     logging,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
-    values::Value,
+    values::BitVecValue,
 };
 use ahash::HashSet;
 use ahash::HashSetExt;
@@ -121,9 +121,9 @@ impl PortMap {
         self.insert_val(
             target,
             AssignedValue::cell_value(if done_bool {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )
     }
@@ -230,11 +230,13 @@ impl Debug for CellLedger {
 
 #[derive(Debug, Clone)]
 struct PinnedPorts {
-    map: HashMap<GlobalPortIdx, Value>,
+    map: HashMap<GlobalPortIdx, BitVecValue>,
 }
 
 impl PinnedPorts {
-    pub fn iter(&self) -> impl Iterator<Item = (&GlobalPortIdx, &Value)> + '_ {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&GlobalPortIdx, &BitVecValue)> + '_ {
         self.map.iter()
     }
 
@@ -244,7 +246,7 @@ impl PinnedPorts {
         }
     }
 
-    pub fn insert(&mut self, port: GlobalPortIdx, val: Value) {
+    pub fn insert(&mut self, port: GlobalPortIdx, val: BitVecValue) {
         self.map.insert(port, val);
     }
 
@@ -1095,7 +1097,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn lookup_port_from_string<S: AsRef<str>>(
         &self,
         port: S,
-    ) -> Option<Value> {
+    ) -> Option<BitVecValue> {
         // this is not the best way to do this but it's fine for now
         let path = self
             .traverse_name_vec(&[port.as_ref().to_string()])
@@ -1127,7 +1129,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// used for input ports on the entrypoint component (excluding the go port)
     /// and will panic if used otherwise. Intended for external use. Unrelated
     /// to the rust pin.
-    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
         let port = self.get_root_input_port(port);
 
         let go = self.get_comp_go(Self::get_root());
@@ -1273,7 +1275,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     /// Pins the port with the given name to the given value. This may only be
     /// used for input ports on the entrypoint component (excluding the go port)
     /// and will panic if used otherwise. Intended for external use.
-    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
         self.env.pin_value(port, val)
     }
 
@@ -1286,7 +1288,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Lookup the value of a port on the entrypoint component by name. Will
     /// error if the port is not found.
-    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+    pub fn lookup_port_from_string(
+        &self,
+        port: &String,
+    ) -> Option<BitVecValue> {
         self.env.lookup_port_from_string(port)
     }
 }
@@ -1354,7 +1359,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let ledger = self.get_root_component();
         let go = &ledger.index_bases
             + self.env.ctx.as_ref().primary[ledger.comp_id].go;
-        self.env.ports[go] = PortValue::new_implicit(Value::bit_high());
+        self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -1532,7 +1537,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         for comp in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
             self.env.ports[done_port] =
-                PortValue::new_implicit(Value::bit_high());
+                PortValue::new_implicit(BitVecValue::tru());
         }
 
         let (vecs, par_map, mut with_map, repeat_map) =
@@ -1549,7 +1554,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // if the done is not high & defined, we need to set it to low
             if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
                 self.env.ports[comp_done] =
-                    PortValue::new_implicit(Value::bit_low());
+                    PortValue::new_implicit(BitVecValue::fals());
             }
 
             match &ctx_ref.primary[node.control_node_idx] {
@@ -1564,7 +1569,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     // set go high
                     let go_idx = index_bases + go_local;
                     self.env.ports[go_idx] =
-                        PortValue::new_implicit(Value::bit_high());
+                        PortValue::new_implicit(BitVecValue::tru());
                 }
                 ControlNode::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
@@ -1578,7 +1583,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
                     self.env.ports[go] =
-                        PortValue::new_implicit(Value::bit_high());
+                        PortValue::new_implicit(BitVecValue::tru());
 
                     // TODO griffin: should make this skip initialization if
                     // it's already initialized
@@ -2064,7 +2069,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 for &done_port in &done_ports {
                     if self.env.ports[done_port].is_undef() {
                         self.env.ports[done_port] =
-                            PortValue::new_implicit(Value::bit_low());
+                            PortValue::new_implicit(BitVecValue::fals());
                         has_changed = true;
                     }
                 }

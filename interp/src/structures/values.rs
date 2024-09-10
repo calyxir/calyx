@@ -12,7 +12,10 @@ pub type BitString = BitVec<usize, Lsb0>;
 /// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
 ///  integral and fractional bits. The width of the integral bits is described as:
 /// `total width - fractional_width`.
-fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
+fn get_unsigned_fixed_point(
+    v: &BitVecValue,
+    fractional_width: usize,
+) -> Fraction {
     let integer_width: usize = v.width() as usize - fractional_width;
 
     // Calculate the integral part of the value. For each set bit at index `i`, add `2^i`.
@@ -244,20 +247,20 @@ impl InputNumber {
 #[derive(Clone, Debug)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
-pub struct Value {
+pub struct BitVecValue {
     // Lsb0 means the 0th index contains the LSB. This is useful because
     // a 7-bit bitvector and 17-bit bitvector representing the number 6 have
     // ones in the same index.
     vec: BitString,
 }
 
-impl From<BitString> for Value {
+impl From<BitString> for BitVecValue {
     fn from(bv: BitString) -> Self {
         Self { vec: bv }
     }
 }
 
-impl Value {
+impl BitVecValue {
     pub fn unsigned_value_fits_in(vec: &BitString, width: usize) -> bool {
         vec.len() <= width // obviously fits then
             || vec
@@ -268,7 +271,7 @@ impl Value {
 
     pub fn signed_value_fits_in(vec: &BitString, width: usize) -> bool {
         vec.len() <= width // obviously fits then
-        || (vec.ends_with(bits![0]) && Value::unsigned_value_fits_in(vec, width - 1)) // positive value (technically wastes a check)
+        || (vec.ends_with(bits![0]) && BitVecValue::unsigned_value_fits_in(vec, width - 1)) // positive value (technically wastes a check)
         || (vec.ends_with(bits![1]) && ((vec.len() - vec.trailing_ones()) < width) || vec.trailing_ones() == 0)
         // negative value greater than or equal to lowest in new width
     }
@@ -293,10 +296,10 @@ impl Value {
     /// # Example:
     /// ```
     /// use interp::values::*;
-    /// let empty_val = Value::new(2 as usize);
+    /// let empty_val = BitVecValue::new(2 as usize);
     /// ```
-    pub fn new(bitwidth: usize) -> Value {
-        Value::zeroes(bitwidth)
+    pub fn new(bitwidth: usize) -> BitVecValue {
+        BitVecValue::zero(bitwidth)
     }
 
     /// Creates a new Value initialized to all 0s given a bitwidth.
@@ -304,21 +307,21 @@ impl Value {
     /// # Example:
     /// ```
     /// use interp::values::*;
-    /// let zeroed_val = Value::zeroes(2 as usize);
+    /// let zeroed_val = BitVecValue::zero(2 as usize);
     /// ```
-    pub fn zeroes<I: Into<InputNumber>>(bitwidth: I) -> Value {
+    pub fn zero<I: Into<InputNumber>>(bitwidth: I) -> BitVecValue {
         let input_num: InputNumber = bitwidth.into();
-        Value {
+        BitVecValue {
             vec: bitvec![usize, Lsb0; 0; input_num.as_usize()],
         }
     }
 
-    pub fn bit_high() -> Value {
-        Value::from(1_usize, 1_usize)
+    pub fn tru() -> BitVecValue {
+        BitVecValue::from(1_usize, 1_usize)
     }
 
-    pub fn bit_low() -> Value {
-        Value::from(0_usize, 1_usize)
+    pub fn fals() -> BitVecValue {
+        BitVecValue::from(0_usize, 1_usize)
     }
 
     /// Create a new Value of a given bitwidth out of an initial_val. You do
@@ -327,13 +330,13 @@ impl Value {
     /// # Example:
     /// ```
     /// use interp::values::*;
-    /// let val_16_16 = Value::from(16, 16);
+    /// let val_16_16 = BitVecValue::from(16, 16);
     /// ```
     pub fn from<T1: Into<InputNumber>, T2: Into<InputNumber>>(
         initial_val: T1,
         bitwidth: T2,
     ) -> Self {
-        let (v, _) = Value::from_checked(initial_val, bitwidth);
+        let (v, _) = BitVecValue::from_checked(initial_val, bitwidth);
         v
     }
 
@@ -350,12 +353,12 @@ impl Value {
         let mut bv = init.as_bit_vec();
 
         let flag = init.is_negative()
-            && !Value::signed_value_fits_in(&bv, width)
+            && !BitVecValue::signed_value_fits_in(&bv, width)
             || !init.is_negative()
-                && !Value::unsigned_value_fits_in(&bv, width);
+                && !BitVecValue::unsigned_value_fits_in(&bv, width);
 
         bv.resize(width, init.is_negative());
-        (Value { vec: bv }, flag)
+        (BitVecValue { vec: bv }, flag)
     }
 
     #[inline]
@@ -367,12 +370,12 @@ impl Value {
     /// # Example
     /// ```
     /// use interp::values::*;
-    /// let val_4_4 = Value::from(4, 16).truncate(4);
+    /// let val_4_4 = BitVecValue::from(4, 16).truncate(4);
     /// ```
-    pub fn truncate(&self, new_size: usize) -> Value {
+    pub fn truncate(&self, new_size: usize) -> BitVecValue {
         let mut vec = self.vec.clone();
         vec.truncate(new_size);
-        Value { vec }
+        BitVecValue { vec }
     }
 
     pub fn truncate_in_place(&mut self, new_size: usize) {
@@ -383,7 +386,7 @@ impl Value {
     /// bits and all the bits from right as the lower bits of a value whose
     /// width is the sum of the widths of left and right
     pub fn concat(left: &Self, right: &Self) -> Self {
-        Value {
+        BitVecValue {
             vec: left.vec.iter().chain(right.vec.iter()).collect(),
         }
     }
@@ -393,14 +396,14 @@ impl Value {
     /// # Example:
     /// ```
     /// use interp::values::*;
-    /// let val_4_16 = Value::from(4, 4).ext(16);
+    /// let val_4_16 = BitVecValue::from(4, 4).ext(16);
     /// ```
-    pub fn ext(&self, ext: usize) -> Value {
+    pub fn ext(&self, ext: usize) -> BitVecValue {
         let mut vec = self.vec.clone();
         for _x in 0..(ext - vec.len()) {
             vec.push(false);
         }
-        Value { vec }
+        BitVecValue { vec }
     }
 
     /// Sign-extend the vector to length ext.
@@ -409,15 +412,15 @@ impl Value {
     /// ```
     /// use interp::values::*;
     /// // [1111] -> [11111]. In 2'sC these are both -1
-    /// let val_31_5 = Value::from(15, 4).sext(5);
+    /// let val_31_5 = BitVecValue::from(15, 4).sext(5);
     /// ```
-    pub fn sext(&self, ext: usize) -> Value {
+    pub fn sext(&self, ext: usize) -> BitVecValue {
         let mut vec = self.vec.clone();
         let sign = vec[vec.len() - 1];
         for _x in 0..(ext - vec.len()) {
             vec.push(sign);
         }
-        Value { vec }
+        BitVecValue { vec }
     }
 
     /// Converts value into u64 type.
@@ -425,11 +428,11 @@ impl Value {
     /// # Example
     /// ```
     /// use interp::values::*;
-    /// let unsign_64_16 = Value::from(16, 16).as_u64();
+    /// let unsign_64_16 = BitVecValue::from(16, 16).as_u64();
     /// ```
     pub fn as_u64(&self) -> u64 {
         assert!(
-            Value::unsigned_value_fits_in(&self.vec, 64),
+            BitVecValue::unsigned_value_fits_in(&self.vec, 64),
             "Cannot fit value into an u64"
         );
         self.vec
@@ -447,11 +450,11 @@ impl Value {
     /// ```
     /// use interp::values::*;
     /// use fraction::Fraction;
-    /// let ufixed_point_Q4_2 = Value::from(0b0110, 4).as_ufp(2); // 3/2
+    /// let ufixed_point_Q4_2 = BitVecValue::from(0b0110, 4).to_unsigned_fixed_point(2); // 3/2
     /// ```
-    pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
+    pub fn to_unsigned_fixed_point(&self, fractional_width: usize) -> Fraction {
         assert!(
-            Value::unsigned_value_fits_in(&self.vec, 64),
+            BitVecValue::unsigned_value_fits_in(&self.vec, 64),
             "unsigned fixed point is supported up to 64 bits. Open an issue if you require more."
         );
         get_unsigned_fixed_point(self, fractional_width)
@@ -463,11 +466,11 @@ impl Value {
     /// ```
     /// use interp::values::*;
     /// use fraction::Fraction;
-    /// let sfixed_point_Q4_2 = Value::from(0b1110, 4).as_sfp(2); // -3/2
+    /// let sfixed_point_Q4_2 = BitVecValue::from(0b1110, 4).to_signed_fixed_point(2); // -3/2
     /// ```
-    pub fn as_sfp(&self, fractional_width: usize) -> Fraction {
+    pub fn to_signed_fixed_point(&self, fractional_width: usize) -> Fraction {
         assert!(
-            Value::signed_value_fits_in(&self.vec, 64),
+            BitVecValue::signed_value_fits_in(&self.vec, 64),
             "signed fixed point is supported up to 64 bits. Open an issue if you require more."
         );
         match self.vec.last_one() {
@@ -480,7 +483,7 @@ impl Value {
                     *bit = !*bit
                 }
                 -get_unsigned_fixed_point(
-                    &Value::from_bv(vec),
+                    &BitVecValue::from_bv(vec),
                     fractional_width,
                 )
             }
@@ -494,14 +497,14 @@ impl Value {
     /// # Example
     /// ```
     /// use interp::values::*;
-    /// let unsign_128 = Value::from(u128::MAX - 2, 128).as_u128();
+    /// let unsign_128 = BitVecValue::from(u128::MAX - 2, 128).as_u128();
     /// assert_eq!(unsign_128, u128::MAX - 2);
-    /// let unsign_128_32 = Value::from(u128::MAX - 4, 32).as_u128();
+    /// let unsign_128_32 = BitVecValue::from(u128::MAX - 4, 32).as_u128();
     /// assert_eq!(unsign_128_32, ((u128::MAX - 4) as u32) as u128);
     /// ```
     pub fn as_u128(&self) -> u128 {
         assert!(
-            Value::unsigned_value_fits_in(&self.vec, 128),
+            BitVecValue::unsigned_value_fits_in(&self.vec, 128),
             "Cannot fit value into an u128"
         );
         self.vec
@@ -518,12 +521,12 @@ impl Value {
     /// # Example
     /// ```
     /// use interp::values::*;
-    /// let signed_neg_1_4 = Value::from(15, 4).as_i64();
+    /// let signed_neg_1_4 = BitVecValue::from(15, 4).as_i64();
     /// assert_eq!(signed_neg_1_4, -1);
     /// ```
     pub fn as_i64(&self) -> i64 {
         assert!(
-            Value::signed_value_fits_in(&self.vec, 64),
+            BitVecValue::signed_value_fits_in(&self.vec, 64),
             "Cannot fit value into an i64"
         );
         let init = if *self.vec.last().unwrap() { -1 } else { 0 };
@@ -540,14 +543,14 @@ impl Value {
     /// # Example
     /// ```
     /// use interp::values::*;
-    /// let signed_neg_1_4 = Value::from(-1_i128, 4).as_i128();
+    /// let signed_neg_1_4 = BitVecValue::from(-1_i128, 4).as_i128();
     /// assert_eq!(signed_neg_1_4, -1);
-    /// let signed_pos = Value::from(5_i128,10).as_i128();
+    /// let signed_pos = BitVecValue::from(5_i128,10).as_i128();
     /// assert_eq!(signed_pos, 5)
     /// ```
     pub fn as_i128(&self) -> i128 {
         assert!(
-            Value::signed_value_fits_in(&self.vec, 128),
+            BitVecValue::signed_value_fits_in(&self.vec, 128),
             "Cannot fit value into an i128"
         );
         let init = if *self.vec.last().unwrap() { -1 } else { 0 };
@@ -559,9 +562,12 @@ impl Value {
         )
     }
 
-    pub fn as_usize(&self) -> usize {
+    pub fn to_u64(&self) -> usize {
         assert!(
-            Value::unsigned_value_fits_in(&self.vec, usize::BITS as usize),
+            BitVecValue::unsigned_value_fits_in(
+                &self.vec,
+                usize::BITS as usize
+            ),
             "Cannot fit value into an usize"
         );
 
@@ -589,7 +595,7 @@ impl Value {
             .collect_vec()
     }
 
-    pub fn as_signed(&self) -> BigInt {
+    pub fn to_big_int(&self) -> BigInt {
         let mut bytes = self.as_bytes_le();
         let width_bits = self.vec.len();
 
@@ -609,7 +615,7 @@ impl Value {
         BigInt::from_signed_bytes_le(&bytes)
     }
 
-    pub fn as_unsigned(&self) -> BigUint {
+    pub fn to_big_uint(&self) -> BigUint {
         let vec = self.as_bytes_le();
         // don't need to sign extend here
 
@@ -617,7 +623,7 @@ impl Value {
     }
 
     /// Interprets a 1bit value as a bool, will not panic for non-1-bit values
-    pub fn as_bool(&self) -> bool {
+    pub fn to_bool(&self) -> bool {
         assert!(self.vec.len() == 1);
         self.vec[0]
     }
@@ -628,7 +634,7 @@ impl Value {
     /// # Example
     /// ```
     /// use interp::values::*;
-    /// let v = Value::from(1, 3);
+    /// let v = BitVecValue::from(1, 3);
     /// assert_eq!(v.len(), 3)
     /// ```
     pub fn len(&self) -> usize {
@@ -641,7 +647,7 @@ impl Value {
         assert!(upper_idx < self.vec.len());
 
         let new_bv = (self.vec[lower_idx..upper_idx]).into();
-        Value { vec: new_bv }
+        BitVecValue { vec: new_bv }
     }
 
     /// Returns a value containing the sliced region \[lower,upper\]
@@ -650,7 +656,7 @@ impl Value {
         assert!(upper_idx < self.vec.len());
 
         let new_bv = BitVec::from_bitslice(&self.vec[lower_idx..=upper_idx]);
-        Value { vec: new_bv }
+        BitVecValue { vec: new_bv }
     }
 
     /// Creates a value from a byte slice and truncates to the specified width.
@@ -692,7 +698,7 @@ impl Value {
 
         let mut bv = BitString::from_vec(vec);
         bv.truncate(width);
-        Value { vec: bv }
+        BitVecValue { vec: bv }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -702,13 +708,13 @@ impl Value {
 
 /* ============== Impls for Values to make them easier to use ============= */
 #[allow(clippy::from_over_into)]
-impl Into<u64> for Value {
+impl Into<u64> for BitVecValue {
     fn into(self) -> u64 {
         self.as_u64()
     }
 }
 
-impl Index<usize> for Value {
+impl Index<usize> for BitVecValue {
     type Output = bool;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -716,7 +722,7 @@ impl Index<usize> for Value {
     }
 }
 
-impl std::fmt::Display for Value {
+impl std::fmt::Display for BitVecValue {
     fn fmt(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -731,15 +737,15 @@ impl std::fmt::Display for Value {
     }
 }
 
-impl PartialEq for Value {
+impl PartialEq for BitVecValue {
     fn eq(&self, other: &Self) -> bool {
         self.vec.len() == other.vec.len() && *self.vec == *other.vec
     }
 }
 
-impl Eq for Value {}
+impl Eq for BitVecValue {}
 
-impl PartialOrd for Value {
+impl PartialOrd for BitVecValue {
     /// Unsigned ordering comparison
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         assert!(self.vec.len() == other.vec.len());
@@ -760,7 +766,7 @@ impl PartialOrd for Value {
     }
 }
 
-impl Serialize for Value {
+impl Serialize for BitVecValue {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -781,7 +787,7 @@ mod tests {
             // this doesn't really test the truncation since it's been hard to
             // get that working in a way that still generates values correctly
             // but this is good enough for now
-            let val = Value::from_bytes_le(&data, data.len() * 8);
+            let val = BitVecValue::from_bytes_le(&data, data.len() * 8);
             let bytes = val.to_bytes();
             prop_assert_eq!(bytes, data);
         }

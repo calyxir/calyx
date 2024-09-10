@@ -8,7 +8,7 @@ use crate::{
         },
         structures::environment::PortMap,
     },
-    values::{InputNumber, Value},
+    values::{BitVecValue, InputNumber},
 };
 use num_traits::Euclid;
 
@@ -26,7 +26,7 @@ impl<const DEPTH: usize> StdMultPipe<DEPTH> {
         Self {
             base_port,
             pipeline: ShiftBuffer::default(),
-            current_output: PortValue::new_cell(Value::zeroes(width)),
+            current_output: PortValue::new_cell(BitVecValue::zero(width)),
             width,
             done_is_high: false,
         }
@@ -43,9 +43,9 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         let done_signal = port_map.insert_val(
             done,
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )?;
 
@@ -64,7 +64,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
 
         if port_map[reset].as_bool().unwrap_or_default() {
             self.current_output =
-                PortValue::new_cell(Value::zeroes(self.width));
+                PortValue::new_cell(BitVecValue::zero(self.width));
             self.done_is_high = false;
             self.pipeline.reset();
         } else if port_map[go].as_bool().unwrap_or_default() {
@@ -74,9 +74,9 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             if let Some((l, r)) = output {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
-                        Value::from(
-                            left.val().as_unsigned()
-                                * right.val().as_unsigned(),
+                        BitVecValue::from(
+                            left.val().to_big_uint()
+                                * right.val().to_big_uint(),
                             self.width,
                         )
                     })
@@ -86,7 +86,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
                 self.done_is_high = true;
             } else {
                 self.current_output =
-                    PortValue::new_cell(Value::zeroes(self.width));
+                    PortValue::new_cell(BitVecValue::zero(self.width));
                 self.done_is_high = false;
             }
         } else {
@@ -97,9 +97,9 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         let done_signal = port_map.insert_val(
             done,
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )?;
 
@@ -125,8 +125,8 @@ impl<const DEPTH: usize, const SIGNED: bool> StdDivPipe<DEPTH, SIGNED> {
         Self {
             base_port,
             pipeline: ShiftBuffer::default(),
-            output_quotient: PortValue::new_cell(Value::zeroes(width)),
-            output_remainder: PortValue::new_cell(Value::zeroes(width)),
+            output_quotient: PortValue::new_cell(BitVecValue::zero(width)),
+            output_remainder: PortValue::new_cell(BitVecValue::zero(width)),
             width,
             done_is_high: false,
         }
@@ -165,7 +165,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
 
         if port_map[reset].as_bool().unwrap_or_default() {
             self.output_quotient =
-                PortValue::new_cell(Value::zeroes(self.width));
+                PortValue::new_cell(BitVecValue::zero(self.width));
             self.done_is_high = false;
             self.pipeline.reset();
         } else if port_map[go].as_bool().unwrap_or_default() {
@@ -176,31 +176,31 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         (
-                            Value::from::<InputNumber, _>(
+                            BitVecValue::from::<InputNumber, _>(
                                 if !SIGNED {
-                                    (left.val().as_unsigned()
-                                        / right.val().as_unsigned())
+                                    (left.val().to_big_uint()
+                                        / right.val().to_big_uint())
                                     .into()
                                 } else {
-                                    (left.val().as_signed()
-                                        / right.val().as_signed())
+                                    (left.val().to_big_int()
+                                        / right.val().to_big_int())
                                     .into()
                                 },
                                 self.width,
                             ),
-                            Value::from::<InputNumber, _>(
+                            BitVecValue::from::<InputNumber, _>(
                                 if !SIGNED {
                                     (left
                                         .val()
-                                        .as_unsigned()
-                                        .rem_euclid(&right.val().as_unsigned()))
+                                        .to_big_uint()
+                                        .rem_euclid(&right.val().to_big_uint()))
                                     .into()
                                 } else {
-                                    (left.val().as_signed()
-                                        - right.val().as_signed()
+                                    (left.val().to_big_int()
+                                        - right.val().to_big_int()
                                             * floored_division(
-                                                &left.val().as_signed(),
-                                                &right.val().as_signed(),
+                                                &left.val().to_big_int(),
+                                                &right.val().to_big_int(),
                                             ))
                                     .into()
                                 },
@@ -216,9 +216,9 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                 self.done_is_high = true;
             } else {
                 self.output_quotient =
-                    PortValue::new_cell(Value::zeroes(self.width));
+                    PortValue::new_cell(BitVecValue::zero(self.width));
                 self.output_remainder =
-                    PortValue::new_cell(Value::zeroes(self.width));
+                    PortValue::new_cell(BitVecValue::zero(self.width));
                 self.done_is_high = false;
             }
         } else {
@@ -284,19 +284,19 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
 
         if port_map[reset].as_bool().unwrap_or_default() {
             self.done_is_high = false;
-            self.output = PortValue::new_cell(Value::zeroes(self.width));
+            self.output = PortValue::new_cell(BitVecValue::zero(self.width));
         } else if port_map[go].as_bool().unwrap_or_default() {
             let input = port_map[in_val].as_option();
             if let Some(input) = input {
                 self.output = if IS_FIXED_POINT {
                     let val = int_sqrt(
-                        &(input.val().as_unsigned()
+                        &(input.val().to_big_uint()
                             << (self.frac_width.unwrap() as usize)),
                     );
-                    PortValue::new_cell(Value::from(val, self.width))
+                    PortValue::new_cell(BitVecValue::from(val, self.width))
                 } else {
-                    let val = int_sqrt(&input.val().as_unsigned());
-                    PortValue::new_cell(Value::from(val, self.width))
+                    let val = int_sqrt(&input.val().to_big_uint());
+                    PortValue::new_cell(BitVecValue::from(val, self.width))
                 };
             } else {
                 // TODO griffin: should probably put an error or warning here?
@@ -334,7 +334,7 @@ impl<const DEPTH: usize> FxpMultPipe<DEPTH> {
         Self {
             base_port,
             pipeline: ShiftBuffer::default(),
-            current_output: PortValue::new_cell(Value::zeroes(
+            current_output: PortValue::new_cell(BitVecValue::zero(
                 int_width + frac_width,
             )),
             int_width,
@@ -354,9 +354,9 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         let done_signal = port_map.insert_val(
             done,
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )?;
 
@@ -374,7 +374,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         ];
 
         if port_map[reset].as_bool().unwrap_or_default() {
-            self.current_output = PortValue::new_cell(Value::zeroes(
+            self.current_output = PortValue::new_cell(BitVecValue::zero(
                 self.int_width + self.frac_width,
             ));
             self.done_is_high = false;
@@ -386,9 +386,9 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             if let Some((l, r)) = output {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
-                        Value::from(
-                            left.val().as_unsigned()
-                                * right.val().as_unsigned(),
+                        BitVecValue::from(
+                            left.val().to_big_uint()
+                                * right.val().to_big_uint(),
                             2 * (self.frac_width + self.int_width),
                         )
                         .slice_out(
@@ -401,7 +401,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
                     out_val.map_or(PortValue::new_undef(), PortValue::new_cell);
                 self.done_is_high = true;
             } else {
-                self.current_output = PortValue::new_cell(Value::zeroes(
+                self.current_output = PortValue::new_cell(BitVecValue::zero(
                     self.frac_width + self.int_width,
                 ));
                 self.done_is_high = false;
@@ -414,9 +414,9 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         let done_signal = port_map.insert_val(
             done,
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )?;
 
@@ -447,8 +447,8 @@ impl<const DEPTH: usize, const SIGNED: bool> FxpDivPipe<DEPTH, SIGNED> {
         Self {
             base_port,
             pipeline: ShiftBuffer::default(),
-            output_quotient: PortValue::new_cell(Value::zeroes(int_width)),
-            output_remainder: PortValue::new_cell(Value::zeroes(
+            output_quotient: PortValue::new_cell(BitVecValue::zero(int_width)),
+            output_remainder: PortValue::new_cell(BitVecValue::zero(
                 frac_width + int_width,
             )),
             int_width,
@@ -494,7 +494,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
 
         if port_map[reset].as_bool().unwrap_or_default() {
             self.output_quotient =
-                PortValue::new_cell(Value::zeroes(self.width()));
+                PortValue::new_cell(BitVecValue::zero(self.width()));
             self.done_is_high = false;
             self.pipeline.reset();
         } else if port_map[go].as_bool().unwrap_or_default() {
@@ -505,33 +505,33 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         (
-                            Value::from::<InputNumber, _>(
+                            BitVecValue::from::<InputNumber, _>(
                                 if !SIGNED {
-                                    ((left.val().as_unsigned()
+                                    ((left.val().to_big_uint()
                                         << self.frac_width as usize)
-                                        / right.val().as_unsigned())
+                                        / right.val().to_big_uint())
                                     .into()
                                 } else {
-                                    ((left.val().as_signed()
+                                    ((left.val().to_big_int()
                                         << self.frac_width as usize)
-                                        / right.val().as_signed())
+                                        / right.val().to_big_int())
                                     .into()
                                 },
                                 self.width(),
                             ),
-                            Value::from::<InputNumber, _>(
+                            BitVecValue::from::<InputNumber, _>(
                                 if !SIGNED {
                                     (left
                                         .val()
-                                        .as_unsigned()
-                                        .rem_euclid(&right.val().as_unsigned()))
+                                        .to_big_uint()
+                                        .rem_euclid(&right.val().to_big_uint()))
                                     .into()
                                 } else {
-                                    (left.val().as_signed()
-                                        - right.val().as_signed()
+                                    (left.val().to_big_int()
+                                        - right.val().to_big_int()
                                             * floored_division(
-                                                &left.val().as_signed(),
-                                                &right.val().as_signed(),
+                                                &left.val().to_big_int(),
+                                                &right.val().to_big_int(),
                                             ))
                                     .into()
                                 },
@@ -547,9 +547,9 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                 self.done_is_high = true;
             } else {
                 self.output_quotient =
-                    PortValue::new_cell(Value::zeroes(self.width()));
+                    PortValue::new_cell(BitVecValue::zero(self.width()));
                 self.output_remainder =
-                    PortValue::new_cell(Value::zeroes(self.width()));
+                    PortValue::new_cell(BitVecValue::zero(self.width()));
                 self.done_is_high = false;
             }
         } else {

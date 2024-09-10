@@ -8,7 +8,7 @@ use crate::{
         impl_index, impl_index_nonzero, IndexRange, IndexRef,
     },
     serialization::PrintCode,
-    values::Value,
+    values::BitVecValue,
 };
 
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
@@ -412,7 +412,7 @@ impl From<AssignmentIdx> for AssignmentWinner {
 /// concrete value and the "winner" which assigned it.
 #[derive(Clone, PartialEq)]
 pub struct AssignedValue {
-    val: Value,
+    val: BitVecValue,
     winner: AssignmentWinner,
 }
 
@@ -434,7 +434,7 @@ impl std::fmt::Display for AssignedValue {
 
 impl AssignedValue {
     /// Creates a new AssignedValue
-    pub fn new<T: Into<AssignmentWinner>>(val: Value, winner: T) -> Self {
+    pub fn new<T: Into<AssignmentWinner>>(val: BitVecValue, winner: T) -> Self {
         Self {
             val,
             winner: winner.into(),
@@ -447,7 +447,7 @@ impl AssignedValue {
     }
 
     /// Returns the value of the assigned value
-    pub fn val(&self) -> &Value {
+    pub fn val(&self) -> &BitVecValue {
         &self.val
     }
 
@@ -460,7 +460,7 @@ impl AssignedValue {
     /// a one bit high value
     pub fn implicit_bit_high() -> Self {
         Self {
-            val: Value::bit_high(),
+            val: BitVecValue::tru(),
             winner: AssignmentWinner::Implicit,
         }
     }
@@ -468,7 +468,7 @@ impl AssignedValue {
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_value(val: Value) -> Self {
+    pub fn cell_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Cell,
@@ -478,7 +478,7 @@ impl AssignedValue {
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Implicit`] as the winner
     #[inline]
-    pub fn implicit_value(val: Value) -> Self {
+    pub fn implicit_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Implicit,
@@ -489,13 +489,13 @@ impl AssignedValue {
     /// high value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_high() -> Self {
-        Self::cell_value(Value::bit_high())
+        Self::cell_value(BitVecValue::tru())
     }
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
     /// low value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_low() -> Self {
-        Self::cell_value(Value::bit_low())
+        Self::cell_value(BitVecValue::fals())
     }
 }
 
@@ -530,21 +530,21 @@ impl PortValue {
     }
 
     /// If the value is defined, returns the value cast to a boolean. Otherwise
-    /// returns `None`. It uses the [`Value::as_bool`] method and will panic if
+    /// returns `None`. It uses the [`BitVecValue::to_bool`] method and will panic if
     /// the given value is not one bit wide.
     pub fn as_bool(&self) -> Option<bool> {
-        self.0.as_ref().map(|x| x.val().as_bool())
+        self.0.as_ref().map(|x| x.val().to_bool())
     }
 
     /// If the value is defined, returns the value cast to a usize. Otherwise
-    /// returns `None`. It uses the [`Value::as_usize`] method.
+    /// returns `None`. It uses the [`BitVecValue::to_u64`] method.
     pub fn as_usize(&self) -> Option<usize> {
-        self.0.as_ref().map(|x| x.val().as_usize())
+        self.0.as_ref().map(|x| x.val().to_u64())
     }
 
     /// Returns a reference to the underlying value if it is defined. Otherwise
     /// returns `None`.
-    pub fn val(&self) -> Option<&Value> {
+    pub fn val(&self) -> Option<&BitVecValue> {
         self.0.as_ref().map(|x| &x.val)
     }
 
@@ -565,17 +565,17 @@ impl PortValue {
     }
 
     /// Creates a [PortValue] that has the "winner" as a cell
-    pub fn new_cell(val: Value) -> Self {
+    pub fn new_cell(val: BitVecValue) -> Self {
         Self(Some(AssignedValue::cell_value(val)))
     }
 
     /// Creates a width-bit zero [PortValue] that has the "winner" as a cell
     pub fn new_cell_zeroes(width: u32) -> Self {
-        Self::new_cell(Value::zeroes(width))
+        Self::new_cell(BitVecValue::zero(width))
     }
 
     /// Creates a [PortValue] that has the "winner" as implicit
-    pub fn new_implicit(val: Value) -> Self {
+    pub fn new_implicit(val: BitVecValue) -> Self {
         Self(Some(AssignedValue::implicit_value(val)))
     }
 
@@ -591,10 +591,14 @@ impl PortValue {
         if let Some(v) = self.0.as_ref() {
             let v = &v.val;
             match print_code {
-                PrintCode::Unsigned => format!("{}", v.as_unsigned()),
-                PrintCode::Signed => format!("{}", v.as_signed()),
-                PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
-                PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
+                PrintCode::Unsigned => format!("{}", v.to_big_uint()),
+                PrintCode::Signed => format!("{}", v.to_big_int()),
+                PrintCode::UFixed(num) => {
+                    format!("{}", v.to_unsigned_fixed_point(num))
+                }
+                PrintCode::SFixed(num) => {
+                    format!("{}", v.to_signed_fixed_point(num))
+                }
                 PrintCode::Binary => format!("{}", v),
             }
         } else {

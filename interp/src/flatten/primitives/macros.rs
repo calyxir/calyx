@@ -74,7 +74,7 @@ macro_rules! comb_primitive {
 
 
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::InterpreterResult<Option<$crate::values::Value>>  {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::InterpreterResult<Option<$crate::values::BitVecValue>>  {
                     $execute
                 };
 

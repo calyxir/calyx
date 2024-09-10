@@ -5,7 +5,7 @@ use crate::flatten::primitives::prim_trait::{Primitive, UpdateResult};
 use crate::flatten::primitives::{declare_ports, ports};
 use crate::flatten::structures::environment::PortMap;
 
-use crate::values::Value;
+use crate::values::BitVecValue;
 
 // use std::env;
 
@@ -47,7 +47,7 @@ impl<'a> Primitive for MyBtor2Add<'a> {
         match self.program.borrow_mut().run(input_map) {
             Ok(output_map) => Ok(port_map.insert_val(
                 out,
-                AssignedValue::cell_value(Value::from(
+                AssignedValue::cell_value(BitVecValue::from(
                     output_map["out"],
                     self.width,
                 )),

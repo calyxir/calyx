@@ -1,5 +1,5 @@
 use crate::flatten::flat_ir::prelude::AssignedValue;
-use crate::values::Value;
+use crate::values::BitVecValue;
 use calyx_ir::Id;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use rustyline::error::ReadlineError;
@@ -125,8 +125,8 @@ pub enum InterpreterError {
     ParOverlap {
         port_id: Id,
         parent_id: Id,
-        v1: Value,
-        v2: Value,
+        v1: BitVecValue,
+        v2: BitVecValue,
     },
 
     #[error("{mem_dim} Memory given initialization data with invalid dimension.

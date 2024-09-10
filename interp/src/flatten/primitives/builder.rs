@@ -13,7 +13,7 @@ use crate::{
         structures::context::Context,
     },
     serialization::DataDump,
-    values::Value,
+    values::BitVecValue,
 };
 
 pub fn build_primitive(
@@ -30,7 +30,7 @@ pub fn build_primitive(
             width,
             c_type: _,
         } => {
-            let v = Value::from(*val, *width);
+            let v = BitVecValue::from(*val, *width);
             Box::new(StdConst::new(v, base_port))
         }
 
