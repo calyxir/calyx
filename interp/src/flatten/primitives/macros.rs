@@ -9,7 +9,7 @@ macro_rules! declare_ports {
 
         $(
             #[allow(non_upper_case_globals)]
-            const $port: usize = $offset;
+            const $port: usize = $offset; // this is a usize because it encodes the position of the port!
         )+
     }
 }

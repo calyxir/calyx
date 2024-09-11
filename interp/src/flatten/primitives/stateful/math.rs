@@ -7,7 +7,7 @@ use crate::flatten::{
     },
     structures::environment::PortMap,
 };
-use baa::BitVecValue;
+use baa::{BitVecOps, BitVecValue, WidthInt};
 use num_traits::Euclid;
 
 pub struct StdMultPipe<const DEPTH: usize> {
@@ -72,11 +72,9 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             if let Some((l, r)) = output {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
-                        BitVecValue::from(
-                            left.val().to_big_uint()
-                                * right.val().to_big_uint(),
-                            self.width,
-                        )
+                        let value = left.val().to_big_uint()
+                            * right.val().to_big_uint();
+                        BitVecValue::from_big_uint(&value, self.width)
                     })
                 });
                 self.current_output =
@@ -113,7 +111,7 @@ pub struct StdDivPipe<const DEPTH: usize, const SIGNED: bool> {
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
     output_quotient: PortValue,
     output_remainder: PortValue,
-    width: u32,
+    width: WidthInt,
     done_is_high: bool,
 }
 
@@ -174,36 +172,30 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         (
-                            BitVecValue::from::<InputNumber, _>(
-                                if !SIGNED {
-                                    (left.val().to_big_uint()
-                                        / right.val().to_big_uint())
-                                    .into()
-                                } else {
-                                    (left.val().to_big_int()
-                                        / right.val().to_big_int())
-                                    .into()
-                                },
-                                self.width,
-                            ),
-                            BitVecValue::from::<InputNumber, _>(
-                                if !SIGNED {
-                                    (left
-                                        .val()
-                                        .to_big_uint()
-                                        .rem_euclid(&right.val().to_big_uint()))
-                                    .into()
-                                } else {
-                                    (left.val().to_big_int()
-                                        - right.val().to_big_int()
-                                            * floored_division(
-                                                &left.val().to_big_int(),
-                                                &right.val().to_big_int(),
-                                            ))
-                                    .into()
-                                },
-                                self.width,
-                            ),
+                            if !SIGNED {
+                                let val = left.val().to_big_uint()
+                                    / right.val().to_big_uint();
+                                BitVecValue::from_big_uint(&val, self.width)
+                            } else {
+                                let val = left.val().to_big_int()
+                                    / right.val().to_big_int();
+                                BitVecValue::from_big_int(&val, self.width)
+                            },
+                            if !SIGNED {
+                                let val = left
+                                    .val()
+                                    .to_big_uint()
+                                    .rem_euclid(&right.val().to_big_uint());
+                                BitVecValue::from_big_uint(&val, self.width)
+                            } else {
+                                let val = left.val().to_big_int()
+                                    - right.val().to_big_int()
+                                        * floored_division(
+                                            &left.val().to_big_int(),
+                                            &right.val().to_big_int(),
+                                        );
+                                BitVecValue::from_big_int(&val, self.width)
+                            },
                         )
                     })
                 });
@@ -291,10 +283,14 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
                         &(input.val().to_big_uint()
                             << (self.frac_width.unwrap() as usize)),
                     );
-                    PortValue::new_cell(BitVecValue::from(val, self.width))
+                    PortValue::new_cell(BitVecValue::from_big_uint(
+                        &val, self.width,
+                    ))
                 } else {
                     let val = int_sqrt(&input.val().to_big_uint());
-                    PortValue::new_cell(BitVecValue::from(val, self.width))
+                    PortValue::new_cell(BitVecValue::from_big_uint(
+                        &val, self.width,
+                    ))
                 };
             } else {
                 // TODO griffin: should probably put an error or warning here?
@@ -317,8 +313,8 @@ pub struct FxpMultPipe<const DEPTH: usize> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
     current_output: PortValue,
-    int_width: u32,
-    frac_width: u32,
+    int_width: WidthInt,
+    frac_width: WidthInt,
     done_is_high: bool,
 }
 
@@ -384,14 +380,15 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             if let Some((l, r)) = output {
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
-                        BitVecValue::from(
-                            left.val().to_big_uint()
-                                * right.val().to_big_uint(),
+                        let val = left.val().to_big_uint()
+                            * right.val().to_big_uint();
+                        BitVecValue::from_big_uint(
+                            &val,
                             2 * (self.frac_width + self.int_width),
                         )
-                        .slice_out(
-                            self.frac_width as usize,
-                            (2 * self.frac_width + self.int_width) as usize,
+                        .slice(
+                            2 * self.frac_width + self.int_width,
+                            self.frac_width,
                         )
                     })
                 });
@@ -503,38 +500,32 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                 let out_val = l.as_option().and_then(|left| {
                     r.as_option().map(|right| {
                         (
-                            BitVecValue::from::<InputNumber, _>(
-                                if !SIGNED {
-                                    ((left.val().to_big_uint()
-                                        << self.frac_width as usize)
-                                        / right.val().to_big_uint())
-                                    .into()
-                                } else {
-                                    ((left.val().to_big_int()
-                                        << self.frac_width as usize)
-                                        / right.val().to_big_int())
-                                    .into()
-                                },
-                                self.width(),
-                            ),
-                            BitVecValue::from::<InputNumber, _>(
-                                if !SIGNED {
-                                    (left
-                                        .val()
-                                        .to_big_uint()
-                                        .rem_euclid(&right.val().to_big_uint()))
-                                    .into()
-                                } else {
-                                    (left.val().to_big_int()
-                                        - right.val().to_big_int()
-                                            * floored_division(
-                                                &left.val().to_big_int(),
-                                                &right.val().to_big_int(),
-                                            ))
-                                    .into()
-                                },
-                                self.width(),
-                            ),
+                            if !SIGNED {
+                                let val = (left.val().to_big_uint()
+                                    << self.frac_width as usize)
+                                    / right.val().to_big_uint();
+                                BitVecValue::from_big_uint(&val, self.width())
+                            } else {
+                                let val = (left.val().to_big_int()
+                                    << self.frac_width as usize)
+                                    / right.val().to_big_int();
+                                BitVecValue::from_big_int(&val, self.width())
+                            },
+                            if !SIGNED {
+                                let val = left
+                                    .val()
+                                    .to_big_uint()
+                                    .rem_euclid(&right.val().to_big_uint());
+                                BitVecValue::from_big_uint(&val, self.width())
+                            } else {
+                                let val = left.val().to_big_int()
+                                    - right.val().to_big_int()
+                                        * floored_division(
+                                            &left.val().to_big_int(),
+                                            &right.val().to_big_int(),
+                                        );
+                                BitVecValue::from_big_int(&val, self.width())
+                            },
                         )
                     })
                 });

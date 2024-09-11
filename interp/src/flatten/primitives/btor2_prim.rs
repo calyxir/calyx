@@ -19,7 +19,7 @@ pub struct MyBtor2Add<'a> {
 
 impl<'a> MyBtor2Add<'a> {
     declare_ports![ LEFT:0, RIGHT:1, OUT:2 ];
-    pub fn new(base: GlobalPortIdx, width: usize) -> Self {
+    pub fn new(base: GlobalPortIdx, width: WidthInt) -> Self {
         Self {
             program: RefCell::new(Btor2Program::new(
                 "../tools/btor2/core/std_add.btor",
@@ -46,7 +46,7 @@ impl<'a> Primitive for MyBtor2Add<'a> {
         match self.program.borrow_mut().run(input_map) {
             Ok(output_map) => Ok(port_map.insert_val(
                 out,
-                AssignedValue::cell_value(BitVecValue::from(
+                AssignedValue::cell_value(BitVecValue::from_u64(
                     output_map["out"],
                     self.width,
                 )),

@@ -40,7 +40,7 @@ use crate::{
 use ahash::HashSet;
 use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
-use baa::BitVecValue;
+use baa::{BitVecOps, BitVecValue};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
@@ -1927,10 +1927,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 match c {
                     calyx_ir::PortComp::Eq => a_val == b_val,
                     calyx_ir::PortComp::Neq => a_val != b_val,
-                    calyx_ir::PortComp::Gt => a_val > b_val,
-                    calyx_ir::PortComp::Lt => a_val < b_val,
-                    calyx_ir::PortComp::Geq => a_val >= b_val,
-                    calyx_ir::PortComp::Leq => a_val <= b_val,
+                    calyx_ir::PortComp::Gt => a_val.is_greater(b_val),
+                    calyx_ir::PortComp::Lt => a_val.is_less(b_val),
+                    calyx_ir::PortComp::Geq => a_val.is_greater_or_equal(b_val),
+                    calyx_ir::PortComp::Leq => a_val.is_less_or_equal(b_val),
                 }
                 .into()
             }

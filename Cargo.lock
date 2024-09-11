@@ -217,9 +217,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "baa"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8729e2c940680672118878ce0ddf972d4fa25fc3f3a2399f9b1bf6bab626954"
+checksum = "7402fb1d79af97f313bb536cde173c31def1ac023e02488158fc36ca86bcd936"
 dependencies = [
  "fraction",
  "num-bigint",

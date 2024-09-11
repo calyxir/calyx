@@ -119,8 +119,8 @@ pub enum InterpreterError {
     /// A currently defunct error type for cross branch conflicts
     #[error(
         "par assignments not disjoint: {parent_id}.{port_id}
-    1. {v1}
-    2. {v2}"
+    1. {v1:?}
+    2. {v2:?}"
     )]
     ParOverlap {
         port_id: Id,
