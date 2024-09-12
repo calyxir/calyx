@@ -100,6 +100,7 @@ impl PortMap {
             // TODO: Fix to make the error more helpful
             Some(t) if t.has_conflict_with(&val) => InterpreterResult::Err(
                 InterpreterError::FlatConflictingAssignments {
+                    target,
                     a1: t.clone(),
                     a2: val,
                 }
@@ -1618,6 +1619,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let assigns_bundle = self.get_assignments(self.env.pc.node_slice());
 
         self.simulate_combinational(&assigns_bundle)
+            .map_err(|e| e.prettify_message(&self.env))
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
