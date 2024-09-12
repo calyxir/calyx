@@ -1,6 +1,6 @@
 use crate::flatten::{
     flat_ir::{
-        base::{AssignmentWinner, ComponentIdx, GlobalPortIdx},
+        base::{AssignmentWinner, ComponentIdx, GlobalCellIdx, GlobalPortIdx},
         prelude::AssignedValue,
     },
     structures::environment::Environment,
@@ -174,24 +174,24 @@ pub enum InterpreterError {
     /// memory. Contains the name of the register or memory as a string
     //TODO Griffin: Make this more descriptive
     #[error(
-        "Attempted to write an undefined value to register or memory named \"{0}\""
+        "Attempted to write an undefined value to register or memory named \"{0:?}\""
     )]
-    UndefinedWrite(String),
+    UndefinedWrite(GlobalCellIdx),
 
     /// The error for attempting to write to an undefined memory address. This
     /// is distinct from writing to an out of bounds address.
     //TODO Griffin: Make this more descriptive
     #[error(
-        "Attempted to write an undefined memory address in memory named \"{0}\""
+        "Attempted to write an undefined memory address in memory named \"{0:?}\""
     )]
-    UndefinedWriteAddr(String),
+    UndefinedWriteAddr(GlobalCellIdx),
 
     /// The error for attempting to read from an undefined memory address. This
     /// is distinct from reading from an out of bounds address.
     #[error(
-        "Attempted to read an undefined memory address from memory named \"{0}\""
+        "Attempted to read an undefined memory address from memory named \"{0:?}\""
     )]
-    UndefinedReadAddr(String),
+    UndefinedReadAddr(GlobalCellIdx),
 
     /// A wrapper for serialization errors
     #[error(transparent)]
@@ -292,6 +292,9 @@ impl InterpreterError {
                     format!("conflicting assignments to port \"{target}\":\n 1. assigned {a1_v} by {a1_str}{a1_source}\n 2. assigned {a2_v} by {a2_str}{a2_source}")
                 )
             }
+            InterpreterError::UndefinedWrite(c) => InterpreterError::GenericError(format!("Attempted to write an undefined value to register or memory named \"{}\"", env.get_full_name(c))),
+            InterpreterError::UndefinedWriteAddr(c) => InterpreterError::GenericError(format!("Attempted to write to an undefined memory address in memory named \"{}\"", env.get_full_name(c))),
+            InterpreterError::UndefinedReadAddr(c) => InterpreterError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
             e => e,
         }
     }

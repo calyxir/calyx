@@ -470,6 +470,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 let cell_dyn = primitives::build_primitive(
                     info,
                     port_base,
+                    self.cells.peek_next_idx(),
                     self.ctx.as_ref(),
                     data_map,
                     memories_initialized,
@@ -985,25 +986,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     ) -> Option<GlobalCellIdx> {
         self.get_parent_path_from_cell(cell)
             .and_then(|x| x.last().copied())
-    }
-
-    pub fn make_nice_error(
-        &self,
-        cell: GlobalCellIdx,
-        mut err: BoxedInterpreterError,
-    ) -> BoxedInterpreterError {
-        let mut_err = err.inner_mut();
-
-        match mut_err {
-            InterpreterError::UndefinedWrite(s)
-            | InterpreterError::UndefinedWriteAddr(s)
-            | InterpreterError::UndefinedReadAddr(s) => {
-                *s = self.get_full_name(cell);
-            }
-            _ => {}
-        }
-
-        err
     }
 
     /// Traverses the given name, and returns the end of the traversal. For
@@ -1625,14 +1607,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn step(&mut self) -> InterpreterResult<()> {
         self.converge()?;
 
-        let out: Result<(), (GlobalCellIdx, BoxedInterpreterError)> = {
+        let out: Result<(), BoxedInterpreterError> = {
             let mut result = Ok(());
-            for (idx, cell) in self.env.cells.iter_mut() {
+            for (_, cell) in self.env.cells.iter_mut() {
                 match cell {
                     CellLedger::Primitive { cell_dyn } => {
                         let res = cell_dyn.exec_cycle(&mut self.env.ports);
                         if res.is_err() {
-                            result = Err((idx, res.unwrap_err()));
+                            result = Err(res.unwrap_err());
                             break;
                         }
                     }
@@ -1665,7 +1647,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
 
-        out.map_err(|(idx, err)| self.env.make_nice_error(idx, err))
+        out.map_err(|err| err.prettify_message(&self.env))
     }
 
     fn evaluate_control_node(
@@ -2042,18 +2024,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 .range()
                 .iter()
                 .filter_map(|x| match &mut self.env.cells[x] {
-                    CellLedger::Primitive { cell_dyn } => Some(
-                        cell_dyn
-                            .exec_comb(&mut self.env.ports)
-                            .map_err(|e| (x, e)),
-                    ),
+                    CellLedger::Primitive { cell_dyn } => {
+                        Some(cell_dyn.exec_comb(&mut self.env.ports))
+                    }
                     CellLedger::Component(_) => None,
                 })
                 .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
                     has_changed | update
-                })
-                .map_err(|(cell_idx, err)| {
-                    self.env.make_nice_error(cell_idx, err)
                 })?
                 .as_bool();
 
