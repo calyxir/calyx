@@ -592,10 +592,10 @@ impl PortValue {
                 PrintCode::Unsigned => format!("{}", v.to_big_uint()),
                 PrintCode::Signed => format!("{}", v.to_big_int()),
                 PrintCode::UFixed(num) => {
-                    format!("{}", v.to_unsigned_fixed_point(num))
+                    format!("{}", v.to_unsigned_fixed_point(num).unwrap())
                 }
                 PrintCode::SFixed(num) => {
-                    format!("{}", v.to_signed_fixed_point(num))
+                    format!("{}", v.to_signed_fixed_point(num).unwrap())
                 }
                 PrintCode::Binary => format!("{}", v.to_bit_str()),
             }

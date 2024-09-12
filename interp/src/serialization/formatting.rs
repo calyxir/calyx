@@ -132,8 +132,12 @@ impl Entry {
         match code {
             PrintCode::Unsigned => val.to_u64().unwrap().into(),
             PrintCode::Signed => val.to_i64().unwrap().into(),
-            PrintCode::UFixed(f) => val.to_unsigned_fixed_point(*f).into(),
-            PrintCode::SFixed(f) => val.to_signed_fixed_point(*f).into(),
+            PrintCode::UFixed(f) => {
+                val.to_unsigned_fixed_point(*f).unwrap().into()
+            }
+            PrintCode::SFixed(f) => {
+                val.to_signed_fixed_point(*f).unwrap().into()
+            }
             PrintCode::Binary => Entry::Value(val.clone()),
         }
     }

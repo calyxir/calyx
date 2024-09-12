@@ -111,12 +111,12 @@ comb_primitive!(StdFpSub(left [0], right [1]) -> (out [2]) {
 });
 
 // ===================== Shift Operations ======================
-comb_primitive!(StdLsh[WIDTH](left [0], right [1]) -> (out [2]) {
+comb_primitive!(StdLsh(left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
     Ok(Some(left.shift_left(right)))
 });
 
-comb_primitive!(StdRsh[WIDTH](left [0], right [1]) -> (out [2]) {
+comb_primitive!(StdRsh(left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
     Ok(Some(left.shift_right(right)))
 });
@@ -230,14 +230,14 @@ comb_primitive!(StdCat(left [0], right [1]) -> (out [2]) {
     Ok(Some(left.concat(right).into()))
 });
 
-comb_primitive!(StdBitSlice[START_IDX, END_IDX, OUT_WIDTH](input [0]) -> (out [1]) {
+comb_primitive!(StdBitSlice[START_IDX, END_IDX](input [0]) -> (out [1]) {
     all_defined!(input);
     let (msb, lsb) = (END_IDX, START_IDX);
     Ok(Some(input.slice(msb, lsb)))
 });
 
 // ===================== Unsynthesizeable Operations ======================
-comb_primitive!(StdUnsynMult[WIDTH](left [0], right [1]) -> (out [2]) {
+comb_primitive!(StdUnsynMult(left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
     Ok(Some(left.mul(right)))
 });
@@ -248,7 +248,7 @@ comb_primitive!(StdUnsynDiv[WIDTH](left [0], right [1]) -> (out [2]) {
     Ok(Some(BitVecValue::from_big_uint(&res, WIDTH)))
 });
 
-comb_primitive!(StdUnsynSmult[WIDTH](left [0], right [1]) -> (out [2]) {
+comb_primitive!(StdUnsynSmult(left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
     // FIXME: is there a difference for signed?
     Ok(Some(left.mul(right)))
