@@ -83,7 +83,7 @@ impl Primitive for StdMux {
 
 comb_primitive!(StdNot(input [0]) -> (out [1]) {
     all_defined!(input);
-    Ok(Some(input.not().into()))
+    Ok(Some(input.not()))
 });
 
 comb_primitive!(StdWire(input [0] ) -> (out [1]) {
@@ -227,7 +227,7 @@ comb_primitive!(StdPad[OUT_WIDTH](input [0]) -> (out [1]) {
 
 comb_primitive!(StdCat(left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
-    Ok(Some(left.concat(right).into()))
+    Ok(Some(left.concat(right)))
 });
 
 comb_primitive!(StdBitSlice[START_IDX, END_IDX](input [0]) -> (out [1]) {

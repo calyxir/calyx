@@ -418,7 +418,7 @@ pub struct AssignedValue {
 impl std::fmt::Debug for AssignedValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AssignedValue")
-            .field("val", &format!("{}", self.val.to_bit_str()))
+            .field("val", &self.val.to_bit_str())
             .field("winner", &self.winner)
             .finish()
     }
@@ -597,7 +597,7 @@ impl PortValue {
                 PrintCode::SFixed(num) => {
                     format!("{}", v.to_signed_fixed_point(num).unwrap())
                 }
-                PrintCode::Binary => format!("{}", v.to_bit_str()),
+                PrintCode::Binary => v.to_bit_str(),
             }
         } else {
             "undef".to_string()
