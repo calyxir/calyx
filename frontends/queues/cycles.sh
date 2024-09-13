@@ -15,6 +15,5 @@ for file in frontends/queues/tests/**/*.py; do
                     -s verilog.data "$dir/$name.data" \
                     -s jq.expr ".cycles" \
                     -q)"
-    echo -n ${file#*tests/}
-    echo ": $cycles"
+    echo "${file#*tests/}: $cycles"
 done

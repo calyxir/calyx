@@ -18,11 +18,9 @@ for file in frontends/queues/tests/**/*.py; do
 
     if [ "$#" -eq 1 ]; then
         resource=$(jq ".$1" <<< "$resources")
-        echo -n ${file#*tests/}
-        echo ": $resource"
+        echo "${file#*tests/}: $resource"
     else
-        echo ${file#*tests/}
-        echo "$resources"
-        echo ""
+        newline=$'\n'
+        echo "${file#*tests/}${newline}$resources${newline}"
     fi
 done
