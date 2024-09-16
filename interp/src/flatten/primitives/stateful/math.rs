@@ -387,7 +387,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
                             2 * (self.frac_width + self.int_width),
                         )
                         .slice(
-                            2 * self.frac_width + self.int_width,
+                            (2 * self.frac_width + self.int_width) - 1,
                             self.frac_width,
                         )
                     })
