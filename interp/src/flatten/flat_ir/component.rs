@@ -1,3 +1,4 @@
+use super::super::structures::context::Context;
 use crate::flatten::structures::{
     index_trait::{IndexRange, SignatureRange},
     indexed_map::IndexedMap,
@@ -69,6 +70,104 @@ pub struct ComponentCore {
     pub go: LocalPortOffset,
     /// The done port for this component
     pub done: LocalPortOffset,
+}
+
+pub enum AssignmentDefinitionLocation {
+    /// The assignment is contained in a comb group
+    CombGroup(CombGroupIdx),
+    /// The assignment is contained in a group
+    Group(GroupIdx),
+    /// The assignment is one of the continuous assignments for the component
+    ContinuousAssignment,
+    /// The assignment is implied by an invoke
+    Invoke(ControlIdx),
+}
+
+impl ComponentCore {
+    /// Returns true if the given assignment is contained in this component.
+    ///
+    /// Note: This is not a very efficient implementation since it's doing a
+    /// DFS search over the control tree.
+    pub fn contains_assignment(
+        &self,
+        ctx: &Context,
+        assign: AssignmentIdx,
+    ) -> Option<AssignmentDefinitionLocation> {
+        if self.continuous_assignments.contains(assign) {
+            return Some(AssignmentDefinitionLocation::ContinuousAssignment);
+        } else if let Some(root) = self.control {
+            let mut search_stack = vec![root];
+            while let Some(node) = search_stack.pop() {
+                match &ctx.primary[node] {
+                    ControlNode::Empty(_) => {}
+                    ControlNode::Enable(e) => {
+                        if ctx.primary[e.group()].assignments.contains(assign) {
+                            return Some(AssignmentDefinitionLocation::Group(
+                                e.group(),
+                            ));
+                        }
+                    }
+                    ControlNode::Seq(s) => {
+                        for stmt in s.stms() {
+                            search_stack.push(*stmt);
+                        }
+                    }
+                    ControlNode::Par(p) => {
+                        for stmt in p.stms() {
+                            search_stack.push(*stmt);
+                        }
+                    }
+                    ControlNode::If(i) => {
+                        if let Some(comb) = i.cond_group() {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+
+                        search_stack.push(i.tbranch());
+                        search_stack.push(i.fbranch());
+                    }
+                    ControlNode::While(wh) => {
+                        if let Some(comb) = wh.cond_group() {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+                        search_stack.push(wh.body());
+                    }
+                    ControlNode::Repeat(r) => {
+                        search_stack.push(r.body);
+                    }
+                    ControlNode::Invoke(i) => {
+                        if let Some(comb) = i.comb_group {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+
+                        if i.assignments.contains(assign) {
+                            return Some(AssignmentDefinitionLocation::Invoke(
+                                node,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 #[derive(Debug, Clone)]

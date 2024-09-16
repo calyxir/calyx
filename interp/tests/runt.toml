@@ -143,6 +143,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
+         -s cider.converter-flags="-r --legacy-quotes" \
          {} | jq --sort-keys
 """
 
