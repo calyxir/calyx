@@ -39,7 +39,7 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
         if group_name == "TOTAL" or group_info["component"] is None: # only care about actual groups
             continue
         for segment in group_info["closed_segments"]:
-            if group_info["fsm_name"] is not None:
+            if group_info["fsm_name"] is None:
                 if group_name not in group_to_gt_segments:
                     group_to_gt_segments[group_name] = {} # segment start cycle to segment end cycle
                 group_to_gt_segments[group_name][segment["start"]] = segment["end"]
@@ -55,10 +55,14 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
     return timeline_map, fsm_timeline_map, group_to_gt_segments
 
 def create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out):
+    print(group_to_gt_segments)
     main_shortname = main_component.split("TOP.toplevel.")[1]
     frequency_stacks = {}
     i = 0
     while i < len(timeline):
+        if len(timeline[i]) == 0:
+            i += 1
+            continue
         group_component = sorted(timeline[i], key=lambda k : timeline[i][k].count("."), reverse=True)[0]
         group_full_name = timeline[i][group_component]
         stack = ""
@@ -268,9 +272,9 @@ def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_o
     timeline, fsm_timeline, group_to_gt_segments = create_timeline_map(profiled_info, fsm_groups, all_groups)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
-    create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out)
     create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out)
     create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out)
+    create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out)
 
 if __name__ == "__main__":
     if len(sys.argv) > 7:

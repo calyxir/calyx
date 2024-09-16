@@ -36,9 +36,8 @@ OUT_JSON=${TMP_DIR}/dump.json
 TIMELINE_VIEW_JSON=${TMP_DIR}/timeline.json
 FSM_TIMELINE_VIEW_JSON=${TMP_DIR}/fsm-timeline.json
 FLAME_GRAPH_FOLDED=${TMP_DIR}/flame.folded
-FLAME_GRAPH_SVG=${TMP_DIR}/flame.svg
 FSM_FLAME_GRAPH_FOLDED=${TMP_DIR}/fsm-flame.folded
-FSM_FLAME_GRAPH_SVG=${TMP_DIR}/fsm-flame.svg
+FREQUENCY_FLAME_GRAPH_FOLDED=${TMP_DIR}/frequency-flame.folded
 VCD_FILE=${TMP_DIR}/trace.vcd
 LOGS_DIR=${DATA_DIR}/logs
 if [ -d ${DATA_DIR} ]; then
@@ -53,7 +52,7 @@ echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
 (
     cd ${CALYX_DIR}
     set -o xtrace
-    cargo run -- ${INPUT_FILE} -p par-to-seq -p compile-repeat -p no-opt -x tdcc:dump-fsm-json="${FSM_JSON}"
+    cargo run -- ${INPUT_FILE} -p compile-repeat -p no-opt -x tdcc:dump-fsm-json="${FSM_JSON}" #  -p par-to-seq
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-tdcc
 
@@ -79,7 +78,7 @@ fi
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
     set -o xtrace
-    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args='-p par-to-seq -p compile-repeat -p no-opt' -s sim.data=${SIM_DATA_JSON}
+    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args='-p compile-repeat -p no-opt' -s sim.data=${SIM_DATA_JSON} # -p par-to-seq 
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
 
@@ -105,15 +104,24 @@ fi
 echo "[${SCRIPT_NAME}] Writing visualization"
 (
     set -o xtrace
-    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FSM_TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED}
+    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FSM_TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED} ${FREQUENCY_FLAME_GRAPH_FOLDED}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-visuals
 
 echo "[${SCRIPT_NAME}] Creating flame graph svg"
 (
     set -o xtrace
-    ${FLAMEGRAPH_DIR}/flamegraph.pl ${FLAME_GRAPH_FOLDED} > ${FLAME_GRAPH_SVG}
-    echo
-    ${FLAMEGRAPH_DIR}/flamegraph.pl ${FSM_FLAME_GRAPH_FOLDED} > ${FSM_FLAME_GRAPH_SVG}
+    for opt in "" "--inverted" "--reverse"; do
+	if [ "${opt}" == "" ]; then
+	    filename=flame
+	else
+	    filename=flame"${opt:1}"
+	fi
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FLAME_GRAPH_FOLDED} > ${TMP_DIR}/${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FSM_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/fsm-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg	
+    done
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-flamegraph
