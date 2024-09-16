@@ -401,6 +401,17 @@ pub enum AssignmentWinner {
     Assign(AssignmentIdx),
 }
 
+impl AssignmentWinner {
+    #[must_use]
+    pub fn as_assign(&self) -> Option<&AssignmentIdx> {
+        if let Self::Assign(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
 impl From<AssignmentIdx> for AssignmentWinner {
     fn from(v: AssignmentIdx) -> Self {
         Self::Assign(v)

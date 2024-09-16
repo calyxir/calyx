@@ -4,6 +4,7 @@ use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
+            base::GlobalCellIdx,
             cell_prototype::{
                 CellPrototype, DoubleWidthType, FXType, MemType,
                 SingleWidthType, TripleWidthType,
@@ -20,6 +21,8 @@ use baa::BitVecValue;
 pub fn build_primitive(
     prim: &CellInfo,
     base_port: GlobalPortIdx,
+    // the global idx of the instantiated primitive
+    cell_idx: GlobalCellIdx,
     // extras for memory initialization
     ctx: &Context,
     dump: &Option<DataDump>,
@@ -39,7 +42,9 @@ pub fn build_primitive(
             "Build primitive erroneously called on a calyx component"
         ),
         CellPrototype::SingleWidth { op, width } => match op {
-            SingleWidthType::Reg => Box::new(StdReg::new(base_port, *width)),
+            SingleWidthType::Reg => {
+                Box::new(StdReg::new(base_port, cell_idx, *width))
+            }
             SingleWidthType::Not => Box::new(StdNot::new(base_port)),
             SingleWidthType::And => Box::new(StdAnd::new(base_port)),
             SingleWidthType::Or => Box::new(StdOr::new(base_port)),
@@ -169,16 +174,20 @@ pub fn build_primitive(
                 MemType::Seq => Box::new(if let Some(data) = data {
                     memories_initialized
                         .insert(ctx.resolve_id(prim.name).clone());
-                    SeqMem::new_with_init(base_port, *width, false, dims, data)
+                    SeqMem::new_with_init(
+                        base_port, cell_idx, *width, false, dims, data,
+                    )
                 } else {
-                    SeqMemD1::new(base_port, *width, false, dims)
+                    SeqMemD1::new(base_port, cell_idx, *width, false, dims)
                 }),
                 MemType::Std => Box::new(if let Some(data) = data {
                     memories_initialized
                         .insert(ctx.resolve_id(prim.name).clone());
-                    CombMem::new_with_init(base_port, *width, false, dims, data)
+                    CombMem::new_with_init(
+                        base_port, cell_idx, *width, false, dims, data,
+                    )
                 } else {
-                    CombMem::new(base_port, *width, false, dims)
+                    CombMem::new(base_port, cell_idx, *width, false, dims)
                 }),
             }
         }
