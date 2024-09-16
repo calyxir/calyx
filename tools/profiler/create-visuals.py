@@ -48,15 +48,52 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
 
     return timeline_map, fsm_timeline_map
 
+# def create_frequency_flame_graph(main_component, cells_map, timeline):
+#     main_shortname = main_component.split("TOP.toplevel.")[1]
+#     frequency_stacks = {}
+#     currently_active = ""
+#     # FIXME: We can probably find a way to 
+#     for i in timeline:
+#         group_component = sorted(timeline[i], key=lambda k : timeline[i][k].count("."), reverse=True)[0]
+#         group_full_name = timeline[i][group_component]
+#         stack = ""
+#         group_name = group_full_name.split(".")[-1]
+#         if group_component == main_shortname:
+#             stack = main_component + ";" + group_name
+#         else:
+#             after_main = group_full_name.split(f"{main_component}.")[1]
+#             after_main_split = after_main.split(".")[:-1]
+#             # first, find the group in main that is simulatenous
+#             if main_shortname not in timeline[i]:
+#                 print(f"Error: A group from the main component ({main_shortname}) should be active at cycle {i}!")
+#                 exit(1)
+#             backptrs = [main_component]
+#             group_from_main = timeline[i][main_shortname].split(main_component + ".")[-1]
+#             backptrs.append(group_from_main)
+#             prev_component = main_shortname
+#             for cell_name in after_main_split:
+#                 cell_component = cells_map[prev_component][cell_name]
+#                 group_from_component = timeline[i][cell_component].split(cell_name + ".")[-1]
+#                 backptrs.append(f"{cell_component}[{prev_component}.{cell_name}];{group_from_component}")
+#                 prev_component = cell_component
+#             stack = ";".join(backptrs)
+#         if stack != currently_active: # we have a new active group
+#             if 
+#     # write_flame_graph(frequency_flame_out, stacks)
+#     return
+
 # attempt to rehash the create_flame_graph to take care of stacks
-def create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out):
-    stacks = compute_flame_stacks(cells_map, timeline, main_component)
+def create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out, frequency_flame_out):
+    stacks, frequency_stacks = compute_flame_stacks(cells_map, timeline, main_component)
     write_flame_graph(flame_out, stacks)
-    fsm_stacks = compute_flame_stacks(cells_map, fsm_timeline, main_component)
+    print("FREQUENCY")
+    print(frequency_stacks)
+    print(frequency_flame_out)
+    write_flame_graph(frequency_flame_out, frequency_stacks)
+    fsm_stacks, _ = compute_flame_stacks(cells_map, fsm_timeline, main_component)
     write_flame_graph(fsm_flame_out, fsm_stacks)
 
 def create_timeline_stacks(timeline, main_component):
-    print(timeline)
     events = []
     currently_active = {} # group name to beginning traceEvent entry (so end event can copy)
     ts_multiplier = 100 # some arbitrary number to multiply by so that it's easier to see in the viewer
@@ -100,17 +137,15 @@ def create_timeline_stacks(timeline, main_component):
                 start_event = {"name": group_shortname, "cat": group_component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
                 events.append(start_event)
                 currently_active[group_full_name] = start_event
+        # Any group that was previously active but not active this cycle need to end
         for non_active_group in set(currently_active.keys()).difference(active_this_cycle):
-            print(f"group {non_active_group} is no longer active at cycle {i}")
-            # create end event
             end_event = currently_active[non_active_group].copy()
             del currently_active[non_active_group]
             end_event["ts"] = (i) * ts_multiplier - 1
             end_event["ph"] = "E"
             events.append(end_event)
-    # postprocess - add end events for all events still active
+    # postprocess - add end events for all events still active by the end
     for event in currently_active:
-        # FIXME: should clean up and remove code clone w the above
         end_event = currently_active[event].copy()
         end_event["ts"] = (len(timeline)) * ts_multiplier - 1 # only difference w the above
         end_event["ph"] = "E"
@@ -126,21 +161,12 @@ def create_timeline_stacks(timeline, main_component):
         else:
             stacks[stack_id] = {"name" : cell, "parent": parent_stack_id, "category" : stack_category}
 
-    # print("events!!!")
-    # print(events)
-    # print("stacks!!!")
-    # print(stacks)
-
     return { "traceEvents": events, "stackFrames": stacks }
 
 def create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out):
     timeline_json_data = create_timeline_stacks(timeline, main_component)
     with open(timeline_out, "w", encoding="utf-8") as timeline_file:
         timeline_file.write(json.dumps(timeline_json_data, indent=4))
-    print("ORIGINAL TIMELINE")
-    print(timeline)
-    print("FSM TIEMLINE")
-    print(fsm_timeline)
     fsm_timeline_json_data = create_timeline_stacks(fsm_timeline, main_component)
     with open(fsm_timeline_out, "w", encoding="utf-8") as fsm_timeline_file:
         fsm_timeline_file.write(json.dumps(fsm_timeline_json_data, indent=4))
@@ -148,7 +174,9 @@ def create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, f
 
 def compute_flame_stacks(cells_map, timeline, main_component):
     main_shortname = main_component.split("TOP.toplevel.")[1]
-    stacks = {} # each stack to the # of cycles it was active for?
+    frequency_stacks = {}
+    currently_active_stack = ""
+    stacks = {} # each stack to the # of cycles it was active for
     nonactive_cycles = 0 # cycles where no group was active
     for i in timeline: # keys in the timeline are clock time stamps
         # Right now we are assuming that there are no pars. So for any time stamp, *if there are multiple* groups active,
@@ -183,10 +211,15 @@ def compute_flame_stacks(cells_map, timeline, main_component):
             
         if stack not in stacks:
             stacks[stack] = 0
+        if currently_active_stack != stack: # previously active stack is done; count it to the
+            if stack not in frequency_stacks:
+                frequency_stacks[stack] = 0
+            frequency_stacks[stack] += 1
+            currently_active_stack = stack
         stacks[stack] += 1
 
     stacks[main_component] = nonactive_cycles
-    return stacks
+    return stacks, frequency_stacks
 
 def write_flame_graph(flame_out, stacks):
     with open(flame_out, "w") as f:
@@ -230,7 +263,7 @@ def build_cells_map(json_file):
         cells_map[component_entry["component"]] = inner_cells_map
     return cells_map
 
-def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_out, fsm_flame_out):
+def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_out, fsm_flame_out, frequency_flame_out):
     profiled_info = json.load(open(profiler_dump_file, "r"))
     fsm_groups, all_groups = get_fsm_groups(profiled_info)
     # This cells_map is different from the one in parse-vcd.py
@@ -238,18 +271,20 @@ def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_o
     timeline, fsm_timeline = create_timeline_map(profiled_info, fsm_groups, all_groups)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
-    create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out)
+    create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out, frequency_flame_out)
+    # create_frequency_flame_graph(main_component, cells_map, timeline)
     create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 5:
+    if len(sys.argv) > 7:
         profiler_dump_json = sys.argv[1]
         cells_json = sys.argv[2]
         timeline_out = sys.argv[3]
         fsm_timeline_out = sys.argv[4]
         flame_out = sys.argv[5]
         fsm_flame_out = sys.argv[6]
-        main(profiler_dump_json, cells_json, timeline_out, fsm_timeline_out, flame_out, fsm_flame_out)
+        frequency_flame_out = sys.argv[7]
+        main(profiler_dump_json, cells_json, timeline_out, fsm_timeline_out, flame_out, fsm_flame_out, frequency_flame_out)
     else:
         args_desc = [
             "PROFILER_JSON",
@@ -258,6 +293,7 @@ if __name__ == "__main__":
             "FSM_TIMELINE_VIEW_JSON",
             "FLAME_GRAPH_FOLDED",
             "FSM_FLAME_GRAPH_FOLDED",
+            "FREQUENCY_FLAME_GRAPH_FOLDED"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         sys.exit(-1)
