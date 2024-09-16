@@ -431,8 +431,8 @@ impl Context {
     ) -> (ComponentIdx, AssignmentDefinitionLocation) {
         for (idx, comp) in self.primary.components.iter() {
             let found = comp.contains_assignment(self, target);
-            if found.is_some() {
-                return (idx.clone(), found.unwrap());
+            if let Some(found) = found {
+                return (idx, found);
             }
         }
         unreachable!("Assignment does not belong to any component");
