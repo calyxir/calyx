@@ -26,7 +26,7 @@ fn cocotb_setup(e) {
     e.rule("copy", "cp $in $out");
     // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
     e.rule(
-      "cleanup-cocotb", `sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in | sed -n ':a;N;$$!ba;s/^[^{]*{\(.*\)}[^}]*$$/\1/p' | sed '1d;$$d' > $out`
+      "cleanup-cocotb", `sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out`
     );
 }
 
