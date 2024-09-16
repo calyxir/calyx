@@ -121,7 +121,7 @@ echo "[${SCRIPT_NAME}] Creating flame graph svg"
 	echo
 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FSM_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/fsm-${filename}.svg
 	echo
-	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg	
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg	
     done
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-flamegraph
