@@ -5,7 +5,7 @@ use crate::flatten::{
     },
     structures::environment::Environment,
 };
-use crate::values::Value;
+use baa::{BitVecOps, BitVecValue};
 use calyx_ir::Id;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use rustyline::error::ReadlineError;
@@ -136,14 +136,14 @@ pub enum InterpreterError {
     /// A currently defunct error type for cross branch conflicts
     #[error(
         "par assignments not disjoint: {parent_id}.{port_id}
-    1. {v1}
-    2. {v2}"
+    1. {v1:?}
+    2. {v2:?}"
     )]
     ParOverlap {
         port_id: Id,
         parent_id: Id,
-        v1: Value,
-        v2: Value,
+        v1: BitVecValue,
+        v2: BitVecValue,
     },
 
     #[error("{mem_dim} Memory given initialization data with invalid dimension.
@@ -277,8 +277,8 @@ impl InterpreterError {
                 let (a1_str, a1_source) = assign_to_string(&a1, env);
                 let (a2_str, a2_source) = assign_to_string(&a2, env);
 
-                let a1_v = a1.val();
-                let a2_v = a2.val();
+                let a1_v = a1.val().to_bit_str();
+                let a2_v = a2.val().to_bit_str();
                 let a1_source = a1_source
                     .map(|(comp, s)| source_to_string(&s, comp, env))
                     .unwrap_or_default();

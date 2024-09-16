@@ -14,8 +14,9 @@ use crate::{
         structures::context::Context,
     },
     serialization::DataDump,
-    values::Value,
 };
+
+use baa::BitVecValue;
 
 pub fn build_primitive(
     prim: &CellInfo,
@@ -33,7 +34,7 @@ pub fn build_primitive(
             width,
             c_type: _,
         } => {
-            let v = Value::from(*val, *width);
+            let v = BitVecValue::from_u64(*val, *width);
             Box::new(StdConst::new(v, base_port))
         }
 
@@ -56,8 +57,8 @@ pub fn build_primitive(
             SingleWidthType::Neq => Box::new(StdNeq::new(base_port)),
             SingleWidthType::Ge => Box::new(StdGe::new(base_port)),
             SingleWidthType::Le => Box::new(StdLe::new(base_port)),
-            SingleWidthType::Lsh => Box::new(StdLsh::new(base_port, *width)),
-            SingleWidthType::Rsh => Box::new(StdRsh::new(base_port, *width)),
+            SingleWidthType::Lsh => Box::new(StdLsh::new(base_port)),
+            SingleWidthType::Rsh => Box::new(StdRsh::new(base_port)),
             SingleWidthType::Mux => Box::new(StdMux::new(base_port)),
             SingleWidthType::Wire => Box::new(StdWire::new(base_port)),
             SingleWidthType::SignedAdd => Box::new(StdAdd::new(base_port)),
@@ -87,7 +88,7 @@ pub fn build_primitive(
                 Box::new(Sqrt::<false>::new(base_port, *width, None))
             }
             SingleWidthType::UnsynMult => {
-                Box::new(StdUnsynMult::new(base_port, *width))
+                Box::new(StdUnsynMult::new(base_port))
             }
             SingleWidthType::UnsynDiv => {
                 Box::new(StdUnsynDiv::new(base_port, *width))
@@ -96,7 +97,7 @@ pub fn build_primitive(
                 Box::new(StdUnsynMod::new(base_port, *width))
             }
             SingleWidthType::UnsynSMult => {
-                Box::new(StdUnsynSmult::new(base_port, *width))
+                Box::new(StdUnsynSmult::new(base_port))
             }
             SingleWidthType::UnsynSDiv => {
                 Box::new(StdUnsynSdiv::new(base_port, *width))
@@ -146,10 +147,7 @@ pub fn build_primitive(
             DoubleWidthType::Pad => Box::new(StdPad::new(base_port, *width2)),
         },
         CellPrototype::TripleWidth {
-            op,
-            width1,
-            width2,
-            width3,
+            op, width1, width2, ..
         } => match op {
             TripleWidthType::Cat => {
                 // Turns out under the assumption that the primitive is well formed,
@@ -157,7 +155,7 @@ pub fn build_primitive(
                 Box::new(StdCat::new(base_port))
             }
             TripleWidthType::BitSlice => {
-                Box::new(StdBitSlice::new(base_port, *width1, *width2, *width3))
+                Box::new(StdBitSlice::new(base_port, *width1, *width2))
             }
         },
 
