@@ -3,28 +3,29 @@ use crate::{
     flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
     serialization::PrintCode,
     serialization::Serializable,
-    values::Value,
 };
+
+use baa::BitVecValue;
 
 pub struct AssignResult {
     pub destination: GlobalPortIdx,
-    pub value: Value,
+    pub value: BitVecValue,
 }
 
 impl AssignResult {
-    pub fn new(destination: GlobalPortIdx, value: Value) -> Self {
+    pub fn new(destination: GlobalPortIdx, value: BitVecValue) -> Self {
         Self { destination, value }
     }
 }
 
-impl From<(GlobalPortIdx, Value)> for AssignResult {
-    fn from(value: (GlobalPortIdx, Value)) -> Self {
+impl From<(GlobalPortIdx, BitVecValue)> for AssignResult {
+    fn from(value: (GlobalPortIdx, BitVecValue)) -> Self {
         Self::new(value.0, value.1)
     }
 }
 
-impl From<(Value, GlobalPortIdx)> for AssignResult {
-    fn from(value: (Value, GlobalPortIdx)) -> Self {
+impl From<(BitVecValue, GlobalPortIdx)> for AssignResult {
+    fn from(value: (BitVecValue, GlobalPortIdx)) -> Self {
         Self::new(value.1, value.0)
     }
 }

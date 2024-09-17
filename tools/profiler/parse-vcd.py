@@ -266,7 +266,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         self.clock_cycles = clock_cycles
 
-
 # Generates a list of all of the components to potential cell names
 # `prefix` is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
 # The initial value of curr_component should be the top level/main component

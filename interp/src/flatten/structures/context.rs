@@ -2,7 +2,10 @@ use std::ops::Index;
 
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
-    component::{AuxillaryComponentInfo, ComponentCore, ComponentMap},
+    component::{
+        AssignmentDefinitionLocation, AuxillaryComponentInfo, ComponentCore,
+        ComponentMap,
+    },
     identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
@@ -414,6 +417,26 @@ impl Context {
     pub fn lookup_name<T: LookupName>(&self, id: T) -> &String {
         id.lookup_name(self)
     }
+
+    /// Returns information about where an assignment is defined and the
+    /// component in which it is defined.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the given assignment is not defined in any
+    /// component.
+    pub fn find_assignment_definition(
+        &self,
+        target: AssignmentIdx,
+    ) -> (ComponentIdx, AssignmentDefinitionLocation) {
+        for (idx, comp) in self.primary.components.iter() {
+            let found = comp.contains_assignment(self, target);
+            if let Some(found) = found {
+                return (idx, found);
+            }
+        }
+        unreachable!("Assignment does not belong to any component");
+    }
 }
 
 impl AsRef<Context> for &Context {
@@ -447,5 +470,12 @@ impl LookupName for Identifier {
     #[inline]
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
         ctx.resolve_id(*self)
+    }
+}
+
+impl LookupName for CombGroupIdx {
+    #[inline]
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.resolve_id(ctx.primary[*self].name())
     }
 }
