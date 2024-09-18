@@ -487,7 +487,6 @@ def determine_source_loc() -> Optional[SourceLoc]:
     # find first stack frame that is not part of the library
     user = None
     for frame in stacktrace:
-        print(frame.filename, frame.function, frame)
         # skip frames that do not have a real filename
         if frame.filename == "<string>":
             continue
