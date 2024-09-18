@@ -55,7 +55,6 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
     return timeline_map, fsm_timeline_map, group_to_gt_segments
 
 def create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out):
-    print(group_to_gt_segments)
     main_shortname = main_component.split("TOP.toplevel.")[1]
     frequency_stacks = {}
     i = 0
