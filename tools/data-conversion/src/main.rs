@@ -36,29 +36,16 @@ struct ParseNumTypeError;
 
 impl fmt::Display for ParseNumTypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid number type")
+        write!(f, "invalid numeric type")
     }
 }
 
 impl Error for ParseNumTypeError {}
 
-#[derive(Debug, PartialEq, Clone, Copy)] // Add PartialEq derivation here
+#[derive(Debug, PartialEq, Clone, Copy)] 
 enum NumType {
-    Binary,
     Float,
-    Hex,
     Fixed,
-}
-
-impl ToString for NumType {
-    fn to_string(&self) -> String {
-        match self {
-            NumType::Binary => "binary".to_string(),
-            NumType::Float => "float".to_string(),
-            NumType::Hex => "hex".to_string(),
-            NumType::Fixed => "fixed".to_string(),
-        }
-    }
 }
 
 impl FromStr for NumType {
@@ -66,14 +53,65 @@ impl FromStr for NumType {
 
     fn from_str(input: &str) -> Result<NumType, Self::Err> {
         match input {
-            "binary" => Ok(NumType::Binary),
             "float" => Ok(NumType::Float),
-            "hex" => Ok(NumType::Hex),
             "fixed" => Ok(NumType::Fixed),
             _ => Err(ParseNumTypeError),
         }
     }
 }
+
+impl ToString for NumType {
+    fn to_string(&self) -> String {
+        match self {
+            NumType::Float => "float".to_string(),
+            NumType::Fixed => "fixed".to_string(),
+        }
+    }
+}
+
+
+#[derive(Debug)]
+struct ParseFileTypeError;
+
+impl fmt::Display for ParseFileTypeError {
+    fn fmt(&self, f: &mut fmt:: Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid file type")
+    }
+}
+
+impl Error for ParseFileTypeError {}
+
+#[derive(Debug, PartialEq, Clone, Copy)] 
+enum FileType {
+    Binary,
+    Hex,
+    Decimal,
+}
+
+impl std::str::FromStr for FileType {
+    type Err = ParseNumTypeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "binary" => Ok(FileType::Binary),
+            "hex" => Ok(FileType::Hex),
+            "decfloat" => Ok(FileType::Decimal),
+            _ => Err(ParseNumTypeError),
+        }
+    }
+}
+
+impl ToString for FileType {
+    fn to_string(&self) -> String {
+        match self {
+            FileType::Hex => "hex".to_string(),
+            FileType::Binary => "binary".to_string(),
+            FileType::Decimal => "decimal".to_string(),
+        }
+    }
+}
+
+
 
 #[derive(FromArgs)]
 /// get arguments to convert
@@ -86,13 +124,21 @@ struct Arguments {
     #[argh(option)]
     to: Option<String>,
 
-    /// type to convert from
+    /// num type to convert from
     #[argh(option)]
-    ftype: NumType,
+    fromnum: NumType,
 
-    /// type to convert to
+    /// file type to convert from
     #[argh(option)]
-    totype: NumType,
+    fromfile: FileType,
+
+    /// num type to convert to
+    #[argh(option)]
+    tonum: NumType,
+
+    /// file type to convert to
+    #[argh(option)]
+    tofile: FileType,
 
     /// optional exponent for fixed_to_binary -> default is -1
     #[argh(option, default = "-1")]
@@ -105,6 +151,10 @@ struct Arguments {
     /// optional for use with to_binary and from_binary
     #[argh(option, default = "0")]
     width: usize,
+
+    /// optional flag to force the inter-rep path
+    #[argh(switch, short = 'i')]
+    inter: bool
 }
 
 fn main() {
@@ -113,11 +163,14 @@ fn main() {
     convert(
         &args.from,
         &args.to,
-        args.ftype,
-        args.totype,
+        args.fromnum,
+        args.fromfile,
+        args.tonum,
+        args.tofile,
         args.exp,
         args.bits,
         args.width,
+        args.inter,
     );
 }
 
@@ -141,124 +194,104 @@ fn main() {
 fn convert(
     filepath_get: &String,
     filepath_send: &Option<String>,
-    convert_from: NumType,
-    convert_to: NumType,
+    fromnum: NumType,
+    fromfile: FileType,
+    tonum: NumType,
+    tofile: FileType,
     exponent: i64,
     bits: bool,
     width: usize,
+    inter: bool,
 ) {
     // Create the output file if filepath_send is Some
     let mut converted: Option<File> = filepath_send
         .as_ref()
         .map(|path| File::create(path).expect("creation failed"));
 
-    match (convert_from, convert_to) {
-        (NumType::Hex, NumType::Binary) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.len() <= FAST_TRACK_THRESHOLD_HEX_TO_BINARY {
-                    hex_to_binary(line, &mut converted)
-                        .expect("Failed to write binary to file");
-                } else {
-                    to_binary(from_hex(line, width), &mut converted, width)
-                        .expect("Failed to write binary to file");
-                }
-            }
-        }
-        (NumType::Float, NumType::Binary) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY {
-                    float_to_binary(line, &mut converted)
-                        .expect("Failed to write binary to file");
-                } else {
-                    to_binary(from_float(line), &mut converted, width)
-                        .expect("Failed to write binary to file");
-                }
-            }
-        }
-        (NumType::Fixed, NumType::Binary) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.len() <= FAST_TRACK_THRESHOLD_FIXED_TO_BINARY {
-                    fixed_to_binary(line, &mut converted, exponent)
-                        .expect("Failed to write binary to file");
-                } else {
-                    to_binary(
-                        from_fixed(line, exponent),
-                        &mut converted,
-                        width,
-                    )
-                    .expect("Failed to write binary to file");
-                }
-            }
-        }
-        (NumType::Binary, NumType::Hex) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                print!("used fastpath");
-                if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_HEX {
-                    binary_to_hex(line, &mut converted)
-                        .expect("Failed to write hex to file");
-                } else {
-                    print!("used intermediate");
-                    to_hex(from_binary(line, width), &mut converted)
-                        .expect("Failed to write binary to file");
-                }
-            }
-        }
-        (NumType::Binary, NumType::Float) => {
-            for line in read_to_string(filepath_get).unwrap().lines() {
-                if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FLOAT {
-                    binary_to_float(line, &mut converted)
-                        .expect("Failed to write float to file");
-                } else {
-                    to_float(from_binary(line, width), &mut converted)
-                        .expect("Failed to write binary to file");
-                }
-            }
-        }
-        (NumType::Binary, NumType::Fixed) => {
-            if !bits {
-                for line in read_to_string(filepath_get).unwrap().lines() {
-                    if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FIXED {
-                        binary_to_fixed(line, &mut converted, exponent)
-                            .expect("Failed to write fixed-point to file");
-                    } else {
-                        to_fixed(from_binary(line, width), &mut converted)
-                            .expect("Failed to write binary to file");
+    match (fromnum, tonum) {
+        (NumType:: Float, NumType::Float) => {
+            match(fromfile, tofile){
+                (FileType:: Hex, FileType::Binary) => {
+                    for line in read_to_string(filepath_get).unwrap().lines() {
+                        if line.len() <= FAST_TRACK_THRESHOLD_HEX_TO_BINARY && !inter{
+                            hex_to_binary(line, &mut converted)
+                                .expect("Failed to write binary to file");
+                        } else {
+                            to_binary(from_hex(line, width), &mut converted, width)
+                                .expect("Failed to write binary to file");
+                        }
                     }
                 }
-            } else {
-                for line in read_to_string(filepath_get).unwrap().lines() {
-                    if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FIXED {
-                        binary_to_fixed_bit_slice(
-                            line,
-                            &mut converted,
-                            exponent,
-                        )
-                        .expect("Failed to write fixed-point to file");
-                    } else {
-                        to_fixed(from_binary(line, width), &mut converted)
-                            .expect("Failed to write binary to file");
+                (FileType:: Decimal, FileType::Binary)=>{
+                    for line in read_to_string(filepath_get).unwrap().lines() {
+                        if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY && !inter {
+                            float_to_binary(line, &mut converted)
+                                .expect("Failed to write binary to file");
+                        } else {
+                            to_binary(from_float(line), &mut converted, width)
+                                .expect("Failed to write binary to file");
+                        }
                     }
+                }
+                (FileType:: Binary, FileType::Hex)=>{
+                    for line in read_to_string(filepath_get).unwrap().lines() {
+                        print!("used fastpath");
+                        if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_HEX && !inter {
+                            binary_to_hex(line, &mut converted)
+                                .expect("Failed to write hex to file");
+                        } else {
+                            print!("used intermediate");
+                            to_hex(from_binary(line, width), &mut converted)
+                                .expect("Failed to write binary to file");
+                        }
+                    }
+                }
+                (FileType:: Binary, FileType::Decimal)=>{
+                    for line in read_to_string(filepath_get).unwrap().lines() {
+                        if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FLOAT && !inter {
+                            binary_to_float(line, &mut converted)
+                                .expect("Failed to write float to file");
+                        } else {
+                            to_float(from_binary(line, width), &mut converted)
+                                .expect("Failed to write binary to file");
+                        }
+                    }
+                }
+                (FileType:: Hex, FileType::Decimal)=>{
+                    for line in read_to_string(filepath_get).unwrap().lines() {
+                        to_float(from_hex(line, width), &mut converted)
+                                .expect("Failed to write binary to file");
+                    }
+                }
+                (FileType:: Decimal, FileType::Hex)=>{
+                    for line in read_to_string(filepath_get).unwrap().lines() {
+                        to_hex(from_float(line), &mut converted)
+                                .expect("Failed to write binary to file");
+                    }
+                }
+                (_, _)=>{
+                    panic!("Invalid Conversion of File Types") 
                 }
             }
         }
         _ => panic!(
             "Conversion from {} to {} is not supported",
-            convert_from.to_string(),
-            convert_to.to_string()
+            fromnum.to_string(),
+            tonum.to_string()
         ),
     }
     if let Some(filepath) = filepath_send {
         eprintln!(
             "Successfully converted from {} to {} in {}",
-            convert_from.to_string(),
-            convert_to.to_string(),
+            fromnum.to_string(),
+            tonum.to_string(),
             filepath
         );
     } else {
         eprintln!(
             "Successfully converted from {} to {}",
-            convert_from.to_string(),
-            convert_to.to_string(),
+            fromnum.to_string(),
+            tonum.to_string(),
         );
     }
 }
@@ -350,6 +383,8 @@ fn float_to_binary(
 /// # Error
 ///
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
+/// 
+/// This does not differentiate between floating and fixed. It just treats any hex as an integer.
 fn hex_to_binary(
     hex_string: &str,
     filepath_send: &mut Option<File>,
@@ -941,7 +976,7 @@ fn to_fixed(
 ///
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
 
-fn from_hex(hex_string: &str, width: usize) -> IntermediateRepresentation {
+fn from_hex(hex_string: &str, width: usize, float_or_fixed: NumType) -> IntermediateRepresentation {
     // Convert the cleaned hexadecimal string to BigUint
     let hex_value = BigUint::from_str_radix(hex_string, 16)
         .expect("Invalid hexadecimal string");
