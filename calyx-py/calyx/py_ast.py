@@ -500,6 +500,14 @@ def determine_source_loc() -> Optional[SourceLoc]:
     return frame_to_source_loc(user)
 
 
+def with_pos_attribute(source: str, loc: Optional[SourceLoc]) -> str:
+    """adds the @pos attribute of loc is not None"""
+    if loc is None:
+        return source
+    else:
+        return f"@pos({loc.line}) {source}"
+
+
 # Control
 @dataclass
 class Control(Emittable):
@@ -512,10 +520,7 @@ class Enable(Control):
     loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
 
     def doc(self) -> str:
-        if self.loc is None:
-            return f"{self.stmt};"
-        else:
-            return f"@pos({self.loc.line}) {self.stmt};"
+        return with_pos_attribute(f"{self.stmt};", self.loc)
 
 
 @dataclass
@@ -558,6 +563,7 @@ class Invoke(Control):
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
     attributes: List[Tuple[str, int]] = field(default_factory=list)
+    loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"
@@ -582,7 +588,7 @@ class Invoke(Control):
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 
-        return inv
+        return with_pos_attribute(inv, self.loc)
 
     def with_attr(self, key: str, value: int) -> Invoke:
         self.attributes.append((key, value))
