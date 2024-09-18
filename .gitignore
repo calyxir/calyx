@@ -57,6 +57,9 @@ tools/btor2/btor2i/build/
 
 # profiling ignore
 tools/profiler/data
+tools/profiler/meta-logs
+tools/profiler/fg-tmp
+tools/profiler/handmade-flame-graphs/*/*.svg
 
 temp/
 
