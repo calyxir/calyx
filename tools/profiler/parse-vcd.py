@@ -139,6 +139,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for cell in self.cells:
             cell_go = cell + ".go"
             cell_done = cell + ".done"
+            if cell_go not in vcd.references_to_ids:
+                print(f"Not accounting for cell {cell} (probably combinational)")
+                continue
             signal_id_dict[vcd.references_to_ids[cell_go]].append(cell_go)
             signal_id_dict[vcd.references_to_ids[cell_done]].append(cell_done)
 
