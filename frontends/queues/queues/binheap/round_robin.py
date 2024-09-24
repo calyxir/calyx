@@ -68,6 +68,19 @@ def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
                         for i in range(n) 
                       ])
 
+    update_state_pop = [
+                infer_flow_out,
+                cb.while_with(
+                    turn_neq_flow_out,
+                    [
+                        comp.case(turn.out, rank_ptr_incrs),
+                        turn_incr_mod_n
+                    ]
+                ),
+                turn_incr_mod_n
+            ]
+    update_state_push = comp.case(flow_in.out, rank_ptr_incrs)
+                            
     comp.control += [
         init_state,
         infer_flow_in,
@@ -76,22 +89,7 @@ def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
             err_eq_0,
             comp.case(
                 cmd,
-                {
-                    0: 
-                        [
-                            infer_flow_out,
-                            cb.while_with(
-                                turn_neq_flow_out,
-                                [
-                                    comp.case(turn.out, rank_ptr_incrs),
-                                    turn_incr_mod_n
-                                ]
-                            ),
-                            turn_incr_mod_n
-                        ],
-                    1:
-                        comp.case(flow_in.out, rank_ptr_incrs)
-                }
+                { 0: update_state_pop, 1: update_state_push }
             )
         )
     ]
