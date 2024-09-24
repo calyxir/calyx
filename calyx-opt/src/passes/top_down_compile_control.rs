@@ -1236,6 +1236,19 @@ impl Visitor for TopDownCompileControl {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // FIXME: Might want to be more principled than this?
+        // Profiling: Adding all groups so that groups that do not show up in control are still accounted for in profiling
+        let groups = &comp.groups;
+        for comp_group in groups.iter() {
+            let group: Id = (*comp_group).borrow_mut().name();
+            let group_enable = SingleEnableInfo {
+                component: comp.name,
+                group,
+            };
+            self.fsm_groups
+                .insert(ProfilingInfo::SingleEnable(group_enable));
+        }
+
         let mut con = comp.control.borrow_mut();
         if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
             if let Some(enable_info) =
