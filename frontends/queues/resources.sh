@@ -9,7 +9,13 @@ fi
 
 cd "$(dirname "$0")/../.." # move to root
 
-for file in frontends/queues/tests/**/*.py; do
+declare -a files=(frontends/queues/tests/**/*.py)
+num_files=${#files[@]}
+
+echo "{"
+
+for (( i=0; i<${num_files}; i++ )); do
+    file="${files[$i]}"
     name="$(basename $file .py)"
     dir="$(dirname $file)"
     
@@ -18,9 +24,18 @@ for file in frontends/queues/tests/**/*.py; do
 
     if [ "$#" -eq 1 ]; then
         resource=$(jq ".$1" <<< "$resources")
-        echo "${file#*tests/}: $resource"
+        echo -n "\"${file#*tests/}\" : $resource"
     else
-        newline=$'\n'
-        echo "${file#*tests/}${newline}$resources${newline}"
+        echo "\"${file#*tests/}\" :" 
+        echo -n "$resources"
+    fi
+
+    # because JSON doesn't allow trailing ','s
+    if [ $i -ne $(( num_files - 1 )) ]; then
+        echo ","
+    else
+        echo ""
     fi
 done
+
+echo "}"
