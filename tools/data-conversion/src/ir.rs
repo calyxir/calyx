@@ -6,10 +6,13 @@ use std::io::{self, Write};
 use std::str::FromStr;
 
 
+/// * 'sign' - `true` indicates that the value is negative; `false` indicates that it is positive.
+/// * 'mantissa' - The absolute value represented as an integer without a decimal point.
+/// * 'exponent' - The exponent to apply to the mantissa, where the actual value is calculated as `mantissa * 2^exponent`. The exponent can be negative.
 pub struct IntermediateRepresentation {
-    sign: bool,
-    mantissa: BigUint,
-    exponent: i64,
+    pub sign: bool,
+    pub mantissa: BigUint,
+    pub exponent: i64,
 }
 
 
@@ -36,9 +39,16 @@ pub struct IntermediateRepresentation {
 pub fn from_binary(
     binary_string: &str,
     bit_width: usize,
+    twos_comp: bool,
 ) -> IntermediateRepresentation {
-    let sign = binary_string.starts_with('0');
 
+    let sign;
+    if !twos_comp {
+        sign = false;
+    } else{
+        sign = binary_string.starts_with('0');
+    }
+    
     let binary_value = BigUint::from_str_radix(binary_string, 2)
         .expect("Invalid binary string");
 
