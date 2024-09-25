@@ -116,7 +116,7 @@ pub struct SecondaryContext {
     pub local_cell_defs: IndexedMap<CellDefinitionIdx, CellInfo>,
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
-    /// auxillary information for components
+    /// auxiliary information for components
     pub comp_aux_info: AuxillaryMap<ComponentIdx, AuxillaryComponentInfo>,
 }
 

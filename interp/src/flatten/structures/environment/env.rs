@@ -6,6 +6,7 @@ use super::{
     program_counter::{PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
+use crate::flatten::structures::environment::wave::WaveWriter;
 use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
@@ -1179,11 +1180,23 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 /// the environment to avoid confusion
 pub struct Simulator<C: AsRef<Context> + Clone> {
     env: Environment<C>,
+    wave: Option<WaveWriter>,
 }
 
 impl<C: AsRef<Context> + Clone> Simulator<C> {
-    pub fn new(env: Environment<C>) -> Self {
-        let mut output = Self { env };
+    pub fn new(
+        env: Environment<C>,
+        wave_file: &Option<std::path::PathBuf>,
+    ) -> Self {
+        // open the wave form file and declare all signals
+        let wave =
+            wave_file.as_ref().map(|p| match WaveWriter::open(p, &env) {
+                Ok(w) => w,
+                Err(err) => {
+                    todo!("deal more gracefully with error: {err:?}")
+                }
+            });
+        let mut output = Self { env, wave };
         output.set_root_go_high();
         output
     }
@@ -1208,6 +1221,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn build_simulator(
         ctx: C,
         data_file: &Option<std::path::PathBuf>,
+        wave_file: &Option<std::path::PathBuf>,
     ) -> Result<Self, BoxedInterpreterError> {
         let data_dump = data_file
             .as_ref()
@@ -1218,7 +1232,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // flip to a result of an option
             .map_or(Ok(None), |res| res.map(Some))?;
 
-        Ok(Simulator::new(Environment::new(ctx, data_dump)))
+        Ok(Simulator::new(Environment::new(ctx, data_dump), wave_file))
     }
 
     pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
@@ -1872,9 +1886,17 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
+        let mut time = 0;
         while !self.is_done() {
+            if let Some(wave) = self.wave.as_mut() {
+                wave.write_values(time, &self.env.ports).unwrap();
+            }
             // self.print_pc();
-            self.step()?
+            self.step()?;
+            time += 1;
+        }
+        if let Some(wave) = self.wave.as_mut() {
+            wave.write_values(time, &self.env.ports).unwrap();
         }
         Ok(())
     }

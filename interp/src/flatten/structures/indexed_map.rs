@@ -250,6 +250,10 @@ where
             self.data[index.index()] = item;
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (K, &D)> {
+        self.data.iter().enumerate().map(|(k, v)| (K::new(k), v))
+    }
 }
 
 impl<K, D> AuxillaryMap<K, D>
