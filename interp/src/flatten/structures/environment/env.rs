@@ -3,6 +3,7 @@ use super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
+    clock::{ClockIdx, VectorClock},
     program_counter::{PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
@@ -32,6 +33,7 @@ use crate::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
             index_trait::IndexRef,
+            thread::{ThreadIdx, ThreadMap},
         },
     },
     logging,
@@ -272,6 +274,9 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     pinned_ports: PinnedPorts,
 
+    clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
+    thread_map: ThreadMap,
+
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
@@ -359,14 +364,21 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 aux.ref_port_offset_map.count(),
             ),
             pc: ProgramCounter::new_empty(),
+            clocks: IndexedMap::new(),
+            thread_map: ThreadMap::new(),
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
         };
 
         let root_node = CellLedger::new_comp(root, &env);
-        let root = env.cells.push(root_node);
-        env.layout_component(root, &data_map, &mut HashSet::new());
+        let root_cell = env.cells.push(root_node);
+        env.layout_component(root_cell, &data_map, &mut HashSet::new());
+
+        // Initialize the root thread
+        let root_clock = env.clocks.push(VectorClock::new());
+        let root_thread = env.thread_map.create_root(root_clock);
+        env.clocks[root_clock].increment(&root_thread);
 
         // Initialize program counter
         // TODO griffin: Maybe refactor into a separate function
@@ -378,6 +390,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     env.pc.vec_mut().push(ControlPoint {
                         comp: idx,
                         control_node_idx: *ctrl,
+                        thread: if comp.comp_id == root {
+                            Some(root_thread)
+                        } else {
+                            None
+                        },
                     })
                 }
             }

@@ -8,7 +8,10 @@ use crate::flatten::{
         AssignmentIdx, CombGroupIdx, ControlIdx, ControlMap, ControlNode,
         GlobalCellIdx,
     },
-    structures::index_trait::{impl_index_nonzero, IndexRange, IndexRef},
+    structures::{
+        index_trait::{impl_index_nonzero, IndexRange, IndexRef},
+        thread::ThreadIdx,
+    },
 };
 
 use itertools::{FoldWhile, Itertools};
@@ -18,15 +21,21 @@ use itertools::{FoldWhile, Itertools};
 /// portion of the control tree
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ControlPoint {
+    pub thread: Option<ThreadIdx>,
     pub comp: GlobalCellIdx,
     pub control_node_idx: ControlIdx,
 }
 
 impl ControlPoint {
-    pub fn new(comp: GlobalCellIdx, control_leaf: ControlIdx) -> Self {
+    pub fn new(
+        comp: GlobalCellIdx,
+        control_leaf: ControlIdx,
+        thread: Option<ThreadIdx>,
+    ) -> Self {
         Self {
             comp,
             control_node_idx: control_leaf,
+            thread,
         }
     }
 
@@ -36,6 +45,7 @@ impl ControlPoint {
         Self {
             comp: self.comp,
             control_node_idx: target,
+            thread: self.thread,
         }
     }
 

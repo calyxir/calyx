@@ -4,6 +4,12 @@ use std::{
     hash::Hash,
 };
 
+use crate::flatten::structures::index_trait::impl_index;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClockIdx(u32);
+impl_index!(ClockIdx);
+
 use itertools::Itertools;
 
 pub trait Counter: Default {
