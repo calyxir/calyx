@@ -1,4 +1,5 @@
 mod assignments;
+pub mod clock;
 mod env;
 mod program_counter;
 mod traverser;
