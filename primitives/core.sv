@@ -215,7 +215,7 @@ module std_bit_slice #(
    input wire logic [IN_WIDTH-1:0] in,
    output logic [OUT_WIDTH-1:0] out
 );
-    assign out = in[END_IDX:START_IDX];
+    assign out = in[END_IDX-1:START_IDX];
 
   `ifdef VERILATOR
     always_comb begin
