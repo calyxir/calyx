@@ -193,7 +193,10 @@ impl Node {
     }
 }
 
-// Used to compile static interface
+// Used to compile static component interface. This is really annoying to do, since
+// for static components, they only need to be guarded for %0, while for static
+// groups, they need to be guarded for %[0:n]. This creates some annoying `if`
+// statements.
 impl Node {
     // Helper to `preprocess_static_interface_assigns`
     // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
@@ -349,9 +352,11 @@ pub struct SingleNode {
     /// Note that you can build `fsm_schedule` from just this information,
     /// but it's convenient to have `fsm_schedule` avaialable.
     pub children: Vec<(Node, (u64, u64))>,
-    /// keep track of where we are within a single iteration
+    /// Keep track of where we are within a single iteration.
+    /// If `latency` == 1, then we don't need an `fsm_cell`.
     pub fsm_cell: Option<ir::RRC<StaticFSM>>,
-    /// keep track of which iteration we are on
+    /// Keep track of which iteration we are on. If iteration count == 1, then
+    /// we don't need an `iter_count_cell`.
     pub iter_count_cell: Option<ir::RRC<StaticFSM>>,
 }
 
