@@ -3,6 +3,7 @@ name = "fud-core"
 version = "0.0.2"
 edition.workspace = true
 license-file.workspace = true
+rust-version = "1.76"
 
 keywords = ["build-tool"]
 readme = "../README.md"
@@ -25,6 +26,9 @@ ariadne = "0.4.1"
 itertools.workspace = true
 rand = "0.8.5"
 egg = { version = "0.9.5", optional = true }
+
+[dev-dependencies]
+rand_chacha = "0.3.1"
 
 [features]
 egg_planner = ["dep:egg"]

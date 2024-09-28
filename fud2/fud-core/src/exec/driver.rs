@@ -439,7 +439,10 @@ impl DriverBuilder {
     }
 
     /// Load any plugin scripts specified in the configuration file.
-    pub fn load_plugins(mut self, config_data: &figment::Figment) -> Self {
+    pub fn load_plugins(
+        mut self,
+        config_data: &figment::Figment,
+    ) -> anyhow::Result<Self> {
         // pull out things from self that we need
         let plugin_dir = self.scripts_dir.take();
         let plugin_files = self.script_files.take();
@@ -455,7 +458,7 @@ impl DriverBuilder {
                     .filter_map(|dir_entry| dir_entry.map(|p| p.path()).ok())
                     // filter out paths that don't have `.rhai` extension
                     .filter(|p| p.extension() == Some(OsStr::new("rhai"))),
-            );
+            )?;
         }
 
         // add static plugins (where string is included in binary)
@@ -467,10 +470,10 @@ impl DriverBuilder {
         if let Ok(plugins) =
             config_data.extract_inner::<Vec<std::path::PathBuf>>("plugins")
         {
-            runner.add_files(plugins.into_iter());
+            runner.add_files(plugins.into_iter())?;
         }
 
-        runner.run()
+        Ok(runner.run())
     }
 
     pub fn build(self) -> Driver {

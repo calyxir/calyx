@@ -21,6 +21,10 @@ gen-firrtl-primitives-script = $calyx-base/tools/firrtl/generate-firrtl-with-pri
 rule generate-firrtl-with-primitives
   command = python3 $gen-firrtl-primitives-script $in > $out
 
+yxi = $calyx-base/target/debug/yxi
+rule yxi
+  command = $yxi -l $calyx-base $in > $out
+
 rule ref-to-external
   command = sed 's/ref /@external /g' $in > $out
 rule external-to-ref
