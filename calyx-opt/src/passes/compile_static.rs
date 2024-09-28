@@ -484,7 +484,8 @@ impl CompileStatic {
 impl CompileStatic {
     /// `get_interval_from_guard` returns the interval found within guard `g`.
     /// The tricky part is that sometimes there can be an implicit latency
-    /// `lat` that is not explicitly stated (i..e, as an %[i:j]) in the guard.
+    /// `lat` that is not explicitly stated (i.e., every assignment in a
+    /// group with latency n has an implicit guard of %[0:n]). `lat` is `n`.
     fn get_interval_from_guard(
         g: &ir::Guard<ir::StaticTiming>,
         lat: u64,
@@ -516,7 +517,8 @@ impl CompileStatic {
 
     // Given a children_sched (a sorted vec of intervals for which
     // the children are active), builds an FSM schedule and returns it,
-    // along with the number of states the resulting FSM will have.
+    // along with the number of states the resulting FSM will have (42 in the
+    // example given below).
     // Schedule maps cycles (i,j) -> fsm state type (i.e., what the fsm outputs).
     // Here is an example FSM schedule:
     //                           Cycles     FSM State (i.e., `fsm.out`)
@@ -525,6 +527,8 @@ impl CompileStatic {
     //                           (30..40) -> Normal[11, 21)
     //                           (40,80) ->  Offload(21)
     //                           (80,100)->  Normal[22, 42)
+    //
+    // `target_latency` is the latency of the entire tree (100 in this case).
     fn build_tree_schedule(
         children_sched: &[(u64, u64)],
         target_latency: u64,
@@ -811,7 +815,9 @@ impl CompileStatic {
     }
 }
 
-// These are the functions used to compile for the static *component* interface
+// These are the functions used to compile for the static *component* interface,
+// which (annoyingly) only needs a go signal fro %0, compared to %[0:n] for
+// static groups.
 impl CompileStatic {
     // Used for guards in a one cycle static component.
     // Replaces %0 with comp.go.
@@ -1073,7 +1079,8 @@ impl Visitor for CompileStatic {
         let static_enable_ids =
             Self::get_static_enables(&builder.component.control.borrow());
         // Build one tree object per static enable.
-        // Need to build trees to determine coloring.
+        // Even if we don't offload, we still need to build trees to
+        // determine coloring.
         let default_tree_objects = static_enable_ids
             .iter()
             .map(|id| {
@@ -1082,6 +1089,10 @@ impl Visitor for CompileStatic {
                 } else {
                     // If we're not offloading, then we should build dummy trees
                     // that are just used to determine coloring.
+                    // This is basically the same thing as `build_tree_object`,
+                    // but doesn't check the `ParCtrl` attribute. I think
+                    // we could reduce code size by merging this function with
+                    // `build_tree_object`.
                     Self::build_dummy_tree(*id, &sgroups)
                 }
             })
@@ -1109,6 +1120,8 @@ impl Visitor for CompileStatic {
         } else {
             // Build simple trees if we're not offloading (i.e., build trees
             // that just consist of a single node.)
+            // Note that these trees would not correctly draw conflicts between
+            // nodes for coloring.
             let mut simple_trees = vec![];
             let sgroup_names = sgroups
                 .iter()
