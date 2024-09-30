@@ -61,6 +61,18 @@ where
     map: HashMap<I, C>,
 }
 
+impl<I, C> FromIterator<(I, C)> for VectorClock<I, C>
+where
+    I: Hash + Eq + Clone,
+    C: Ord + Clone + Counter,
+{
+    fn from_iter<T: IntoIterator<Item = (I, C)>>(iter: T) -> Self {
+        Self {
+            map: iter.into_iter().collect(),
+        }
+    }
+}
+
 impl<I, C> VectorClock<I, C>
 where
     I: Hash + Eq + Clone,
