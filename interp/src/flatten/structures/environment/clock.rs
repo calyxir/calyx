@@ -4,13 +4,18 @@ use std::{
     hash::Hash,
 };
 
-use crate::flatten::structures::index_trait::impl_index;
+use crate::flatten::structures::{
+    index_trait::impl_index, indexed_map::IndexedMap, thread::ThreadIdx,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClockIdx(u32);
 impl_index!(ClockIdx);
 
 use itertools::Itertools;
+use thiserror::Error;
+
+pub type ClockMap = IndexedMap<ClockIdx, VectorClock<ThreadIdx>>;
 
 pub trait Counter: Default {
     /// Increment the counter, returning `None` if the counter overflowed.
@@ -215,6 +220,77 @@ where
 
         current_answer
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ValueWithClock {
+    pub value: baa::BitVecValue,
+    pub write_clock: ClockIdx,
+    pub read_clock: ClockIdx,
+}
+
+impl ValueWithClock {
+    pub fn write(
+        &mut self,
+        writing_clock: ClockIdx,
+        value: baa::BitVecValue,
+        clocks: &mut ClockMap,
+    ) -> Result<(), ClockError> {
+        if clocks[writing_clock] >= clocks[self.write_clock]
+            && clocks[writing_clock] >= clocks[self.read_clock]
+        {
+            self.value = value;
+            clocks[self.write_clock] = clocks[writing_clock].clone();
+            Ok(())
+        } else if clocks[writing_clock]
+            .partial_cmp(&clocks[self.read_clock])
+            .is_none()
+        {
+            Err(ClockError::ReadWrite)
+        } else if clocks[writing_clock]
+            .partial_cmp(&clocks[self.write_clock])
+            .is_none()
+        {
+            Err(ClockError::WriteWrite)
+        } else {
+            panic!("something weird happened. TODO griffin: Sort this out")
+        }
+    }
+
+    pub fn read(
+        &self,
+        reading_clock: ClockIdx,
+        clocks: &mut ClockMap,
+    ) -> Result<(), ClockError> {
+        if clocks[reading_clock] >= clocks[self.write_clock] {
+            // TODO griffin: this is doing extra allocation. Probably would be
+            // better to mutate the self.read_clock field directly but that
+            // would require using some std::mem::take or otherwise getting
+            // tricky (split_at_mut) to avoid issues with borrowing
+            clocks[self.read_clock] = VectorClock::join(
+                &clocks[self.read_clock],
+                &clocks[reading_clock],
+            );
+            Ok(())
+        } else if clocks[reading_clock]
+            .partial_cmp(&clocks[self.write_clock])
+            .is_none()
+        {
+            Err(ClockError::ReadWrite)
+        } else {
+            // This implies that the read happens before the write which I think
+            // shouldn't be possible but also I am not sure.
+            panic!("something weird happened. TODO griffin: Sort this out")
+        }
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum ClockError {
+    #[error("Concurrent read & write to the same register")]
+    ReadWrite,
+    #[error("Concurrent writes to the same register")]
+    WriteWrite,
 }
 
 #[cfg(test)]
