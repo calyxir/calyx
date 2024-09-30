@@ -297,6 +297,16 @@ struct SingleEnableInfo {
     pub group: Id,
 }
 
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct ParInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub component: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub par_group: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub child_group: Id,
+}
+
 /// Information to be serialized for a single FSM
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct FSMInfo {
@@ -1103,10 +1113,14 @@ pub struct TopDownCompileControl {
     dump_fsm: bool,
     /// Output a JSON FSM representation to file if specified
     dump_fsm_json: Option<OutputFile>,
+    /// Output a JSON describing par stacks (what groups are in what par blocks)
+    dump_par_json: Option<OutputFile>,
     /// Enable early transitions
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<ProfilingInfo>,
+    /// Bookkeeping for pars across the program
+    pars: HashSet<ParInfo>,
     /// How many states the dynamic FSM must have before picking binary over one-hot
     one_hot_cutoff: u64,
     /// Number of states the dynamic FSM must have before picking duplicate over single register
@@ -1153,8 +1167,10 @@ impl ConstructVisitor for TopDownCompileControl {
         Ok(TopDownCompileControl {
             dump_fsm: opts[&"dump-fsm"].bool(),
             dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
+            dump_par_json: opts[&"dump-par-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
             fsm_groups: HashSet::new(),
+            pars: HashSet::new(),
             one_hot_cutoff: opts[&"one-hot-cutoff"]
                 .pos_num()
                 .expect("requires non-negative OHE cutoff parameter"),
@@ -1191,6 +1207,12 @@ impl Named for TopDownCompileControl {
                 "Write the state machine implementing the schedule to a JSON file",
                 ParseVal::OutStream(OutputFile::Null),
                 PassOpt::parse_outstream,
+            ),
+            PassOpt::new(
+                "dump-par-json",
+                "Write par info",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream
             ),
             PassOpt::new(
                 "early-transitions",
@@ -1396,6 +1418,12 @@ impl Visitor for TopDownCompileControl {
                 pd["in"] = group_done ? signal_on["out"];
                 pd["write_en"] = group_done ? signal_on["out"];
             );
+            // Recording information for reconstructing par stacks in Profiling
+            self.pars.insert(ParInfo {
+                component: builder.component.name,
+                par_group: par_group.borrow().name(),
+                child_group: group.borrow().name(),
+            });
             par_group.borrow_mut().assignments.extend(assigns);
             done_regs.push(pd)
         }
@@ -1465,6 +1493,12 @@ impl Visitor for TopDownCompileControl {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
                 &self.fsm_groups,
+            );
+        }
+        if let Some(par_out_file) = &self.dump_par_json {
+            let _ = serde_json::to_writer_pretty(
+                par_out_file.get_write(),
+                &self.pars,
             );
         }
         Ok(Action::Continue)
