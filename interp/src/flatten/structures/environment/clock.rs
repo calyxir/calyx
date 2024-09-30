@@ -51,6 +51,20 @@ impl Counter for u64 {
     }
 }
 
+// I don't expect this to be used much, but it's here for completeness
+impl Counter for u128 {
+    fn increment(&mut self) -> Option<()> {
+        *self = self.checked_add(1)?;
+        Some(())
+    }
+}
+
+/// A simple vector clock implementation.
+///
+/// Internally uses a [`HashMap`] to store the clock values. Keys which are not
+/// present in the map are assumed to be the default value for the given counter
+/// type, which is zero for the standard integer counters. This means that all
+/// threads implicitly start at zero, rather than some bottom value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VectorClock<I, C = u32>
 where
