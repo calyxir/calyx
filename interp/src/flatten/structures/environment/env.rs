@@ -120,14 +120,18 @@ impl PortMap {
         &mut self,
         target: GlobalPortIdx,
         done_bool: bool,
+        thread: ThreadIdx,
     ) -> InterpreterResult<UpdateStatus> {
         self.insert_val(
             target,
-            AssignedValue::cell_value(if done_bool {
-                BitVecValue::tru()
-            } else {
-                BitVecValue::fals()
-            }),
+            AssignedValue::cell_value(
+                if done_bool {
+                    BitVecValue::tru()
+                } else {
+                    BitVecValue::fals()
+                },
+                Some(thread),
+            ),
         )
     }
 }
@@ -354,6 +358,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
 
+        let mut clocks = IndexedMap::new();
+        let root_clock = clocks.push(VectorClock::new());
+
         let mut env = Self {
             ports: PortMap::with_capacity(aux.port_offset_map.count()),
             cells: CellMap::with_capacity(aux.cell_offset_map.count()),
@@ -364,8 +371,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 aux.ref_port_offset_map.count(),
             ),
             pc: ProgramCounter::new_empty(),
-            clocks: IndexedMap::new(),
-            thread_map: ThreadMap::new(),
+            clocks,
+            thread_map: ThreadMap::new(root_clock),
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
@@ -375,9 +382,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let root_cell = env.cells.push(root_node);
         env.layout_component(root_cell, &data_map, &mut HashSet::new());
 
-        // Initialize the root thread
-        let root_clock = env.clocks.push(VectorClock::new());
-        let root_thread = env.thread_map.create_root(root_clock);
+        let root_thread = ThreadMap::root_thread();
         env.clocks[root_clock].increment(&root_thread);
 
         // Initialize program counter
@@ -1359,7 +1364,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let ledger = self.get_root_component();
         let go = &ledger.index_bases
             + self.env.ctx.as_ref().primary[ledger.comp_id].go;
-        self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
+        self.env.ports[go] = PortValue::new_implicit(
+            BitVecValue::tru(),
+            Some(ThreadMap::root_thread()),
+        );
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -1382,6 +1390,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 go: group.go,
                                 done: group.done,
                             }),
+                            node.thread,
                         ))
                     }
 
@@ -1389,6 +1398,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         node.comp,
                         i.assignments,
                         None,
+                        node.thread,
                     )),
 
                     ControlNode::Empty(_) => None,
@@ -1400,16 +1410,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     | ControlNode::Par(_) => None,
                 }
             })
-            .chain(
-                self.env.pc.continuous_assigns().iter().map(|x| {
-                    ScheduledAssignments::new(x.comp, x.assigns, None)
-                }),
-            )
+            .chain(self.env.pc.continuous_assigns().iter().map(|x| {
+                ScheduledAssignments::new(x.comp, x.assigns, None, None)
+            }))
             .chain(self.env.pc.with_map().iter().map(
                 |(ctrl_pt, with_entry)| {
                     let assigns =
                         self.ctx().primary[with_entry.group].assignments;
-                    ScheduledAssignments::new(ctrl_pt.comp, assigns, None)
+                    ScheduledAssignments::new(ctrl_pt.comp, assigns, None, None)
                 },
             ))
             .collect()
@@ -1531,13 +1539,16 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         self.set_root_go_high();
         // set the pinned values
         for (port, val) in self.env.pinned_ports.iter() {
-            self.env.ports[*port] = PortValue::new_implicit(val.clone());
+            self.env.ports[*port] = PortValue::new_implicit(
+                val.clone(),
+                Some(ThreadMap::root_thread()),
+            );
         }
 
-        for comp in self.env.pc.finished_comps() {
+        for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
             self.env.ports[done_port] =
-                PortValue::new_implicit(BitVecValue::tru());
+                PortValue::new_implicit(BitVecValue::tru(), Some(*id));
         }
 
         let (vecs, par_map, mut with_map, repeat_map) =
@@ -1554,7 +1565,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // if the done is not high & defined, we need to set it to low
             if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
                 self.env.ports[comp_done] =
-                    PortValue::new_implicit(BitVecValue::fals());
+                    PortValue::new_implicit(BitVecValue::fals(), node.thread);
             }
 
             match &ctx_ref.primary[node.control_node_idx] {
@@ -1568,8 +1579,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                     // set go high
                     let go_idx = index_bases + go_local;
-                    self.env.ports[go_idx] =
-                        PortValue::new_implicit(BitVecValue::tru());
+                    self.env.ports[go_idx] = PortValue::new_implicit(
+                        BitVecValue::tru(),
+                        node.thread,
+                    );
                 }
                 ControlNode::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
@@ -1582,8 +1595,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     }
 
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
-                    self.env.ports[go] =
-                        PortValue::new_implicit(BitVecValue::tru());
+                    self.env.ports[go] = PortValue::new_implicit(
+                        BitVecValue::tru(),
+                        node.thread,
+                    );
 
                     // TODO griffin: should make this skip initialization if
                     // it's already initialized
@@ -1681,6 +1696,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let (par_map, with_map, repeat_map) = maps;
         let comp_go = self.env.get_comp_go(node.comp);
         let comp_done = self.env.get_comp_done(node.comp);
+
+        let thread = node.thread.unwrap_or_else(|| {
+            self.env.ports[comp_go]
+                .as_option()
+                .map(|x| x.thread())
+                .flatten()
+                .expect("Cannot determine thread id for control node")
+        });
 
         // mutability trick
         let ctx_clone = self.env.ctx.clone();
@@ -1796,7 +1819,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
          // either we are not a par node, or we are the last par node
          (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
         {
-            self.env.pc.set_finshed_comp(node.comp);
+            self.env.pc.set_finshed_comp(node.comp, thread);
             let comp_ledger = self.env.cells[node.comp].unwrap_comp();
             *node = node.new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
@@ -1961,11 +1984,20 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .iter()
             .filter_map(|x| {
                 x.interface_ports.as_ref().map(|y| {
-                    &self.env.cells[x.active_cell]
+                    let comp_go = self.env.get_comp_go(x.active_cell);
+                    let idx_bases = &self.env.cells[x.active_cell]
                         .as_comp()
                         .unwrap()
-                        .index_bases
-                        + y.done
+                        .index_bases;
+
+                    (
+                        idx_bases + y.done,
+                        self.compute_thread(
+                            comp_go,
+                            &x.thread,
+                            Some(idx_bases + y.go),
+                        ),
+                    )
                 })
             })
             .collect();
@@ -1978,6 +2010,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 active_cell,
                 assignments,
                 interface_ports,
+                thread,
             } in assigns_bundle.iter()
             {
                 let ledger = self.env.cells[*active_cell].as_comp().unwrap();
@@ -1989,51 +2022,63 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     .map(|x| &ledger.index_bases + x.done);
 
                 let comp_go = self.env.get_comp_go(*active_cell);
+                let thread = self.compute_thread(comp_go, thread, go);
 
-                for assign_idx in assignments {
-                    let assign = &self.env.ctx.as_ref().primary[assign_idx];
+                // the go for the group is high
+                if go
+                    .as_ref()
+                    // the group must have its go signal high and the go
+                    // signal of the component must also be high
+                    .map(|g| {
+                        self.env.ports[*g].as_bool().unwrap_or_default()
+                            && self.env.ports[comp_go]
+                                .as_bool()
+                                .unwrap_or_default()
+                    })
+                    // if there is no go signal, then we want to run the
+                    // assignment
+                    .unwrap_or(true)
+                {
+                    for assign_idx in assignments {
+                        let assign = &self.env.ctx.as_ref().primary[assign_idx];
 
-                    // TODO griffin: Come back to this unwrap default later
-                    // since we may want to do something different if the guard
-                    // does not have a defined value
-                    if self
-                        .evaluate_guard(assign.guard, *active_cell)
-                        .unwrap_or_default()
-                    // the go for the group is high
-                    && go
-                        .as_ref()
-                        // the group must have its go signal high and the go
-                        // signal of the component must also be high
-                        .map(|g| self.env.ports[*g].as_bool().unwrap_or_default() && self.env.ports[comp_go].as_bool().unwrap_or_default())
-                        // if there is no go signal, then we want to run the
-                        // assignment
-                        .unwrap_or(true)
-                    {
-                        let val = self.get_value(&assign.src, *active_cell);
-                        let dest =
-                            self.get_global_port_idx(&assign.dst, *active_cell);
+                        // TODO griffin: Come back to this unwrap default later
+                        // since we may want to do something different if the guard
+                        // does not have a defined value
+                        if self
+                            .evaluate_guard(assign.guard, *active_cell)
+                            .unwrap_or_default()
+                        {
+                            let val = self.get_value(&assign.src, *active_cell);
+                            let dest = self
+                                .get_global_port_idx(&assign.dst, *active_cell);
 
-                        if let Some(done) = done {
-                            if dest != done {
-                                let done_val = &self.env.ports[done];
+                            if let Some(done) = done {
+                                if dest != done {
+                                    let done_val = &self.env.ports[done];
 
-                                if done_val.as_bool().unwrap_or(true) {
-                                    // skip this assignment when we are done or
-                                    // or the done signal is undefined
-                                    continue;
+                                    if done_val.as_bool().unwrap_or(true) {
+                                        // skip this assignment when we are done or
+                                        // or the done signal is undefined
+                                        continue;
+                                    }
                                 }
                             }
-                        }
 
-                        if let Some(v) = val.as_option() {
-                            let changed = self.env.ports.insert_val(
-                                dest,
-                                AssignedValue::new(v.val().clone(), assign_idx),
-                            )?;
+                            if let Some(v) = val.as_option() {
+                                let changed = self.env.ports.insert_val(
+                                    dest,
+                                    AssignedValue::new(
+                                        v.val().clone(),
+                                        assign_idx,
+                                        Some(thread),
+                                    ),
+                                )?;
 
-                            has_changed |= changed.as_bool();
-                        } else if self.env.ports[dest].is_def() {
-                            todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
+                                has_changed |= changed.as_bool();
+                            } else if self.env.ports[dest].is_def() {
+                                todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
+                            }
                         }
                     }
                 }
@@ -2062,10 +2107,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // converged then they should be set to zero and we should continue
             // convergence
             if !has_changed {
-                for &done_port in &done_ports {
-                    if self.env.ports[done_port].is_undef() {
-                        self.env.ports[done_port] =
-                            PortValue::new_implicit(BitVecValue::fals());
+                for (done_port, thread) in &done_ports {
+                    if self.env.ports[*done_port].is_undef() {
+                        self.env.ports[*done_port] = PortValue::new_implicit(
+                            BitVecValue::fals(),
+                            Some(*thread),
+                        );
                         has_changed = true;
                     }
                 }
@@ -2073,6 +2120,44 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
 
         Ok(())
+    }
+
+    /// Attempts to compute the thread id for the given group/component.
+    ///
+    /// If the given thread is `None`, then the thread id is computed from the
+    /// go port for the group. If no such port exists, or it lacks a thread id,
+    /// then the thread id is computed from the go port for the component. If
+    /// the port does not have a thread id it panics.
+    fn compute_thread(
+        &self,
+        comp_go: GlobalPortIdx,
+        thread: &Option<ThreadIdx>,
+        go: Option<GlobalPortIdx>,
+    ) -> ThreadIdx {
+        let thread = thread.unwrap_or_else(|| {
+            if let Some(go_idx) = go {
+                if let Some(go_thread) = self.env.ports[go_idx]
+                    .as_option()
+                    .map(|a| a.thread())
+                    .flatten()
+                {
+                    go_thread
+                } else {
+                    self.env.ports[comp_go]
+                        .as_option()
+                        .map(|x| x.thread())
+                        .flatten()
+                        .expect("Cannot determine thread id for control node")
+                }
+            } else {
+                self.env.ports[comp_go]
+                    .as_option()
+                    .map(|x| x.thread())
+                    .flatten()
+                    .expect("Cannot determine thread id for control node")
+            }
+        });
+        thread
     }
 
     /// Dump the current state of the environment as a DataDump

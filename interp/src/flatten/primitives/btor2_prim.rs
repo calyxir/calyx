@@ -46,10 +46,10 @@ impl<'a> Primitive for MyBtor2Add<'a> {
         match self.program.borrow_mut().run(input_map) {
             Ok(output_map) => Ok(port_map.insert_val(
                 out,
-                AssignedValue::cell_value(BitVecValue::from_u64(
-                    output_map["out"],
-                    self.width,
-                )),
+                AssignedValue::cell_value(
+                    BitVecValue::from_u64(output_map["out"], self.width),
+                    None,
+                ),
             )?),
             Err(msg) => {
                 panic!("{}", msg);

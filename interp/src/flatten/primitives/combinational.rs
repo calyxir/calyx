@@ -25,7 +25,8 @@ impl StdConst {
 impl Primitive for StdConst {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         Ok(if port_map[self.out].is_undef() {
-            port_map[self.out] = PortValue::new_cell(self.value.clone());
+            // A constant cannot meaningfully be said to belong to a given thread
+            port_map[self.out] = PortValue::new_cell(self.value.clone(), None);
             UpdateStatus::Changed
         } else {
             UpdateStatus::Unchanged
@@ -68,6 +69,7 @@ impl Primitive for StdMux {
                 out,
                 AssignedValue::cell_value(
                     port_map[winning_idx.unwrap()].val().unwrap().clone(),
+                    todo!("Implement thread id"),
                 ),
             )?)
         } else {

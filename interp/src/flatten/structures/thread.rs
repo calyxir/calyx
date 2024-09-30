@@ -22,21 +22,18 @@ pub struct ThreadMap {
 }
 
 impl ThreadMap {
-    pub fn new() -> Self {
-        Self {
-            map: IndexedMap::new(),
-        }
-    }
-
-    /// Creates a new root thread with the given clock id. Returns the new
-    /// thread id. This should probably be used only once?
-    pub fn create_root(&mut self, clock_id: ClockIdx) -> ThreadIdx {
-        self.map.push(ThreadInfo {
+    pub fn new(root_clock: ClockIdx) -> Self {
+        let mut map = IndexedMap::new();
+        map.push(ThreadInfo {
             parent: None,
-            clock_id,
-        })
+            clock_id: root_clock,
+        });
+        Self { map }
     }
 
+    pub fn root_thread() -> ThreadIdx {
+        ThreadIdx::from(0)
+    }
     /// Lookup the clock associated with the given thread id. Returns `None` if
     /// the thread id is invalid.
     pub fn get_clock_id(&self, thread_id: &ThreadIdx) -> Option<ClockIdx> {
@@ -60,11 +57,5 @@ impl ThreadMap {
             parent: Some(parent),
             clock_id,
         })
-    }
-}
-
-impl Default for ThreadMap {
-    fn default() -> Self {
-        Self::new()
     }
 }

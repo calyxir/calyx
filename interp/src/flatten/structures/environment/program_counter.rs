@@ -387,7 +387,7 @@ pub(crate) struct ProgramCounter {
     continuous_assigns: Vec<ContinuousAssignments>,
     with_map: HashMap<ControlPoint, WithEntry>,
     repeat_map: HashMap<ControlPoint, u64>,
-    just_finished_comps: Vec<GlobalCellIdx>,
+    just_finished_comps: Vec<(GlobalCellIdx, ThreadIdx)>,
 }
 
 // we need a few things from the program counter
@@ -475,11 +475,11 @@ impl ProgramCounter {
         &self.with_map
     }
 
-    pub fn set_finshed_comp(&mut self, comp: GlobalCellIdx) {
-        self.just_finished_comps.push(comp)
+    pub fn set_finshed_comp(&mut self, comp: GlobalCellIdx, thread: ThreadIdx) {
+        self.just_finished_comps.push((comp, thread))
     }
 
-    pub fn finished_comps(&self) -> &[GlobalCellIdx] {
+    pub fn finished_comps(&self) -> &[(GlobalCellIdx, ThreadIdx)] {
         &self.just_finished_comps
     }
 

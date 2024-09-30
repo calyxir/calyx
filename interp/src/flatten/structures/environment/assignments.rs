@@ -1,4 +1,7 @@
-use crate::flatten::flat_ir::prelude::{GlobalCellIdx, LocalPortOffset};
+use crate::flatten::{
+    flat_ir::prelude::{GlobalCellIdx, LocalPortOffset},
+    structures::thread::ThreadIdx,
+};
 
 use super::env::AssignmentRange;
 
@@ -14,6 +17,7 @@ pub struct ScheduledAssignments {
     pub active_cell: GlobalCellIdx,
     pub assignments: AssignmentRange,
     pub interface_ports: Option<GroupInterfacePorts>,
+    pub thread: Option<ThreadIdx>,
 }
 
 impl ScheduledAssignments {
@@ -21,11 +25,13 @@ impl ScheduledAssignments {
         active_cell: GlobalCellIdx,
         assignments: AssignmentRange,
         interface_ports: Option<GroupInterfacePorts>,
+        thread: Option<ThreadIdx>,
     ) -> Self {
         Self {
             active_cell,
             assignments,
             interface_ports,
+            thread,
         }
     }
 }

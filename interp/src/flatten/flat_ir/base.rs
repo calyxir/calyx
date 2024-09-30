@@ -5,8 +5,9 @@ use std::{
 
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
-    flatten::structures::index_trait::{
-        impl_index, impl_index_nonzero, IndexRange, IndexRef,
+    flatten::structures::{
+        index_trait::{impl_index, impl_index_nonzero, IndexRange, IndexRef},
+        thread::ThreadIdx,
     },
     serialization::PrintCode,
 };
@@ -424,6 +425,7 @@ impl From<AssignmentIdx> for AssignmentWinner {
 pub struct AssignedValue {
     val: BitVecValue,
     winner: AssignmentWinner,
+    thread: Option<ThreadIdx>,
 }
 
 impl std::fmt::Debug for AssignedValue {
@@ -444,10 +446,15 @@ impl std::fmt::Display for AssignedValue {
 
 impl AssignedValue {
     /// Creates a new AssignedValue
-    pub fn new<T: Into<AssignmentWinner>>(val: BitVecValue, winner: T) -> Self {
+    pub fn new<T: Into<AssignmentWinner>>(
+        val: BitVecValue,
+        winner: T,
+        thread: Option<ThreadIdx>,
+    ) -> Self {
         Self {
             val,
             winner: winner.into(),
+            thread,
         }
     }
 
@@ -468,44 +475,51 @@ impl AssignedValue {
 
     /// A utility constructor which returns a new implicitly assigned value with
     /// a one bit high value
-    pub fn implicit_bit_high() -> Self {
+    pub fn implicit_bit_high(thread: Option<ThreadIdx>) -> Self {
         Self {
             val: BitVecValue::tru(),
             winner: AssignmentWinner::Implicit,
+            thread,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_value(val: BitVecValue) -> Self {
+    pub fn cell_value(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Cell,
+            thread,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Implicit`] as the winner
     #[inline]
-    pub fn implicit_value(val: BitVecValue) -> Self {
+    pub fn implicit_value(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Implicit,
+            thread,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
     /// high value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_b_high() -> Self {
-        Self::cell_value(BitVecValue::tru())
+    pub fn cell_b_high(thread: Option<ThreadIdx>) -> Self {
+        Self::cell_value(BitVecValue::tru(), thread)
     }
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
     /// low value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_b_low() -> Self {
-        Self::cell_value(BitVecValue::fals())
+    pub fn cell_b_low(thread: Option<ThreadIdx>) -> Self {
+        Self::cell_value(BitVecValue::fals(), thread)
+    }
+
+    pub fn thread(&self) -> Option<ThreadIdx> {
+        self.thread
     }
 }
 
@@ -574,18 +588,18 @@ impl PortValue {
     }
 
     /// Creates a [PortValue] that has the "winner" as a cell
-    pub fn new_cell(val: BitVecValue) -> Self {
-        Self(Some(AssignedValue::cell_value(val)))
+    pub fn new_cell(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
+        Self(Some(AssignedValue::cell_value(val, thread)))
     }
 
     /// Creates a width-bit zero [PortValue] that has the "winner" as a cell
-    pub fn new_cell_zeroes(width: u32) -> Self {
-        Self::new_cell(BitVecValue::zero(width))
+    pub fn new_cell_zeroes(width: u32, thread: Option<ThreadIdx>) -> Self {
+        Self::new_cell(BitVecValue::zero(width), thread)
     }
 
     /// Creates a [PortValue] that has the "winner" as implicit
-    pub fn new_implicit(val: BitVecValue) -> Self {
-        Self(Some(AssignedValue::implicit_value(val)))
+    pub fn new_implicit(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
+        Self(Some(AssignedValue::implicit_value(val, thread)))
     }
 
     /// Sets the value to undefined and returns the former value if present.
