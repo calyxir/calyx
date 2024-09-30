@@ -10,6 +10,7 @@ use crate::{
         primitives::{
             declare_ports, make_getters, ports,
             prim_trait::{UpdateResult, UpdateStatus},
+            utils::infer_thread_id,
             Primitive,
         },
         structures::{environment::PortMap, index_trait::IndexRef},
@@ -53,13 +54,18 @@ impl Primitive for StdReg {
             out_idx: Self::OUT,
             done: Self::DONE
         ];
+        let thread = infer_thread_id(
+            [&port_map[input], &port_map[write_en], &port_map[reset]]
+                .into_iter(),
+        )
+        .expect("Could not infer thread id for reg");
 
         let done_port = if port_map[reset].as_bool().unwrap_or_default() {
             self.internal_state =
                 BitVecValue::zero(self.internal_state.width());
             port_map.insert_val(
                 done,
-                AssignedValue::cell_value(BitVecValue::fals()),
+                AssignedValue::cell_value(BitVecValue::fals(), Some(thread)),
             )?
         } else if port_map[write_en].as_bool().unwrap_or_default() {
             self.internal_state = port_map[input]
@@ -72,41 +78,59 @@ impl Primitive for StdReg {
 
             port_map.insert_val(
                 done,
-                AssignedValue::cell_value(BitVecValue::tru()),
+                AssignedValue::cell_value(BitVecValue::tru(), Some(thread)),
             )? | port_map.insert_val(
                 out_idx,
-                AssignedValue::cell_value(self.internal_state.clone()),
+                AssignedValue::cell_value(
+                    self.internal_state.clone(),
+                    Some(thread),
+                ),
             )?
         } else {
             self.done_is_high = false;
             port_map.insert_val(
                 done,
-                AssignedValue::cell_value(BitVecValue::fals()),
+                AssignedValue::cell_value(BitVecValue::fals(), Some(thread)),
             )?
         };
 
         Ok(done_port
             | port_map.insert_val(
                 out_idx,
-                AssignedValue::cell_value(self.internal_state.clone()),
+                AssignedValue::cell_value(
+                    self.internal_state.clone(),
+                    Some(thread),
+                ),
             )?)
     }
 
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
+            input: Self::IN,
+            write_en: Self::WRITE_EN,
+            reset: Self::RESET,
+            // these three are just for infer_thread_id
             done: Self::DONE,
             out_idx: Self::OUT];
+
+        let thread = infer_thread_id(
+            [&port_map[input], &port_map[write_en], &port_map[reset]]
+                .into_iter(),
+        );
         let out_signal = port_map.insert_val(
             out_idx,
-            AssignedValue::cell_value(self.internal_state.clone()),
+            AssignedValue::cell_value(self.internal_state.clone(), thread),
         )?;
         let done_signal = port_map.insert_val(
             done,
-            AssignedValue::cell_value(if self.done_is_high {
-                BitVecValue::tru()
-            } else {
-                BitVecValue::fals()
-            }),
+            AssignedValue::cell_value(
+                if self.done_is_high {
+                    BitVecValue::tru()
+                } else {
+                    BitVecValue::fals()
+                },
+                thread,
+            ),
         )?;
 
         Ok(out_signal | done_signal)

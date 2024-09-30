@@ -2036,9 +2036,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .unwrap_or_default()
                     })
                     // if there is no go signal, then we want to run the
-                    // assignment
+                    // assignments (combinational assignments & active comb groups)
                     .unwrap_or(true)
                 {
+                    // TODO griffin: not sure what the error situation should be
+                    // on these
+                    debug_assert!(thread.is_some());
                     for assign_idx in assignments {
                         let assign = &self.env.ctx.as_ref().primary[assign_idx];
 
@@ -2071,7 +2074,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                     AssignedValue::new(
                                         v.val().clone(),
                                         assign_idx,
-                                        Some(thread),
+                                        thread,
                                     ),
                                 )?;
 
@@ -2111,7 +2114,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     if self.env.ports[*done_port].is_undef() {
                         self.env.ports[*done_port] = PortValue::new_implicit(
                             BitVecValue::fals(),
-                            Some(*thread),
+                            *thread,
                         );
                         has_changed = true;
                     }
@@ -2127,37 +2130,34 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     /// If the given thread is `None`, then the thread id is computed from the
     /// go port for the group. If no such port exists, or it lacks a thread id,
     /// then the thread id is computed from the go port for the component. If
-    /// the port does not have a thread id it panics.
+    /// none of these succeed then `None` is returned.
     fn compute_thread(
         &self,
         comp_go: GlobalPortIdx,
         thread: &Option<ThreadIdx>,
         go: Option<GlobalPortIdx>,
-    ) -> ThreadIdx {
-        let thread = thread.unwrap_or_else(|| {
+    ) -> Option<ThreadIdx> {
+        thread.or_else(|| {
             if let Some(go_idx) = go {
                 if let Some(go_thread) = self.env.ports[go_idx]
                     .as_option()
                     .map(|a| a.thread())
                     .flatten()
                 {
-                    go_thread
+                    Some(go_thread)
                 } else {
                     self.env.ports[comp_go]
                         .as_option()
                         .map(|x| x.thread())
                         .flatten()
-                        .expect("Cannot determine thread id for control node")
                 }
             } else {
                 self.env.ports[comp_go]
                     .as_option()
                     .map(|x| x.thread())
                     .flatten()
-                    .expect("Cannot determine thread id for control node")
             }
-        });
-        thread
+        })
     }
 
     /// Dump the current state of the environment as a DataDump

@@ -65,7 +65,7 @@ impl Counter for u128 {
 /// present in the map are assumed to be the default value for the given counter
 /// type, which is zero for the standard integer counters. This means that all
 /// threads implicitly start at zero, rather than some bottom value.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct VectorClock<I, C = u32>
 where
     I: Hash + Eq + Clone,
@@ -73,6 +73,27 @@ where
 {
     // TODO: maybe use `ahash` instead
     map: HashMap<I, C>,
+}
+
+impl<I, C> Eq for VectorClock<I, C>
+where
+    I: Hash + Eq + Clone,
+    C: Ord + Clone + Counter,
+{
+}
+
+impl<I, C> PartialEq for VectorClock<I, C>
+where
+    I: Hash + Eq + Clone,
+    C: Ord + Clone + Counter,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if let Some(c) = self.partial_cmp(other) {
+            matches!(c, Ordering::Equal)
+        } else {
+            false
+        }
+    }
 }
 
 impl<I, C> FromIterator<(I, C)> for VectorClock<I, C>
@@ -259,6 +280,16 @@ mod tests {
         assert_eq!(Some(3), vc.get(&0).copied());
         assert_eq!(Some(1), vc.get(&1).copied());
         assert_eq!(Some(1), vc.get(&2).copied());
+    }
+
+    #[test]
+    fn test_empty_comparison() {
+        let vc = VectorClock::<u32>::new();
+        let vc2: VectorClock<u32> = [(12, 0), (10, 0)].into_iter().collect();
+        let vc3: VectorClock<u32> = [(147, 0), (32, 0)].into_iter().collect();
+
+        assert_eq!(vc, vc2);
+        assert_eq!(vc2, vc3);
     }
 
     #[test]
