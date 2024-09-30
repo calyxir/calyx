@@ -38,6 +38,8 @@ FSM_TIMELINE_VIEW_JSON=${TMP_DIR}/fsm-timeline.json
 FLAME_GRAPH_FOLDED=${TMP_DIR}/flame.folded
 FSM_FLAME_GRAPH_FOLDED=${TMP_DIR}/fsm-flame.folded
 FREQUENCY_FLAME_GRAPH_FOLDED=${TMP_DIR}/frequency-flame.folded
+COMPONENTS_FOLDED=${TMP_DIR}/components.folded
+FSM_COMPONENTS_FOLDED=${TMP_DIR}/fsm-components.folded
 VCD_FILE=${TMP_DIR}/trace.vcd
 LOGS_DIR=${DATA_DIR}/logs
 if [ -d ${DATA_DIR} ]; then
@@ -54,7 +56,7 @@ echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
 (
     cd ${CALYX_DIR}
     set -o xtrace
-    cargo run -- ${INPUT_FILE} ${CALYX_ARGS} -x tdcc:dump-fsm-json="${FSM_JSON}" #  -p par-to-seq
+    cargo run -- ${INPUT_FILE} ${CALYX_ARGS} -x tdcc:dump-fsm-json="${FSM_JSON}"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-tdcc
 
@@ -80,7 +82,7 @@ fi
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
     set -o xtrace
-    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args="${CALYX_ARGS}" -s sim.data=${SIM_DATA_JSON} # -p par-to-seq 
+    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args="${CALYX_ARGS}" -s sim.data=${SIM_DATA_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
 
@@ -106,7 +108,7 @@ fi
 echo "[${SCRIPT_NAME}] Writing visualization"
 (
     set -o xtrace
-    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FSM_TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED} ${FREQUENCY_FLAME_GRAPH_FOLDED}
+    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FSM_TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED} ${FREQUENCY_FLAME_GRAPH_FOLDED} ${COMPONENTS_FOLDED} ${FSM_COMPONENTS_FOLDED}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-visuals
 
@@ -123,7 +125,11 @@ echo "[${SCRIPT_NAME}] Creating flame graph svg"
 	echo
 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FSM_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/fsm-${filename}.svg
 	echo
-	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg	
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${COMPONENTS_FOLDED} > ${TMP_DIR}/components-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FSM_COMPONENTS_FOLDED} > ${TMP_DIR}/fsm-components-${filename}.svg
     done
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-flamegraph
