@@ -512,6 +512,30 @@ impl Primitive for CombMem {
     }
 }
 
+impl RaceDetectionPrimitive for CombMem {
+    fn as_primitive(&self) -> &dyn Primitive {
+        self
+    }
+
+    fn exec_comb_checked(
+        &self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_comb(port_map)
+    }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_cycle(port_map)
+    }
+}
+
 pub struct SeqMem {
     base_port: GlobalPortIdx,
     internal_state: Vec<ValueWithClock>,
@@ -734,6 +758,31 @@ impl Primitive for SeqMem {
         Some(self.dump_data())
     }
 }
+
+impl RaceDetectionPrimitive for SeqMem {
+    fn as_primitive(&self) -> &dyn Primitive {
+        self
+    }
+
+    fn exec_comb_checked(
+        &self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_comb(port_map)
+    }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_cycle(port_map)
+    }
+}
+
 // type aliases, this is kinda stupid and should probably be changed. or maybe
 // it's fine, I really don't know.
 pub type CombMemD1 = CombMem;

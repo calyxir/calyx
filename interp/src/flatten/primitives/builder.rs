@@ -180,28 +180,40 @@ pub fn build_primitive(
             });
 
             match mem_type {
-                MemType::Seq => Box::new(if let Some(data) = data {
-                    memories_initialized
-                        .insert(ctx.resolve_id(prim.name).clone());
-                    SeqMem::new_with_init(
-                        base_port, cell_idx, *width, false, dims, data, clocks,
-                    )
-                } else {
-                    SeqMemD1::new(
-                        base_port, cell_idx, *width, false, dims, clocks,
-                    )
-                }),
-                MemType::Std => Box::new(if let Some(data) = data {
-                    memories_initialized
-                        .insert(ctx.resolve_id(prim.name).clone());
-                    CombMem::new_with_init(
-                        base_port, cell_idx, *width, false, dims, data, clocks,
-                    )
-                } else {
-                    CombMem::new(
-                        base_port, cell_idx, *width, false, dims, clocks,
-                    )
-                }),
+                MemType::Seq => {
+                    let b: Box<dyn RaceDetectionPrimitive> =
+                        Box::new(if let Some(data) = data {
+                            memories_initialized
+                                .insert(ctx.resolve_id(prim.name).clone());
+                            SeqMem::new_with_init(
+                                base_port, cell_idx, *width, false, dims, data,
+                                clocks,
+                            )
+                        } else {
+                            SeqMemD1::new(
+                                base_port, cell_idx, *width, false, dims,
+                                clocks,
+                            )
+                        });
+                    return b.into();
+                }
+                MemType::Std => {
+                    let b: Box<dyn RaceDetectionPrimitive> =
+                        Box::new(if let Some(data) = data {
+                            memories_initialized
+                                .insert(ctx.resolve_id(prim.name).clone());
+                            CombMem::new_with_init(
+                                base_port, cell_idx, *width, false, dims, data,
+                                clocks,
+                            )
+                        } else {
+                            CombMem::new(
+                                base_port, cell_idx, *width, false, dims,
+                                clocks,
+                            )
+                        });
+                    return b.into();
+                }
             }
         }
 
