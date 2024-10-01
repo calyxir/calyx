@@ -1,4 +1,4 @@
-# Wrapper script for running TDCC, running simulation, and obtaining cycle counts information
+# Wrapper script for running TDCC, running simulation, obtaining cycle counts information, and producing flame graphs to visualize
 
 if [ $# -lt 2 ]; then
     echo "USAGE: bash $0 INPUT_FILE SIM_DATA_JSON [OUT_CSV]"
@@ -13,7 +13,7 @@ INPUT_FILE=$1
 SIM_DATA_JSON=$2
 name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
 DATA_DIR=${SCRIPT_DIR}/data/${name}
-TMP_DIR=${DATA_DIR}/tmp
+TMP_DIR=${DATA_DIR}/generated-data
 if [ $# -ge 3 ]; then
     OUT_CSV=$3
 else
