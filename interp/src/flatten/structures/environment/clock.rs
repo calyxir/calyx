@@ -24,6 +24,11 @@ impl ClockMap {
     pub fn new_clock(&mut self) -> ClockIdx {
         self.push(VectorClock::new())
     }
+
+    /// Returns a new clock that is the clone of the given clock
+    pub fn fork_clock(&mut self, parent: ClockIdx) -> ClockIdx {
+        self.push(self[parent].clone())
+    }
 }
 
 pub trait Counter: Default {

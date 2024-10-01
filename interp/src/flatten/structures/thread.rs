@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, ops::Index};
 
 use super::{
     environment::clock::ClockIdx, index_trait::impl_index_nonzero,
@@ -10,10 +10,19 @@ pub struct ThreadIdx(NonZeroU32);
 impl_index_nonzero!(ThreadIdx);
 
 #[derive(Debug)]
-struct ThreadInfo {
-    #[allow(dead_code)]
+pub struct ThreadInfo {
     parent: Option<ThreadIdx>,
     clock_id: ClockIdx,
+}
+
+impl ThreadInfo {
+    pub fn parent(&self) -> Option<ThreadIdx> {
+        self.parent
+    }
+
+    pub fn clock_id(&self) -> ClockIdx {
+        self.clock_id
+    }
 }
 
 #[derive(Debug)]
@@ -57,5 +66,13 @@ impl ThreadMap {
             parent: Some(parent),
             clock_id,
         })
+    }
+}
+
+impl Index<ThreadIdx> for ThreadMap {
+    type Output = ThreadInfo;
+
+    fn index(&self, index: ThreadIdx) -> &Self::Output {
+        &self.map[index]
     }
 }

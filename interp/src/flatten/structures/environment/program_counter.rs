@@ -21,21 +21,15 @@ use itertools::{FoldWhile, Itertools};
 /// portion of the control tree
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ControlPoint {
-    pub thread: Option<ThreadIdx>,
     pub comp: GlobalCellIdx,
     pub control_node_idx: ControlIdx,
 }
 
 impl ControlPoint {
-    pub fn new(
-        comp: GlobalCellIdx,
-        control_leaf: ControlIdx,
-        thread: Option<ThreadIdx>,
-    ) -> Self {
+    pub fn new(comp: GlobalCellIdx, control_leaf: ControlIdx) -> Self {
         Self {
             comp,
             control_node_idx: control_leaf,
-            thread,
         }
     }
 
@@ -45,7 +39,6 @@ impl ControlPoint {
         Self {
             comp: self.comp,
             control_node_idx: target,
-            thread: self.thread,
         }
     }
 
@@ -382,7 +375,7 @@ impl WithEntry {
 /// the active leaf statements for each component instance.
 #[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
-    vec: Vec<ControlPoint>,
+    vec: Vec<ControlTuple>,
     par_map: HashMap<ControlPoint, ChildCount>,
     continuous_assigns: Vec<ContinuousAssignments>,
     with_map: HashMap<ControlPoint, WithEntry>,
@@ -390,10 +383,11 @@ pub(crate) struct ProgramCounter {
     just_finished_comps: Vec<(GlobalCellIdx, ThreadIdx)>,
 }
 
+pub type ControlTuple = (Option<ThreadIdx>, ControlPoint);
 // we need a few things from the program counter
 
 pub type PcFields = (
-    Vec<ControlPoint>,
+    Vec<ControlTuple>,
     HashMap<ControlPoint, ChildCount>,
     HashMap<ControlPoint, WithEntry>,
     HashMap<ControlPoint, u64>,
@@ -417,19 +411,15 @@ impl ProgramCounter {
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
+    pub fn iter(&self) -> std::slice::Iter<'_, ControlTuple> {
         self.vec.iter()
     }
 
-    pub fn node_slice(&self) -> &[ControlPoint] {
+    pub fn node_slice(&self) -> &[ControlTuple] {
         &self.vec
     }
 
-    pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
-        self.vec.iter_mut()
-    }
-
-    pub fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
+    pub fn vec_mut(&mut self) -> &mut Vec<ControlTuple> {
         &mut self.vec
     }
 
@@ -489,9 +479,9 @@ impl ProgramCounter {
 }
 
 impl<'a> IntoIterator for &'a ProgramCounter {
-    type Item = &'a ControlPoint;
+    type Item = &'a ControlTuple;
 
-    type IntoIter = std::slice::Iter<'a, ControlPoint>;
+    type IntoIter = std::slice::Iter<'a, ControlTuple>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

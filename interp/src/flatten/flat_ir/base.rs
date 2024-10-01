@@ -433,6 +433,7 @@ impl std::fmt::Debug for AssignedValue {
         f.debug_struct("AssignedValue")
             .field("val", &self.val.to_bit_str())
             .field("winner", &self.winner)
+            .field("thread", &self.thread)
             .finish()
     }
 }

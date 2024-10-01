@@ -4,7 +4,7 @@ use super::{
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
     clock::{ClockIdx, ClockMap, VectorClock},
-    program_counter::{PcMaps, ProgramCounter, WithEntry},
+    program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
 use crate::{
@@ -419,15 +419,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 if let Some(ctrl) =
                     &env.ctx.as_ref().primary[comp.comp_id].control
                 {
-                    env.pc.vec_mut().push(ControlPoint {
-                        comp: idx,
-                        control_node_idx: *ctrl,
-                        thread: if comp.comp_id == root {
+                    env.pc.vec_mut().push((
+                        if comp.comp_id == root {
                             Some(root_thread)
                         } else {
                             None
                         },
-                    })
+                        ControlPoint {
+                            comp: idx,
+                            control_node_idx: *ctrl,
+                        },
+                    ))
                 }
             }
         }
@@ -608,7 +610,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn get_currently_running_groups(
         &self,
     ) -> impl Iterator<Item = GroupIdx> + '_ {
-        self.pc.iter().filter_map(|point| {
+        self.pc.iter().filter_map(|(_, point)| {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(x) => {
@@ -722,7 +724,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     pub fn print_pc(&self) {
-        let current_nodes = self.pc.iter().filter(|point| {
+        let current_nodes = self.pc.iter().filter(|(_thread, point)| {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(_) | ControlNode::Invoke(_) => {
@@ -736,7 +738,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         let ctx = &self.ctx.as_ref();
 
-        for point in current_nodes {
+        for (_thread, point) in current_nodes {
             let node = &ctx.primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(x) => {
@@ -1399,11 +1401,11 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     // allocation is too expensive in this context
     fn get_assignments(
         &self,
-        control_points: &[ControlPoint],
+        control_points: &[ControlTuple],
     ) -> Vec<ScheduledAssignments> {
         control_points
             .iter()
-            .filter_map(|node| {
+            .filter_map(|(thread, node)| {
                 match &self.ctx().primary[node.control_node_idx] {
                     ControlNode::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
@@ -1415,7 +1417,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 go: group.go,
                                 done: group.done,
                             }),
-                            node.thread,
+                            *thread,
                         ))
                     }
 
@@ -1423,7 +1425,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         node.comp,
                         i.assignments,
                         None,
-                        node.thread,
+                        *thread,
                     )),
 
                     ControlNode::Empty(_) => None,
@@ -1570,7 +1572,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
             self.env.ports[done_port] =
-                PortValue::new_implicit(BitVecValue::tru());
+                PortValue::new_implicit(BitVecValue::tru()).with_thread(*id);
         }
 
         let (vecs, par_map, mut with_map, repeat_map) =
@@ -1581,10 +1583,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let ctx = self.env.ctx.clone();
         let ctx_ref = ctx.as_ref();
 
-        for node in vecs.iter() {
+        for (thread, node) in vecs.iter() {
             let comp_done = self.env.get_comp_done(node.comp);
             let comp_go = self.env.get_comp_go(node.comp);
-            let thread = node.thread.or_else(|| {
+            let thread = thread.or_else(|| {
                 self.env.ports[comp_go].as_option().and_then(|t| t.thread())
             });
 
@@ -1620,7 +1622,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
                     self.env.ports[go] =
-                        PortValue::new_implicit(BitVecValue::tru());
+                        PortValue::new_implicit(BitVecValue::tru())
+                            .with_thread(thread.expect("invoke has no thread"));
 
                     // TODO griffin: should make this skip initialization if
                     // it's already initialized
@@ -1723,20 +1726,17 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     fn evaluate_control_node(
         &mut self,
-        node: &mut ControlPoint,
-        new_nodes: &mut Vec<ControlPoint>,
+        node: &mut ControlTuple,
+        new_nodes: &mut Vec<ControlTuple>,
         maps: PcMaps,
     ) -> bool {
+        let (node_thread, node) = node;
         let (par_map, with_map, repeat_map) = maps;
         let comp_go = self.env.get_comp_go(node.comp);
         let comp_done = self.env.get_comp_done(node.comp);
 
-        let thread = node.thread.unwrap_or_else(|| {
-            self.env.ports[comp_go]
-                .as_option()
-                .map(|x| x.thread())
-                .flatten()
-                .expect("Cannot determine thread id for control node")
+        let thread = node_thread.or_else(|| {
+            self.env.ports[comp_go].as_option().and_then(|x| x.thread())
         });
 
         // mutability trick
@@ -1763,11 +1763,26 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             }
             ControlNode::Par(par) => {
+                let thread = thread.expect("par nodes should have a thread");
+
                 if par_map.contains_key(node) {
                     let count = par_map.get_mut(node).unwrap();
                     *count -= 1;
+                    let child_clock_idx =
+                        self.env.thread_map.unwrap_clock_id(thread);
+                    let parent = self.env.thread_map[thread].parent().unwrap();
+                    let parent_clock =
+                        self.env.thread_map.unwrap_clock_id(parent);
+                    let child_clock =
+                        std::mem::take(&mut self.env.clocks[child_clock_idx]);
+                    self.env.clocks[parent_clock].sync(&child_clock);
+                    self.env.clocks[child_clock_idx] = child_clock;
+
                     if *count == 0 {
                         par_map.remove(node);
+                        assert!(self.env.thread_map[thread].parent().is_some());
+                        *node_thread = Some(parent);
+                        self.env.clocks[parent_clock].increment(&parent);
                         node.mutate_into_next(self.env.ctx.as_ref())
                     } else {
                         false
@@ -1779,9 +1794,22 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
                         ),
                     );
-                    new_nodes.extend(
-                        par.stms().iter().map(|x| node.new_retain_comp(*x)),
-                    );
+                    new_nodes.extend(par.stms().iter().map(|x| {
+                        let new_clock_idx = self.env.clocks.fork_clock(
+                            self.env.thread_map.unwrap_clock_id(thread),
+                        );
+                        let new_thread_idx =
+                            self.env.thread_map.spawn(thread, new_clock_idx);
+
+                        self.env.clocks[new_clock_idx]
+                            .increment(&new_thread_idx);
+
+                        (Some(new_thread_idx), node.new_retain_comp(*x))
+                    }));
+
+                    let clock = self.env.thread_map.unwrap_clock_id(thread);
+                    self.env.clocks[clock].increment(&thread);
+
                     false
                 }
             }
@@ -1853,7 +1881,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
          // either we are not a par node, or we are the last par node
          (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
         {
-            self.env.pc.set_finshed_comp(node.comp, thread);
+            self.env.pc.set_finshed_comp(
+                node.comp,
+                thread.expect("finished comps should have a thread"),
+            );
             let comp_ledger = self.env.cells[node.comp].unwrap_comp();
             *node = node.new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
@@ -2073,9 +2104,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     // assignments (combinational assignments & active comb groups)
                     .unwrap_or(true)
                 {
-                    // TODO griffin: not sure what the error situation should be
-                    // on these
-                    debug_assert!(thread.is_some());
                     for assign_idx in assignments {
                         let assign = &self.env.ctx.as_ref().primary[assign_idx];
 
@@ -2108,7 +2136,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                     AssignedValue::new(
                                         v.val().clone(),
                                         assign_idx,
-                                    ),
+                                    )
+                                    .with_thread_optional(thread),
                                 )?;
 
                                 has_changed |= changed.as_bool();
@@ -2154,7 +2183,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 for (done_port, thread) in &done_ports {
                     if self.env.ports[*done_port].is_undef() {
                         self.env.ports[*done_port] =
-                            PortValue::new_implicit(BitVecValue::fals());
+                            PortValue::new_implicit(BitVecValue::fals())
+                                .with_thread_optional(*thread);
                         has_changed = true;
                     }
                 }
@@ -2178,23 +2208,15 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     ) -> Option<ThreadIdx> {
         thread.or_else(|| {
             if let Some(go_idx) = go {
-                if let Some(go_thread) = self.env.ports[go_idx]
-                    .as_option()
-                    .map(|a| a.thread())
-                    .flatten()
+                if let Some(go_thread) =
+                    self.env.ports[go_idx].as_option().and_then(|a| a.thread())
                 {
                     Some(go_thread)
                 } else {
-                    self.env.ports[comp_go]
-                        .as_option()
-                        .map(|x| x.thread())
-                        .flatten()
+                    self.env.ports[comp_go].as_option().and_then(|x| x.thread())
                 }
             } else {
-                self.env.ports[comp_go]
-                    .as_option()
-                    .map(|x| x.thread())
-                    .flatten()
+                self.env.ports[comp_go].as_option().and_then(|x| x.thread())
             }
         })
     }
