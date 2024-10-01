@@ -112,7 +112,9 @@ paths = [
     "frontends/queues/tests/*.py",
     "frontends/queues/tests/round_robin/*.py",
     "frontends/queues/tests/strict/*.py",
-    "frontends/queues/tests/binheap/*.py"
+    "frontends/queues/tests/binheap/*.py",
+    "frontends/queues/tests/binheap/round_robin/*.py",
+    "frontends/queues/tests/binheap/strict/*.py"
 ]
 cmd = """
 name=$(basename {} .py) &&
@@ -323,6 +325,7 @@ timeout = 120
 name = "correctness static control"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
@@ -342,6 +345,7 @@ timeout = 120
 name = "correctness static control, one-hot fsms"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
@@ -349,7 +353,7 @@ fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke -x static-fsm-opts:one-hot-cutoff=500' \
+         -s calyx.flags '-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
