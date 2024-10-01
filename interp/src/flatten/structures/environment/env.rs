@@ -168,7 +168,7 @@ impl ComponentLedger {
 
 /// An enum encapsulating cell functionality. It is either a pointer to a
 /// primitive or information about a calyx component instance
-pub(crate) enum CellLedger {
+pub enum CellLedger {
     Primitive {
         // wish there was a better option with this one
         cell_dyn: Box<dyn Primitive>,
@@ -177,6 +177,24 @@ pub(crate) enum CellLedger {
         cell_dyn: Box<dyn RaceDetectionPrimitive>,
     },
     Component(ComponentLedger),
+}
+
+impl From<ComponentLedger> for CellLedger {
+    fn from(v: ComponentLedger) -> Self {
+        Self::Component(v)
+    }
+}
+
+impl From<Box<dyn RaceDetectionPrimitive>> for CellLedger {
+    fn from(cell_dyn: Box<dyn RaceDetectionPrimitive>) -> Self {
+        Self::RaceDetectionPrimitive { cell_dyn }
+    }
+}
+
+impl From<Box<dyn Primitive>> for CellLedger {
+    fn from(cell_dyn: Box<dyn Primitive>) -> Self {
+        Self::Primitive { cell_dyn }
+    }
 }
 
 impl CellLedger {
@@ -509,7 +527,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     memories_initialized,
                     &mut self.clocks,
                 );
-                let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
+                let cell = self.cells.push(cell_dyn);
 
                 debug_assert_eq!(
                     &self.cells[comp].as_comp().unwrap().index_bases + cell_off,

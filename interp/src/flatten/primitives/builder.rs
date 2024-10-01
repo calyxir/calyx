@@ -1,6 +1,9 @@
 use ahash::HashSet;
 
-use super::{combinational::*, stateful::*, Primitive};
+use super::{
+    combinational::*, prim_trait::RaceDetectionPrimitive, stateful::*,
+    Primitive,
+};
 use crate::{
     flatten::{
         flat_ir::{
@@ -11,7 +14,10 @@ use crate::{
             },
             prelude::{CellInfo, GlobalPortIdx},
         },
-        structures::{context::Context, environment::clock::ClockMap},
+        structures::{
+            context::Context,
+            environment::{clock::ClockMap, CellLedger},
+        },
     },
     serialization::DataDump,
 };
@@ -28,8 +34,8 @@ pub fn build_primitive(
     dump: &Option<DataDump>,
     memories_initialized: &mut HashSet<String>,
     clocks: &mut ClockMap,
-) -> Box<dyn Primitive> {
-    match &prim.prototype {
+) -> CellLedger {
+    let b: Box<dyn Primitive> = match &prim.prototype {
         CellPrototype::Constant {
             value: val,
             width,
@@ -44,7 +50,9 @@ pub fn build_primitive(
         ),
         CellPrototype::SingleWidth { op, width } => match op {
             SingleWidthType::Reg => {
-                Box::new(StdReg::new(base_port, cell_idx, *width, clocks))
+                let b: Box<dyn RaceDetectionPrimitive> =
+                    Box::new(StdReg::new(base_port, cell_idx, *width, clocks));
+                return b.into();
             }
             SingleWidthType::Not => Box::new(StdNot::new(base_port)),
             SingleWidthType::And => Box::new(StdAnd::new(base_port)),
@@ -198,5 +206,6 @@ pub fn build_primitive(
         CellPrototype::Unknown(s, _) => {
             todo!("Primitives {s} not yet implemented")
         }
-    }
+    };
+    b.into()
 }

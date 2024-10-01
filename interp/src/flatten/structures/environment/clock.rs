@@ -277,10 +277,19 @@ impl ValueWithClock {
         value: BitVecValue,
         clocks: &mut ClockMap,
     ) -> Result<(), ClockError> {
+        self.check_write(writing_clock, clocks)?;
+        self.value = value;
+        Ok(())
+    }
+
+    pub fn check_write(
+        &self,
+        writing_clock: ClockIdx,
+        clocks: &mut ClockMap,
+    ) -> Result<(), ClockError> {
         if clocks[writing_clock] >= clocks[self.write_clock]
             && clocks[writing_clock] >= clocks[self.read_clock]
         {
-            self.value = value;
             clocks[self.write_clock] = clocks[writing_clock].clone();
             Ok(())
         } else if clocks[writing_clock]
@@ -294,15 +303,17 @@ impl ValueWithClock {
         {
             Err(ClockError::WriteWrite)
         } else {
+            // This implies that the write happened before both the read and the
+            // write which I think shouldn't be possible but also I am not sure.
             panic!("something weird happened. TODO griffin: Sort this out")
         }
     }
 
-    pub fn read(
+    pub fn check_read(
         &self,
         reading_clock: ClockIdx,
         clocks: &mut ClockMap,
-    ) -> Result<&BitVecValue, ClockError> {
+    ) -> Result<(), ClockError> {
         if clocks[reading_clock] >= clocks[self.write_clock] {
             // TODO griffin: this is doing extra allocation. Probably would be
             // better to mutate the self.read_clock field directly but that
@@ -312,7 +323,7 @@ impl ValueWithClock {
                 &clocks[self.read_clock],
                 &clocks[reading_clock],
             );
-            Ok(&self.value)
+            Ok(())
         } else if clocks[reading_clock]
             .partial_cmp(&clocks[self.write_clock])
             .is_none()
@@ -323,6 +334,15 @@ impl ValueWithClock {
             // shouldn't be possible but also I am not sure.
             panic!("something weird happened. TODO griffin: Sort this out")
         }
+    }
+
+    pub fn read(
+        &self,
+        reading_clock: ClockIdx,
+        clocks: &mut ClockMap,
+    ) -> Result<&BitVecValue, ClockError> {
+        self.check_read(reading_clock, clocks)?;
+        Ok(&self.value)
     }
 }
 

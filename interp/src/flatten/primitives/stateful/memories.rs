@@ -9,7 +9,7 @@ use crate::{
         },
         primitives::{
             declare_ports, make_getters, ports,
-            prim_trait::{UpdateResult, UpdateStatus},
+            prim_trait::{RaceDetectionPrimitive, UpdateResult, UpdateStatus},
             utils::infer_thread_id,
             Primitive,
         },
@@ -109,17 +109,9 @@ impl Primitive for StdReg {
 
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
-            input: Self::IN,
-            write_en: Self::WRITE_EN,
-            reset: Self::RESET,
-            // these three are just for infer_thread_id
             done: Self::DONE,
             out_idx: Self::OUT];
 
-        let thread = infer_thread_id(
-            [&port_map[input], &port_map[write_en], &port_map[reset]]
-                .into_iter(),
-        );
         let out_signal = port_map.insert_val(
             out_idx,
             AssignedValue::cell_value(self.internal_state.value.clone()),
@@ -149,6 +141,42 @@ impl Primitive for StdReg {
 
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         Some(self.internal_state.value.clone().to_bytes_le())
+    }
+}
+
+impl RaceDetectionPrimitive for StdReg {
+    fn as_primitive(&self) -> &dyn Primitive {
+        self
+    }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        clock_map: &mut ClockMap,
+        thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        ports![&self.base_port;
+            input: Self::IN,
+            write_en: Self::WRITE_EN,
+            reset: Self::RESET
+        ];
+
+        // If we are writing to the reg, check that the write is not concurrent
+        // with another write or a read. We can't easily check if the reg is
+        // being read.
+        if port_map[write_en].as_bool().unwrap_or_default() {
+            let thread = infer_thread_id(
+                [&port_map[input], &port_map[write_en], &port_map[reset]]
+                    .into_iter(),
+            )
+            .expect("Could not infer thread id for reg");
+
+            let current_clock_idx = thread_map.unwrap_clock_id(thread);
+            self.internal_state
+                .check_write(current_clock_idx, clock_map)?;
+        }
+
+        self.exec_cycle(port_map)
     }
 }
 
