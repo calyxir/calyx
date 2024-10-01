@@ -184,10 +184,12 @@ pub fn build_primitive(
                     memories_initialized
                         .insert(ctx.resolve_id(prim.name).clone());
                     SeqMem::new_with_init(
-                        base_port, cell_idx, *width, false, dims, data,
+                        base_port, cell_idx, *width, false, dims, data, clocks,
                     )
                 } else {
-                    SeqMemD1::new(base_port, cell_idx, *width, false, dims)
+                    SeqMemD1::new(
+                        base_port, cell_idx, *width, false, dims, clocks,
+                    )
                 }),
                 MemType::Std => Box::new(if let Some(data) = data {
                     memories_initialized

@@ -501,8 +501,10 @@ mod tests {
 
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
+            let mut clock_map = ClockMap::new();
+
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap(), &mut clock_map);
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }

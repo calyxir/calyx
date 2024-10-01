@@ -15,7 +15,7 @@ use crate::{
         },
         structures::{
             environment::{
-                clock::{ClockMap, ValueWithClock},
+                clock::{self, ClockMap, ValueWithClock},
                 PortMap,
             },
             index_trait::IndexRef,
@@ -514,7 +514,7 @@ impl Primitive for CombMem {
 
 pub struct SeqMem {
     base_port: GlobalPortIdx,
-    internal_state: Vec<BitVecValue>,
+    internal_state: Vec<ValueWithClock>,
     global_idx: GlobalCellIdx,
     // TODO griffin: This bool is unused in the actual struct and should either
     // be removed or
@@ -532,9 +532,17 @@ impl SeqMem {
         width: u32,
         allow_invalid: bool,
         size: T,
+        clocks: &mut ClockMap,
     ) -> Self {
         let shape = size.into();
-        let internal_state = vec![BitVecValue::zero(width); shape.size()];
+        let mut internal_state = Vec::with_capacity(shape.size());
+        for _ in 0..shape.size() {
+            internal_state.push(ValueWithClock::zero(
+                width,
+                clocks.new_clock(),
+                clocks.new_clock(),
+            ));
+        }
 
         Self {
             base_port: base,
@@ -555,6 +563,7 @@ impl SeqMem {
         allow_invalid: bool,
         size: T,
         data: &[u8],
+        clocks: &mut ClockMap,
     ) -> Self
     where
         T: Into<Shape>,
@@ -565,6 +574,9 @@ impl SeqMem {
         let internal_state = data
             .chunks_exact(byte_count as usize)
             .map(|x| BitVecValue::from_bytes_le(x, width))
+            .map(|x| {
+                ValueWithClock::new(x, clocks.new_clock(), clocks.new_clock())
+            })
             .collect_vec();
 
         assert_eq!(internal_state.len(), size.size());
@@ -619,7 +631,7 @@ impl SeqMem {
     pub fn dump_data(&self) -> Vec<u8> {
         self.internal_state
             .iter()
-            .flat_map(|x| x.to_bytes_le())
+            .flat_map(|x| x.value.to_bytes_le())
             .collect()
     }
 }
@@ -669,13 +681,14 @@ impl Primitive for SeqMem {
             let write_data = port_map[self.write_data()]
                 .as_option()
                 .ok_or(InterpreterError::UndefinedWrite(self.global_idx))?;
-            self.internal_state[addr_actual] = write_data.val().clone();
+            self.internal_state[addr_actual].value = write_data.val().clone();
         } else if content_en {
             self.done_is_high = true;
             let addr_actual = addr
                 .ok_or(InterpreterError::UndefinedReadAddr(self.global_idx))?;
-            self.read_out =
-                PortValue::new_cell(self.internal_state[addr_actual].clone());
+            self.read_out = PortValue::new_cell(
+                self.internal_state[addr_actual].value.clone(),
+            );
         } else {
             self.done_is_high = false;
         }
@@ -707,7 +720,7 @@ impl Primitive for SeqMem {
         Serializable::Array(
             self.internal_state
                 .iter()
-                .map(|x| Entry::from_val_code(x, &code))
+                .map(|x| Entry::from_val_code(&x.value, &code))
                 .collect(),
             self.addresser.get_dimensions(),
         )
