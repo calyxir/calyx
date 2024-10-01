@@ -12,10 +12,19 @@ use crate::flatten::structures::{
 pub struct ClockIdx(u32);
 impl_index!(ClockIdx);
 
+use baa::BitVecValue;
+use ciborium::value;
 use itertools::Itertools;
 use thiserror::Error;
 
 pub type ClockMap = IndexedMap<ClockIdx, VectorClock<ThreadIdx>>;
+
+impl ClockMap {
+    /// pushes a new clock into the map and returns its index
+    pub fn new_clock(&mut self) -> ClockIdx {
+        self.push(VectorClock::new())
+    }
+}
 
 pub trait Counter: Default {
     /// Increment the counter, returning `None` if the counter overflowed.
@@ -158,6 +167,7 @@ where
 
     /// Takes two vector clocks and produces a new vector clock that contains
     /// the maximum value for each local clock across both vector clocks.
+    #[inline]
     pub fn join(first: &Self, second: &Self) -> Self {
         // might be better to use an iterator instead?
         let mut merged = first.clone();
@@ -218,22 +228,53 @@ where
             }
         }
 
-        current_answer
+        // If we have an answer, return it. Otherwise, return `Equal` since the
+        // `None` case can only happen if the maps are both empty. The
+        // incomparable case exits early.
+        if let Some(answer) = current_answer {
+            Some(answer)
+        } else {
+            Some(Ordering::Equal)
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ValueWithClock {
-    pub value: baa::BitVecValue,
+    pub value: BitVecValue,
     pub write_clock: ClockIdx,
     pub read_clock: ClockIdx,
 }
 
 impl ValueWithClock {
+    pub fn zero(
+        width: u32,
+        reading_clock: ClockIdx,
+        writing_clock: ClockIdx,
+    ) -> Self {
+        Self {
+            value: BitVecValue::zero(width),
+            write_clock: writing_clock,
+            read_clock: reading_clock,
+        }
+    }
+
+    pub fn new(
+        value: BitVecValue,
+        write_clock: ClockIdx,
+        read_clock: ClockIdx,
+    ) -> Self {
+        Self {
+            value,
+            write_clock,
+            read_clock,
+        }
+    }
+
     pub fn write(
         &mut self,
         writing_clock: ClockIdx,
-        value: baa::BitVecValue,
+        value: BitVecValue,
         clocks: &mut ClockMap,
     ) -> Result<(), ClockError> {
         if clocks[writing_clock] >= clocks[self.write_clock]
@@ -261,7 +302,7 @@ impl ValueWithClock {
         &self,
         reading_clock: ClockIdx,
         clocks: &mut ClockMap,
-    ) -> Result<(), ClockError> {
+    ) -> Result<&BitVecValue, ClockError> {
         if clocks[reading_clock] >= clocks[self.write_clock] {
             // TODO griffin: this is doing extra allocation. Probably would be
             // better to mutate the self.read_clock field directly but that
@@ -271,7 +312,7 @@ impl ValueWithClock {
                 &clocks[self.read_clock],
                 &clocks[reading_clock],
             );
-            Ok(())
+            Ok(&self.value)
         } else if clocks[reading_clock]
             .partial_cmp(&clocks[self.write_clock])
             .is_none()

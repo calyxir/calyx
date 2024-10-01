@@ -89,7 +89,7 @@ macro_rules! comb_primitive {
                     if port_map[$out_port].val().is_some() && *port_map[$out_port].val().unwrap() == val {
                         Ok($crate::flatten::primitives::prim_trait::UpdateStatus::Unchanged)
                     } else {
-                        port_map[$out_port] = $crate::flatten::flat_ir::prelude::PortValue::new_cell(val, None);
+                        port_map[$out_port] = $crate::flatten::flat_ir::prelude::PortValue::new_cell(val);
                         Ok($crate::flatten::primitives::prim_trait::UpdateStatus::Changed)
                     }
                 } else {

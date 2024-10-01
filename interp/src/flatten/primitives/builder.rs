@@ -11,7 +11,7 @@ use crate::{
             },
             prelude::{CellInfo, GlobalPortIdx},
         },
-        structures::context::Context,
+        structures::{context::Context, environment::clock::ClockMap},
     },
     serialization::DataDump,
 };
@@ -27,6 +27,7 @@ pub fn build_primitive(
     ctx: &Context,
     dump: &Option<DataDump>,
     memories_initialized: &mut HashSet<String>,
+    clocks: &mut ClockMap,
 ) -> Box<dyn Primitive> {
     match &prim.prototype {
         CellPrototype::Constant {
@@ -43,7 +44,7 @@ pub fn build_primitive(
         ),
         CellPrototype::SingleWidth { op, width } => match op {
             SingleWidthType::Reg => {
-                Box::new(StdReg::new(base_port, cell_idx, *width))
+                Box::new(StdReg::new(base_port, cell_idx, *width, clocks))
             }
             SingleWidthType::Not => Box::new(StdNot::new(base_port)),
             SingleWidthType::And => Box::new(StdAnd::new(base_port)),
@@ -184,10 +185,12 @@ pub fn build_primitive(
                     memories_initialized
                         .insert(ctx.resolve_id(prim.name).clone());
                     CombMem::new_with_init(
-                        base_port, cell_idx, *width, false, dims, data,
+                        base_port, cell_idx, *width, false, dims, data, clocks,
                     )
                 } else {
-                    CombMem::new(base_port, cell_idx, *width, false, dims)
+                    CombMem::new(
+                        base_port, cell_idx, *width, false, dims, clocks,
+                    )
                 }),
             }
         }

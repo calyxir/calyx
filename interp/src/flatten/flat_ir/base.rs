@@ -446,16 +446,22 @@ impl std::fmt::Display for AssignedValue {
 
 impl AssignedValue {
     /// Creates a new AssignedValue
-    pub fn new<T: Into<AssignmentWinner>>(
-        val: BitVecValue,
-        winner: T,
-        thread: Option<ThreadIdx>,
-    ) -> Self {
+    pub fn new<T: Into<AssignmentWinner>>(val: BitVecValue, winner: T) -> Self {
         Self {
             val,
             winner: winner.into(),
-            thread,
+            thread: None,
         }
+    }
+
+    pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
+        self.thread = Some(thread);
+        self
+    }
+
+    pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
+        self.thread = thread;
+        self
     }
 
     /// Returns true if the two AssignedValues do not have the same winner
@@ -475,47 +481,47 @@ impl AssignedValue {
 
     /// A utility constructor which returns a new implicitly assigned value with
     /// a one bit high value
-    pub fn implicit_bit_high(thread: Option<ThreadIdx>) -> Self {
+    pub fn implicit_bit_high() -> Self {
         Self {
             val: BitVecValue::tru(),
             winner: AssignmentWinner::Implicit,
-            thread,
+            thread: None,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_value(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
+    pub fn cell_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Cell,
-            thread,
+            thread: None,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Implicit`] as the winner
     #[inline]
-    pub fn implicit_value(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
+    pub fn implicit_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Implicit,
-            thread,
+            thread: None,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
     /// high value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_b_high(thread: Option<ThreadIdx>) -> Self {
-        Self::cell_value(BitVecValue::tru(), thread)
+    pub fn cell_b_high() -> Self {
+        Self::cell_value(BitVecValue::tru())
     }
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
     /// low value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_b_low(thread: Option<ThreadIdx>) -> Self {
-        Self::cell_value(BitVecValue::fals(), thread)
+    pub fn cell_b_low() -> Self {
+        Self::cell_value(BitVecValue::fals())
     }
 
     pub fn thread(&self) -> Option<ThreadIdx> {
@@ -553,6 +559,16 @@ impl PortValue {
         self.0.as_ref()
     }
 
+    pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
+        self.0.as_mut().map(|x| x.thread = Some(thread));
+        self
+    }
+
+    pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
+        self.0.as_mut().map(|x| x.thread = thread);
+        self
+    }
+
     /// If the value is defined, returns the value cast to a boolean. Otherwise
     /// returns `None`. It will panic if the given value is not one bit wide.
     pub fn as_bool(&self) -> Option<bool> {
@@ -588,18 +604,18 @@ impl PortValue {
     }
 
     /// Creates a [PortValue] that has the "winner" as a cell
-    pub fn new_cell(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
-        Self(Some(AssignedValue::cell_value(val, thread)))
+    pub fn new_cell(val: BitVecValue) -> Self {
+        Self(Some(AssignedValue::cell_value(val)))
     }
 
     /// Creates a width-bit zero [PortValue] that has the "winner" as a cell
-    pub fn new_cell_zeroes(width: u32, thread: Option<ThreadIdx>) -> Self {
-        Self::new_cell(BitVecValue::zero(width), thread)
+    pub fn new_cell_zeroes(width: u32) -> Self {
+        Self::new_cell(BitVecValue::zero(width))
     }
 
     /// Creates a [PortValue] that has the "winner" as implicit
-    pub fn new_implicit(val: BitVecValue, thread: Option<ThreadIdx>) -> Self {
-        Self(Some(AssignedValue::implicit_value(val, thread)))
+    pub fn new_implicit(val: BitVecValue) -> Self {
+        Self(Some(AssignedValue::implicit_value(val)))
     }
 
     /// Sets the value to undefined and returns the former value if present.

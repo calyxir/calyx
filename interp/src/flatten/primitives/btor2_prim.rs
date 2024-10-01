@@ -1,9 +1,15 @@
 use btor2i::program::Btor2Program;
 
-use crate::flatten::flat_ir::prelude::{AssignedValue, GlobalPortIdx};
-use crate::flatten::primitives::prim_trait::{Primitive, UpdateResult};
 use crate::flatten::primitives::{declare_ports, ports};
 use crate::flatten::structures::environment::PortMap;
+use crate::flatten::{
+    flat_ir::prelude::{AssignedValue, GlobalPortIdx},
+    structures::environment::clock::ClockMap,
+};
+use crate::flatten::{
+    primitives::prim_trait::{Primitive, UpdateResult},
+    structures::thread::ThreadMap,
+};
 
 use baa::{BitVecValue, WidthInt};
 // use std::env;
@@ -46,10 +52,10 @@ impl<'a> Primitive for MyBtor2Add<'a> {
         match self.program.borrow_mut().run(input_map) {
             Ok(output_map) => Ok(port_map.insert_val(
                 out,
-                AssignedValue::cell_value(
-                    BitVecValue::from_u64(output_map["out"], self.width),
-                    None,
-                ),
+                AssignedValue::cell_value(BitVecValue::from_u64(
+                    output_map["out"],
+                    self.width,
+                )),
             )?),
             Err(msg) => {
                 panic!("{}", msg);

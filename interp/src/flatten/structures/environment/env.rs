@@ -3,7 +3,7 @@ use super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::{ClockIdx, VectorClock},
+    clock::{ClockIdx, ClockMap, VectorClock},
     program_counter::{PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
@@ -26,7 +26,11 @@ use crate::{
             },
             wires::guards::Guard,
         },
-        primitives::{self, prim_trait::UpdateStatus, Primitive},
+        primitives::{
+            self,
+            prim_trait::{RaceDetectionPrimitive, UpdateStatus},
+            Primitive,
+        },
         structures::{
             context::{LookupName, PortDefinitionInfo},
             environment::{
@@ -120,18 +124,14 @@ impl PortMap {
         &mut self,
         target: GlobalPortIdx,
         done_bool: bool,
-        thread: ThreadIdx,
     ) -> InterpreterResult<UpdateStatus> {
         self.insert_val(
             target,
-            AssignedValue::cell_value(
-                if done_bool {
-                    BitVecValue::tru()
-                } else {
-                    BitVecValue::fals()
-                },
-                Some(thread),
-            ),
+            AssignedValue::cell_value(if done_bool {
+                BitVecValue::tru()
+            } else {
+                BitVecValue::fals()
+            }),
         )
     }
 }
@@ -173,6 +173,9 @@ pub(crate) enum CellLedger {
         // wish there was a better option with this one
         cell_dyn: Box<dyn Primitive>,
     },
+    RaceDetectionPrimitive {
+        cell_dyn: Box<dyn RaceDetectionPrimitive>,
+    },
     Component(ComponentLedger),
 }
 
@@ -209,6 +212,9 @@ impl CellLedger {
     pub fn as_primitive(&self) -> Option<&dyn Primitive> {
         match self {
             Self::Primitive { cell_dyn } => Some(&**cell_dyn),
+            Self::RaceDetectionPrimitive { cell_dyn } => {
+                Some(cell_dyn.as_primitive())
+            }
             _ => None,
         }
     }
@@ -223,6 +229,9 @@ impl Debug for CellLedger {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Primitive { .. } => f.debug_struct("Primitive").finish(),
+            Self::RaceDetectionPrimitive { .. } => {
+                f.debug_struct("RaceDetectionPrimitive").finish()
+            }
             Self::Component(ComponentLedger {
                 index_bases,
                 comp_id,
@@ -278,7 +287,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     pinned_ports: PinnedPorts,
 
-    clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
+    clocks: ClockMap,
     thread_map: ThreadMap,
 
     /// The immutable context. This is retained for ease of use.
@@ -498,6 +507,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     self.ctx.as_ref(),
                     data_map,
                     memories_initialized,
+                    &mut self.clocks,
                 );
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
 
@@ -1364,10 +1374,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let ledger = self.get_root_component();
         let go = &ledger.index_bases
             + self.env.ctx.as_ref().primary[ledger.comp_id].go;
-        self.env.ports[go] = PortValue::new_implicit(
-            BitVecValue::tru(),
-            Some(ThreadMap::root_thread()),
-        );
+        self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -1539,16 +1546,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         self.set_root_go_high();
         // set the pinned values
         for (port, val) in self.env.pinned_ports.iter() {
-            self.env.ports[*port] = PortValue::new_implicit(
-                val.clone(),
-                Some(ThreadMap::root_thread()),
-            );
+            self.env.ports[*port] = PortValue::new_implicit(val.clone());
         }
 
         for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
             self.env.ports[done_port] =
-                PortValue::new_implicit(BitVecValue::tru(), Some(*id));
+                PortValue::new_implicit(BitVecValue::tru());
         }
 
         let (vecs, par_map, mut with_map, repeat_map) =
@@ -1561,11 +1565,15 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
         for node in vecs.iter() {
             let comp_done = self.env.get_comp_done(node.comp);
+            let comp_go = self.env.get_comp_go(node.comp);
+            let thread = node.thread.or_else(|| {
+                self.env.ports[comp_go].as_option().and_then(|t| t.thread())
+            });
 
             // if the done is not high & defined, we need to set it to low
             if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
                 self.env.ports[comp_done] =
-                    PortValue::new_implicit(BitVecValue::fals(), node.thread);
+                    PortValue::new_implicit(BitVecValue::fals());
             }
 
             match &ctx_ref.primary[node.control_node_idx] {
@@ -1579,10 +1587,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                     // set go high
                     let go_idx = index_bases + go_local;
-                    self.env.ports[go_idx] = PortValue::new_implicit(
-                        BitVecValue::tru(),
-                        node.thread,
-                    );
+                    self.env.ports[go_idx] =
+                        PortValue::new_implicit(BitVecValue::tru());
                 }
                 ControlNode::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
@@ -1595,10 +1601,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     }
 
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
-                    self.env.ports[go] = PortValue::new_implicit(
-                        BitVecValue::tru(),
-                        node.thread,
-                    );
+                    self.env.ports[go] =
+                        PortValue::new_implicit(BitVecValue::tru());
 
                     // TODO griffin: should make this skip initialization if
                     // it's already initialized
@@ -1646,10 +1650,22 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
         let out: Result<(), BoxedInterpreterError> = {
             let mut result = Ok(());
-            for (_, cell) in self.env.cells.iter_mut() {
+            for cell in self.env.cells.values_mut() {
                 match cell {
                     CellLedger::Primitive { cell_dyn } => {
                         let res = cell_dyn.exec_cycle(&mut self.env.ports);
+                        if res.is_err() {
+                            result = Err(res.unwrap_err());
+                            break;
+                        }
+                    }
+
+                    CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                        let res = cell_dyn.exec_cycle_checked(
+                            &mut self.env.ports,
+                            &mut self.env.clocks,
+                            &self.env.thread_map,
+                        );
                         if res.is_err() {
                             result = Err(res.unwrap_err());
                             break;
@@ -2074,7 +2090,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                     AssignedValue::new(
                                         v.val().clone(),
                                         assign_idx,
-                                        thread,
                                     ),
                                 )?;
 
@@ -2097,6 +2112,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     CellLedger::Primitive { cell_dyn } => {
                         Some(cell_dyn.exec_comb(&mut self.env.ports))
                     }
+                    CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                        Some(cell_dyn.exec_comb_checked(
+                            &mut self.env.ports,
+                            &mut self.env.clocks,
+                            &self.env.thread_map,
+                        ))
+                    }
+
                     CellLedger::Component(_) => None,
                 })
                 .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
@@ -2112,10 +2135,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             if !has_changed {
                 for (done_port, thread) in &done_ports {
                     if self.env.ports[*done_port].is_undef() {
-                        self.env.ports[*done_port] = PortValue::new_implicit(
-                            BitVecValue::fals(),
-                            *thread,
-                        );
+                        self.env.ports[*done_port] =
+                            PortValue::new_implicit(BitVecValue::fals());
                         has_changed = true;
                     }
                 }

@@ -3,7 +3,7 @@ use crate::flatten::{
         base::{AssignmentWinner, ComponentIdx, GlobalCellIdx, GlobalPortIdx},
         prelude::AssignedValue,
     },
-    structures::environment::Environment,
+    structures::environment::{clock::ClockError, Environment},
 };
 use baa::{BitVecOps, BitVecValue};
 use calyx_ir::Id;
@@ -196,6 +196,9 @@ pub enum InterpreterError {
     /// A wrapper for serialization errors
     #[error(transparent)]
     SerializationError(#[from] crate::serialization::SerializationError),
+
+    #[error(transparent)]
+    ClockError(#[from] ClockError),
 
     /// A nonspecific error, used for arbitrary messages
     #[error("{0}")]

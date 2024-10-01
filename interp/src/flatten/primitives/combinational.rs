@@ -2,9 +2,14 @@ use crate::flatten::{
     flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
     primitives::{
         all_defined, comb_primitive, declare_ports, ports,
-        prim_trait::UpdateStatus, utils::floored_division, Primitive,
+        prim_trait::UpdateStatus,
+        utils::{floored_division, infer_thread_id},
+        Primitive,
     },
-    structures::environment::PortMap,
+    structures::{
+        environment::{clock::ClockMap, PortMap},
+        thread::ThreadMap,
+    },
 };
 
 use baa::{BitVecOps, BitVecValue};
@@ -26,7 +31,7 @@ impl Primitive for StdConst {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         Ok(if port_map[self.out].is_undef() {
             // A constant cannot meaningfully be said to belong to a given thread
-            port_map[self.out] = PortValue::new_cell(self.value.clone(), None);
+            port_map[self.out] = PortValue::new_cell(self.value.clone());
             UpdateStatus::Changed
         } else {
             UpdateStatus::Unchanged
@@ -69,7 +74,6 @@ impl Primitive for StdMux {
                 out,
                 AssignedValue::cell_value(
                     port_map[winning_idx.unwrap()].val().unwrap().clone(),
-                    todo!("Implement thread id"),
                 ),
             )?)
         } else {

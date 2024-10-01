@@ -42,8 +42,8 @@ impl ThreadMap {
 
     /// Lookup the clock associated with the given thread id. Panics if the
     /// thread id is invalid.
-    pub fn unwrap_clock_id(&self, thread_id: &ThreadIdx) -> ClockIdx {
-        self.map.get(*thread_id).unwrap().clock_id
+    pub fn unwrap_clock_id(&self, thread_id: ThreadIdx) -> ClockIdx {
+        self.map.get(thread_id).unwrap().clock_id
     }
 
     /// Create a new thread with the given parent and clock id. Returns the new
