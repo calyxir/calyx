@@ -1,15 +1,9 @@
 use btor2i::program::Btor2Program;
 
+use crate::flatten::flat_ir::prelude::{AssignedValue, GlobalPortIdx};
+use crate::flatten::primitives::prim_trait::{Primitive, UpdateResult};
 use crate::flatten::primitives::{declare_ports, ports};
 use crate::flatten::structures::environment::PortMap;
-use crate::flatten::{
-    flat_ir::prelude::{AssignedValue, GlobalPortIdx},
-    structures::environment::clock::ClockMap,
-};
-use crate::flatten::{
-    primitives::prim_trait::{Primitive, UpdateResult},
-    structures::thread::ThreadMap,
-};
 
 use baa::{BitVecValue, WidthInt};
 // use std::env;

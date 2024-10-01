@@ -2,14 +2,9 @@ use crate::flatten::{
     flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
     primitives::{
         all_defined, comb_primitive, declare_ports, ports,
-        prim_trait::UpdateStatus,
-        utils::{floored_division, infer_thread_id},
-        Primitive,
+        prim_trait::UpdateStatus, utils::floored_division, Primitive,
     },
-    structures::{
-        environment::{clock::ClockMap, PortMap},
-        thread::ThreadMap,
-    },
+    structures::environment::PortMap,
 };
 
 use baa::{BitVecOps, BitVecValue};

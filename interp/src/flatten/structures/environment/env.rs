@@ -3,7 +3,7 @@ use super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::{ClockIdx, ClockMap, VectorClock},
+    clock::{ClockMap, VectorClock},
     program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };

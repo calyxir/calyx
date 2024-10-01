@@ -13,7 +13,6 @@ pub struct ClockIdx(u32);
 impl_index!(ClockIdx);
 
 use baa::BitVecValue;
-use ciborium::value;
 use itertools::Itertools;
 use thiserror::Error;
 

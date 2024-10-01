@@ -561,12 +561,16 @@ impl PortValue {
     }
 
     pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
-        self.0.as_mut().map(|x| x.thread = Some(thread));
+        if let Some(val) = self.0.as_mut() {
+            val.thread = Some(thread);
+        }
         self
     }
 
     pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
-        self.0.as_mut().map(|x| x.thread = thread);
+        if let Some(val) = self.0.as_mut() {
+            val.thread = thread;
+        }
         self
     }
 

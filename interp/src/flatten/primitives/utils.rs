@@ -87,10 +87,7 @@ macro_rules! get_params {
 
 pub(crate) use get_params;
 
-use crate::flatten::{
-    flat_ir::base::{AssignedValue, PortValue},
-    structures::thread::ThreadIdx,
-};
+use crate::flatten::{flat_ir::base::PortValue, structures::thread::ThreadIdx};
 
 pub fn infer_thread_id<'a, I: Iterator<Item = &'a PortValue>>(
     iter: I,

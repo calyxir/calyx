@@ -4,7 +4,7 @@ use crate::{
     errors::InterpreterError,
     flatten::{
         flat_ir::{
-            base::{self, GlobalCellIdx},
+            base::GlobalCellIdx,
             prelude::{AssignedValue, GlobalPortIdx, PortValue},
         },
         primitives::{
@@ -15,7 +15,7 @@ use crate::{
         },
         structures::{
             environment::{
-                clock::{self, ClockMap, ValueWithClock},
+                clock::{ClockMap, ValueWithClock},
                 PortMap,
             },
             index_trait::IndexRef,
