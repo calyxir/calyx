@@ -4,5 +4,7 @@ mod env;
 mod program_counter;
 mod traverser;
 
-pub use env::{CellLedger, Environment, PortMap, Simulator};
+pub use env::{Environment, PortMap, Simulator};
 pub use traverser::{Path, PathError, PathResolution};
+
+pub(crate) use env::CellLedger;

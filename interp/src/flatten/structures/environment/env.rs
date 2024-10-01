@@ -168,7 +168,7 @@ impl ComponentLedger {
 
 /// An enum encapsulating cell functionality. It is either a pointer to a
 /// primitive or information about a calyx component instance
-pub enum CellLedger {
+pub(crate) enum CellLedger {
     Primitive {
         // wish there was a better option with this one
         cell_dyn: Box<dyn Primitive>,
