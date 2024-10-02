@@ -696,6 +696,19 @@ impl SeqMem {
             .flat_map(|x| x.value.to_bytes_le())
             .collect()
     }
+
+    fn infer_thread(&self, port_map: &mut PortMap) -> Option<ThreadIdx> {
+        let ports = self
+            .addresser
+            .iter_addr_ports(self.base_port)
+            .chain([
+                self.content_enable(),
+                self.write_data(),
+                self.write_enable(),
+            ])
+            .map(|x| &port_map[x]);
+        infer_thread_id(ports)
+    }
 }
 
 impl Primitive for SeqMem {
@@ -814,9 +827,34 @@ impl RaceDetectionPrimitive for SeqMem {
     fn exec_cycle_checked(
         &mut self,
         port_map: &mut PortMap,
-        _clock_map: &mut ClockMap,
-        _thread_map: &ThreadMap,
+        clock_map: &mut ClockMap,
+        thread_map: &ThreadMap,
     ) -> UpdateResult {
+        let thread = self.infer_thread(port_map);
+        if let Some(addr) =
+            self.addresser.calculate_addr(port_map, self.base_port)
+        {
+            if addr < self.internal_state.len() {
+                let thread =
+                    thread.expect("Could not infer thread id for seq mem");
+                let thread_clock = thread_map.unwrap_clock_id(thread);
+
+                let val = &self.internal_state[addr];
+
+                if port_map[self.write_enable()].as_bool().unwrap_or_default()
+                    && port_map[self.content_enable()]
+                        .as_bool()
+                        .unwrap_or_default()
+                {
+                    val.check_write(thread_clock, clock_map)?;
+                } else if port_map[self.content_enable()]
+                    .as_bool()
+                    .unwrap_or_default()
+                {
+                    val.check_read(thread_clock, clock_map)?;
+                }
+            }
+        }
         self.exec_cycle(port_map)
     }
 }
