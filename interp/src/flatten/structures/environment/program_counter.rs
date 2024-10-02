@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::{collections::hash_map::Entry, num::NonZeroU32};
 
 use ahash::{HashMap, HashMapExt};
 
@@ -381,6 +381,7 @@ pub(crate) struct ProgramCounter {
     with_map: HashMap<ControlPoint, WithEntry>,
     repeat_map: HashMap<ControlPoint, u64>,
     just_finished_comps: Vec<(GlobalCellIdx, ThreadIdx)>,
+    thread_memoizer: HashMap<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx>,
 }
 
 pub type ControlTuple = (Option<ThreadIdx>, ControlPoint);
@@ -408,6 +409,7 @@ impl ProgramCounter {
             with_map: HashMap::new(),
             repeat_map: HashMap::new(),
             just_finished_comps: Vec::new(),
+            thread_memoizer: HashMap::new(),
         }
     }
 
@@ -475,6 +477,15 @@ impl ProgramCounter {
 
     pub fn clear_finished_comps(&mut self) {
         self.just_finished_comps.clear()
+    }
+
+    pub fn lookup_thread(
+        &mut self,
+        comp: GlobalCellIdx,
+        thread: ThreadIdx,
+        control: ControlIdx,
+    ) -> Entry<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx> {
+        self.thread_memoizer.entry((comp, thread, control))
     }
 }
 

@@ -1795,11 +1795,22 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         ),
                     );
                     new_nodes.extend(par.stms().iter().map(|x| {
-                        let new_clock_idx = self.env.clocks.fork_clock(
-                            self.env.thread_map.unwrap_clock_id(thread),
-                        );
-                        let new_thread_idx =
-                            self.env.thread_map.spawn(thread, new_clock_idx);
+                        let new_thread_idx: ThreadIdx = *(self
+                            .env
+                            .pc
+                            .lookup_thread(node.comp, thread, *x)
+                            .or_insert_with(|| {
+                                let new_clock_idx = self.env.clocks.new_clock();
+
+                                self.env.thread_map.spawn(thread, new_clock_idx)
+                            }));
+
+                        let new_clock_idx =
+                            self.env.thread_map.unwrap_clock_id(new_thread_idx);
+
+                        self.env.clocks[new_clock_idx] = self.env.clocks
+                            [self.env.thread_map.unwrap_clock_id(thread)]
+                        .clone();
 
                         self.env.clocks[new_clock_idx]
                             .increment(&new_thread_idx);
