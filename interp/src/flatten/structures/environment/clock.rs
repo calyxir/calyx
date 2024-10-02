@@ -312,11 +312,6 @@ impl ValueWithClock {
         } else {
             // This implies that the write happened before both the read and the
             // write which I think shouldn't be possible but also I am not sure.
-            dbg!(
-                &clocks[writing_clock],
-                &clocks[self.write_clock],
-                &clocks[self.read_clock]
-            );
             panic!("something weird happened. TODO griffin: Sort this out")
         }
     }
