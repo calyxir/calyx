@@ -4,8 +4,11 @@ use std::{
     hash::Hash,
 };
 
-use crate::flatten::structures::{
-    index_trait::impl_index, indexed_map::IndexedMap, thread::ThreadIdx,
+use crate::flatten::{
+    flat_ir::base::GlobalCellIdx,
+    structures::{
+        index_trait::impl_index, indexed_map::IndexedMap, thread::ThreadIdx,
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -300,15 +303,20 @@ impl ValueWithClock {
             .partial_cmp(&clocks[self.read_clock])
             .is_none()
         {
-            Err(ClockError::ReadWrite)
+            Err(ClockError::ReadWriteUnhelpful)
         } else if clocks[writing_clock]
             .partial_cmp(&clocks[self.write_clock])
             .is_none()
         {
-            Err(ClockError::WriteWrite)
+            Err(ClockError::WriteWriteUnhelpful)
         } else {
             // This implies that the write happened before both the read and the
             // write which I think shouldn't be possible but also I am not sure.
+            dbg!(
+                &clocks[writing_clock],
+                &clocks[self.write_clock],
+                &clocks[self.read_clock]
+            );
             panic!("something weird happened. TODO griffin: Sort this out")
         }
     }
@@ -332,7 +340,7 @@ impl ValueWithClock {
             .partial_cmp(&clocks[self.write_clock])
             .is_none()
         {
-            Err(ClockError::ReadWrite)
+            Err(ClockError::ReadWriteUnhelpful)
         } else {
             // This implies that the read happens before the write which I think
             // shouldn't be possible but also I am not sure.
@@ -352,10 +360,24 @@ impl ValueWithClock {
 
 #[derive(Debug, Clone, Error)]
 pub enum ClockError {
-    #[error("Concurrent read & write to the same register")]
-    ReadWrite,
-    #[error("Concurrent writes to the same register")]
-    WriteWrite,
+    #[error("Concurrent read & write to the same register/memory")]
+    ReadWriteUnhelpful,
+    #[error("Concurrent writes to the same register/memory")]
+    WriteWriteUnhelpful,
+    #[error("Concurrent read & write to the same register/memory {0:?}")]
+    ReadWrite(GlobalCellIdx),
+    #[error("Concurrent writes to the same register/memory {0:?}")]
+    WriteWrite(GlobalCellIdx),
+}
+
+impl ClockError {
+    pub fn add_cell_info(self, cell: GlobalCellIdx) -> Self {
+        match self {
+            ClockError::ReadWriteUnhelpful => ClockError::ReadWrite(cell),
+            ClockError::WriteWriteUnhelpful => ClockError::WriteWrite(cell),
+            _ => self,
+        }
+    }
 }
 
 #[cfg(test)]

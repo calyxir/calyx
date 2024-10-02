@@ -521,29 +521,29 @@ impl RaceDetectionPrimitive for CombMem {
         self
     }
 
-    fn exec_comb_checked(
-        &self,
-        port_map: &mut PortMap,
-        clock_map: &mut ClockMap,
-        thread_map: &ThreadMap,
-    ) -> UpdateResult {
-        let thread = self.infer_thread(port_map);
+    // fn exec_comb_checked(
+    //     &self,
+    //     port_map: &mut PortMap,
+    //     clock_map: &mut ClockMap,
+    //     thread_map: &ThreadMap,
+    // ) -> UpdateResult {
+    //     let thread = self.infer_thread(port_map);
 
-        if let Some(addr) =
-            self.addresser.calculate_addr(port_map, self.base_port)
-        {
-            if addr < self.internal_state.len() {
-                let thread =
-                    thread.expect("Could not infer thread id for comb mem");
-                let reading_clock = thread_map.unwrap_clock_id(thread);
+    //     if let Some(addr) =
+    //         self.addresser.calculate_addr(port_map, self.base_port)
+    //     {
+    //         if addr < self.internal_state.len() {
+    //             let thread =
+    //                 thread.expect("Could not infer thread id for comb mem");
+    //             let reading_clock = thread_map.unwrap_clock_id(thread);
 
-                let val = &self.internal_state[addr];
-                val.check_read(reading_clock, clock_map)?;
-            }
-        }
+    //             let val = &self.internal_state[addr];
+    //             val.check_read(reading_clock, clock_map)?;
+    //         }
+    //     }
 
-        self.exec_comb(port_map)
-    }
+    //     self.exec_comb(port_map)
+    // }
 
     fn exec_cycle_checked(
         &mut self,
@@ -563,10 +563,12 @@ impl RaceDetectionPrimitive for CombMem {
                 let val = &self.internal_state[addr];
 
                 if port_map[self.write_en()].as_bool().unwrap_or_default() {
-                    val.check_write(thread_clock, clock_map)?;
+                    val.check_write(thread_clock, clock_map)
+                        .map_err(|e| e.add_cell_info(self.global_idx))?;
                 }
 
-                val.check_read(thread_clock, clock_map)?;
+                val.check_read(thread_clock, clock_map)
+                    .map_err(|e| e.add_cell_info(self.global_idx))?;
             }
         }
 
@@ -846,12 +848,14 @@ impl RaceDetectionPrimitive for SeqMem {
                         .as_bool()
                         .unwrap_or_default()
                 {
-                    val.check_write(thread_clock, clock_map)?;
+                    val.check_write(thread_clock, clock_map)
+                        .map_err(|e| e.add_cell_info(self.global_idx))?;
                 } else if port_map[self.content_enable()]
                     .as_bool()
                     .unwrap_or_default()
                 {
-                    val.check_read(thread_clock, clock_map)?;
+                    val.check_read(thread_clock, clock_map)
+                        .map_err(|e| e.add_cell_info(self.global_idx))?;
                 }
             }
         }

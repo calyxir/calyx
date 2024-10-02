@@ -8,6 +8,7 @@ use crate::flatten::{
 use baa::{BitVecOps, BitVecValue};
 use calyx_ir::Id;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
+use owo_colors::OwoColorize;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -298,6 +299,13 @@ impl InterpreterError {
             InterpreterError::UndefinedWrite(c) => InterpreterError::GenericError(format!("Attempted to write an undefined value to register or memory named \"{}\"", env.get_full_name(c))),
             InterpreterError::UndefinedWriteAddr(c) => InterpreterError::GenericError(format!("Attempted to write to an undefined memory address in memory named \"{}\"", env.get_full_name(c))),
             InterpreterError::UndefinedReadAddr(c) => InterpreterError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
+            InterpreterError::ClockError(clk) => {
+                match clk {
+                    ClockError::ReadWrite(c) => InterpreterError::GenericError(format!("Concurrent read & write to the same register/memory {}", env.get_full_name(c).underline())),
+                    ClockError::WriteWrite(c) => InterpreterError::GenericError(format!("Concurrent writes to the same register/memory {}", env.get_full_name(c).underline())),
+                    _ => InterpreterError::ClockError(clk),
+                }
+            }
             e => e,
         }
     }
