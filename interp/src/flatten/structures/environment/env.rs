@@ -49,6 +49,7 @@ use ahash::{HashMap, HashMapExt};
 use baa::{BitVecOps, BitVecValue};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+
 use slog::warn;
 use std::fmt::Debug;
 use std::fmt::Write;
@@ -793,7 +794,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
-    fn _get_parent_cell_from_port(
+    fn get_parent_cell_from_port(
         &self,
         port: PortRef,
         comp: GlobalCellIdx,
@@ -1694,15 +1695,22 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let (mut vecs, mut par_map, mut with_map, mut repeat_map) =
             self.env.pc.take_fields();
 
-        // TODO griffin: This has become an unwieldy mess and should really be
-        // refactored into a handful of internal functions
-        vecs.retain_mut(|node| {
-            self.evaluate_control_node(
+        let mut removed = vec![];
+
+        for (i, node) in vecs.iter_mut().enumerate() {
+            let keep_node = self.evaluate_control_node(
                 node,
                 &mut new_nodes,
                 (&mut par_map, &mut with_map, &mut repeat_map),
-            )
-        });
+            )?;
+            if !keep_node {
+                removed.push(i);
+            }
+        }
+
+        for i in removed.into_iter().rev() {
+            vecs.swap_remove(i);
+        }
 
         self.env
             .pc
@@ -1719,7 +1727,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         node: &mut ControlTuple,
         new_nodes: &mut Vec<ControlTuple>,
         maps: PcMaps,
-    ) -> bool {
+    ) -> InterpreterResult<bool> {
         let (node_thread, node) = node;
         let (par_map, with_map, repeat_map) = maps;
         let comp_go = self.env.get_comp_go(node.comp);
@@ -1738,7 +1746,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         {
             // if the go port is low or the done port is high, we skip the
             // node without doing anything
-            return true;
+            return Ok(true);
         }
 
         // just considering a single node case for the moment
@@ -1814,8 +1822,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     false
                 }
             }
-            ControlNode::If(i) => self.handle_if(with_map, node, i),
-            ControlNode::While(w) => self.handle_while(w, with_map, node),
+            ControlNode::If(i) => {
+                self.handle_if(with_map, node, thread.unwrap(), i)?
+            }
+            ControlNode::While(w) => {
+                self.handle_while(w, with_map, node, thread.unwrap())?
+            }
             ControlNode::Repeat(rep) => {
                 if let Some(count) = repeat_map.get_mut(node) {
                     *count -= 1;
@@ -1892,9 +1904,9 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     .control
                     .unwrap(),
             );
-            true
+            Ok(true)
         } else {
-            retain_bool
+            Ok(retain_bool)
         }
     }
 
@@ -1903,34 +1915,45 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         w: &While,
         with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
-    ) -> bool {
+        thread: ThreadIdx,
+    ) -> InterpreterResult<bool> {
         let target = GlobalPortRef::from_local(
             w.cond_port(),
             &self.env.cells[node.comp].unwrap_comp().index_bases,
         );
 
-        let result = match target {
-            GlobalPortRef::Port(p) => self.env.ports[p]
-                .as_bool()
-                .expect("while condition is undefined"),
-            GlobalPortRef::Ref(r) => {
-                let index = self.env.ref_ports[r].unwrap();
-                self.env.ports[index]
-                    .as_bool()
-                    .expect("while condition is undefined")
-            }
+        let idx = match target {
+            GlobalPortRef::Port(p) => p,
+            GlobalPortRef::Ref(r) => self.env.ref_ports[r]
+                .expect("While condition (ref) is undefined"),
         };
+
+        if let Some(clocks) = self.env.ports[idx].clocks() {
+            let read_clock = self.env.thread_map.unwrap_clock_id(thread);
+            clocks
+                .check_read(read_clock, &mut self.env.clocks)
+                .map_err(|e| {
+                    e.add_cell_info(
+                        self.env
+                            .get_parent_cell_from_port(w.cond_port(), node.comp)
+                            .unwrap(),
+                    )
+                })?;
+        }
+        let result = self.env.ports[idx]
+            .as_bool()
+            .expect("While condition is undefined");
 
         if result {
             // enter the body
             *node = node.new_retain_comp(w.body());
-            true
+            Ok(true)
         } else {
             if w.cond_group().is_some() {
                 with_map.remove(node);
             }
             // ascend the tree
-            node.mutate_into_next(self.env.ctx.as_ref())
+            Ok(node.mutate_into_next(self.env.ctx.as_ref()))
         }
     }
 
@@ -1938,11 +1961,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         &mut self,
         with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
+        thread: ThreadIdx,
         i: &If,
-    ) -> bool {
+    ) -> InterpreterResult<bool> {
         if i.cond_group().is_some() && with_map.get(node).unwrap().entered {
             with_map.remove(node);
-            node.mutate_into_next(self.env.ctx.as_ref())
+            Ok(node.mutate_into_next(self.env.ctx.as_ref()))
         } else {
             if let Some(entry) = with_map.get_mut(node) {
                 entry.set_entered()
@@ -1952,21 +1976,35 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 i.cond_port(),
                 &self.env.cells[node.comp].unwrap_comp().index_bases,
             );
-            let result = match target {
-                GlobalPortRef::Port(p) => self.env.ports[p]
-                    .as_bool()
-                    .expect("if condition is undefined"),
-                GlobalPortRef::Ref(r) => {
-                    let index = self.env.ref_ports[r].unwrap();
-                    self.env.ports[index]
-                        .as_bool()
-                        .expect("if condition is undefined")
-                }
+            let idx = match target {
+                GlobalPortRef::Port(p) => p,
+                GlobalPortRef::Ref(r) => self.env.ref_ports[r]
+                    .expect("If condition (ref) is undefined"),
             };
+
+            if let Some(clocks) = self.env.ports[idx].clocks() {
+                let read_clock = self.env.thread_map.unwrap_clock_id(thread);
+                clocks
+                    .check_read(read_clock, &mut self.env.clocks)
+                    .map_err(|e| {
+                        e.add_cell_info(
+                            self.env
+                                .get_parent_cell_from_port(
+                                    i.cond_port(),
+                                    node.comp,
+                                )
+                                .unwrap(),
+                        )
+                    })?;
+            }
+
+            let result = self.env.ports[idx]
+                .as_bool()
+                .expect("If condition is undefined");
 
             let target = if result { i.tbranch() } else { i.fbranch() };
             *node = node.new_retain_comp(target);
-            true
+            Ok(true)
         }
     }
 
@@ -1980,7 +2018,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
             // self.print_pc();
-            self.step()?
+            self.step().map_err(|e| e.prettify_message(&self.env))?
         }
         Ok(())
     }
@@ -2134,12 +2172,11 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                         // TODO griffin: find a less hacky way to
                                         // do this
                                         e.add_cell_info(
-                                            *self
-                                                .env
-                                                .get_parent_path_from_port(port)
-                                                .unwrap()
-                                                .0
-                                                .last()
+                                            self.env
+                                                .get_parent_cell_from_port(
+                                                    assign.src,
+                                                    *active_cell,
+                                                )
                                                 .unwrap(),
                                         )
                                     })?;

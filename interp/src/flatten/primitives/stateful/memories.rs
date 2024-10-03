@@ -83,10 +83,6 @@ impl Primitive for StdReg {
             port_map.insert_val(
                 done,
                 AssignedValue::cell_value(BitVecValue::tru()),
-            )? | port_map.insert_val(
-                out_idx,
-                AssignedValue::cell_value(self.internal_state.value.clone())
-                    .with_clocks(self.internal_state.clocks),
             )?
         } else {
             self.done_is_high = false;
@@ -99,7 +95,8 @@ impl Primitive for StdReg {
         Ok(done_port
             | port_map.insert_val(
                 out_idx,
-                AssignedValue::cell_value(self.internal_state.value.clone()),
+                AssignedValue::cell_value(self.internal_state.value.clone())
+                    .with_clocks(self.internal_state.clocks),
             )?)
     }
 

@@ -52,8 +52,8 @@ component main() -> () {
       };
 
       seq {                   // T3
-          write_b;            // T3_1
           write_cond;         // T3_2
+          write_b;            // T3_1
       }
     }
   }
