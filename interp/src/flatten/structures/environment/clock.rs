@@ -2,18 +2,20 @@ use std::{
     cmp::{max, Ordering},
     collections::HashMap,
     hash::Hash,
+    num::NonZeroU32,
 };
 
 use crate::flatten::{
     flat_ir::base::GlobalCellIdx,
     structures::{
-        index_trait::impl_index, indexed_map::IndexedMap, thread::ThreadIdx,
+        index_trait::impl_index_nonzero, indexed_map::IndexedMap,
+        thread::ThreadIdx,
     },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ClockIdx(u32);
-impl_index!(ClockIdx);
+pub struct ClockIdx(NonZeroU32);
+impl_index_nonzero!(ClockIdx);
 
 use baa::BitVecValue;
 use itertools::Itertools;
