@@ -251,8 +251,7 @@ where
 #[derive(Debug, Clone)]
 pub struct ValueWithClock {
     pub value: BitVecValue,
-    pub write_clock: ClockIdx,
-    pub read_clock: ClockIdx,
+    pub clocks: ClockPair,
 }
 
 impl ValueWithClock {
@@ -263,8 +262,7 @@ impl ValueWithClock {
     ) -> Self {
         Self {
             value: BitVecValue::zero(width),
-            write_clock: writing_clock,
-            read_clock: reading_clock,
+            clocks: ClockPair::new(reading_clock, writing_clock),
         }
     }
 
@@ -275,8 +273,7 @@ impl ValueWithClock {
     ) -> Self {
         Self {
             value,
-            write_clock,
-            read_clock,
+            clocks: ClockPair::new(read_clock, write_clock),
         }
     }
 
@@ -284,57 +281,56 @@ impl ValueWithClock {
         &mut self,
         writing_clock: ClockIdx,
         value: BitVecValue,
-        clocks: &mut ClockMap,
+        clock_map: &mut ClockMap,
     ) -> Result<(), ClockError> {
-        self.check_write(writing_clock, clocks)?;
+        self.clocks.check_write(writing_clock, clock_map)?;
         self.value = value;
         Ok(())
     }
 
-    pub fn check_write(
+    pub fn read(
         &self,
-        writing_clock: ClockIdx,
-        clocks: &mut ClockMap,
-    ) -> Result<(), ClockError> {
-        if clocks[writing_clock] >= clocks[self.write_clock]
-            && clocks[writing_clock] >= clocks[self.read_clock]
-        {
-            clocks[self.write_clock] = clocks[writing_clock].clone();
-            Ok(())
-        } else if clocks[writing_clock]
-            .partial_cmp(&clocks[self.read_clock])
-            .is_none()
-        {
-            Err(ClockError::ReadWriteUnhelpful)
-        } else if clocks[writing_clock]
-            .partial_cmp(&clocks[self.write_clock])
-            .is_none()
-        {
-            Err(ClockError::WriteWriteUnhelpful)
-        } else {
-            // This implies that the write happened before both the read and the
-            // write which I think shouldn't be possible but also I am not sure.
-            panic!("something weird happened. TODO griffin: Sort this out")
+        reading_clock: ClockIdx,
+        clock_map: &mut ClockMap,
+    ) -> Result<&BitVecValue, ClockError> {
+        self.clocks.check_read(reading_clock, clock_map)?;
+        Ok(&self.value)
+    }
+}
+
+/// A struct containing the read and write clocks for a value. This is small
+/// enough to be copied around easily
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct ClockPair {
+    pub read_clock: ClockIdx,
+    pub write_clock: ClockIdx,
+}
+
+impl ClockPair {
+    pub fn new(read_clock: ClockIdx, write_clock: ClockIdx) -> Self {
+        Self {
+            read_clock,
+            write_clock,
         }
     }
 
     pub fn check_read(
         &self,
         reading_clock: ClockIdx,
-        clocks: &mut ClockMap,
+        clock_map: &mut ClockMap,
     ) -> Result<(), ClockError> {
-        if clocks[reading_clock] >= clocks[self.write_clock] {
+        if clock_map[reading_clock] >= clock_map[self.write_clock] {
             // TODO griffin: this is doing extra allocation. Probably would be
             // better to mutate the self.read_clock field directly but that
             // would require using some std::mem::take or otherwise getting
             // tricky (split_at_mut) to avoid issues with borrowing
-            clocks[self.read_clock] = VectorClock::join(
-                &clocks[self.read_clock],
-                &clocks[reading_clock],
+            clock_map[self.read_clock] = VectorClock::join(
+                &clock_map[self.read_clock],
+                &clock_map[reading_clock],
             );
             Ok(())
-        } else if clocks[reading_clock]
-            .partial_cmp(&clocks[self.write_clock])
+        } else if clock_map[reading_clock]
+            .partial_cmp(&clock_map[self.write_clock])
             .is_none()
         {
             Err(ClockError::ReadWriteUnhelpful)
@@ -345,13 +341,31 @@ impl ValueWithClock {
         }
     }
 
-    pub fn read(
+    pub fn check_write(
         &self,
-        reading_clock: ClockIdx,
-        clocks: &mut ClockMap,
-    ) -> Result<&BitVecValue, ClockError> {
-        self.check_read(reading_clock, clocks)?;
-        Ok(&self.value)
+        writing_clock: ClockIdx,
+        clock_map: &mut ClockMap,
+    ) -> Result<(), ClockError> {
+        if clock_map[writing_clock] >= clock_map[self.write_clock]
+            && clock_map[writing_clock] >= clock_map[self.read_clock]
+        {
+            clock_map[self.write_clock] = clock_map[writing_clock].clone();
+            Ok(())
+        } else if clock_map[writing_clock]
+            .partial_cmp(&clock_map[self.read_clock])
+            .is_none()
+        {
+            Err(ClockError::ReadWriteUnhelpful)
+        } else if clock_map[writing_clock]
+            .partial_cmp(&clock_map[self.write_clock])
+            .is_none()
+        {
+            Err(ClockError::WriteWriteUnhelpful)
+        } else {
+            // This implies that the write happened before both the read and the
+            // write which I think shouldn't be possible but also I am not sure.
+            panic!("something weird happened. TODO griffin: Sort this out")
+        }
     }
 }
 

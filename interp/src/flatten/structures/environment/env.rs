@@ -1373,16 +1373,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         self.lookup_global_cell_id(ledger.convert_to_global_cell(cell))
     }
 
-    #[inline]
-    fn get_value(
-        &self,
-        port: &PortRef,
-        parent_comp: GlobalCellIdx,
-    ) -> &PortValue {
-        let port_idx = self.get_global_port_idx(port, parent_comp);
-        &self.env.ports[port_idx]
-    }
-
     pub(crate) fn get_root_component(&self) -> &ComponentLedger {
         self.env.cells[Environment::<C>::get_root()]
             .as_comp()
@@ -2125,7 +2115,36 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             .evaluate_guard(assign.guard, *active_cell)
                             .unwrap_or_default()
                         {
-                            let val = self.get_value(&assign.src, *active_cell);
+                            let port = self
+                                .get_global_port_idx(&assign.src, *active_cell);
+                            let val = &self.env.ports[port];
+
+                            if let Some(clocks) = val.clocks() {
+                                let thread =
+                                    thread.expect("cannot determine thread");
+                                let thread_clock =
+                                    self.env.thread_map.unwrap_clock_id(thread);
+
+                                clocks
+                                    .check_read(
+                                        thread_clock,
+                                        &mut self.env.clocks,
+                                    )
+                                    .map_err(|e| {
+                                        // TODO griffin: find a less hacky way to
+                                        // do this
+                                        e.add_cell_info(
+                                            *self
+                                                .env
+                                                .get_parent_path_from_port(port)
+                                                .unwrap()
+                                                .0
+                                                .last()
+                                                .unwrap(),
+                                        )
+                                    })?;
+                            }
+
                             let dest = self
                                 .get_global_port_idx(&assign.dst, *active_cell);
 

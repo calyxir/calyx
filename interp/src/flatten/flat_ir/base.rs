@@ -6,6 +6,7 @@ use std::{
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
     flatten::structures::{
+        environment::clock::ClockPair,
         index_trait::{impl_index, impl_index_nonzero, IndexRange, IndexRef},
         thread::ThreadIdx,
     },
@@ -426,6 +427,7 @@ pub struct AssignedValue {
     val: BitVecValue,
     winner: AssignmentWinner,
     thread: Option<ThreadIdx>,
+    clocks: Option<ClockPair>,
 }
 
 impl std::fmt::Debug for AssignedValue {
@@ -452,6 +454,7 @@ impl AssignedValue {
             val,
             winner: winner.into(),
             thread: None,
+            clocks: None,
         }
     }
 
@@ -462,6 +465,11 @@ impl AssignedValue {
 
     pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
         self.thread = thread;
+        self
+    }
+
+    pub fn with_clocks(mut self, clock_pair: ClockPair) -> Self {
+        self.clocks = Some(clock_pair);
         self
     }
 
@@ -487,6 +495,7 @@ impl AssignedValue {
             val: BitVecValue::tru(),
             winner: AssignmentWinner::Implicit,
             thread: None,
+            clocks: None,
         }
     }
 
@@ -498,6 +507,7 @@ impl AssignedValue {
             val,
             winner: AssignmentWinner::Cell,
             thread: None,
+            clocks: None,
         }
     }
 
@@ -509,6 +519,7 @@ impl AssignedValue {
             val,
             winner: AssignmentWinner::Implicit,
             thread: None,
+            clocks: None,
         }
     }
 
@@ -527,6 +538,10 @@ impl AssignedValue {
 
     pub fn thread(&self) -> Option<ThreadIdx> {
         self.thread
+    }
+
+    pub fn clocks(&self) -> Option<&ClockPair> {
+        self.clocks.as_ref()
     }
 }
 
@@ -590,6 +605,10 @@ impl PortValue {
     /// returns `None`.
     pub fn val(&self) -> Option<&BitVecValue> {
         self.0.as_ref().map(|x| &x.val)
+    }
+
+    pub fn clocks(&self) -> Option<ClockPair> {
+        self.0.as_ref().and_then(|x| x.clocks)
     }
 
     /// Returns a reference to the underlying [`AssignmentWinner`] if it is

@@ -85,7 +85,8 @@ impl Primitive for StdReg {
                 AssignedValue::cell_value(BitVecValue::tru()),
             )? | port_map.insert_val(
                 out_idx,
-                AssignedValue::cell_value(self.internal_state.value.clone()),
+                AssignedValue::cell_value(self.internal_state.value.clone())
+                    .with_clocks(self.internal_state.clocks),
             )?
         } else {
             self.done_is_high = false;
@@ -109,7 +110,8 @@ impl Primitive for StdReg {
 
         let out_signal = port_map.insert_val(
             out_idx,
-            AssignedValue::cell_value(self.internal_state.value.clone()),
+            AssignedValue::cell_value(self.internal_state.value.clone())
+                .with_clocks(self.internal_state.clocks),
         )?;
         let done_signal = port_map.insert_val(
             done,
@@ -168,6 +170,7 @@ impl RaceDetectionPrimitive for StdReg {
 
             let current_clock_idx = thread_map.unwrap_clock_id(thread);
             self.internal_state
+                .clocks
                 .check_write(current_clock_idx, clock_map)?;
         }
 
@@ -438,7 +441,8 @@ impl Primitive for CombMem {
                     read_data,
                     AssignedValue::cell_value(
                         self.internal_state[addr].value.clone(),
-                    ),
+                    )
+                    .with_clocks(self.internal_state[addr].clocks),
                 )?
             }
             // either the address is undefined or it is outside the range of valid addresses
@@ -487,7 +491,8 @@ impl Primitive for CombMem {
                 read_data,
                 AssignedValue::cell_value(
                     self.internal_state[addr].value.clone(),
-                ),
+                )
+                .with_clocks(self.internal_state[addr].clocks),
             )? | done)
         } else {
             port_map.write_undef(read_data)?;
@@ -563,12 +568,10 @@ impl RaceDetectionPrimitive for CombMem {
                 let val = &self.internal_state[addr];
 
                 if port_map[self.write_en()].as_bool().unwrap_or_default() {
-                    val.check_write(thread_clock, clock_map)
+                    val.clocks
+                        .check_write(thread_clock, clock_map)
                         .map_err(|e| e.add_cell_info(self.global_idx))?;
                 }
-
-                val.check_read(thread_clock, clock_map)
-                    .map_err(|e| e.add_cell_info(self.global_idx))?;
             }
         }
 
@@ -848,13 +851,15 @@ impl RaceDetectionPrimitive for SeqMem {
                         .as_bool()
                         .unwrap_or_default()
                 {
-                    val.check_write(thread_clock, clock_map)
+                    val.clocks
+                        .check_write(thread_clock, clock_map)
                         .map_err(|e| e.add_cell_info(self.global_idx))?;
                 } else if port_map[self.content_enable()]
                     .as_bool()
                     .unwrap_or_default()
                 {
-                    val.check_read(thread_clock, clock_map)
+                    val.clocks
+                        .check_read(thread_clock, clock_map)
                         .map_err(|e| e.add_cell_info(self.global_idx))?;
                 }
             }
