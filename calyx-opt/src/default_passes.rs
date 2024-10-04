@@ -2,18 +2,17 @@
 use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileInvoke, CompileRepeat, CompileStatic, CompileSync,
-    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
-    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
-    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, InferShare,
-    LowerGuards, MergeAssign, Papercut, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
-    StaticPromotion, SynthesisPapercut, TopDownCompileControl, WellFormed,
-    WireInliner, WrapMain,
+    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
+    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
+    DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
+    InferShare, LowerGuards, MergeAssign, Papercut, ResetInsertion,
+    SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
+    StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
+    UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
-use crate::passes_debug::{
-    DiscoverExternal, ExternalToRef, HoleInliner, Metadata, ParToSeq,
-    RegisterUnsharing, RemoveIds, UnrollBounded,
+use crate::passes_experimental::{
+    CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
+    HoleInliner, Metadata, ParToSeq, RegisterUnsharing, RemoveIds,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};

@@ -1,4 +1,4 @@
-use crate::passes_debug::dump_ports;
+use super::dump_ports;
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::CalyxResult;
