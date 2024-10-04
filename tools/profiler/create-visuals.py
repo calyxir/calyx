@@ -25,8 +25,10 @@ class CallStackElement:
     def __repr__(self):
         return f"([{self.component}] Active groups: {self.active_groups})"
 
-    def add_cell_name(self, cell_id):
-        self.cell_id = cell_id
+    def add_cell_name(self, parent_component, cell_name):
+        self.cell_id = f"{self.component}[{parent_component}.{cell_name}]"
+        self.parent_component = parent_component
+        self.cell_name = cell_name
 
     def add_group(self, group_name):
         if group_name not in self.active_groups:
@@ -94,7 +96,7 @@ def order_callstack(main_component, cells_map, timeline):
             prev_component = main_shortname
             for cell_name in after_main_split:
                 cell_component = cells_map[prev_component][cell_name]
-                timeline[i][cell_component].add_cell_name(f"{cell_component}[{prev_component}.{cell_name}]")
+                timeline[i][cell_component].add_cell_name(prev_component, cell_name)
                 stack.append(timeline[i][cell_component])
                 prev_component = cell_component
         processed_trace[i] = stack
@@ -200,10 +202,9 @@ def create_timeline_stacks(timeline, main_component):
 
     for i in timeline:
         active_this_cycle = set()
-        # Differently from compute_flame_stacks, we start from the bottom up. (easier to see parent)
-        sorted_active_groups = list(sorted(timeline[i], key=lambda k : timeline[i][k].count(".")))
-        for group_component in sorted_active_groups:
-            group_full_name = timeline[i][group_component]
+        # Start from the bottom up. (easier to see parent)
+        for elem in timeline[i]:
+            group_full_name = elem.get_active_group()
             active_this_cycle.add(group_full_name)
             if group_full_name not in currently_active: # first cycle of the group. We need to figure out the stack
                 group_split = group_full_name.split(".")
@@ -211,7 +212,7 @@ def create_timeline_stacks(timeline, main_component):
                 group_shortname = group_split[-1]
                 stackframe = -1 # FIXME: find the appropriate stack frame
                 if group_cell in cell_to_stackframe_info:
-                    (stackframe, _) = cell_to_stackframe_info[main_component]
+                    (stackframe, _) = cell_to_stackframe_info[group_cell]
                 else:
                     # Since we are iterating from the shortest to longest name (based on cell counts)
                     # The group's cell's parent *must* be in cell_to_stackframe_info
@@ -220,7 +221,7 @@ def create_timeline_stacks(timeline, main_component):
                     stackframe = stack_number_acc
                     stack_number_acc += 1
                     cell_to_stackframe_info[group_cell] = (stackframe, parent_stackframe)
-                start_event = {"name": group_shortname, "cat": group_component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
+                start_event = {"name": group_shortname, "cat": elem.component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
                 events.append(start_event)
                 currently_active[group_full_name] = start_event
         # Any group that was previously active but not active this cycle need to end
@@ -256,57 +257,6 @@ def create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, f
     fsm_timeline_json_data = create_timeline_stacks(fsm_timeline, main_component)
     with open(fsm_timeline_out, "w", encoding="utf-8") as fsm_timeline_file:
         fsm_timeline_file.write(json.dumps(fsm_timeline_json_data, indent=4))
-
-def compute_flame_stacks_old(cells_map, timeline, main_component):
-    main_shortname = main_component.split("TOP.toplevel.")[1]
-    stacks = {} # each stack to the # of cycles it was active for
-    component_stacks = {} # view where we only look at cells/components
-    nonactive_cycles = 0 # cycles where no group was active
-    for i in timeline: # keys in the timeline are clock time stamps
-        # Right now we are assuming that there are no pars. So for any time stamp, *if there are multiple* groups active,
-        # we need to find the one that is the longest (since that's the innermost one).
-        # NOTE: This might be generalizable for even the 1 group active case? Going to try it out
-        if len(timeline[i]) == 0:
-            nonactive_cycles += 1
-            continue
-        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].get_active_group().count("."), reverse=True)[0]
-        group_full_name = timeline[i][group_component]
-        stack = ""
-        group_name = group_full_name.split(".")[-1]
-        if group_component == main_shortname:
-            stack = main_component + ";" + group_name
-            component_stack = main_component
-        else:
-            after_main = group_full_name.split(f"{main_component}.")[1]
-            after_main_split = after_main.split(".")[:-1]
-            # first, find the group in main that is simulatenous
-            if main_shortname not in timeline[i]:
-                print(f"Error: A group from the main component ({main_shortname}) should be active at cycle {i}!")
-                exit(1)
-            backptrs = [main_component]
-            component_backptrs = [main_component]
-            group_from_main = timeline[i][main_shortname].split(main_component + ".")[-1]
-            backptrs.append(group_from_main)
-            prev_component = main_shortname
-            for cell_name in after_main_split:
-                cell_component = cells_map[prev_component][cell_name]
-                group_from_component = timeline[i][cell_component].split(cell_name + ".")[-1]
-                cell_component_name = f"{cell_component}[{prev_component}.{cell_name}]"
-                backptrs.append(f"{cell_component_name};{group_from_component}")
-                component_backptrs.append(f"{cell_component_name}")
-                prev_component = cell_component
-            stack = ";".join(backptrs)
-            component_stack = ";".join(component_backptrs)
-            
-        if stack not in stacks:
-            stacks[stack] = 0
-        stacks[stack] += 1
-        if component_stack not in component_stacks:
-            component_stacks[component_stack] = 0
-        component_stacks[component_stack] += 1
-
-    stacks[main_component] = nonactive_cycles
-    return stacks, component_stacks
 
 def write_flame_graph(flame_out, stacks):
     with open(flame_out, "w") as f:
@@ -359,7 +309,7 @@ def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_o
     main_component = summary["main_full_path"]
     trace, fsm_trace, num_cycles = create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups)
     create_flame_graph(main_component, trace, fsm_trace, num_cycles, flame_out, fsm_flame_out, component_out, fsm_component_out)
-    # create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out)
+    create_timeline_json(trace, fsm_trace, main_component, timeline_out, fsm_timeline_out)
     create_frequency_flame_graph(main_component, trace, num_cycles, frequency_flame_out)
 
 if __name__ == "__main__":
