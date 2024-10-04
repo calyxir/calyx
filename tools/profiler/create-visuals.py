@@ -51,6 +51,12 @@ class CallStackElement:
         else:
             return self.cell_id + ";" + self.get_active_group().split(".")[-1]
 
+    def component_flame_stack_string(self, main_component):
+        main_shortname = main_component.split("TOP.toplevel.")[1]
+        if self.component == main_shortname:
+            return main_component
+        else:
+            return self.component
 
 # Computes which groups have a FSM-recorded group
 def get_fsm_groups(profiled_info):
@@ -77,7 +83,8 @@ def order_callstack(main_component, cells_map, timeline):
     for i in timeline:
         if main_shortname not in timeline[i]:
             continue
-        stack = [timeline[i][main_shortname].get_active_group().split(main_component + ".")[1]] # there should always be a main component group that is active
+        # stack = [timeline[i][main_shortname].get_active_group().split(main_component + ".")[1]] # there should always be a main component group that is active
+        stack = [timeline[i][main_shortname]]
         # get the group that is deepest within the stack, then reconstruct from there
         group_component = sorted(timeline[i], key=lambda k : timeline[i][k].get_active_group().count("."), reverse=True)[0]
         group_full_name = timeline[i][group_component].get_active_group()
@@ -125,53 +132,50 @@ def create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, 
     trace = order_callstack(main_component, cells_map, timeline_map)
     fsm_trace = order_callstack(main_component, cells_map, fsm_timeline_map)
 
-    return trace, fsm_trace, group_to_gt_segments
+    return trace, fsm_trace, len(timeline_map)
 
-def create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out):
-    main_shortname = main_component.split("TOP.toplevel.")[1]
+def create_frequency_flame_graph(main_component, trace, total_cycles, frequency_flame_out):
     frequency_stacks = {}
-    i = 0
-    while i < len(timeline):
-        if len(timeline[i]) == 0:
-            i += 1
-            continue
-        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].count("."), reverse=True)[0]
-        group_full_name = timeline[i][group_component]
-        stack = ""
-        group_name = group_full_name.split(".")[-1]
-        # FIXME: code clone
-        if group_component == main_shortname:
-            stack = main_component + ";" + group_name
-        else:
-            after_main = group_full_name.split(f"{main_component}.")[1]
-            after_main_split = after_main.split(".")[:-1]
-            # first, find the group in main that is simulatenous
-            if main_shortname not in timeline[i]:
-                print(f"Error: A group from the main component ({main_shortname}) should be active at cycle {i}!")
-                exit(1)
-            backptrs = [main_component]
-            group_from_main = timeline[i][main_shortname].split(main_component + ".")[-1]
-            backptrs.append(group_from_main)
-            prev_component = main_shortname
-            for cell_name in after_main_split:
-                cell_component = cells_map[prev_component][cell_name]
-                group_from_component = timeline[i][cell_component].split(cell_name + ".")[-1]
-                backptrs.append(f"{cell_component}[{prev_component}.{cell_name}];{group_from_component}")
-                prev_component = cell_component
-            stack = ";".join(backptrs)
-        if stack not in frequency_stacks:
-            frequency_stacks[stack] = 0
-        frequency_stacks[stack] += 1
-        i = group_to_gt_segments[group_full_name][i] # the next segment to check starts at the end time of this segment
+    stack_last_cycle = ""
+    for i in range(total_cycles):
+        current_stack = ""
+        if i in trace and len(trace[i]) != 0:
+            current_stack = ";".join(map(lambda x : x.flame_stack_string(main_component), trace[i]))
+        if stack_last_cycle != current_stack and stack_last_cycle.count(";") <= current_stack.count(";"): # We activated a different group, or invoked a different component!
+            if current_stack not in frequency_stacks:
+                frequency_stacks[current_stack] = 0
+            frequency_stacks[current_stack] += 1
+        stack_last_cycle = current_stack
 
     write_flame_graph(frequency_flame_out, frequency_stacks)
 
+def compute_flame_stacks(trace, main_component, total_cycles):
+    stacks = {}
+    component_stacks = {}
+    print("=======================")
+    for i in trace:
+        print(trace[i])
+        stack = ";".join(map(lambda x : x.flame_stack_string(main_component), trace[i]))
+        # FIXME: really should separate out component stack
+        component_stack = ";".join(map(lambda x : x.component_flame_stack_string(main_component), trace[i]))
+        if stack not in stacks:
+            stacks[stack] = 0
+        if component_stack not in component_stacks:
+            component_stacks[component_stack] = 0
+        stacks[stack] += 1
+        component_stacks[component_stack] += 1
+    stacks[main_component] = total_cycles - len(trace)
+    component_stacks[main_component] = total_cycles - len(trace)
+
+    return stacks, component_stacks
+
+
 # attempt to rehash the create_flame_graph to take care of stacks
-def create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out, component_out, fsm_component_out):
-    stacks, component_stacks = compute_flame_stacks(cells_map, timeline, main_component)
+def create_flame_graph(main_component, trace, fsm_trace, num_cycles, flame_out, fsm_flame_out, component_out, fsm_component_out):
+    stacks, component_stacks = compute_flame_stacks(trace, main_component, num_cycles)
     write_flame_graph(flame_out, stacks)
     write_flame_graph(component_out, component_stacks)
-    fsm_stacks, fsm_component_stacks = compute_flame_stacks(cells_map, fsm_timeline, main_component)
+    fsm_stacks, fsm_component_stacks = compute_flame_stacks(fsm_trace, main_component, num_cycles)
     write_flame_graph(fsm_flame_out, fsm_stacks)
     write_flame_graph(fsm_component_out, fsm_component_stacks)
 
@@ -253,7 +257,7 @@ def create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, f
     with open(fsm_timeline_out, "w", encoding="utf-8") as fsm_timeline_file:
         fsm_timeline_file.write(json.dumps(fsm_timeline_json_data, indent=4))
 
-def compute_flame_stacks(cells_map, timeline, main_component):
+def compute_flame_stacks_old(cells_map, timeline, main_component):
     main_shortname = main_component.split("TOP.toplevel.")[1]
     stacks = {} # each stack to the # of cycles it was active for
     component_stacks = {} # view where we only look at cells/components
@@ -353,10 +357,10 @@ def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_o
     cells_map = build_cells_map(cells_json)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
-    timeline, fsm_timeline, group_to_gt_segments = create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups)
-    create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out, component_out, fsm_component_out)
-    create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out)
-    create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out)
+    trace, fsm_trace, num_cycles = create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups)
+    create_flame_graph(main_component, trace, fsm_trace, num_cycles, flame_out, fsm_flame_out, component_out, fsm_component_out)
+    # create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out)
+    create_frequency_flame_graph(main_component, trace, num_cycles, frequency_flame_out)
 
 if __name__ == "__main__":
     if len(sys.argv) > 9:
