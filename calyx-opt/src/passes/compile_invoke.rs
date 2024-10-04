@@ -10,7 +10,7 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use super::dump_ports;
+use crate::passes_debug::dump_ports;
 
 // given `cell_ref` returns the `go` port of the cell (if it only has one `go` port),
 // or an error otherwise

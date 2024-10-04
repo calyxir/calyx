@@ -23,7 +23,7 @@ pub(super) fn format_port_name(canon: &ir::Canonical) -> ir::Id {
 /// signature.
 ///
 /// If `remove_clk_and_reset` is true, does not inline ports marked with @clk and @reset.
-pub(super) fn dump_ports_to_signature<F>(
+pub(crate) fn dump_ports_to_signature<F>(
     component: &mut ir::Component,
     cell_filter: F,
     remove_clk_and_reset: bool,

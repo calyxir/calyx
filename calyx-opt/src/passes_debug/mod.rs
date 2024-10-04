@@ -1,4 +1,4 @@
-mod dump_ports;
+pub mod dump_ports;
 mod external_to_ref;
 mod par_to_seq;
 
