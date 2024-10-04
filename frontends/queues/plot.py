@@ -9,21 +9,17 @@ class Logic(Enum):
     RR = 1
     STRICT = 2
 
+
 def append_path_prefix(file):
     path_to_script = os.path.dirname(__file__)
     path_to_file = os.path.join(path_to_script, file)
     return path_to_file
 
+
 def parse(stat, file):
     out = {
-        "binheap" : { 
-            "round_robin" : {}, 
-            "strict" : {} 
-        },
-        "specialized" : { 
-            "round_robin" : {}, 
-            "strict" : {} 
-        }
+        "binheap": {"round_robin": {}, "strict": {}},
+        "specialized": {"round_robin": {}, "strict": {}},
     }
 
     with open(file) as file:
@@ -31,21 +27,22 @@ def parse(stat, file):
         for file, data in data.items():
             if isinstance(data, dict):
                 data = data[stat]
-           
-            flow_no = file.split('flow')[0][-1]
+
+            flow_no = file.split("flow")[0][-1]
 
             if "round_robin" in file:
                 if "binheap" in file:
-                    out["binheap"]["round_robin"][flow_no]     = data
+                    out["binheap"]["round_robin"][flow_no] = data
                 else:
                     out["specialized"]["round_robin"][flow_no] = data
             if "strict" in file:
                 if "binheap" in file:
-                    out["binheap"]["strict"][flow_no]          = data
+                    out["binheap"]["strict"][flow_no] = data
                 else:
-                    out["specialized"]["strict"][flow_no]      = data
+                    out["specialized"]["strict"][flow_no] = data
 
     return out
+
 
 def draw(data, stat, logic, unit):
     fig, ax = plt.subplots(1, 1)
@@ -55,42 +52,47 @@ def draw(data, stat, logic, unit):
         ax.set_ylabel(stat, fontsize=20)
     else:
         ax.set_ylabel(f"{stat} ({unit})", fontsize=20)
-    
+
     file = ""
 
     if logic == Logic.RR:
         specialized = ax.scatter(
-                data["specialized"]["round_robin"].keys(),
-                data["specialized"]["round_robin"].values(),
-                c='b')
+            data["specialized"]["round_robin"].keys(),
+            data["specialized"]["round_robin"].values(),
+            c="b",
+        )
         binheap = ax.scatter(
-                data["binheap"]["round_robin"].keys(),
-                data["binheap"]["round_robin"].values(),
-                c='g')
+            data["binheap"]["round_robin"].keys(),
+            data["binheap"]["round_robin"].values(),
+            c="g",
+        )
 
-        ax.set_title("Round Robin Queues", fontweight='bold', fontsize=20)
+        ax.set_title("Round Robin Queues", fontweight="bold", fontsize=20)
         file = append_path_prefix(f"{stat}_round_robin")
 
     elif logic == Logic.STRICT:
         specialized = ax.scatter(
-                data["specialized"]["strict"].keys(),
-                data["specialized"]["strict"].values(),
-                c='b')
+            data["specialized"]["strict"].keys(),
+            data["specialized"]["strict"].values(),
+            c="b",
+        )
         binheap = ax.scatter(
-                data["binheap"]["strict"].keys(),
-                data["binheap"]["strict"].values(),
-                c='g')
+            data["binheap"]["strict"].keys(), data["binheap"]["strict"].values(), c="g"
+        )
 
-        ax.set_title("Strict Queues", fontweight='bold', fontsize=20)
+        ax.set_title("Strict Queues", fontweight="bold", fontsize=20)
         file = append_path_prefix(f"{stat}_strict")
 
-    plt.legend((specialized, binheap),
-               ("Specialized (i.e. Cassandra style)", "Binary Heap"),
-               fontsize=12)
+    plt.legend(
+        (specialized, binheap),
+        ("Specialized (i.e. Cassandra style)", "Binary Heap"),
+        fontsize=12,
+    )
 
     plt.savefig(file)
 
     print(f"Generated {file}.png")
+
 
 # Parse data for round_robin and strict queues
 stat = sys.argv[1]
@@ -107,7 +109,7 @@ if stat == "total_time":
         for logic in data[impl].keys():
             for flow_no in data[impl][logic].keys():
                 cycles = cycle_data[impl][logic][flow_no]
-                slack  = slack_data[impl][logic][flow_no]
+                slack = slack_data[impl][logic][flow_no]
                 data[impl][logic][flow_no] = (1000 * cycles) / (7 - slack)
 else:
     file = sys.argv[2]
@@ -115,5 +117,5 @@ else:
 
 # Draw results
 unit = "μs" if stat == "total_time" else None
-draw(data, stat, Logic.RR,     unit)
+draw(data, stat, Logic.RR, unit)
 draw(data, stat, Logic.STRICT, unit)

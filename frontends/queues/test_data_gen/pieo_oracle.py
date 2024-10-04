@@ -10,5 +10,7 @@ if __name__ == "__main__":
     max_cmds, len = int(sys.argv[1]), int(sys.argv[2])
     keepgoing = "--keepgoing" in sys.argv
     pieo = queues.Pieo(len)
-    ans = queues.operate_queue(pieo, max_cmds, commands, values, ranks, times=times, keepgoing=keepgoing)
+    ans = queues.operate_queue(
+        pieo, max_cmds, commands, values, ranks, times=times, keepgoing=keepgoing
+    )
     util.dump_json(commands, values, ans, ranks, times)

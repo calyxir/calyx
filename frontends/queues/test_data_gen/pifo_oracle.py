@@ -2,7 +2,7 @@
 
 import sys
 import queues
-import util 
+import util
 
 
 if __name__ == "__main__":

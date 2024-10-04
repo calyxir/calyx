@@ -51,6 +51,16 @@ jobs:
         with:
           options: "--line-length 88"
           src: 'frontends/systolic-lang'
+      - name: Queues Formatting check
+        uses: psf/black@stable
+        with:
+          options: "--line-length 88"
+          src: 'frontends/queues'
+      - name: Calyx-Py Formatting check
+        uses: psf/black@stable
+        with:
+          options: "--line-length 88"
+          src: 'calyx-py'
       - name: Fud Linting check
         uses: TrueBrain/actions-flake8@master
         with:

@@ -25,12 +25,12 @@ def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
 
     flow_in = comp.reg(bits_needed(n - 1), "flow_in")
     infer_flow_in = insert_flow_inference(
-            comp, value, flow_in, boundaries, "infer_flow_in"
+        comp, value, flow_in, boundaries, "infer_flow_in"
     )
 
     flow_out = comp.reg(bits_needed(n - 1), "flow_out")
     infer_flow_out = insert_flow_inference(
-            comp, ans.out, flow_out, boundaries, "infer_flow_out"
+        comp, ans.out, flow_out, boundaries, "infer_flow_out"
     )
 
     rank_ptrs = [comp.reg(32, f"r_{i}") for i in range(n)]
@@ -39,19 +39,14 @@ def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
     turn = comp.reg(bits_needed(n - 1), "turn")
     turn_neq_flow_out = comp.neq_use(turn.out, flow_out.out)
     turn_incr_mod_n = cb.if_with(
-                            comp.eq_use(turn.out, n - 1), 
-                            comp.reg_store(turn, 0),
-                            comp.incr(turn)
-                      )
+        comp.eq_use(turn.out, n - 1), comp.reg_store(turn, 0), comp.incr(turn)
+    )
 
     init = comp.reg(1, "init")
     init_eq_0 = comp.eq_use(init.out, 0)
     init_state = cb.if_with(
         init_eq_0,
-        [
-            cb.par(*[ comp.reg_store(rank_ptrs[i], i) for i in range(n) ]),
-            comp.incr(init)
-        ]
+        [cb.par(*[comp.reg_store(rank_ptrs[i], i) for i in range(n)]), comp.incr(init)],
     )
 
     def binheap_invoke(value, rank):
@@ -63,35 +58,27 @@ def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
             ref_ans=ans,
             ref_err=err,
         )
-    binheap_invokes = dict([ 
-                        (i, binheap_invoke(value, rank_ptrs[i].out)) 
-                        for i in range(n) 
-                      ])
+
+    binheap_invokes = dict(
+        [(i, binheap_invoke(value, rank_ptrs[i].out)) for i in range(n)]
+    )
 
     update_state_pop = [
-                infer_flow_out,
-                cb.while_with(
-                    turn_neq_flow_out,
-                    [
-                        comp.case(turn.out, rank_ptr_incrs),
-                        turn_incr_mod_n
-                    ]
-                ),
-                turn_incr_mod_n
-            ]
+        infer_flow_out,
+        cb.while_with(
+            turn_neq_flow_out, [comp.case(turn.out, rank_ptr_incrs), turn_incr_mod_n]
+        ),
+        turn_incr_mod_n,
+    ]
     update_state_push = comp.case(flow_in.out, rank_ptr_incrs)
-                            
+
     comp.control += [
         init_state,
         infer_flow_in,
         comp.case(flow_in.out, binheap_invokes),
         cb.if_with(
-            err_eq_0,
-            comp.case(
-                cmd,
-                { 0: update_state_pop, 1: update_state_push }
-            )
-        )
+            err_eq_0, comp.case(cmd, {0: update_state_pop, 1: update_state_push})
+        ),
     ]
 
     return comp
