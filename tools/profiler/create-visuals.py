@@ -14,6 +14,43 @@ class FlameInfo:
             return f'{self.backptr};{self.name} {self.cycles}'
         else:
             return f'{self.name} {self.cycles}'
+        
+class CallStackElement:
+    # A component on the stack that is active at a given snapshot in time
+    def __init__(self, component, active_groups):
+        self.component = component
+        self.active_groups = active_groups
+        self.cell_id = None
+
+    def __repr__(self):
+        return f"([{self.component}] Active groups: {self.active_groups})"
+
+    def add_cell_name(self, cell_id):
+        self.cell_id = cell_id
+
+    def add_group(self, group_name):
+        if group_name not in self.active_groups:
+            self.active_groups.append(group_name)
+
+    """
+    Returns the active group if the component is sequential (has only one active group), otherwise throws exception
+    """
+    def get_active_group(self):
+        if len(self.active_groups) == 1:
+            return self.active_groups[0]
+        else:
+            raise Exception(f'Component {self.component} is parallel! Active groups: {self.active_groups}')
+        
+    def get_active_groups(self):
+        return self.active_groups
+    
+    def flame_stack_string(self, main_component):
+        main_shortname = main_component.split("TOP.toplevel.")[1]
+        if self.component == main_shortname:
+            return main_component + ";" + self.get_active_group().split(main_component + ".")[1]
+        else:
+            return self.cell_id + ";" + self.get_active_group().split(".")[-1]
+
 
 # Computes which groups have a FSM-recorded group
 def get_fsm_groups(profiled_info):
@@ -27,7 +64,39 @@ def get_fsm_groups(profiled_info):
             fsm_groups.add(group_info["name"])
     return fsm_groups, all_groups
 
-def create_timeline_map(profiled_info, fsm_groups, all_groups):
+def add_group_to_callstack(big_map, group_component, group_name):
+    if group_component not in big_map:
+        big_map[group_component] = CallStackElement(group_component, [group_name])
+    else:
+        big_map[group_component].add_group(group_name)
+
+def order_callstack(main_component, cells_map, timeline):
+    main_shortname = main_component.split("TOP.toplevel.")[1]
+    # timeline_map has an *unordered*
+    processed_trace = {}
+    for i in timeline:
+        if main_shortname not in timeline[i]:
+            continue
+        stack = [timeline[i][main_shortname].get_active_group().split(main_component + ".")[1]] # there should always be a main component group that is active
+        # get the group that is deepest within the stack, then reconstruct from there
+        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].get_active_group().count("."), reverse=True)[0]
+        group_full_name = timeline[i][group_component].get_active_group()
+        if group_component != main_shortname:
+            after_main = group_full_name.split(f"{main_component}.")[1]
+            after_main_split = after_main.split(".")[:-1]
+            prev_component = main_shortname
+            for cell_name in after_main_split:
+                cell_component = cells_map[prev_component][cell_name]
+                timeline[i][cell_component].add_cell_name(f"{cell_component}[{prev_component}.{cell_name}]")
+                stack.append(timeline[i][cell_component])
+                prev_component = cell_component
+        processed_trace[i] = stack
+
+    print(processed_trace)
+
+    return processed_trace
+
+def create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     total_cycles = summary["total_cycles"]
     only_gt_groups = all_groups.difference(fsm_groups)
@@ -38,6 +107,7 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
         group_name = group_info["name"]
         if group_name == "TOTAL" or group_info["component"] is None: # only care about actual groups
             continue
+        group_component = group_info["component"]
         for segment in group_info["closed_segments"]:
             if group_info["fsm_name"] is None:
                 if group_name not in group_to_gt_segments:
@@ -45,14 +115,17 @@ def create_timeline_map(profiled_info, fsm_groups, all_groups):
                 group_to_gt_segments[group_name][segment["start"]] = segment["end"]
             for i in range(segment["start"], segment["end"]): # really janky, I wonder if there's a better way to do this?
                 if group_info["fsm_name"] is not None: # FSM version
-                    fsm_timeline_map[i][group_info["component"]] = group_name
+                    add_group_to_callstack(fsm_timeline_map[i], group_component, group_name)
                 elif group_name in only_gt_groups: # A group that isn't managed by an FSM. In which case it has to be in both FSM and GT
-                    fsm_timeline_map[i][group_info["component"]] = group_name
-                    timeline_map[i][group_info["component"]] = group_name
+                    add_group_to_callstack(fsm_timeline_map[i], group_component, group_name)
+                    add_group_to_callstack(timeline_map[i], group_component, group_name)
                 else: # The ground truth info about a group managed by an FSM.
-                    timeline_map[i][group_info["component"]] = group_name
+                    add_group_to_callstack(timeline_map[i], group_component, group_name)
 
-    return timeline_map, fsm_timeline_map, group_to_gt_segments
+    trace = order_callstack(main_component, cells_map, timeline_map)
+    fsm_trace = order_callstack(main_component, cells_map, fsm_timeline_map)
+
+    return trace, fsm_trace, group_to_gt_segments
 
 def create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out):
     main_shortname = main_component.split("TOP.toplevel.")[1]
@@ -192,7 +265,7 @@ def compute_flame_stacks(cells_map, timeline, main_component):
         if len(timeline[i]) == 0:
             nonactive_cycles += 1
             continue
-        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].count("."), reverse=True)[0]
+        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].get_active_group().count("."), reverse=True)[0]
         group_full_name = timeline[i][group_component]
         stack = ""
         group_name = group_full_name.split(".")[-1]
@@ -278,9 +351,9 @@ def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_o
     fsm_groups, all_groups = get_fsm_groups(profiled_info)
     # This cells_map is different from the one in parse-vcd.py
     cells_map = build_cells_map(cells_json)
-    timeline, fsm_timeline, group_to_gt_segments = create_timeline_map(profiled_info, fsm_groups, all_groups)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
+    timeline, fsm_timeline, group_to_gt_segments = create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups)
     create_flame_graph(main_component, cells_map, timeline, fsm_timeline, flame_out, fsm_flame_out, component_out, fsm_component_out)
     create_timeline_json(timeline, fsm_timeline, main_component, timeline_out, fsm_timeline_out)
     create_frequency_flame_graph(main_component, cells_map, timeline, group_to_gt_segments, frequency_flame_out)
