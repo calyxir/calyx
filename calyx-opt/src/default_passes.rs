@@ -7,11 +7,12 @@ use crate::passes::{
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
     DiscoverExternal, ExternalToRef, Externalize, GoInsertion, GroupToInvoke,
     GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Metadata,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    Papercut, RegisterUnsharing, RemoveIds, ResetInsertion,
     SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
     UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
+use crate::passes_debug::ParToSeq;
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
 
