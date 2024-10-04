@@ -5,11 +5,10 @@ use crate::traversal::{
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 
-/// Transforms all `par` into `seq`. Uses [analysis::ControlOrder] to get a
-/// sequentialization of `par` such that the program still computes the same
-/// value. When there is no such sequentialization, errors out unless the
-/// `always_sequentialize` option is true.
-///
+/// Transforms all `par` into `seq`. When the `correctness-checking` option is on,
+/// uses [analysis::ControlOrder] to get a sequentialization of `par` such that
+/// the program still computes the same value, and errors out when
+/// there is no such sequentialization.
 ///
 /// # Example
 /// ```
