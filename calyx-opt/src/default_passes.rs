@@ -5,14 +5,14 @@ use crate::passes::{
     CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
     DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
     DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
-    InferShare, LowerGuards, MergeAssign, Papercut, ResetInsertion,
+    InferShare, LowerGuards, MergeAssign, Papercut, RemoveIds, ResetInsertion,
     SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
     UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    HoleInliner, Metadata, ParToSeq, RegisterUnsharing, RemoveIds,
+    HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
