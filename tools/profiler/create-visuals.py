@@ -100,9 +100,6 @@ def order_callstack(main_component, cells_map, timeline):
                 stack.append(timeline[i][cell_component])
                 prev_component = cell_component
         processed_trace[i] = stack
-
-    print(processed_trace)
-
     return processed_trace
 
 def create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups):
@@ -154,9 +151,7 @@ def create_frequency_flame_graph(main_component, trace, total_cycles, frequency_
 def compute_flame_stacks(trace, main_component, total_cycles):
     stacks = {}
     component_stacks = {}
-    print("=======================")
     for i in trace:
-        print(trace[i])
         stack = ";".join(map(lambda x : x.flame_stack_string(main_component), trace[i]))
         # FIXME: really should separate out component stack
         component_stack = ";".join(map(lambda x : x.component_flame_stack_string(main_component), trace[i]))
