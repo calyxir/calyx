@@ -2,15 +2,17 @@
 use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileInvoke, CompileRepeat, CompileStatic, CompileSync,
-    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
-    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
-    DiscoverExternal, ExternalToRef, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Metadata,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
+    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
+    DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
+    InferShare, LowerGuards, MergeAssign, Papercut, RemoveIds, ResetInsertion,
     SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
     UnrollBounded, WellFormed, WireInliner, WrapMain,
+};
+use crate::passes_experimental::{
+    CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
+    HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
