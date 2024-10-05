@@ -48,7 +48,7 @@ fi
 mkdir -p ${TMP_DIR} ${LOGS_DIR}
 rm -f ${TMP_DIR}/* ${LOGS_DIR}/* # remove data from last run
 
-CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p par-to-seq -x par-to-seq:always-sequentialize -p no-opt "
+CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p no-opt "
 
 
 # Run TDCC to get the FSM info
