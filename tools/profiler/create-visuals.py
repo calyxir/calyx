@@ -102,7 +102,7 @@ def order_callstack(main_component, cells_map, timeline):
         processed_trace[i] = stack
     return processed_trace
 
-def create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups):
+def create_trace(profiled_info, main_component, cells_map, fsm_groups, all_groups):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     total_cycles = summary["total_cycles"]
     only_gt_groups = all_groups.difference(fsm_groups)
@@ -302,7 +302,7 @@ def main(profiler_dump_file, cells_json, timeline_out, fsm_timeline_out, flame_o
     cells_map = build_cells_map(cells_json)
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     main_component = summary["main_full_path"]
-    trace, fsm_trace, num_cycles = create_callstack_view(profiled_info, main_component, cells_map, fsm_groups, all_groups)
+    trace, fsm_trace, num_cycles = create_trace(profiled_info, main_component, cells_map, fsm_groups, all_groups)
     create_flame_graph(main_component, trace, fsm_trace, num_cycles, flame_out, fsm_flame_out, component_out, fsm_component_out)
     create_timeline_json(trace, fsm_trace, main_component, timeline_out, fsm_timeline_out)
     create_frequency_flame_graph(main_component, trace, num_cycles, frequency_flame_out)
