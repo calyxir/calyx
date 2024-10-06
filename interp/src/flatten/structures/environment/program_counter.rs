@@ -56,6 +56,37 @@ impl ControlPoint {
             false
         }
     }
+
+    /// Returns a string showing the path from the root node to input node.
+    /// How to get context?
+    pub fn string_path(&self, ctx: &Context) -> String {
+        // Does it matter if it takes ownership?
+        let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
+        let control_map = &ctx.primary.control;
+        let mut string_path = String::from("main::");
+        let mut first = true;
+        for search_node in path.path {
+            // The control_idx should exist in the map, so we shouldn't worry about it
+            // exploding.
+            let seperator = if first { "" } else { "_" };
+            first = false;
+
+            let control_idx = search_node.node;
+            let control_node = control_map.get(control_idx).unwrap();
+            let control_type = match control_node {
+                ControlNode::Empty(_) => "empty",
+                ControlNode::Enable(_) => "enable",
+                ControlNode::Seq(_) => "seq",
+                ControlNode::Par(_) => "par",
+                ControlNode::If(_) => "if",
+                ControlNode::While(_) => "while",
+                ControlNode::Repeat(_) => "repeat",
+                ControlNode::Invoke(_) => "invoke",
+            };
+            string_path = string_path + seperator + control_type;
+        }
+        string_path
+    }
 }
 
 #[derive(Debug, Clone)]

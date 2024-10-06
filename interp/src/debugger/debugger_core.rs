@@ -220,6 +220,22 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(())
     }
 
+    // Print executing points
+    pub fn print_executing(&self) {
+        let env = self.interpreter.env();
+        let ctx = self.program_context.as_ref();
+
+        let mut pc_iterable = env.pc_iter();
+
+        // For now we do all control points:
+        let mut item = pc_iterable.next();
+        while item.is_some() {
+            let control_point = item.unwrap();
+            println!("{}", control_point.string_path(ctx));
+            item = pc_iterable.next();
+        }
+    }
+
     // so on and so forth
 
     /// The main loop of the debugger. This function is the entry point for the
@@ -281,7 +297,10 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             };
 
             match comm {
-                Command::Step(n) => self.do_step(n)?,
+                Command::Step(n) => {
+                    self.print_executing();
+                    self.do_step(n)?
+                }
                 Command::StepOver(target) => {
                     self.do_step_over(target)?;
                 }

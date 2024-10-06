@@ -46,6 +46,7 @@ use owo_colors::OwoColorize;
 use slog::warn;
 use std::fmt::Debug;
 use std::fmt::Write;
+use std::slice::Iter;
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -284,6 +285,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
     }
+
+    pub fn pc_iter(&self) -> Iter<'_, ControlPoint> {
+        self.pc.iter()
+    }
+
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
