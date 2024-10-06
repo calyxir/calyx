@@ -22,13 +22,16 @@ fn cider_setup(e) {
     );
     e.arg("pool", "console");
 
+    e.config_var_or("converter-flags", "cider.converter-flags", "");
+    e.config_var_or("cider-flags", "cider.flags", "");
+
     e.rule(
         "run-cider",
-        "$cider-exe -l $calyx-base --data data.dump $in > $out",
+        "$cider-exe -l $calyx-base --data data.dump $cider-flags $in > $out",
     );
 
-    e.rule("dump-to-interp", "$cider-converter --to cider $in > $out");
-    e.rule("interp-to-dump", "$cider-converter --to json $in > $out");
+    e.rule("dump-to-interp", "$cider-converter --to cider $converter-flags $in > $out");
+    e.rule("interp-to-dump", "$cider-converter --to json $converter-flags $in > $out");
     e.build_cmd(
         ["data.dump"],
         "dump-to-interp",

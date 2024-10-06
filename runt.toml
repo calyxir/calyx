@@ -107,36 +107,15 @@ paths = ["tests/frontend/exp/*.txt"]
 cmd = "python3 calyx-py/calyx/gen_exp.py {}"
 
 [[tests]]
-name = "[calyx-py] builder"
-paths = ["calyx-py/test/*.py"]
-cmd = """
-python3 {}
-"""
-
-[[tests]]
-name = "[calyx-py] correctness"
-paths = ["calyx-py/test/correctness/*.py"]
-cmd = """
-name=$(basename {} .py) &&
-dir=$(dirname {}) &&
-python3 {} |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
-"""
-
-[[tests]]
-name = "[calyx-py] queues correctness"
+name = "[frontend] queues correctness"
 paths = [
-    "calyx-py/test/correctness/queues/*.py",
-    "calyx-py/test/correctness/queues/binheap/*.py",
-    "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
-    "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"
+    "frontends/queues/tests/*.py",
+    "frontends/queues/tests/round_robin/*.py",
+    "frontends/queues/tests/strict/*.py",
+    "frontends/queues/tests/binheap/*.py",
+    "frontends/queues/tests/binheap/round_robin/*.py",
+    "frontends/queues/tests/binheap/strict/*.py"
 ]
-
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
@@ -150,8 +129,8 @@ python3 {} 20000 --keepgoing |\
 """
 
 [[tests]]
-name = "[calyx-py] sdn no-promote correctness"
-paths = ["calyx-py/test/correctness/queues/sdn.py"]
+name = "[frontend] queues sdn no-promote correctness"
+paths = ["frontends/queues/tests/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
@@ -170,8 +149,8 @@ python3 {} 20000 --keepgoing |\
 # The catch-all queues stanza captures that case.
 
 [[tests]]
-name = "[calyx-py] sdn static no promote correctness"
-paths = ["calyx-py/test/correctness/queues/sdn.py"]
+name = "[frontend] queues sdn static no promote correctness"
+paths = ["frontends/queues/tests/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
@@ -186,8 +165,8 @@ python3 {} 20000 --static --keepgoing |\
 """
 
 [[tests]]
-name = "[calyx-py] sdn static promote correctness"
-paths = ["calyx-py/test/correctness/queues/sdn.py"]
+name = "[frontend] queues sdn static promote correctness"
+paths = ["frontends/queues/tests/sdn.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
@@ -197,6 +176,28 @@ python3 {} 20000 --static --keepgoing |\
        --through dat \
        -s verilog.data "$dir/$name.data" \
        -s calyx.flags ' -d well-formed' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
+name = "[calyx-py] builder"
+paths = ["calyx-py/test/*.py"]
+cmd = """
+python3 {}
+"""
+
+[[tests]]
+name = "[calyx-py] correctness"
+paths = ["calyx-py/test/correctness/*.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
        -s jq.expr ".memories" \
        -q
 """
@@ -324,6 +325,7 @@ timeout = 120
 name = "correctness static control"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
@@ -343,6 +345,7 @@ timeout = 120
 name = "correctness static control, one-hot fsms"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
@@ -350,7 +353,7 @@ fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke -x static-fsm-opts:one-hot-cutoff=500' \
+         -s calyx.flags '-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
@@ -686,4 +689,12 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   make clean && \
   rm -f results.xml
 
+"""
+
+### Profiler tests
+[[tests]]
+name = "profiler"
+paths = ["tests/profiler/*.futil"]
+cmd = """
+bash tools/profiler/get-profile-counts-info.sh {} {}.data STDOUT -d
 """

@@ -37,12 +37,14 @@ cider-converter = $calyx-base/target/debug/cider-data-converter
 rule run-cider-debug
   command = $cider-exe -l $calyx-base --data data.dump $in debug || true
   pool = console
+converter-flags = 
+cider-flags = 
 rule run-cider
-  command = $cider-exe -l $calyx-base --data data.dump $in > $out
+  command = $cider-exe -l $calyx-base --data data.dump $cider-flags $in > $out
 rule dump-to-interp
-  command = $cider-converter --to cider $in > $out
+  command = $cider-converter --to cider $converter-flags $in > $out
 rule interp-to-dump
-  command = $cider-converter --to json $in > $out
+  command = $cider-converter --to json $converter-flags $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
 build /output.ext: run-cider-debug /input.ext | data.dump
