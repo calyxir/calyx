@@ -7,12 +7,7 @@ from queues.binheap.flow_inference import insert_flow_inference
 FACTOR = 4
 
 
-def insert_binheap_strict(
-        prog, 
-        name, 
-        boundaries, 
-        order, 
-        queue_size_factor=FACTOR):
+def insert_binheap_strict(prog, name, boundaries, order, queue_size_factor=FACTOR):
     n = len(boundaries)
 
     comp = prog.component(name)
@@ -27,9 +22,7 @@ def insert_binheap_strict(
     err = comp.reg(1, "err", is_ref=True)
 
     flow = comp.reg(bits_needed(n - 1), "flow")
-    infer_flow = insert_flow_inference(
-            comp, value, flow, boundaries, "infer_flow"
-    )
+    infer_flow = insert_flow_inference(comp, value, flow, boundaries, "infer_flow")
 
     def binheap_invoke(value, rank):
         return cb.invoke(
@@ -40,12 +33,12 @@ def insert_binheap_strict(
             ref_ans=ans,
             ref_err=err,
         )
-    binheap_invokes = dict([ 
-                        (i, binheap_invoke(value, order.index(i))) 
-                        for i in range(n) 
-                      ])
 
-    comp.control += [ infer_flow, comp.case(flow.out, binheap_invokes) ]
+    binheap_invokes = dict(
+        [(i, binheap_invoke(value, order.index(i))) for i in range(n)]
+    )
+
+    comp.control += [infer_flow, comp.case(flow.out, binheap_invokes)]
 
     return comp
 
@@ -77,4 +70,3 @@ def generate(prog, numflows):
     pifo = insert_binheap_strict(prog, "pifo", boundaries, order)
 
     return pifo
-
