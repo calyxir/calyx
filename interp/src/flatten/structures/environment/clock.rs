@@ -22,6 +22,7 @@ use itertools::Itertools;
 use thiserror::Error;
 
 pub type ClockMap = IndexedMap<ClockIdx, VectorClock<ThreadIdx>>;
+pub type ThreadClockPair = (ThreadIdx, ClockIdx);
 
 impl ClockMap {
     /// pushes a new clock into the map and returns its index
@@ -96,6 +97,30 @@ where
 {
     // TODO: maybe use `ahash` instead
     map: HashMap<I, C>,
+}
+
+impl<I, C> std::ops::Index<&I> for VectorClock<I, C>
+where
+    I: Hash + Eq + Clone,
+    C: Ord + Clone + Counter,
+{
+    type Output = C;
+
+    fn index(&self, index: &I) -> &Self::Output {
+        &self.map[index]
+    }
+}
+
+impl<I, C> std::ops::Index<I> for VectorClock<I, C>
+where
+    I: Hash + Eq + Clone,
+    C: Ord + Clone + Counter,
+{
+    type Output = C;
+
+    fn index(&self, index: I) -> &Self::Output {
+        &self.map[&index]
+    }
 }
 
 impl<I, C> Eq for VectorClock<I, C>
@@ -182,6 +207,10 @@ where
         let mut merged = first.clone();
         merged.sync(second);
         merged
+    }
+
+    pub fn set_thread_clock(&mut self, thread_id: I, clock: C) {
+        self.map.insert(thread_id, clock);
     }
 }
 
@@ -276,26 +305,6 @@ impl ValueWithClock {
             clocks: ClockPair::new(read_clock, write_clock),
         }
     }
-
-    pub fn write(
-        &mut self,
-        writing_clock: ClockIdx,
-        value: BitVecValue,
-        clock_map: &mut ClockMap,
-    ) -> Result<(), ClockError> {
-        self.clocks.check_write(writing_clock, clock_map)?;
-        self.value = value;
-        Ok(())
-    }
-
-    pub fn read(
-        &self,
-        reading_clock: ClockIdx,
-        clock_map: &mut ClockMap,
-    ) -> Result<&BitVecValue, ClockError> {
-        self.clocks.check_read(reading_clock, clock_map)?;
-        Ok(&self.value)
-    }
 }
 
 /// A struct containing the read and write clocks for a value. This is small
@@ -316,18 +325,12 @@ impl ClockPair {
 
     pub fn check_read(
         &self,
-        reading_clock: ClockIdx,
+        (thread, reading_clock): ThreadClockPair,
         clock_map: &mut ClockMap,
     ) -> Result<(), ClockError> {
         if clock_map[reading_clock] >= clock_map[self.write_clock] {
-            // TODO griffin: this is doing extra allocation. Probably would be
-            // better to mutate the self.read_clock field directly but that
-            // would require using some std::mem::take or otherwise getting
-            // tricky (split_at_mut) to avoid issues with borrowing
-            clock_map[self.read_clock] = VectorClock::join(
-                &clock_map[self.read_clock],
-                &clock_map[reading_clock],
-            );
+            let v = clock_map[reading_clock][thread];
+            clock_map[self.read_clock].set_thread_clock(thread, v);
             Ok(())
         } else if clock_map[reading_clock]
             .partial_cmp(&clock_map[self.write_clock])

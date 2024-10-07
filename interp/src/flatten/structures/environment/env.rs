@@ -1931,7 +1931,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         if let Some(clocks) = self.env.ports[idx].clocks() {
             let read_clock = self.env.thread_map.unwrap_clock_id(thread);
             clocks
-                .check_read(read_clock, &mut self.env.clocks)
+                .check_read((thread, read_clock), &mut self.env.clocks)
                 .map_err(|e| {
                     e.add_cell_info(
                         self.env
@@ -1985,7 +1985,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             if let Some(clocks) = self.env.ports[idx].clocks() {
                 let read_clock = self.env.thread_map.unwrap_clock_id(thread);
                 clocks
-                    .check_read(read_clock, &mut self.env.clocks)
+                    .check_read((thread, read_clock), &mut self.env.clocks)
                     .map_err(|e| {
                         e.add_cell_info(
                             self.env
@@ -2165,7 +2165,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                                 clocks
                                     .check_read(
-                                        thread_clock,
+                                        (thread, thread_clock),
                                         &mut self.env.clocks,
                                     )
                                     .map_err(|e| {

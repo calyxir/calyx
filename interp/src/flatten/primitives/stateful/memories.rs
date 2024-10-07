@@ -856,7 +856,7 @@ impl RaceDetectionPrimitive for SeqMem {
                     .unwrap_or_default()
                 {
                     val.clocks
-                        .check_read(thread_clock, clock_map)
+                        .check_read((thread, thread_clock), clock_map)
                         .map_err(|e| e.add_cell_info(self.global_idx))?;
                 }
             }
