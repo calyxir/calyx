@@ -117,7 +117,43 @@ fn translate_guard(
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
 ) -> GuardIdx {
-    flatten_tree(guard, None, &mut interp_ctx.guards, map)
+    let idx = flatten_tree(guard, None, &mut interp_ctx.guards, map);
+
+    // not worth trying to force this search traversal into the flatten trait so
+    // I'm just gonna opt for this. It's a onetime cost, so I'm not particularly
+    // worried about it
+    let mut search_stack = vec![idx];
+    let mut read_ports = vec![];
+
+    while let Some(idx) = search_stack.pop() {
+        match &interp_ctx.guards[idx] {
+            Guard::True => {}
+            Guard::Or(guard_idx, guard_idx1) => {
+                search_stack.push(*guard_idx);
+                search_stack.push(*guard_idx1);
+            }
+            Guard::And(guard_idx, guard_idx1) => {
+                search_stack.push(*guard_idx);
+                search_stack.push(*guard_idx1);
+            }
+            Guard::Not(guard_idx) => {
+                search_stack.push(*guard_idx);
+            }
+            Guard::Comp(_port_comp, port_ref, port_ref1) => {
+                read_ports.push(*port_ref);
+                read_ports.push(*port_ref1);
+            }
+            Guard::Port(port_ref) => {
+                read_ports.push(*port_ref);
+            }
+        }
+    }
+
+    if !read_ports.is_empty() {
+        interp_ctx.guard_read_map.insert_value(idx, read_ports);
+    }
+
+    idx
 }
 
 fn translate_component(
