@@ -339,8 +339,10 @@ impl ClockPair {
             Err(ClockError::ReadWriteUnhelpful)
         } else {
             // This implies that the read happens before the write which I think
-            // shouldn't be possible but also I am not sure.
-            panic!("something weird happened. TODO griffin: Sort this out")
+            // shouldn't be possible
+            unreachable!(
+                "something weird happened. TODO griffin: Sort this out"
+            )
         }
     }
 
@@ -371,7 +373,9 @@ impl ClockPair {
         } else {
             // This implies the current write happened before the prior write
             // which I think shouldn't be possible
-            panic!("something weird happened. TODO griffin: Sort this out")
+            unreachable!(
+                "something weird happened. TODO griffin: Sort this out"
+            )
         }
     }
 }
