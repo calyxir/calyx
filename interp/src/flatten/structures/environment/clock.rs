@@ -354,6 +354,10 @@ impl ClockPair {
         {
             clock_map[self.write_clock] = clock_map[writing_clock].clone();
             Ok(())
+        } else if clock_map[writing_clock] < clock_map[self.read_clock] {
+            // This is the weird case that I believe indicates a read occurred
+            // concurrent to this write
+            Err(ClockError::ReadWriteUnhelpful)
         } else if clock_map[writing_clock]
             .partial_cmp(&clock_map[self.read_clock])
             .is_none()
@@ -365,8 +369,8 @@ impl ClockPair {
         {
             Err(ClockError::WriteWriteUnhelpful)
         } else {
-            // This implies that the write happened before both the read and the
-            // write which I think shouldn't be possible but also I am not sure.
+            // This implies the current write happened before the prior write
+            // which I think shouldn't be possible
             panic!("something weird happened. TODO griffin: Sort this out")
         }
     }
