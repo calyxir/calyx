@@ -1409,6 +1409,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 done: group.done,
                             }),
                             *thread,
+                            false,
                         ))
                     }
 
@@ -1417,6 +1418,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         i.assignments,
                         None,
                         *thread,
+                        false,
                     )),
 
                     ControlNode::Empty(_) => None,
@@ -1429,13 +1431,19 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             })
             .chain(self.env.pc.continuous_assigns().iter().map(|x| {
-                ScheduledAssignments::new(x.comp, x.assigns, None, None)
+                ScheduledAssignments::new(x.comp, x.assigns, None, None, true)
             }))
             .chain(self.env.pc.with_map().iter().map(
                 |(ctrl_pt, with_entry)| {
                     let assigns =
                         self.ctx().primary[with_entry.group].assignments;
-                    ScheduledAssignments::new(ctrl_pt.comp, assigns, None, None)
+                    ScheduledAssignments::new(
+                        ctrl_pt.comp,
+                        assigns,
+                        None,
+                        with_entry.thread,
+                        false,
+                    )
                 },
             ))
             .collect()
@@ -1607,7 +1615,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(invoke.comb_group.unwrap()),
+                            WithEntry::new(invoke.comb_group.unwrap(), thread),
                         );
                     }
 
@@ -1626,7 +1634,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(i.cond_group().unwrap()),
+                            WithEntry::new(i.cond_group().unwrap(), thread),
                         );
                     }
                 }
@@ -1635,7 +1643,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(w.cond_group().unwrap()),
+                            WithEntry::new(w.cond_group().unwrap(), thread),
                         );
                     }
                 }
@@ -1872,7 +1880,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 if i.comb_group.is_some() && !with_map.contains_key(node) {
                     with_map.insert(
                         node.clone(),
-                        WithEntry::new(i.comb_group.unwrap()),
+                        WithEntry::new(i.comb_group.unwrap(), thread),
                     );
                 }
 
@@ -2115,6 +2123,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 assignments,
                 interface_ports,
                 thread,
+                is_cont,
             } in assigns_bundle.iter()
             {
                 let ledger = self.env.cells[*active_cell].as_comp().unwrap();
@@ -2139,9 +2148,17 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .as_bool()
                                 .unwrap_or_default()
                     })
-                    // if there is no go signal, then we want to run the
-                    // assignments (combinational assignments & active comb groups)
-                    .unwrap_or(true)
+                    .unwrap_or_else(|| {
+                        // if there is no go signal, then we want to run the
+                        // continuous assignments but not comb group assignments
+                        if *is_cont {
+                            true
+                        } else {
+                            self.env.ports[comp_go]
+                                .as_bool()
+                                .unwrap_or_default()
+                        }
+                    })
                 {
                     for assign_idx in assignments {
                         let assign = &self.env.ctx.as_ref().primary[assign_idx];
@@ -2158,28 +2175,35 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             let val = &self.env.ports[port];
 
                             if let Some(clocks) = val.clocks() {
-                                let thread =
-                                    thread.expect("cannot determine thread");
-                                let thread_clock =
-                                    self.env.thread_map.unwrap_clock_id(thread);
+                                // skip checking clocks for continuous assignments
+                                if !is_cont {
+                                    if let Some(thread) = thread {
+                                        let thread_clock = self
+                                            .env
+                                            .thread_map
+                                            .unwrap_clock_id(thread);
 
-                                clocks
-                                    .check_read(
-                                        (thread, thread_clock),
-                                        &mut self.env.clocks,
-                                    )
-                                    .map_err(|e| {
-                                        // TODO griffin: find a less hacky way to
-                                        // do this
-                                        e.add_cell_info(
-                                            self.env
-                                                .get_parent_cell_from_port(
-                                                    assign.src,
-                                                    *active_cell,
-                                                )
-                                                .unwrap(),
-                                        )
-                                    })?;
+                                        clocks
+                                            .check_read(
+                                                (thread, thread_clock),
+                                                &mut self.env.clocks,
+                                            )
+                                            .map_err(|e| {
+                                                // TODO griffin: find a less hacky way to
+                                                // do this
+                                                e.add_cell_info(
+                                                self.env
+                                                    .get_parent_cell_from_port(
+                                                        assign.src,
+                                                        *active_cell,
+                                                    )
+                                                    .unwrap(),
+                                            )
+                                            })?;
+                                    } else {
+                                        panic!("cannot determine thread for non-continuous assignment that touches a checked port");
+                                    }
+                                }
                             }
 
                             let dest = self
@@ -2210,6 +2234,47 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 has_changed |= changed.as_bool();
                             } else if self.env.ports[dest].is_def() {
                                 todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
+                            }
+                        }
+
+                        if let Some(read_ports) = self
+                            .env
+                            .ctx
+                            .as_ref()
+                            .primary
+                            .guard_read_map
+                            .get(assign.guard)
+                        {
+                            for port in read_ports {
+                                let port_idx = self
+                                    .get_global_port_idx(port, *active_cell);
+                                if let Some(clocks) =
+                                    self.env.ports[port_idx].clocks()
+                                {
+                                    let thread = thread
+                                        .expect("cannot determine thread");
+                                    let thread_clock = self
+                                        .env
+                                        .thread_map
+                                        .unwrap_clock_id(thread);
+                                    clocks
+                                        .check_read(
+                                            (thread, thread_clock),
+                                            &mut self.env.clocks,
+                                        )
+                                        .map_err(|e| {
+                                            // TODO griffin: find a less hacky way to
+                                            // do this
+                                            e.add_cell_info(
+                                                self.env
+                                                    .get_parent_cell_from_port(
+                                                        *port,
+                                                        *active_cell,
+                                                    )
+                                                    .unwrap(),
+                                            )
+                                        })?;
+                                }
                             }
                         }
                     }
@@ -2278,13 +2343,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 if let Some(go_thread) =
                     self.env.ports[go_idx].as_option().and_then(|a| a.thread())
                 {
-                    Some(go_thread)
-                } else {
-                    self.env.ports[comp_go].as_option().and_then(|x| x.thread())
+                    return Some(go_thread);
                 }
-            } else {
-                self.env.ports[comp_go].as_option().and_then(|x| x.thread())
             }
+            self.env.ports[comp_go].as_option().and_then(|x| x.thread())
         })
     }
 

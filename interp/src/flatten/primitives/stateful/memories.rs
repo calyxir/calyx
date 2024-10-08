@@ -168,7 +168,8 @@ impl RaceDetectionPrimitive for StdReg {
             let current_clock_idx = thread_map.unwrap_clock_id(thread);
             self.internal_state
                 .clocks
-                .check_write(current_clock_idx, clock_map)?;
+                .check_write(current_clock_idx, clock_map)
+                .map_err(|e| e.add_cell_info(self.global_idx))?;
         }
 
         self.exec_cycle(port_map)
