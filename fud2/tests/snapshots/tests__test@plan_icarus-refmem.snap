@@ -21,9 +21,9 @@ cycle-limit = 500000000
 
 iverilog = iverilog
 rule icarus-compile-standalone-tb
-  command = $iverilog -g2012 -o $out tb.sv $in
+  command = $iverilog -g2012 -s toplevel -o $out tb.sv $in
 rule icarus-compile-custom-tb
-  command = $iverilog -g2012 -o $out tb.sv memories.sv $in
+  command = $iverilog -g2012 -s toplevel -o $out tb.sv memories.sv $in
 
 build /output.ext: icarus-compile-custom-tb /input.ext | tb.sv memories.sv
 

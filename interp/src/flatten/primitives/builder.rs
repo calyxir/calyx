@@ -4,18 +4,25 @@ use super::{combinational::*, stateful::*, Primitive};
 use crate::{
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, FXType, MemType, SingleWidthType},
+            base::GlobalCellIdx,
+            cell_prototype::{
+                CellPrototype, DoubleWidthType, FXType, MemType,
+                SingleWidthType, TripleWidthType,
+            },
             prelude::{CellInfo, GlobalPortIdx},
         },
         structures::context::Context,
     },
     serialization::DataDump,
-    values::Value,
 };
+
+use baa::BitVecValue;
 
 pub fn build_primitive(
     prim: &CellInfo,
     base_port: GlobalPortIdx,
+    // the global idx of the instantiated primitive
+    cell_idx: GlobalCellIdx,
     // extras for memory initialization
     ctx: &Context,
     dump: &Option<DataDump>,
@@ -27,7 +34,7 @@ pub fn build_primitive(
             width,
             c_type: _,
         } => {
-            let v = Value::from(*val, *width);
+            let v = BitVecValue::from_u64(*val, *width);
             Box::new(StdConst::new(v, base_port))
         }
 
@@ -35,7 +42,9 @@ pub fn build_primitive(
             "Build primitive erroneously called on a calyx component"
         ),
         CellPrototype::SingleWidth { op, width } => match op {
-            SingleWidthType::Reg => Box::new(StdReg::new(base_port, *width)),
+            SingleWidthType::Reg => {
+                Box::new(StdReg::new(base_port, cell_idx, *width))
+            }
             SingleWidthType::Not => Box::new(StdNot::new(base_port)),
             SingleWidthType::And => Box::new(StdAnd::new(base_port)),
             SingleWidthType::Or => Box::new(StdOr::new(base_port)),
@@ -48,8 +57,8 @@ pub fn build_primitive(
             SingleWidthType::Neq => Box::new(StdNeq::new(base_port)),
             SingleWidthType::Ge => Box::new(StdGe::new(base_port)),
             SingleWidthType::Le => Box::new(StdLe::new(base_port)),
-            SingleWidthType::Lsh => Box::new(StdLsh::new(base_port, *width)),
-            SingleWidthType::Rsh => Box::new(StdRsh::new(base_port, *width)),
+            SingleWidthType::Lsh => Box::new(StdLsh::new(base_port)),
+            SingleWidthType::Rsh => Box::new(StdRsh::new(base_port)),
             SingleWidthType::Mux => Box::new(StdMux::new(base_port)),
             SingleWidthType::Wire => Box::new(StdWire::new(base_port)),
             SingleWidthType::SignedAdd => Box::new(StdAdd::new(base_port)),
@@ -79,7 +88,7 @@ pub fn build_primitive(
                 Box::new(Sqrt::<false>::new(base_port, *width, None))
             }
             SingleWidthType::UnsynMult => {
-                Box::new(StdUnsynMult::new(base_port, *width))
+                Box::new(StdUnsynMult::new(base_port))
             }
             SingleWidthType::UnsynDiv => {
                 Box::new(StdUnsynDiv::new(base_port, *width))
@@ -88,7 +97,7 @@ pub fn build_primitive(
                 Box::new(StdUnsynMod::new(base_port, *width))
             }
             SingleWidthType::UnsynSMult => {
-                Box::new(StdUnsynSmult::new(base_port, *width))
+                Box::new(StdUnsynSmult::new(base_port))
             }
             SingleWidthType::UnsynSDiv => {
                 Box::new(StdUnsynSdiv::new(base_port, *width))
@@ -100,13 +109,6 @@ pub fn build_primitive(
                 Box::new(StdUndef::new(base_port, *width))
             }
         },
-        CellPrototype::BitSlice {
-            start_idx,
-            end_idx,
-            out_width,
-        } => Box::new(StdBitSlice::new(
-            base_port, *start_idx, *end_idx, *out_width,
-        )),
         CellPrototype::FixedPoint {
             op,
             width,
@@ -138,21 +140,25 @@ pub fn build_primitive(
                 Some(*frac_width),
             )),
         },
-        CellPrototype::Slice {
-            in_width: _, // Not actually needed, should probably remove
-            out_width,
-        } => Box::new(StdSlice::new(base_port, *out_width)),
-        CellPrototype::Pad {
-            in_width: _, // Not actually needed, should probably remove
-            out_width,
-        } => Box::new(StdPad::new(base_port, *out_width)),
-        CellPrototype::Cat {
-            // Turns out under the assumption that the primitive is well formed,
-            // none of these parameter values are actually needed
-            left: _,
-            right: _,
-            out: _,
-        } => Box::new(StdCat::new(base_port)),
+        CellPrototype::DoubleWidth { op, width2, .. } => match op {
+            DoubleWidthType::Slice => {
+                Box::new(StdSlice::new(base_port, *width2))
+            }
+            DoubleWidthType::Pad => Box::new(StdPad::new(base_port, *width2)),
+        },
+        CellPrototype::TripleWidth {
+            op, width1, width2, ..
+        } => match op {
+            TripleWidthType::Cat => {
+                // Turns out under the assumption that the primitive is well formed,
+                // none of these parameter values are actually needed
+                Box::new(StdCat::new(base_port))
+            }
+            TripleWidthType::BitSlice => {
+                Box::new(StdBitSlice::new(base_port, *width1, *width2))
+            }
+        },
+
         CellPrototype::Memory {
             mem_type,
             width,
@@ -168,16 +174,20 @@ pub fn build_primitive(
                 MemType::Seq => Box::new(if let Some(data) = data {
                     memories_initialized
                         .insert(ctx.resolve_id(prim.name).clone());
-                    SeqMem::new_with_init(base_port, *width, false, dims, data)
+                    SeqMem::new_with_init(
+                        base_port, cell_idx, *width, false, dims, data,
+                    )
                 } else {
-                    SeqMemD1::new(base_port, *width, false, dims)
+                    SeqMemD1::new(base_port, cell_idx, *width, false, dims)
                 }),
                 MemType::Std => Box::new(if let Some(data) = data {
                     memories_initialized
                         .insert(ctx.resolve_id(prim.name).clone());
-                    CombMem::new_with_init(base_port, *width, false, dims, data)
+                    CombMem::new_with_init(
+                        base_port, cell_idx, *width, false, dims, data,
+                    )
                 } else {
-                    CombMem::new(base_port, *width, false, dims)
+                    CombMem::new(base_port, cell_idx, *width, false, dims)
                 }),
             }
         }

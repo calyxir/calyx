@@ -336,8 +336,10 @@ impl<'a> Run<'a> {
         Ok(dir)
     }
 
-    /// Emit `build.ninja` to a temporary directory and then actually execute ninja.
-    pub fn emit_and_run(&self, dir: &Utf8Path) -> EmitResult {
+    /// Emit `build.ninja` to a temporary directory and then actually execute Ninja.
+    ///
+    /// If `print_cmds` is true, Ninja will print commands it is to run instead of executing them.
+    pub fn emit_and_run(&self, dir: &Utf8Path, print_cmds: bool) -> EmitResult {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 
@@ -367,6 +369,10 @@ impl<'a> Run<'a> {
             }
         } else {
             cmd.arg("--verbose");
+        }
+
+        if print_cmds {
+            cmd.arg("-tcommands");
         }
 
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.

@@ -3,15 +3,14 @@ use std::{
     ops::{Add, Sub},
 };
 
+use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
     flatten::structures::index_trait::{
         impl_index, impl_index_nonzero, IndexRange, IndexRef,
     },
     serialization::PrintCode,
-    values::Value,
 };
-
-use super::{cell_prototype::CellPrototype, prelude::Identifier};
+use baa::{BitVecOps, BitVecValue};
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
@@ -21,60 +20,85 @@ use super::{cell_prototype::CellPrototype, prelude::Identifier};
 pub struct ComponentIdx(u32);
 impl_index!(ComponentIdx);
 
-/// An index for auxillary definition information for cells
+/// An index for auxillary definition information for cells. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_cell_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct CellDefinitionIdx(u32);
 impl_index!(CellDefinitionIdx);
 
-/// An index for auxillary definition information for ports
+/// An index for auxillary definition information for ports. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_port_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct PortDefinitionIdx(u32);
 impl_index!(PortDefinitionIdx);
 
-/// An index for auxillary definition information for ref cells
+/// An index for auxillary definition information for ref cells. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_cell_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct RefCellDefinitionIdx(u32);
 impl_index!(RefCellDefinitionIdx);
 
-/// An index for auxillary definition information for ref ports
+/// An index for auxillary definition information for ref ports. This is used to
+/// index into the [`SecondaryContext`][]
+///
+/// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_port_defs
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct RefPortDefinitionIdx(u32);
 impl_index!(RefPortDefinitionIdx);
 
 // Global indices
 
-/// The index of a port instance in the global value map
+/// The index of a port instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalPortIdx(NonZeroU32);
 impl_index_nonzero!(GlobalPortIdx);
 
-/// The index of a cell instance in the global value map
+/// The index of a cell instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalCellIdx(NonZeroU32);
 impl_index_nonzero!(GlobalCellIdx);
 
-/// The index of a ref cell instance in the global value map
+/// The index of a ref cell instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalRefCellIdx(u32);
 impl_index!(GlobalRefCellIdx);
 
-/// The index of a ref port instance in the global value map
+/// The index of a ref port instance in the global value map. Used to index into the [`Environment`][]
+///
+/// [`Environment`]: crate::flatten::structures::environment::Environment
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalRefPortIdx(u32);
 impl_index!(GlobalRefPortIdx);
 
 // Offset indices
 
-/// A local port offset for a component. These are used in the definition of
-/// assignments and can only be understood in the context of the component they
-/// are defined under.
+/// A local port offset for a component.
+///
+/// These are used in the definition of assignments and can only be understood
+/// in the context of the component they are defined under. Combined with a base
+/// index from a component instance this can be resolved to a [`GlobalPortIdx`].
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct LocalPortOffset(u32);
 impl_index!(LocalPortOffset);
 
-/// A local ref port offset for a component. These are used in the definition of
-/// assignments and can only be understood in the context of the component they
-/// are defined under.
+/// A local ref port offset for a component.
+///
+/// These are used in the definition of assignments and can only be understood
+/// in the context of the component they are defined under. Combined with a base
+/// index from a component instance this can be resolved to a
+/// [`GlobalRefPortIdx`].
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct LocalRefPortOffset(u32);
 impl_index!(LocalRefPortOffset);
@@ -102,6 +126,8 @@ pub enum PortRef {
 }
 
 impl PortRef {
+    /// Returns the local offset of the port reference if it is a local port
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_local(&self) -> Option<&LocalPortOffset> {
         if let Self::Local(v) = self {
@@ -111,6 +137,8 @@ impl PortRef {
         }
     }
 
+    /// Returns the local offset of the port reference if it is a ref port
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_ref(&self) -> Option<&LocalRefPortOffset> {
         if let Self::Ref(v) = self {
@@ -120,10 +148,14 @@ impl PortRef {
         }
     }
 
+    /// Returns the local port offset of the port reference if it is a local port
+    /// reference. Otherwise panics.
     pub fn unwrap_local(&self) -> &LocalPortOffset {
         self.as_local().unwrap()
     }
 
+    /// Returns the local ref port offset of the port reference if it is a ref port
+    /// reference. Otherwise panics.
     pub fn unwrap_ref(&self) -> &LocalRefPortOffset {
         self.as_ref().unwrap()
     }
@@ -151,6 +183,8 @@ pub enum GlobalPortRef {
 }
 
 impl GlobalPortRef {
+    /// Constructs a global port reference from a local port reference and a base
+    /// index.
     pub fn from_local(local: PortRef, base_info: &BaseIndices) -> Self {
         match local {
             PortRef::Local(l) => (base_info + l).into(),
@@ -172,6 +206,8 @@ impl From<GlobalPortIdx> for GlobalPortRef {
 }
 
 impl GlobalPortRef {
+    /// Returns the global port index of the port reference if it is a global port
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_port(&self) -> Option<&GlobalPortIdx> {
         if let Self::Port(v) = self {
@@ -180,19 +216,12 @@ impl GlobalPortRef {
             None
         }
     }
-
-    #[must_use]
-    pub fn _as_ref(&self) -> Option<&GlobalRefPortIdx> {
-        if let Self::Ref(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
 }
 /// An enum wrapping the two different types of port definitions (ref/local)
 pub enum PortDefinitionRef {
+    /// A local port definition
     Local(PortDefinitionIdx),
+    /// A ref port definition
     Ref(RefPortDefinitionIdx),
 }
 
@@ -215,11 +244,15 @@ impl From<PortDefinitionIdx> for PortDefinitionRef {
 /// because of alignment
 #[derive(Debug, Copy, Clone)]
 pub enum CellRef {
+    /// A local cell offset
     Local(LocalCellOffset),
+    /// A ref cell offset
     Ref(LocalRefCellOffset),
 }
 
 impl CellRef {
+    /// Returns the local cell offset if it is a local cell reference. Otherwise
+    /// returns `None`.
     #[must_use]
     pub fn as_local(&self) -> Option<&LocalCellOffset> {
         if let Self::Local(v) = self {
@@ -229,6 +262,8 @@ impl CellRef {
         }
     }
 
+    /// Returns the local ref cell offset if it is a ref cell reference. Otherwise
+    /// returns `None`.
     #[must_use]
     pub fn as_ref(&self) -> Option<&LocalRefCellOffset> {
         if let Self::Ref(v) = self {
@@ -251,9 +286,13 @@ impl From<LocalCellOffset> for CellRef {
     }
 }
 
+/// An enum wrapping the two different type of global cell references
+/// (ref/local). This is the global analogue to [CellRef].
 #[derive(Debug)]
 pub enum GlobalCellRef {
+    /// A global cell index
     Cell(GlobalCellIdx),
+    /// A global ref cell index
     Ref(GlobalRefCellIdx),
 }
 
@@ -270,6 +309,8 @@ impl From<GlobalCellIdx> for GlobalCellRef {
 }
 
 impl GlobalCellRef {
+    /// Constructs a global cell reference from a local cell reference and a base
+    /// index.
     pub fn from_local(local: CellRef, base_info: &BaseIndices) -> Self {
         match local {
             CellRef::Local(l) => (base_info + l).into(),
@@ -277,6 +318,8 @@ impl GlobalCellRef {
         }
     }
 
+    /// Returns the global cell index if the reference is a global cell
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_cell(&self) -> Option<&GlobalCellIdx> {
         if let Self::Cell(v) = self {
@@ -286,6 +329,8 @@ impl GlobalCellRef {
         }
     }
 
+    /// Returns the global ref cell index if the reference is a global ref cell
+    /// reference. Otherwise returns `None`.
     #[must_use]
     pub fn as_ref(&self) -> Option<&GlobalRefCellIdx> {
         if let Self::Ref(v) = self {
@@ -295,7 +340,7 @@ impl GlobalCellRef {
         }
     }
 
-    /// Returns `true` if the global cell ref is [`Cell`].
+    /// Returns `true` if the global cell ref is [`Cell`][].
     ///
     /// [`Cell`]: GlobalCellRef::Cell
     #[must_use]
@@ -303,7 +348,7 @@ impl GlobalCellRef {
         matches!(self, Self::Cell(..))
     }
 
-    /// Returns `true` if the global cell ref is [`Ref`].
+    /// Returns `true` if the global cell ref is [`Ref`][].
     ///
     /// [`Ref`]: GlobalCellRef::Ref
     #[must_use]
@@ -312,8 +357,11 @@ impl GlobalCellRef {
     }
 }
 
+/// An enum wrapping the two different type of cell definitions (ref/local)
 pub enum CellDefinitionRef {
+    /// A local cell definition
     Local(CellDefinitionIdx),
+    /// A ref cell definition
     Ref(RefCellDefinitionIdx),
 }
 
@@ -334,6 +382,11 @@ impl From<CellDefinitionIdx> for CellDefinitionRef {
 pub struct AssignmentIdx(u32);
 impl_index!(AssignmentIdx);
 
+/// An enum representing the "winner" of an assignment.
+///
+/// This tells us how the value was assigned to the port. For standard
+/// assignments, this is also used to detect conflicts where there are multiple
+/// driving assignments.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssignmentWinner {
     /// Indicates that the "winning" assignment for this port was produced by a
@@ -341,10 +394,22 @@ pub enum AssignmentWinner {
     /// ports, there is no way for multiple cells to write the same output port,
     /// thus we don't need to record the cell that assigned it.
     Cell,
-    /// A concrete value produced by the control program
+    /// A concrete value produced by the control program or from an external
+    /// source
     Implicit,
     /// The assignment that produced this value.
     Assign(AssignmentIdx),
+}
+
+impl AssignmentWinner {
+    #[must_use]
+    pub fn as_assign(&self) -> Option<&AssignmentIdx> {
+        if let Self::Assign(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<AssignmentIdx> for AssignmentWinner {
@@ -353,16 +418,18 @@ impl From<AssignmentIdx> for AssignmentWinner {
     }
 }
 
+/// A struct representing a value that has been assigned to a port. It wraps a
+/// concrete value and the "winner" which assigned it.
 #[derive(Clone, PartialEq)]
 pub struct AssignedValue {
-    val: Value,
+    val: BitVecValue,
     winner: AssignmentWinner,
 }
 
 impl std::fmt::Debug for AssignedValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AssignedValue")
-            .field("val", &format!("{}", &self.val))
+            .field("val", &self.val.to_bit_str())
             .field("winner", &self.winner)
             .finish()
     }
@@ -376,7 +443,8 @@ impl std::fmt::Display for AssignedValue {
 }
 
 impl AssignedValue {
-    pub fn new<T: Into<AssignmentWinner>>(val: Value, winner: T) -> Self {
+    /// Creates a new AssignedValue
+    pub fn new<T: Into<AssignmentWinner>>(val: BitVecValue, winner: T) -> Self {
         Self {
             val,
             winner: winner.into(),
@@ -388,50 +456,62 @@ impl AssignedValue {
         self.winner != other.winner
     }
 
-    pub fn val(&self) -> &Value {
+    /// Returns the value of the assigned value
+    pub fn val(&self) -> &BitVecValue {
         &self.val
     }
 
+    /// Returns the winner of the assigned value
     pub fn winner(&self) -> &AssignmentWinner {
         &self.winner
     }
 
+    /// A utility constructor which returns a new implicitly assigned value with
+    /// a one bit high value
     pub fn implicit_bit_high() -> Self {
         Self {
-            val: Value::bit_high(),
+            val: BitVecValue::tru(),
             winner: AssignmentWinner::Implicit,
         }
     }
 
+    /// A utility constructor which returns an [`AssignedValue`] with the given
+    /// value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_value(val: Value) -> Self {
+    pub fn cell_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Cell,
         }
     }
 
+    /// A utility constructor which returns an [`AssignedValue`] with the given
+    /// value and a [`AssignmentWinner::Implicit`] as the winner
     #[inline]
-    pub fn implicit_value(val: Value) -> Self {
+    pub fn implicit_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Implicit,
         }
     }
 
+    /// A utility constructor which returns an [`AssignedValue`] with a one bit
+    /// high value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_high() -> Self {
-        Self::cell_value(Value::bit_high())
+        Self::cell_value(BitVecValue::tru())
     }
-
+    /// A utility constructor which returns an [`AssignedValue`] with a one bit
+    /// low value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_low() -> Self {
-        Self::cell_value(Value::bit_low())
+        Self::cell_value(BitVecValue::fals())
     }
 }
 
 #[derive(Debug, Clone, Default)]
-/// A wrapper struct around an option of an [AssignedValue]
+/// A wrapper struct around an option of an [AssignedValue]. In the case where
+/// the option is [`None`], the value is taken to be undefined.
 pub struct PortValue(Option<AssignedValue>);
 
 impl std::fmt::Display for PortValue {
@@ -441,53 +521,70 @@ impl std::fmt::Display for PortValue {
 }
 
 impl PortValue {
+    /// Returns true if the value is undefined. This is the inverse of
+    /// [`PortValue::is_def`]
     pub fn is_undef(&self) -> bool {
         self.0.is_none()
     }
 
+    /// Returns true if the value is defined. This is the inverse of
+    /// [`PortValue::is_undef`]
     pub fn is_def(&self) -> bool {
         self.0.is_some()
     }
 
+    /// Returns a reference to the underlying [`AssignedValue`] if it is defined.
+    /// Otherwise returns `None`.
     pub fn as_option(&self) -> Option<&AssignedValue> {
         self.0.as_ref()
     }
 
+    /// If the value is defined, returns the value cast to a boolean. Otherwise
+    /// returns `None`. It will panic if the given value is not one bit wide.
     pub fn as_bool(&self) -> Option<bool> {
-        self.0.as_ref().map(|x| x.val().as_bool())
+        self.0.as_ref().map(|x| x.val().to_bool().unwrap())
     }
 
-    pub fn as_usize(&self) -> Option<usize> {
-        self.0.as_ref().map(|x| x.val().as_usize())
+    /// If the value is defined, returns the value cast to a u64. Otherwise,
+    /// returns `None`. It uses the [`BitVecValue::to_u64`] method.
+    pub fn as_u64(&self) -> Option<u64> {
+        self.0.as_ref().map(|x| x.val().to_u64().unwrap())
     }
 
-    pub fn val(&self) -> Option<&Value> {
+    /// Returns a reference to the underlying value if it is defined. Otherwise
+    /// returns `None`.
+    pub fn val(&self) -> Option<&BitVecValue> {
         self.0.as_ref().map(|x| &x.val)
     }
 
+    /// Returns a reference to the underlying [`AssignmentWinner`] if it is
+    /// defined. Otherwise returns `None`.
     pub fn winner(&self) -> Option<&AssignmentWinner> {
         self.0.as_ref().map(|x| &x.winner)
     }
 
+    /// Creates a new PortValue from the given value
     pub fn new<T: Into<Self>>(val: T) -> Self {
         val.into()
     }
 
+    /// Creates a new undefined [PortValue]
     pub fn new_undef() -> Self {
         Self(None)
     }
 
     /// Creates a [PortValue] that has the "winner" as a cell
-    pub fn new_cell(val: Value) -> Self {
+    pub fn new_cell(val: BitVecValue) -> Self {
         Self(Some(AssignedValue::cell_value(val)))
     }
 
+    /// Creates a width-bit zero [PortValue] that has the "winner" as a cell
     pub fn new_cell_zeroes(width: u32) -> Self {
-        Self::new_cell(Value::zeroes(width))
+        Self::new_cell(BitVecValue::zero(width))
     }
 
     /// Creates a [PortValue] that has the "winner" as implicit
-    pub fn new_implicit(val: Value) -> Self {
+    pub fn new_implicit(val: BitVecValue) -> Self {
         Self(Some(AssignedValue::implicit_value(val)))
     }
 
@@ -497,15 +594,21 @@ impl PortValue {
         self.0.take()
     }
 
+    /// Formats the value according to the given [PrintCode] and returns the
+    /// resultant string. This is used by the debugger.
     pub fn format_value(&self, print_code: PrintCode) -> String {
         if let Some(v) = self.0.as_ref() {
             let v = &v.val;
             match print_code {
-                PrintCode::Unsigned => format!("{}", v.as_unsigned()),
-                PrintCode::Signed => format!("{}", v.as_signed()),
-                PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
-                PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
-                PrintCode::Binary => format!("{}", v),
+                PrintCode::Unsigned => format!("{}", v.to_big_uint()),
+                PrintCode::Signed => format!("{}", v.to_big_int()),
+                PrintCode::UFixed(num) => {
+                    format!("{}", v.to_unsigned_fixed_point(num).unwrap())
+                }
+                PrintCode::SFixed(num) => {
+                    format!("{}", v.to_signed_fixed_point(num).unwrap())
+                }
+                PrintCode::Binary => v.to_bit_str(),
             }
         } else {
             "undef".to_string()
@@ -549,14 +652,19 @@ impl_index_nonzero!(CombGroupIdx);
 pub struct GuardIdx(u32);
 impl_index!(GuardIdx);
 
+/// A struct containing information about a cell definition.
 #[derive(Debug, Clone)]
 pub struct CellDefinitionInfo<C>
 where
     C: sealed::PortType,
 {
+    /// The name of the cell
     pub name: Identifier,
+    /// The ports defined by the cell
     pub ports: IndexRange<C>,
+    /// The component in which the cell is defined
     pub parent: ComponentIdx,
+    /// The prototype of the cell
     pub prototype: CellPrototype,
 }
 
@@ -564,6 +672,7 @@ impl<C> CellDefinitionInfo<C>
 where
     C: sealed::PortType,
 {
+    /// Constructs a new CellDefinitionInfo instance
     pub fn new(
         name: Identifier,
         ports: IndexRange<C>,
@@ -579,13 +688,20 @@ where
     }
 }
 
+/// A type alias for a local cell definition
 pub type CellInfo = CellDefinitionInfo<LocalPortOffset>;
+/// A type alias for a ref cell definition
 pub type RefCellInfo = CellDefinitionInfo<LocalRefPortOffset>;
 
+/// An enum wrapping the possible parents of a port
 pub enum ParentIdx {
+    /// The port is part of a component signature
     Component(ComponentIdx),
+    /// The port belongs to a cell
     Cell(CellDefinitionIdx),
+    /// The port belongs to a ref cell
     RefCell(RefCellDefinitionIdx),
+    /// The port belongs to a group, i.e. is a hole
     Group(GroupIdx),
 }
 
@@ -613,7 +729,7 @@ impl From<ComponentIdx> for ParentIdx {
     }
 }
 
-// don't look at this. Seriously
+/// don't look at this. Seriously
 mod sealed {
     use crate::flatten::structures::index_trait::IndexRef;
 
@@ -625,15 +741,22 @@ mod sealed {
     impl PortType for LocalRefPortOffset {}
 }
 
+/// A struct wrapping the base index of all global port and cell indices. This
+/// defines the start point for a component instance.
 #[derive(Debug, Clone)]
 pub struct BaseIndices {
+    /// The local port starting index
     pub port_base: GlobalPortIdx,
+    /// The local cell starting index
     pub cell_base: GlobalCellIdx,
+    /// The ref cell starting index
     pub ref_cell_base: GlobalRefCellIdx,
+    /// The ref port starting index
     pub ref_port_base: GlobalRefPortIdx,
 }
 
 impl BaseIndices {
+    /// Creates a new BaseIndices instance
     pub fn new(
         port_base: GlobalPortIdx,
         cell_base: GlobalCellIdx,

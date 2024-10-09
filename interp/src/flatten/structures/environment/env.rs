@@ -6,6 +6,7 @@ use super::{
     program_counter::{PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
+use crate::flatten::structures::environment::wave::WaveWriter;
 use crate::{
     errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
     flatten::{
@@ -36,11 +37,11 @@ use crate::{
     },
     logging,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
-    values::Value,
 };
 use ahash::HashSet;
 use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
+use baa::{BitVecOps, BitVecValue};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
@@ -100,6 +101,7 @@ impl PortMap {
             // TODO: Fix to make the error more helpful
             Some(t) if t.has_conflict_with(&val) => InterpreterResult::Err(
                 InterpreterError::FlatConflictingAssignments {
+                    target,
                     a1: t.clone(),
                     a2: val,
                 }
@@ -121,9 +123,9 @@ impl PortMap {
         self.insert_val(
             target,
             AssignedValue::cell_value(if done_bool {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )
     }
@@ -230,11 +232,13 @@ impl Debug for CellLedger {
 
 #[derive(Debug, Clone)]
 struct PinnedPorts {
-    map: HashMap<GlobalPortIdx, Value>,
+    map: HashMap<GlobalPortIdx, BitVecValue>,
 }
 
 impl PinnedPorts {
-    pub fn iter(&self) -> impl Iterator<Item = (&GlobalPortIdx, &Value)> + '_ {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&GlobalPortIdx, &BitVecValue)> + '_ {
         self.map.iter()
     }
 
@@ -244,7 +248,7 @@ impl PinnedPorts {
         }
     }
 
-    pub fn insert(&mut self, port: GlobalPortIdx, val: Value) {
+    pub fn insert(&mut self, port: GlobalPortIdx, val: BitVecValue) {
         self.map.insert(port, val);
     }
 
@@ -256,7 +260,7 @@ impl PinnedPorts {
 #[derive(Debug)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
-    pub(crate) ports: PortMap,
+    ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
     pub(super) cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
@@ -278,6 +282,9 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
+    /// A utility function to get the context from the environment. This is not
+    /// suitable for cases in which mutation is required. In such cases, the
+    /// context should be accessed directly.
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
     }
@@ -466,6 +473,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 let cell_dyn = primitives::build_primitive(
                     info,
                     port_base,
+                    self.cells.peek_next_idx(),
                     self.ctx.as_ref(),
                     data_map,
                     memories_initialized,
@@ -983,25 +991,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             .and_then(|x| x.last().copied())
     }
 
-    pub fn make_nice_error(
-        &self,
-        cell: GlobalCellIdx,
-        mut err: BoxedInterpreterError,
-    ) -> BoxedInterpreterError {
-        let mut_err = err.into_inner();
-
-        match mut_err {
-            InterpreterError::UndefinedWrite(s)
-            | InterpreterError::UndefinedWriteAddr(s)
-            | InterpreterError::UndefinedReadAddr(s) => {
-                *s = self.get_full_name(cell);
-            }
-            _ => {}
-        }
-
-        err
-    }
-
     /// Traverses the given name, and returns the end of the traversal. For
     /// paths with ref cells this will resolve the concrete cell **currently**
     /// pointed to by the ref cell.
@@ -1092,7 +1081,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn lookup_port_from_string<S: AsRef<str>>(
         &self,
         port: S,
-    ) -> Option<Value> {
+    ) -> Option<BitVecValue> {
         // this is not the best way to do this but it's fine for now
         let path = self
             .traverse_name_vec(&[port.as_ref().to_string()])
@@ -1124,7 +1113,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// used for input ports on the entrypoint component (excluding the go port)
     /// and will panic if used otherwise. Intended for external use. Unrelated
     /// to the rust pin.
-    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
         let port = self.get_root_input_port(port);
 
         let go = self.get_comp_go(Self::get_root());
@@ -1185,15 +1174,29 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 }
 
 /// A wrapper struct for the environment that provides the functions used to
-/// simulate the actual program. This is just to keep the simulation logic under
-/// a different namespace than the environment to avoid confusion
+/// simulate the actual program.
+///
+/// This is just to keep the simulation logic under a different namespace than
+/// the environment to avoid confusion
 pub struct Simulator<C: AsRef<Context> + Clone> {
     env: Environment<C>,
+    wave: Option<WaveWriter>,
 }
 
 impl<C: AsRef<Context> + Clone> Simulator<C> {
-    pub fn new(env: Environment<C>) -> Self {
-        let mut output = Self { env };
+    pub fn new(
+        env: Environment<C>,
+        wave_file: &Option<std::path::PathBuf>,
+    ) -> Self {
+        // open the wave form file and declare all signals
+        let wave =
+            wave_file.as_ref().map(|p| match WaveWriter::open(p, &env) {
+                Ok(w) => w,
+                Err(err) => {
+                    todo!("deal more gracefully with error: {err:?}")
+                }
+            });
+        let mut output = Self { env, wave };
         output.set_root_go_high();
         output
     }
@@ -1218,6 +1221,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn build_simulator(
         ctx: C,
         data_file: &Option<std::path::PathBuf>,
+        wave_file: &Option<std::path::PathBuf>,
     ) -> Result<Self, BoxedInterpreterError> {
         let data_dump = data_file
             .as_ref()
@@ -1228,7 +1232,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // flip to a result of an option
             .map_or(Ok(None), |res| res.map(Some))?;
 
-        Ok(Simulator::new(Environment::new(ctx, data_dump)))
+        Ok(Simulator::new(Environment::new(ctx, data_dump), wave_file))
     }
 
     pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
@@ -1268,7 +1272,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     /// Pins the port with the given name to the given value. This may only be
     /// used for input ports on the entrypoint component (excluding the go port)
     /// and will panic if used otherwise. Intended for external use.
-    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: Value) {
+    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
         self.env.pin_value(port, val)
     }
 
@@ -1281,7 +1285,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Lookup the value of a port on the entrypoint component by name. Will
     /// error if the port is not found.
-    pub fn lookup_port_from_string(&self, port: &String) -> Option<Value> {
+    pub fn lookup_port_from_string(
+        &self,
+        port: &String,
+    ) -> Option<BitVecValue> {
         self.env.lookup_port_from_string(port)
     }
 }
@@ -1349,7 +1356,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let ledger = self.get_root_component();
         let go = &ledger.index_bases
             + self.env.ctx.as_ref().primary[ledger.comp_id].go;
-        self.env.ports[go] = PortValue::new_implicit(Value::bit_high());
+        self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -1527,7 +1534,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         for comp in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
             self.env.ports[done_port] =
-                PortValue::new_implicit(Value::bit_high());
+                PortValue::new_implicit(BitVecValue::tru());
         }
 
         let (vecs, par_map, mut with_map, repeat_map) =
@@ -1544,7 +1551,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // if the done is not high & defined, we need to set it to low
             if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
                 self.env.ports[comp_done] =
-                    PortValue::new_implicit(Value::bit_low());
+                    PortValue::new_implicit(BitVecValue::fals());
             }
 
             match &ctx_ref.primary[node.control_node_idx] {
@@ -1559,7 +1566,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     // set go high
                     let go_idx = index_bases + go_local;
                     self.env.ports[go_idx] =
-                        PortValue::new_implicit(Value::bit_high());
+                        PortValue::new_implicit(BitVecValue::tru());
                 }
                 ControlNode::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
@@ -1573,7 +1580,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
                     self.env.ports[go] =
-                        PortValue::new_implicit(Value::bit_high());
+                        PortValue::new_implicit(BitVecValue::tru());
 
                     // TODO griffin: should make this skip initialization if
                     // it's already initialized
@@ -1613,19 +1620,20 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let assigns_bundle = self.get_assignments(self.env.pc.node_slice());
 
         self.simulate_combinational(&assigns_bundle)
+            .map_err(|e| e.prettify_message(&self.env))
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
         self.converge()?;
 
-        let out: Result<(), (GlobalCellIdx, BoxedInterpreterError)> = {
+        let out: Result<(), BoxedInterpreterError> = {
             let mut result = Ok(());
-            for (idx, cell) in self.env.cells.iter_mut() {
+            for (_, cell) in self.env.cells.iter_mut() {
                 match cell {
                     CellLedger::Primitive { cell_dyn } => {
                         let res = cell_dyn.exec_cycle(&mut self.env.ports);
                         if res.is_err() {
-                            result = Err((idx, res.unwrap_err()));
+                            result = Err(res.unwrap_err());
                             break;
                         }
                     }
@@ -1658,7 +1666,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
 
-        out.map_err(|(idx, err)| self.env.make_nice_error(idx, err))
+        out.map_err(|err| err.prettify_message(&self.env))
     }
 
     fn evaluate_control_node(
@@ -1878,9 +1886,17 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
+        let mut time = 0;
         while !self.is_done() {
+            if let Some(wave) = self.wave.as_mut() {
+                wave.write_values(time, &self.env.ports)?;
+            }
             // self.print_pc();
-            self.step()?
+            self.step()?;
+            time += 1;
+        }
+        if let Some(wave) = self.wave.as_mut() {
+            wave.write_values(time, &self.env.ports)?;
         }
         Ok(())
     }
@@ -1917,10 +1933,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 match c {
                     calyx_ir::PortComp::Eq => a_val == b_val,
                     calyx_ir::PortComp::Neq => a_val != b_val,
-                    calyx_ir::PortComp::Gt => a_val > b_val,
-                    calyx_ir::PortComp::Lt => a_val < b_val,
-                    calyx_ir::PortComp::Geq => a_val >= b_val,
-                    calyx_ir::PortComp::Leq => a_val <= b_val,
+                    calyx_ir::PortComp::Gt => a_val.is_greater(b_val),
+                    calyx_ir::PortComp::Lt => a_val.is_less(b_val),
+                    calyx_ir::PortComp::Geq => a_val.is_greater_or_equal(b_val),
+                    calyx_ir::PortComp::Leq => a_val.is_less_or_equal(b_val),
                 }
                 .into()
             }
@@ -2035,18 +2051,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 .range()
                 .iter()
                 .filter_map(|x| match &mut self.env.cells[x] {
-                    CellLedger::Primitive { cell_dyn } => Some(
-                        cell_dyn
-                            .exec_comb(&mut self.env.ports)
-                            .map_err(|e| (x, e)),
-                    ),
+                    CellLedger::Primitive { cell_dyn } => {
+                        Some(cell_dyn.exec_comb(&mut self.env.ports))
+                    }
                     CellLedger::Component(_) => None,
                 })
                 .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
                     has_changed | update
-                })
-                .map_err(|(cell_idx, err)| {
-                    self.env.make_nice_error(cell_idx, err)
                 })?
                 .as_bool();
 
@@ -2059,7 +2070,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 for &done_port in &done_ports {
                     if self.env.ports[done_port].is_undef() {
                         self.env.ports[done_port] =
-                            PortValue::new_implicit(Value::bit_low());
+                            PortValue::new_implicit(BitVecValue::fals());
                         has_changed = true;
                     }
                 }

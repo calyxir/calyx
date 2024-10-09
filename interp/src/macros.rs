@@ -39,7 +39,7 @@ macro_rules! lit_or_id {
 /// ```
 macro_rules! port_bindings {
     ( $binds: ident; $( $port: ident -> ($val: tt, $width: tt) ),+ ) => {
-        $( let $port = $crate::values::Value::from($crate::lit_or_id!($val), $crate::lit_or_id!($width)); )+
+        $( let $port = baa::BitVecValue::from_u64($crate::lit_or_id!($val), $crate::lit_or_id!($width)); )+
         let $binds = vec![ $( (calyx_ir::Id::from($crate::in_fix!($port)), &$port) ),+ ];
     }
 }
@@ -47,7 +47,7 @@ macro_rules! port_bindings {
 /// Helper macro to generate validation checks for the input passed to primitives
 /// ```
 ///  # use interp::validate;
-///  # use interp::values::Value;
+///  # use baa::BitVecValue;
 ///  # let input = [("left", [4,4,4,4])];
 ///  # let inputs = &input;
 ///  # let width = 4;
@@ -73,7 +73,7 @@ macro_rules! validate {
 /// primitives, does not error on unknown ports
 /// ```
 ///  # use interp::validate_friendly;
-///  # use interp::values::Value;
+///  # use baa::BitVecValue;
 ///  # let input = [("left", [4,4,4,4])];
 ///  # let inputs = &input;
 ///  # let width = 4;
