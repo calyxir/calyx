@@ -3,7 +3,7 @@ use std::ops::Index;
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
     component::{
-        AssignmentDefinitionLocation, AuxillaryComponentInfo, ComponentCore,
+        AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentCore,
         ComponentMap,
     },
     identifier::IdMap,
@@ -23,7 +23,7 @@ use crate::flatten::flat_ir::{
 
 use super::{
     index_trait::{IndexRange, IndexRef},
-    indexed_map::{AuxillaryMap, IndexedMap},
+    indexed_map::{AuxiliaryMap, IndexedMap},
     printer::Printer,
 };
 
@@ -117,7 +117,7 @@ pub struct SecondaryContext {
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
     /// auxiliary information for components
-    pub comp_aux_info: AuxillaryMap<ComponentIdx, AuxillaryComponentInfo>,
+    pub comp_aux_info: AuxiliaryMap<ComponentIdx, AuxiliaryComponentInfo>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -161,7 +161,7 @@ impl Index<RefCellDefinitionIdx> for SecondaryContext {
 }
 
 impl Index<ComponentIdx> for SecondaryContext {
-    type Output = AuxillaryComponentInfo;
+    type Output = AuxiliaryComponentInfo;
 
     fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.comp_aux_info[index]

@@ -7,7 +7,7 @@ use crate::flatten::flat_ir::prelude::*;
 use crate::flatten::structures::context::Context;
 use crate::flatten::structures::environment::{Environment, PortMap};
 use crate::flatten::structures::index_trait::IndexRef;
-use crate::flatten::structures::indexed_map::AuxillaryMap;
+use crate::flatten::structures::indexed_map::AuxiliaryMap;
 use baa::BitVecOps;
 use fst_writer::*;
 
@@ -82,7 +82,7 @@ enum Todo {
     CloseScope,
 }
 
-type PortToSignalMap = AuxillaryMap<GlobalPortIdx, Option<FstSignalId>>;
+type PortToSignalMap = AuxiliaryMap<GlobalPortIdx, Option<FstSignalId>>;
 
 fn declare_signals<
     C: AsRef<Context> + Clone,
