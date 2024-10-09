@@ -16,14 +16,7 @@ use crate::{
                 LocalRefPortOffset,
             },
             cell_prototype::{CellPrototype, SingleWidthType},
-            prelude::{
-                AssignedValue, AssignmentIdx, BaseIndices,
-                CellDefinitionRef::{Local, Ref},
-                CellRef, ComponentIdx, ControlNode, GlobalCellIdx,
-                GlobalCellRef, GlobalPortIdx, GlobalPortRef, GlobalRefCellIdx,
-                GlobalRefPortIdx, GroupIdx, GuardIdx, Identifier, If, Invoke,
-                PortRef, PortValue, While,
-            },
+            prelude::*,
             wires::guards::Guard,
         },
         primitives::{
@@ -1486,7 +1479,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
             let cell_info_idx = parent_info.get_cell_info_idx(*cell_ref);
             match cell_info_idx {
-                Local(l) => {
+                CellDefinitionRef::Local(l) => {
                     let info = &self.env.ctx.as_ref().secondary[l];
                     assert_eq!(
                         child_ref_cell_info.ports.size(),
@@ -1501,7 +1494,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         self.env.ref_ports[dest_idx] = Some(source_idx);
                     }
                 }
-                Ref(r) => {
+                CellDefinitionRef::Ref(r) => {
                     let info = &self.env.ctx.as_ref().secondary[r];
                     assert_eq!(
                         child_ref_cell_info.ports.size(),
