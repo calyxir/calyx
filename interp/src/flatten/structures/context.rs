@@ -25,7 +25,7 @@ use super::{
     index_trait::{IndexRange, IndexRef},
     indexed_map::{AuxillaryMap, IndexedMap},
     printer::Printer,
-    sparse_map::AuxillarySparseMap,
+    sparse_map::AuxiliarySparseMap,
 };
 
 /// The immutable program context for the interpreter. Relevant at simulation
@@ -45,7 +45,7 @@ pub struct InterpretationContext {
     /// Map from guard to the ports it reads. Might be worth doing some extra
     /// work to make this save memory since empty vecs for True guards is
     /// probably not worth it
-    pub guard_read_map: AuxillarySparseMap<GuardIdx, Vec<PortRef>>,
+    pub guard_read_map: AuxiliarySparseMap<GuardIdx, Vec<PortRef>>,
     /// Control trees
     pub control: ControlMap,
 }

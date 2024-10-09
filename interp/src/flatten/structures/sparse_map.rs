@@ -122,14 +122,14 @@ where
 /// maps. This is used to store extra information that is only applicable to a
 /// subset of the indices in a primary map.
 #[derive(Debug, Clone)]
-pub struct AuxillarySparseMap<K, D>
+pub struct AuxiliarySparseMap<K, D>
 where
     K: IndexRef + Hash,
 {
     data: HashMap<K, D>,
 }
 
-impl<K, D> AuxillarySparseMap<K, D>
+impl<K, D> AuxiliarySparseMap<K, D>
 where
     K: IndexRef + Hash,
 {
@@ -148,7 +148,7 @@ where
     }
 }
 
-impl<K, D> Default for AuxillarySparseMap<K, D>
+impl<K, D> Default for AuxiliarySparseMap<K, D>
 where
     K: IndexRef + Hash,
 {
