@@ -838,9 +838,8 @@ impl RaceDetectionPrimitive for SeqMem {
             self.addresser.calculate_addr(port_map, self.base_port)
         {
             if addr < self.internal_state.len() {
-                let thread =
-                    thread.expect("Could not infer thread id for seq mem");
-                let thread_clock = thread_map.unwrap_clock_id(thread);
+                let thread_clock =
+                    thread.map(|thread| thread_map.unwrap_clock_id(thread));
 
                 let val = &self.internal_state[addr];
 
@@ -850,14 +849,27 @@ impl RaceDetectionPrimitive for SeqMem {
                         .unwrap_or_default()
                 {
                     val.clocks
-                        .check_write(thread_clock, clock_map)
+                        .check_write(
+                            thread_clock.expect(
+                                "unable to determine thread for seq mem",
+                            ),
+                            clock_map,
+                        )
                         .map_err(|e| e.add_cell_info(self.global_idx))?;
                 } else if port_map[self.content_enable()]
                     .as_bool()
                     .unwrap_or_default()
                 {
                     val.clocks
-                        .check_read((thread, thread_clock), clock_map)
+                        .check_read(
+                            (
+                                thread.expect(
+                                    "unable to determine thread for seq mem",
+                                ),
+                                thread_clock.unwrap(),
+                            ),
+                            clock_map,
+                        )
                         .map_err(|e| e.add_cell_info(self.global_idx))?;
                 }
             }
