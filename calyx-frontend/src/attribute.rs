@@ -77,7 +77,7 @@ pub enum BoolAttr {
     /// https://github.com/calyxir/calyx/issues/1828
     Fast,
     #[strum(serialize = "protected")]
-    /// Do I preserve cells of this component during optimization?
+    /// Do I preserve this cell (and its uses) during optimization?
     Protected,
 }
 
