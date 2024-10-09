@@ -93,7 +93,8 @@ impl OwnedDebugger {
             false,
         )?;
 
-        let debugger: Debugger<Rc<Context>> = Self::new(Rc::new(ctx), &None)?;
+        let debugger: Debugger<Rc<Context>> =
+            Self::new(Rc::new(ctx), &None, &None)?;
 
         Ok((debugger, map))
     }
@@ -104,9 +105,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     pub fn new(
         program_context: C,
         data_file: &Option<std::path::PathBuf>,
+        wave_file: &Option<std::path::PathBuf>,
     ) -> InterpreterResult<Self> {
-        let mut interpreter =
-            Simulator::build_simulator(program_context.clone(), data_file)?;
+        let mut interpreter = Simulator::build_simulator(
+            program_context.clone(),
+            data_file,
+            wave_file,
+        )?;
         interpreter.converge()?;
 
         Ok(Self {

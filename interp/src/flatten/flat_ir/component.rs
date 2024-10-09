@@ -173,7 +173,7 @@ impl ComponentCore {
 #[derive(Debug, Clone)]
 /// Other information about a component definition. This is not on the hot path
 /// and is instead needed primarily during setup and error reporting.
-pub struct AuxillaryComponentInfo {
+pub struct AuxiliaryComponentInfo {
     /// Name of the component.
     pub name: Identifier,
     /// The input/output signature of this component. This could probably be
@@ -193,14 +193,14 @@ pub struct AuxillaryComponentInfo {
         SparseMap<LocalRefCellOffset, RefCellDefinitionIdx>,
 }
 
-impl Default for AuxillaryComponentInfo {
+impl Default for AuxiliaryComponentInfo {
     fn default() -> Self {
         Self::new_with_name(Identifier::get_default_id())
     }
 }
 
-impl AuxillaryComponentInfo {
-    /// Creates a new [`AuxillaryComponentInfo`] with the given name. And
+impl AuxiliaryComponentInfo {
+    /// Creates a new [`AuxiliaryComponentInfo`] with the given name. And
     /// default values elsewhere.
     pub fn new_with_name(id: Identifier) -> Self {
         Self {
