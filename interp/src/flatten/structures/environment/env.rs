@@ -57,7 +57,7 @@ impl PortMap {
         target: GlobalPortIdx,
     ) -> InterpreterResult<()> {
         if self[target].is_def() {
-            todo!("raise error")
+            Err(InterpreterError::UndefiningDefinedPort(target).into())
         } else {
             Ok(())
         }
@@ -98,14 +98,22 @@ impl PortMap {
             Some(t) if *t == val => Ok(UpdateStatus::Unchanged),
             // conflict
             // TODO: Fix to make the error more helpful
-            Some(t) if t.has_conflict_with(&val) => InterpreterResult::Err(
-                InterpreterError::FlatConflictingAssignments {
-                    target,
-                    a1: t.clone(),
-                    a2: val,
-                }
-                .into(),
-            ),
+            Some(t)
+                if t.has_conflict_with(&val)
+                // Cell values are allowed to override implicit but not the
+                // other way around
+                    && !(*t.winner() == AssignmentWinner::Implicit
+                        && *val.winner() == AssignmentWinner::Cell) =>
+            {
+                InterpreterResult::Err(
+                    InterpreterError::FlatConflictingAssignments {
+                        target,
+                        a1: t.clone(),
+                        a2: val,
+                    }
+                    .into(),
+                )
+            }
             // changed
             Some(_) | None => {
                 self[target] = PortValue::new(val);
@@ -301,6 +309,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     clocks: ClockMap,
     thread_map: ThreadMap,
+    control_ports: Vec<(GlobalPortIdx, u32)>,
 
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
@@ -397,6 +406,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
+            control_ports: Vec::new(),
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -513,6 +523,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         &self.cells[comp].as_comp().unwrap().index_bases + port,
                         idx
                     );
+                    let def_idx = comp_aux.port_offset_map[port];
+                    let info = &self.ctx.as_ref().secondary[def_idx];
+                    if info.is_control {
+                        self.control_ports
+                            .push((idx, info.width.try_into().unwrap()));
+                    }
                 }
                 let cell_dyn = primitives::build_primitive(
                     info,
@@ -2084,29 +2100,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     ) -> InterpreterResult<()> {
         let mut has_changed = true;
 
-        // TODO griffin: rewrite this so that someone can actually read it
-        let done_ports: Vec<_> = assigns_bundle
-            .iter()
-            .filter_map(|x| {
-                x.interface_ports.as_ref().map(|y| {
-                    let comp_go = self.env.get_comp_go(x.active_cell);
-                    let idx_bases = &self.env.cells[x.active_cell]
-                        .as_comp()
-                        .unwrap()
-                        .index_bases;
-
-                    (
-                        idx_bases + y.done,
-                        self.compute_thread(
-                            comp_go,
-                            &x.thread,
-                            Some(idx_bases + y.go),
-                        ),
-                    )
-                })
-            })
-            .collect();
-
         while has_changed {
             has_changed = false;
 
@@ -2305,11 +2298,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // converged then they should be set to zero and we should continue
             // convergence
             if !has_changed {
-                for (done_port, thread) in &done_ports {
-                    if self.env.ports[*done_port].is_undef() {
-                        self.env.ports[*done_port] =
-                            PortValue::new_implicit(BitVecValue::fals())
-                                .with_thread_optional(*thread);
+                for (port, width) in self.env.control_ports.iter() {
+                    if self.env.ports[*port].is_undef() {
+                        self.env.ports[*port] =
+                            PortValue::new_implicit(BitVecValue::zero(*width));
                         has_changed = true;
                     }
                 }

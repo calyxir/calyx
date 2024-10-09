@@ -323,10 +323,14 @@ fn insert_port(
             local_offset.into()
         }
         ContainmentType::Local => {
+            let borrow = port.borrow();
+            let is_control = borrow.has_attribute(calyx_ir::BoolAttr::Control)
+                || !borrow.has_attribute(calyx_ir::BoolAttr::Data);
+
             let idx_definition = secondary_ctx.push_local_port(
                 id,
                 port.borrow().width as usize,
-                port.borrow().has_attribute(calyx_ir::BoolAttr::Control),
+                is_control,
             );
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()

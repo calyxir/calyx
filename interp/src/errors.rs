@@ -194,6 +194,9 @@ pub enum InterpreterError {
     )]
     UndefinedReadAddr(GlobalCellIdx),
 
+    #[error("Attempted to undefine a defined port \"{0:?}\"")]
+    UndefiningDefinedPort(GlobalPortIdx),
+
     /// A wrapper for serialization errors
     #[error(transparent)]
     SerializationError(#[from] crate::serialization::SerializationError),
@@ -306,6 +309,7 @@ impl InterpreterError {
                     _ => InterpreterError::ClockError(clk),
                 }
             }
+            InterpreterError::UndefiningDefinedPort(p) => InterpreterError::GenericError(format!("Attempted to undefine a defined port \"{}\"", env.get_full_name(p))),
             e => e,
         }
     }
