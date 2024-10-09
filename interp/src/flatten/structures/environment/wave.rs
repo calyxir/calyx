@@ -19,6 +19,12 @@ pub enum WaveError {
 
 pub type Result<T> = std::result::Result<T, WaveError>;
 
+impl From<WaveError> for crate::errors::InterpreterError {
+    fn from(value: WaveError) -> Self {
+        Self::GenericError(value.to_string())
+    }
+}
+
 pub struct WaveWriter {
     writer: Option<FstBodyWriter<std::io::BufWriter<std::fs::File>>>,
     port_map: PortToSignalMap,

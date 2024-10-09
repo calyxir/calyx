@@ -1889,14 +1889,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let mut time = 0;
         while !self.is_done() {
             if let Some(wave) = self.wave.as_mut() {
-                wave.write_values(time, &self.env.ports).unwrap();
+                wave.write_values(time, &self.env.ports)?;
             }
             // self.print_pc();
             self.step()?;
             time += 1;
         }
         if let Some(wave) = self.wave.as_mut() {
-            wave.write_values(time, &self.env.ports).unwrap();
+            wave.write_values(time, &self.env.ports)?;
         }
         Ok(())
     }
