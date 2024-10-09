@@ -6,7 +6,6 @@ use crate::flatten::flat_ir::cell_prototype::CellPrototype;
 use crate::flatten::flat_ir::prelude::*;
 use crate::flatten::structures::context::Context;
 use crate::flatten::structures::environment::{Environment, PortMap};
-use crate::flatten::structures::index_trait::IndexRef;
 use crate::flatten::structures::indexed_map::AuxiliaryMap;
 use baa::BitVecOps;
 use fst_writer::*;
@@ -26,6 +25,7 @@ impl From<WaveError> for crate::errors::InterpreterError {
 }
 
 pub struct WaveWriter {
+    // `writer` will be `None` after this struct is dropped.
     writer: Option<FstBodyWriter<std::io::BufWriter<std::fs::File>>>,
     port_map: PortToSignalMap,
 }
@@ -97,10 +97,11 @@ fn declare_signals<
     out: &mut FstHeaderWriter<W>,
     env: &Environment<C>,
 ) -> Result<PortToSignalMap> {
+    let ctx = env.ctx();
     let mut port_map: PortToSignalMap = PortToSignalMap::new();
-    let root_idx = GlobalCellIdx::new(0);
-    let root_comp = &env.ctx.as_ref().secondary[env.ctx().entry_point];
-    let root_name = env.ctx().lookup_name(root_comp.name).clone();
+    let root_idx = Environment::<C>::get_root();
+    let root_comp = &ctx.secondary[ctx.entry_point];
+    let root_name = ctx.lookup_name(root_comp.name).clone();
     let mut todo = vec![Todo::OpenScope(root_name, root_idx)];
     while let Some(component) = todo.pop() {
         match component {
@@ -134,48 +135,39 @@ fn declare_component<
     component_cell_idx: GlobalCellIdx,
     instance_name: String,
 ) -> Result<()> {
+    let ctx = env.ctx();
     let instance = env.cells[component_cell_idx].as_comp().unwrap();
-    let component = &env.ctx.as_ref().secondary[instance.comp_id];
+    let component = &ctx.secondary[instance.comp_id];
 
-    let component_name = &env.ctx().lookup_name(component.name);
+    let component_name = ctx.lookup_name(component.name);
     out.scope(instance_name, component_name, FstScopeType::Module)?;
 
     // component ports
     declare_ports(
         out,
         env,
-        component
-            .signature_in
-            .iter()
-            .chain(component.signature_out.iter())
-            .map(|local| {
-                (
-                    component.port_offset_map[local],
-                    &instance.index_bases + local,
-                )
-            }),
+        component.inputs().chain(component.outputs()).map(|local| {
+            (
+                component.port_offset_map[local],
+                &instance.index_bases + local,
+            )
+        }),
         port_map,
     )?;
 
     // child components
     for (local_offset, cell) in component.cell_offset_map.iter() {
-        let cell = env
-            .ctx
-            .as_ref()
-            .secondary
-            .local_cell_defs
-            .get(*cell)
-            .unwrap();
+        let cell = &ctx.secondary.local_cell_defs[*cell];
         let cell_idx = &instance.index_bases + local_offset;
         if cell.prototype.is_component() {
-            let name = env.ctx().lookup_name(cell.name).clone();
+            let name = ctx.lookup_name(cell.name).clone();
             todo.push(Todo::OpenScope(name, cell_idx));
         } else {
             if matches!(&cell.prototype, CellPrototype::Constant { .. }) {
                 // skip constants
                 continue;
             }
-            let instance_name = env.ctx().lookup_name(cell.name);
+            let instance_name = ctx.lookup_name(cell.name);
             let primitive_name = ""; // TODO
             out.scope(instance_name, primitive_name, FstScopeType::Module)?;
             declare_ports(
@@ -205,15 +197,16 @@ fn declare_ports<
     ports: I,
     port_map: &mut PortToSignalMap,
 ) -> Result<()> {
+    let ctx = env.ctx();
     for (port_id, global_idx) in ports {
-        let port = env.ctx().secondary.local_port_defs.get(port_id).unwrap();
-        let name = env.ctx().lookup_name(port.name);
+        let port = ctx.secondary.local_port_defs.get(port_id).unwrap();
+        let name = ctx.lookup_name(port.name);
 
         let alias = *port_map.get(global_idx);
-        let signal_tpe = FstSignalType::bit_vec(port.width as u32);
+        let signal_type = FstSignalType::bit_vec(port.width as u32);
         let id = out.var(
             name,
-            signal_tpe,
+            signal_type,
             FstVarType::Logic,
             FstVarDirection::Implicit,
             alias,
