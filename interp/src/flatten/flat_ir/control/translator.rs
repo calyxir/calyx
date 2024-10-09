@@ -323,8 +323,11 @@ fn insert_port(
             local_offset.into()
         }
         ContainmentType::Local => {
-            let idx_definition =
-                secondary_ctx.push_local_port(id, port.borrow().width as usize);
+            let idx_definition = secondary_ctx.push_local_port(
+                id,
+                port.borrow().width as usize,
+                port.borrow().has_attribute(calyx_ir::BoolAttr::Control),
+            );
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
         }

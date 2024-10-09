@@ -105,6 +105,8 @@ pub struct PortDefinitionInfo {
     pub name: Identifier,
     /// The width of the port
     pub width: usize,
+    /// Whether the port is control
+    pub is_control: bool,
 }
 
 #[derive(Debug)]
@@ -179,9 +181,13 @@ impl SecondaryContext {
         &mut self,
         name: Identifier,
         width: usize,
+        is_control: bool,
     ) -> PortDefinitionIdx {
-        self.local_port_defs
-            .push(PortDefinitionInfo { name, width })
+        self.local_port_defs.push(PortDefinitionInfo {
+            name,
+            width,
+            is_control,
+        })
     }
 
     /// Insert a new reference port definition into the context and return its index
