@@ -62,7 +62,7 @@ def insert_queue(
     hot = pifo.reg(32, "hot")  # A register that marks the next sub-queue to `pop` from.
     og_hot = pifo.reg(32, "og_hot")
     copy_hot = pifo.reg_store(og_hot, hot.out)  # og_hot := hot.out
-    max_queue_len = 2 ** queue_len_factor
+    max_queue_len = 2**queue_len_factor
 
     # Some equality checks.
     len_eq_0 = pifo.eq_use(length.out, 0)
@@ -125,7 +125,7 @@ def insert_queue(
         for b in range(numflows)
     ]
     invoke_subqueues_value_guard = cb.par(
-        invoke_subqueues_value_guard_seq
+        *invoke_subqueues_value_guard_seq
     )  # Execute in parallel.
 
     incr_hot_wraparound = cb.if_with(
@@ -188,6 +188,7 @@ def insert_queue(
     )
 
     return pifo
+
 
 def generate(prog, numflows, roundrobin):
     """Top-level function to build the program."""

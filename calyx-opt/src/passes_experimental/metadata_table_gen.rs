@@ -87,7 +87,7 @@ mod tests {
 
     use calyx_ir::Id;
 
-    use crate::passes::metadata_table_gen::Metadata;
+    use crate::passes_experimental::metadata_table_gen::Metadata;
     #[test]
     fn test_metadata() {
         let mut data = Metadata::new();

@@ -1,8 +1,8 @@
 # For usage, see gen_queue_data_expect.sh
 
 import sys
-import queues 
-import util 
+import queues
+import util
 
 
 if __name__ == "__main__":
@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     subqueues3 = [queues.Fifo(len) for _ in range(3)]
     # a second subqueue copy is required, we cannot pass the same subqueue across more than one function call
-    subqueues3s = [queues.Fifo(len) for _ in range(3)] 
+    subqueues3s = [queues.Fifo(len) for _ in range(3)]
     subqueues2 = [queues.Fifo(len) for _ in range(2)]
 
     pifo = queues.RRQueue(

@@ -7,7 +7,7 @@ use crate::{
     flatten::{
         flat_ir::{
             cell_prototype::{CellPrototype, ConstantType},
-            component::{AuxillaryComponentInfo, ComponentCore},
+            component::{AuxiliaryComponentInfo, ComponentCore},
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
                 Assignment, AssignmentIdx, CellRef, CombGroup, CombGroupIdx,
@@ -161,7 +161,7 @@ fn translate_component(
     ctx: &mut Context,
     component_id_map: &mut ComponentMapper,
 ) -> ComponentIdx {
-    let mut auxillary_component_info = AuxillaryComponentInfo::new_with_name(
+    let mut auxillary_component_info = AuxiliaryComponentInfo::new_with_name(
         ctx.secondary.string_table.insert(comp.name),
     );
 
@@ -311,7 +311,7 @@ fn translate_component(
 
 fn insert_port(
     secondary_ctx: &mut SecondaryContext,
-    aux: &mut AuxillaryComponentInfo,
+    aux: &mut AuxiliaryComponentInfo,
     port: &RRC<cir::Port>,
     port_type: ContainmentType,
 ) -> PortRef {
@@ -340,7 +340,7 @@ fn insert_port(
 
 fn insert_cell(
     secondary_ctx: &mut SecondaryContext,
-    aux: &mut AuxillaryComponentInfo,
+    aux: &mut AuxiliaryComponentInfo,
     cell: &RRC<cir::Cell>,
     layout: &mut Layout,
     comp_id: ComponentIdx,
@@ -400,7 +400,7 @@ pub struct Layout {
 fn compute_local_layout(
     comp: &cir::Component,
     ctx: &mut Context,
-    aux: &mut AuxillaryComponentInfo,
+    aux: &mut AuxiliaryComponentInfo,
     component_id_map: &ComponentMapper,
 ) -> Layout {
     let comp_id = ctx.primary.components.peek_next_idx();
@@ -584,7 +584,7 @@ impl FlattenTree for cir::Control {
 
     type IdxType = ControlIdx;
 
-    type AuxillaryData = (GroupMapper, Layout, Context, AuxillaryComponentInfo);
+    type AuxillaryData = (GroupMapper, Layout, Context, AuxiliaryComponentInfo);
 
     fn process_element<'data>(
         &'data self,
