@@ -76,6 +76,9 @@ pub enum BoolAttr {
     #[strum(serialize = "fast")]
     /// https://github.com/calyxir/calyx/issues/1828
     Fast,
+    #[strum(serialize = "protected")]
+    /// Do I preserve this cell (and its uses) during optimization?
+    Protected,
 }
 
 impl From<BoolAttr> for Attribute {

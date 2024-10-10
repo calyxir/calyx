@@ -129,13 +129,17 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Add @external cells and ref cells.
+        // Add @external cells, @protected cells and ref cells.
         self.all_reads.extend(
             comp.cells
                 .iter()
                 .filter(|c| {
                     let cell = c.borrow();
                     cell.attributes.get(ir::BoolAttr::External).is_some()
+                        || cell
+                            .attributes
+                            .get(ir::BoolAttr::Protected)
+                            .is_some()
                         || cell.is_reference()
                 })
                 .map(|c| c.borrow().name()),
