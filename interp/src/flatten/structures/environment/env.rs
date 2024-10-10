@@ -318,6 +318,9 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     pub(super) ctx: C,
 
     memory_header: Option<Vec<MemoryDeclaration>>,
+
+    /// Whether to perform data race checking
+    check_data_race: bool,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -385,7 +388,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
-    pub fn new(ctx: C, data_map: Option<DataDump>) -> Self {
+    pub fn new(
+        ctx: C,
+        data_map: Option<DataDump>,
+        check_data_races: bool,
+    ) -> Self {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
 
@@ -408,6 +415,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
             control_ports: Vec::new(),
+            check_data_race: check_data_races,
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -538,7 +546,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     self.ctx.as_ref(),
                     data_map,
                     memories_initialized,
-                    &mut self.clocks,
+                    self.check_data_race.then_some(&mut self.clocks),
                 );
                 let cell = self.cells.push(cell_dyn);
 
@@ -1284,6 +1292,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         ctx: C,
         data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
+        check_races: bool,
     ) -> Result<Self, BoxedInterpreterError> {
         let data_dump = data_file
             .as_ref()
@@ -1294,7 +1303,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // flip to a result of an option
             .map_or(Ok(None), |res| res.map(Some))?;
 
-        Ok(Simulator::new(Environment::new(ctx, data_dump), wave_file))
+        Ok(Simulator::new(
+            Environment::new(ctx, data_dump, check_races),
+            wave_file,
+        ))
     }
 
     pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {

@@ -72,6 +72,10 @@ pub struct Opts {
     #[argh(option, long = "wave-file")]
     pub wave_file: Option<PathBuf>,
 
+    /// perform data-race analysis
+    #[argh(switch, long = "check-data-race")]
+    check_data_race: bool,
+
     #[argh(subcommand)]
     mode: Option<Command>,
 }
@@ -127,6 +131,7 @@ fn main() -> InterpreterResult<()> {
                 &i_ctx,
                 &opts.data_file,
                 &opts.wave_file,
+                opts.check_data_race,
             )?;
 
             sim.run_program()?;
@@ -140,8 +145,12 @@ fn main() -> InterpreterResult<()> {
         Command::Debug(_) => {
             let mut info: Option<DebuggerInfo> = None;
             loop {
-                let debugger =
-                    Debugger::new(&i_ctx, &opts.data_file, &opts.wave_file)?;
+                let debugger = Debugger::new(
+                    &i_ctx,
+                    &opts.data_file,
+                    &opts.wave_file,
+                    opts.check_data_race,
+                )?;
 
                 let result = debugger.main_loop(info)?;
                 match result {

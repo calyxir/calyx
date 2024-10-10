@@ -15,7 +15,7 @@ use crate::{
         },
         structures::{
             environment::{
-                clock::{ClockMap, ValueWithClock},
+                clock::{new_clock, ClockMap, ValueWithClock},
                 PortMap,
             },
             index_trait::IndexRef,
@@ -41,10 +41,10 @@ impl StdReg {
         base_port: GlobalPortIdx,
         global_idx: GlobalCellIdx,
         width: u32,
-        clocks: &mut ClockMap,
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self {
         let internal_state =
-            ValueWithClock::zero(width, clocks.new_clock(), clocks.new_clock());
+            ValueWithClock::zero(width, new_clock(clocks), new_clock(clocks));
         Self {
             base_port,
             global_idx,
@@ -343,7 +343,7 @@ impl CombMem {
         width: u32,
         allow_invalid: bool,
         size: T,
-        clocks: &mut ClockMap,
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self
     where
         T: Into<Shape>,
@@ -353,8 +353,8 @@ impl CombMem {
         for _ in 0..shape.size() {
             internal_state.push(ValueWithClock::zero(
                 width,
-                clocks.new_clock(),
-                clocks.new_clock(),
+                new_clock(clocks),
+                new_clock(clocks),
             ));
         }
 
@@ -376,7 +376,7 @@ impl CombMem {
         allow_invalid: bool,
         size: T,
         data: &[u8],
-        clocks: &mut ClockMap,
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self
     where
         T: Into<Shape>,
@@ -388,7 +388,7 @@ impl CombMem {
             .chunks_exact(byte_count as usize)
             .map(|x| BitVecValue::from_bytes_le(x, width))
             .map(|x| {
-                ValueWithClock::new(x, clocks.new_clock(), clocks.new_clock())
+                ValueWithClock::new(x, new_clock(clocks), new_clock(clocks))
             })
             .collect_vec();
 
@@ -597,15 +597,15 @@ impl SeqMem {
         width: u32,
         allow_invalid: bool,
         size: T,
-        clocks: &mut ClockMap,
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self {
         let shape = size.into();
         let mut internal_state = Vec::with_capacity(shape.size());
         for _ in 0..shape.size() {
             internal_state.push(ValueWithClock::zero(
                 width,
-                clocks.new_clock(),
-                clocks.new_clock(),
+                new_clock(clocks),
+                new_clock(clocks),
             ));
         }
 
@@ -628,7 +628,7 @@ impl SeqMem {
         allow_invalid: bool,
         size: T,
         data: &[u8],
-        clocks: &mut ClockMap,
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self
     where
         T: Into<Shape>,
@@ -640,7 +640,7 @@ impl SeqMem {
             .chunks_exact(byte_count as usize)
             .map(|x| BitVecValue::from_bytes_le(x, width))
             .map(|x| {
-                ValueWithClock::new(x, clocks.new_clock(), clocks.new_clock())
+                ValueWithClock::new(x, new_clock(clocks), new_clock(clocks))
             })
             .collect_vec();
 

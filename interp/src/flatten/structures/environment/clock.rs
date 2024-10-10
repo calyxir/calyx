@@ -8,7 +8,8 @@ use std::{
 use crate::flatten::{
     flat_ir::base::GlobalCellIdx,
     structures::{
-        index_trait::impl_index_nonzero, indexed_map::IndexedMap,
+        index_trait::{impl_index_nonzero, IndexRef},
+        indexed_map::IndexedMap,
         thread::ThreadIdx,
     },
 };
@@ -81,6 +82,15 @@ impl Counter for u128 {
         *self = self.checked_add(1)?;
         Some(())
     }
+}
+
+/// If the clock map is provided, use it to create a new clock. Otherwise,
+/// return the 0th clock idx.
+pub fn new_clock(clock_map: &mut Option<&mut ClockMap>) -> ClockIdx {
+    clock_map
+        .as_mut()
+        .map(|c| c.new_clock())
+        .unwrap_or(ClockIdx::new(0))
 }
 
 /// A simple vector clock implementation.
