@@ -601,6 +601,10 @@ impl PortValue {
         self.0.as_ref().map(|x| x.val().to_u64().unwrap())
     }
 
+    pub fn is_zero(&self) -> Option<bool> {
+        self.0.as_ref().map(|x| x.val.is_zero())
+    }
+
     /// Returns a reference to the underlying value if it is defined. Otherwise
     /// returns `None`.
     pub fn val(&self) -> Option<&BitVecValue> {

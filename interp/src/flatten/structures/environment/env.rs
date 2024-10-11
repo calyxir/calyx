@@ -101,10 +101,9 @@ impl PortMap {
             // TODO: Fix to make the error more helpful
             Some(t)
                 if t.has_conflict_with(&val)
-                // Cell values are allowed to override implicit but not the
+                // Assignment & cell values are allowed to override implicit but not the
                 // other way around
-                    && !(*t.winner() == AssignmentWinner::Implicit
-                        && *val.winner() == AssignmentWinner::Cell) =>
+                    && !(*t.winner() == AssignmentWinner::Implicit) =>
             {
                 InterpreterResult::Err(
                     InterpreterError::FlatConflictingAssignments {
@@ -310,7 +309,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     clocks: ClockMap,
     thread_map: ThreadMap,
-    control_ports: Vec<(GlobalPortIdx, u32)>,
+    control_ports: HashMap<GlobalPortIdx, u32>,
 
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
@@ -414,7 +413,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
-            control_ports: Vec::new(),
+            control_ports: HashMap::new(),
             check_data_race: check_data_races,
         };
 
@@ -520,6 +519,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 debug_assert_eq!(go, done_actual);
                 debug_assert_eq!(done, go_actual);
             }
+            self.control_ports.insert(go, 1);
+            self.control_ports.insert(done, 1);
         }
 
         for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
@@ -536,7 +537,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     let info = &self.ctx.as_ref().secondary[def_idx];
                     if info.is_control {
                         self.control_ports
-                            .push((idx, info.width.try_into().unwrap()));
+                            .insert(idx, info.width.try_into().unwrap());
                     }
                 }
                 let cell_dyn = primitives::build_primitive(
@@ -1605,8 +1606,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
         for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
-            self.env.ports[done_port] =
-                PortValue::new_implicit(BitVecValue::tru()).with_thread(*id);
+            let v = PortValue::new_implicit(BitVecValue::tru());
+            self.env.ports[done_port] = if self.env.check_data_race {
+                v.with_thread(id.expect("finished comps should have a thread"))
+            } else {
+                v
+            }
         }
 
         let (vecs, par_map, mut with_map, repeat_map) =
@@ -1657,7 +1662,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
                     self.env.ports[go] =
                         PortValue::new_implicit(BitVecValue::tru())
-                            .with_thread(thread.expect("invoke has no thread"));
+                            .with_thread_optional(
+                                if self.env.check_data_race {
+                                    assert!(thread.is_some());
+                                    thread
+                                } else {
+                                    None
+                                },
+                            );
 
                     // TODO griffin: should make this skip initialization if
                     // it's already initialized
@@ -1804,26 +1816,33 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             }
             ControlNode::Par(par) => {
-                let thread = thread.expect("par nodes should have a thread");
-
                 if par_map.contains_key(node) {
                     let count = par_map.get_mut(node).unwrap();
                     *count -= 1;
-                    let child_clock_idx =
-                        self.env.thread_map.unwrap_clock_id(thread);
-                    let parent = self.env.thread_map[thread].parent().unwrap();
-                    let parent_clock =
-                        self.env.thread_map.unwrap_clock_id(parent);
-                    let child_clock =
-                        std::mem::take(&mut self.env.clocks[child_clock_idx]);
-                    self.env.clocks[parent_clock].sync(&child_clock);
-                    self.env.clocks[child_clock_idx] = child_clock;
 
                     if *count == 0 {
                         par_map.remove(node);
-                        assert!(self.env.thread_map[thread].parent().is_some());
-                        *node_thread = Some(parent);
-                        self.env.clocks[parent_clock].increment(&parent);
+                        if self.env.check_data_race {
+                            let thread =
+                                thread.expect("par nodes should have a thread");
+
+                            let child_clock_idx =
+                                self.env.thread_map.unwrap_clock_id(thread);
+                            let parent =
+                                self.env.thread_map[thread].parent().unwrap();
+                            let parent_clock =
+                                self.env.thread_map.unwrap_clock_id(parent);
+                            let child_clock = std::mem::take(
+                                &mut self.env.clocks[child_clock_idx],
+                            );
+                            self.env.clocks[parent_clock].sync(&child_clock);
+                            self.env.clocks[child_clock_idx] = child_clock;
+                            assert!(self.env.thread_map[thread]
+                                .parent()
+                                .is_some());
+                            *node_thread = Some(parent);
+                            self.env.clocks[parent_clock].increment(&parent);
+                        }
                         node.mutate_into_next(self.env.ctx.as_ref())
                     } else {
                         false
@@ -1836,40 +1855,56 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         ),
                     );
                     new_nodes.extend(par.stms().iter().map(|x| {
-                        let new_thread_idx: ThreadIdx = *(self
-                            .env
-                            .pc
-                            .lookup_thread(node.comp, thread, *x)
-                            .or_insert_with(|| {
-                                let new_clock_idx = self.env.clocks.new_clock();
+                        let thread = if self.env.check_data_race {
+                            let thread =
+                                thread.expect("par nodes should have a thread");
 
-                                self.env.thread_map.spawn(thread, new_clock_idx)
-                            }));
+                            let new_thread_idx: ThreadIdx = *(self
+                                .env
+                                .pc
+                                .lookup_thread(node.comp, thread, *x)
+                                .or_insert_with(|| {
+                                    let new_clock_idx =
+                                        self.env.clocks.new_clock();
 
-                        let new_clock_idx =
-                            self.env.thread_map.unwrap_clock_id(new_thread_idx);
+                                    self.env
+                                        .thread_map
+                                        .spawn(thread, new_clock_idx)
+                                }));
 
-                        self.env.clocks[new_clock_idx] = self.env.clocks
-                            [self.env.thread_map.unwrap_clock_id(thread)]
-                        .clone();
+                            let new_clock_idx = self
+                                .env
+                                .thread_map
+                                .unwrap_clock_id(new_thread_idx);
 
-                        self.env.clocks[new_clock_idx]
-                            .increment(&new_thread_idx);
+                            self.env.clocks[new_clock_idx] = self.env.clocks
+                                [self.env.thread_map.unwrap_clock_id(thread)]
+                            .clone();
 
-                        (Some(new_thread_idx), node.new_retain_comp(*x))
+                            self.env.clocks[new_clock_idx]
+                                .increment(&new_thread_idx);
+
+                            Some(new_thread_idx)
+                        } else {
+                            None
+                        };
+
+                        (thread, node.new_retain_comp(*x))
                     }));
 
-                    let clock = self.env.thread_map.unwrap_clock_id(thread);
-                    self.env.clocks[clock].increment(&thread);
+                    if self.env.check_data_race {
+                        let thread =
+                            thread.expect("par nodes should have a thread");
+                        let clock = self.env.thread_map.unwrap_clock_id(thread);
+                        self.env.clocks[clock].increment(&thread);
+                    }
 
                     false
                 }
             }
-            ControlNode::If(i) => {
-                self.handle_if(with_map, node, thread.unwrap(), i)?
-            }
+            ControlNode::If(i) => self.handle_if(with_map, node, thread, i)?,
             ControlNode::While(w) => {
-                self.handle_while(w, with_map, node, thread.unwrap())?
+                self.handle_while(w, with_map, node, thread)?
             }
             ControlNode::Repeat(rep) => {
                 if let Some(count) = repeat_map.get_mut(node) {
@@ -1937,10 +1972,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
          // either we are not a par node, or we are the last par node
          (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
         {
-            self.env.pc.set_finshed_comp(
-                node.comp,
-                thread.expect("finished comps should have a thread"),
-            );
+            if self.env.check_data_race {
+                assert!(
+                    thread.is_some(),
+                    "finished comps should have a thread"
+                );
+            }
+
+            self.env.pc.set_finshed_comp(node.comp, thread);
             let comp_ledger = self.env.cells[node.comp].unwrap_comp();
             *node = node.new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
@@ -1958,7 +1997,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         w: &While,
         with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
-        thread: ThreadIdx,
+        thread: Option<ThreadIdx>,
     ) -> InterpreterResult<bool> {
         let target = GlobalPortRef::from_local(
             w.cond_port(),
@@ -1970,18 +2009,26 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             GlobalPortRef::Ref(r) => self.env.ref_ports[r]
                 .expect("While condition (ref) is undefined"),
         };
-
-        if let Some(clocks) = self.env.ports[idx].clocks() {
-            let read_clock = self.env.thread_map.unwrap_clock_id(thread);
-            clocks
-                .check_read((thread, read_clock), &mut self.env.clocks)
-                .map_err(|e| {
-                    e.add_cell_info(
-                        self.env
-                            .get_parent_cell_from_port(w.cond_port(), node.comp)
-                            .unwrap(),
+        if self.env.check_data_race {
+            if let Some(clocks) = self.env.ports[idx].clocks() {
+                let read_clock =
+                    self.env.thread_map.unwrap_clock_id(thread.unwrap());
+                clocks
+                    .check_read(
+                        (thread.unwrap(), read_clock),
+                        &mut self.env.clocks,
                     )
-                })?;
+                    .map_err(|e| {
+                        e.add_cell_info(
+                            self.env
+                                .get_parent_cell_from_port(
+                                    w.cond_port(),
+                                    node.comp,
+                                )
+                                .unwrap(),
+                        )
+                    })?;
+            }
         }
         let result = self.env.ports[idx]
             .as_bool()
@@ -2004,7 +2051,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         &mut self,
         with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
-        thread: ThreadIdx,
+        thread: Option<ThreadIdx>,
         i: &If,
     ) -> InterpreterResult<bool> {
         if i.cond_group().is_some() && with_map.get(node).unwrap().entered {
@@ -2025,20 +2072,26 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     .expect("If condition (ref) is undefined"),
             };
 
-            if let Some(clocks) = self.env.ports[idx].clocks() {
-                let read_clock = self.env.thread_map.unwrap_clock_id(thread);
-                clocks
-                    .check_read((thread, read_clock), &mut self.env.clocks)
-                    .map_err(|e| {
-                        e.add_cell_info(
-                            self.env
-                                .get_parent_cell_from_port(
-                                    i.cond_port(),
-                                    node.comp,
-                                )
-                                .unwrap(),
+            if self.env.check_data_race {
+                if let Some(clocks) = self.env.ports[idx].clocks() {
+                    let read_clock =
+                        self.env.thread_map.unwrap_clock_id(thread.unwrap());
+                    clocks
+                        .check_read(
+                            (thread.unwrap(), read_clock),
+                            &mut self.env.clocks,
                         )
-                    })?;
+                        .map_err(|e| {
+                            e.add_cell_info(
+                                self.env
+                                    .get_parent_cell_from_port(
+                                        i.cond_port(),
+                                        node.comp,
+                                    )
+                                    .unwrap(),
+                            )
+                        })?;
+                }
             }
 
             let result = self.env.ports[idx]
@@ -2133,6 +2186,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         assigns_bundle: &[ScheduledAssignments],
     ) -> InterpreterResult<()> {
         let mut has_changed = true;
+        let mut have_zeroed_control_ports = false;
 
         while has_changed {
             has_changed = false;
@@ -2194,24 +2248,25 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .get_global_port_idx(&assign.src, *active_cell);
                             let val = &self.env.ports[port];
 
-                            if let Some(clocks) = val.clocks() {
-                                // skip checking clocks for continuous assignments
-                                if !is_cont {
-                                    if let Some(thread) = thread {
-                                        let thread_clock = self
-                                            .env
-                                            .thread_map
-                                            .unwrap_clock_id(thread);
+                            if self.env.check_data_race {
+                                if let Some(clocks) = val.clocks() {
+                                    // skip checking clocks for continuous assignments
+                                    if !is_cont {
+                                        if let Some(thread) = thread {
+                                            let thread_clock = self
+                                                .env
+                                                .thread_map
+                                                .unwrap_clock_id(thread);
 
-                                        clocks
-                                            .check_read(
-                                                (thread, thread_clock),
-                                                &mut self.env.clocks,
-                                            )
-                                            .map_err(|e| {
-                                                // TODO griffin: find a less hacky way to
-                                                // do this
-                                                e.add_cell_info(
+                                            clocks
+                                                .check_read(
+                                                    (thread, thread_clock),
+                                                    &mut self.env.clocks,
+                                                )
+                                                .map_err(|e| {
+                                                    // TODO griffin: find a less hacky way to
+                                                    // do this
+                                                    e.add_cell_info(
                                                 self.env
                                                     .get_parent_cell_from_port(
                                                         assign.src,
@@ -2219,9 +2274,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                                     )
                                                     .unwrap(),
                                             )
-                                            })?;
-                                    } else {
-                                        panic!("cannot determine thread for non-continuous assignment that touches a checked port");
+                                                })?;
+                                        } else {
+                                            panic!("cannot determine thread for non-continuous assignment that touches a checked port");
+                                        }
                                     }
                                 }
                             }
@@ -2252,40 +2308,51 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 )?;
 
                                 has_changed |= changed.as_bool();
-                            } else if self.env.ports[dest].is_def() {
+                            }
+                            // attempts to undefine a control port that is zero
+                            // will be ignored otherwise it is an error
+                            // this is a bit of a hack and should be removed in
+                            // the long run
+                            else if self.env.ports[dest].is_def()
+                                && !(self.env.control_ports.contains_key(&dest)
+                                    && self.env.ports[dest].is_zero().unwrap())
+                            {
                                 todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
                             }
                         }
 
-                        if let Some(read_ports) = self
-                            .env
-                            .ctx
-                            .as_ref()
-                            .primary
-                            .guard_read_map
-                            .get(assign.guard)
-                        {
-                            for port in read_ports {
-                                let port_idx = self
-                                    .get_global_port_idx(port, *active_cell);
-                                if let Some(clocks) =
-                                    self.env.ports[port_idx].clocks()
-                                {
-                                    let thread = thread
-                                        .expect("cannot determine thread");
-                                    let thread_clock = self
-                                        .env
-                                        .thread_map
-                                        .unwrap_clock_id(thread);
-                                    clocks
-                                        .check_read(
-                                            (thread, thread_clock),
-                                            &mut self.env.clocks,
-                                        )
-                                        .map_err(|e| {
-                                            // TODO griffin: find a less hacky way to
-                                            // do this
-                                            e.add_cell_info(
+                        if self.env.check_data_race {
+                            if let Some(read_ports) = self
+                                .env
+                                .ctx
+                                .as_ref()
+                                .primary
+                                .guard_read_map
+                                .get(assign.guard)
+                            {
+                                for port in read_ports {
+                                    let port_idx = self.get_global_port_idx(
+                                        port,
+                                        *active_cell,
+                                    );
+                                    if let Some(clocks) =
+                                        self.env.ports[port_idx].clocks()
+                                    {
+                                        let thread = thread
+                                            .expect("cannot determine thread");
+                                        let thread_clock = self
+                                            .env
+                                            .thread_map
+                                            .unwrap_clock_id(thread);
+                                        clocks
+                                            .check_read(
+                                                (thread, thread_clock),
+                                                &mut self.env.clocks,
+                                            )
+                                            .map_err(|e| {
+                                                // TODO griffin: find a less hacky way to
+                                                // do this
+                                                e.add_cell_info(
                                                 self.env
                                                     .get_parent_cell_from_port(
                                                         *port,
@@ -2293,7 +2360,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                                     )
                                                     .unwrap(),
                                             )
-                                        })?;
+                                            })?;
+                                    }
                                 }
                             }
                         }
@@ -2330,8 +2398,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
             // check for undefined done ports. If any remain after we've
             // converged then they should be set to zero and we should continue
-            // convergence
-            if !has_changed {
+            // convergence. Since these ports cannot become undefined again we
+            // only need to do this once
+            if !has_changed && !have_zeroed_control_ports {
+                have_zeroed_control_ports = true;
                 for (port, width) in self.env.control_ports.iter() {
                     if self.env.ports[*port].is_undef() {
                         self.env.ports[*port] =

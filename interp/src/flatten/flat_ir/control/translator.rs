@@ -324,8 +324,10 @@ fn insert_port(
         }
         ContainmentType::Local => {
             let borrow = port.borrow();
-            let is_control = borrow.has_attribute(calyx_ir::BoolAttr::Control)
-                || !borrow.has_attribute(calyx_ir::BoolAttr::Data);
+            let is_control = borrow.has_attribute(calyx_ir::NumAttr::Go)
+                || borrow.has_attribute(calyx_ir::NumAttr::Done)
+                || borrow.has_attribute(calyx_ir::BoolAttr::Control)
+                || (borrow.direction == calyx_ir::Direction::Inout);
 
             let idx_definition = secondary_ctx.push_local_port(
                 id,
