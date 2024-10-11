@@ -366,13 +366,10 @@ impl ClockPair {
         {
             clock_map[self.write_clock] = clock_map[writing_clock].clone();
             Ok(())
-        } else if clock_map[writing_clock] < clock_map[self.read_clock] {
-            // This is the weird case that I believe indicates a read occurred
-            // concurrent to this write
-            Err(ClockError::ReadWriteUnhelpful)
-        } else if clock_map[writing_clock]
-            .partial_cmp(&clock_map[self.read_clock])
-            .is_none()
+        } else if clock_map[writing_clock] < clock_map[self.read_clock]
+            || clock_map[writing_clock]
+                .partial_cmp(&clock_map[self.read_clock])
+                .is_none()
         {
             Err(ClockError::ReadWriteUnhelpful)
         } else if clock_map[writing_clock]
