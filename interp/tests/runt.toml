@@ -108,6 +108,13 @@ fud2 --from calyx --to dat \
          {} | jq --sort-keys
 """
 
+[[tests]]
+name = "data-race detection"
+paths = ["data-race/*.futil"]
+cmd = """
+../../target/debug/cider {} -l ../../  --check-data-race
+"""
+
 # [[tests]]
 # name = "correctness lowered"
 # paths = ["../../tests/correctness/*.futil"]
