@@ -214,10 +214,8 @@ def generate(prog, numflows, roundrobin):
     else:
         raise ValueError("Unsupported number of flows")
 
-    subqueues = [
-        fifo.insert_fifo(prog, f"subqueue{i}", QUEUE_LEN_FACTOR)
-        for i in range(numflows)
-    ]
+    f = fifo.insert_fifo(prog, "fifo", QUEUE_LEN_FACTOR)
+    subqueues = [f] * numflows
     pifo = insert_queue(
         prog, "pifo", subqueues, boundaries, numflows, order, roundrobin
     )
