@@ -488,7 +488,13 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         // first layout the signature
         for sig_port in comp_aux.signature().iter() {
+            let def_idx = comp_aux.port_offset_map[sig_port];
+            let info = &self.ctx.as_ref().secondary[def_idx];
             let idx = self.ports.push(PortValue::new_undef());
+            if info.is_control {
+                self.control_ports
+                    .insert(idx, info.width.try_into().unwrap());
+            }
             debug_assert_eq!(index_bases + sig_port, idx);
         }
         // second group ports
