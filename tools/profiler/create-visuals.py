@@ -17,9 +17,13 @@ class FlameInfo:
         
 class CallStackElement:
     # A component on the stack that is active at a given snapshot in time
-    def __init__(self, component, active_groups):
+    # starting_group is the first group that shows up
+    def __init__(self, component, starting_group):
         self.component = component
-        self.active_groups = active_groups
+        if starting_group is None:
+            self.active_groups = []
+        else:
+            self.active_groups = [starting_group]
         self.cell_id = None
 
     def __repr__(self):
@@ -30,6 +34,9 @@ class CallStackElement:
         self.parent_component = parent_component
         self.cell_name = cell_name
 
+    def add_cell_fullname(self, cell_fullname):
+        self.cell_fullname = cell_fullname
+
     def add_group(self, group_name):
         if group_name not in self.active_groups:
             self.active_groups.append(group_name)
@@ -38,20 +45,28 @@ class CallStackElement:
     Returns the active group if the component is sequential (has only one active group), otherwise throws exception
     """
     def get_active_group(self):
-        if len(self.active_groups) == 1:
+        if len(self.active_groups) == 0:
+            return None
+        elif len(self.active_groups) == 1:
             return self.active_groups[0]
         else:
             raise Exception(f'Component {self.component} is parallel! Active groups: {self.active_groups}')
-        
+
     def get_active_groups(self):
         return self.active_groups
     
     def flame_stack_string(self, main_component):
         main_shortname = main_component.split("TOP.toplevel.")[1]
         if self.component == main_shortname:
-            return main_component + ";" + self.get_active_group().split(main_component + ".")[1]
+            prefix = main_component
         else:
-            return self.cell_id + ";" + self.get_active_group().split(".")[-1]
+            prefix = self.cell_id
+
+        active_group = self.get_active_group()
+        if active_group is not None:
+            return prefix + ";" + active_group.split(".")[-1]
+        else:
+            return prefix
 
     def component_flame_stack_string(self, main_component):
         main_shortname = main_component.split("TOP.toplevel.")[1]
@@ -72,11 +87,15 @@ def get_fsm_groups(profiled_info):
             fsm_groups.add(group_info["name"])
     return fsm_groups, all_groups
 
-def add_group_to_callstack(big_map, group_component, group_name):
+def add_elem_to_callstack(big_map, group_component, name, is_cell):
     if group_component not in big_map:
-        big_map[group_component] = CallStackElement(group_component, [group_name])
+        if is_cell:
+            big_map[group_component] = CallStackElement(group_component, None)
+            big_map[group_component].add_cell_fullname(name)
+        else:
+            big_map[group_component] = CallStackElement(group_component, name)
     else:
-        big_map[group_component].add_group(group_name)
+        big_map[group_component].add_group(name)
 
 def order_callstack(main_component, cells_map, timeline):
     main_shortname = main_component.split("TOP.toplevel.")[1]
@@ -109,9 +128,17 @@ def create_trace(profiled_info, main_component, cells_map, fsm_groups, all_group
     timeline_map = {i : {} for i in range(total_cycles)}
     fsm_timeline_map = {i : {} for i in range(total_cycles)}
     group_to_gt_segments = {} # we need segment info for frequency checking
+    # first iterate through all of the cells
+    for cell_info in filter(lambda x : "is_cell" in x and x["is_cell"], profiled_info):
+        print(cell_info["name"])
+        for segment in cell_info["closed_segments"]:
+            for i in range(segment["start"], segment["end"]):
+                add_elem_to_callstack(fsm_timeline_map[i], cell_info["component"], None)
+                add_elem_to_callstack(timeline_map[i], cell_info["component"], None)
+    # next iterate through everything else
     for group_info in profiled_info:
         group_name = group_info["name"]
-        if group_name == "TOTAL" or group_info["component"] is None: # only care about actual groups
+        if group_name == "TOTAL" or group_info["is_cell"]: # only care about actual groups
             continue
         group_component = group_info["component"]
         for segment in group_info["closed_segments"]:
@@ -121,14 +148,19 @@ def create_trace(profiled_info, main_component, cells_map, fsm_groups, all_group
                 group_to_gt_segments[group_name][segment["start"]] = segment["end"]
             for i in range(segment["start"], segment["end"]): # really janky, I wonder if there's a better way to do this?
                 if group_info["fsm_name"] is not None: # FSM version
-                    add_group_to_callstack(fsm_timeline_map[i], group_component, group_name)
+                    add_elem_to_callstack(fsm_timeline_map[i], group_component, group_name)
                 elif group_name in only_gt_groups: # A group that isn't managed by an FSM. In which case it has to be in both FSM and GT
-                    add_group_to_callstack(fsm_timeline_map[i], group_component, group_name)
-                    add_group_to_callstack(timeline_map[i], group_component, group_name)
+                    add_elem_to_callstack(fsm_timeline_map[i], group_component, group_name)
+                    add_elem_to_callstack(timeline_map[i], group_component, group_name)
                 else: # The ground truth info about a group managed by an FSM.
-                    add_group_to_callstack(timeline_map[i], group_component, group_name)
+                    add_elem_to_callstack(timeline_map[i], group_component, group_name)
 
     trace = order_callstack(main_component, cells_map, timeline_map)
+
+    print(trace)
+
+    exit(1)
+
     fsm_trace = order_callstack(main_component, cells_map, fsm_timeline_map)
 
     return trace, fsm_trace, len(timeline_map)
@@ -165,7 +197,6 @@ def compute_flame_stacks(trace, main_component, total_cycles):
     component_stacks[main_component] = total_cycles - len(trace)
 
     return stacks, component_stacks
-
 
 # attempt to rehash the create_flame_graph to take care of stacks
 def create_flame_graph(main_component, trace, fsm_trace, num_cycles, flame_out, fsm_flame_out, component_out, fsm_component_out):
