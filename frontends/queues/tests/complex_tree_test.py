@@ -14,12 +14,12 @@ def build():
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
 
-    f = fifo.insert_fifo(prog, "fifo")
+    fifo_queue = fifo.insert_fifo(prog, "fifo")
 
     pifo_strict1 = strict_or_rr.insert_queue(
         prog,
         "pifo_strict1",
-        [f, f, f],
+        [fifo_queue, fifo_queue, fifo_queue],
         [0, 44, 88, 133],
         3,
         [0, 1, 2],
@@ -28,14 +28,20 @@ def build():
     pifo_rr = strict_or_rr.insert_queue(
         prog,
         "pifo_rr",
-        [f, f, f],
+        [fifo_queue, fifo_queue, fifo_queue],
         [133, 177, 221, 266],
         3,
         [0, 1, 2],
         True,
     )
     pifo_strict2 = strict_or_rr.insert_queue(
-        prog, "pifo_strict2", [f, f], [266, 333, 400], 2, [0, 1], False
+        prog,
+        "pifo_strict2",
+        [fifo_queue, fifo_queue],
+        [266, 333, 400],
+        2,
+        [0, 1],
+        False,
     )
     pifo_root = strict_or_rr.insert_queue(
         prog,
