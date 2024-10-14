@@ -2,6 +2,8 @@ from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass, field
 from typing import List, Any, Tuple, Optional
 from calyx.utils import block
+import inspect
+import os
 
 
 @dataclass
@@ -461,6 +463,51 @@ class Gte(GuardExpr):
         return f"({self.left.doc()} >= {self.right.doc()})"
 
 
+@dataclass
+class SourceLoc:
+    line: int
+    file: str
+
+
+def frame_to_source_loc(frame: inspect.FrameInfo) -> SourceLoc:
+    """builds a SourceLoc object from a Python frame"""
+    return SourceLoc(frame.lineno, os.path.basename(frame.filename))
+
+
+def determine_source_loc() -> Optional[SourceLoc]:
+    """Inspects the call stack to determine the first call site outside the calyx-py library."""
+    stacktrace = inspect.stack()
+
+    # inspect top frame to determine the path to the calyx-py library
+    top = stacktrace[0]
+    assert top.function == "determine_source_loc"
+    library_path = os.path.dirname(top.filename)
+    assert os.path.join(library_path, "py_ast.py") == top.filename
+
+    # find first stack frame that is not part of the library
+    user = None
+    for frame in stacktrace:
+        # skip frames that do not have a real filename
+        if frame.filename == "<string>":
+            continue
+        if not frame.filename.startswith(library_path):
+            user = frame
+            break
+    if user is None:
+        return None
+
+    # build source locator from frame
+    return frame_to_source_loc(user)
+
+
+def with_pos_attribute(source: str, loc: Optional[SourceLoc]) -> str:
+    """adds the @pos attribute of loc is not None"""
+    if loc is None:
+        return source
+    else:
+        return f"@pos({loc.line}) {source}"
+
+
 # Control
 @dataclass
 class Control(Emittable):
@@ -470,9 +517,10 @@ class Control(Emittable):
 @dataclass
 class Enable(Control):
     stmt: str
+    loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
 
     def doc(self) -> str:
-        return f"{self.stmt};"
+        return with_pos_attribute(f"{self.stmt};", self.loc)
 
 
 @dataclass
@@ -515,6 +563,7 @@ class Invoke(Control):
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
     attributes: List[Tuple[str, int]] = field(default_factory=list)
+    loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"
@@ -539,7 +588,7 @@ class Invoke(Control):
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 
-        return inv
+        return with_pos_attribute(inv, self.loc)
 
     def with_attr(self, key: str, value: int) -> Invoke:
         self.attributes.append((key, value))
