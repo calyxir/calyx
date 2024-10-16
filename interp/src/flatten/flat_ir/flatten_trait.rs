@@ -86,12 +86,12 @@ where
 pub trait FlattenTree: Sized {
     type Output;
     type IdxType: IndexRef;
-    type AuxillaryData;
+    type AuxiliaryData;
 
     fn process_element<'data>(
         &'data self,
         handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
-        aux: &Self::AuxillaryData,
+        aux: &Self::AuxiliaryData,
     ) -> Self::Output;
 }
 
@@ -103,7 +103,7 @@ pub fn flatten_tree<In, Idx, Out, Aux>(
 ) -> Idx
 where
     Idx: IndexRef,
-    In: FlattenTree<Output = Out, IdxType = Idx, AuxillaryData = Aux>,
+    In: FlattenTree<Output = Out, IdxType = Idx, AuxiliaryData = Aux>,
 {
     let mut handle = VecHandle::new(vec, root_node, base);
     let mut root_node_idx: Option<Idx> = None;

@@ -22,7 +22,7 @@ use baa::{BitVecOps, BitVecValue};
 pub struct ComponentIdx(u32);
 impl_index!(ComponentIdx);
 
-/// An index for auxillary definition information for cells. This is used to
+/// An index for auxiliary definition information for cells. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_cell_defs
@@ -30,7 +30,7 @@ impl_index!(ComponentIdx);
 pub struct CellDefinitionIdx(u32);
 impl_index!(CellDefinitionIdx);
 
-/// An index for auxillary definition information for ports. This is used to
+/// An index for auxiliary definition information for ports. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_port_defs
@@ -38,7 +38,7 @@ impl_index!(CellDefinitionIdx);
 pub struct PortDefinitionIdx(u32);
 impl_index!(PortDefinitionIdx);
 
-/// An index for auxillary definition information for ref cells. This is used to
+/// An index for auxiliary definition information for ref cells. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_cell_defs
@@ -46,7 +46,7 @@ impl_index!(PortDefinitionIdx);
 pub struct RefCellDefinitionIdx(u32);
 impl_index!(RefCellDefinitionIdx);
 
-/// An index for auxillary definition information for ref ports. This is used to
+/// An index for auxiliary definition information for ref ports. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_port_defs

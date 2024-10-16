@@ -118,7 +118,7 @@ where
     }
 }
 
-/// An analogue to [AuxillaryMap](super::indexed_map::AuxillaryMap) for sparse
+/// An analogue to [AuxiliaryMap](super::indexed_map::AuxiliaryMap) for sparse
 /// maps. This is used to store extra information that is only applicable to a
 /// subset of the indices in a primary map.
 #[derive(Debug, Clone)]
