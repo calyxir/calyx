@@ -198,19 +198,20 @@ impl ComponentCore {
 pub struct AuxiliaryComponentInfo {
     /// Name of the component.
     pub name: Identifier,
-    /// The input/output signature of this component. This could probably be
-    /// rolled into a single range, or specialized construct but this is
-    /// probably fine for now.
+    /// The input ports of this component
     pub signature_in: SignatureRange,
+    /// The output ports of this component
     pub signature_out: SignatureRange,
-
     /// the definitions created by this component
     pub definitions: DefinitionRanges,
-
+    /// A map from local port offsets to their definition indices.
     pub port_offset_map: SparseMap<LocalPortOffset, PortDefinitionIdx>,
+    /// A map from ref port offsets to their definition indices
     pub ref_port_offset_map:
         SparseMap<LocalRefPortOffset, RefPortDefinitionIdx>,
+    /// A map from local cell offsets to their definition indices
     pub cell_offset_map: SparseMap<LocalCellOffset, CellDefinitionIdx>,
+    /// A map from ref cell offsets to their definition indices
     pub ref_cell_offset_map:
         SparseMap<LocalRefCellOffset, RefCellDefinitionIdx>,
 }
