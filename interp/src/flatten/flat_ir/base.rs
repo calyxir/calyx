@@ -5,8 +5,10 @@ use std::{
 
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
-    flatten::structures::index_trait::{
-        impl_index, impl_index_nonzero, IndexRange, IndexRef,
+    flatten::structures::{
+        environment::clock::ClockPair,
+        index_trait::{impl_index, impl_index_nonzero, IndexRange, IndexRef},
+        thread::ThreadIdx,
     },
     serialization::PrintCode,
 };
@@ -424,6 +426,8 @@ impl From<AssignmentIdx> for AssignmentWinner {
 pub struct AssignedValue {
     val: BitVecValue,
     winner: AssignmentWinner,
+    thread: Option<ThreadIdx>,
+    clocks: Option<ClockPair>,
 }
 
 impl std::fmt::Debug for AssignedValue {
@@ -431,6 +435,7 @@ impl std::fmt::Debug for AssignedValue {
         f.debug_struct("AssignedValue")
             .field("val", &self.val.to_bit_str())
             .field("winner", &self.winner)
+            .field("thread", &self.thread)
             .finish()
     }
 }
@@ -448,7 +453,24 @@ impl AssignedValue {
         Self {
             val,
             winner: winner.into(),
+            thread: None,
+            clocks: None,
         }
+    }
+
+    pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
+        self.thread = Some(thread);
+        self
+    }
+
+    pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
+        self.thread = thread;
+        self
+    }
+
+    pub fn with_clocks(mut self, clock_pair: ClockPair) -> Self {
+        self.clocks = Some(clock_pair);
+        self
     }
 
     /// Returns true if the two AssignedValues do not have the same winner
@@ -472,6 +494,8 @@ impl AssignedValue {
         Self {
             val: BitVecValue::tru(),
             winner: AssignmentWinner::Implicit,
+            thread: None,
+            clocks: None,
         }
     }
 
@@ -482,6 +506,8 @@ impl AssignedValue {
         Self {
             val,
             winner: AssignmentWinner::Cell,
+            thread: None,
+            clocks: None,
         }
     }
 
@@ -492,6 +518,8 @@ impl AssignedValue {
         Self {
             val,
             winner: AssignmentWinner::Implicit,
+            thread: None,
+            clocks: None,
         }
     }
 
@@ -506,6 +534,14 @@ impl AssignedValue {
     #[inline]
     pub fn cell_b_low() -> Self {
         Self::cell_value(BitVecValue::fals())
+    }
+
+    pub fn thread(&self) -> Option<ThreadIdx> {
+        self.thread
+    }
+
+    pub fn clocks(&self) -> Option<&ClockPair> {
+        self.clocks.as_ref()
     }
 }
 
@@ -539,6 +575,20 @@ impl PortValue {
         self.0.as_ref()
     }
 
+    pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
+        if let Some(val) = self.0.as_mut() {
+            val.thread = Some(thread);
+        }
+        self
+    }
+
+    pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
+        if let Some(val) = self.0.as_mut() {
+            val.thread = thread;
+        }
+        self
+    }
+
     /// If the value is defined, returns the value cast to a boolean. Otherwise
     /// returns `None`. It will panic if the given value is not one bit wide.
     pub fn as_bool(&self) -> Option<bool> {
@@ -551,10 +601,18 @@ impl PortValue {
         self.0.as_ref().map(|x| x.val().to_u64().unwrap())
     }
 
+    pub fn is_zero(&self) -> Option<bool> {
+        self.0.as_ref().map(|x| x.val.is_zero())
+    }
+
     /// Returns a reference to the underlying value if it is defined. Otherwise
     /// returns `None`.
     pub fn val(&self) -> Option<&BitVecValue> {
         self.0.as_ref().map(|x| &x.val)
+    }
+
+    pub fn clocks(&self) -> Option<ClockPair> {
+        self.0.as_ref().and_then(|x| x.clocks)
     }
 
     /// Returns a reference to the underlying [`AssignmentWinner`] if it is

@@ -117,7 +117,43 @@ fn translate_guard(
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
 ) -> GuardIdx {
-    flatten_tree(guard, None, &mut interp_ctx.guards, map)
+    let idx = flatten_tree(guard, None, &mut interp_ctx.guards, map);
+
+    // not worth trying to force this search traversal into the flatten trait so
+    // I'm just gonna opt for this. It's a onetime cost, so I'm not particularly
+    // worried about it
+    let mut search_stack = vec![idx];
+    let mut read_ports = vec![];
+
+    while let Some(idx) = search_stack.pop() {
+        match &interp_ctx.guards[idx] {
+            Guard::True => {}
+            Guard::Or(guard_idx, guard_idx1) => {
+                search_stack.push(*guard_idx);
+                search_stack.push(*guard_idx1);
+            }
+            Guard::And(guard_idx, guard_idx1) => {
+                search_stack.push(*guard_idx);
+                search_stack.push(*guard_idx1);
+            }
+            Guard::Not(guard_idx) => {
+                search_stack.push(*guard_idx);
+            }
+            Guard::Comp(_port_comp, port_ref, port_ref1) => {
+                read_ports.push(*port_ref);
+                read_ports.push(*port_ref1);
+            }
+            Guard::Port(port_ref) => {
+                read_ports.push(*port_ref);
+            }
+        }
+    }
+
+    if !read_ports.is_empty() {
+        interp_ctx.guard_read_map.insert_value(idx, read_ports);
+    }
+
+    idx
 }
 
 fn translate_component(
@@ -287,8 +323,17 @@ fn insert_port(
             local_offset.into()
         }
         ContainmentType::Local => {
-            let idx_definition =
-                secondary_ctx.push_local_port(id, port.borrow().width as usize);
+            let borrow = port.borrow();
+            let is_control = borrow.has_attribute(calyx_ir::NumAttr::Go)
+                || borrow.has_attribute(calyx_ir::NumAttr::Done)
+                || borrow.has_attribute(calyx_ir::BoolAttr::Control)
+                || (borrow.direction == calyx_ir::Direction::Inout);
+
+            let idx_definition = secondary_ctx.push_local_port(
+                id,
+                port.borrow().width as usize,
+                is_control,
+            );
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
         }

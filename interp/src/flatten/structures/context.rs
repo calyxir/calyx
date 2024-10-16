@@ -25,6 +25,7 @@ use super::{
     index_trait::{IndexRange, IndexRef},
     indexed_map::{AuxiliaryMap, IndexedMap},
     printer::Printer,
+    sparse_map::AuxiliarySparseMap,
 };
 
 /// The immutable program context for the interpreter. Relevant at simulation
@@ -41,6 +42,10 @@ pub struct InterpretationContext {
     pub comb_groups: CombGroupMap,
     /// All assignment guards
     pub guards: GuardMap,
+    /// Map from guard to the ports it reads. Might be worth doing some extra
+    /// work to make this save memory since empty vecs for True guards is
+    /// probably not worth it
+    pub guard_read_map: AuxiliarySparseMap<GuardIdx, Vec<PortRef>>,
     /// Control trees
     pub control: ControlMap,
 }
@@ -100,6 +105,8 @@ pub struct PortDefinitionInfo {
     pub name: Identifier,
     /// The width of the port
     pub width: usize,
+    /// Whether the port is control
+    pub is_control: bool,
 }
 
 #[derive(Debug)]
@@ -174,9 +181,13 @@ impl SecondaryContext {
         &mut self,
         name: Identifier,
         width: usize,
+        is_control: bool,
     ) -> PortDefinitionIdx {
-        self.local_port_defs
-            .push(PortDefinitionInfo { name, width })
+        self.local_port_defs.push(PortDefinitionInfo {
+            name,
+            width,
+            is_control,
+        })
     }
 
     /// Insert a new reference port definition into the context and return its index
