@@ -242,7 +242,7 @@ impl CellShare {
         if self.cont_ref_cells.contains(&cell.name()) {
             return false;
         }
-        // Cells that have @protected cannot be shared
+        // Cells that have @protected cannot be shared (even if they have share/state_share attributes)
         if cell.attributes.has(BoolAttr::Protected) {
             return false;
         }
