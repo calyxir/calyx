@@ -136,10 +136,7 @@ impl Visitor for DeadCellRemoval {
                 .filter(|c| {
                     let cell = c.borrow();
                     cell.attributes.get(ir::BoolAttr::External).is_some()
-                        || cell
-                            .attributes
-                            .get(ir::BoolAttr::Protected)
-                            .is_some()
+                        || cell.attributes.has(ir::BoolAttr::Protected)
                         || cell.is_reference()
                 })
                 .map(|c| c.borrow().name()),
