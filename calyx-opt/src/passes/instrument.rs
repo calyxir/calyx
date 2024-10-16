@@ -26,9 +26,7 @@ impl ConstructVisitor for Instrument {
         Ok(Instrument {})
     }
 
-    fn clear_data(&mut self) {
-        /* All data can be transferred between components */
-    }
+    fn clear_data(&mut self) {}
 }
 
 impl Visitor for Instrument {
