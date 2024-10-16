@@ -1,10 +1,5 @@
-use crate::analysis;
-use crate::traversal::{
-    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
-};
-use calyx_ir::{
-    self as ir, build_assignments, BoolAttr, Cell, LibrarySignatures,
-};
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use calyx_ir::{self as ir, build_assignments, BoolAttr};
 use calyx_utils::CalyxResult;
 
 pub struct Instrument {}
@@ -24,12 +19,10 @@ impl Named for Instrument {
 }
 
 impl ConstructVisitor for Instrument {
-    fn from(ctx: &ir::Context) -> CalyxResult<Self>
+    fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized + Named,
     {
-        let opts = Self::get_opts(ctx);
-
         Ok(Instrument {})
     }
 
