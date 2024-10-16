@@ -2,7 +2,9 @@ use crate::analysis;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::{self as ir, build_assignments, Cell, LibrarySignatures};
+use calyx_ir::{
+    self as ir, build_assignments, BoolAttr, Cell, LibrarySignatures,
+};
 use calyx_utils::CalyxResult;
 
 pub struct Instrument {}
@@ -59,6 +61,7 @@ impl Visitor for Instrument {
                     builder;
                     inst_cell["in"] = ? one["out"];
                 );
+                inst_cell.borrow_mut().add_attribute(BoolAttr::Protected, 1);
                 asgn_and_cell.push((asgn[0].clone(), inst_cell));
             }
         }
