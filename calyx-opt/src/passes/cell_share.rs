@@ -5,8 +5,8 @@ use crate::analysis::{
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::rewriter;
 use calyx_ir::{self as ir};
+use calyx_ir::{rewriter, BoolAttr};
 use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
 use serde_json::{json, Value};
@@ -240,6 +240,10 @@ impl CellShare {
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
         // Cells used in continuous assignments cannot be shared, nor can ref cells.
         if self.cont_ref_cells.contains(&cell.name()) {
+            return false;
+        }
+        // Cells that have @protected cannot be shared
+        if cell.attributes.has(BoolAttr::Protected) {
             return false;
         }
         if let Some(ref name) = cell.type_name() {
