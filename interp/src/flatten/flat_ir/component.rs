@@ -7,13 +7,35 @@ use crate::flatten::structures::{
 
 use super::{control::structures::ControlIdx, prelude::*};
 
+/// Stores the definitions created under a component.
+///
+/// # Note
+/// In most cases, this is different that what is directly defined by the
+/// component as this also includes ports/cells defined by sub-components. The
+/// exceptions are the groups and comb groups which only includes those defined
+/// directly by the component.
+///
+/// For cases where only the direct definitions are needed use the offset maps
+/// in the auxiliary component info.
 #[derive(Debug, Clone)]
 pub struct DefinitionRanges {
+    /// The entire range of cells defined by this component and any
+    /// sub-component instances it contains
     cells: IndexRange<CellDefinitionIdx>,
+    /// The entire range of ports defined by this component and any
+    /// sub-component instances it contains
     ports: IndexRange<PortDefinitionIdx>,
+    /// The entire range of ref-cells defined by this component and any
+    /// sub-component instances it contains
     ref_cells: IndexRange<RefCellDefinitionIdx>,
+    /// The entire range of ref-ports defined by this component and any
+    /// sub-component instances it contains
     ref_ports: IndexRange<RefPortDefinitionIdx>,
+    /// The entire range of groups defined by this component. Does not include
+    /// sub-component instances.
     groups: IndexRange<GroupIdx>,
+    /// The entire range of comb-groups defined by this component. Does not
+    /// include sub-component instances.
     comb_groups: IndexRange<CombGroupIdx>,
 }
 
