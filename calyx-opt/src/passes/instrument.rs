@@ -36,11 +36,13 @@ impl Visitor for Instrument {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // collect names of all groups (to construct group-specific cells)
         let group_names = comp
             .groups
             .iter()
             .map(|group| group.borrow().name())
             .collect::<Vec<_>>();
+        // for each group, construct a instrumentation cell and instrumentation assignment
         let mut asgn_and_cell = Vec::with_capacity(group_names.len());
         {
             let mut builder = ir::Builder::new(comp, sigs);
@@ -57,13 +59,13 @@ impl Visitor for Instrument {
                 asgn_and_cell.push((asgn[0].clone(), inst_cell));
             }
         }
+        // add cells and assignments
         for (group, (asgn, inst_cell)) in
             comp.groups.iter().zip(asgn_and_cell.into_iter())
         {
             group.borrow_mut().assignments.push(asgn);
             comp.cells.add(inst_cell);
         }
-
         Ok(Action::Stop)
     }
 }

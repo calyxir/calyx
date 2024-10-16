@@ -13,6 +13,11 @@ comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
     assign out = in;
 }
 
+/// Wire specifically for instrumentation
+primitive std_inst_wire[WIDTH](in: WIDTH) -> (out: WIDTH) {
+    assign out = in;
+}
+
 /// Add two numbers.
 comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
   assign out = left + right;
