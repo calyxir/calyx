@@ -1,6 +1,9 @@
 use crate::flatten::{
     flat_ir::{
-        base::{AssignmentWinner, ComponentIdx, GlobalCellIdx, GlobalPortIdx},
+        base::{
+            AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx,
+            GlobalPortIdx,
+        },
         prelude::AssignedValue,
     },
     structures::environment::{clock::ClockError, Environment},
@@ -11,6 +14,8 @@ use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use owo_colors::OwoColorize;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
+
+use std::fmt::Write;
 
 /// A type alias for a result with an [BoxedInterpreterError] as the error type
 pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
@@ -204,6 +209,11 @@ pub enum InterpreterError {
     #[error(transparent)]
     ClockError(#[from] ClockError),
 
+    #[error("Some guards are undefined: {0:?}")]
+    UndefinedGuardError(
+        Vec<(GlobalCellIdx, AssignmentIdx, Vec<GlobalPortIdx>)>,
+    ),
+
     /// A nonspecific error, used for arbitrary messages
     #[error("{0}")]
     GenericError(String),
@@ -310,6 +320,18 @@ impl InterpreterError {
                 }
             }
             InterpreterError::UndefiningDefinedPort(p) => InterpreterError::GenericError(format!("Attempted to undefine a defined port \"{}\"", env.get_full_name(p))),
+            InterpreterError::UndefinedGuardError(v) => {
+                let mut message = String::from("Some guards contained undefined values after convergence:\n");
+                for (cell, assign, ports) in v {
+                    writeln!(message, "({}) in assignment {}:", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign)).unwrap();
+                    for port in ports {
+                        writeln!(message, "    {} is undefined", env.get_full_name(port).yellow()).unwrap();
+                    }
+                }
+
+                InterpreterError::GenericError(message)
+            }
+
             e => e,
         }
     }

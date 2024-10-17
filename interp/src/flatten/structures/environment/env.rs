@@ -652,6 +652,15 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         })
     }
 
+    /// Given a cell idx, return the component definition that this cell is an
+    /// instance of. Return None if the cell is not a component instance.
+    pub fn get_component_idx(
+        &self,
+        cell: GlobalCellIdx,
+    ) -> Option<ComponentIdx> {
+        self.cells[cell].as_comp().map(|x| x.comp_id)
+    }
+
     // ===================== Environment print implementations =====================
 
     pub fn _print_env(&self) {
@@ -2418,6 +2427,57 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             }
         }
 
+        let mut error_v = vec![];
+        for bundle in assigns_bundle.iter() {
+            let ledger = self.env.cells[bundle.active_cell].as_comp().unwrap();
+            let go = bundle
+                .interface_ports
+                .as_ref()
+                .map(|x| &ledger.index_bases + x.go);
+            let done = bundle
+                .interface_ports
+                .as_ref()
+                .map(|x| &ledger.index_bases + x.done);
+
+            if !done
+                .and_then(|done| self.env.ports[done].as_bool())
+                .unwrap_or_default()
+                && go
+                    .and_then(|go| self.env.ports[go].as_bool())
+                    .unwrap_or(true)
+            {
+                for assign in bundle.assignments.iter() {
+                    let guard_idx = self.ctx().primary[assign].guard;
+                    if self
+                        .evaluate_guard(guard_idx, bundle.active_cell)
+                        .is_none()
+                    {
+                        let inner_v = self
+                            .ctx()
+                            .primary
+                            .guard_read_map
+                            .get(guard_idx)
+                            .unwrap()
+                            .iter()
+                            .filter_map(|p| {
+                                let p = self
+                                    .get_global_port_idx(p, bundle.active_cell);
+                                if self.env.ports[p].is_undef() {
+                                    Some(p)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect_vec();
+
+                        error_v.push((bundle.active_cell, assign, inner_v))
+                    }
+                }
+            }
+        }
+        if !error_v.is_empty() {
+            return Err(InterpreterError::UndefinedGuardError(error_v).into());
+        }
         Ok(())
     }
 
