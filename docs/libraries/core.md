@@ -136,7 +136,7 @@ Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
 ---
 ### `std_bit_slice<IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH>`
 Extract the bit-string starting at `START_IDX` and ending at `END_IDX - 1` from `in`.
-This is computed as `in[END_IDX:START_IDX]`.`OUT_WIDTH` must be specified to
+This is computed as `in[END_IDX-1:START_IDX]`.`OUT_WIDTH` must be specified to
 be `END_WIDTH - START_WITH` wide when instantiating the module.
 
 
