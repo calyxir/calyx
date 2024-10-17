@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use ahash::{HashMap, HashMapExt};
 use calyx_ir::{self as cir, NumAttr, RRC};
 use itertools::Itertools;
@@ -123,7 +125,7 @@ fn translate_guard(
     // I'm just gonna opt for this. It's a onetime cost, so I'm not particularly
     // worried about it
     let mut search_stack = vec![idx];
-    let mut read_ports = vec![];
+    let mut read_ports: HashSet<PortRef> = HashSet::new();
 
     while let Some(idx) = search_stack.pop() {
         match &interp_ctx.guards[idx] {
@@ -140,17 +142,19 @@ fn translate_guard(
                 search_stack.push(*guard_idx);
             }
             Guard::Comp(_port_comp, port_ref, port_ref1) => {
-                read_ports.push(*port_ref);
-                read_ports.push(*port_ref1);
+                read_ports.insert(*port_ref);
+                read_ports.insert(*port_ref1);
             }
             Guard::Port(port_ref) => {
-                read_ports.push(*port_ref);
+                read_ports.insert(*port_ref);
             }
         }
     }
 
     if !read_ports.is_empty() {
-        interp_ctx.guard_read_map.insert_value(idx, read_ports);
+        interp_ctx
+            .guard_read_map
+            .insert_value(idx, read_ports.into_iter().collect());
     }
 
     idx

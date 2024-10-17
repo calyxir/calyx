@@ -118,7 +118,7 @@ impl_index!(LocalRefCellOffset);
 /// Enum used in assignments to encapsulate the different types of port
 /// references these are always relative to a component's base-point and must be
 /// converted to global references when used.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum PortRef {
     /// A port belonging to a non-ref cell/group in the current component or the
     /// component itself
