@@ -77,7 +77,7 @@ pub enum BoolAttr {
     /// https://github.com/calyxir/calyx/issues/1828
     Fast,
     #[strum(serialize = "protected")]
-    /// Do I preserve this cell (and its uses) during optimization?
+    /// Indicate that the cell should not be removed or shared during optimization.
     Protected,
 }
 
