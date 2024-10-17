@@ -25,6 +25,7 @@ impl StdConst {
 impl Primitive for StdConst {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         Ok(if port_map[self.out].is_undef() {
+            // A constant cannot meaningfully be said to belong to a given thread
             port_map[self.out] = PortValue::new_cell(self.value.clone());
             UpdateStatus::Changed
         } else {

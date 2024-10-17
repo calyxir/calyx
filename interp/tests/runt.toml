@@ -109,6 +109,27 @@ fud2 --from calyx --to dat \
 """
 
 [[tests]]
+name = "data-race detection"
+paths = ["data-race/*.futil"]
+cmd = """
+../../target/debug/cider {} -l ../../  --check-data-race
+"""
+
+# [[tests]]
+# name = "correctness lowered"
+# paths = ["../../tests/correctness/*.futil"]
+# cmd = """
+# fud2 --from calyx --to dat \
+#          --through cider \
+#          -s sim.data={}.data \
+#          -s calyx.args="--log off" \
+#          -s calyx.flags="-p all" \
+#          {} | jq --sort-keys
+# """
+# timeout = 60
+
+
+[[tests]]
 name = "correctness ref cells"
 paths = ["../../tests/correctness/ref-cells/*.futil"]
 cmd = """
@@ -179,6 +200,7 @@ fud2 --from dahlia --to dat \
          -s calyx.args="--log off" \
          {} | jq --sort-keys
 """
+timeout = 180
 
 # [[tests]]
 # name = "[frontend] systolic array correctness"
