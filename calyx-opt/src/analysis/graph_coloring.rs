@@ -169,6 +169,17 @@ where
             .collect()
     }
 
+    // Reverses a coloring by mapping color C -> vec of nodes colored C.
+    pub fn reverse_coloring(coloring: &HashMap<T, T>) -> HashMap<T, Vec<T>> {
+        let mut rev_coloring: HashMap<T, Vec<T>> = HashMap::new();
+        for (node, color) in coloring {
+            rev_coloring
+                .entry(color.clone())
+                .or_default()
+                .push(node.clone());
+        }
+        rev_coloring
+    }
     pub fn welsh_powell_coloring(&self) -> HashMap<T, T> {
         let mut coloring: HashMap<T, T> = HashMap::new();
 

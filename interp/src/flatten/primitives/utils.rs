@@ -1,14 +1,13 @@
+use num_bigint::{BigInt, BigUint, Sign};
 use std::collections::VecDeque;
 
-use ibig::{ibig, UBig};
-use ibig::{ubig, IBig};
-
-pub(crate) fn floored_division(left: &IBig, right: &IBig) -> IBig {
+/// There's probably a better way to do this but I'm not fixing it right now
+pub(crate) fn floored_division(left: &BigInt, right: &BigInt) -> BigInt {
     let div = left / right;
 
-    if left.signum() != ibig!(-1) && right.signum() != ibig!(-1) {
+    if left.sign() != Sign::Minus && right.sign() != Sign::Minus {
         div
-    } else if (div.signum() == (-1).into() || div.signum() == 0.into())
+    } else if (div.sign() == Sign::Minus || div.sign() == Sign::NoSign)
         && (left != &(&div * right))
     {
         div - 1_i32
@@ -18,14 +17,17 @@ pub(crate) fn floored_division(left: &IBig, right: &IBig) -> IBig {
 }
 
 /// Implementation of integer square root via a basic binary search algorithm
-/// based on wikipedia psuedocode
-pub(crate) fn int_sqrt(i: &UBig) -> UBig {
-    let mut lower: UBig = ubig!(0);
-    let mut upper: UBig = i + ubig!(1);
-    let mut temp: UBig;
+/// based on wikipedia pseudocode.
+///
+/// TODO griffin: See if this can be replaced with a `sqrt` function in the
+/// `num-bigint` crate
+pub(crate) fn int_sqrt(i: &BigUint) -> BigUint {
+    let mut lower: BigUint = BigUint::from(0_u32);
+    let mut upper: BigUint = i + BigUint::from(1_u32);
+    let mut temp: BigUint;
 
-    while lower != (&upper - ubig!(1)) {
-        temp = (&lower + &upper) / ubig!(2);
+    while lower != (&upper - BigUint::from(1_u32)) {
+        temp = (&lower + &upper) / BigUint::from(2_u32);
         if &(&temp * &temp) <= i {
             lower = temp
         } else {
@@ -84,3 +86,28 @@ macro_rules! get_params {
 }
 
 pub(crate) use get_params;
+
+use crate::flatten::{flat_ir::base::PortValue, structures::thread::ThreadIdx};
+
+pub fn infer_thread_id<'a, I: Iterator<Item = &'a PortValue>>(
+    iter: I,
+) -> Option<ThreadIdx> {
+    let mut result = None;
+    for val in iter {
+        // We have seen a thread id before
+        if let Some(res) = result {
+            if let Some(thread) = val.as_option().and_then(|x| x.thread()) {
+                // If there are multiple thread ids, we return None
+                if res != thread {
+                    return None;
+                }
+            }
+        }
+        // Have not seen a thread id yet, can just take the possible empty id
+        // from value
+        else {
+            result = val.as_option().and_then(|x| x.thread());
+        }
+    }
+    result
+}

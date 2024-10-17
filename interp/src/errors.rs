@@ -1,18 +1,38 @@
-use crate::flatten::flat_ir::prelude::AssignedValue;
-use crate::values::Value;
-use calyx_ir::{self as ir, Assignment, Id};
+use crate::flatten::{
+    flat_ir::{
+        base::{AssignmentWinner, ComponentIdx, GlobalCellIdx, GlobalPortIdx},
+        prelude::AssignedValue,
+    },
+    structures::environment::{clock::ClockError, Environment},
+};
+use baa::{BitVecOps, BitVecValue};
+use calyx_ir::Id;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
+use owo_colors::OwoColorize;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
-// Utility type
+/// A type alias for a result with an [BoxedInterpreterError] as the error type
 pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
 
+/// A wrapper type for [InterpreterError]. This exists to allow a smaller return
+/// size for results since the error type is large.
 pub struct BoxedInterpreterError(Box<InterpreterError>);
 
 impl BoxedInterpreterError {
-    pub fn into_inner(&mut self) -> &mut InterpreterError {
+    /// Get a mutable reference to the inner error
+    pub fn inner_mut(&mut self) -> &mut InterpreterError {
         &mut self.0
+    }
+
+    pub fn prettify_message<
+        C: AsRef<crate::flatten::structures::context::Context> + Clone,
+    >(
+        mut self,
+        env: &Environment<C>,
+    ) -> Self {
+        self.0 = Box::new(self.0.prettify_message(env));
+        self
     }
 }
 
@@ -51,6 +71,8 @@ where
     }
 }
 
+/// An enum representing the different types of errors that can occur during
+/// simulation and debugging
 #[derive(Error)]
 pub enum InterpreterError {
     /// The given debugger command is invalid/malformed
@@ -74,13 +96,13 @@ pub enum InterpreterError {
         #[from]
         pest_consume::Error<crate::debugger::source::metadata_parser::Rule>,
     ),
-    // Unable to parse metadata
+    /// Unable to parse metadata
     #[error(transparent)]
     NewMetadataParseError(
         #[from] pest_consume::Error<crate::debugger::source::new_parser::Rule>,
     ),
 
-    // Missing metadata
+    /// Metadata is unavailable
     #[error("missing metadata")]
     MissingMetaData,
 
@@ -100,20 +122,6 @@ pub enum InterpreterError {
     #[error("no main component")]
     MissingMainComponent,
 
-    /// Multiple assignments conflicting during interpretation
-    #[error(
-        "multiple assignments to one port: {parent_id}.{port_id}
-    Conflict between:
-     1. {a1}
-     2. {a2}"
-    )]
-    ConflictingAssignments {
-        port_id: Id,
-        parent_id: Id,
-        a1: String,
-        a2: String,
-    },
-
     #[error(
         "conflicting assigns
         1. {a1}
@@ -121,32 +129,23 @@ pub enum InterpreterError {
     "
     )]
     FlatConflictingAssignments {
+        target: GlobalPortIdx,
         a1: AssignedValue,
         a2: AssignedValue,
     },
 
-    #[error("unable to find component named \"{0}\"")]
-    UnknownComponent(String),
-
+    /// A currently defunct error type for cross branch conflicts
     #[error(
         "par assignments not disjoint: {parent_id}.{port_id}
-    1. {v1}
-    2. {v2}"
+    1. {v1:?}
+    2. {v2:?}"
     )]
     ParOverlap {
         port_id: Id,
         parent_id: Id,
-        v1: Value,
-        v2: Value,
+        v1: BitVecValue,
+        v2: BitVecValue,
     },
-    #[error("invalid internal seq state. This should never happen, please report it")]
-    InvalidSeqState,
-    #[error(
-        "invalid internal if state. This should never happen, please report it"
-    )]
-    InvalidIfState,
-    #[error("invalid internal while state. This should never happen, please report it")]
-    InvalidWhileState,
 
     #[error("{mem_dim} Memory given initialization data with invalid dimension.
     When flattened, expected {expected} entries, but the memory was supplied with {given} entries instead.
@@ -157,76 +156,57 @@ pub enum InterpreterError {
         given: usize,
     },
 
-    #[error("interpreter does not have an implementation of the \"{0}\" primitive. If the interpreter should have an implementation of this primitive please open a github issue or PR.")]
-    UnknownPrimitive(String),
-    #[error("program evaluated the truth value of a wire \"{}.{}\" which is not one bit. Wire is {} bits wide.", 0.0, 0.1, 1)]
-    InvalidBoolCast((Id, Id), u64),
-    #[error("the interpreter attempted to exit the group \"{0}\" before it finished. This should never happen, please report it.")]
-    InvalidGroupExitNamed(Id),
-    #[error("the interpreter attempted to exit a phantom group before it finished. This should never happen, please report it")]
-    InvalidGroupExitUnnamed,
-
     #[error("invalid memory access to memory {}. Given index ({}) but memory has dimension ({})", name, access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), dims.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
     InvalidMemoryAccess {
         access: Vec<u64>,
         dims: Vec<u64>,
         name: Id,
     },
-    #[error("Both read and write signals provided to the sequential memory.")]
-    SeqMemoryError,
 
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]
     OverflowError,
 
+    /// A wrapper for IO errors
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
+    /// The error for attempting to write `undef` values to a register or
+    /// memory. Contains the name of the register or memory as a string
     //TODO Griffin: Make this more descriptive
     #[error(
-        "Attempted to write an undefined value to register or memory named \"{0}\""
+        "Attempted to write an undefined value to register or memory named \"{0:?}\""
     )]
-    UndefinedWrite(String),
+    UndefinedWrite(GlobalCellIdx),
 
+    /// The error for attempting to write to an undefined memory address. This
+    /// is distinct from writing to an out of bounds address.
     //TODO Griffin: Make this more descriptive
     #[error(
-        "Attempted to write an undefined memory address in memory named \"{0}\""
+        "Attempted to write an undefined memory address in memory named \"{0:?}\""
     )]
-    UndefinedWriteAddr(String),
+    UndefinedWriteAddr(GlobalCellIdx),
 
-    // TODO Griffin: Make this more descriptive
+    /// The error for attempting to read from an undefined memory address. This
+    /// is distinct from reading from an out of bounds address.
     #[error(
-        "Attempted to read an undefined memory address from memory named \"{0}\""
+        "Attempted to read an undefined memory address from memory named \"{0:?}\""
     )]
-    UndefinedReadAddr(String),
+    UndefinedReadAddr(GlobalCellIdx),
 
+    #[error("Attempted to undefine a defined port \"{0:?}\"")]
+    UndefiningDefinedPort(GlobalPortIdx),
+
+    /// A wrapper for serialization errors
     #[error(transparent)]
     SerializationError(#[from] crate::serialization::SerializationError),
-}
 
-pub fn assignment_to_string(
-    assignment: &ir::Assignment<ir::Nothing>,
-) -> String {
-    let mut str = vec![];
-    ir::Printer::write_assignment(assignment, 0, &mut str)
-        .expect("Write Failed");
-    String::from_utf8(str).expect("Found invalid UTF-8")
-}
+    #[error(transparent)]
+    ClockError(#[from] ClockError),
 
-impl InterpreterError {
-    pub fn conflicting_assignments(
-        port_id: Id,
-        parent_id: Id,
-        a1: &Assignment<ir::Nothing>,
-        a2: &Assignment<ir::Nothing>,
-    ) -> Self {
-        Self::ConflictingAssignments {
-            port_id,
-            parent_id,
-            a1: assignment_to_string(a1),
-            a2: assignment_to_string(a2),
-        }
-    }
+    /// A nonspecific error, used for arbitrary messages
+    #[error("{0}")]
+    GenericError(String),
 }
 
 // this is silly but needed to make the program print something sensible when returning
@@ -252,5 +232,85 @@ impl From<CalyxMultiError> for InterpreterError {
 impl From<std::str::Utf8Error> for InterpreterError {
     fn from(err: std::str::Utf8Error) -> Self {
         CalyxError::invalid_file(err.to_string()).into()
+    }
+}
+
+impl InterpreterError {
+    pub fn prettify_message<
+        C: AsRef<crate::flatten::structures::context::Context> + Clone,
+    >(
+        self,
+        env: &Environment<C>,
+    ) -> Self {
+        fn assign_to_string<C: AsRef<crate::flatten::structures::context::Context> + Clone>(
+            assign: &AssignedValue,
+            env: &Environment<C>,
+        ) -> (
+            String,
+            Option<(ComponentIdx, crate::flatten::flat_ir::component::AssignmentDefinitionLocation)>,
+        ){
+            match assign.winner() {
+                AssignmentWinner::Cell => ("Cell".to_string(), None),
+                AssignmentWinner::Implicit => ("Implicit".to_string(), None),
+                AssignmentWinner::Assign(idx) => {
+                    let (comp, loc) =
+                        env.ctx().find_assignment_definition(*idx);
+
+                    let str = env.ctx().printer().print_assignment(comp, *idx);
+                    (str, Some((comp, loc)))
+                }
+            }
+        }
+
+        fn source_to_string<
+            C: AsRef<crate::flatten::structures::context::Context> + Clone,
+        >(
+            source: &crate::flatten::flat_ir::component::AssignmentDefinitionLocation,
+            comp: ComponentIdx,
+            env: &Environment<C>,
+        ) -> String {
+            let comp_name = env.ctx().lookup_name(comp);
+            match source {
+                crate::flatten::flat_ir::component::AssignmentDefinitionLocation::CombGroup(g) => format!(" in comb group {comp_name}::{}", env.ctx().lookup_name(*g)),
+                crate::flatten::flat_ir::component::AssignmentDefinitionLocation::Group(g) => format!(" in group {comp_name}::{}", env.ctx().lookup_name(*g)),
+                crate::flatten::flat_ir::component::AssignmentDefinitionLocation::ContinuousAssignment => format!(" in {comp_name}'s continuous assignments"),
+                //TODO Griffin: Improve the identification of the invoke
+                crate::flatten::flat_ir::component::AssignmentDefinitionLocation::Invoke(_) => format!(" in an invoke in {comp_name}"),
+            }
+        }
+
+        match self {
+            InterpreterError::FlatConflictingAssignments { target, a1, a2 } => {
+                let (a1_str, a1_source) = assign_to_string(&a1, env);
+                let (a2_str, a2_source) = assign_to_string(&a2, env);
+
+                let a1_v = a1.val().to_bit_str();
+                let a2_v = a2.val().to_bit_str();
+                let a1_source = a1_source
+                    .map(|(comp, s)| source_to_string(&s, comp, env))
+                    .unwrap_or_default();
+                let a2_source = a2_source
+                    .map(|(comp, s)| source_to_string(&s, comp, env))
+                    .unwrap_or_default();
+
+                let target = env.get_full_name(target);
+
+                InterpreterError::GenericError(
+                    format!("conflicting assignments to port \"{target}\":\n 1. assigned {a1_v} by {a1_str}{a1_source}\n 2. assigned {a2_v} by {a2_str}{a2_source}")
+                )
+            }
+            InterpreterError::UndefinedWrite(c) => InterpreterError::GenericError(format!("Attempted to write an undefined value to register or memory named \"{}\"", env.get_full_name(c))),
+            InterpreterError::UndefinedWriteAddr(c) => InterpreterError::GenericError(format!("Attempted to write to an undefined memory address in memory named \"{}\"", env.get_full_name(c))),
+            InterpreterError::UndefinedReadAddr(c) => InterpreterError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
+            InterpreterError::ClockError(clk) => {
+                match clk {
+                    ClockError::ReadWrite(c) => InterpreterError::GenericError(format!("Concurrent read & write to the same register/memory {}", env.get_full_name(c).underline())),
+                    ClockError::WriteWrite(c) => InterpreterError::GenericError(format!("Concurrent writes to the same register/memory {}", env.get_full_name(c).underline())),
+                    _ => InterpreterError::ClockError(clk),
+                }
+            }
+            InterpreterError::UndefiningDefinedPort(p) => InterpreterError::GenericError(format!("Attempted to undefine a defined port \"{}\"", env.get_full_name(p))),
+            e => e,
+        }
     }
 }

@@ -3,10 +3,13 @@ pub use crate::cli_ext::{CliExt, FakeCli, FromArgFn, RedactArgFn};
 use crate::config;
 use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
 use camino::Utf8PathBuf;
+use figment::providers::Serialized;
+use itertools::Itertools;
 use std::fmt::{Debug, Display};
+use std::fs;
 use std::str::FromStr;
 
 enum Mode {
@@ -15,6 +18,7 @@ enum Mode {
     ShowDot,
     Generate,
     Run,
+    Cmds,
 }
 
 impl FromStr for Mode {
@@ -27,6 +31,7 @@ impl FromStr for Mode {
             "gen" => Ok(Mode::Generate),
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
+            "cmds" => Ok(Mode::Cmds),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -40,6 +45,7 @@ impl Display for Mode {
             Mode::Generate => write!(f, "gen"),
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
+            Mode::Cmds => write!(f, "cmds"),
         }
     }
 }
@@ -106,6 +112,15 @@ pub struct GetResource {
 #[argh(subcommand, name = "list")]
 pub struct ListCommand {}
 
+/// register a plugin
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "register")]
+pub struct RegisterCommand {
+    /// the filename of the plugin to register
+    #[argh(positional)]
+    filename: Utf8PathBuf,
+}
+
 /// supported subcommands
 #[derive(FromArgs)]
 #[argh(subcommand)]
@@ -121,6 +136,9 @@ where
 
     /// list the available states and ops
     List(ListCommand),
+
+    /// register a plugin
+    Register(RegisterCommand),
 
     #[argh(dynamic)]
     Extended(FakeCli<T>),
@@ -331,6 +349,37 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     bail!("unknown resource file {}", cmd.filename);
 }
 
+fn register_plugin(
+    driver: &Driver,
+    cmd: RegisterCommand,
+) -> anyhow::Result<()> {
+    let full_path = cmd
+        .filename
+        .canonicalize_utf8()
+        .with_context(|| format!("Can not find `{}`", cmd.filename))?;
+
+    println!("Registering {}", full_path);
+
+    let config_path = config::config_path(&driver.name);
+    let contents = fs::read_to_string(&config_path)?;
+
+    let mut toml_doc = contents.parse::<toml_edit::DocumentMut>()?;
+
+    let config = config::load_config(&driver.name)
+        .adjoin(Serialized::default("plugins", [full_path.to_string()]));
+
+    toml_doc["plugins"] = toml_edit::value(
+        config
+            .extract_inner::<Vec<String>>("plugins")?
+            .into_iter()
+            .dedup()
+            .collect::<toml_edit::Array>(),
+    );
+
+    fs::write(&config_path, toml_doc.to_string())?;
+    Ok(())
+}
+
 /// Given the name of a Driver, returns a config based on that name and CLI arguments.
 pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
     config_from_cli_ext::<EmptyCliExt>(name)
@@ -384,6 +433,9 @@ pub fn cli_ext<T: CliExt>(
             driver.print_info();
             return Ok(());
         }
+        Some(Subcommand::Register(cmd)) => {
+            return register_plugin(driver, cmd);
+        }
         Some(Subcommand::Extended(cmd)) => {
             return cmd.0.run(driver);
         }
@@ -412,7 +464,8 @@ pub fn cli_ext<T: CliExt>(
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir)?,
+        Mode::Run => run.emit_and_run(&workdir, false)?,
+        Mode::Cmds => run.emit_and_run(&workdir, true)?,
     }
 
     Ok(())

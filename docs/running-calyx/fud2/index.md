@@ -79,6 +79,7 @@ Here are some options you might need:
     * `emit`: Just print the Ninja build file to stdout. The `gen` mode is therefore approximately `fud2 -m emit > .fud2/build.ninja`.
     * `plan`: Print a brief description of the plan, i.e., the sequence of operations that the build would run.
     * `dot`: Print a [GraphViz][] depiction of the plan. Try `fud2 -m dot | dot -Tpdf > graph.pdf` and take a look.
+    * `cmds`: Print the commands Ninja would run when executing the plan, but do not execute them.
 
 There are also some subcommands for doing things other than building stuff:
 

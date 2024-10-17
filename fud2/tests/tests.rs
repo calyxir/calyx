@@ -93,7 +93,7 @@ impl InstaTest for Plan {
         let config = default_config()
             .merge(("exe", "fud2"))
             .merge(("calyx.base", "/test/calyx"))
-            .merge(("firrtl.exe", "/test/bin/firrtl"))
+            .merge(("firrtl.firtool", "/test/bin/firtool"))
             .merge(("sim.data", "/test/data.json"))
             .merge(("xilinx.vivado", "/test/xilinx/vivado"))
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
