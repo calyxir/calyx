@@ -51,6 +51,13 @@ class CallStackElement:
             return self.active_groups[0]
         else:
             raise Exception(f'Component {self.component} is parallel! Active groups: {self.active_groups}')
+    
+    def get_stack_depth(self):
+        active_group = self.get_active_group()
+        if active_group is None:
+            return self.cell_fullname.count(".")
+        else:
+            return active_group.count(".")
 
     def get_active_groups(self):
         return self.active_groups
@@ -107,7 +114,7 @@ def order_callstack(main_component, cells_map, timeline):
         # stack = [timeline[i][main_shortname].get_active_group().split(main_component + ".")[1]] # there should always be a main component group that is active
         stack = [timeline[i][main_shortname]]
         # get the group that is deepest within the stack, then reconstruct from there
-        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].get_active_group().count("."), reverse=True)[0]
+        group_component = sorted(timeline[i], key=lambda k : timeline[i][k].get_stack_depth(), reverse=True)[0]
         group_full_name = timeline[i][group_component].get_active_group()
         if group_component != main_shortname:
             after_main = group_full_name.split(f"{main_component}.")[1]
@@ -130,11 +137,10 @@ def create_trace(profiled_info, main_component, cells_map, fsm_groups, all_group
     group_to_gt_segments = {} # we need segment info for frequency checking
     # first iterate through all of the cells
     for cell_info in filter(lambda x : "is_cell" in x and x["is_cell"], profiled_info):
-        print(cell_info["name"])
         for segment in cell_info["closed_segments"]:
             for i in range(segment["start"], segment["end"]):
-                add_elem_to_callstack(fsm_timeline_map[i], cell_info["component"], None)
-                add_elem_to_callstack(timeline_map[i], cell_info["component"], None)
+                add_elem_to_callstack(fsm_timeline_map[i], cell_info["component"], cell_info["name"], True)
+                add_elem_to_callstack(timeline_map[i], cell_info["component"], cell_info["name"], True)
     # next iterate through everything else
     for group_info in profiled_info:
         group_name = group_info["name"]
@@ -148,12 +154,12 @@ def create_trace(profiled_info, main_component, cells_map, fsm_groups, all_group
                 group_to_gt_segments[group_name][segment["start"]] = segment["end"]
             for i in range(segment["start"], segment["end"]): # really janky, I wonder if there's a better way to do this?
                 if group_info["fsm_name"] is not None: # FSM version
-                    add_elem_to_callstack(fsm_timeline_map[i], group_component, group_name)
+                    add_elem_to_callstack(fsm_timeline_map[i], group_component, group_name, False)
                 elif group_name in only_gt_groups: # A group that isn't managed by an FSM. In which case it has to be in both FSM and GT
-                    add_elem_to_callstack(fsm_timeline_map[i], group_component, group_name)
-                    add_elem_to_callstack(timeline_map[i], group_component, group_name)
+                    add_elem_to_callstack(fsm_timeline_map[i], group_component, group_name, False)
+                    add_elem_to_callstack(timeline_map[i], group_component, group_name, False)
                 else: # The ground truth info about a group managed by an FSM.
-                    add_elem_to_callstack(timeline_map[i], group_component, group_name)
+                    add_elem_to_callstack(timeline_map[i], group_component, group_name, False)
 
     trace = order_callstack(main_component, cells_map, timeline_map)
 
