@@ -1,23 +1,17 @@
-# Takes in a dump file created by parse-vcd.py and creates a JSON file in the Google Trace Event Format
+"""
+Takes in a dump file created by parse-vcd.py and creates files for visualization:
+- *.folded files for producing flame graphs
+- *.json files displaying the timeline (to be read by Perfetto UI)
+"""
 import json
 import sys
 
-class FlameInfo:
-    def __init__(self, name, backptr, cycles, is_fsm):
-        self.name = name
-        self.backptr = backptr
-        self.cycles = cycles
-        self.is_fsm = is_fsm
-
-    def make_folded_log_entry(self):
-        if self.backptr is not None:
-            return f'{self.backptr};{self.name} {self.cycles}'
-        else:
-            return f'{self.name} {self.cycles}'
-        
 class CallStackElement:
-    # A component on the stack that is active at a given snapshot in time
-    # starting_group is the first group that shows up
+    """
+    A component on the stack that is active at a given snapshot in time. Contains cell name and any active groups.
+    (The element may not have any active groups when control is taking extra cycles for FSMs, etc.)
+    starting_group is the first group that shows up. When starting_group is None, the stack simply contains the cell.
+    """
     def __init__(self, component, starting_group):
         self.component = component
         if starting_group is None:
@@ -30,20 +24,16 @@ class CallStackElement:
     def __repr__(self):
         return f"([{self.component}] Active groups: {self.active_groups})"
 
-    def add_cell_name(self, parent_component, cell_name):
-        self.cell_id = f"{self.component}[{parent_component}.{cell_name}]"
-        self.parent_component = parent_component
-        self.cell_name = cell_name
-
-    def add_cell_fullname(self, cell_fullname):
-        self.cell_fullname = cell_fullname
-
+    """
+    Registers a new group active on the stack.
+    """
     def add_group(self, group_name):
         if group_name not in self.active_groups:
             self.active_groups.append(group_name)
 
     """
-    Returns the active group if the component is sequential (has only one active group), otherwise throws exception
+    Returns the active group if the component is sequential (has only one active group), or None if the cell has no active groups.
+    Throws exception if there are multiple groups active at the same time, since we are assuming sequential programs right now.
     """
     def get_active_group(self):
         if len(self.active_groups) == 0:
@@ -53,19 +43,19 @@ class CallStackElement:
         else:
             raise Exception(f'Component {self.component} is parallel! Active groups: {self.active_groups}')
     
+    """
+    Returns the identifier of this stack: either the full name of the active group, or the full name of the cell if no groups are active. 
+    """
     def get_fullname(self):
         active_group = self.get_active_group()
         if active_group is None:
             return self.cell_fullname
         else:
             return active_group
-
-    def get_stack_depth(self):
-        return self.get_fullname().count(".")
-
-    def get_active_groups(self):
-        return self.active_groups
     
+    """
+    Returns the representation of the current stack for *.folded flame graph files.
+    """
     def flame_stack_string(self, main_component):
         main_shortname = main_component.split("TOP.toplevel.")[1]
         if self.component == main_shortname:
@@ -79,14 +69,35 @@ class CallStackElement:
         else:
             return prefix
 
+    """
+    Returns the name of the stack's component.
+    """
     def component_flame_stack_string(self, main_component):
         main_shortname = main_component.split("TOP.toplevel.")[1]
         if self.component == main_shortname:
             return main_component
         else:
             return self.component
+        
+    # other utility functions
 
-# Computes which groups have a FSM-recorded group
+    def get_stack_depth(self):
+        return self.get_fullname().count(".")
+
+    def add_flame_cell_name(self, parent_component, cell_name):
+        self.cell_id = f"{self.component}[{parent_component}.{cell_name}]"
+        self.parent_component = parent_component
+        self.cell_name = cell_name
+
+    def get_active_groups(self):
+        return self.active_groups
+
+    def add_cell_fullname(self, cell_fullname):
+        self.cell_fullname = cell_fullname
+
+"""
+Computes which groups were tracked by FSMs.
+"""
 def get_fsm_groups(profiled_info):
     fsm_groups = set()
     all_groups = set()
@@ -98,17 +109,22 @@ def get_fsm_groups(profiled_info):
             fsm_groups.add(group_info["name"])
     return fsm_groups, all_groups
 
-def add_elem_to_callstack(big_map, group_component, name, is_cell):
-    if group_component not in big_map:
+"""
+Adds a new CallStackElement object for `component` to `timeline_map`
+"""
+def add_elem_to_callstack(timeline_map, component, name, is_cell):
+    if component not in timeline_map:
         if is_cell:
-            big_map[group_component] = CallStackElement(group_component, None)
-            big_map[group_component].add_cell_fullname(name)
+            timeline_map[component] = CallStackElement(component, None)
+            timeline_map[component].add_cell_fullname(name)
         else:
-            big_map[group_component] = CallStackElement(group_component, name)
+            timeline_map[component] = CallStackElement(component, name)
     else:
-        big_map[group_component].add_group(name)
+        timeline_map[component].add_group(name)
 
-
+"""
+Returns the stack element that is deepest in the simultaneously running sets of components
+"""
 def get_deepest_stack_element(stack_elems):
     elems_sorted = sorted(stack_elems, key=lambda k : stack_elems[k].get_stack_depth(), reverse=True)
     # NOTE: assuming sequential for now, which means (with n as the "deepest stack size"):
@@ -121,36 +137,35 @@ def get_deepest_stack_element(stack_elems):
     else: # 1th element has to be a cell, assuming sequential programs.
         return elems_sorted[1]
 
-def order_callstack(main_component, cells_map, timeline):
+"""
+Helper method to put trace stack elements in calling order
+"""
+def order_trace(main_component, cells_map, timeline):
     main_shortname = main_component.split("TOP.toplevel.")[1]
     # timeline_map has an *unordered*
     processed_trace = {}
     for i in timeline:
         if main_shortname not in timeline[i]:
             continue
-        # stack = [timeline[i][main_shortname].get_active_group().split(main_component + ".")[1]] # there should always be a main component group that is active
         stack = [timeline[i][main_shortname]]
-        # get the group that is deepest within the stack, then reconstruct from there
-        group_component = get_deepest_stack_element(timeline[i])
-        if group_component != main_shortname:
-            elem_full_name = timeline[i][group_component].get_active_group()
-            if elem_full_name is not None:
-                after_main = elem_full_name.split(f"{main_component}.")[1]
-                after_main_split = after_main.split(".")[:-1]
-            else:
-                # FIXME: clean this up a bit?
-                elem_full_name = timeline[i][group_component].cell_fullname
-                after_main = elem_full_name.split(f"{main_component}.")[1]
-                after_main_split = after_main.split(".")
+        # get the element that is deepest within the stack, then reconstruct from there
+        component = get_deepest_stack_element(timeline[i])
+        if component != main_shortname:
+            cell_full_name = timeline[i][component].cell_fullname
+            after_main = cell_full_name.split(f"{main_component}.")[1]
+            after_main_split = after_main.split(".")    
             prev_component = main_shortname
             for cell_name in after_main_split:
                 cell_component = cells_map[prev_component][cell_name]
-                timeline[i][cell_component].add_cell_name(prev_component, cell_name)
+                timeline[i][cell_component].add_flame_cell_name(prev_component, cell_name)
                 stack.append(timeline[i][cell_component])
                 prev_component = cell_component
         processed_trace[i] = stack
     return processed_trace
 
+"""
+Constructs traces: for every cycle, what was the stack of active cells/groups?
+"""
 def create_trace(profiled_info, main_component, cells_map, fsm_groups, all_groups):
     summary = list(filter(lambda x : x["name"] == "TOTAL", profiled_info))[0]
     total_cycles = summary["total_cycles"]
@@ -184,11 +199,14 @@ def create_trace(profiled_info, main_component, cells_map, fsm_groups, all_group
                 else: # The ground truth info about a group managed by an FSM.
                     add_elem_to_callstack(timeline_map[i], group_component, group_name, False)
 
-    trace = order_callstack(main_component, cells_map, timeline_map)
-    fsm_trace = order_callstack(main_component, cells_map, fsm_timeline_map)
+    trace = order_trace(main_component, cells_map, timeline_map)
+    fsm_trace = order_trace(main_component, cells_map, fsm_timeline_map)
 
     return trace, fsm_trace, len(timeline_map)
 
+"""
+Writes a flame graph counting the number of times a group was active to `frequency_flame_out`.
+"""
 def create_frequency_flame_graph(main_component, trace, total_cycles, frequency_flame_out):
     frequency_stacks = {}
     stack_last_cycle = ""
@@ -204,6 +222,9 @@ def create_frequency_flame_graph(main_component, trace, total_cycles, frequency_
 
     write_flame_graph(frequency_flame_out, frequency_stacks)
 
+"""
+Returns a representation of how many cycles each stack combination was active for.
+"""
 def compute_flame_stacks(trace, main_component, total_cycles):
     stacks = {}
     component_stacks = {}
@@ -220,7 +241,9 @@ def compute_flame_stacks(trace, main_component, total_cycles):
     component_stacks[main_component] = total_cycles - len(trace)
     return stacks, component_stacks
 
-# attempt to rehash the create_flame_graph to take care of stacks
+"""
+Constructs and writes flame graphs.
+"""
 def create_flame_graph(main_component, trace, fsm_trace, num_cycles, flame_out, fsm_flame_out, component_out, fsm_component_out):
     stacks, component_stacks = compute_flame_stacks(trace, main_component, num_cycles)
     write_flame_graph(flame_out, stacks)
@@ -229,6 +252,9 @@ def create_flame_graph(main_component, trace, fsm_trace, num_cycles, flame_out, 
     write_flame_graph(fsm_flame_out, fsm_stacks)
     write_flame_graph(fsm_component_out, fsm_component_stacks)
 
+"""
+Creates the JSON timeline representation.
+"""
 def create_timeline_stacks(trace, main_component):
     events = []
     currently_active = {} # group name to beginning traceEvent entry (so end event can copy)
@@ -236,16 +262,6 @@ def create_timeline_stacks(trace, main_component):
     cell_to_stackframe_info = {main_component : (2, 1)} # (stack_number, parent_stack_number)
     stack_number_acc = 3 # To guarantee that we get unique stack numbers when we need a new one
 
-    # Beginning and end events for main signify the overall running time (stack 1)
-    # main_event_details = {"name": main_component, "sf": 1, "cat": "MAIN", "pid": 1, "tid": 1}
-    # main_start = main_event_details.copy()
-    # main_start["ts"] = 0
-    # main_start["ph"] = "B"
-    # events.append(main_start)
-    # main_end = main_event_details.copy()
-    # main_end["ts"] = len(trace) * ts_multiplier
-    # main_end["ph"] = "E"
-    # events.append(main_end)
     cell_to_stackframe_info["MAIN"] = (1, None)
     cell_to_stackframe_info["TOP.toplevel"] = (2, 1)
 
@@ -270,9 +286,9 @@ def create_timeline_stacks(trace, main_component):
                 start_event = {"name": cell_name.split(".")[-1], "cat": "cell", "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : cell_stackframe}
                 events.append(start_event)
                 currently_active[cell_name] = start_event
-            # group?
+            # add a group if one is active
             group_name = elem.get_active_group()
-            if group_name is not None: # we also want to register the group
+            if group_name is not None:
                 active_this_cycle.add(group_name)
                 if group_name not in currently_active:
                     # get the stackframe
@@ -284,26 +300,7 @@ def create_timeline_stacks(trace, main_component):
                     start_event = {"name": group_name.split(".")[-1], "cat": "group", "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : group_stackframe}
                     events.append(start_event)
                     currently_active[group_name] = start_event
-                parent = group_name
-            # elem_full_name = elem.get_fullname()
-            # active_this_cycle.add(elem_full_name)
-            # if elem_full_name not in currently_active: # first cycle of the group. We need to figure out the stack
-            #     elem_cell = elem.cell_fullname
-            #     elem_shortname = elem_full_name.split(".")[-1]
-            #     stackframe = -1 # FIXME: find the appropriate stack frame
-            #     if elem_cell in cell_to_stackframe_info:
-            #         (stackframe, _) = cell_to_stackframe_info[elem_cell]
-            #     else:
-            #         # Since we are iterating from the shortest to longest name (based on cell counts)
-            #         # The group's cell's parent *must* be in cell_to_stackframe_info
-            #         group_cell_parent = ".".join(elem_cell.split(".")[:-1])
-            #         (parent_stackframe, _) = cell_to_stackframe_info[group_cell_parent]
-            #         stackframe = stack_number_acc
-            #         stack_number_acc += 1
-            #         cell_to_stackframe_info[elem_cell] = (stackframe, parent_stackframe)
-            #     start_event = {"name": f"{elem_shortname}({elem_cell})", "cat": elem.component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
-            #     events.append(start_event)
-            #     currently_active[elem_full_name] = start_event
+                parent = group_name # the next cell's parent will be this group.
         # Any element that was previously active but not active this cycle need to end
         for non_active_group in set(currently_active.keys()).difference(active_this_cycle):
             end_event = currently_active[non_active_group].copy()
@@ -330,6 +327,9 @@ def create_timeline_stacks(trace, main_component):
 
     return { "traceEvents": events, "stackFrames": stacks }
 
+"""
+Wrapper function for constructing and writing a timeline representation
+"""
 def create_timeline_json(trace, fsm_trace, main_component, timeline_out, fsm_timeline_out):
     timeline_json_data = create_timeline_stacks(trace, main_component)
     with open(timeline_out, "w", encoding="utf-8") as timeline_file:
@@ -338,11 +338,17 @@ def create_timeline_json(trace, fsm_trace, main_component, timeline_out, fsm_tim
     with open(fsm_timeline_out, "w", encoding="utf-8") as fsm_timeline_file:
         fsm_timeline_file.write(json.dumps(fsm_timeline_json_data, indent=4))
 
+"""
+Helper function to output the *.folded file for flame graphs.
+"""
 def write_flame_graph(flame_out, stacks):
     with open(flame_out, "w") as f:
         for stack in sorted(stacks, key=lambda k : len(k)): # main needs to come first for flame graph script to not make two boxes for main?
             f.write(f"{stack} {stacks[stack]}\n")
 
+"""
+Helper function to process the cells_json input.
+"""
 def build_cells_map(json_file):
     cell_json = json.load(open(json_file))
     cells_map = {}
