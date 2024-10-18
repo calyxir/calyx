@@ -1,5 +1,5 @@
 use super::structures::{GroupContents, NewSourceMap};
-use crate::errors::InterpreterResult;
+use crate::errors::CiderResult;
 use pest_consume::{match_nodes, Error, Parser};
 use std::collections::HashMap;
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
@@ -47,7 +47,7 @@ impl MetadataParser {
     }
 }
 
-pub fn parse_metadata(input_str: &str) -> InterpreterResult<NewSourceMap> {
+pub fn parse_metadata(input_str: &str) -> CiderResult<NewSourceMap> {
     let inputs = MetadataParser::parse(Rule::metadata, input_str)?;
     let input = inputs.single()?;
     Ok(MetadataParser::metadata(input)?)

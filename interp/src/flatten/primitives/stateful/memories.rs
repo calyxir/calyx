@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    errors::InterpreterError,
+    errors::{CiderError, RuntimeError},
     flatten::{
         flat_ir::{
             base::GlobalCellIdx,
@@ -74,7 +74,7 @@ impl Primitive for StdReg {
         } else if port_map[write_en].as_bool().unwrap_or_default() {
             self.internal_state.value = port_map[input]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite(self.global_idx))?
+                .ok_or(RuntimeError::UndefinedWrite(self.global_idx))?
                 .val()
                 .clone();
 
@@ -196,6 +196,56 @@ impl<const SEQ: bool> MemDx<SEQ> {
         SEQ_ADDR2: 4, COMB_ADDR2: 2,
         SEQ_ADDR3: 5, COMB_ADDR3: 3
     ];
+
+    pub fn addr_as_vec(
+        &self,
+        port_map: &PortMap,
+        base_port: GlobalPortIdx,
+    ) -> Option<Vec<u64>> {
+        let (addr0, addr1, addr2, addr3) = if SEQ {
+            ports![&base_port;
+                addr0: Self::SEQ_ADDR0,
+                addr1: Self::SEQ_ADDR1,
+                addr2: Self::SEQ_ADDR2,
+                addr3: Self::SEQ_ADDR3
+            ];
+            (addr0, addr1, addr2, addr3)
+        } else {
+            ports![&base_port;
+                addr0: Self::COMB_ADDR0,
+                addr1: Self::COMB_ADDR1,
+                addr2: Self::COMB_ADDR2,
+                addr3: Self::COMB_ADDR3
+            ];
+
+            (addr0, addr1, addr2, addr3)
+        };
+
+        Some(match self.shape {
+            Shape::D1(..) => vec![port_map[addr0].as_u64().unwrap()],
+            Shape::D2(..) => {
+                let a0 = port_map[addr0].as_u64()? as usize;
+                let a1 = port_map[addr1].as_u64()? as usize;
+
+                vec![a0 as u64, a1 as u64]
+            }
+            Shape::D3(..) => {
+                let a0 = port_map[addr0].as_u64()? as usize;
+                let a1 = port_map[addr1].as_u64()? as usize;
+                let a2 = port_map[addr2].as_u64()? as usize;
+
+                vec![a0 as u64, a1 as u64, a2 as u64]
+            }
+            Shape::D4(..) => {
+                let a0 = port_map[addr0].as_u64()? as usize;
+                let a1 = port_map[addr1].as_u64()? as usize;
+                let a2 = port_map[addr2].as_u64()? as usize;
+                let a3 = port_map[addr3].as_u64()? as usize;
+
+                vec![a0 as u64, a1 as u64, a2 as u64, a3 as u64]
+            }
+        })
+    }
 
     pub fn calculate_addr(
         &self,
@@ -470,12 +520,24 @@ impl Primitive for CombMem {
         let (read_data, done) = (self.read_data(), self.done());
 
         let done = if write_en && !reset {
-            let addr = addr
-                .ok_or(InterpreterError::UndefinedWriteAddr(self.global_idx))?;
+            let addr =
+                addr.ok_or(RuntimeError::UndefinedWriteAddr(self.global_idx))?;
+
+            if addr >= self.internal_state.len() {
+                return Err(RuntimeError::InvalidMemoryAccess {
+                    access: self
+                        .addresser
+                        .addr_as_vec(port_map, self.base_port)
+                        .unwrap(),
+                    dims: self.addresser.shape.clone(),
+                    idx: self.global_idx,
+                }
+                .into());
+            }
 
             let write_data = port_map[self.write_data()]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite(self.global_idx))?;
+                .ok_or(RuntimeError::UndefinedWrite(self.global_idx))?;
             self.internal_state[addr].value = write_data.val().clone();
             self.done_is_high = true;
             port_map.insert_val(done, AssignedValue::cell_b_high())?
@@ -754,16 +816,16 @@ impl Primitive for SeqMem {
         } else if content_en && write_en {
             self.done_is_high = true;
             self.read_out = PortValue::new_undef();
-            let addr_actual = addr
-                .ok_or(InterpreterError::UndefinedWriteAddr(self.global_idx))?;
+            let addr_actual =
+                addr.ok_or(RuntimeError::UndefinedWriteAddr(self.global_idx))?;
             let write_data = port_map[self.write_data()]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite(self.global_idx))?;
+                .ok_or(RuntimeError::UndefinedWrite(self.global_idx))?;
             self.internal_state[addr_actual].value = write_data.val().clone();
         } else if content_en {
             self.done_is_high = true;
-            let addr_actual = addr
-                .ok_or(InterpreterError::UndefinedReadAddr(self.global_idx))?;
+            let addr_actual =
+                addr.ok_or(RuntimeError::UndefinedReadAddr(self.global_idx))?;
             self.read_out = PortValue::new_cell(
                 self.internal_state[addr_actual].value.clone(),
             );

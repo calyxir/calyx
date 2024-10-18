@@ -7,9 +7,8 @@ use super::{
     program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
-use crate::flatten::structures::environment::wave::WaveWriter;
 use crate::{
-    errors::{BoxedInterpreterError, InterpreterError, InterpreterResult},
+    errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
         flat_ir::{
             base::{
@@ -37,6 +36,10 @@ use crate::{
     logging,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
 };
+use crate::{
+    errors::{RuntimeError, RuntimeResult},
+    flatten::structures::environment::wave::WaveWriter,
+};
 use ahash::HashSet;
 use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
@@ -53,12 +56,9 @@ pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 impl PortMap {
     /// Essentially asserts that the port given is undefined, it errors out if
     /// the port is defined and otherwise does nothing
-    pub fn write_undef(
-        &mut self,
-        target: GlobalPortIdx,
-    ) -> InterpreterResult<()> {
+    pub fn write_undef(&mut self, target: GlobalPortIdx) -> RuntimeResult<()> {
         if self[target].is_def() {
-            Err(InterpreterError::UndefiningDefinedPort(target).into())
+            Err(RuntimeError::UndefiningDefinedPort(target).into())
         } else {
             Ok(())
         }
@@ -93,7 +93,7 @@ impl PortMap {
         &mut self,
         target: GlobalPortIdx,
         val: AssignedValue,
-    ) -> InterpreterResult<UpdateStatus> {
+    ) -> RuntimeResult<UpdateStatus> {
         match self[target].as_option() {
             // unchanged
             Some(t) if *t == val => Ok(UpdateStatus::Unchanged),
@@ -105,8 +105,8 @@ impl PortMap {
                 // other way around
                     && !(*t.winner() == AssignmentWinner::Implicit) =>
             {
-                InterpreterResult::Err(
-                    InterpreterError::FlatConflictingAssignments {
+                RuntimeResult::Err(
+                    RuntimeError::FlatConflictingAssignments {
                         target,
                         a1: t.clone(),
                         a2: val,
@@ -126,7 +126,7 @@ impl PortMap {
         &mut self,
         target: GlobalPortIdx,
         done_bool: bool,
-    ) -> InterpreterResult<UpdateStatus> {
+    ) -> RuntimeResult<UpdateStatus> {
         self.insert_val(
             target,
             AssignedValue::cell_value(if done_bool {
@@ -1309,7 +1309,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
         check_races: bool,
-    ) -> Result<Self, BoxedInterpreterError> {
+    ) -> Result<Self, BoxedCiderError> {
         let data_dump = data_file
             .as_ref()
             .map(|path| {
@@ -1611,7 +1611,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     }
 
     //
-    pub fn converge(&mut self) -> InterpreterResult<()> {
+    pub fn converge(&mut self) -> CiderResult<()> {
         self.undef_all_ports();
         self.set_root_go_high();
         // set the pinned values
@@ -1724,13 +1724,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let assigns_bundle = self.get_assignments(self.env.pc.node_slice());
 
         self.simulate_combinational(&assigns_bundle)
-            .map_err(|e| e.prettify_message(&self.env))
+            .map_err(|e| e.prettify_message(&self.env).into())
     }
 
-    pub fn step(&mut self) -> InterpreterResult<()> {
+    pub fn step(&mut self) -> CiderResult<()> {
         self.converge()?;
 
-        let out: Result<(), BoxedInterpreterError> = {
+        let out: Result<(), BoxedCiderError> = {
             let mut result = Ok(());
             for cell in self.env.cells.values_mut() {
                 match cell {
@@ -1756,7 +1756,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     CellLedger::Component(_) => {}
                 }
             }
-            result
+            result.map_err(|e| e.prettify_message(&self.env).into())
         };
 
         self.env.pc.clear_finished_comps();
@@ -1768,11 +1768,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let mut removed = vec![];
 
         for (i, node) in vecs.iter_mut().enumerate() {
-            let keep_node = self.evaluate_control_node(
-                node,
-                &mut new_nodes,
-                (&mut par_map, &mut with_map, &mut repeat_map),
-            )?;
+            let keep_node = self
+                .evaluate_control_node(
+                    node,
+                    &mut new_nodes,
+                    (&mut par_map, &mut with_map, &mut repeat_map),
+                )
+                .map_err(|e| e.prettify_message(&self.env))?;
             if !keep_node {
                 removed.push(i);
             }
@@ -1789,7 +1791,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
 
-        out.map_err(|err| err.prettify_message(&self.env))
+        out
     }
 
     fn evaluate_control_node(
@@ -1797,7 +1799,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         node: &mut ControlTuple,
         new_nodes: &mut Vec<ControlTuple>,
         maps: PcMaps,
-    ) -> InterpreterResult<bool> {
+    ) -> RuntimeResult<bool> {
         let (node_thread, node) = node;
         let (par_map, with_map, repeat_map) = maps;
         let comp_go = self.env.get_comp_go(node.comp);
@@ -2013,7 +2015,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         with_map: &mut HashMap<ControlPoint, WithEntry>,
         node: &mut ControlPoint,
         thread: Option<ThreadIdx>,
-    ) -> InterpreterResult<bool> {
+    ) -> RuntimeResult<bool> {
         let target = GlobalPortRef::from_local(
             w.cond_port(),
             &self.env.cells[node.comp].unwrap_comp().index_bases,
@@ -2068,7 +2070,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         node: &mut ControlPoint,
         thread: Option<ThreadIdx>,
         i: &If,
-    ) -> InterpreterResult<bool> {
+    ) -> RuntimeResult<bool> {
         if i.cond_group().is_some() && with_map.get(node).unwrap().entered {
             with_map.remove(node);
             Ok(node.mutate_into_next(self.env.ctx.as_ref()))
@@ -2126,14 +2128,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     }
 
     /// Evaluate the entire program
-    pub fn run_program(&mut self) -> InterpreterResult<()> {
+    pub fn run_program(&mut self) -> CiderResult<()> {
         let mut time = 0;
         while !self.is_done() {
             if let Some(wave) = self.wave.as_mut() {
                 wave.write_values(time, &self.env.ports)?;
             }
             // self.print_pc();
-            self.step().map_err(|e| e.prettify_message(&self.env))?;
+            self.step()?;
             time += 1;
         }
         if let Some(wave) = self.wave.as_mut() {
@@ -2199,7 +2201,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     fn simulate_combinational(
         &mut self,
         assigns_bundle: &[ScheduledAssignments],
-    ) -> InterpreterResult<()> {
+    ) -> RuntimeResult<()> {
         let mut has_changed = true;
         let mut have_zeroed_control_ports = false;
 
@@ -2476,7 +2478,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             }
         }
         if !error_v.is_empty() {
-            return Err(InterpreterError::UndefinedGuardError(error_v).into());
+            return Err(RuntimeError::UndefinedGuardError(error_v).into());
         }
         Ok(())
     }

@@ -18,7 +18,7 @@ pub enum WaveError {
 
 pub type Result<T> = std::result::Result<T, WaveError>;
 
-impl From<WaveError> for crate::errors::InterpreterError {
+impl From<WaveError> for crate::errors::CiderError {
     fn from(value: WaveError) -> Self {
         Self::GenericError(value.to_string())
     }

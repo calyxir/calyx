@@ -6,7 +6,7 @@ use calyx_utils::OutputFile;
 use interp::{
     configuration,
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
-    errors::InterpreterResult,
+    errors::CiderResult,
     flatten::structures::environment::Simulator,
 };
 
@@ -98,7 +98,7 @@ struct CommandInterpret {}
 struct CommandDebug {}
 
 /// Interpret a group from a Calyx program
-fn main() -> InterpreterResult<()> {
+fn main() -> CiderResult<()> {
     let opts: Opts = argh::from_env();
 
     let config = configuration::ConfigBuilder::new()
