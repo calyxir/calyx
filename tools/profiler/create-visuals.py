@@ -237,41 +237,73 @@ def create_timeline_stacks(trace, main_component):
     stack_number_acc = 3 # To guarantee that we get unique stack numbers when we need a new one
 
     # Beginning and end events for main signify the overall running time (stack 1)
-    main_event_details = {"name": main_component, "sf": 1, "cat": "MAIN", "pid": 1, "tid": 1}
-    main_start = main_event_details.copy()
-    main_start["ts"] = 0
-    main_start["ph"] = "B"
-    events.append(main_start)
-    main_end = main_event_details.copy()
-    main_end["ts"] = len(trace) * ts_multiplier
-    main_end["ph"] = "E"
-    events.append(main_end)
+    # main_event_details = {"name": main_component, "sf": 1, "cat": "MAIN", "pid": 1, "tid": 1}
+    # main_start = main_event_details.copy()
+    # main_start["ts"] = 0
+    # main_start["ph"] = "B"
+    # events.append(main_start)
+    # main_end = main_event_details.copy()
+    # main_end["ts"] = len(trace) * ts_multiplier
+    # main_end["ph"] = "E"
+    # events.append(main_end)
     cell_to_stackframe_info["MAIN"] = (1, None)
-    cell_to_stackframe_info["TOP.toplevel.main"] = (2, 1)
+    cell_to_stackframe_info["TOP.toplevel"] = (2, 1)
 
     for i in trace:
+        print(trace[i])
         active_this_cycle = set()
-        # Start from the bottom up. (easier to see parent)
+        # Start from the bottom up. Parent is the previous stack!
+        parent = "MAIN"
         for elem in trace[i]:
-            elem_full_name = elem.get_fullname()
-            active_this_cycle.add(elem_full_name)
-            if elem_full_name not in currently_active: # first cycle of the group. We need to figure out the stack
-                elem_cell = elem.cell_fullname
-                elem_shortname = elem_full_name.split(".")[-1]
-                stackframe = -1 # FIXME: find the appropriate stack frame
-                if elem_cell in cell_to_stackframe_info:
-                    (stackframe, _) = cell_to_stackframe_info[elem_cell]
-                else:
-                    # Since we are iterating from the shortest to longest name (based on cell counts)
-                    # The group's cell's parent *must* be in cell_to_stackframe_info
-                    group_cell_parent = ".".join(elem_cell.split(".")[:-1])
-                    (parent_stackframe, _) = cell_to_stackframe_info[group_cell_parent]
-                    stackframe = stack_number_acc
+            # we want an entry for the cell and the group, if the stack entry has a group in it.
+            # cell
+            cell_name = elem.cell_fullname
+            active_this_cycle.add(cell_name)
+            if cell_name not in currently_active: # first cycle of the cell.
+                # get the stackframe
+                if cell_name not in cell_to_stackframe_info:
+                    (parent_stackframe, _) = cell_to_stackframe_info[parent] # the parent better have been registered by now
+                    cell_to_stackframe_info[cell_name] = (stack_number_acc, parent_stackframe)
                     stack_number_acc += 1
-                    cell_to_stackframe_info[elem_cell] = (stackframe, parent_stackframe)
-                start_event = {"name": f"{elem_shortname}({elem_cell})", "cat": elem.component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
+                (cell_stackframe, _) = cell_to_stackframe_info[cell_name]
+                # add start event of this cell
+                start_event = {"name": cell_name.split(".")[-1], "cat": "cell", "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : cell_stackframe}
                 events.append(start_event)
-                currently_active[elem_full_name] = start_event
+                currently_active[cell_name] = start_event
+            # group?
+            group_name = elem.get_active_group()
+            if group_name is not None: # we also want to register the group
+                active_this_cycle.add(group_name)
+                if group_name not in currently_active:
+                    # get the stackframe
+                    if group_name not in cell_to_stackframe_info:
+                        cell_to_stackframe_info[group_name] = (stack_number_acc, cell_stackframe) # parent of the group is the cell
+                        stack_number_acc += 1
+                    (group_stackframe, _) = cell_to_stackframe_info[group_name]
+                    # add start event of this group
+                    start_event = {"name": group_name.split(".")[-1], "cat": "group", "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : group_stackframe}
+                    events.append(start_event)
+                    currently_active[group_name] = start_event
+                parent = group_name
+            # elem_full_name = elem.get_fullname()
+            # active_this_cycle.add(elem_full_name)
+            # if elem_full_name not in currently_active: # first cycle of the group. We need to figure out the stack
+            #     elem_cell = elem.cell_fullname
+            #     elem_shortname = elem_full_name.split(".")[-1]
+            #     stackframe = -1 # FIXME: find the appropriate stack frame
+            #     if elem_cell in cell_to_stackframe_info:
+            #         (stackframe, _) = cell_to_stackframe_info[elem_cell]
+            #     else:
+            #         # Since we are iterating from the shortest to longest name (based on cell counts)
+            #         # The group's cell's parent *must* be in cell_to_stackframe_info
+            #         group_cell_parent = ".".join(elem_cell.split(".")[:-1])
+            #         (parent_stackframe, _) = cell_to_stackframe_info[group_cell_parent]
+            #         stackframe = stack_number_acc
+            #         stack_number_acc += 1
+            #         cell_to_stackframe_info[elem_cell] = (stackframe, parent_stackframe)
+            #     start_event = {"name": f"{elem_shortname}({elem_cell})", "cat": elem.component, "ph": "B", "pid" : 1, "tid": 1, "ts": i * ts_multiplier, "sf" : stackframe}
+            #     events.append(start_event)
+            #     currently_active[elem_full_name] = start_event
         # Any element that was previously active but not active this cycle need to end
         for non_active_group in set(currently_active.keys()).difference(active_this_cycle):
             end_event = currently_active[non_active_group].copy()
