@@ -1,3 +1,5 @@
+use crate::cli_ext::EmptyCliExt;
+pub use crate::cli_ext::{CliExt, FakeCli, FromArgFn, RedactArgFn};
 use crate::config;
 use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
@@ -6,7 +8,7 @@ use argh::FromArgs;
 use camino::Utf8PathBuf;
 use figment::providers::Serialized;
 use itertools::Itertools;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::fs;
 use std::str::FromStr;
 
@@ -120,9 +122,12 @@ pub struct RegisterCommand {
 }
 
 /// supported subcommands
-#[derive(FromArgs, PartialEq, Debug)]
+#[derive(FromArgs)]
 #[argh(subcommand)]
-pub enum Subcommand {
+pub enum Subcommand<T>
+where
+    T: CliExt,
+{
     /// edit the configuration file
     EditConfig(EditConfig),
 
@@ -134,13 +139,19 @@ pub enum Subcommand {
 
     /// register a plugin
     Register(RegisterCommand),
+
+    #[argh(dynamic)]
+    Extended(FakeCli<T>),
 }
 
 #[derive(FromArgs)]
 /// A generic compiler driver.
-struct FakeArgs {
+pub struct FakeArgs<T>
+where
+    T: CliExt,
+{
     #[argh(subcommand)]
-    pub sub: Option<Subcommand>,
+    pub sub: Option<Subcommand<T>>,
 
     /// the input file
     #[argh(positional)]
@@ -223,9 +234,9 @@ fn get_states_with_errors(
     Ok(states)
 }
 
-fn from_states(
+fn from_states<T: CliExt>(
     driver: &Driver,
-    args: &FakeArgs,
+    args: &FakeArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
@@ -237,7 +248,10 @@ fn from_states(
     )
 }
 
-fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
+fn to_state<T: CliExt>(
+    driver: &Driver,
+    args: &FakeArgs<T>,
+) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
         &args.to,
@@ -248,7 +262,10 @@ fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
     )
 }
 
-fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
+fn get_request<T: CliExt>(
+    driver: &Driver,
+    args: &FakeArgs<T>,
+) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
     let workdir = args.dir.clone().unwrap_or_else(|| match args.mode {
         Mode::Generate | Mode::Run => {
@@ -365,7 +382,13 @@ fn register_plugin(
 
 /// Given the name of a Driver, returns a config based on that name and CLI arguments.
 pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
-    let args: FakeArgs = argh::from_env();
+    config_from_cli_ext::<EmptyCliExt>(name)
+}
+
+pub fn config_from_cli_ext<T: CliExt>(
+    name: &str,
+) -> anyhow::Result<figment::Figment> {
+    let args: FakeArgs<T> = argh::from_env();
     let mut config = config::load_config(name);
 
     // Use `--set` arguments to override configuration values.
@@ -383,8 +406,14 @@ pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
 }
 
 pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
-    let args: FakeArgs = argh::from_env();
+    cli_ext::<EmptyCliExt>(driver, config)
+}
 
+pub fn cli_ext<T: CliExt>(
+    driver: &Driver,
+    config: &figment::Figment,
+) -> anyhow::Result<()> {
+    let args: FakeArgs<T> = argh::from_env();
     // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
@@ -406,6 +435,9 @@ pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
         }
         Some(Subcommand::Register(cmd)) => {
             return register_plugin(driver, cmd);
+        }
+        Some(Subcommand::Extended(cmd)) => {
+            return cmd.0.run(driver);
         }
         None => {}
     }
