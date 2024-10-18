@@ -1,5 +1,5 @@
 use crate::{
-    errors::{CiderResult, RuntimeResult},
+    errors::RuntimeResult,
     flatten::{
         flat_ir::base::GlobalPortIdx,
         structures::{

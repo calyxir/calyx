@@ -8,7 +8,7 @@ use super::{
     traverser::{Path, TraversalError},
 };
 use crate::{
-    errors::{BoxedCiderError, CiderError, CiderResult},
+    errors::{BoxedCiderError, CiderResult},
     flatten::{
         flat_ir::{
             base::{

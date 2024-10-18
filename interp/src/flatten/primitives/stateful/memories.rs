@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    errors::{CiderError, RuntimeError},
+    errors::{RuntimeError, RuntimeResult},
     flatten::{
         flat_ir::{
             base::GlobalCellIdx,
@@ -251,7 +251,8 @@ impl<const SEQ: bool> MemDx<SEQ> {
         &self,
         port_map: &PortMap,
         base_port: GlobalPortIdx,
-    ) -> Option<usize> {
+        cell_idx: GlobalCellIdx,
+    ) -> RuntimeResult<Option<usize>> {
         let (addr0, addr1, addr2, addr3) = if SEQ {
             ports![&base_port;
                 addr0: Self::SEQ_ADDR0,
@@ -271,6 +272,36 @@ impl<const SEQ: bool> MemDx<SEQ> {
             (addr0, addr1, addr2, addr3)
         };
 
+        let option: Option<usize> =
+            self.compute_address(port_map, addr0, addr1, addr2, addr3);
+
+        if let Some(v) = option {
+            if v >= self.shape.size() {
+                Err(RuntimeError::InvalidMemoryAccess {
+                    access: self.addr_as_vec(port_map, base_port).unwrap(),
+                    dims: self.shape.clone(),
+                    idx: cell_idx,
+                }
+                .into())
+            } else {
+                Ok(Some(v))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn compute_address(
+        &self,
+        port_map: &crate::flatten::structures::indexed_map::IndexedMap<
+            GlobalPortIdx,
+            PortValue,
+        >,
+        addr0: GlobalPortIdx,
+        addr1: GlobalPortIdx,
+        addr2: GlobalPortIdx,
+        addr3: GlobalPortIdx,
+    ) -> Option<usize> {
         match self.shape {
             Shape::D1(_d0_size) => port_map[addr0].as_u64().map(|v| v as usize),
             Shape::D2(_d0_size, d1_size) => {
@@ -478,7 +509,15 @@ impl CombMem {
 
 impl Primitive for CombMem {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
-        let addr = self.addresser.calculate_addr(port_map, self.base_port);
+        let addr: Option<usize> = match self.addresser.calculate_addr(
+            port_map,
+            self.base_port,
+            self.global_idx,
+        ) {
+            Ok(v) => v,
+            Err(_) => None,
+        };
+
         let read_data = self.read_data();
 
         let read =
@@ -516,24 +555,16 @@ impl Primitive for CombMem {
         let reset = port_map[self.reset_port()].as_bool().unwrap_or_default();
         let write_en = port_map[self.write_en()].as_bool().unwrap_or_default();
 
-        let addr = self.addresser.calculate_addr(port_map, self.base_port);
+        let addr = self.addresser.calculate_addr(
+            port_map,
+            self.base_port,
+            self.global_idx,
+        )?;
         let (read_data, done) = (self.read_data(), self.done());
 
         let done = if write_en && !reset {
             let addr =
                 addr.ok_or(RuntimeError::UndefinedWriteAddr(self.global_idx))?;
-
-            if addr >= self.internal_state.len() {
-                return Err(RuntimeError::InvalidMemoryAccess {
-                    access: self
-                        .addresser
-                        .addr_as_vec(port_map, self.base_port)
-                        .unwrap(),
-                    dims: self.addresser.shape.clone(),
-                    idx: self.global_idx,
-                }
-                .into());
-            }
 
             let write_data = port_map[self.write_data()]
                 .as_option()
@@ -617,9 +648,11 @@ impl RaceDetectionPrimitive for CombMem {
         thread_map: &ThreadMap,
     ) -> UpdateResult {
         let thread = self.infer_thread(port_map);
-        if let Some(addr) =
-            self.addresser.calculate_addr(port_map, self.base_port)
-        {
+        if let Some(addr) = self.addresser.calculate_addr(
+            port_map,
+            self.base_port,
+            self.global_idx,
+        )? {
             if addr < self.internal_state.len() {
                 let thread =
                     thread.expect("Could not infer thread id for seq mem");
@@ -808,7 +841,11 @@ impl Primitive for SeqMem {
         let content_en = port_map[self.content_enable()]
             .as_bool()
             .unwrap_or_default();
-        let addr = self.addresser.calculate_addr(port_map, self.base_port);
+        let addr = self.addresser.calculate_addr(
+            port_map,
+            self.base_port,
+            self.global_idx,
+        )?;
 
         if reset {
             self.done_is_high = false;
@@ -896,9 +933,11 @@ impl RaceDetectionPrimitive for SeqMem {
         thread_map: &ThreadMap,
     ) -> UpdateResult {
         let thread = self.infer_thread(port_map);
-        if let Some(addr) =
-            self.addresser.calculate_addr(port_map, self.base_port)
-        {
+        if let Some(addr) = self.addresser.calculate_addr(
+            port_map,
+            self.base_port,
+            self.global_idx,
+        )? {
             if addr < self.internal_state.len() {
                 let thread_clock =
                     thread.map(|thread| thread_map.unwrap_clock_id(thread));
