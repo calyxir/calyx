@@ -112,24 +112,24 @@ echo "[${SCRIPT_NAME}] Writing visualization"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-visuals
 
-# echo "[${SCRIPT_NAME}] Creating flame graph svg"
-# (
-#     set -o xtrace
-#     for opt in "" "--inverted" "--reverse"; do
-# 	if [ "${opt}" == "" ]; then
-# 	    filename=flame
-# 	else
-# 	    filename=flame"${opt:1}"
-# 	fi
-# 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FLAME_GRAPH_FOLDED} > ${TMP_DIR}/${filename}.svg
-# 	echo
-# 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FSM_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/fsm-${filename}.svg
-# 	echo
-# 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg
-# 	echo
-# 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${COMPONENTS_FOLDED} > ${TMP_DIR}/components-${filename}.svg
-# 	echo
-# 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FSM_COMPONENTS_FOLDED} > ${TMP_DIR}/fsm-components-${filename}.svg
-#     done
-#     set +o xtrace
-# ) &> ${LOGS_DIR}/gol-flamegraph
+echo "[${SCRIPT_NAME}] Creating flame graph svg"
+(
+    set -o xtrace
+    for opt in "" "--inverted" "--reverse"; do
+	if [ "${opt}" == "" ]; then
+	    filename=flame
+	else
+	    filename=flame"${opt:1}"
+	fi
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FLAME_GRAPH_FOLDED} > ${TMP_DIR}/${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FSM_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/fsm-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${COMPONENTS_FOLDED} > ${TMP_DIR}/components-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FSM_COMPONENTS_FOLDED} > ${TMP_DIR}/fsm-components-${filename}.svg
+    done
+    set +o xtrace
+) &> ${LOGS_DIR}/gol-flamegraph
