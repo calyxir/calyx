@@ -1,7 +1,7 @@
 # For usage, see gen_queue_data_expect.sh
 
 import sys
-import queues 
+import queues
 import util
 
 

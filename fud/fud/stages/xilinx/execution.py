@@ -83,11 +83,11 @@ class HwExecutionStage(Stage):
 
             # Create the `emconfig.json` file that the simulator loudly (but
             # perhaps unnecessarily?) complains about if it's missing.
-            if emu_mode != 'hw':
+            if emu_mode != "hw":
                 platform = config["stages", "xclbin", "device"]
-                utilpath = os.path.join(vitis_path, 'bin', 'emconfigutil')
+                utilpath = os.path.join(vitis_path, "bin", "emconfigutil")
                 shell(
-                    f'{utilpath} --platform {platform} --od {new_dir.name}',
+                    f"{utilpath} --platform {platform} --od {new_dir.name}",
                     capture_stdout=False,
                     stdout_as_debug=True,
                 )
@@ -113,13 +113,15 @@ class HwExecutionStage(Stage):
             envs = {
                 "XRT_INI_PATH": xrt_ini_path,
             }
-            if emu_mode != 'hw':
+            if emu_mode != "hw":
                 # `hw` denotes actual hardware execution. In other modes,
                 # configure emulation.
-                envs.update({
-                    "EMCONFIG_PATH": new_dir.name,
-                    "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
-                })
+                envs.update(
+                    {
+                        "EMCONFIG_PATH": new_dir.name,
+                        "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
+                    }
+                )
 
             # Invoke xclrun.
             start_time = time.time()

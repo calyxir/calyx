@@ -23,7 +23,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR, val_width=32):
     # If it is 1, we push `value` to the queue.
     value = fifo.input("value", val_width)  # The value to push to the queue
 
-    max_queue_len = 2 ** queue_len_factor
+    max_queue_len = 2**queue_len_factor
     mem = fifo.seq_mem_d1("mem", val_width, max_queue_len, queue_len_factor)
     write = fifo.reg(queue_len_factor)  # The next address to write to
     read = fifo.reg(queue_len_factor)  # The next address to read from

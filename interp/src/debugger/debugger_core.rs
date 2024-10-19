@@ -77,7 +77,7 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
 }
 
 /// A type alias for the debugger using an Rc of the context. Use this in cases
-/// where the use of lifetimes would be a hinderance.
+/// where the use of lifetimes would be a hindrance.
 pub type OwnedDebugger = Debugger<Rc<Context>>;
 
 impl OwnedDebugger {
@@ -93,7 +93,8 @@ impl OwnedDebugger {
             false,
         )?;
 
-        let debugger: Debugger<Rc<Context>> = Self::new(Rc::new(ctx), &None)?;
+        let debugger: Debugger<Rc<Context>> =
+            Self::new(Rc::new(ctx), &None, &None, false)?;
 
         Ok((debugger, map))
     }
@@ -104,9 +105,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     pub fn new(
         program_context: C,
         data_file: &Option<std::path::PathBuf>,
+        wave_file: &Option<std::path::PathBuf>,
+        check_data_races: bool,
     ) -> InterpreterResult<Self> {
-        let mut interpreter =
-            Simulator::build_simulator(program_context.clone(), data_file)?;
+        let mut interpreter = Simulator::build_simulator(
+            program_context.clone(),
+            data_file,
+            wave_file,
+            check_data_races,
+        )?;
         interpreter.converge()?;
 
         Ok(Self {
