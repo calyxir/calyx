@@ -105,7 +105,7 @@ else
     tail -3 ${LOGS_DIR}/gol-process | head -2 # last line is the set +o xtrace, which we don't need to show
 fi
 
-echo "[${SCRIPT_NAME}] Writing visualization"
+echo "[${SCRIPT_NAME}] Writing visualization files"
 (
     set -o xtrace
     python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FSM_TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED} ${FREQUENCY_FLAME_GRAPH_FOLDED} ${COMPONENTS_FOLDED} ${FSM_COMPONENTS_FOLDED}
