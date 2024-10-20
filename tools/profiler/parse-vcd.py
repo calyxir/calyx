@@ -8,7 +8,7 @@ def remove_size_from_name(name: str) -> str:
     return name.split('[')[0]
 
 class ProfilingInfo:
-    def __init__(self, name, component, fsm_name=None, fsm_values=None, tdcc_group_name=None):
+    def __init__(self, name, component, fsm_name=None, fsm_values=None, tdcc_group_name=None, is_cell=False):
         self.name = name
         self.fsm_name = fsm_name
         self.fsm_values = fsm_values
@@ -17,6 +17,7 @@ class ProfilingInfo:
         self.current_segment = None
         self.tdcc_group = tdcc_group_name
         self.component = component
+        self.is_cell = is_cell
 
     def __repr__ (self):
         segments_str = ""
@@ -113,9 +114,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group, single_enable_names[single_enable_group])
             self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
             self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
-        self.cells = cells
+        self.cells = set(cells.keys())
         for cell in cells:
-            self.profiling_info[cell] = ProfilingInfo(cell, None)
+            self.profiling_info[cell] = ProfilingInfo(cell, cells[cell], is_cell=True)
         # Map from timestamps [ns] to value change events that happened on that timestamp
         self.timestamps_to_events = {}
 
@@ -139,6 +140,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for cell in self.cells:
             cell_go = cell + ".go"
             cell_done = cell + ".done"
+            if cell_go not in vcd.references_to_ids:
+                print(f"Not accounting for cell {cell} (probably combinational)")
+                continue
             signal_id_dict[vcd.references_to_ids[cell_go]].append(cell_go)
             signal_id_dict[vcd.references_to_ids[cell_done]].append(cell_done)
 
@@ -301,7 +305,7 @@ def read_component_cell_names_json(json_file):
 def remap_tdcc_json(json_file, components_to_cells):
     profiling_infos = json.load(open(json_file))
     group_names = {} # all groups (to record ground truth). Maps to the group's component (needed for stacks)
-    cell_names = set() # go and done info are needed for cells
+    cells_to_components = {} # go and done info are needed for cells. cell --> component name
     tdcc_groups = {} # TDCC-generated groups that manage control flow using FSMs. maps to all fsms that map to the tdcc group
     fsm_group_maps = {} # fsm-managed groups info (fsm register, TDCC group that manages fsm, id of group within fsm)
     fsms = {} # Remapping of JSON data for easy access
@@ -330,9 +334,9 @@ def remap_tdcc_json(json_file, components_to_cells):
                 group_names[cell + "." + profiling_info["SingleEnable"]["group"]] = component
     for component in components_to_cells:
         for cell in components_to_cells[component]:
-            cell_names.add(cell)
+            cells_to_components[cell] = component
 
-    return fsms, group_names, tdcc_groups, fsm_group_maps, cell_names
+    return fsms, group_names, tdcc_groups, fsm_group_maps, cells_to_components
 
 def output_result(out_csv, dump_out_json, converter):
     print(f"Total clock cycles: {converter.clock_cycles}")
