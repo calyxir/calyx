@@ -30,6 +30,18 @@ Add these lines:
 base = "<path to calyx checkout>"
 ```
 
+### Environment Setup
+
+Some parts of Calyx and `fud2` require setting up and installing various python packages. With Python removing support for installing packages system wide, it's recommended to install relevant packages into a python virtual environment. `fud2` can set up this environment for you and instruct `fud2` to automatically run relevant tools in the correct virtual environment.
+
+To do this, simply run:
+
+    $ fud2 env init
+
+There may be some cases where you want to manually interact with the python virtual environment. The virtual environment is installed to `$XDG_DATA_HOME/fud2/venv` (usually `~/.local/share/fud2/venv`). You can activate the virtual environment in your current shell with:
+
+    $ fud2 env activate
+
 Now you're ready to use fud2.
 
 [ninja]: https://ninja-build.org
