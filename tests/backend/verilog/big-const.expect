@@ -24,6 +24,15 @@ module std_wire #(
 assign out = in;
 endmodule
 
+module std_inst_wire #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] in,
+   output logic [WIDTH-1:0] out
+);
+assign out = in;
+endmodule
+
 module std_add #(
     parameter WIDTH = 32
 ) (
