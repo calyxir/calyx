@@ -8,6 +8,7 @@ use super::{
     traverser::{Path, TraversalError},
 };
 use crate::{
+    configuration::RuntimeConfig,
     errors::{BoxedCiderError, CiderResult},
     flatten::{
         flat_ir::{
@@ -318,8 +319,8 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     memory_header: Option<Vec<MemoryDeclaration>>,
 
-    /// Whether to perform data race checking
-    check_data_race: bool,
+    /// Runtime configurations
+    conf: RuntimeConfig,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -390,7 +391,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn new(
         ctx: C,
         data_map: Option<DataDump>,
-        check_data_races: bool,
+        runtime_config: RuntimeConfig,
     ) -> Self {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
@@ -414,7 +415,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
             control_ports: HashMap::new(),
-            check_data_race: check_data_races,
+            conf: runtime_config,
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -553,7 +554,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     self.ctx.as_ref(),
                     data_map,
                     memories_initialized,
-                    self.check_data_race.then_some(&mut self.clocks),
+                    self.conf.check_data_race.then_some(&mut self.clocks),
                 );
                 let cell = self.cells.push(cell_dyn);
 
@@ -1308,7 +1309,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         ctx: C,
         data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
-        check_races: bool,
+        runtime_config: RuntimeConfig,
     ) -> Result<Self, BoxedCiderError> {
         let data_dump = data_file
             .as_ref()
@@ -1320,7 +1321,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .map_or(Ok(None), |res| res.map(Some))?;
 
         Ok(Simulator::new(
-            Environment::new(ctx, data_dump, check_races),
+            Environment::new(ctx, data_dump, runtime_config),
             wave_file,
         ))
     }
@@ -1622,7 +1623,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
             let v = PortValue::new_implicit(BitVecValue::tru());
-            self.env.ports[done_port] = if self.env.check_data_race {
+            self.env.ports[done_port] = if self.env.conf.check_data_race {
                 v.with_thread(id.expect("finished comps should have a thread"))
             } else {
                 v
@@ -1678,7 +1679,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     self.env.ports[go] =
                         PortValue::new_implicit(BitVecValue::tru())
                             .with_thread_optional(
-                                if self.env.check_data_race {
+                                if self.env.conf.check_data_race {
                                     assert!(thread.is_some());
                                     thread
                                 } else {
@@ -1839,7 +1840,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                     if *count == 0 {
                         par_map.remove(node);
-                        if self.env.check_data_race {
+                        if self.env.conf.check_data_race {
                             let thread =
                                 thread.expect("par nodes should have a thread");
 
@@ -1872,7 +1873,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         ),
                     );
                     new_nodes.extend(par.stms().iter().map(|x| {
-                        let thread = if self.env.check_data_race {
+                        let thread = if self.env.conf.check_data_race {
                             let thread =
                                 thread.expect("par nodes should have a thread");
 
@@ -1909,7 +1910,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         (thread, node.new_retain_comp(*x))
                     }));
 
-                    if self.env.check_data_race {
+                    if self.env.conf.check_data_race {
                         let thread =
                             thread.expect("par nodes should have a thread");
                         let clock = self.env.thread_map.unwrap_clock_id(thread);
@@ -1989,7 +1990,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
          // either we are not a par node, or we are the last par node
          (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
         {
-            if self.env.check_data_race {
+            if self.env.conf.check_data_race {
                 assert!(
                     thread.is_some(),
                     "finished comps should have a thread"
@@ -2026,7 +2027,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             GlobalPortRef::Ref(r) => self.env.ref_ports[r]
                 .expect("While condition (ref) is undefined"),
         };
-        if self.env.check_data_race {
+        if self.env.conf.check_data_race {
             if let Some(clocks) = self.env.ports[idx].clocks() {
                 let read_clock =
                     self.env.thread_map.unwrap_clock_id(thread.unwrap());
@@ -2089,7 +2090,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     .expect("If condition (ref) is undefined"),
             };
 
-            if self.env.check_data_race {
+            if self.env.conf.check_data_race {
                 if let Some(clocks) = self.env.ports[idx].clocks() {
                     let read_clock =
                         self.env.thread_map.unwrap_clock_id(thread.unwrap());
@@ -2265,7 +2266,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .get_global_port_idx(&assign.src, *active_cell);
                             let val = &self.env.ports[port];
 
-                            if self.env.check_data_race {
+                            if self.env.conf.check_data_race {
                                 if let Some(clocks) = val.clocks() {
                                     // skip checking clocks for continuous assignments
                                     if !is_cont {
@@ -2338,7 +2339,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             }
                         }
 
-                        if self.env.check_data_race {
+                        if self.env.conf.check_data_race {
                             if let Some(read_ports) = self
                                 .env
                                 .ctx

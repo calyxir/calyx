@@ -51,9 +51,6 @@ pub struct Opts {
     /// rather than erroring
     allow_invalid_memory_access: bool,
 
-    #[argh(switch, long = "allow-par-conflicts")]
-    /// enables "sloppy" par simulation which allows parallel overlap when values agree
-    allow_par_conflicts: bool,
     #[argh(switch, long = "error-on-overflow")]
     /// upgrades [over | under]flow warnings to errors
     error_on_overflow: bool,
@@ -67,6 +64,10 @@ pub struct Opts {
     /// dumps all memories rather than just external ones
     #[argh(switch, long = "all-memories")]
     dump_all_memories: bool,
+
+    /// enables debug logging
+    #[argh(switch, long = "debug-logging")]
+    debug_logging: bool,
 
     /// optional wave file output path
     #[argh(option, long = "wave-file")]
@@ -101,21 +102,28 @@ struct CommandDebug {}
 fn main() -> CiderResult<()> {
     let opts: Opts = argh::from_env();
 
-    let config = configuration::ConfigBuilder::new()
+    let config = configuration::Config::builder()
         .quiet(opts.quiet)
-        .allow_invalid_memory_access(opts.allow_invalid_memory_access)
-        .error_on_overflow(opts.error_on_overflow)
-        .allow_par_conflicts(opts.allow_par_conflicts)
         .dump_registers(opts.dump_registers)
         .dump_all_memories(opts.dump_all_memories)
         .build();
 
-    interp::logging::initialize_logger(config.quiet);
+    let runtime_config = configuration::RuntimeConfig::builder()
+        .check_data_race(opts.check_data_race)
+        .debug_logging(opts.debug_logging)
+        .allow_invalid_memory_access(opts.allow_invalid_memory_access)
+        .error_on_overflow(opts.error_on_overflow)
+        .build();
 
-    let log = interp::logging::root();
+    if runtime_config.debug_logging {
+        interp::logging::initialize_logger(false);
+        let log = interp::logging::root();
 
-    if config.allow_par_conflicts {
-        warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
+        if config.quiet {
+            warn!(log, "Quiet mode ignored because debug logging is enabled")
+        }
+    } else {
+        interp::logging::initialize_logger(config.quiet);
     }
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
@@ -131,7 +139,7 @@ fn main() -> CiderResult<()> {
                 &i_ctx,
                 &opts.data_file,
                 &opts.wave_file,
-                opts.check_data_race,
+                runtime_config,
             )?;
 
             sim.run_program()?;
@@ -149,7 +157,7 @@ fn main() -> CiderResult<()> {
                     &i_ctx,
                     &opts.data_file,
                     &opts.wave_file,
-                    opts.check_data_race,
+                    runtime_config,
                 )?;
 
                 let result = debugger.main_loop(info)?;

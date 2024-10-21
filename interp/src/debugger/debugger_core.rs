@@ -5,6 +5,7 @@ use super::{
     source::structures::NewSourceMap,
 };
 use crate::{
+    configuration::RuntimeConfig,
     debugger::{source::SourceMap, unwrap_error_message},
     errors::{CiderError, CiderResult},
     flatten::{
@@ -94,7 +95,7 @@ impl OwnedDebugger {
         )?;
 
         let debugger: Debugger<Rc<Context>> =
-            Self::new(Rc::new(ctx), &None, &None, false)?;
+            Self::new(Rc::new(ctx), &None, &None, RuntimeConfig::default())?;
 
         Ok((debugger, map))
     }
@@ -106,13 +107,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         program_context: C,
         data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
-        check_data_races: bool,
+        runtime_config: RuntimeConfig,
     ) -> CiderResult<Self> {
         let mut interpreter = Simulator::build_simulator(
             program_context.clone(),
             data_file,
             wave_file,
-            check_data_races,
+            runtime_config,
         )?;
         interpreter.converge()?;
 
