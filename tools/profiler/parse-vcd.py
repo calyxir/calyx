@@ -11,7 +11,7 @@ class ProfilingInfo:
     def __init__(self, name, component, fsm_name=None, fsm_values=None, tdcc_group_name=None, is_cell=False):
         self.name = name
         self.fsm_name = fsm_name
-        self.fsm_values = fsm_values
+        self.fsm_values = list(sorted(fsm_values)) if fsm_values is not None else None
         self.total_cycles = 0
         self.closed_segments = [] # Segments will be (start_time, end_time)
         self.current_segment = None
@@ -106,14 +106,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.tdcc_group_to_dep_fsms = tdcc_groups
         # Group name --> ProfilingInfo object
         self.profiling_info = {}
-        self.signal_to_curr_value = {fsm : -1 for fsm in fsms}
         for group in fsm_group_maps:
             # Differentiate FSM versions from ground truth versions
             self.profiling_info[f"{group}FSM"] = ProfilingInfo(group, fsm_group_maps[group]["component"], fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
         for single_enable_group in single_enable_names:
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group, single_enable_names[single_enable_group])
-            self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
-            self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
         self.cells = set(cells.keys())
         for cell in cells:
             self.profiling_info[cell] = ProfilingInfo(cell, cells[cell], is_cell=True)
@@ -126,9 +123,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         refs = sorted(refs, key=lambda e: e[0])
         names = [remove_size_from_name(e[0]) for e in refs]
         signal_id_dict = {sid : [] for sid in vcd.references_to_ids.values()} # one id can map to multiple signal names since wires are connected
-
-        # main_go_name = f"{self.main_component}.go"
-        # signal_id_dict[vcd.references_to_ids[main_go_name]] = [main_go_name]
 
         clock_name = f"{self.main_component}.clk"
         if clock_name not in names:
@@ -155,9 +149,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
             for single_enable_group in self.single_enable_names:
-                if name.startswith(f"{single_enable_group}_go.out["):
-                    signal_id_dict[sid].append(name)
-                if name.startswith(f"{single_enable_group}_done.out["):
+                if name == f"{single_enable_group}_inst_out": # Use instrumentation wire
                     signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
@@ -247,11 +239,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if signal_name.endswith(".done") and value == 1: # cells have .go and .done
                     cell = signal_name.split(".done")[0]
                     self.profiling_info[cell].end_current_segment(clock_cycles)
-                if "_go" in signal_name and value == 1:
-                    group = "_".join(signal_name.split("_")[0:-1])
+                if "_inst_out" in signal_name and value == 1: # instrumented group started being active
+                    group = "_".join(signal_name.split("_")[0:-2])
                     self.profiling_info[group].start_new_segment(clock_cycles)
-                elif "_done" in signal_name and value == 1:
-                    group = "_".join(signal_name.split("_")[0:-1])
+                elif "_inst_out" in signal_name and value == 0: # instrumented group stopped being active
+                    group = "_".join(signal_name.split("_")[0:-2])
                     self.profiling_info[group].end_current_segment(clock_cycles)
                 elif "fsm" in signal_name:
                     fsm = ".".join(signal_name.split(".")[0:-1])
