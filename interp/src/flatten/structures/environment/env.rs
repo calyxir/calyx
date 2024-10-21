@@ -318,9 +318,6 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     pub(super) ctx: C,
 
     memory_header: Option<Vec<MemoryDeclaration>>,
-
-    /// Runtime configurations
-    conf: RuntimeConfig,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -388,11 +385,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
-    pub fn new(
-        ctx: C,
-        data_map: Option<DataDump>,
-        runtime_config: RuntimeConfig,
-    ) -> Self {
+    pub fn new(ctx: C, data_map: Option<DataDump>, check_race: bool) -> Self {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
 
@@ -415,12 +408,16 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
             control_ports: HashMap::new(),
-            conf: runtime_config,
         };
 
         let root_node = CellLedger::new_comp(root, &env);
         let root_cell = env.cells.push(root_node);
-        env.layout_component(root_cell, &data_map, &mut HashSet::new());
+        env.layout_component(
+            root_cell,
+            &data_map,
+            &mut HashSet::new(),
+            check_race,
+        );
 
         let root_thread = ThreadMap::root_thread();
         env.clocks[root_clock].increment(&root_thread);
@@ -467,6 +464,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         comp: GlobalCellIdx,
         data_map: &Option<DataDump>,
         memories_initialized: &mut HashSet<String>,
+        check_race: bool,
     ) {
         // for mutability reasons, see note in `[Environment::new]`
         let ctx = self.ctx.clone();
@@ -554,7 +552,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     self.ctx.as_ref(),
                     data_map,
                     memories_initialized,
-                    self.conf.check_data_race.then_some(&mut self.clocks),
+                    check_race.then_some(&mut self.clocks),
                 );
                 let cell = self.cells.push(cell_dyn);
 
@@ -573,7 +571,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 );
 
                 // layout sub-component but don't include the data map
-                self.layout_component(cell, &None, memories_initialized);
+                self.layout_component(
+                    cell,
+                    &None,
+                    memories_initialized,
+                    check_race,
+                );
             }
         }
 
@@ -1268,12 +1271,14 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 pub struct Simulator<C: AsRef<Context> + Clone> {
     env: Environment<C>,
     wave: Option<WaveWriter>,
+    conf: RuntimeConfig,
 }
 
 impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn new(
         env: Environment<C>,
         wave_file: &Option<std::path::PathBuf>,
+        conf: RuntimeConfig,
     ) -> Self {
         // open the wave form file and declare all signals
         let wave =
@@ -1283,7 +1288,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     todo!("deal more gracefully with error: {err:?}")
                 }
             });
-        let mut output = Self { env, wave };
+        let mut output = Self { env, wave, conf };
         output.set_root_go_high();
         output
     }
@@ -1321,8 +1326,9 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .map_or(Ok(None), |res| res.map(Some))?;
 
         Ok(Simulator::new(
-            Environment::new(ctx, data_dump, runtime_config),
+            Environment::new(ctx, data_dump, runtime_config.check_data_race),
             wave_file,
+            runtime_config,
         ))
     }
 
@@ -1623,7 +1629,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.get_comp_done(*comp);
             let v = PortValue::new_implicit(BitVecValue::tru());
-            self.env.ports[done_port] = if self.env.conf.check_data_race {
+            self.env.ports[done_port] = if self.conf.check_data_race {
                 v.with_thread(id.expect("finished comps should have a thread"))
             } else {
                 v
@@ -1679,7 +1685,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     self.env.ports[go] =
                         PortValue::new_implicit(BitVecValue::tru())
                             .with_thread_optional(
-                                if self.env.conf.check_data_race {
+                                if self.conf.check_data_race {
                                     assert!(thread.is_some());
                                     thread
                                 } else {
@@ -1840,7 +1846,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                     if *count == 0 {
                         par_map.remove(node);
-                        if self.env.conf.check_data_race {
+                        if self.conf.check_data_race {
                             let thread =
                                 thread.expect("par nodes should have a thread");
 
@@ -1873,7 +1879,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         ),
                     );
                     new_nodes.extend(par.stms().iter().map(|x| {
-                        let thread = if self.env.conf.check_data_race {
+                        let thread = if self.conf.check_data_race {
                             let thread =
                                 thread.expect("par nodes should have a thread");
 
@@ -1910,7 +1916,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         (thread, node.new_retain_comp(*x))
                     }));
 
-                    if self.env.conf.check_data_race {
+                    if self.conf.check_data_race {
                         let thread =
                             thread.expect("par nodes should have a thread");
                         let clock = self.env.thread_map.unwrap_clock_id(thread);
@@ -1990,7 +1996,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
          // either we are not a par node, or we are the last par node
          (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
         {
-            if self.env.conf.check_data_race {
+            if self.conf.check_data_race {
                 assert!(
                     thread.is_some(),
                     "finished comps should have a thread"
@@ -2027,7 +2033,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             GlobalPortRef::Ref(r) => self.env.ref_ports[r]
                 .expect("While condition (ref) is undefined"),
         };
-        if self.env.conf.check_data_race {
+        if self.conf.check_data_race {
             if let Some(clocks) = self.env.ports[idx].clocks() {
                 let read_clock =
                     self.env.thread_map.unwrap_clock_id(thread.unwrap());
@@ -2090,7 +2096,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     .expect("If condition (ref) is undefined"),
             };
 
-            if self.env.conf.check_data_race {
+            if self.conf.check_data_race {
                 if let Some(clocks) = self.env.ports[idx].clocks() {
                     let read_clock =
                         self.env.thread_map.unwrap_clock_id(thread.unwrap());
@@ -2266,7 +2272,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .get_global_port_idx(&assign.src, *active_cell);
                             let val = &self.env.ports[port];
 
-                            if self.env.conf.check_data_race {
+                            if self.conf.check_data_race {
                                 if let Some(clocks) = val.clocks() {
                                     // skip checking clocks for continuous assignments
                                     if !is_cont {
@@ -2339,7 +2345,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             }
                         }
 
-                        if self.env.conf.check_data_race {
+                        if self.conf.check_data_race {
                             if let Some(read_ports) = self
                                 .env
                                 .ctx
@@ -2430,56 +2436,61 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             }
         }
 
-        let mut error_v = vec![];
-        for bundle in assigns_bundle.iter() {
-            let ledger = self.env.cells[bundle.active_cell].as_comp().unwrap();
-            let go = bundle
-                .interface_ports
-                .as_ref()
-                .map(|x| &ledger.index_bases + x.go);
-            let done = bundle
-                .interface_ports
-                .as_ref()
-                .map(|x| &ledger.index_bases + x.done);
+        if self.conf.undef_guard_check {
+            let mut error_v = vec![];
+            for bundle in assigns_bundle.iter() {
+                let ledger =
+                    self.env.cells[bundle.active_cell].as_comp().unwrap();
+                let go = bundle
+                    .interface_ports
+                    .as_ref()
+                    .map(|x| &ledger.index_bases + x.go);
+                let done = bundle
+                    .interface_ports
+                    .as_ref()
+                    .map(|x| &ledger.index_bases + x.done);
 
-            if !done
-                .and_then(|done| self.env.ports[done].as_bool())
-                .unwrap_or_default()
-                && go
-                    .and_then(|go| self.env.ports[go].as_bool())
-                    .unwrap_or(true)
-            {
-                for assign in bundle.assignments.iter() {
-                    let guard_idx = self.ctx().primary[assign].guard;
-                    if self
-                        .evaluate_guard(guard_idx, bundle.active_cell)
-                        .is_none()
-                    {
-                        let inner_v = self
-                            .ctx()
-                            .primary
-                            .guard_read_map
-                            .get(guard_idx)
-                            .unwrap()
-                            .iter()
-                            .filter_map(|p| {
-                                let p = self
-                                    .get_global_port_idx(p, bundle.active_cell);
-                                if self.env.ports[p].is_undef() {
-                                    Some(p)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect_vec();
+                if !done
+                    .and_then(|done| self.env.ports[done].as_bool())
+                    .unwrap_or_default()
+                    && go
+                        .and_then(|go| self.env.ports[go].as_bool())
+                        .unwrap_or(true)
+                {
+                    for assign in bundle.assignments.iter() {
+                        let guard_idx = self.ctx().primary[assign].guard;
+                        if self
+                            .evaluate_guard(guard_idx, bundle.active_cell)
+                            .is_none()
+                        {
+                            let inner_v = self
+                                .ctx()
+                                .primary
+                                .guard_read_map
+                                .get(guard_idx)
+                                .unwrap()
+                                .iter()
+                                .filter_map(|p| {
+                                    let p = self.get_global_port_idx(
+                                        p,
+                                        bundle.active_cell,
+                                    );
+                                    if self.env.ports[p].is_undef() {
+                                        Some(p)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect_vec();
 
-                        error_v.push((bundle.active_cell, assign, inner_v))
+                            error_v.push((bundle.active_cell, assign, inner_v))
+                        }
                     }
                 }
             }
-        }
-        if !error_v.is_empty() {
-            return Err(RuntimeError::UndefinedGuardError(error_v).into());
+            if !error_v.is_empty() {
+                return Err(RuntimeError::UndefinedGuardError(error_v).into());
+            }
         }
         Ok(())
     }

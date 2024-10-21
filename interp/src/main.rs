@@ -69,6 +69,10 @@ pub struct Opts {
     #[argh(switch, long = "debug-logging")]
     debug_logging: bool,
 
+    /// disable undefined guard check
+    #[argh(switch, long = "no-undef-guard-check")]
+    no_undef_guard_check: bool,
+
     /// optional wave file output path
     #[argh(option, long = "wave-file")]
     pub wave_file: Option<PathBuf>,
@@ -113,6 +117,7 @@ fn main() -> CiderResult<()> {
         .debug_logging(opts.debug_logging)
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
+        .undef_guard_check(!opts.no_undef_guard_check)
         .build();
 
     if runtime_config.debug_logging {

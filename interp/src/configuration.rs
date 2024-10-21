@@ -25,4 +25,6 @@ pub struct RuntimeConfig {
     pub allow_invalid_memory_access: bool,
     /// upgrades overflow/underflow warnings into errors (currently defunct)
     pub error_on_overflow: bool,
+    /// Check undefined guards
+    pub undef_guard_check: bool,
 }
