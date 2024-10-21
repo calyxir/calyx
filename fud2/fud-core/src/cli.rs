@@ -1,4 +1,3 @@
-use crate::cli_ext::EmptyCliExt;
 pub use crate::cli_ext::{CliExt, FakeCli, FromArgFn, RedactArgFn};
 use crate::config;
 use crate::exec::{plan, Driver, Request, StateRef};
@@ -124,10 +123,7 @@ pub struct RegisterCommand {
 /// supported subcommands
 #[derive(FromArgs)]
 #[argh(subcommand)]
-pub enum Subcommand<T>
-where
-    T: CliExt,
-{
+pub enum Subcommand<T: CliExt> {
     /// edit the configuration file
     EditConfig(EditConfig),
 
@@ -146,10 +142,7 @@ where
 
 #[derive(FromArgs)]
 /// A generic compiler driver.
-pub struct FakeArgs<T>
-where
-    T: CliExt,
-{
+pub struct FakeArgs<T: CliExt> {
     #[argh(subcommand)]
     pub sub: Option<Subcommand<T>>,
 
@@ -380,12 +373,38 @@ fn register_plugin(
     Ok(())
 }
 
-/// Given the name of a Driver, returns a config based on that name and CLI arguments.
-pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
-    config_from_cli_ext::<EmptyCliExt>(name)
+pub trait CliStart<T: CliExt> {
+    /// Given the name of a Driver, returns a config based on that name and CLI arguments.
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment>;
+
+    /// Given a driver and config, start the CLI.
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()>;
 }
 
-pub fn config_from_cli_ext<T: CliExt>(
+/// Default CLI that provides an interface to core actions.
+pub struct DefaultCli;
+
+impl CliStart<()> for DefaultCli {
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+        config_from_cli_ext::<()>(name)
+    }
+
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
+        cli_ext::<()>(driver, config)
+    }
+}
+
+impl<T: CliExt> CliStart<T> for T {
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+        config_from_cli_ext::<T>(name)
+    }
+
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
+        cli_ext::<T>(driver, config)
+    }
+}
+
+fn config_from_cli_ext<T: CliExt>(
     name: &str,
 ) -> anyhow::Result<figment::Figment> {
     let args: FakeArgs<T> = argh::from_env();
@@ -405,11 +424,7 @@ pub fn config_from_cli_ext<T: CliExt>(
     Ok(config)
 }
 
-pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
-    cli_ext::<EmptyCliExt>(driver, config)
-}
-
-pub fn cli_ext<T: CliExt>(
+fn cli_ext<T: CliExt>(
     driver: &Driver,
     config: &figment::Figment,
 ) -> anyhow::Result<()> {

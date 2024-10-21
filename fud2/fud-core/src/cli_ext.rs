@@ -115,11 +115,8 @@ impl<T: CliExt> argh::DynamicSubCommand for FakeCli<T> {
     }
 }
 
-/// The default CliExt used if none is provided. This doesn't define any new
-/// commands.
-pub struct EmptyCliExt {}
-
-impl CliExt for EmptyCliExt {
+/// The default CliExt used if none is provided. This doesn't define any new commands.
+impl CliExt for () {
     fn inner_command_info() -> Vec<argh::CommandInfo> {
         vec![]
     }
