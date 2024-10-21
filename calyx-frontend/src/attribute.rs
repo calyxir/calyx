@@ -76,6 +76,9 @@ pub enum BoolAttr {
     #[strum(serialize = "fast")]
     /// https://github.com/calyxir/calyx/issues/1828
     Fast,
+    #[strum(serialize = "protected")]
+    /// Indicate that the cell should not be removed or shared during optimization.
+    Protected,
 }
 
 impl From<BoolAttr> for Attribute {
