@@ -3,9 +3,7 @@ use calyx_ir as ir;
 use calyx_opt::pass_manager::PassManager;
 use std::path::{Path, PathBuf};
 
-use crate::{
-    debugger::source::structures::NewSourceMap, errors::CiderResult,
-};
+use crate::{debugger::source::structures::NewSourceMap, errors::CiderResult};
 
 use super::structures::context::Context;
 

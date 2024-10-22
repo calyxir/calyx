@@ -67,9 +67,7 @@ impl SourceMap {
             .or_else(|| self.0.get(&NamedTag(key.0, "".to_string())))
     }
 
-    pub fn from_file(
-        path: &Option<PathBuf>,
-    ) -> CiderResult<Option<Self>> {
+    pub fn from_file(path: &Option<PathBuf>) -> CiderResult<Option<Self>> {
         if let Some(path) = path {
             let v = fs::read(path)?;
             let file_contents = std::str::from_utf8(&v)?;
