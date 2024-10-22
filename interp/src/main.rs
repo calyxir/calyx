@@ -69,9 +69,9 @@ pub struct Opts {
     #[argh(switch, long = "debug-logging")]
     debug_logging: bool,
 
-    /// disable undefined guard check
-    #[argh(switch, long = "no-undef-guard-check")]
-    no_undef_guard_check: bool,
+    /// enable undefined guard check
+    #[argh(switch, long = "undef-guard-check")]
+    undef_guard_check: bool,
 
     /// optional wave file output path
     #[argh(option, long = "wave-file")]
@@ -117,7 +117,7 @@ fn main() -> CiderResult<()> {
         .debug_logging(opts.debug_logging)
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
-        .undef_guard_check(!opts.no_undef_guard_check)
+        .undef_guard_check(opts.undef_guard_check)
         .build();
 
     if runtime_config.debug_logging {
@@ -131,9 +131,9 @@ fn main() -> CiderResult<()> {
         interp::logging::initialize_logger(config.quiet);
     }
 
-    if !runtime_config.undef_guard_check {
-        warn!(interp::logging::root(), "Undefined value guard check disabled. This is not recommended as it can lead to programs spinning forever when they would otherwise crash.");
-    }
+    // if !runtime_config.undef_guard_check {
+    //     warn!(interp::logging::root(), "Undefined value guard check disabled. This is not recommended as it can lead to programs spinning forever when they would otherwise crash.");
+    // }
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
     let i_ctx = interp::flatten::setup_simulation(
