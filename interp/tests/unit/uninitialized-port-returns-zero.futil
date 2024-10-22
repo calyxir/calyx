@@ -4,8 +4,8 @@ import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
-    add = std_add(4);
-    @external reg0 = std_reg(4);
+    @data add = std_add(4);
+    @external @data reg0 = std_reg(4);
   }
 
   wires {
