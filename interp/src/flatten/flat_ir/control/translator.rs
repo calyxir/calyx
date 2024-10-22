@@ -328,15 +328,13 @@ fn insert_port(
         }
         ContainmentType::Local => {
             let borrow = port.borrow();
-            let is_control = borrow.has_attribute(calyx_ir::NumAttr::Go)
-                || borrow.has_attribute(calyx_ir::NumAttr::Done)
-                || borrow.has_attribute(calyx_ir::BoolAttr::Control)
-                || (borrow.direction == calyx_ir::Direction::Inout);
+            let is_data = borrow.has_attribute(calyx_ir::BoolAttr::Data);
 
             let idx_definition = secondary_ctx.push_local_port(
                 id,
                 port.borrow().width as usize,
-                is_control,
+                is_data,
+                borrow.direction.clone(),
             );
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
@@ -370,6 +368,7 @@ fn insert_cell(
             range,
             comp_id,
             create_cell_prototype(cell, comp_id_map),
+            cell_ref.get_attribute(calyx_ir::BoolAttr::Data).is_some(),
         );
         let cell_offset = aux.cell_offset_map.insert(cell_def);
         layout.cell_map.insert(cell.as_raw(), cell_offset.into());
@@ -391,6 +390,7 @@ fn insert_cell(
             range,
             comp_id,
             create_cell_prototype(cell, comp_id_map),
+            cell_ref.get_attribute(calyx_ir::BoolAttr::Data).is_some(),
         );
         let cell_offset = aux.ref_cell_offset_map.insert(ref_cell_def);
         layout.cell_map.insert(cell.as_raw(), cell_offset.into());

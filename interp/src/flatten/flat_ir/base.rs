@@ -724,6 +724,8 @@ where
     pub parent: ComponentIdx,
     /// The prototype of the cell
     pub prototype: CellPrototype,
+    /// Whether the cell is marked with `@data`
+    pub is_data: bool,
 }
 
 impl<C> CellDefinitionInfo<C>
@@ -736,12 +738,14 @@ where
         ports: IndexRange<C>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> Self {
         Self {
             name,
             ports,
             parent,
             prototype,
+            is_data,
         }
     }
 }

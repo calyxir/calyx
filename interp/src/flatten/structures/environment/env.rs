@@ -490,7 +490,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let def_idx = comp_aux.port_offset_map[sig_port];
             let info = &self.ctx.as_ref().secondary[def_idx];
             let idx = self.ports.push(PortValue::new_undef());
-            if info.is_control {
+
+            // the direction attached to the port is reversed for the signature.
+            // We only want to add the input ports to the control ports list.
+            if !info.is_data && info.direction != calyx_ir::Direction::Input {
                 self.control_ports
                     .insert(idx, info.width.try_into().unwrap());
             }
@@ -539,10 +542,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         idx
                     );
                     let def_idx = comp_aux.port_offset_map[port];
-                    let info = &self.ctx.as_ref().secondary[def_idx];
-                    if info.is_control {
+                    let port_info = &self.ctx.as_ref().secondary[def_idx];
+                    if !(port_info.direction == calyx_ir::Direction::Output
+                        || port_info.is_data && info.is_data)
+                    {
                         self.control_ports
-                            .insert(idx, info.width.try_into().unwrap());
+                            .insert(idx, port_info.width.try_into().unwrap());
                     }
                 }
                 let cell_dyn = primitives::build_primitive(

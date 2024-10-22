@@ -1,5 +1,7 @@
 use std::ops::Index;
 
+use calyx_ir::Direction;
+
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
     component::{
@@ -105,8 +107,10 @@ pub struct PortDefinitionInfo {
     pub name: Identifier,
     /// The width of the port
     pub width: usize,
-    /// Whether the port is control
-    pub is_control: bool,
+    /// Whether the port is data
+    pub is_data: bool,
+    /// The direction of the port
+    pub direction: Direction,
 }
 
 #[derive(Debug)]
@@ -181,12 +185,14 @@ impl SecondaryContext {
         &mut self,
         name: Identifier,
         width: usize,
-        is_control: bool,
+        is_data: bool,
+        direction: Direction,
     ) -> PortDefinitionIdx {
         self.local_port_defs.push(PortDefinitionInfo {
             name,
             width,
-            is_control,
+            is_data,
+            direction,
         })
     }
 
@@ -202,9 +208,10 @@ impl SecondaryContext {
         ports: IndexRange<LocalPortOffset>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> CellDefinitionIdx {
         self.local_cell_defs
-            .push(CellInfo::new(name, ports, parent, prototype))
+            .push(CellInfo::new(name, ports, parent, prototype, is_data))
     }
 
     /// Insert a new reference cell definition into the context and return its index
@@ -214,9 +221,10 @@ impl SecondaryContext {
         ports: IndexRange<LocalRefPortOffset>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> RefCellDefinitionIdx {
         self.ref_cell_defs
-            .push(RefCellInfo::new(name, ports, parent, prototype))
+            .push(RefCellInfo::new(name, ports, parent, prototype, is_data))
     }
 }
 
