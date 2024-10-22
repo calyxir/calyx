@@ -328,10 +328,11 @@ impl RuntimeError {
             RuntimeError::UndefinedGuardError(v) => {
                 let mut message = String::from("Some guards contained undefined values after convergence:\n");
                 for (cell, assign, ports) in v {
-                    writeln!(message, "({}) in assignment {}:", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign)).unwrap();
+                    writeln!(message, "({}) in assignment {}", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign).bold()).unwrap();
                     for port in ports {
                         writeln!(message, "    {} is undefined", env.get_full_name(port).yellow()).unwrap();
                     }
+                    writeln!(message).unwrap()
                 }
 
                 CiderError::GenericError(message)
