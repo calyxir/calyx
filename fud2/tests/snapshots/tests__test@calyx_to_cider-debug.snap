@@ -35,7 +35,7 @@ build tb.sv: get-rsrc
 cider-exe = $calyx-base/target/debug/cider
 cider-converter = $calyx-base/target/debug/cider-data-converter
 rule run-cider-debug
-  command = $cider-exe -l $calyx-base --data data.dump $in debug || true
+  command = $cider-exe -l $calyx-base --data data.dump $cider-flags $in debug || true
   pool = console
 converter-flags = 
 cider-flags = 
