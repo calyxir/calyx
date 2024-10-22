@@ -1,5 +1,12 @@
 use crate::ir::IntermediateRepresentation;
 use num_bigint::{BigUint, BigInt};
+use num_traits::One;
+
+
+// let byte: u8 = 171; // Decimal
+// println!("u8 value in decimal: {}", byte); // Prints 171
+// println!("u8 value in binary: {:08b}", byte); // Prints 10101011
+// println!("u8 value in hex: {:X}", byte); // Prints AB
 
 pub fn binary_to_u8_vec(binary: &str) -> Result<Vec<u8>, String> {
     let mut padded_binary = binary.to_string();
@@ -49,14 +56,17 @@ pub fn hex_to_u8_vec(hex: &str) -> Result<Vec<u8>, String> {
 
 
 
-pub fn u8_to_ir(vector: Result<Vec<u8>, String>, exponent: i64) -> IntermediateRepresentation {
+pub fn u8_to_ir_fixed(vector: Result<Vec<u8>, String>, exponent: i64, twos_comp: bool) -> IntermediateRepresentation {
     match vector {
         Ok(vec) => {
             // Check if the MSB of the first byte is 1
-            let is_negative = (vec[0] & 0b10000000) != 0; 
+            let mut is_negative = false; 
+
+            if twos_comp{
+                is_negative = (vec[0] & 0b10000000) != 0; 
+            }
 
             let mantissa = if is_negative {
-                // Convert the Vec<u8> to a two's complement BigInt, then get its absolute value
                 let bigint = BigInt::from_signed_bytes_be(&vec);
                 bigint.magnitude().clone() // absolute value 
             } else {
@@ -72,6 +82,63 @@ pub fn u8_to_ir(vector: Result<Vec<u8>, String>, exponent: i64) -> IntermediateR
         Err(e) => {
             // Handle the error case, for example by panicking or returning a default value.
             panic!("Failed to convert: {}", e);
+        }
+    }
+}
+
+
+
+pub fn u8_to_ir_float(vector: Result<Vec<u8>, String>, exponent_len: i64, mantissa_len: i64, twos_comp: bool) -> IntermediateRepresentation {
+    match vector {
+        Ok(vec) => {
+
+            let mut is_negative = false; 
+
+            if twos_comp {
+                // Check if the MSB of the first byte is 1
+                is_negative = (vec[0] & 0b10000000) != 0; 
+            }
+            
+            let mut mantissa = BigUint::from(0u8);
+            let bit_offset = 1 + exponent_len; // Start after the sign (1 bit) and exponent
+
+            for i in 0..mantissa_len {
+                let byte_index = ((bit_offset + i) / 8) as usize;
+                let bit_index = ((bit_offset + i) % 8) as usize;
+                let bit = (vec[byte_index] >> (7 - bit_index)) & 1;  // Get the i-th bit
+
+                // Shift the mantissa left and add the new bit
+                mantissa = mantissa << 1;  // Shift left by 1
+                if bit == 1 { // If bit is 1, add 1 to the mantissa
+                    mantissa = mantissa | BigUint::one();  
+                }
+            }
+
+            // Extract the exponent
+            let mut exponent = 0i64;
+            for i in 0..exponent_len {
+                let byte_index = ((1 + i) / 8) as usize;  // Starting just after the sign bit
+                let bit_index = ((1 + i) % 8) as usize;
+                let bit = (vec[byte_index] >> (7 - bit_index)) & 1;
+
+                // Shift exponent left and add the bit
+                exponent = (exponent << 1) | bit as i64;
+            }
+
+            // Apply the bias to the exponent
+            let bias = (1 << (exponent_len - 1)) - 1;  // Bias: 2^(exponent_len-1) - 1
+            exponent = exponent - bias;  // Subtract the bias to get the actual exponent value
+
+
+            IntermediateRepresentation {
+                sign: is_negative,
+                mantissa,
+                exponent,
+            }
+        }
+        Err(e) => {
+            // Handle the error case, for example by panicking or returning a default value.
+            panic!("Error unpacking vector: {}", e);
         }
     }
 }
