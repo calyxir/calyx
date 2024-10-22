@@ -1,7 +1,8 @@
 # Wrapper script for running TDCC, running simulation, obtaining cycle counts information, and producing flame graphs to visualize
 
 if [ $# -lt 2 ]; then
-    echo "USAGE: bash $0 INPUT_FILE SIM_DATA_JSON [OUT_CSV]"
+    echo "USAGE: bash $0 INPUT_FILE SIM_DATA_JSON [OPTIMIZATIONS]"
+    echo "if OPTIMIZATIONS is -y, then run with optimizations"
     exit
 fi
 
@@ -12,13 +13,14 @@ CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
 INPUT_FILE=$1
 SIM_DATA_JSON=$2
 name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
-DATA_DIR=${SCRIPT_DIR}/data/${name}
-TMP_DIR=${DATA_DIR}/generated-data
-if [ $# -ge 3 ]; then
-    OUT_CSV=$3
+if [ "$3" == "-y" ]; then
+    echo "[${SCRIPT_NAME}] Optimizations enabled!"
+    DATA_DIR=${SCRIPT_DIR}/data-opt/${name}
 else
-    OUT_CSV=${TMP_DIR}/summary.csv
+    DATA_DIR=${SCRIPT_DIR}/data/${name}
 fi
+TMP_DIR=${DATA_DIR}/generated-data
+OUT_CSV=${TMP_DIR}/summary.csv
 
 FLAMEGRAPH_DIR=${SCRIPT_DIR}/fg-tmp
 
@@ -32,6 +34,7 @@ fi
 TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
 FSM_JSON=${TMP_DIR}/fsm.json
 CELLS_JSON=${TMP_DIR}/cells.json
+GROUPS_JSON=${TMP_DIR}/groups.json
 OUT_JSON=${TMP_DIR}/dump.json
 TIMELINE_VIEW_JSON=${TMP_DIR}/timeline.json
 FSM_TIMELINE_VIEW_JSON=${TMP_DIR}/fsm-timeline.json
@@ -48,8 +51,12 @@ fi
 mkdir -p ${TMP_DIR} ${LOGS_DIR}
 rm -f ${TMP_DIR}/* ${LOGS_DIR}/* # remove data from last run
 
-CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p instrument -p no-opt " # probably want to remove no-opt once we verify the optimized stuff makes sense
-
+CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p instrument" # probably want to replace no-opt with all once we verify the optimized stuff makes sense
+if [ "$3" == "-y" ]; then
+    CALYX_ARGS="${CALYX_ARGS} -p all "
+else
+    CALYX_ARGS="${CALYX_ARGS} -p no-opt "
+fi
 
 # Run TDCC to get the FSM info
 echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
@@ -78,6 +85,19 @@ if [ ! -f ${CELLS_JSON} ]; then
     exit 1
 fi
 
+# Run component-groups backend to get list of all groups
+echo "[${SCRIPT_NAME}] Obtaining group information from component-groups backend"
+(
+    cd ${CALYX_DIR}
+    set -o xtrace
+    cargo run --manifest-path tools/component_groups/Cargo.toml ${INPUT_FILE} -o ${GROUPS_JSON}
+) &> ${LOGS_DIR}/gol-groups
+
+if [ ! -f ${GROUPS_JSON} ]; then
+    echo "[${SCRIPT_NAME}] Failed to generate ${GROUPS_JSON}! Exiting"
+    exit 1
+fi
+
 # Run simuation to get VCD
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
@@ -95,7 +115,7 @@ fi
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
     set -o xtrace
-    python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON} ${CELLS_JSON} ${OUT_CSV} ${OUT_JSON}
+    python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON} ${CELLS_JSON} ${GROUPS_JSON} ${OUT_CSV} ${OUT_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-process
 
