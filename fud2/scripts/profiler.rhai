@@ -1,5 +1,6 @@
 import "calyx" as c;
 import "verilator" as v;
+import "rtl_sim" as sim;
 
 let profiled = state("profiled", ["json"]);
 let folded = state("folded", ["folded"]); // input to flamegraph script
@@ -11,11 +12,27 @@ fn profiling_setup(e) {
     e.config_var_or("component_cells", "component_cells", "$calyx-base/target/debug/component_cells");
     e.rule("component-cells", "$component_cells -l $calyx-base $in > $out");
 
-    e.config_var_or("component_groups", "component_groups", "$calyx-base/target/debug/component_cells");
+    e.config_var_or("component_groups", "component_groups", "$calyx-base/target/debug/component_groups");
     e.rule("component-groups", "$component_groups -l $calyx-base $in > $out");
 
     // dummy rule to force ninja to build the testbench
     e.rule("dummy", "sh -c 'cat $$0' $in > $out");
+}
+
+fn profiling_postprocess_setup(e) {
+    // FIXME: need better names
+    // script to process vcd and attribute active cycles to every group/cell
+    e.var_("parse-vcd-script", "$calyx-base/tools/profiler/parse-vcd.py");
+    // FIXME: probably broken
+    e.rule("parse-vcd", "python3 $parse-vcd-script $in fsm.json cells.json groups.json summary.csv $out");
+
+    // script to produce trace and visuals
+    e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.py");
+    // FIXME: probably broken
+    e.rule("create-visuals", "python3 $create-visuals-script $in cells.json timeline.json fsm-timeline.json $out fsm-flame.folded frequency.folded components.folded fsm-components.folded");
+
+    e.rsrc("flamegraph.pl"); // flame graph script
+    e.rule("produce-flame-graph", "./flamegraph.pl $in > $out");
 }
 
 // operations
@@ -44,4 +61,17 @@ op(
 );
 
 // running scripts to process vcd file
+op(
+    "trace-to-profiled",
+    [profiling_postprocess_setup],
+    sim::vcd,
+    flamegraph,
+    |e, input, output| {
+        let elems_profiled_json = "elems-profiled.json";
+        let flamegraph_folded = "flamegraph.folded";
+        e.build_cmd([elems_profiled_json], "parse-vcd", [input], []);
+        e.build_cmd([flamegraph_folded], "create-visuals", [elems_profiled_json], []);
+        e.build_cmd([output], "produce-flame-graph", [flamegraph_folded], ["flamegraph.pl"]);
+    }
+);
 // run flame graphs script
