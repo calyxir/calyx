@@ -266,7 +266,6 @@ def create_timeline_stacks(trace, main_component):
     cell_to_stackframe_info["TOP.toplevel"] = (2, 1)
 
     for i in trace:
-        print(trace[i])
         active_this_cycle = set()
         # Start from the bottom up. Parent is the previous stack!
         parent = "MAIN"
