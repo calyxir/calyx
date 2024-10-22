@@ -49,8 +49,7 @@ impl Visitor for Instrument {
             let one = builder.add_constant(1, 1);
             for group_name in group_names.into_iter() {
                 let name = format!("{}_inst", group_name);
-                let inst_cell =
-                    builder.add_primitive(name, "std_inst_wire", &[1]);
+                let inst_cell = builder.add_primitive(name, "std_probe", &[1]);
                 let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
                     builder;
                     inst_cell["in"] = ? one["out"];
