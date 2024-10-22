@@ -660,9 +660,11 @@ impl RaceDetectionPrimitive for CombMem {
                             .check_write(thread_clock, clock_map)
                             .map_err(|e| e.add_cell_info(self.global_idx))?;
                     }
-                } else if addr != 0 {
-                    // HACK: if the addr is 0 and the thread cannot be determined then
-                    // this is probably not a real read
+                } else if addr != 0
+                    || port_map[self.write_en()].as_bool().unwrap_or_default()
+                {
+                    // HACK: if the addr is 0, we're reading, and the thread
+                    // can't be determined then we assume the read is not real
                     panic!("unable to determine thread for comb mem");
                 }
             }
