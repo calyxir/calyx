@@ -1214,13 +1214,12 @@ module std_wire #(
 assign out = in;
 endmodule
 
-module std_inst_wire #(
+module std_probe #(
     parameter WIDTH = 32
 ) (
-   input wire logic [WIDTH-1:0] in,
-   output logic [WIDTH-1:0] out
+   input wire logic [WIDTH-1:0] in
 );
-assign out = in;
+
 endmodule
 
 module std_add #(

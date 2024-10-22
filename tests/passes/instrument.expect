@@ -6,8 +6,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     lt = std_lt(32);
     lt_reg = std_reg(1);
     add = std_add(32);
-    @generated @protected cond_inst = std_inst_wire(1);
-    @generated @protected incr_inst = std_inst_wire(1);
+    @generated @protected cond_probe = std_probe(1);
+    @generated @protected incr_probe = std_probe(1);
   }
   wires {
     group cond {
@@ -17,7 +17,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt_reg.in = lt.out;
       lt_reg.write_en = 1'd1;
       cond[done] = lt_reg.done;
-      cond_inst.in = 1'd1;
+      cond_probe.in = 1'd1;
     }
     group incr<"static"=1> {
       add.right = i.read_data;
@@ -26,7 +26,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       i.addr0 = 1'd0;
       i.write_en = 1'd1;
       incr[done] = i.done;
-      incr_inst.in = 1'd1;
+      incr_probe.in = 1'd1;
     }
   }
   control {
