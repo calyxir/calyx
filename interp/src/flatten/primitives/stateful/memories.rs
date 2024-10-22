@@ -509,14 +509,10 @@ impl CombMem {
 
 impl Primitive for CombMem {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
-        let addr: Option<usize> = match self.addresser.calculate_addr(
-            port_map,
-            self.base_port,
-            self.global_idx,
-        ) {
-            Ok(v) => v,
-            Err(_) => None,
-        };
+        let addr: Option<usize> = self
+            .addresser
+            .calculate_addr(port_map, self.base_port, self.global_idx)
+            .unwrap_or_default();
 
         let read_data = self.read_data();
 
@@ -654,16 +650,20 @@ impl RaceDetectionPrimitive for CombMem {
             self.global_idx,
         )? {
             if addr < self.internal_state.len() {
-                let thread =
-                    thread.expect("Could not infer thread id for seq mem");
-                let thread_clock = thread_map.unwrap_clock_id(thread);
+                if let Some(thread) = thread {
+                    let thread_clock = thread_map.unwrap_clock_id(thread);
 
-                let val = &self.internal_state[addr];
+                    let val = &self.internal_state[addr];
 
-                if port_map[self.write_en()].as_bool().unwrap_or_default() {
-                    val.clocks
-                        .check_write(thread_clock, clock_map)
-                        .map_err(|e| e.add_cell_info(self.global_idx))?;
+                    if port_map[self.write_en()].as_bool().unwrap_or_default() {
+                        val.clocks
+                            .check_write(thread_clock, clock_map)
+                            .map_err(|e| e.add_cell_info(self.global_idx))?;
+                    }
+                } else if addr != 0 {
+                    // HACK: if the addr is 0 and the thread cannot be determined then
+                    // this is probably not a real read
+                    panic!("unable to determine thread for comb mem");
                 }
             }
         }
