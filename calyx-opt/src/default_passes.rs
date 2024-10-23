@@ -5,10 +5,11 @@ use crate::passes::{
     CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
     DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
     DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
-    InferShare, Instrument, LowerGuards, MergeAssign, Papercut, RemoveIds,
-    ResetInsertion, SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts,
-    StaticInference, StaticInliner, StaticPromotion, SynthesisPapercut,
-    TopDownCompileControl, UnrollBounded, WellFormed, WireInliner, WrapMain,
+    InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation,
+    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
+    StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion,
+    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
+    WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -78,7 +79,7 @@ impl PassManager {
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
 
-        pm.register_pass::<Instrument>()?;
+        pm.register_pass::<ProfilerInstrumentation>()?;
 
         //add metadata
         pm.register_pass::<Metadata>()?;
