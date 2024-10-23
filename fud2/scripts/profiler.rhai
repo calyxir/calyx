@@ -2,10 +2,8 @@ import "calyx" as c;
 import "verilator" as v;
 import "rtl_sim" as sim;
 
-let profiled = state("profiled", ["json"]);
 let folded = state("folded", ["folded"]); // input to flamegraph script
 let flamegraph = state("flamegraph", ["svg"]);
-
 
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
@@ -13,7 +11,7 @@ fn profiling_setup(e) {
     e.var_("tdcc-json", "fsm.json"); // might not be necessary if we get rid of fsms?
 
     // series of passes after instrumentation?
-    e.config_var_or("passes", "passes", "no-opt");
+    e.config_var_or("passes", "passes", "all"); // set passes="no-opt" to run without optimizations
 
     // rules for preprocessing
 
@@ -28,19 +26,17 @@ fn profiling_setup(e) {
 
     // rules for postprocessing
 
-    // FIXME: need better names
     // script to process vcd and attribute active cycles to every group/cell
     e.var_("parse-vcd-script", "$calyx-base/tools/profiler/parse-vcd.py");
-    // FIXME: probably broken
     e.rule("parse-vcd", "python3 $parse-vcd-script $in $tdcc-json $cells $groups summary.csv $out");
 
     // script to produce trace and visuals
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.py");
-    // FIXME: probably broken
     e.rule("create-visuals", "python3 $create-visuals-script $in $cells timeline.json fsm-timeline.json $out fsm-flame.folded frequency.folded components.folded fsm-components.folded");
 
     e.rsrc("flamegraph.pl"); // flame graph script
     e.rule("produce-flame-graph", "./flamegraph.pl $in > $out");
+
 }
 
 fn calyx_to_profiled_helper(e, input, output) { // I want to add an extra argument deciding whether we're optimizing the program or not
@@ -49,12 +45,11 @@ fn calyx_to_profiled_helper(e, input, output) { // I want to add an extra argume
     e.build_cmd(["$groups"], "component-groups", [input], []);
     e.build_cmd([tmp_out], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", " -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p profiler-instrumentation -p no-opt -x tdcc:dump-fsm-json=fsm.json"); // FIXME: hack?
+    e.arg("args", " -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p profiler-instrumentation -p $passes -x tdcc:dump-fsm-json=fsm.json");
     e.build_cmd([output], "dummy", [tmp_out, "$cells", "$groups"], []);
 }
 
 
-// FIXME: probably should introduce a different state for this?
 op(
     "calyx-to-profiled-verilog",
     [c::calyx_setup, profiling_setup],

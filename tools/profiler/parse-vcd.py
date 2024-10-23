@@ -149,7 +149,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
             for single_enable_group in self.single_enable_names:
-                if name == f"{single_enable_group}_probe_in": # Use instrumentation wire
+                if name == f"{single_enable_group}_probe_out": # Use instrumentation wire
                     signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
@@ -239,10 +239,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if signal_name.endswith(".done") and value == 1: # cells have .go and .done
                     cell = signal_name.split(".done")[0]
                     self.profiling_info[cell].end_current_segment(clock_cycles)
-                if "_probe_in" in signal_name and value == 1: # instrumented group started being active
+                if "_probe_out" in signal_name and value == 1: # instrumented group started being active
                     group = "_".join(signal_name.split("_")[0:-2])
                     self.profiling_info[group].start_new_segment(clock_cycles)
-                elif "_probe_in" in signal_name and value == 0: # instrumented group stopped being active
+                elif "_probe_out" in signal_name and value == 0: # instrumented group stopped being active
                     group = "_".join(signal_name.split("_")[0:-2])
                     self.profiling_info[group].end_current_segment(clock_cycles)
                 elif "fsm" in signal_name:
