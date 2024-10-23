@@ -6,12 +6,14 @@ let profiled = state("profiled", ["json"]);
 let folded = state("folded", ["folded"]); // input to flamegraph script
 let flamegraph = state("flamegraph", ["svg"]);
 
-// probably want some option for disabling optimizations
 
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
     e.var_("groups", "groups.json");
     e.var_("tdcc-json", "fsm.json"); // might not be necessary if we get rid of fsms?
+
+    // series of passes after instrumentation?
+    e.config_var_or("passes", "passes", "no-opt");
 
     // rules for preprocessing
 
