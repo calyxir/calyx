@@ -1,9 +1,9 @@
 import "calyx" as c;
-import "verilator" as v;
-import "rtl_sim" as sim;
 
-let folded = state("folded", ["folded"]); // input to flamegraph script
-let flamegraph = state("flamegraph", ["svg"]);
+export const instrumented_verilog = state("verilog-instrumented", ["sv"]);
+export const instrumented_sim = state("sim-instrumented", ["exe"]);
+export const instrumented_vcd = state("vcd-instrumented", ["vcd"]);
+export const flamegraph = state("flamegraph", ["svg"]);
 
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
@@ -49,19 +49,18 @@ fn calyx_to_profiled_helper(e, input, output) { // I want to add an extra argume
     e.build_cmd([output], "dummy", [tmp_out, "$cells", "$groups"], []);
 }
 
-
 op(
-    "calyx-to-profiled-verilog",
+    "calyx-to-instrumented-verilog",
     [c::calyx_setup, profiling_setup],
     c::calyx_state,
-    c::verilog_state,
+    instrumented_verilog,
     |e, input, output| calyx_to_profiled_helper(e, input, output)
 );
 
 op(
-    "trace-to-profiled",
+    "instrumented-trace-to-profiled",
     [profiling_setup],
-    sim::vcd,
+    instrumented_vcd,
     flamegraph,
     |e, input, output| {
         let elems_profiled_json = "elems-profiled.json";

@@ -1,4 +1,5 @@
 // This file provides fud2 operations for simulating Calyx
+import "profiler" as p;
 
 export const dat = state("dat", ["json"]);
 export const vcd = state("vcd", ["vcd"]);
@@ -55,7 +56,7 @@ op(
     },
 );
 
-op("trace", [sim_setup], simulator, vcd, |e, input, output| {
+fn trace_op(e, input, output) {
     e.build_cmd(
         ["sim.log", output],
         "sim-run",
@@ -64,4 +65,21 @@ op("trace", [sim_setup], simulator, vcd, |e, input, output| {
     );
     e.arg("bin", input);
     e.arg("args", `+NOTRACE=0 +OUT=${output}`);
-});
+}
+
+op(
+    "trace",
+    [sim_setup],
+    simulator,
+    vcd,
+    |e, input, output| { trace_op(e, input, output) }
+);
+
+// profiled version to impose restriction that producing flamegraphs requires going through calyx-to-instrumented-verilog
+op(
+    "trace-instrumented",
+    [sim_setup],
+    p::instrumented_sim,
+    p::instrumented_vcd,
+    |e, input, output| { trace_op(e, input, output) }
+);
