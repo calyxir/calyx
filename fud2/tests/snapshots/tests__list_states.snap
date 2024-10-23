@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+assertion_line: 229
 ---
 [
     "calyx",
@@ -10,6 +11,8 @@ source: fud2/tests/tests.rs
     "dat",
     "firrtl",
     "firrtl-with-primitives",
+    "flamegraph",
+    "folded",
     "mrxl",
     "primitive-uses-json",
     "sim",
