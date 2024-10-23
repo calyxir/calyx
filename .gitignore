@@ -62,6 +62,7 @@ tools/profiler/data
 tools/profiler/meta-logs
 tools/profiler/fg-tmp
 tools/profiler/handmade-flame-graphs/*/*.svg
+tools/profiler/inst-check-tmp
 
 temp/
 
