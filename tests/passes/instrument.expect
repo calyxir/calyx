@@ -6,8 +6,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     lt = std_lt(32);
     lt_reg = std_reg(1);
     add = std_add(32);
-    @generated @protected cond_probe = std_probe(1);
-    @generated @protected incr_probe = std_probe(1);
+    @generated @protected cond_probe = std_wire(1);
+    @generated @protected incr_probe = std_wire(1);
   }
   wires {
     group cond {

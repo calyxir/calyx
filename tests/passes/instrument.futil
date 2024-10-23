@@ -1,4 +1,4 @@
-//-p instrument
+//-p profiler-instrumentation
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";

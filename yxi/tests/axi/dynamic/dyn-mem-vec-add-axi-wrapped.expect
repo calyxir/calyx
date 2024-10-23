@@ -1222,14 +1222,6 @@ module std_wire #(
 assign out = in;
 endmodule
 
-module std_probe #(
-    parameter WIDTH = 32
-) (
-   input wire logic [WIDTH-1:0] in
-);
-
-endmodule
-
 module std_add #(
     parameter WIDTH = 32
 ) (
