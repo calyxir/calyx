@@ -24,7 +24,7 @@ BASE_FILE=${TMP_DIR}/no-inst.json
 (
     cd ${CALYX_DIR}
     set -o xtrace
-    fud2 ${INPUT_FILE} -o ${INST_FILE} --through verilator -s calyx.args='-p instrument -p all' -s sim.data=${SIM_DATA_JSON} --dir ${INST_DIR}
+    fud2 ${INPUT_FILE} -o ${INST_FILE} --through verilator -s calyx.args='-p profiler-instrumentation -p all' -s sim.data=${SIM_DATA_JSON} --dir ${INST_DIR}
     set +o xtrace
 ) &> ${TMP_DIR}/gol-inst
 

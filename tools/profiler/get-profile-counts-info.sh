@@ -51,7 +51,7 @@ fi
 mkdir -p ${TMP_DIR} ${LOGS_DIR}
 rm -f ${TMP_DIR}/* ${LOGS_DIR}/* # remove data from last run
 
-CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p instrument" # probably want to replace no-opt with all once we verify the optimized stuff makes sense
+CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p profiler-instrumentation" # probably want to replace no-opt with all once we verify the optimized stuff makes sense
 if [ "$3" == "-y" ]; then
     CALYX_ARGS="${CALYX_ARGS} -p all "
 else

@@ -2,6 +2,8 @@ use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, build_assignments, BoolAttr};
 use calyx_utils::CalyxResult;
 
+/// Adds probe wires to each group to detect when a group is active.
+/// Used by the profiler.
 pub struct ProfilerInstrumentation {}
 
 impl Named for ProfilerInstrumentation {
@@ -10,7 +12,7 @@ impl Named for ProfilerInstrumentation {
     }
 
     fn description() -> &'static str {
-        "Add instrumentation"
+        "Add instrumentation for profiling"
     }
 
     fn opts() -> Vec<crate::traversal::PassOpt> {
