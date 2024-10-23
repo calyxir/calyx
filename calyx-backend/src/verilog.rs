@@ -539,7 +539,7 @@ fn emit_assignment(
 
     // If this is a data port
     let rhs: v::Expr = if is_data_port(dst) {
-        if assignments.len() == 1 {
+        if assignments.len() == 1 && !dst.borrow().parent_is_protected() {
             // If there is exactly one guard, generate a continuous assignment.
             // This encodes the rewrite:
             // in = g ? out : 'x => in = out;
@@ -587,7 +587,7 @@ fn emit_assignment_flat<F: io::Write>(
     // Simple optimizations for 1-guard cases.
     if assignments.len() == 1 {
         let (src, guard) = &assignments[0];
-        if data {
+        if data && !dst.borrow().parent_is_protected() {
             // For data ports (for whom unassigned values are undefined), we can drop the guard
             // entirely and assume it is always true (because it would be UB if it were ever false).
             return writeln!(

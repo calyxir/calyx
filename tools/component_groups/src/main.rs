@@ -6,6 +6,8 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::{collections::HashSet, io};
 
+/// Tool to obtain the list of groups within each component.
+
 #[derive(FromArgs)]
 /// Path for library and path for file to read from
 struct Args {
