@@ -51,6 +51,8 @@ fn calyx_to_profiled_helper(e, input, output) { // I want to add an extra argume
     e.build_cmd([output], "dummy", [tmp_out, "$cells", "$groups"], []);
 }
 
+
+// FIXME: probably should introduce a different state for this?
 op(
     "calyx-to-profiled-verilog",
     [c::calyx_setup, profiling_setup],
@@ -59,7 +61,6 @@ op(
     |e, input, output| calyx_to_profiled_helper(e, input, output)
 );
 
-// running scripts to process vcd file
 op(
     "trace-to-profiled",
     [profiling_setup],
@@ -73,4 +74,3 @@ op(
         e.build_cmd([output], "produce-flame-graph", [flamegraph_folded], ["flamegraph.pl"]);
     }
 );
-// run flame graphs script
