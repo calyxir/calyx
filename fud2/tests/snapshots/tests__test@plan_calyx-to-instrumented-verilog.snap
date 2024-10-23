@@ -1,7 +1,7 @@
 ---
 source: fud2/tests/tests.rs
 assertion_line: 66
-description: "emit plan: calyx-to-profiled-verilog"
+description: "emit plan: calyx-to-instrumented-verilog"
 ---
 build-tool = fud2
 rule get-rsrc

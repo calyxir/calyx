@@ -29,9 +29,9 @@ assertion_line: 251
         "firrtl",
     ),
     (
-        "calyx-to-profiled-verilog",
+        "calyx-to-instrumented-verilog",
         "calyx",
-        "verilog",
+        "verilog-instrumented",
     ),
     (
         "calyx-to-verilog",
@@ -94,6 +94,11 @@ assertion_line: 251
         "sim",
     ),
     (
+        "instrumented-trace-to-profiled",
+        "vcd-instrumented",
+        "flamegraph",
+    ),
+    (
         "mrxl-to-calyx",
         "mrxl",
         "calyx",
@@ -114,14 +119,19 @@ assertion_line: 251
         "vcd",
     ),
     (
-        "trace-to-profiled",
-        "vcd",
-        "flamegraph",
+        "trace-instrumented",
+        "sim-instrumented",
+        "vcd-instrumented",
     ),
     (
         "verilator",
         "verilog",
         "sim",
+    ),
+    (
+        "verilator-instrumented",
+        "verilog-instrumented",
+        "sim-instrumented",
     ),
     (
         "verilator-refmem",
