@@ -13,9 +13,6 @@ comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
     assign out = in;
 }
 
-/// Tracing for profiler instrumentation
-primitive std_probe[WIDTH](in: WIDTH) -> () {}
-
 /// Add two numbers.
 comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
   assign out = left + right;
