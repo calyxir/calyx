@@ -49,7 +49,7 @@ fn calyx_to_profiled_helper(e, input, output) { // I want to add an extra argume
     e.build_cmd(["$groups"], "component-groups", [input], []);
     e.build_cmd([tmp_out], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", " -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p instrument -p no-opt -x tdcc:dump-fsm-json=fsm.json"); // FIXME: hack?
+    e.arg("args", " -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p profiler-instrumentation -p no-opt -x tdcc:dump-fsm-json=fsm.json"); // FIXME: hack?
     e.build_cmd([output], "dummy", [tmp_out, "$cells", "$groups"], []);
 }
 
