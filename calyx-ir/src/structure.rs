@@ -103,7 +103,7 @@ impl Port {
         }
     }
 
-    /// Checks if parent is combinational component
+    /// Checks if parent is a protected cell
     pub fn parent_is_protected(&self) -> bool {
         match &self.parent {
             PortParent::Cell(cell) => {
