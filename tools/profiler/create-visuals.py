@@ -41,7 +41,12 @@ class CallStackElement:
         elif len(self.active_groups) == 1:
             return self.active_groups[0]
         else:
-            raise Exception(f'Component {self.component} is parallel! Active groups: {self.active_groups}')
+            # concatenate all parallel active groups
+            acc = self.active_groups[0]
+            for i in range(1, len(self.active_groups)):
+                suffix = self.active_groups[i].split(".")[-1]
+                acc += "/" + suffix
+            return acc
     
     """
     Returns the identifier of this stack: either the full name of the active group, or the full name of the cell if no groups are active. 

@@ -2,11 +2,11 @@ use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, build_assignments, BoolAttr};
 use calyx_utils::CalyxResult;
 
-pub struct Instrument {}
+pub struct ProfilerInstrumentation {}
 
-impl Named for Instrument {
+impl Named for ProfilerInstrumentation {
     fn name() -> &'static str {
-        "instrument"
+        "profiler-instrumentation"
     }
 
     fn description() -> &'static str {
@@ -18,18 +18,18 @@ impl Named for Instrument {
     }
 }
 
-impl ConstructVisitor for Instrument {
+impl ConstructVisitor for ProfilerInstrumentation {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized + Named,
     {
-        Ok(Instrument {})
+        Ok(ProfilerInstrumentation {})
     }
 
     fn clear_data(&mut self) {}
 }
 
-impl Visitor for Instrument {
+impl Visitor for ProfilerInstrumentation {
     fn start(
         &mut self,
         comp: &mut ir::Component,
@@ -49,7 +49,7 @@ impl Visitor for Instrument {
             let one = builder.add_constant(1, 1);
             for group_name in group_names.into_iter() {
                 let name = format!("{}_probe", group_name);
-                let inst_cell = builder.add_primitive(name, "std_probe", &[1]);
+                let inst_cell = builder.add_primitive(name, "std_wire", &[1]);
                 let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
                     builder;
                     inst_cell["in"] = ? one["out"];
