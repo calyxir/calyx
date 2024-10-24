@@ -130,8 +130,9 @@ impl Visitor for DeadAssignmentRemoval {
 
             gr.borrow_mut().assignments.retain(|assign| {
                 let dst = assign.dst.borrow();
-                // if dst is a combinational component, must be used
-                if dst.parent_is_comb() {
+                // if dst is a combinational component that is not protected,
+                // the assignment is removed if it is not used
+                if dst.parent_is_comb() && !dst.parent_is_protected() {
                     return used_combs.contains(&dst.get_parent_name());
                 }
                 // Make sure that the assignment's guard it not false

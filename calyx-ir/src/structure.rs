@@ -6,7 +6,7 @@ use crate::Nothing;
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
 };
-use calyx_frontend::Attribute;
+use calyx_frontend::{Attribute, BoolAttr};
 use calyx_utils::{CalyxResult, Error, GetName};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
@@ -99,6 +99,16 @@ impl Port {
     pub fn parent_is_comb(&self) -> bool {
         match &self.parent {
             PortParent::Cell(cell) => cell.upgrade().borrow().is_comb_cell(),
+            _ => false,
+        }
+    }
+
+    /// Checks if parent is a protected cell
+    pub fn parent_is_protected(&self) -> bool {
+        match &self.parent {
+            PortParent::Cell(cell) => {
+                cell.upgrade().borrow().attributes.has(BoolAttr::Protected)
+            }
             _ => false,
         }
     }
@@ -537,6 +547,15 @@ impl<T> Assignment<T> {
             self.dst = new_dst;
         }
         self.guard.for_each(&mut |port| f(&port).map(Guard::port))
+    }
+
+    /// Iterate through all ports contained within the assignment.
+    pub fn iter_ports(&self) -> impl Iterator<Item = RRC<Port>> {
+        self.guard
+            .all_ports()
+            .into_iter()
+            .chain(std::iter::once(Rc::clone(&self.dst)))
+            .chain(std::iter::once(Rc::clone(&self.src)))
     }
 }
 

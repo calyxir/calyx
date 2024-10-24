@@ -1,0 +1,81 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    @generated fsm = std_reg(7);
+    @generated fsm0 = std_reg(4);
+    @generated fsm1 = std_reg(4);
+    @generated adder = std_add(7);
+    @generated adder0 = std_add(4);
+    @generated adder1 = std_add(4);
+    @generated adder2 = std_add(4);
+    @generated adder3 = std_add(4);
+    @generated ud = undef(1);
+    @generated ud0 = undef(1);
+    @generated ud1 = undef(1);
+    @generated signal_reg = std_reg(1);
+  }
+  wires {
+    group early_reset_ctrl {
+      early_reset_offload0[go] = fsm.out == 7'd20 ? 1'd1;
+      early_reset_offload1[go] = fsm.out == 7'd41 ? 1'd1;
+      r1.write_en = fsm.out == 7'd20 & (fsm0.out >= 4'd2 & fsm0.out < 4'd5 & fsm1.out == 4'd1 | fsm0.out < 4'd2 & fsm1.out == 4'd10 | fsm1.out >= 4'd2 & fsm1.out < 4'd10) ? 1'd1;
+      r1.in = fsm.out == 7'd41 & (fsm0.out >= 4'd5 & fsm0.out < 4'd10 & fsm1.out == 4'd0 | fsm0.out < 4'd5 & fsm1.out == 4'd1) ? 32'd2;
+      early_reset_ctrl[done] = ud.out;
+      adder.left = fsm.out;
+      adder.right = 7'd1;
+      fsm.in = !(fsm.out == 7'd20 | fsm.out == 7'd41) & fsm.out != 7'd81 ? adder.out;
+      fsm.write_en = !(fsm.out == 7'd20 | fsm.out == 7'd41) & fsm.out != 7'd81 ? 1'd1;
+      fsm.in = fsm.out == 7'd20 & fsm0.out == 4'd4 & fsm1.out == 4'd11 ? adder.out;
+      fsm.write_en = fsm.out == 7'd20 & fsm0.out == 4'd4 & fsm1.out == 4'd11 ? 1'd1;
+      fsm.in = fsm.out == 7'd41 & fsm0.out == 4'd9 & fsm1.out == 4'd5 ? adder.out;
+      fsm.write_en = fsm.out == 7'd41 & fsm0.out == 4'd9 & fsm1.out == 4'd5 ? 1'd1;
+      fsm.in = fsm.out == 7'd81 ? 7'd0;
+      fsm.write_en = fsm.out == 7'd81 ? 1'd1;
+    }
+    group early_reset_offload0 {
+      early_reset_offload0[done] = ud0.out;
+      adder0.left = fsm0.out;
+      adder0.right = 4'd1;
+      fsm0.in = fsm0.out != 4'd4 ? adder0.out;
+      fsm0.write_en = fsm0.out != 4'd4 ? 1'd1;
+      fsm0.in = fsm0.out == 4'd4 ? 4'd0;
+      fsm0.write_en = fsm0.out == 4'd4 ? 1'd1;
+      adder1.left = fsm1.out;
+      adder1.right = 4'd1;
+      fsm1.in = fsm0.out == 4'd4 & fsm1.out != 4'd11 ? adder1.out;
+      fsm1.write_en = fsm0.out == 4'd4 & fsm1.out != 4'd11 ? 1'd1;
+      fsm1.in = fsm0.out == 4'd4 & fsm1.out == 4'd11 ? 4'd0;
+      fsm1.write_en = fsm0.out == 4'd4 & fsm1.out == 4'd11 ? 1'd1;
+    }
+    group early_reset_offload1 {
+      early_reset_offload1[done] = ud1.out;
+      adder2.left = fsm0.out;
+      adder2.right = 4'd1;
+      fsm0.in = fsm0.out != 4'd9 ? adder2.out;
+      fsm0.write_en = fsm0.out != 4'd9 ? 1'd1;
+      fsm0.in = fsm0.out == 4'd9 ? 4'd0;
+      fsm0.write_en = fsm0.out == 4'd9 ? 1'd1;
+      adder3.left = fsm1.out;
+      adder3.right = 4'd1;
+      fsm1.in = fsm0.out == 4'd9 & fsm1.out != 4'd5 ? adder3.out;
+      fsm1.write_en = fsm0.out == 4'd9 & fsm1.out != 4'd5 ? 1'd1;
+      fsm1.in = fsm0.out == 4'd9 & fsm1.out == 4'd5 ? 4'd0;
+      fsm1.write_en = fsm0.out == 4'd9 & fsm1.out == 4'd5 ? 1'd1;
+    }
+    group wrapper_early_reset_ctrl {
+      early_reset_ctrl[go] = 1'd1;
+      signal_reg.write_en = fsm.out == 7'd81 & 1'b1 & !signal_reg.out ? 1'd1;
+      signal_reg.in = fsm.out == 7'd81 & 1'b1 & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_ctrl[done] = signal_reg.out ? 1'd1;
+    }
+    signal_reg.write_en = signal_reg.out ? 1'd1;
+    signal_reg.in = signal_reg.out ? 1'd0;
+  }
+  control {
+    wrapper_early_reset_ctrl;
+  }
+}

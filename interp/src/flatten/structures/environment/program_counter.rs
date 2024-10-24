@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::{collections::hash_map::Entry, num::NonZeroU32};
 
 use ahash::{HashMap, HashMapExt};
 
@@ -8,7 +8,10 @@ use crate::flatten::{
         AssignmentIdx, CombGroupIdx, ControlIdx, ControlMap, ControlNode,
         GlobalCellIdx,
     },
-    structures::index_trait::{impl_index_nonzero, IndexRange, IndexRef},
+    structures::{
+        index_trait::{impl_index_nonzero, IndexRange, IndexRef},
+        thread::ThreadIdx,
+    },
 };
 
 use itertools::{FoldWhile, Itertools};
@@ -348,29 +351,54 @@ const CONTROL_POINT_PREALLOCATE: usize = 16;
 /// children would be a lot.
 pub type ChildCount = u16;
 
+#[derive(Debug, Clone)]
+pub struct WithEntry {
+    pub group: CombGroupIdx,
+    /// Whether or not a body has been executed. Only used by if statements
+    pub entered: bool,
+    pub thread: Option<ThreadIdx>,
+}
+
+impl WithEntry {
+    pub fn new(group: CombGroupIdx, thread: Option<ThreadIdx>) -> Self {
+        Self {
+            group,
+            thread,
+            entered: false,
+        }
+    }
+
+    pub fn set_entered(&mut self) {
+        self.entered = true;
+    }
+}
+
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
 #[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
-    vec: Vec<ControlPoint>,
+    vec: Vec<ControlTuple>,
     par_map: HashMap<ControlPoint, ChildCount>,
     continuous_assigns: Vec<ContinuousAssignments>,
-    with_map: HashMap<ControlPoint, CombGroupIdx>,
+    with_map: HashMap<ControlPoint, WithEntry>,
     repeat_map: HashMap<ControlPoint, u64>,
+    just_finished_comps: Vec<(GlobalCellIdx, Option<ThreadIdx>)>,
+    thread_memoizer: HashMap<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx>,
 }
 
+pub type ControlTuple = (Option<ThreadIdx>, ControlPoint);
 // we need a few things from the program counter
 
 pub type PcFields = (
-    Vec<ControlPoint>,
+    Vec<ControlTuple>,
     HashMap<ControlPoint, ChildCount>,
-    HashMap<ControlPoint, CombGroupIdx>,
+    HashMap<ControlPoint, WithEntry>,
     HashMap<ControlPoint, u64>,
 );
 
 pub type PcMaps<'a> = (
     &'a mut HashMap<ControlPoint, ChildCount>,
-    &'a mut HashMap<ControlPoint, CombGroupIdx>,
+    &'a mut HashMap<ControlPoint, WithEntry>,
     &'a mut HashMap<ControlPoint, u64>,
 );
 
@@ -382,18 +410,20 @@ impl ProgramCounter {
             continuous_assigns: Vec::new(),
             with_map: HashMap::new(),
             repeat_map: HashMap::new(),
+            just_finished_comps: Vec::new(),
+            thread_memoizer: HashMap::new(),
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
+    pub fn iter(&self) -> std::slice::Iter<'_, ControlTuple> {
         self.vec.iter()
     }
 
-    pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
-        self.vec.iter_mut()
+    pub fn node_slice(&self) -> &[ControlTuple] {
+        &self.vec
     }
 
-    pub fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
+    pub fn vec_mut(&mut self) -> &mut Vec<ControlTuple> {
         &mut self.vec
     }
 
@@ -435,15 +465,40 @@ impl ProgramCounter {
         &self.continuous_assigns
     }
 
-    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, CombGroupIdx> {
+    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, WithEntry> {
         &self.with_map
+    }
+
+    pub fn set_finshed_comp(
+        &mut self,
+        comp: GlobalCellIdx,
+        thread: Option<ThreadIdx>,
+    ) {
+        self.just_finished_comps.push((comp, thread))
+    }
+
+    pub fn finished_comps(&self) -> &[(GlobalCellIdx, Option<ThreadIdx>)] {
+        &self.just_finished_comps
+    }
+
+    pub fn clear_finished_comps(&mut self) {
+        self.just_finished_comps.clear()
+    }
+
+    pub fn lookup_thread(
+        &mut self,
+        comp: GlobalCellIdx,
+        thread: ThreadIdx,
+        control: ControlIdx,
+    ) -> Entry<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx> {
+        self.thread_memoizer.entry((comp, thread, control))
     }
 }
 
 impl<'a> IntoIterator for &'a ProgramCounter {
-    type Item = &'a ControlPoint;
+    type Item = &'a ControlTuple;
 
-    type IntoIter = std::slice::Iter<'a, ControlPoint>;
+    type IntoIter = std::slice::Iter<'a, ControlTuple>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

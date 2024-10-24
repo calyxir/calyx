@@ -2,121 +2,219 @@ use calyx_ir::{self as cir, BoolAttr};
 use smallvec::SmallVec;
 
 use crate::{
-    primitives::prim_utils::get_params, serialization::data_dump::Dimensions,
+    flatten::primitives::utils::get_params, serialization::Dimensions,
 };
 
 use super::prelude::ComponentIdx;
 
+/// Whether a constant is a literal or a primitive
 #[derive(Debug, Clone)]
-pub enum LiteralOrPrimitive {
+pub enum ConstantType {
+    /// A literal constant
     Literal,
+    /// A use of the primitive `std_const`
     Primitive,
 }
 
 /// An enum for encoding primitive operator types with only one width parameter
 #[derive(Debug, Clone)]
-pub enum PrimType1 {
+pub enum SingleWidthType {
+    /// A register (`std_reg`)
     Reg,
-    //
+    /// Bitwise not (`std_not`)
     Not,
+    /// Bitwise and (`std_and`)
     And,
+    /// Bitwise or (`std_or`)
     Or,
+    /// Bitwise xor (`std_xor`)
     Xor,
-    //
+    /// Addition (`std_add`)
     Add,
+    /// Subtraction (`std_sub`)
     Sub,
+    /// Greater than (`std_gt`)
     Gt,
+    /// Less than (`std_lt`)
     Lt,
+    /// Equality (`std_eq`)
     Eq,
+    /// Inequality (`std_neq`)
     Neq,
+    /// Greater than or equal to (`std_ge`)
     Ge,
+    /// Less than or equal to (`std_le`)
     Le,
-    //
+    /// Left shift (`std_lsh`)
     Lsh,
+    /// Right shift (`std_rsh`)
     Rsh,
+    /// Multiplexer (`std_mux`)
     Mux,
+    /// Wire (`std_wire`)
     Wire,
-    //
+    /// Signed addition (`std_sadd`)
     SignedAdd,
+    /// Signed subtraction (`std_ssub`)
     SignedSub,
+    /// Signed greater than (`std_sgt`)
     SignedGt,
+    /// Signed less than (`std_slt`)
     SignedLt,
+    /// Signed equality (`std_seq`)
     SignedEq,
+    /// Signed inequality (`std_sneq`)
     SignedNeq,
+    /// Signed greater than or equal to (`std_sge`)
     SignedGe,
+    /// Signed less than or equal to (`std_sle`)
     SignedLe,
+    /// Signed left shift (`std_slsh`)
     SignedLsh,
+    /// Signed right shift (`std_srsh`)
     SignedRsh,
+    /// Multiplication pipe (`std_mult_pipe`)
     MultPipe,
+    /// Signed multiplication pipe (`std_signed_mult_pipe`)
     SignedMultPipe,
+    /// Division pipe (`std_div_pipe`)
     DivPipe,
+    /// Signed division pipe (`std_signed_div_pipe`)
     SignedDivPipe,
+    /// Square root (`std_sqrt`)
     Sqrt,
-    //
+    /// Unsynthesizeable multiplication (`std_unsyn_mult`)
     UnsynMult,
+    /// Unsynthesizeable division (`std_unsyn_div`)
     UnsynDiv,
+    /// Unsynthesizeable mod (`std_unsyn_mod`)
     UnsynMod,
+    /// Unsynthesizeable signed multiplication (`std_unsyn_smult`)
     UnsynSMult,
+    /// Unsynthesizeable signed division (`std_unsyn_sdiv`)
     UnsynSDiv,
+    /// Unsynthesizeable signed mod (`std_unsyn_smod`)
     UnsynSMod,
+    /// Represents the `undef` primitive. Not to be confused with undefined
+    /// port values during simulation.
+    Undef,
+}
+
+/// An enum for encoding primitive operator types with two width parameters
+#[derive(Debug, Clone)]
+pub enum DoubleWidthType {
+    /// 1: input width, 2: output width
+    Slice,
+    /// 1: input width, 2: output width
+    Pad,
+}
+
+/// An enum for encoding primitive operator types with three width parameters
+#[derive(Debug, Clone)]
+pub enum TripleWidthType {
+    /// 1: left width, 2: right width, 3: output width
+    Cat,
+    /// 1: start index, 2: end index, 3: output width
+    BitSlice,
 }
 
 /// An enum for encoding FP primitives operator types
 #[derive(Debug, Clone)]
-pub enum FPType {
+pub enum FXType {
+    /// Addition (`std_fp_add`)
     Add,
+    /// Subtraction (`std_fp_sub`)
     Sub,
+    /// Multiplication (`std_fp_mult`)
     Mult,
+    /// Division (`std_fp_div`)
     Div,
+    /// Signed addition (`std_fp_sadd`)
     SignedAdd,
+    /// Signed subtraction (`std_fp_ssub`)
     SignedSub,
+    /// Signed multiplication (`std_fp_smult`)
     SignedMult,
+    /// Signed division (`std_fp_sdiv`)
     SignedDiv,
+    /// Greater than (`std_fp_gt`)
     Gt,
+    /// Signed greater than (`std_fp_sgt`)
     SignedGt,
+    /// Signed less than (`std_fp_slt`)
     SignedLt,
+    /// Square root (`std_fp_sqrt`)
     Sqrt,
 }
 
+/// An enum for encoding memory primitives operator types
 #[derive(Debug, Clone)]
 pub enum MemType {
+    /// Sequential memory (`seq_mem_dX`)
     Seq,
+    /// Combinational memory (`comb_mem_dX`)
     Std,
 }
 
+/// The dimensions of a memory primitive
 #[derive(Debug, Clone)]
 pub enum MemoryDimensions {
+    /// 1-dimensional memory
     D1 {
-        d0_size: Width,
-        d0_idx_size: Width,
+        /// Size of the first dimension
+        d0_size: ParamWidth,
+        /// Size of the first index
+        d0_idx_size: ParamWidth,
     },
+    /// 2-dimensional memory
     D2 {
-        d0_size: Width,
-        d0_idx_size: Width,
-        d1_size: Width,
-        d1_idx_size: Width,
+        /// Size of the first dimension
+        d0_size: ParamWidth,
+        /// Size of the first index
+        d0_idx_size: ParamWidth,
+        /// Size of the second dimension
+        d1_size: ParamWidth,
+        /// Size of the second index
+        d1_idx_size: ParamWidth,
     },
+    /// 3-dimensional memory
     D3 {
-        d0_size: Width,
-        d0_idx_size: Width,
-        d1_size: Width,
-        d1_idx_size: Width,
-        d2_size: Width,
-        d2_idx_size: Width,
+        /// Size of the first dimension
+        d0_size: ParamWidth,
+        /// Size of the first index
+        d0_idx_size: ParamWidth,
+        /// Size of the second dimension
+        d1_size: ParamWidth,
+        /// Size of the second index
+        d1_idx_size: ParamWidth,
+        /// Size of the third dimension
+        d2_size: ParamWidth,
+        /// Size of the third index
+        d2_idx_size: ParamWidth,
     },
+    /// 4-dimensional memory
     D4 {
-        d0_size: Width,
-        d0_idx_size: Width,
-        d1_size: Width,
-        d1_idx_size: Width,
-        d2_size: Width,
-        d2_idx_size: Width,
-        d3_size: Width,
-        d3_idx_size: Width,
+        /// Size of the first dimension
+        d0_size: ParamWidth,
+        /// Size of the first index
+        d0_idx_size: ParamWidth,
+        /// Size of the second dimension
+        d1_size: ParamWidth,
+        /// Size of the second index
+        d1_idx_size: ParamWidth,
+        /// Size of the third dimension
+        d2_size: ParamWidth,
+        /// Size of the third index
+        d2_idx_size: ParamWidth,
+        /// Size of the fourth dimension
+        d3_size: ParamWidth,
+        /// Size of the fourth index
+        d3_idx_size: ParamWidth,
     },
 }
 
 impl MemoryDimensions {
+    /// Returns the total number of entries in the memory
     pub fn size(&self) -> usize {
         match self {
             Self::D1 { d0_size, .. } => *d0_size as usize,
@@ -180,49 +278,78 @@ impl MemoryDimensions {
 }
 
 /// A type alias to allow potential space hacks
-pub type Width = u32;
+pub type ParamWidth = u32;
 
+/// Represents the type of a Calyx cell and contains its definition information
 #[derive(Debug, Clone)]
 pub enum CellPrototype {
+    /// This cell is an instance of a Calyx component
     Component(ComponentIdx),
+    /// This cell is a constant. Either constant literal or use of the primitive `std_const`
     Constant {
+        /// The value of the constant
         value: u64,
-        width: Width,
-        c_type: LiteralOrPrimitive,
+        /// The width of the value
+        width: ParamWidth,
+        /// Whether the constant is a literal or a primitive
+        c_type: ConstantType,
     },
+    /// This cell is a primitive type that only has a single width parameter.
+    /// See [`SingleWidthType`] for the list of primitives.
     SingleWidth {
-        op: PrimType1,
-        width: Width,
+        /// The operator
+        op: SingleWidthType,
+        /// The width parameter of the operator
+        width: ParamWidth,
     },
+    /// This cell is a primitive type that has two width parameters.
+    /// See [`DoubleWidthType`] for the list of primitives.
+    DoubleWidth {
+        /// The operator
+        op: DoubleWidthType,
+        /// The first width parameter of the operator
+        width1: ParamWidth,
+        /// The second width parameter of the operator
+        width2: ParamWidth,
+    },
+    /// This cell is a primitive type that has three width parameters.
+    /// See [`TripleWidthType`] for the list of primitives.
+    TripleWidth {
+        /// The operator
+        op: TripleWidthType,
+        /// The first width parameter of the operator
+        width1: ParamWidth,
+        /// The second width parameter of the operator
+        width2: ParamWidth,
+        /// The third width parameter of the operator
+        width3: ParamWidth,
+    },
+    /// This cell is a fixed point primitive. See [`FXType`] for the list of primitives.
     FixedPoint {
-        op: FPType,
-        width: Width,
-        int_width: Width,
-        frac_width: Width,
+        /// Fixed point operator
+        op: FXType,
+        // TODO griffin: Consider deleting width
+        /// The width of the fixed point
+        width: ParamWidth,
+        /// The width of the integer part
+        int_width: ParamWidth,
+        /// The width of the fractional part
+        frac_width: ParamWidth,
     },
-    // The awkward three that don't fit the other patterns
-    Slice {
-        in_width: Width,
-        out_width: Width,
-    },
-    Pad {
-        in_width: Width,
-        out_width: Width,
-    },
-    Cat {
-        left: Width,
-        right: Width,
-        out: Width,
-    },
-    // Memories
+    /// This cell is a memory primitive. Either a combinational or sequential memory.
     Memory {
+        /// The type of memory
         mem_type: MemType,
-        width: Width,
+        /// The width of the values in the memory
+        width: ParamWidth,
+        /// The dimensions of the memory
         dims: MemoryDimensions,
+        /// Is the memory external?
         is_external: bool,
     },
 
-    // TODO Griffin: lots more
+    /// This cell is a primitive that lacks an implementation in Cider. Its name
+    /// and parameter bindings are stored for use in error messages.
     Unknown(String, Box<cir::Binding>),
 }
 
@@ -233,6 +360,7 @@ impl From<ComponentIdx> for CellPrototype {
 }
 
 impl CellPrototype {
+    /// Returns the component index if this is a component otherwise `None`
     #[must_use]
     pub fn as_component(&self) -> Option<&ComponentIdx> {
         if let Self::Component(v) = self {
@@ -242,8 +370,9 @@ impl CellPrototype {
         }
     }
 
+    /// Constructs a prototype for the given cell
     #[must_use]
-    pub fn construct_primitive(cell: &cir::Cell) -> Self {
+    pub fn construct_prototype(cell: &cir::Cell) -> Self {
         if let cir::CellType::Primitive {
             name,
             param_binding,
@@ -258,7 +387,7 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
 
                     Self::SingleWidth {
-                        op: PrimType1::Reg,
+                        op: SingleWidthType::Reg,
                         width: width.try_into().unwrap(),
                     }
                 }
@@ -271,7 +400,7 @@ impl CellPrototype {
                     Self::Constant {
                         value,
                         width: width.try_into().unwrap(),
-                        c_type: LiteralOrPrimitive::Primitive,
+                        c_type: ConstantType::Primitive,
                     }
                 }
                 n @ ("std_add" | "std_sadd") => {
@@ -279,9 +408,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_add" {
-                            PrimType1::Add
+                            SingleWidthType::Add
                         } else {
-                            PrimType1::SignedAdd
+                            SingleWidthType::SignedAdd
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -291,9 +420,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_sub" {
-                            PrimType1::Sub
+                            SingleWidthType::Sub
                         } else {
-                            PrimType1::SignedSub
+                            SingleWidthType::SignedSub
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -307,9 +436,9 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: if n == "std_fp_add" {
-                            FPType::Add
+                            FXType::Add
                         } else {
-                            FPType::SignedAdd
+                            FXType::SignedAdd
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -325,9 +454,9 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: if n == "std_fp_sub" {
-                            FPType::Sub
+                            FXType::Sub
                         } else {
-                            FPType::SignedSub
+                            FXType::SignedSub
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -339,9 +468,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_mult_pipe" {
-                            PrimType1::MultPipe
+                            SingleWidthType::MultPipe
                         } else {
-                            PrimType1::SignedMultPipe
+                            SingleWidthType::SignedMultPipe
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -351,9 +480,9 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: if n == "std_div_pipe" {
-                            PrimType1::DivPipe
+                            SingleWidthType::DivPipe
                         } else {
-                            PrimType1::SignedDivPipe
+                            SingleWidthType::SignedDivPipe
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -362,7 +491,7 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
 
                     Self::SingleWidth {
-                        op: PrimType1::Sqrt,
+                        op: SingleWidthType::Sqrt,
                         width: width.try_into().unwrap(),
                     }
                 }
@@ -374,7 +503,7 @@ impl CellPrototype {
                     ];
 
                     Self::FixedPoint {
-                        op: FPType::Sqrt,
+                        op: FXType::Sqrt,
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
                         frac_width: frac_width.try_into().unwrap(),
@@ -391,10 +520,10 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: match n {
-                            "std_fp_mult_pipe" => FPType::Mult,
-                            "std_fp_smult_pipe" => FPType::SignedMult,
-                            "std_fp_div_pipe" => FPType::Div,
-                            _ => FPType::SignedDiv,
+                            "std_fp_mult_pipe" => FXType::Mult,
+                            "std_fp_smult_pipe" => FXType::SignedMult,
+                            "std_fp_div_pipe" => FXType::Div,
+                            _ => FXType::SignedDiv,
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -407,10 +536,10 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_lsh" => PrimType1::Lsh,
-                            "std_rsh" => PrimType1::Rsh,
-                            "std_lrsh" => PrimType1::SignedLsh,
-                            _ => PrimType1::SignedRsh,
+                            "std_lsh" => SingleWidthType::Lsh,
+                            "std_rsh" => SingleWidthType::Rsh,
+                            "std_lrsh" => SingleWidthType::SignedLsh,
+                            _ => SingleWidthType::SignedRsh,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -420,10 +549,10 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_and" => PrimType1::And,
-                            "std_or" => PrimType1::Or,
-                            "std_xor" => PrimType1::Xor,
-                            _ => PrimType1::Not,
+                            "std_and" => SingleWidthType::And,
+                            "std_or" => SingleWidthType::Or,
+                            "std_xor" => SingleWidthType::Xor,
+                            _ => SingleWidthType::Not,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -432,7 +561,7 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
 
                     Self::SingleWidth {
-                        op: PrimType1::Wire,
+                        op: SingleWidthType::Wire,
                         width: width.try_into().unwrap(),
                     }
                 }
@@ -442,12 +571,12 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_eq" => PrimType1::Eq,
-                            "std_neq" => PrimType1::Neq,
-                            "std_lt" => PrimType1::Lt,
-                            "std_le" => PrimType1::Le,
-                            "std_gt" => PrimType1::Gt,
-                            _ => PrimType1::Ge,
+                            "std_eq" => SingleWidthType::Eq,
+                            "std_neq" => SingleWidthType::Neq,
+                            "std_lt" => SingleWidthType::Lt,
+                            "std_le" => SingleWidthType::Le,
+                            "std_gt" => SingleWidthType::Gt,
+                            _ => SingleWidthType::Ge,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -459,12 +588,12 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_sge" => PrimType1::SignedGe,
-                            "std_sle" => PrimType1::SignedLe,
-                            "std_sgt" => PrimType1::SignedGt,
-                            "std_slt" => PrimType1::SignedLt,
-                            "std_seq" => PrimType1::SignedEq,
-                            _ => PrimType1::SignedNeq,
+                            "std_sge" => SingleWidthType::SignedGe,
+                            "std_sle" => SingleWidthType::SignedLe,
+                            "std_sgt" => SingleWidthType::SignedGt,
+                            "std_slt" => SingleWidthType::SignedLt,
+                            "std_seq" => SingleWidthType::SignedEq,
+                            _ => SingleWidthType::SignedNeq,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -478,11 +607,11 @@ impl CellPrototype {
 
                     Self::FixedPoint {
                         op: if n == "std_fp_gt" {
-                            FPType::Gt
+                            FXType::Gt
                         } else if n == "std_fp_sgt" {
-                            FPType::SignedGt
+                            FXType::SignedGt
                         } else {
-                            FPType::SignedLt
+                            FXType::SignedLt
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -496,9 +625,10 @@ impl CellPrototype {
                         out_width: "OUT_WIDTH"
                     ];
 
-                    Self::Slice {
-                        in_width: in_width.try_into().unwrap(),
-                        out_width: out_width.try_into().unwrap(),
+                    Self::DoubleWidth {
+                        op: DoubleWidthType::Slice,
+                        width1: in_width.try_into().unwrap(),
+                        width2: out_width.try_into().unwrap(),
                     }
                 }
                 "std_pad" => {
@@ -507,9 +637,10 @@ impl CellPrototype {
                         out_width: "OUT_WIDTH"
                     ];
 
-                    Self::Pad {
-                        in_width: in_width.try_into().unwrap(),
-                        out_width: out_width.try_into().unwrap(),
+                    Self::DoubleWidth {
+                        op: DoubleWidthType::Pad,
+                        width1: in_width.try_into().unwrap(),
+                        width2: out_width.try_into().unwrap(),
                     }
                 }
                 "std_cat" => {
@@ -518,10 +649,11 @@ impl CellPrototype {
                         right_width: "RIGHT_WIDTH",
                         out_width: "OUT_WIDTH"
                     ];
-                    Self::Cat {
-                        left: left_width.try_into().unwrap(),
-                        right: right_width.try_into().unwrap(),
-                        out: out_width.try_into().unwrap(),
+                    Self::TripleWidth {
+                        op: TripleWidthType::Cat,
+                        width1: left_width.try_into().unwrap(),
+                        width2: right_width.try_into().unwrap(),
+                        width3: out_width.try_into().unwrap(),
                     }
                 }
                 n @ ("comb_mem_d1" | "seq_mem_d1") => {
@@ -643,14 +775,36 @@ impl CellPrototype {
                     get_params![params; width: "WIDTH"];
                     Self::SingleWidth {
                         op: match n {
-                            "std_unsyn_mult" => PrimType1::UnsynMult,
-                            "std_unsyn_div" => PrimType1::UnsynDiv,
-                            "std_unsyn_smult" => PrimType1::UnsynSMult,
-                            "std_unsyn_sdiv" => PrimType1::UnsynSDiv,
-                            "std_unsyn_mod" => PrimType1::UnsynMod,
-                            _ => PrimType1::UnsynSMod,
+                            "std_unsyn_mult" => SingleWidthType::UnsynMult,
+                            "std_unsyn_div" => SingleWidthType::UnsynDiv,
+                            "std_unsyn_smult" => SingleWidthType::UnsynSMult,
+                            "std_unsyn_sdiv" => SingleWidthType::UnsynSDiv,
+                            "std_unsyn_mod" => SingleWidthType::UnsynMod,
+                            _ => SingleWidthType::UnsynSMod,
                         },
                         width: width.try_into().unwrap(),
+                    }
+                }
+
+                "undef" => {
+                    get_params![params; width: "WIDTH"];
+                    Self::SingleWidth {
+                        op: SingleWidthType::Undef,
+                        width: width.try_into().unwrap(),
+                    }
+                }
+
+                "std_bit_slice" => {
+                    get_params![params;
+                        start_idx: "START_IDX",
+                        end_idx: "END_IDX",
+                        out_width: "OUT_WIDTH"
+                    ];
+                    Self::TripleWidth {
+                        op: TripleWidthType::BitSlice,
+                        width1: start_idx.try_into().unwrap(),
+                        width2: end_idx.try_into().unwrap(),
+                        width3: out_width.try_into().unwrap(),
                     }
                 }
 
@@ -670,5 +824,19 @@ impl CellPrototype {
     #[must_use]
     pub fn is_component(&self) -> bool {
         matches!(self, Self::Component(..))
+    }
+
+    /// Returns `true` if the cell prototype is a [`Constant`] constructed from
+    /// a literal.
+    ///
+    /// [`Constant`]: CellPrototype::Constant
+    pub fn is_literal_constant(&self) -> bool {
+        matches!(
+            self,
+            Self::Constant {
+                c_type: ConstantType::Literal,
+                ..
+            }
+        )
     }
 }

@@ -17,6 +17,10 @@ flags = -p none
 rule calyx-with-flags
   command = $calyx-exe -l $calyx-base $flags $args $in > $out
 
+yxi = $calyx-base/target/debug/yxi
+rule yxi
+  command = $yxi -l $calyx-base $in > $out
+
 rule ref-to-external
   command = sed 's/ref /@external /g' $in > $out
 rule external-to-ref

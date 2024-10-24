@@ -2,15 +2,18 @@
 use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileInvoke, CompileRepeat, CompileStatic, CompileSync,
-    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
-    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
-    DiscoverExternal, ExternalToRef, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Metadata,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
-    SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
-    StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
-    UnrollBounded, WellFormed, WireInliner, WrapMain,
+    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
+    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
+    DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
+    InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation,
+    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
+    StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion,
+    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
+    WireInliner, WrapMain,
+};
+use crate::passes_experimental::{
+    CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
+    HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -76,6 +79,8 @@ impl PassManager {
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
 
+        pm.register_pass::<ProfilerInstrumentation>()?;
+
         //add metadata
         pm.register_pass::<Metadata>()?;
 
@@ -111,8 +116,8 @@ impl PassManager {
                 StaticInliner,
                 MergeAssign, // Static inliner generates lots of assigns
                 DeadGroupRemoval, // Static inliner generates lots of dead groups
-                SimplifyStaticGuards,
                 AddGuard,
+                SimplifyStaticGuards,
                 StaticFSMOpts,
                 CompileStatic,
                 DeadGroupRemoval,

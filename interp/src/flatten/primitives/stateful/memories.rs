@@ -3,31 +3,51 @@ use itertools::Itertools;
 use crate::{
     errors::InterpreterError,
     flatten::{
-        flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
+        flat_ir::{
+            base::GlobalCellIdx,
+            prelude::{AssignedValue, GlobalPortIdx, PortValue},
+        },
         primitives::{
             declare_ports, make_getters, ports,
-            prim_trait::{UpdateResult, UpdateStatus},
+            prim_trait::{RaceDetectionPrimitive, UpdateResult, UpdateStatus},
+            utils::infer_thread_id,
             Primitive,
         },
-        structures::{environment::PortMap, index_trait::IndexRef},
+        structures::{
+            environment::{
+                clock::{new_clock, ClockMap, ValueWithClock},
+                PortMap,
+            },
+            index_trait::IndexRef,
+            thread::{ThreadIdx, ThreadMap},
+        },
     },
-    serialization::{Entry, Serializable, Shape},
-    values::Value,
+    serialization::{Entry, PrintCode, Serializable, Shape},
 };
+
+use baa::{BitVecOps, BitVecValue, WidthInt};
 
 pub struct StdReg {
     base_port: GlobalPortIdx,
-    internal_state: Value,
+    internal_state: ValueWithClock,
+    global_idx: GlobalCellIdx,
     done_is_high: bool,
 }
 
 impl StdReg {
     declare_ports![IN: 0, WRITE_EN: 1, _CLK: 2, RESET: 3, OUT: 4, DONE: 5];
 
-    pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
-        let internal_state = Value::zeroes(width);
+    pub fn new(
+        base_port: GlobalPortIdx,
+        global_idx: GlobalCellIdx,
+        width: u32,
+        clocks: &mut Option<&mut ClockMap>,
+    ) -> Self {
+        let internal_state =
+            ValueWithClock::zero(width, new_clock(clocks), new_clock(clocks));
         Self {
             base_port,
+            global_idx,
             internal_state,
             done_is_high: false,
         }
@@ -45,13 +65,16 @@ impl Primitive for StdReg {
         ];
 
         let done_port = if port_map[reset].as_bool().unwrap_or_default() {
-            self.internal_state = Value::zeroes(self.internal_state.width());
-            port_map
-                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))?
+            self.internal_state.value =
+                BitVecValue::zero(self.internal_state.value.width());
+            port_map.insert_val(
+                done,
+                AssignedValue::cell_value(BitVecValue::fals()),
+            )?
         } else if port_map[write_en].as_bool().unwrap_or_default() {
-            self.internal_state = port_map[input]
+            self.internal_state.value = port_map[input]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite(String::new()))?
+                .ok_or(InterpreterError::UndefinedWrite(self.global_idx))?
                 .val()
                 .clone();
 
@@ -59,21 +82,21 @@ impl Primitive for StdReg {
 
             port_map.insert_val(
                 done,
-                AssignedValue::cell_value(Value::bit_high()),
-            )? | port_map.insert_val(
-                out_idx,
-                AssignedValue::cell_value(self.internal_state.clone()),
+                AssignedValue::cell_value(BitVecValue::tru()),
             )?
         } else {
             self.done_is_high = false;
-            port_map
-                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))?
+            port_map.insert_val(
+                done,
+                AssignedValue::cell_value(BitVecValue::fals()),
+            )?
         };
 
         Ok(done_port
             | port_map.insert_val(
                 out_idx,
-                AssignedValue::cell_value(self.internal_state.clone()),
+                AssignedValue::cell_value(self.internal_state.value.clone())
+                    .with_clocks(self.internal_state.clocks),
             )?)
     }
 
@@ -81,28 +104,27 @@ impl Primitive for StdReg {
         ports![&self.base_port;
             done: Self::DONE,
             out_idx: Self::OUT];
+
         let out_signal = port_map.insert_val(
             out_idx,
-            AssignedValue::cell_value(self.internal_state.clone()),
+            AssignedValue::cell_value(self.internal_state.value.clone())
+                .with_clocks(self.internal_state.clocks),
         )?;
         let done_signal = port_map.insert_val(
             done,
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )?;
 
         Ok(out_signal | done_signal)
     }
 
-    fn serialize(
-        &self,
-        code: Option<crate::debugger::PrintCode>,
-    ) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         Serializable::Val(Entry::from_val_code(
-            &self.internal_state,
+            &self.internal_state.value,
             &code.unwrap_or_default(),
         ))
     }
@@ -112,7 +134,45 @@ impl Primitive for StdReg {
     }
 
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
-        Some(self.internal_state.clone().to_bytes())
+        Some(self.internal_state.value.clone().to_bytes_le())
+    }
+}
+
+impl RaceDetectionPrimitive for StdReg {
+    fn as_primitive(&self) -> &dyn Primitive {
+        self
+    }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        clock_map: &mut ClockMap,
+        thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        ports![&self.base_port;
+            input: Self::IN,
+            write_en: Self::WRITE_EN,
+            reset: Self::RESET
+        ];
+
+        // If we are writing to the reg, check that the write is not concurrent
+        // with another write or a read. We can't easily check if the reg is
+        // being read.
+        if port_map[write_en].as_bool().unwrap_or_default() {
+            let thread = infer_thread_id(
+                [&port_map[input], &port_map[write_en], &port_map[reset]]
+                    .into_iter(),
+            )
+            .expect("Could not infer thread id for reg");
+
+            let current_clock_idx = thread_map.unwrap_clock_id(thread);
+            self.internal_state
+                .clocks
+                .check_write(current_clock_idx, clock_map)
+                .map_err(|e| e.add_cell_info(self.global_idx))?;
+        }
+
+        self.exec_cycle(port_map)
     }
 }
 
@@ -162,25 +222,25 @@ impl<const SEQ: bool> MemDx<SEQ> {
         };
 
         match self.shape {
-            Shape::D1(_d0_size) => port_map[addr0].as_usize(),
+            Shape::D1(_d0_size) => port_map[addr0].as_u64().map(|v| v as usize),
             Shape::D2(_d0_size, d1_size) => {
-                let a0 = port_map[addr0].as_usize()?;
-                let a1 = port_map[addr1].as_usize()?;
+                let a0 = port_map[addr0].as_u64()? as usize;
+                let a1 = port_map[addr1].as_u64()? as usize;
 
                 Some(a0 * d1_size + a1)
             }
             Shape::D3(_d0_size, d1_size, d2_size) => {
-                let a0 = port_map[addr0].as_usize()?;
-                let a1 = port_map[addr1].as_usize()?;
-                let a2 = port_map[addr2].as_usize()?;
+                let a0 = port_map[addr0].as_u64()? as usize;
+                let a1 = port_map[addr1].as_u64()? as usize;
+                let a2 = port_map[addr2].as_u64()? as usize;
 
                 Some(a0 * (d1_size * d2_size) + a1 * d2_size + a2)
             }
             Shape::D4(_d0_size, d1_size, d2_size, d3_size) => {
-                let a0 = port_map[addr0].as_usize()?;
-                let a1 = port_map[addr1].as_usize()?;
-                let a2 = port_map[addr2].as_usize()?;
-                let a3 = port_map[addr3].as_usize()?;
+                let a0 = port_map[addr0].as_u64()? as usize;
+                let a1 = port_map[addr1].as_u64()? as usize;
+                let a2 = port_map[addr2].as_u64()? as usize;
+                let a3 = port_map[addr3].as_u64()? as usize;
 
                 Some(
                     a0 * (d1_size * d2_size * d3_size)
@@ -213,17 +273,51 @@ impl<const SEQ: bool> MemDx<SEQ> {
     pub fn get_dimensions(&self) -> Shape {
         self.shape.clone()
     }
+
+    pub fn iter_addr_ports(
+        &self,
+        base_port: GlobalPortIdx,
+    ) -> Box<dyn Iterator<Item = GlobalPortIdx>> {
+        let (addr0, addr1, addr2, addr3) = if SEQ {
+            ports![&base_port;
+                addr0: Self::SEQ_ADDR0,
+                addr1: Self::SEQ_ADDR1,
+                addr2: Self::SEQ_ADDR2,
+                addr3: Self::SEQ_ADDR3
+            ];
+            (addr0, addr1, addr2, addr3)
+        } else {
+            ports![&base_port;
+                addr0: Self::COMB_ADDR0,
+                addr1: Self::COMB_ADDR1,
+                addr2: Self::COMB_ADDR2,
+                addr3: Self::COMB_ADDR3
+            ];
+
+            (addr0, addr1, addr2, addr3)
+        };
+
+        match self.shape {
+            Shape::D1(_) => Box::new(std::iter::once(addr0)),
+            Shape::D2(_, _) => Box::new([addr0, addr1].into_iter()),
+            Shape::D3(_, _, _) => Box::new([addr0, addr1, addr2].into_iter()),
+            Shape::D4(_, _, _, _) => {
+                Box::new([addr0, addr1, addr2, addr3].into_iter())
+            }
+        }
+    }
 }
 
 pub struct CombMem {
     base_port: GlobalPortIdx,
-    internal_state: Vec<Value>,
+    internal_state: Vec<ValueWithClock>,
     // TODO griffin: This bool is unused in the actual struct and should either
     // be removed or
     _allow_invalid_access: bool,
     _width: u32,
     addresser: MemDx<false>,
     done_is_high: bool,
+    global_idx: GlobalCellIdx,
 }
 impl CombMem {
     declare_ports![
@@ -245,15 +339,24 @@ impl CombMem {
 
     pub fn new<T>(
         base: GlobalPortIdx,
+        global_idx: GlobalCellIdx,
         width: u32,
         allow_invalid: bool,
         size: T,
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self
     where
         T: Into<Shape>,
     {
         let shape = size.into();
-        let internal_state = vec![Value::zeroes(width); shape.size()];
+        let mut internal_state = Vec::with_capacity(shape.size());
+        for _ in 0..shape.size() {
+            internal_state.push(ValueWithClock::zero(
+                width,
+                new_clock(clocks),
+                new_clock(clocks),
+            ));
+        }
 
         Self {
             base_port: base,
@@ -262,15 +365,18 @@ impl CombMem {
             _width: width,
             addresser: MemDx::new(shape),
             done_is_high: false,
+            global_idx,
         }
     }
 
     pub fn new_with_init<T>(
         base_port: GlobalPortIdx,
-        width: u32,
+        global_idx: GlobalCellIdx,
+        width: WidthInt,
         allow_invalid: bool,
         size: T,
         data: &[u8],
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self
     where
         T: Into<Shape>,
@@ -280,7 +386,10 @@ impl CombMem {
 
         let internal_state = data
             .chunks_exact(byte_count as usize)
-            .map(|x| Value::from_bytes_le(x, width as usize))
+            .map(|x| BitVecValue::from_bytes_le(x, width))
+            .map(|x| {
+                ValueWithClock::new(x, new_clock(clocks), new_clock(clocks))
+            })
             .collect_vec();
 
         assert_eq!(internal_state.len(), size.size());
@@ -296,14 +405,24 @@ impl CombMem {
             _width: width,
             addresser: MemDx::new(size),
             done_is_high: false,
+            global_idx,
         }
     }
 
     pub fn dump_data(&self) -> Vec<u8> {
         self.internal_state
             .iter()
-            .flat_map(|x| x.to_bytes())
+            .flat_map(|x| x.value.to_bytes_le())
             .collect()
+    }
+
+    fn infer_thread(&self, port_map: &mut PortMap) -> Option<ThreadIdx> {
+        let ports = self
+            .addresser
+            .iter_addr_ports(self.base_port)
+            .chain([self.write_en(), self.write_data()])
+            .map(|x| &port_map[x]);
+        infer_thread_id(ports)
     }
 }
 
@@ -314,11 +433,14 @@ impl Primitive for CombMem {
 
         let read =
             if addr.is_some() && addr.unwrap() < self.internal_state.len() {
+                let addr = addr.unwrap();
+
                 port_map.insert_val(
                     read_data,
                     AssignedValue::cell_value(
-                        self.internal_state[addr.unwrap()].clone(),
-                    ),
+                        self.internal_state[addr].value.clone(),
+                    )
+                    .with_clocks(self.internal_state[addr].clocks),
                 )?
             }
             // either the address is undefined or it is outside the range of valid addresses
@@ -331,9 +453,9 @@ impl Primitive for CombMem {
         let done_signal = port_map.insert_val(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )?;
         Ok(done_signal | read)
@@ -349,12 +471,12 @@ impl Primitive for CombMem {
 
         let done = if write_en && !reset {
             let addr = addr
-                .ok_or(InterpreterError::UndefinedWriteAddr(String::new()))?;
+                .ok_or(InterpreterError::UndefinedWriteAddr(self.global_idx))?;
 
             let write_data = port_map[self.write_data()]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite(String::new()))?;
-            self.internal_state[addr] = write_data.val().clone();
+                .ok_or(InterpreterError::UndefinedWrite(self.global_idx))?;
+            self.internal_state[addr].value = write_data.val().clone();
             self.done_is_high = true;
             port_map.insert_val(done, AssignedValue::cell_b_high())?
         } else {
@@ -365,7 +487,10 @@ impl Primitive for CombMem {
         if let Some(addr) = addr {
             Ok(port_map.insert_val(
                 read_data,
-                AssignedValue::cell_value(self.internal_state[addr].clone()),
+                AssignedValue::cell_value(
+                    self.internal_state[addr].value.clone(),
+                )
+                .with_clocks(self.internal_state[addr].clocks),
             )? | done)
         } else {
             port_map.write_undef(read_data)?;
@@ -373,16 +498,13 @@ impl Primitive for CombMem {
         }
     }
 
-    fn serialize(
-        &self,
-        code: Option<crate::debugger::PrintCode>,
-    ) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         let code = code.unwrap_or_default();
 
         Serializable::Array(
             self.internal_state
                 .iter()
-                .map(|x| Entry::from_val_code(x, &code))
+                .map(|x| Entry::from_val_code(&x.value, &code))
                 .collect(),
             self.addresser.get_dimensions(),
         )
@@ -397,13 +519,72 @@ impl Primitive for CombMem {
     }
 }
 
+impl RaceDetectionPrimitive for CombMem {
+    fn as_primitive(&self) -> &dyn Primitive {
+        self
+    }
+
+    // fn exec_comb_checked(
+    //     &self,
+    //     port_map: &mut PortMap,
+    //     clock_map: &mut ClockMap,
+    //     thread_map: &ThreadMap,
+    // ) -> UpdateResult {
+    //     let thread = self.infer_thread(port_map);
+
+    //     if let Some(addr) =
+    //         self.addresser.calculate_addr(port_map, self.base_port)
+    //     {
+    //         if addr < self.internal_state.len() {
+    //             let thread =
+    //                 thread.expect("Could not infer thread id for comb mem");
+    //             let reading_clock = thread_map.unwrap_clock_id(thread);
+
+    //             let val = &self.internal_state[addr];
+    //             val.check_read(reading_clock, clock_map)?;
+    //         }
+    //     }
+
+    //     self.exec_comb(port_map)
+    // }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        clock_map: &mut ClockMap,
+        thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        let thread = self.infer_thread(port_map);
+        if let Some(addr) =
+            self.addresser.calculate_addr(port_map, self.base_port)
+        {
+            if addr < self.internal_state.len() {
+                let thread =
+                    thread.expect("Could not infer thread id for seq mem");
+                let thread_clock = thread_map.unwrap_clock_id(thread);
+
+                let val = &self.internal_state[addr];
+
+                if port_map[self.write_en()].as_bool().unwrap_or_default() {
+                    val.clocks
+                        .check_write(thread_clock, clock_map)
+                        .map_err(|e| e.add_cell_info(self.global_idx))?;
+                }
+            }
+        }
+
+        self.exec_cycle(port_map)
+    }
+}
+
 pub struct SeqMem {
     base_port: GlobalPortIdx,
-    internal_state: Vec<Value>,
+    internal_state: Vec<ValueWithClock>,
+    global_idx: GlobalCellIdx,
     // TODO griffin: This bool is unused in the actual struct and should either
     // be removed or
     _allow_invalid_access: bool,
-    _width: u32,
+    width: u32,
     addresser: MemDx<true>,
     done_is_high: bool,
     read_out: PortValue,
@@ -412,30 +593,42 @@ pub struct SeqMem {
 impl SeqMem {
     pub fn new<T: Into<Shape>>(
         base: GlobalPortIdx,
+        global_idx: GlobalCellIdx,
         width: u32,
         allow_invalid: bool,
         size: T,
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self {
         let shape = size.into();
-        let internal_state = vec![Value::zeroes(width); shape.size()];
+        let mut internal_state = Vec::with_capacity(shape.size());
+        for _ in 0..shape.size() {
+            internal_state.push(ValueWithClock::zero(
+                width,
+                new_clock(clocks),
+                new_clock(clocks),
+            ));
+        }
 
         Self {
             base_port: base,
             internal_state,
             _allow_invalid_access: allow_invalid,
-            _width: width,
+            width,
             addresser: MemDx::new(shape),
             done_is_high: false,
             read_out: PortValue::new_undef(),
+            global_idx,
         }
     }
 
     pub fn new_with_init<T>(
         base_port: GlobalPortIdx,
-        width: u32,
+        global_idx: GlobalCellIdx,
+        width: WidthInt,
         allow_invalid: bool,
         size: T,
         data: &[u8],
+        clocks: &mut Option<&mut ClockMap>,
     ) -> Self
     where
         T: Into<Shape>,
@@ -445,7 +638,10 @@ impl SeqMem {
 
         let internal_state = data
             .chunks_exact(byte_count as usize)
-            .map(|x| Value::from_bytes_le(x, width as usize))
+            .map(|x| BitVecValue::from_bytes_le(x, width))
+            .map(|x| {
+                ValueWithClock::new(x, new_clock(clocks), new_clock(clocks))
+            })
             .collect_vec();
 
         assert_eq!(internal_state.len(), size.size());
@@ -458,10 +654,11 @@ impl SeqMem {
             base_port,
             internal_state,
             _allow_invalid_access: allow_invalid,
-            _width: width,
+            width,
             addresser: MemDx::new(size),
             done_is_high: false,
             read_out: PortValue::new_undef(),
+            global_idx,
         }
     }
 
@@ -499,8 +696,21 @@ impl SeqMem {
     pub fn dump_data(&self) -> Vec<u8> {
         self.internal_state
             .iter()
-            .flat_map(|x| x.to_bytes())
+            .flat_map(|x| x.value.to_bytes_le())
             .collect()
+    }
+
+    fn infer_thread(&self, port_map: &mut PortMap) -> Option<ThreadIdx> {
+        let ports = self
+            .addresser
+            .iter_addr_ports(self.base_port)
+            .chain([
+                self.content_enable(),
+                self.write_data(),
+                self.write_enable(),
+            ])
+            .map(|x| &port_map[x]);
+        infer_thread_id(ports)
     }
 }
 
@@ -509,9 +719,9 @@ impl Primitive for SeqMem {
         let done_signal = port_map.insert_val(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         )?;
 
@@ -540,22 +750,23 @@ impl Primitive for SeqMem {
 
         if reset {
             self.done_is_high = false;
-            self.read_out = PortValue::new_cell(Value::zeroes(self._width));
+            self.read_out = PortValue::new_cell(BitVecValue::zero(self.width));
         } else if content_en && write_en {
             self.done_is_high = true;
             self.read_out = PortValue::new_undef();
             let addr_actual = addr
-                .ok_or(InterpreterError::UndefinedWriteAddr(String::new()))?;
+                .ok_or(InterpreterError::UndefinedWriteAddr(self.global_idx))?;
             let write_data = port_map[self.write_data()]
                 .as_option()
-                .ok_or(InterpreterError::UndefinedWrite(String::new()))?;
-            self.internal_state[addr_actual] = write_data.val().clone();
+                .ok_or(InterpreterError::UndefinedWrite(self.global_idx))?;
+            self.internal_state[addr_actual].value = write_data.val().clone();
         } else if content_en {
             self.done_is_high = true;
-            let addr_actual =
-                addr.ok_or(InterpreterError::UndefinedReadAddr(String::new()))?;
-            self.read_out =
-                PortValue::new_cell(self.internal_state[addr_actual].clone());
+            let addr_actual = addr
+                .ok_or(InterpreterError::UndefinedReadAddr(self.global_idx))?;
+            self.read_out = PortValue::new_cell(
+                self.internal_state[addr_actual].value.clone(),
+            );
         } else {
             self.done_is_high = false;
         }
@@ -563,9 +774,9 @@ impl Primitive for SeqMem {
         let done_changed = port_map.insert_val(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
-                Value::bit_high()
+                BitVecValue::tru()
             } else {
-                Value::bit_low()
+                BitVecValue::fals()
             }),
         );
         Ok(done_changed?
@@ -581,13 +792,13 @@ impl Primitive for SeqMem {
         true
     }
 
-    fn serialize(&self, code: Option<crate::utils::PrintCode>) -> Serializable {
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
         let code = code.unwrap_or_default();
 
         Serializable::Array(
             self.internal_state
                 .iter()
-                .map(|x| Entry::from_val_code(x, &code))
+                .map(|x| Entry::from_val_code(&x.value, &code))
                 .collect(),
             self.addresser.get_dimensions(),
         )
@@ -601,6 +812,72 @@ impl Primitive for SeqMem {
         Some(self.dump_data())
     }
 }
+
+impl RaceDetectionPrimitive for SeqMem {
+    fn as_primitive(&self) -> &dyn Primitive {
+        self
+    }
+
+    fn exec_comb_checked(
+        &self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_comb(port_map)
+    }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        clock_map: &mut ClockMap,
+        thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        let thread = self.infer_thread(port_map);
+        if let Some(addr) =
+            self.addresser.calculate_addr(port_map, self.base_port)
+        {
+            if addr < self.internal_state.len() {
+                let thread_clock =
+                    thread.map(|thread| thread_map.unwrap_clock_id(thread));
+
+                let val = &self.internal_state[addr];
+
+                if port_map[self.write_enable()].as_bool().unwrap_or_default()
+                    && port_map[self.content_enable()]
+                        .as_bool()
+                        .unwrap_or_default()
+                {
+                    val.clocks
+                        .check_write(
+                            thread_clock.expect(
+                                "unable to determine thread for seq mem",
+                            ),
+                            clock_map,
+                        )
+                        .map_err(|e| e.add_cell_info(self.global_idx))?;
+                } else if port_map[self.content_enable()]
+                    .as_bool()
+                    .unwrap_or_default()
+                {
+                    val.clocks
+                        .check_read(
+                            (
+                                thread.expect(
+                                    "unable to determine thread for seq mem",
+                                ),
+                                thread_clock.unwrap(),
+                            ),
+                            clock_map,
+                        )
+                        .map_err(|e| e.add_cell_info(self.global_idx))?;
+                }
+            }
+        }
+        self.exec_cycle(port_map)
+    }
+}
+
 // type aliases, this is kinda stupid and should probably be changed. or maybe
 // it's fine, I really don't know.
 pub type CombMemD1 = CombMem;
