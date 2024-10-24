@@ -1,31 +1,32 @@
 use crate::ir::IntermediateRepresentation;
-use num_bigint::{BigUint, BigInt};
+use num_bigint::{BigInt, BigUint};
 use num_traits::One;
 
 
-// let byte: u8 = 171; // Decimal
-// println!("u8 value in decimal: {}", byte); // Prints 171
-// println!("u8 value in binary: {:08b}", byte); // Prints 10101011
-// println!("u8 value in hex: {:X}", byte); // Prints AB
+pub fn binary_to_u8_vec(binary_string: &str, is_negative: bool) -> Result<Vec<u8>, String> {
+    // Determine the necessary length to pad to the nearest multiple of 8 bits
+    let total_length = ((binary_string.len() + 7) / 8) * 8;
 
-pub fn binary_to_u8_vec(binary: &str) -> Result<Vec<u8>, String> {
-    let mut padded_binary = binary.to_string();
+    // Determine the padding character based on the sign
+    let padding_char = if is_negative { '1' } else { '0' };
 
-    // If the binary string length is not a multiple of 8, pad with the most significant bit
-    let padding = 8 - (padded_binary.len() % 8);
-    if padding != 8 {
-        let msb = &padded_binary[0..1]; // Get the most significant bit
-        padded_binary = msb.repeat(padding) + &padded_binary; // Pad with the MSB
-    }
+    // Pad the binary string
+    let current_len = binary_string.len();
+    let padded_binary_string = if current_len >= total_length {
+        binary_string.to_string()
+    } else {
+        let padding = std::iter::repeat(padding_char)
+            .take(total_length - current_len)
+            .collect::<String>();
+        format!("{}{}", padding, binary_string)
+    };
 
+    // Convert the padded binary string to a u8 vector
     let mut vec = Vec::new();
-
-    for i in (0..padded_binary.len()).step_by(8) {
-        let byte_str = &padded_binary[i..i + 8];
-        match u8::from_str_radix(byte_str, 2) {
-            Ok(byte) => vec.push(byte),
-            Err(_) => return Err(String::from("Invalid binary string")),
-        }
+    for chunk in padded_binary_string.as_bytes().chunks(8) {
+        let byte_str = std::str::from_utf8(chunk).map_err(|_| "Invalid UTF-8 in binary string.")?;
+        let byte = u8::from_str_radix(byte_str, 2).map_err(|_| "Invalid binary number.")?;
+        vec.push(byte);
     }
 
     Ok(vec)
@@ -54,21 +55,34 @@ pub fn hex_to_u8_vec(hex: &str) -> Result<Vec<u8>, String> {
     Ok(vec)
 }
 
-
-
-pub fn u8_to_ir_fixed(vector: Result<Vec<u8>, String>, exponent: i64, twos_comp: bool) -> IntermediateRepresentation {
+/// Converts a fixed-point number represented as a u8 vector into an IntermediateRepresentation
+///
+///  # Arguments
+///
+/// * `vector` - A vector of u8 values representing the fixed-point number.
+/// * `exponent` - The value of the exponent.
+/// * `twos_comp` - Boolean  indicating whether the fixed-point number uses two's complement for the sign bit.
+///
+/// # Returns
+///
+/// An intermediate representation
+pub fn u8_to_ir_fixed(
+    vector: Result<Vec<u8>, String>,
+    exponent: i64,
+    twos_comp: bool,
+) -> IntermediateRepresentation {
     match vector {
         Ok(vec) => {
             // Check if the MSB of the first byte is 1
-            let mut is_negative = false; 
+            let mut is_negative = false;
 
-            if twos_comp{
-                is_negative = (vec[0] & 0b10000000) != 0; 
+            if twos_comp {
+                is_negative = (vec[0] & 0b10000000) != 0;
             }
 
             let mantissa = if is_negative {
                 let bigint = BigInt::from_signed_bytes_be(&vec);
-                bigint.magnitude().clone() // absolute value 
+                bigint.magnitude().clone() // absolute value
             } else {
                 BigUint::from_bytes_be(&vec)
             };
@@ -86,38 +100,55 @@ pub fn u8_to_ir_fixed(vector: Result<Vec<u8>, String>, exponent: i64, twos_comp:
     }
 }
 
+/// Converts a floating-point number represented as a u8 vector into an IntermediateRepresentation
+///
+///  # Arguments
+///
+/// * `vector` - A vector of u8 values representing the floating-point number.
+/// * `exponent_len` - The number of bits in the exponent.
+/// * `mantissa_len` - The number of bits in the mantissa.
+/// * `twos_comp` - Boolean  indicating whether the floating-point number uses two's complement for the sign bit.
+///
+/// # Returns
+///
+/// An intermediate representation
 
-
-pub fn u8_to_ir_float(vector: Result<Vec<u8>, String>, exponent_len: i64, mantissa_len: i64, twos_comp: bool) -> IntermediateRepresentation {
+pub fn u8_to_ir_float(
+    vector: Result<Vec<u8>, String>,
+    exponent_len: i64,
+    mantissa_len: i64,
+    twos_comp: bool,
+) -> IntermediateRepresentation {
     match vector {
         Ok(vec) => {
-
-            let mut is_negative = false; 
+            let mut is_negative = false;
 
             if twos_comp {
                 // Check if the MSB of the first byte is 1
-                is_negative = (vec[0] & 0b10000000) != 0; 
+                is_negative = (vec[0] & 0b10000000) != 0;
             }
-            
+
+            // Extract the mantissa
             let mut mantissa = BigUint::from(0u8);
             let bit_offset = 1 + exponent_len; // Start after the sign (1 bit) and exponent
 
             for i in 0..mantissa_len {
                 let byte_index = ((bit_offset + i) / 8) as usize;
                 let bit_index = ((bit_offset + i) % 8) as usize;
-                let bit = (vec[byte_index] >> (7 - bit_index)) & 1;  // Get the i-th bit
+                let bit = (vec[byte_index] >> (7 - bit_index)) & 1; // Get the i-th bit
 
                 // Shift the mantissa left and add the new bit
-                mantissa = mantissa << 1;  // Shift left by 1
-                if bit == 1 { // If bit is 1, add 1 to the mantissa
-                    mantissa = mantissa | BigUint::one();  
+                mantissa <<= 1; // Shift left by 1
+                if bit == 1 {
+                    // If bit is 1, add 1 to the mantissa
+                    mantissa |= BigUint::one()
                 }
             }
 
             // Extract the exponent
             let mut exponent = 0i64;
             for i in 0..exponent_len {
-                let byte_index = ((1 + i) / 8) as usize;  // Starting just after the sign bit
+                let byte_index = ((1 + i) / 8) as usize; // Starting just after the sign bit
                 let bit_index = ((1 + i) % 8) as usize;
                 let bit = (vec[byte_index] >> (7 - bit_index)) & 1;
 
@@ -126,9 +157,8 @@ pub fn u8_to_ir_float(vector: Result<Vec<u8>, String>, exponent_len: i64, mantis
             }
 
             // Apply the bias to the exponent
-            let bias = (1 << (exponent_len - 1)) - 1;  // Bias: 2^(exponent_len-1) - 1
-            exponent = exponent - bias;  // Subtract the bias to get the actual exponent value
-
+            let bias = (1 << (exponent_len - 1)) - 1; // Bias: 2^(exponent_len-1) - 1
+            exponent -= bias; // Subtract the bias to get the actual exponent value
 
             IntermediateRepresentation {
                 sign: is_negative,
@@ -142,3 +172,31 @@ pub fn u8_to_ir_float(vector: Result<Vec<u8>, String>, exponent_len: i64, mantis
         }
     }
 }
+
+
+/// Need the fractional legth
+pub fn float_to_fixed_ir(ir: &IntermediateRepresentation, fractional_length: usize) -> IntermediateRepresentation {
+    // Step 1: Multiply mantissa by 2^F (fractional length)
+    let mut scaled_mantissa = ir.mantissa.clone() << fractional_length;
+
+    // Step 2: Round to the nearest integer
+    let rounding_offset = BigUint::one() << (fractional_length - 1);
+    if ir.sign {
+        scaled_mantissa = scaled_mantissa + rounding_offset;
+    } else {
+        scaled_mantissa = scaled_mantissa - rounding_offset;
+    }
+
+    // Step 3: Create the new IR for fixed-point
+    IntermediateRepresentation {
+        sign: ir.sign,                     // Keep the sign the same
+        mantissa: scaled_mantissa,         // The newly calculated mantissa
+        exponent: 0,                       // Fixed-point has no exponent, so set to 0
+    }
+}
+
+pub fn fixed_to_float_ir(){
+
+}
+
+
