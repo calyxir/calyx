@@ -34,8 +34,8 @@ fn profiling_setup(e) {
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.py");
     e.rule("create-visuals", "python3 $create-visuals-script $in $cells timeline.json fsm-timeline.json $out fsm-flame.folded frequency.folded components.folded fsm-components.folded");
 
-    e.rsrc("flamegraph.pl"); // flame graph script
-    e.rule("produce-flame-graph", "./flamegraph.pl $in > $out");
+    e.config_var("flamegraph-script", "flamegraph.script");
+    e.rule("produce-flame-graph", "$flamegraph-script $in > $out");
 
 }
 
@@ -67,6 +67,6 @@ op(
         let flamegraph_folded = "flamegraph.folded";
         e.build_cmd([elems_profiled_json], "parse-vcd", [input], []);
         e.build_cmd([flamegraph_folded], "create-visuals", [elems_profiled_json], []);
-        e.build_cmd([output], "produce-flame-graph", [flamegraph_folded], ["flamegraph.pl"]);
+        e.build_cmd([output], "produce-flame-graph", [flamegraph_folded], []);
     }
 );
