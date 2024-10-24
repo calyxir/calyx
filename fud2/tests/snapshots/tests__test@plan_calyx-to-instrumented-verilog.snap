@@ -36,9 +36,6 @@ rule parse-vcd
 create-visuals-script = $calyx-base/tools/profiler/create-visuals.py
 rule create-visuals
   command = python3 $create-visuals-script $in $cells timeline.json fsm-timeline.json $out fsm-flame.folded frequency.folded components.folded fsm-components.folded
-build flamegraph.pl: get-rsrc
-rule produce-flame-graph
-  command = ./flamegraph.pl $in > $out
 
 build $cells: component-cells /input.ext
 build $groups: component-groups /input.ext
