@@ -982,6 +982,8 @@ name = "data-conversion"
 version = "0.7.1"
 dependencies = [
  "argh",
+ "num-bigint",
+ "num-traits",
 ]
 
 [[package]]
