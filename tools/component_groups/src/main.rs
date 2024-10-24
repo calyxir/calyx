@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::{collections::HashSet, io};
 
-/// Tool to obtain list of names and original component names for all non-primitive cells in each component.
+/// Tool to obtain the list of groups within each component.
 
 #[derive(FromArgs)]
 /// Path for library and path for file to read from
@@ -55,39 +55,30 @@ struct ComponentInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub component: Id,
     pub is_main_component: bool,
-    pub cell_info: Vec<ComponentCellInfo>,
+    pub groups: Vec<Id>, // list of all groups in the component
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
-struct ComponentCellInfo {
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    pub cell_name: Id,
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    pub component_name: Id,
-}
-
-/// Accumulates a set of components to the cells that they contain
-/// in the program with entrypoint `main_comp`. The contained cells
-/// are denoted with the name of the cell and the name of the component
-/// the cell is associated with.
+/// Accumulates a set of components to the groups that they contain
+/// in the program with entrypoint `main_comp`.
 fn gen_component_info(
     ctx: &ir::Context,
     comp: &ir::Component,
     is_main_comp: bool,
     component_info: &mut HashSet<ComponentInfo>,
 ) {
-    let mut curr_comp_info = ComponentInfo {
+    let curr_comp_info = ComponentInfo {
         component: comp.name,
         is_main_component: is_main_comp,
-        cell_info: Vec::new(),
+        groups: comp
+            .groups
+            .into_iter()
+            .map(|g| g.borrow().name())
+            .collect::<Vec<_>>(),
     };
+    // recurse into any other cells
     for cell in comp.cells.iter() {
         let cell_ref = cell.borrow();
         if let ir::CellType::Component { name } = cell_ref.prototype {
-            curr_comp_info.cell_info.push(ComponentCellInfo {
-                cell_name: cell_ref.name(),
-                component_name: name,
-            });
             let component = ctx
                 .components
                 .iter()

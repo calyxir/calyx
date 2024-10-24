@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+assertion_line: 251
 ---
 [
     (
@@ -26,6 +27,11 @@ source: fud2/tests/tests.rs
         "calyx-to-firrtl",
         "calyx",
         "firrtl",
+    ),
+    (
+        "calyx-to-instrumented-verilog",
+        "calyx",
+        "verilog-instrumented",
     ),
     (
         "calyx-to-verilog",
@@ -88,6 +94,11 @@ source: fud2/tests/tests.rs
         "sim",
     ),
     (
+        "instrumented-trace-to-profiled",
+        "vcd-instrumented",
+        "flamegraph",
+    ),
+    (
         "mrxl-to-calyx",
         "mrxl",
         "calyx",
@@ -108,9 +119,19 @@ source: fud2/tests/tests.rs
         "vcd",
     ),
     (
+        "trace-instrumented",
+        "sim-instrumented",
+        "vcd-instrumented",
+    ),
+    (
         "verilator",
         "verilog",
         "sim",
+    ),
+    (
+        "verilator-instrumented",
+        "verilog-instrumented",
+        "sim-instrumented",
     ),
     (
         "verilator-refmem",
