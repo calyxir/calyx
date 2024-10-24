@@ -2,8 +2,10 @@ use crate::ir::IntermediateRepresentation;
 use num_bigint::{BigInt, BigUint};
 use num_traits::One;
 
-
-pub fn binary_to_u8_vec(binary_string: &str, is_negative: bool) -> Result<Vec<u8>, String> {
+pub fn binary_to_u8_vec(
+    binary_string: &str,
+    is_negative: bool,
+) -> Result<Vec<u8>, String> {
     // Determine the necessary length to pad to the nearest multiple of 8 bits
     let total_length = ((binary_string.len() + 7) / 8) * 8;
 
@@ -24,14 +26,15 @@ pub fn binary_to_u8_vec(binary_string: &str, is_negative: bool) -> Result<Vec<u8
     // Convert the padded binary string to a u8 vector
     let mut vec = Vec::new();
     for chunk in padded_binary_string.as_bytes().chunks(8) {
-        let byte_str = std::str::from_utf8(chunk).map_err(|_| "Invalid UTF-8 in binary string.")?;
-        let byte = u8::from_str_radix(byte_str, 2).map_err(|_| "Invalid binary number.")?;
+        let byte_str = std::str::from_utf8(chunk)
+            .map_err(|_| "Invalid UTF-8 in binary string.")?;
+        let byte = u8::from_str_radix(byte_str, 2)
+            .map_err(|_| "Invalid binary number.")?;
         vec.push(byte);
     }
 
     Ok(vec)
 }
-
 
 pub fn hex_to_u8_vec(hex: &str) -> Result<Vec<u8>, String> {
     let mut padded_hex = hex.to_string();
@@ -173,30 +176,28 @@ pub fn u8_to_ir_float(
     }
 }
 
-
 /// Need the fractional legth
-pub fn float_to_fixed_ir(ir: &IntermediateRepresentation, fractional_length: usize) -> IntermediateRepresentation {
+pub fn float_to_fixed_ir(
+    ir: &IntermediateRepresentation,
+    fractional_length: usize,
+) -> IntermediateRepresentation {
     // Step 1: Multiply mantissa by 2^F (fractional length)
     let mut scaled_mantissa = ir.mantissa.clone() << fractional_length;
 
     // Step 2: Round to the nearest integer
     let rounding_offset = BigUint::one() << (fractional_length - 1);
     if ir.sign {
-        scaled_mantissa = scaled_mantissa + rounding_offset;
+        scaled_mantissa += rounding_offset
     } else {
-        scaled_mantissa = scaled_mantissa - rounding_offset;
+        scaled_mantissa -= rounding_offset
     }
 
     // Step 3: Create the new IR for fixed-point
     IntermediateRepresentation {
-        sign: ir.sign,                     // Keep the sign the same
-        mantissa: scaled_mantissa,         // The newly calculated mantissa
-        exponent: 0,                       // Fixed-point has no exponent, so set to 0
+        sign: ir.sign,             // Keep the sign the same
+        mantissa: scaled_mantissa, // The newly calculated mantissa
+        exponent: 0,               // Fixed-point has no exponent, so set to 0
     }
 }
 
-pub fn fixed_to_float_ir(){
-
-}
-
-
+pub fn fixed_to_float_ir() {}

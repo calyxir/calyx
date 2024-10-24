@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::str::FromStr;
 
-
 /// * 'sign' - `true` indicates that the value is negative; `false` indicates that it is positive.
 /// * 'mantissa' - The absolute value represented as an integer without a decimal point.
 /// * 'exponent' - The exponent to apply to the mantissa, where the actual value is calculated as `mantissa * 2^exponent`. The exponent can be negative.
@@ -14,7 +13,6 @@ pub struct IntermediateRepresentation {
     pub mantissa: BigUint,
     pub exponent: i64,
 }
-
 
 /// Converts a string representation of a binary number the intermediate representation.
 ///
@@ -41,14 +39,12 @@ pub fn from_binary(
     bit_width: usize,
     twos_comp: bool,
 ) -> IntermediateRepresentation {
+    let sign = if !twos_comp {
+        false
+    } else {
+        binary_string.starts_with('1')
+    };
 
-    let sign;
-    if !twos_comp {
-        sign = false;
-    } else{
-        sign = binary_string.starts_with('0');
-    }
-    
     let binary_value = BigUint::from_str_radix(binary_string, 2)
         .expect("Invalid binary string");
 
@@ -239,7 +235,10 @@ pub fn to_float(
 /// # Panics
 ///
 /// This function will panic if the input string cannot be parsed as a number.
-pub fn from_fixed(fixed_string: &str, exp_int: i64) -> IntermediateRepresentation {
+pub fn from_fixed(
+    fixed_string: &str,
+    exp_int: i64,
+) -> IntermediateRepresentation {
     let sign = !fixed_string.starts_with('-');
     let fixed_trimmed = fixed_string.trim_start_matches('-');
 

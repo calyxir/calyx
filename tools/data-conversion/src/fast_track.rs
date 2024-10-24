@@ -89,7 +89,7 @@ pub fn float_to_binary(
 /// # Error
 ///
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
-/// 
+///
 /// This does not differentiate between floating and fixed. It just treats any hex as an integer.
 pub fn hex_to_binary(
     hex_string: &str,

@@ -4,9 +4,9 @@ use std::fmt;
 use std::fs::read_to_string;
 use std::fs::File;
 use std::str::FromStr;
-mod u8vector;
-mod ir;
 mod fast_track;
+mod ir;
+mod u8vector;
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
 
 // Thresholds for using fast-track functions
@@ -28,7 +28,7 @@ impl fmt::Display for ParseNumTypeError {
 
 impl Error for ParseNumTypeError {}
 
-#[derive(Debug, PartialEq, Clone, Copy)] 
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum NumType {
     Float,
     Fixed,
@@ -55,19 +55,18 @@ impl ToString for NumType {
     }
 }
 
-
 #[derive(Debug)]
 struct ParseFileTypeError;
 
 impl fmt::Display for ParseFileTypeError {
-    fn fmt(&self, f: &mut fmt:: Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "invalid file type")
     }
 }
 
 impl Error for ParseFileTypeError {}
 
-#[derive(Debug, PartialEq, Clone, Copy)] 
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum FileType {
     Binary,
     Hex,
@@ -96,8 +95,6 @@ impl ToString for FileType {
         }
     }
 }
-
-
 
 #[derive(FromArgs)]
 /// get arguments to convert
@@ -144,7 +141,7 @@ struct Arguments {
 
     /// optional flag - when flagged, will not use two's complement for binary
     #[argh(switch, short = 't')]
-    twos: bool
+    twos: bool,
 }
 
 fn main() {
@@ -161,7 +158,7 @@ fn main() {
         args.bits,
         args.width,
         args.inter,
-        args.twos
+        args.twos,
     );
 }
 
@@ -193,7 +190,7 @@ fn convert(
     bits: bool,
     width: usize,
     inter: bool,
-    twos: bool
+    twos: bool,
 ) {
     // Create the output file if filepath_send is Some
     let mut converted: Option<File> = filepath_send
@@ -201,71 +198,91 @@ fn convert(
         .map(|path| File::create(path).expect("creation failed"));
 
     match (fromnum, tonum) {
-        (NumType:: Float, NumType::Float) => {
-            match(fromfile, tofile){
-                (FileType:: Hex, FileType::Binary) => {
-                    for line in read_to_string(filepath_get).unwrap().lines() {
-                        if line.len() <= FAST_TRACK_THRESHOLD_HEX_TO_BINARY && !inter{
-                            fast_track::hex_to_binary(line, &mut converted)
-                                .expect("Failed to write binary to file");
-                        } else {
-                            ir::to_binary(ir::from_hex(line, width), &mut converted, width)
-                                .expect("Failed to write binary to file");
-                        }
+        (NumType::Float, NumType::Float) => match (fromfile, tofile) {
+            (FileType::Hex, FileType::Binary) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    if line.len() <= FAST_TRACK_THRESHOLD_HEX_TO_BINARY
+                        && !inter
+                    {
+                        fast_track::hex_to_binary(line, &mut converted)
+                            .expect("Failed to write binary to file");
+                    } else {
+                        ir::to_binary(
+                            ir::from_hex(line, width),
+                            &mut converted,
+                            width,
+                        )
+                        .expect("Failed to write binary to file");
                     }
-                }
-                (FileType:: Decimal, FileType::Binary)=>{
-                    for line in read_to_string(filepath_get).unwrap().lines() {
-                        if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY && !inter {
-                            fast_track::float_to_binary(line, &mut converted)
-                                .expect("Failed to write binary to file");
-                        } else {
-                            ir::to_binary(ir::from_float(line), &mut converted, width)
-                                .expect("Failed to write binary to file");
-                        }
-                    }
-                }
-                (FileType:: Binary, FileType::Hex)=>{
-                    for line in read_to_string(filepath_get).unwrap().lines() {
-                        print!("used fastpath");
-                        if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_HEX && !inter {
-                            fast_track::binary_to_hex(line, &mut converted)
-                                .expect("Failed to write hex to file");
-                        } else {
-                            print!("used intermediate");
-                            ir::to_hex(ir::from_binary(line, width, twos), &mut converted)
-                                .expect("Failed to write binary to file");
-                        }
-                    }
-                }
-                (FileType:: Binary, FileType::Decimal)=>{
-                    for line in read_to_string(filepath_get).unwrap().lines() {
-                        if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FLOAT && !inter {
-                            fast_track::binary_to_float(line, &mut converted)
-                                .expect("Failed to write float to file");
-                        } else {
-                            ir::to_float(ir::from_binary(line, width, twos), &mut converted)
-                                .expect("Failed to write binary to file");
-                        }
-                    }
-                }
-                (FileType:: Hex, FileType::Decimal)=>{
-                    for line in read_to_string(filepath_get).unwrap().lines() {
-                        ir::to_float(ir::from_hex(line, width), &mut converted)
-                                .expect("Failed to write binary to file");
-                    }
-                }
-                (FileType:: Decimal, FileType::Hex)=>{
-                    for line in read_to_string(filepath_get).unwrap().lines() {
-                        ir::to_hex(ir::from_float(line), &mut converted)
-                                .expect("Failed to write binary to file");
-                    }
-                }
-                (_, _)=>{
-                    panic!("Invalid Conversion of File Types") 
                 }
             }
-        }
+            (FileType::Decimal, FileType::Binary) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY
+                        && !inter
+                    {
+                        fast_track::float_to_binary(line, &mut converted)
+                            .expect("Failed to write binary to file");
+                    } else {
+                        ir::to_binary(
+                            ir::from_float(line),
+                            &mut converted,
+                            width,
+                        )
+                        .expect("Failed to write binary to file");
+                    }
+                }
+            }
+            (FileType::Binary, FileType::Hex) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    print!("used fastpath");
+                    if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_HEX
+                        && !inter
+                    {
+                        fast_track::binary_to_hex(line, &mut converted)
+                            .expect("Failed to write hex to file");
+                    } else {
+                        print!("used intermediate");
+                        ir::to_hex(
+                            ir::from_binary(line, width, twos),
+                            &mut converted,
+                        )
+                        .expect("Failed to write binary to file");
+                    }
+                }
+            }
+            (FileType::Binary, FileType::Decimal) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    if line.len() <= FAST_TRACK_THRESHOLD_BINARY_TO_FLOAT
+                        && !inter
+                    {
+                        fast_track::binary_to_float(line, &mut converted)
+                            .expect("Failed to write float to file");
+                    } else {
+                        ir::to_float(
+                            ir::from_binary(line, width, twos),
+                            &mut converted,
+                        )
+                        .expect("Failed to write binary to file");
+                    }
+                }
+            }
+            (FileType::Hex, FileType::Decimal) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    ir::to_float(ir::from_hex(line, width), &mut converted)
+                        .expect("Failed to write binary to file");
+                }
+            }
+            (FileType::Decimal, FileType::Hex) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    ir::to_hex(ir::from_float(line), &mut converted)
+                        .expect("Failed to write binary to file");
+                }
+            }
+            (_, _) => {
+                panic!("Invalid Conversion of File Types")
+            }
+        },
         _ => panic!(
             "Conversion from {} to {} is not supported",
             fromnum.to_string(),
