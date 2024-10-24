@@ -16,8 +16,9 @@ members = [
     "fud2/fud-core",
     "tools/data-conversion",
     "tools/btor2/btor2i",
-    "tools/cider-data-converter",
     "tools/calyx-pass-explorer",
+    "tools/cider-data-converter",
+    "tools/component_cells",
     "tools/yxi",
     "tools/calyx-writer",
 ]
@@ -129,3 +130,10 @@ calyx-frontend = { path = "calyx-frontend" }
 [[bench]]
 name = "component-sharing"
 harness = false
+
+
+[profile.test.package.proptest]
+opt-level = 3
+
+[profile.test.package.rand_chacha]
+opt-level = 3

@@ -1,5 +1,8 @@
+use super::super::structures::context::Context;
 use crate::flatten::structures::{
-    index_trait::IndexRange, indexed_map::IndexedMap, sparse_map::SparseMap,
+    index_trait::{IndexRange, SignatureRange},
+    indexed_map::IndexedMap,
+    sparse_map::SparseMap,
 };
 
 use super::{control::structures::ControlIdx, prelude::*};
@@ -69,14 +72,116 @@ pub struct ComponentCore {
     pub done: LocalPortOffset,
 }
 
+pub enum AssignmentDefinitionLocation {
+    /// The assignment is contained in a comb group
+    CombGroup(CombGroupIdx),
+    /// The assignment is contained in a group
+    Group(GroupIdx),
+    /// The assignment is one of the continuous assignments for the component
+    ContinuousAssignment,
+    /// The assignment is implied by an invoke
+    Invoke(ControlIdx),
+}
+
+impl ComponentCore {
+    /// Returns true if the given assignment is contained in this component.
+    ///
+    /// Note: This is not a very efficient implementation since it's doing a
+    /// DFS search over the control tree.
+    pub fn contains_assignment(
+        &self,
+        ctx: &Context,
+        assign: AssignmentIdx,
+    ) -> Option<AssignmentDefinitionLocation> {
+        if self.continuous_assignments.contains(assign) {
+            return Some(AssignmentDefinitionLocation::ContinuousAssignment);
+        } else if let Some(root) = self.control {
+            let mut search_stack = vec![root];
+            while let Some(node) = search_stack.pop() {
+                match &ctx.primary[node] {
+                    ControlNode::Empty(_) => {}
+                    ControlNode::Enable(e) => {
+                        if ctx.primary[e.group()].assignments.contains(assign) {
+                            return Some(AssignmentDefinitionLocation::Group(
+                                e.group(),
+                            ));
+                        }
+                    }
+                    ControlNode::Seq(s) => {
+                        for stmt in s.stms() {
+                            search_stack.push(*stmt);
+                        }
+                    }
+                    ControlNode::Par(p) => {
+                        for stmt in p.stms() {
+                            search_stack.push(*stmt);
+                        }
+                    }
+                    ControlNode::If(i) => {
+                        if let Some(comb) = i.cond_group() {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+
+                        search_stack.push(i.tbranch());
+                        search_stack.push(i.fbranch());
+                    }
+                    ControlNode::While(wh) => {
+                        if let Some(comb) = wh.cond_group() {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+                        search_stack.push(wh.body());
+                    }
+                    ControlNode::Repeat(r) => {
+                        search_stack.push(r.body);
+                    }
+                    ControlNode::Invoke(i) => {
+                        if let Some(comb) = i.comb_group {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+
+                        if i.assignments.contains(assign) {
+                            return Some(AssignmentDefinitionLocation::Invoke(
+                                node,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
 #[derive(Debug, Clone)]
 /// Other information about a component definition. This is not on the hot path
 /// and is instead needed primarily during setup and error reporting.
-pub struct AuxillaryComponentInfo {
+pub struct AuxiliaryComponentInfo {
     /// Name of the component.
     pub name: Identifier,
-    /// The input/output signature of this component.
-    pub signature: IndexRange<LocalPortOffset>,
+    /// The input/output signature of this component. This could probably be
+    /// rolled into a single range, or specialized construct but this is
+    /// probably fine for now.
+    pub signature_in: SignatureRange,
+    pub signature_out: SignatureRange,
+
     /// the definitions created by this component
     pub definitions: DefinitionRanges,
 
@@ -88,19 +193,20 @@ pub struct AuxillaryComponentInfo {
         SparseMap<LocalRefCellOffset, RefCellDefinitionIdx>,
 }
 
-impl Default for AuxillaryComponentInfo {
+impl Default for AuxiliaryComponentInfo {
     fn default() -> Self {
         Self::new_with_name(Identifier::get_default_id())
     }
 }
 
-impl AuxillaryComponentInfo {
-    /// Creates a new [`AuxillaryComponentInfo`] with the given name. And
+impl AuxiliaryComponentInfo {
+    /// Creates a new [`AuxiliaryComponentInfo`] with the given name. And
     /// default values elsewhere.
     pub fn new_with_name(id: Identifier) -> Self {
         Self {
             name: id,
-            signature: IndexRange::empty_interval(),
+            signature_in: SignatureRange::new(),
+            signature_out: SignatureRange::new(),
             port_offset_map: Default::default(),
             ref_port_offset_map: Default::default(),
             cell_offset_map: Default::default(),
@@ -153,15 +259,44 @@ impl AuxillaryComponentInfo {
         self.definitions.comb_groups = IndexRange::new(start, end)
     }
 
+    pub fn inputs(&self) -> impl Iterator<Item = LocalPortOffset> + '_ {
+        self.signature_in.iter()
+    }
+
+    pub fn outputs(&self) -> impl Iterator<Item = LocalPortOffset> + '_ {
+        self.signature_out.iter()
+    }
+
+    pub fn signature(&self) -> IndexRange<LocalPortOffset> {
+        // can't quite use min here since None is less than any other value and
+        // I want the least non-None value
+        let beginning =
+            match (self.signature_in.first(), self.signature_out.first()) {
+                (Some(b), Some(e)) => Some(std::cmp::min(b, e)),
+                (Some(b), None) => Some(b),
+                (None, Some(e)) => Some(e),
+                _ => None,
+            };
+
+        let end =
+            std::cmp::max(self.signature_in.last(), self.signature_out.last());
+
+        match (beginning, end) {
+            (Some(b), Some(e)) => IndexRange::new(b, e),
+            (None, None) => IndexRange::empty_interval(),
+            _ => unreachable!(),
+        }
+    }
+
     fn offset_sizes(&self, cell_ty: ContainmentType) -> IdxSkipSizes {
         let (port, ref_port) = match cell_ty {
             ContainmentType::Local => (
-                self.port_offset_map.count() - self.signature.size(),
+                self.port_offset_map.count() - self.signature().size(),
                 self.ref_port_offset_map.count(),
             ),
             ContainmentType::Ref => (
                 self.port_offset_map.count(),
-                self.ref_port_offset_map.count() - self.signature.size(),
+                self.ref_port_offset_map.count() - self.signature().size(),
             ),
         };
 

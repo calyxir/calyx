@@ -3,10 +3,11 @@ use calyx_ir::{self as cir, NumAttr, RRC};
 use itertools::Itertools;
 
 use crate::{
+    as_raw::AsRaw,
     flatten::{
         flat_ir::{
-            cell_prototype::{CellPrototype, LiteralOrPrimitive},
-            component::{AuxillaryComponentInfo, ComponentCore},
+            cell_prototype::{CellPrototype, ConstantType},
+            component::{AuxiliaryComponentInfo, ComponentCore},
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
                 Assignment, AssignmentIdx, CellRef, CombGroup, CombGroupIdx,
@@ -16,10 +17,9 @@ use crate::{
         },
         structures::{
             context::{Context, InterpretationContext, SecondaryContext},
-            index_trait::IndexRange,
+            index_trait::{IndexRange, SignatureRange},
         },
     },
-    utils::AsRaw,
 };
 
 use super::{structures::*, utils::CompTraversal};
@@ -117,7 +117,43 @@ fn translate_guard(
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
 ) -> GuardIdx {
-    flatten_tree(guard, None, &mut interp_ctx.guards, map)
+    let idx = flatten_tree(guard, None, &mut interp_ctx.guards, map);
+
+    // not worth trying to force this search traversal into the flatten trait so
+    // I'm just gonna opt for this. It's a onetime cost, so I'm not particularly
+    // worried about it
+    let mut search_stack = vec![idx];
+    let mut read_ports = vec![];
+
+    while let Some(idx) = search_stack.pop() {
+        match &interp_ctx.guards[idx] {
+            Guard::True => {}
+            Guard::Or(guard_idx, guard_idx1) => {
+                search_stack.push(*guard_idx);
+                search_stack.push(*guard_idx1);
+            }
+            Guard::And(guard_idx, guard_idx1) => {
+                search_stack.push(*guard_idx);
+                search_stack.push(*guard_idx1);
+            }
+            Guard::Not(guard_idx) => {
+                search_stack.push(*guard_idx);
+            }
+            Guard::Comp(_port_comp, port_ref, port_ref1) => {
+                read_ports.push(*port_ref);
+                read_ports.push(*port_ref1);
+            }
+            Guard::Port(port_ref) => {
+                read_ports.push(*port_ref);
+            }
+        }
+    }
+
+    if !read_ports.is_empty() {
+        interp_ctx.guard_read_map.insert_value(idx, read_ports);
+    }
+
+    idx
 }
 
 fn translate_component(
@@ -125,7 +161,7 @@ fn translate_component(
     ctx: &mut Context,
     component_id_map: &mut ComponentMapper,
 ) -> ComponentIdx {
-    let mut auxillary_component_info = AuxillaryComponentInfo::new_with_name(
+    let mut auxillary_component_info = AuxiliaryComponentInfo::new_with_name(
         ctx.secondary.string_table.insert(comp.name),
     );
 
@@ -275,7 +311,7 @@ fn translate_component(
 
 fn insert_port(
     secondary_ctx: &mut SecondaryContext,
-    aux: &mut AuxillaryComponentInfo,
+    aux: &mut AuxiliaryComponentInfo,
     port: &RRC<cir::Port>,
     port_type: ContainmentType,
 ) -> PortRef {
@@ -287,8 +323,17 @@ fn insert_port(
             local_offset.into()
         }
         ContainmentType::Local => {
-            let idx_definition =
-                secondary_ctx.push_local_port(id, port.borrow().width as usize);
+            let borrow = port.borrow();
+            let is_control = borrow.has_attribute(calyx_ir::NumAttr::Go)
+                || borrow.has_attribute(calyx_ir::NumAttr::Done)
+                || borrow.has_attribute(calyx_ir::BoolAttr::Control)
+                || (borrow.direction == calyx_ir::Direction::Inout);
+
+            let idx_definition = secondary_ctx.push_local_port(
+                id,
+                port.borrow().width as usize,
+                is_control,
+            );
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
         }
@@ -297,7 +342,7 @@ fn insert_port(
 
 fn insert_cell(
     secondary_ctx: &mut SecondaryContext,
-    aux: &mut AuxillaryComponentInfo,
+    aux: &mut AuxiliaryComponentInfo,
     cell: &RRC<cir::Cell>,
     layout: &mut Layout,
     comp_id: ComponentIdx,
@@ -357,7 +402,7 @@ pub struct Layout {
 fn compute_local_layout(
     comp: &cir::Component,
     ctx: &mut Context,
-    aux: &mut AuxillaryComponentInfo,
+    aux: &mut AuxiliaryComponentInfo,
     component_id_map: &ComponentMapper,
 ) -> Layout {
     let comp_id = ctx.primary.components.peek_next_idx();
@@ -369,19 +414,29 @@ fn compute_local_layout(
 
     let mut layout = Layout::default();
 
-    // need this to set the appropriate signature range on the component
-    let sig_base = aux.port_offset_map.peek_next_index();
+    let mut sigs_input = SignatureRange::new();
+    let mut sigs_output = SignatureRange::new();
 
-    // first, handle the signature ports
-    for port in comp.signature.borrow().ports() {
+    // first, handle the input signature ports
+    for port in comp.signature.borrow().ports().into_iter() {
         let local_offset =
             insert_port(&mut ctx.secondary, aux, port, ContainmentType::Local);
+        match &port.borrow().direction {
+            cir::Direction::Input => {
+                sigs_output.append_item(*local_offset.as_local().unwrap());
+            }
+            cir::Direction::Output => {
+                sigs_input.append_item(*local_offset.as_local().unwrap());
+            }
+            _ => unreachable!("inout port in component signature"),
+        }
+
         layout.port_map.insert(port.as_raw(), local_offset);
     }
 
     // update the aux info with the signature layout
-    aux.signature =
-        IndexRange::new(sig_base, aux.port_offset_map.peek_next_index());
+    aux.signature_in = sigs_input;
+    aux.signature_out = sigs_output;
 
     // second the group holes
     for group in &comp.groups {
@@ -474,7 +529,7 @@ fn create_cell_prototype(
     let borrow = cell.borrow();
     match &borrow.prototype {
         cir::CellType::Primitive { .. } => {
-            CellPrototype::construct_primitive(&borrow)
+            CellPrototype::construct_prototype(&borrow)
         }
         cir::CellType::Component { name } => {
             CellPrototype::Component(comp_id_map[name])
@@ -483,7 +538,7 @@ fn create_cell_prototype(
         cir::CellType::Constant { val, width } => CellPrototype::Constant {
             value: *val,
             width: (*width).try_into().unwrap(),
-            c_type: LiteralOrPrimitive::Literal,
+            c_type: ConstantType::Literal,
         },
         cir::CellType::ThisComponent => unreachable!(
             "the flattening should not have this cell type, this is an error"
@@ -531,7 +586,7 @@ impl FlattenTree for cir::Control {
 
     type IdxType = ControlIdx;
 
-    type AuxillaryData = (GroupMapper, Layout, Context, AuxillaryComponentInfo);
+    type AuxillaryData = (GroupMapper, Layout, Context, AuxiliaryComponentInfo);
 
     fn process_element<'data>(
         &'data self,

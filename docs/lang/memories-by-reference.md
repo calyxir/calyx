@@ -47,7 +47,7 @@ Next, to pass the memory to the component, we use the `invoke` syntax:
 component add_one() -> () { ... }
 component main() -> () {
   cells {
-    A = comb_mem_d1(32, 4, 3); // A memory passed by reference.
+    A = comb_mem_d1(32, 4, 3); // A memory that will be passed by reference.
     one = add_one();
     ...
   }

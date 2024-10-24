@@ -1,3 +1,4 @@
+import "axi" as a;
 import "calyx" as c;
 import "testbench" as tb;
 
@@ -93,7 +94,7 @@ let firrtl_with_primitives = state("firrtl-with-primitives", ["fir"]); // using 
 op(
     // use Verilog
     "calyx-to-firrtl",
-    [c::calyx_setup, tb::custom_setup],
+    [c::calyx_setup, a::yxi_setup, tb::custom_setup],
     c::calyx_state,
     firrtl,
     |e, input, output| calyx_to_firrtl_helper(e, input, output, false),
@@ -101,7 +102,7 @@ op(
 
 op(
     "firrtl-with-primitives",
-    [c::calyx_setup, firrtl_primitives_setup, tb::custom_setup],
+    [c::calyx_setup, firrtl_primitives_setup, a::yxi_setup, tb::custom_setup],
     c::calyx_state,
     firrtl_with_primitives,
     |e, input, output| calyx_to_firrtl_helper(e, input, output, true),
@@ -109,8 +110,11 @@ op(
 
 // The FIRRTL compiler.
 fn firrtl_setup(e) {
-    e.config_var("firrtl-exe", "firrtl.exe");
-    e.rule("firrtl", "$firrtl-exe -i $in -o $out -X sverilog");
+    e.config_var("firrtl-exe", "firrtl.firtool");
+    e.rule(
+        "firrtl",
+        "$firrtl-exe $in -o $out --disable-all-randomization",
+    );    
 
     e.rsrc("primitives-for-firrtl.sv");
     // adding Verilog implementations of primitives to FIRRTL --> Verilog compiled code

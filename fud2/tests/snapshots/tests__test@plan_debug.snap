@@ -34,26 +34,19 @@ rule calyx-with-flags
 
 cider-exe = $calyx-base/target/debug/cider
 cider-converter = $calyx-base/target/debug/cider-data-converter
-rule cider
-  command = $cider-exe -l $calyx-base --raw --data data.json $in > $out
-rule cider-debug
-  command = $cider-exe -l $calyx-base --data data.json $in debug || true
+rule run-cider-debug
+  command = $cider-exe -l $calyx-base --data data.dump $in debug || true
   pool = console
-build interp-dat.py: get-rsrc
-python = python3
-rule dat-to-interp
-  command = $python interp-dat.py --to-interp $in
-rule interp-to-dat
-  command = $python interp-dat.py --from-interp $in $sim_data > $out
-build data.json: dat-to-interp $sim_data | interp-dat.py
+converter-flags = 
+cider-flags = 
 rule run-cider
-  command = $cider-exe -l $calyx-base --data data.dump $in flat > $out
+  command = $cider-exe -l $calyx-base --data data.dump $cider-flags $in > $out
 rule dump-to-interp
-  command = $cider-converter --to cider $in > $out
+  command = $cider-converter --to cider $converter-flags $in > $out
 rule interp-to-dump
-  command = $cider-converter --to json $in > $out
+  command = $cider-converter --to json $converter-flags $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
-build /output.ext: cider-debug /input.ext | data.json
+build /output.ext: run-cider-debug /input.ext | data.dump
 
 default /output.ext

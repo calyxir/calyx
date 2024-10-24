@@ -1,0 +1,60 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    cond_reg = std_reg(1);
+    a = std_reg(32);
+    b = std_reg(32);
+    add = std_add(32);
+    sub = std_sub(32);
+  }
+  wires {
+    group write_cond {
+        cond_reg.in = 1'd1;
+        cond_reg.write_en = 1'd1;
+        write_cond[done] = cond_reg.done;
+    }
+
+    group incr_a {
+      add.left = a.out;
+      add.right = 32'd1;
+      a.in = add.out;
+      a.write_en = 1'd1;
+      incr_a[done] = a.done;
+    }
+
+    group decr_b {
+      sub.left = b.out;
+      sub.right = 32'd1;
+      b.in = sub.out;
+      b.write_en = 1'd1;
+      decr_b[done] = b.done;
+    }
+
+    group write_b {
+      b.in = 32'd10;
+      b.write_en = 1'd1;
+      write_b[done] = b.done;
+    }
+
+  }
+
+  control {
+                              // T0
+    par {                     // T1
+
+      seq {
+          if cond_reg.out {   // T2_1
+              incr_a;         // T2_2
+          } else {
+              decr_b;         // T2_3
+          }
+      };
+
+      seq {                   // T3
+          write_cond;         // T3_2
+          write_b;            // T3_1
+      }
+    }
+  }
+}
