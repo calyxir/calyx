@@ -44,13 +44,16 @@ impl Visitor for ProfilerInstrumentation {
             .iter()
             .map(|group| group.borrow().name())
             .collect::<Vec<_>>();
+        let comp_name = comp.name;
         // for each group, construct a instrumentation cell and instrumentation assignment
         let mut asgn_and_cell = Vec::with_capacity(group_names.len());
         {
             let mut builder = ir::Builder::new(comp, sigs);
-            let one = builder.add_constant(1, 1);
+            let one: std::rc::Rc<std::cell::RefCell<calyx_ir::Cell>> =
+                builder.add_constant(1, 1);
             for group_name in group_names.into_iter() {
-                let name = format!("{}_probe", group_name);
+                let name =
+                    format!("{}__{}_probe", comp_name.to_string(), group_name); // store component and group name
                 let inst_cell = builder.add_primitive(name, "std_wire", &[1]);
                 let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
                     builder;

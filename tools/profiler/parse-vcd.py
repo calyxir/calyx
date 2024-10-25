@@ -95,11 +95,11 @@ class ProfilingInfo:
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsms, single_enable_names, tdcc_groups, fsm_group_maps, main_component, cells):
+    def __init__(self, fsms, tdcc_groups, fsm_group_maps, main_component, cells): # single_enable_names,
         super().__init__()
         self.main_component = main_component
         self.fsms = fsms
-        self.single_enable_names = single_enable_names.keys()
+        self.single_enable_names = set()
         # Recording the first cycle when the TDCC group became active
         self.tdcc_group_active_cycle = {tdcc_group_name : -1 for tdcc_group_name in tdcc_groups}
         # Map from a TDCC group to all FSMs that depend on it. maybe a 1:1 mapping
@@ -109,8 +109,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for group in fsm_group_maps:
             # Differentiate FSM versions from ground truth versions
             self.profiling_info[f"{group}FSM"] = ProfilingInfo(group, fsm_group_maps[group]["component"], fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
-        for single_enable_group in single_enable_names:
-            self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group, single_enable_names[single_enable_group])
         self.cells = set(cells.keys())
         for cell in cells:
             self.profiling_info[cell] = ProfilingInfo(cell, cells[cell], is_cell=True)
@@ -148,9 +146,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
-            for single_enable_group in self.single_enable_names:
-                if name == f"{single_enable_group}_probe_out": # Use instrumentation wire
-                    signal_id_dict[sid].append(name)
+            if "_probe_out" in name: # instrumentation probes are "<component>__<group>_probe"
+                split = name.split("_probe_out")[0].split("__")
+                group_name = split[1]
+                self.single_enable_names.add(group_name)
+                self.profiling_info[group_name] = ProfilingInfo(group_name, split[0])
+                signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
@@ -240,10 +241,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     cell = signal_name.split(".done")[0]
                     self.profiling_info[cell].end_current_segment(clock_cycles)
                 if "_probe_out" in signal_name and value == 1: # instrumented group started being active
-                    group = "_".join(signal_name.split("_")[0:-2])
+                    group = signal_name.split("_probe_out")[0].split("__")[1]
                     self.profiling_info[group].start_new_segment(clock_cycles)
                 elif "_probe_out" in signal_name and value == 0: # instrumented group stopped being active
-                    group = "_".join(signal_name.split("_")[0:-2])
+                    group = signal_name.split("_probe_out")[0].split("__")[1]
                     self.profiling_info[group].end_current_segment(clock_cycles)
                 elif "fsm" in signal_name:
                     fsm = ".".join(signal_name.split(".")[0:-1])
@@ -374,7 +375,7 @@ def output_result(out_csv, dump_out_json, converter):
 def main(vcd_filename, tdcc_json_file, cells_json_file, groups_json_file, out_csv, dump_out_json):
     main_component, components_to_cells = read_component_cell_names_json(cells_json_file)
     fsms, group_names, tdcc_group_names, fsm_group_maps, cells = remap_tdcc_json(tdcc_json_file, groups_json_file, components_to_cells)
-    converter = VCDConverter(fsms, group_names, tdcc_group_names, fsm_group_maps, main_component, cells)
+    converter = VCDConverter(fsms, tdcc_group_names, fsm_group_maps, main_component, cells)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     converter.postprocess()
     output_result(out_csv, dump_out_json, converter)
