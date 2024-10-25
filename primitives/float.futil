@@ -1,0 +1,10 @@
+/** A floating-point constant with a specific representation.
+* REP=0: IEEE 754; Other REP values are currently errors and reserved for future use.
+* WIDTH=16, 32, 64 are supported. Other values result in an error.
+* The value is converted into the bitpattern of the floating-point representation.
+* If the number cannot be represented exactly with the given bitwidth, we will
+* emit a warning.
+*/
+comb primitive std_float_const<"share"=1>[REP, WIDTH, VALUE]() -> (out: WIDTH) {
+    assign out = VALUE;
+}
