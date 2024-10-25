@@ -6,7 +6,7 @@ use super::ast::{
 };
 use super::Attributes;
 use crate::{Attribute, Direction, PortDef, Primitive, Width};
-use calyx_utils::{self, CalyxResult, Id, PosString};
+use calyx_utils::{self, float, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
@@ -549,34 +549,6 @@ impl CalyxParser {
 
     // ================ Cells =====================
     fn float_const(input: Node) -> ParseResult<ast::Cell> {
-        let check = |rep: u64, width: u64, fl: String| -> ParseResult<u64> {
-            if rep != 0 {
-                return Err(input.error(format!(
-                    "Unknown representation: {rep}. Support value: 0"
-                )));
-            }
-
-            let bits: u64 = match width {
-                32 => {
-                    let fl = fl.parse::<f32>().map_err(|e| {
-                        input.error(format!("Expected valid floating point number: {e}"))
-                    })?;
-                    fl.to_bits() as u64
-                }
-                64 => {
-                    let fl = fl.parse::<f64>().map_err(|e| {
-                        input.error(format!("Expected valid floating point number: {e}"))
-                    })?;
-                    fl.to_bits()
-                }
-                r => return Err(input.error(format!(
-                    "Unsupported floating point width: {r}. Supported values: 32, 64"
-                ))),
-            };
-
-            Ok(bits)
-        };
-
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.clone().into_children();
@@ -586,13 +558,19 @@ impl CalyxParser {
                 bitwidth(rep),
                 bitwidth(width),
                 float(val)
-            ] => ast::Cell::from(
-                id,
-                Id::from("std_float_const"),
-                vec![rep, width, check(rep, width, val)?],
-                attrs.add_span(span),
-                false
-            ),
+            ] => {
+                let v = match float::parse(rep, width, val) {
+                    Ok(v) => v,
+                    Err(e) => return Err(input.error(format!("{e:?}")))
+                };
+                ast::Cell::from(
+                    id,
+                    Id::from("std_float_const"),
+                    vec![rep, width, v],
+                    attrs.add_span(span),
+                    false
+                )
+            },
             [
                 at_attributes(attrs),
                 reference(_),
@@ -600,13 +578,18 @@ impl CalyxParser {
                 bitwidth(rep),
                 bitwidth(width),
                 float(val)
-            ] => ast::Cell::from(
-                id,
-                Id::from("std_float_const"),
-                vec![rep, width, check(rep, width, val)?],
-                attrs.add_span(span),
-                true
-            ),
+            ] => {
+                let v = match float::parse(rep, width, val) {
+                    Ok(v) => v,
+                    Err(e) => return Err(input.error(format!("{e:?}")))
+                };
+                ast::Cell::from(
+                    id,
+                    Id::from("std_float_const"),
+                    vec![rep, width, v],
+                    attrs.add_span(span),
+                    true
+                )},
         ))
     }
 
