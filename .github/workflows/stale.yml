@@ -16,6 +16,7 @@ jobs:
           days-before-stale-pr: 14
           days-before-stale-pr-draft: 180
           days-before-close-pr: 7
+          exempt-pr-label: "S: Blocked"
           stale-pr-message: "This pull request has not seen activity in 14 days and is being marked as stale. If you're continuing work on this, please reply and state how to get this PR in a mergeable state or what issues it is blocked on. If the PR is not ready for review, please mark it as a draft. The PR will be closed in 7 days if there is no further activity."
           close-pr-message: "This stale PR is being closed because it has not seen any activity in 7 days. If you're planning to continue work on it, please reopen it and mention how to make progress on it."
           stale-pr-label: "S: Stale"
