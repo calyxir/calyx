@@ -127,7 +127,6 @@ pub fn u8_to_ir_float(
             let mut is_negative = false;
 
             if twos_comp {
-                // Check if the MSB of the first byte is 1
                 is_negative = (vec[0] & 0b10000000) != 0;
             }
 
@@ -141,7 +140,7 @@ pub fn u8_to_ir_float(
                 let bit = (vec[byte_index] >> (7 - bit_index)) & 1; // Get the i-th bit
 
                 // Shift the mantissa left and add the new bit
-                mantissa <<= 1; // Shift left by 1
+                mantissa <<= 1; 
                 if bit == 1 {
                     // If bit is 1, add 1 to the mantissa
                     mantissa |= BigUint::one()
@@ -151,7 +150,7 @@ pub fn u8_to_ir_float(
             // Extract the exponent
             let mut exponent = 0i64;
             for i in 0..exponent_len {
-                let byte_index = ((1 + i) / 8) as usize; // Starting just after the sign bit
+                let byte_index = ((1 + i) / 8) as usize; // Start after the sign bit
                 let bit_index = ((1 + i) % 8) as usize;
                 let bit = (vec[byte_index] >> (7 - bit_index)) & 1;
 
@@ -175,29 +174,3 @@ pub fn u8_to_ir_float(
         }
     }
 }
-
-/// Need the fractional legth
-pub fn float_to_fixed_ir(
-    ir: &IntermediateRepresentation,
-    fractional_length: usize,
-) -> IntermediateRepresentation {
-    // Step 1: Multiply mantissa by 2^F (fractional length)
-    let mut scaled_mantissa = ir.mantissa.clone() << fractional_length;
-
-    // Step 2: Round to the nearest integer
-    let rounding_offset = BigUint::one() << (fractional_length - 1);
-    if ir.sign {
-        scaled_mantissa += rounding_offset
-    } else {
-        scaled_mantissa -= rounding_offset
-    }
-
-    // Step 3: Create the new IR for fixed-point
-    IntermediateRepresentation {
-        sign: ir.sign,             // Keep the sign the same
-        mantissa: scaled_mantissa, // The newly calculated mantissa
-        exponent: 0,               // Fixed-point has no exponent, so set to 0
-    }
-}
-
-pub fn fixed_to_float_ir() {}
