@@ -304,7 +304,7 @@ impl Printer {
         if cell.is_reference() {
             write!(f, "ref ")?;
         }
-        writeln!(f, "{} = {prim}({rep}, {width}, {fl})", cell.name().id)?;
+        writeln!(f, "{} = {prim}({rep}, {width}, {fl});", cell.name().id)?;
         Ok(())
     }
 
@@ -323,6 +323,7 @@ impl Printer {
                 if name == "std_float_const" {
                     return Self::write_float_const(cell, indent_level, f);
                 }
+
                 write!(f, "{}", " ".repeat(indent_level))?;
                 write!(f, "{}", Self::format_at_attributes(&cell.attributes))?;
                 if cell.is_reference() {
