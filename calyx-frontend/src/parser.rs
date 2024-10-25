@@ -295,6 +295,13 @@ impl CalyxParser {
             .map_err(|_| input.error("Expected binary number"))
     }
 
+    // Floats are parsed as strings and converted within the float_const rule.
+    // This is so that we can check and see if the number can be represented
+    // exactly with the given bitwidth.
+    fn float(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_string())
+    }
+
     fn num_lit(input: Node) -> ParseResult<BitNum> {
         let span = Self::get_span(&input);
         let num = match_nodes!(
@@ -541,10 +548,73 @@ impl CalyxParser {
     }
 
     // ================ Cells =====================
+    fn float_const(input: Node) -> ParseResult<ast::Cell> {
+        let check = |rep: u64, width: u64, fl: String| -> ParseResult<u64> {
+            if rep != 0 {
+                return Err(input.error(format!(
+                    "Unknown representation: {rep}. Support value: 0"
+                )));
+            }
+
+            let bits: u64 = match width {
+                32 => {
+                    let fl = fl.parse::<f32>().map_err(|e| {
+                        input.error(format!("Expected valid floating point number: {e}"))
+                    })?;
+                    fl.to_bits() as u64
+                }
+                64 => {
+                    let fl = fl.parse::<f64>().map_err(|e| {
+                        input.error(format!("Expected valid floating point number: {e}"))
+                    })?;
+                    fl.to_bits()
+                }
+                r => return Err(input.error(format!(
+                    "Unsupported floating point width: {r}. Supported values: 32, 64"
+                ))),
+            };
+
+            Ok(bits)
+        };
+
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.clone().into_children();
+            [
+                at_attributes(attrs),
+                identifier(id),
+                bitwidth(rep),
+                bitwidth(width),
+                float(val)
+            ] => ast::Cell::from(
+                id,
+                Id::from("std_float_const"),
+                vec![rep, width, check(rep, width, val)?],
+                attrs.add_span(span),
+                false
+            ),
+            [
+                at_attributes(attrs),
+                reference(_),
+                identifier(id),
+                bitwidth(rep),
+                bitwidth(width),
+                float(val)
+            ] => ast::Cell::from(
+                id,
+                Id::from("std_float_const"),
+                vec![rep, width, check(rep, width, val)?],
+                attrs.add_span(span),
+                true
+            ),
+        ))
+    }
+
     fn cell_without_semi(input: Node) -> ParseResult<ast::Cell> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
+            [float_const(fl)] => fl,
             [at_attributes(attrs), reference(_), identifier(id), identifier(prim), args(args)] =>
             ast::Cell::from(id, prim, args, attrs.add_span(span),true),
             [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>

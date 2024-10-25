@@ -17,6 +17,9 @@ decimal = @{ ASCII_HEX_DIGIT+ }
 octal =   @{ ASCII_HEX_DIGIT+ }
 hex =     @{ ASCII_HEX_DIGIT+ }
 
+// Floating-point numbers are only supported within the `std_float_const` primitive.
+float =   @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+
 // `$` creates a compound rule which ignores whitespace while allowing for
 // inner rules (`@` makes inner rules silent).
 // See: https://pest.rs/book/print.html#atomic
@@ -139,8 +142,17 @@ args = {
       "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
 }
 
+float_const = {
+      at_attributes ~ reference? ~ identifier ~ "=" ~ "std_float_const" ~ "(" ~
+            bitwidth ~ "," ~  // REP
+            bitwidth ~ "," ~  // WIDTH
+            float ~           // VALUE
+      ")"
+}
+
 cell_without_semi = {
-      at_attributes ~ reference? ~ identifier ~ "=" ~ identifier ~ args
+      float_const |
+      (at_attributes ~ reference? ~ identifier ~ "=" ~ identifier ~ args)
 }
 
 cell = {
