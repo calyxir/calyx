@@ -52,8 +52,9 @@ impl Visitor for ProfilerInstrumentation {
             let one: std::rc::Rc<std::cell::RefCell<calyx_ir::Cell>> =
                 builder.add_constant(1, 1);
             for group_name in group_names.into_iter() {
+                // store group and component name (differentiate between groups of the same name under different components)
                 let name =
-                    format!("{}__{}_probe", comp_name.to_string(), group_name); // store component and group name
+                    format!("{}__{}_probe", group_name, comp_name.to_string());
                 let inst_cell = builder.add_primitive(name, "std_wire", &[1]);
                 let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
                     builder;

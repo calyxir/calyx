@@ -736,19 +736,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "component_groups"
-version = "0.7.1"
-dependencies = [
- "argh",
- "calyx-frontend",
- "calyx-ir",
- "calyx-opt",
- "calyx-utils",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "console"
 version = "0.15.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
