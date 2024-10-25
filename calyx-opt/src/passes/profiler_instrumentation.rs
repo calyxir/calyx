@@ -60,6 +60,7 @@ impl Visitor for ProfilerInstrumentation {
                     builder;
                     inst_cell["in"] = ? one["out"];
                 );
+                // the probes should be @control because they should have value 0 whenever the corresponding group is not active.
                 inst_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
                 inst_cell.borrow_mut().add_attribute(BoolAttr::Protected, 1);
                 asgn_and_cell.push((asgn[0].clone(), inst_cell));
