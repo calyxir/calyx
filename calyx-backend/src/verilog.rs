@@ -539,8 +539,8 @@ fn emit_assignment(
 
     // If this is a data port
     let rhs: v::Expr = if is_data_port(dst) {
-        if assignments.len() == 1 && !dst.borrow().parent_is_protected() {
-            // If there is exactly one guard and the cell is not protected, generate a continuous assignment.
+        if assignments.len() == 1 {
+            // If there is exactly one guard, generate a continuous assignment.
             // This encodes the rewrite:
             // in = g ? out : 'x => in = out;
             // This is valid because 'x can be replaced with any value
@@ -587,9 +587,9 @@ fn emit_assignment_flat<F: io::Write>(
     // Simple optimizations for 1-guard cases.
     if assignments.len() == 1 {
         let (src, guard) = &assignments[0];
-        if data && !dst.borrow().parent_is_protected() {
-            // For data ports (for whom unassigned values are undefined and their cells are not protected),
-            // we can drop the guard entirely and assume it is always true (because it would be UB if it were ever false).
+        if data {
+            // For data ports (for whom unassigned values are undefined), we can drop the guard
+            // entirely and assume it is always true (because it would be UB if it were ever false).
             return writeln!(
                 f,
                 "assign {} = {};",
