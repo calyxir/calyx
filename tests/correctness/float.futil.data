@@ -1,0 +1,23 @@
+{
+    "inp": {
+        "data": [
+            15.1239
+        ],
+        "format": {
+            "numeric_type": "floating_point",
+            "is_signed": false,
+            "width": 32
+        }
+    },
+    "out": {
+        "data": [
+            0.0,
+            0.0
+        ],
+        "format": {
+            "numeric_type": "floating_point",
+            "is_signed": false,
+            "width": 32
+        }
+    }
+}
