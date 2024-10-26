@@ -347,12 +347,14 @@ class FloatingPoint(NumericType):
 
         if self.bit_string_repr is None and self.hex_string_repr is None:
             # The decimal representation was passed in.
-            packed = struct.pack('!f', float(self.string_repr))
-            unpacked = struct.unpack('>I', packed)[0]
-            self.bit_string_repr = f'{unpacked:0{self.width}b}'
+            packed = struct.pack("!f", float(self.string_repr))
+            unpacked = struct.unpack(">I", packed)[0]
+            self.bit_string_repr = f"{unpacked:0{self.width}b}"
             self.uint_repr = int(self.bit_string_repr, 2)
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
     def to_dec(self, round_place: int):
-        float_value = struct.unpack('!f', int(self.bit_string_repr, 2).to_bytes(4, byteorder='big'))[0]
+        float_value = struct.unpack(
+            "!f", int(self.bit_string_repr, 2).to_bytes(4, byteorder="big")
+        )[0]
         return round(float_value, round_place)
