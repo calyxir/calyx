@@ -119,7 +119,7 @@ class ArgumentParserWithCustomError(argparse.ArgumentParser):
             if i == 0:
                 continue
             elif line[0] == "#":
-                print(line[1:].rstrip("\n"))
+                print(line[1:].strip())
             else:
                 sys.exit(1 if msg else 0)
 
