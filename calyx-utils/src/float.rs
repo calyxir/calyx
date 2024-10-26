@@ -5,7 +5,7 @@ use crate::{CalyxResult, Error};
 pub fn parse(rep: u64, width: u64, fl: String) -> CalyxResult<u64> {
     if rep != 0 {
         return Err(Error::misc(format!(
-            "Unknown representation: {rep}. Support value: 0"
+            "Unknown representation: {rep}. Support representations: 0 (IEEE754)"
         )));
     }
 
