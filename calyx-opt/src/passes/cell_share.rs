@@ -232,7 +232,7 @@ impl CellShare {
             comp.name,
             &self.live,
         );
-        if let Some(stream) = &self.print_par_timing {
+        if let Some(stream) = &mut self.print_par_timing {
             write!(stream.get_write(), "{:?}", self.par_timing_map).unwrap();
         }
     }
@@ -254,8 +254,8 @@ impl CellShare {
     }
 
     // prints the json if self.print_share_freqs is not None
-    fn print_share_json(&self) {
-        if let Some(file) = &self.print_share_freqs {
+    fn print_share_json(&mut self) {
+        if let Some(file) = &mut self.print_share_freqs {
             let printable_share_freqs: HashMap<String, HashMap<String, _>> =
                 self.share_freqs
                     .iter()
