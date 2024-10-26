@@ -103,7 +103,7 @@ fn gen_component_info(
 /// Write the collected set of component information to a JSON file.
 fn write_json(
     component_info: HashSet<ComponentInfo>,
-    file: OutputFile,
+    mut file: OutputFile,
 ) -> Result<(), io::Error> {
     let created_vec: Vec<ComponentInfo> = component_info.into_iter().collect();
     serde_json::to_writer_pretty(file.get_write(), &created_vec)?;
