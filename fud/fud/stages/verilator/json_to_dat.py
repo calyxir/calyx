@@ -140,7 +140,9 @@ def convert2dat(output_dir, data, extension, round: bool):
         is_signed = format["is_signed"]
 
         if numeric_type not in {"bitnum", "fixed_point", "floating_point"}:
-            raise InvalidNumericType('Fud only supports "fixed_point", "bitnum", and "floating_point".')
+            raise InvalidNumericType(
+                'Fud only supports "fixed_point", "bitnum", and "floating_point".'
+            )
 
         is_fp = numeric_type == "fixed_point"
         if is_fp:
@@ -160,7 +162,7 @@ def convert2dat(output_dir, data, extension, round: bool):
 
         with path.open("w") as f:
             for v in arr.flatten():
-                is_bn=numeric_type == "bitnum"
+                is_bn = numeric_type == "bitnum"
                 f.write(convert(v, round, is_signed, width, is_bn, int_width) + "\n")
 
         shape[k]["shape"] = list(arr.shape)
