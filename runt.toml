@@ -37,6 +37,7 @@ paths = [
   "tests/errors/*.futil",
   "tests/errors/papercut/*.futil",
   "tests/errors/parser/*.futil",
+  "tests/errors/float/*.futil",
 ]
 cmd = """
 ./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut -l . -m file
@@ -109,12 +110,12 @@ cmd = "python3 calyx-py/calyx/gen_exp.py {}"
 [[tests]]
 name = "[frontend] queues correctness"
 paths = [
-    "frontends/queues/tests/*.py",
-    "frontends/queues/tests/round_robin/*.py",
-    "frontends/queues/tests/strict/*.py",
-    "frontends/queues/tests/binheap/*.py",
-    "frontends/queues/tests/binheap/round_robin/*.py",
-    "frontends/queues/tests/binheap/strict/*.py"
+  "frontends/queues/tests/*.py",
+  "frontends/queues/tests/round_robin/*.py",
+  "frontends/queues/tests/strict/*.py",
+  "frontends/queues/tests/binheap/*.py",
+  "frontends/queues/tests/binheap/round_robin/*.py",
+  "frontends/queues/tests/binheap/strict/*.py",
 ]
 cmd = """
 name=$(basename {} .py) &&
