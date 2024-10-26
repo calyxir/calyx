@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from decimal import Decimal, getcontext
 import math
 import logging as log
+import struct
 
 
 class InvalidNumericType(Exception):
@@ -335,3 +336,23 @@ def bitnum_to_fixed(bitnum: Bitnum, int_width: int) -> FixedPoint:
         int_width=int_width,
         is_signed=bitnum.is_signed,
     )
+
+
+@dataclass
+class FloatingPoint(NumericType):
+    """Represents a floating point number."""
+
+    def __init__(self, value: str, width: int, is_signed: bool):
+        super().__init__(value, width, is_signed)
+
+        if self.bit_string_repr is None and self.hex_string_repr is None:
+            # The decimal representation was passed in.
+            packed = struct.pack('!f', float(self.string_repr))
+            unpacked = struct.unpack('>I', packed)[0]
+            self.bit_string_repr = f'{unpacked:0{self.width}b}'
+            self.uint_repr = int(self.bit_string_repr, 2)
+            self.hex_string_repr = np.base_repr(self.uint_repr, 16)
+
+    def to_dec(self, round_place: int):
+        float_value = struct.unpack('!f', int(self.bit_string_repr, 2).to_bytes(4, byteorder='big'))[0]
+        return round(float_value, round_place)
