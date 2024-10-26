@@ -1,0 +1,20 @@
+import "primitives/float.futil";
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    f = std_float_const(0, 32, 0.5);
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    static<1> group add_one {
+      add.left = f.out;
+      add.right = 32'd1;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+  }
+  control {
+    add_one;
+  }
+}

@@ -1,0 +1,19 @@
+/** A floating-point constant with a specific representation.
+* NOTE: Floating point constants have special parsing and generation rules in
+*       the frontend and the backend. If you make changes here, you will likely
+*       need to change calyx_utils::float as well.
+*
+* PARAMETERS
+* - REP: The representation of the floating-point number.
+*     0: IEEE 754
+*     _: Reserved for future use.
+* - WIDTH=32, 64 are supported. Other values result in an error.
+*
+* PARSING
+* The value is converted into the bitpattern of the floating-point representation.
+* If the number cannot be represented exactly with the given bitwidth, we will
+* emit a warning.
+*/
+comb primitive std_float_const<"share"=1>[REP, WIDTH, VALUE]() -> (out: WIDTH) {
+    assign out = VALUE;
+}

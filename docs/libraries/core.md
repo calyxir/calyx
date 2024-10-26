@@ -8,6 +8,7 @@ such as registers and basic bitwise operations.
 - [Numerical Operators](#numerical-operators)
 - [Logical Operators](#logical-operators)
 - [Comparison Operators](#comparison-operators)
+- [Floating Point](#floating-point)
 - [Memories](#memories)
 
 ---
@@ -312,6 +313,25 @@ Less than or equal. This component is combinational.
 **Outputs:**
 
 - `out: 1` - A single bit output. 1 if `left <= right` else 0.
+
+---
+
+## Floating Point
+
+### `std_float_const`
+
+A floating-point constant with a particular representation and bitwidth.
+Floating-point values are specially parsed by the frontend and turned into the equivalent bit pattern (as dictated by the representation).
+Similarly, the backend supports specialized printing for constants based on the representation
+
+**Parameters:**
+
+- `REP`: The representation to use. `0` corresponds to [IEEE-754 floating point][ieee754] numbers. No other representation is supported at this point.
+- `WIDTH`: Bitwidth to use. Supported values: `32`, `64`.
+- `VAL`: The floating-point value. Frontend converts this into a `u64` internally.
+
+
+[ieee754]: https://en.wikipedia.org/wiki/IEEE_754
 
 ---
 
