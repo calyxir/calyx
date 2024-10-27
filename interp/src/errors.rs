@@ -271,7 +271,7 @@ impl RuntimeError {
             match assign.winner() {
                 AssignmentWinner::Cell => ("Cell".to_string(), None),
                 AssignmentWinner::Implicit => ("Implicit".to_string(), None),
-                AssignmentWinner::Assign(idx) => {
+                AssignmentWinner::Assign(idx, _) => {
                     let (comp, loc) =
                         env.ctx().find_assignment_definition(*idx);
 

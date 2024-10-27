@@ -458,8 +458,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             env.memory_header = Some(header.header.memories);
         }
 
-        dbg!(&env.pc);
-
         env
     }
 
@@ -2390,17 +2388,35 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                     dest,
                                     AssignedValue::new(
                                         v.val().clone(),
-                                        assign_idx,
+                                        (assign_idx, *active_cell),
                                     )
                                     .with_thread_optional(thread),
                                 );
 
                                 let changed = match result {
                                     Ok(update) => update,
-                                    Err(e) => return Err(
-                                        RuntimeError::ConflictingAssignments(e)
-                                            .into(),
-                                    ),
+                                    Err(e) => {
+                                        match e.a1.winner() {
+                                            AssignmentWinner::Assign(assignment_idx, global_cell_idx) => {
+                                                let assign = &self.env.ctx.as_ref().primary[*assignment_idx];
+                                                if !self
+                                                .evaluate_guard(assign.guard, *global_cell_idx)
+                                                .unwrap_or_default() {
+                                                    // the prior assignment is
+                                                    // no longer valid so we
+                                                    // replace it with the new
+                                                    // one
+                                                    let target = self.get_global_port_idx(&assign.dst, *global_cell_idx);
+                                                    self.env.ports[target] = e.a2.into();
+
+                                                    UpdateStatus::Changed
+                                                } else {
+                                                    return Err(RuntimeError::ConflictingAssignments(e).into());
+                                                }
+                                            },
+                                            _ => return Err(RuntimeError::ConflictingAssignments(e).into()),
+                                        }
+                                    }
                                 };
 
                                 has_changed |= changed.as_bool();

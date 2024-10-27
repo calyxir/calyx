@@ -400,13 +400,13 @@ pub enum AssignmentWinner {
     /// source
     Implicit,
     /// The assignment that produced this value.
-    Assign(AssignmentIdx),
+    Assign(AssignmentIdx, GlobalCellIdx),
 }
 
 impl AssignmentWinner {
     #[must_use]
     pub fn as_assign(&self) -> Option<&AssignmentIdx> {
-        if let Self::Assign(v) = self {
+        if let Self::Assign(v, _c) = self {
             Some(v)
         } else {
             None
@@ -414,9 +414,15 @@ impl AssignmentWinner {
     }
 }
 
-impl From<AssignmentIdx> for AssignmentWinner {
-    fn from(v: AssignmentIdx) -> Self {
-        Self::Assign(v)
+impl From<(AssignmentIdx, GlobalCellIdx)> for AssignmentWinner {
+    fn from((v, c): (AssignmentIdx, GlobalCellIdx)) -> Self {
+        Self::Assign(v, c)
+    }
+}
+
+impl From<(GlobalCellIdx, AssignmentIdx)> for AssignmentWinner {
+    fn from((c, v): (GlobalCellIdx, AssignmentIdx)) -> Self {
+        Self::Assign(v, c)
     }
 }
 
