@@ -176,6 +176,19 @@ fn translate_component(
         component_id_map,
     );
 
+    // Continuous Assignments
+    let cont_assignment_base = ctx.primary.assignments.peek_next_idx();
+    for assign in &comp.continuous_assignments {
+        let assign_new =
+            translate_assignment(assign, &mut ctx.primary, &layout.port_map);
+        ctx.primary.assignments.push(assign_new);
+    }
+
+    let continuous_assignments = IndexRange::new(
+        cont_assignment_base,
+        ctx.primary.assignments.peek_next_idx(),
+    );
+
     // Translate the groups
     let mut group_map = HashMap::with_capacity(comp.groups.len());
 
@@ -210,19 +223,6 @@ fn translate_component(
         comb_groups: comb_group_map,
         groups: group_map,
     };
-
-    // Continuous Assignments
-    let cont_assignment_base = ctx.primary.assignments.peek_next_idx();
-    for assign in &comp.continuous_assignments {
-        let assign_new =
-            translate_assignment(assign, &mut ctx.primary, &layout.port_map);
-        ctx.primary.assignments.push(assign_new);
-    }
-
-    let continuous_assignments = IndexRange::new(
-        cont_assignment_base,
-        ctx.primary.assignments.peek_next_idx(),
-    );
 
     let ctrl_ref = comp.control.borrow();
 
