@@ -2,18 +2,18 @@
 import calyx.builder as cb
 from calyx.utils import bits_needed
 from queues.binheap.stable_binheap import insert_stable_binheap
-from queues.binheap.flow_inference import insert_flow_inference
+from queues.binheap.flow_inference import insert_boundary_flow_inference
 
 FACTOR = 4
 
 
-def insert_binheap_strict(prog, name, boundaries, order, queue_size_factor=FACTOR):
-    n = len(boundaries)
-
+def insert_binheap_strict(prog, name, n, order, flow_infer, queue_size_factor=FACTOR):
     comp = prog.component(name)
 
     binheap = insert_stable_binheap(prog, "binheap", queue_size_factor)
     binheap = comp.cell("binheap", binheap)
+
+    flow_infer = comp.cell("flow_infer", flow_infer)
 
     cmd = comp.input("cmd", 1)
     value = comp.input("value", 32)
@@ -22,7 +22,7 @@ def insert_binheap_strict(prog, name, boundaries, order, queue_size_factor=FACTO
     err = comp.reg(1, "err", is_ref=True)
 
     flow = comp.reg(bits_needed(n - 1), "flow")
-    infer_flow = insert_flow_inference(comp, value, flow, boundaries, "infer_flow")
+    infer_flow = cb.invoke(flow_infer, in_value=value, ref_flow=flow)
 
     def binheap_invoke(value, rank):
         return cb.invoke(
@@ -67,6 +67,7 @@ def generate(prog, numflows):
     else:
         raise ValueError("Unsupported number of flows")
 
-    pifo = insert_binheap_strict(prog, "pifo", boundaries, order)
+    flow_infer = insert_boundary_flow_inference(prog, "flow_inference", boundaries)
+    pifo = insert_binheap_strict(prog, "pifo", numflows, order, flow_infer)
 
     return pifo

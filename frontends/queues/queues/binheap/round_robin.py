@@ -2,18 +2,18 @@
 import calyx.builder as cb
 from calyx.utils import bits_needed
 from queues.binheap.stable_binheap import insert_stable_binheap
-from queues.binheap.flow_inference import insert_flow_inference
+from queues.binheap.flow_inference import insert_boundary_flow_inference
 
 FACTOR = 4
 
 
-def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
-    n = len(boundaries)
-
+def insert_binheap_rr(prog, name, n, flow_infer, queue_size_factor=FACTOR):
     comp = prog.component(name)
 
     binheap = insert_stable_binheap(prog, "binheap", queue_size_factor)
     binheap = comp.cell("binheap", binheap)
+
+    flow_infer = comp.cell("flow_infer", flow_infer)
 
     cmd = comp.input("cmd", 1)
     value = comp.input("value", 32)
@@ -23,21 +23,15 @@ def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
 
     err_eq_0 = comp.eq_use(err.out, 0)
 
-    flow_in = comp.reg(bits_needed(n - 1), "flow_in")
-    infer_flow_in = insert_flow_inference(
-        comp, value, flow_in, boundaries, "infer_flow_in"
-    )
-
-    flow_out = comp.reg(bits_needed(n - 1), "flow_out")
-    infer_flow_out = insert_flow_inference(
-        comp, ans.out, flow_out, boundaries, "infer_flow_out"
-    )
+    flow = comp.reg(bits_needed(n - 1), "flow")
+    infer_flow_in = cb.invoke(flow_infer, in_value=value, ref_flow=flow)
+    infer_flow_out = cb.invoke(flow_infer, in_value=ans.out, ref_flow=flow)
 
     rank_ptrs = [comp.reg(32, f"r_{i}") for i in range(n)]
     rank_ptr_incrs = dict([(i, comp.incr(rank_ptrs[i], n)) for i in range(n)])
 
     turn = comp.reg(bits_needed(n - 1), "turn")
-    turn_neq_flow_out = comp.neq_use(turn.out, flow_out.out)
+    turn_neq_flow = comp.neq_use(turn.out, flow.out)
     turn_incr_mod_n = cb.if_with(
         comp.eq_use(turn.out, n - 1), comp.reg_store(turn, 0), comp.incr(turn)
     )
@@ -66,16 +60,16 @@ def insert_binheap_rr(prog, name, boundaries, queue_size_factor=FACTOR):
     update_state_pop = [
         infer_flow_out,
         cb.while_with(
-            turn_neq_flow_out, [comp.case(turn.out, rank_ptr_incrs), turn_incr_mod_n]
+            turn_neq_flow, [comp.case(turn.out, rank_ptr_incrs), turn_incr_mod_n]
         ),
         turn_incr_mod_n,
     ]
-    update_state_push = comp.case(flow_in.out, rank_ptr_incrs)
+    update_state_push = comp.case(flow.out, rank_ptr_incrs)
 
     comp.control += [
         init_state,
         infer_flow_in,
-        comp.case(flow_in.out, binheap_invokes),
+        comp.case(flow.out, binheap_invokes),
         cb.if_with(
             err_eq_0, comp.case(cmd, {0: update_state_pop, 1: update_state_push})
         ),
@@ -102,6 +96,7 @@ def generate(prog, numflows):
     else:
         raise ValueError("Unsupported number of flows")
 
-    pifo = insert_binheap_rr(prog, "pifo", boundaries)
+    flow_infer = insert_boundary_flow_inference(prog, "flow_inference", boundaries)
+    pifo = insert_binheap_rr(prog, "pifo", numflows, flow_infer)
 
     return pifo

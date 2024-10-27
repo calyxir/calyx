@@ -1,11 +1,17 @@
 # pylint: disable=import-error
 import calyx.builder as cb
+from calyx.utils import bits_needed
 
+def insert_boundary_flow_inference(prog, name, boundaries):
+    n = len(boundaries)
+    
+    comp = prog.component(name)
 
-def insert_flow_inference(comp, value, flow, boundaries, name):
+    value = comp.input("value", 32)
+    flow = comp.reg(bits_needed(n - 1), "flow", is_ref=True)
+
     bound_checks = []
-
-    for b in range(len(boundaries)):
+    for b in range(n):
         lt = comp.lt(32)
         le = comp.le(32)
         guard = comp.and_(1)
@@ -22,9 +28,11 @@ def insert_flow_inference(comp, value, flow, boundaries, name):
             guard.left = le.out
             guard.right = lt.out
 
-        set_flow_b = comp.reg_store(flow, b, f"{name}_set_flow_{b}")
+        set_flow_b = comp.reg_store(flow, b, groupname=f"set_flow_{b}")
+
         bound_check = cb.if_with(cb.CellAndGroup(guard, bound_check_b), set_flow_b)
-
         bound_checks.append(bound_check)
+    
+    comp.control += [ cb.par(*bound_checks) ]
 
-    return cb.par(*bound_checks)
+    return comp
