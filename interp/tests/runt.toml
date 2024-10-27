@@ -115,18 +115,19 @@ cmd = """
 ../../target/debug/cider {} -l ../../  --check-data-race
 """
 
-# [[tests]]
-# name = "correctness lowered"
-# paths = ["../../tests/correctness/*.futil"]
-# cmd = """
-# fud2 --from calyx --to dat \
-#          --through cider \
-#          -s sim.data={}.data \
-#          -s calyx.args="--log off" \
-#          -s calyx.flags="-p all" \
-#          {} | jq --sort-keys
-# """
-# timeout = 60
+[[tests]]
+name = "correctness lowered"
+paths = ["../../tests/correctness/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         -s calyx.flags="-p all" \
+         -s cider.flags="--no-verify" \
+         {} | jq --sort-keys
+"""
+timeout = 60
 
 
 [[tests]]
