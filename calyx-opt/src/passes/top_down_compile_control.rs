@@ -4,7 +4,8 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, Cell, GetAttributes, LibrarySignatures, Printer, RRC,
+    self as ir, BoolAttr, Cell, Destination, GetAttributes, LibrarySignatures,
+    Printer, Transition, RRC,
 };
 use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
@@ -682,6 +683,81 @@ impl<'b, 'a> Schedule<'b, 'a> {
             .extend(reset_fsms);
 
         group
+    }
+
+    /// Implement a given [Schedule] and return the name of the [ir::Group] that
+    /// implements it.
+    fn realize_fsm(
+        self,
+        // dump_fsm: bool,
+        // fsm_groups: &mut HashSet<ProfilingInfo>,
+        fsm_rep: FSMRepresentation,
+    ) -> () {
+        // confirm all states are reachable
+        self.validate();
+
+        // fsm bit width
+        let fsm_size = match fsm_rep.encoding {
+            RegisterEncoding::Binary => {
+                get_bit_width_from(fsm_rep.last_state + 1)
+            }
+            RegisterEncoding::OneHot => fsm_rep.last_state + 1,
+        };
+
+        // instantiate wire representing fsm.out value
+        let fsm_wire =
+            self.builder.add_primitive("fsm", "std_wire", &[fsm_size]);
+
+        // make enables (group `go` conditions) continuous assignments
+        // (* change for idle state of fsm *)
+        let continuous_enables = self
+            .enables
+            .into_iter()
+            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+            .flat_map(|(state, mut assigns_to_enable)| {
+                let state_const = // s + 1 b/c assume exists new idle state = 0: FIX
+                    self.builder.add_constant(state + 1, fsm_size);
+                let state_guard = guard!(fsm_wire["out"] == state_const["out"]);
+                assigns_to_enable.iter_mut().for_each(|assign| {
+                    assign.guard.update(|g| g.and(state_guard.clone()))
+                });
+                assigns_to_enable
+            })
+            .collect_vec();
+
+        self.builder
+            .component
+            .continuous_assignments
+            .extend(continuous_enables);
+
+        // map each source state to a list of conditional transitions
+        let mut transitions_map: HashMap<
+            u64,
+            Vec<(ir::Guard<Nothing>, ir::State)>,
+        > = HashMap::new();
+        self.transitions.into_iter().for_each(
+            |(s, e, g)| match transitions_map.get_mut(&s) {
+                Some(next_states) => next_states.push((g, ir::State::new(e))),
+                None => {
+                    transitions_map.insert(s, vec![(g, ir::State::new(e))]);
+                }
+            },
+        );
+
+        // construct fsm representation
+        // let fsm_name = self.builder.generate_fsm_name();
+        let fsm = ir::FSM::new(
+            self.builder.generate_fsm_name(),
+            transitions_map
+                .drain()
+                .map(|(curr_state, next_states)| {
+                    ir::Transition::<Nothing>::new(
+                        ir::State::new(curr_state),
+                        ir::Destination::new_cond(next_states),
+                    )
+                })
+                .collect(),
+        );
     }
 }
 

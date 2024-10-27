@@ -584,13 +584,13 @@ impl<StaticTiming> Assignment<StaticTiming> {
 }
 
 pub struct State {
-    /// Name of this FSM state
-    name: Id,
+    /// Numerical representation of this state
+    key: u64,
 }
 
 impl State {
-    pub fn new(name: Id) -> Self {
-        Self { name }
+    pub fn new(index: u64) -> Self {
+        Self { key: index }
     }
 }
 
@@ -600,24 +600,27 @@ pub enum Destination<T> {
 }
 
 impl<T> Destination<T> {
-    pub fn new_uncond(name: Id, s: State) -> Self {
+    pub fn new_uncond(s: State) -> Self {
         Self::Unconditional(s)
     }
 
-    pub fn new_cond(name: Id, conds: Vec<(Guard<T>, State)>) -> Self {
+    pub fn new_cond(conds: Vec<(Guard<T>, State)>) -> Self {
         Self::Conditional(conds)
     }
 }
 
 pub struct Transition<T> {
-    /// Name of this transition branch
-    name: Id,
-
     /// Originating state of the FSM transition
     src: State,
 
     /// Optionally conditional destination states of the transition
     dsts: Destination<T>,
+}
+
+impl<T> Transition<T> {
+    pub fn new(src: State, dsts: Destination<T>) -> Self {
+        Transition { src, dsts }
+    }
 }
 
 /// A Group of assignments that perform a logical action.
@@ -829,6 +832,10 @@ impl<T> FSM<T> {
     /// Grants immutable access to the name of this cell.
     pub fn name(&self) -> Id {
         self.name
+    }
+
+    pub fn new(name: Id, transitions: Vec<Transition<T>>) -> Self {
+        Self { name, transitions }
     }
 }
 
