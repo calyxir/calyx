@@ -176,7 +176,7 @@ def insert_main(
     lt = main.lt(32)
     not_err = main.not_(1)
 
-    with main.comb_group("Compute_keep_looping") as compute_keep_looping:
+    with main.comb_group("compute_keep_looping") as compute_keep_looping:
         # The condition to keep looping is:
         # The index `i` is less than the number of commands `num_cmds`
         # AND
