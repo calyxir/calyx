@@ -10,6 +10,7 @@ use calyx_frontend::{Attribute, BoolAttr};
 use calyx_utils::{CalyxResult, Error, GetName};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -582,6 +583,43 @@ impl<StaticTiming> Assignment<StaticTiming> {
     }
 }
 
+pub struct State {
+    /// Name of this FSM state
+    name: Id,
+}
+
+impl State {
+    pub fn new(name: Id) -> Self {
+        Self { name }
+    }
+}
+
+pub enum Destination<T> {
+    Unconditional(State),
+    Conditional(Vec<(Guard<T>, State)>),
+}
+
+impl<T> Destination<T> {
+    pub fn new_uncond(name: Id, s: State) -> Self {
+        Self::Unconditional(s)
+    }
+
+    pub fn new_cond(name: Id, conds: Vec<(Guard<T>, State)>) -> Self {
+        Self::Conditional(conds)
+    }
+}
+
+pub struct Transition<T> {
+    /// Name of this transition branch
+    name: Id,
+
+    /// Originating state of the FSM transition
+    src: State,
+
+    /// Optionally conditional destination states of the transition
+    dsts: Destination<T>,
+}
+
 /// A Group of assignments that perform a logical action.
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
@@ -779,6 +817,21 @@ impl CombGroup {
     }
 }
 
+pub struct FSM<T> {
+    /// Name of this construct
+    pub(super) name: Id,
+
+    /// Map from state identifiers to guarded transitions to other state identifiers
+    pub transitions: Vec<Transition<T>>,
+}
+
+impl<T> FSM<T> {
+    /// Grants immutable access to the name of this cell.
+    pub fn name(&self) -> Id {
+        self.name
+    }
+}
+
 impl GetName for Cell {
     fn name(&self) -> Id {
         self.name()
@@ -798,6 +851,12 @@ impl GetName for CombGroup {
 }
 
 impl GetName for StaticGroup {
+    fn name(&self) -> Id {
+        self.name()
+    }
+}
+
+impl<T> GetName for FSM<T> {
     fn name(&self) -> Id {
         self.name()
     }
