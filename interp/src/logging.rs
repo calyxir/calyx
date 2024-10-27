@@ -19,7 +19,8 @@ pub fn initialize_logger(quiet: bool) {
     let filter_level = if quiet { Level::Error } else { Level::Trace };
     let drain = drain.filter_level(filter_level).fuse();
 
-    let drain = slog_async::Async::new(drain).build().fuse();
+    // TODO griffin: make this configurable
+    let drain = slog_async::Async::new(drain).chan_size(1024).build().fuse();
 
     let logger = slog::Logger::root(drain, o!());
 
@@ -41,4 +42,8 @@ pub fn root() -> &'static Logger {
 /// the supplied name.
 pub fn new_sublogger<S: AsRef<str>>(source_name: S) -> Logger {
     root().new(o!("source" => String::from(source_name.as_ref())))
+}
+
+pub fn empty_sublogger() -> Logger {
+    root().new(o!())
 }

@@ -67,7 +67,7 @@ impl Primitive for StdReg {
         let done_port = if port_map[reset].as_bool().unwrap_or_default() {
             self.internal_state.value =
                 BitVecValue::zero(self.internal_state.value.width());
-            port_map.insert_val(
+            port_map.insert_val_general(
                 done,
                 AssignedValue::cell_value(BitVecValue::fals()),
             )?
@@ -80,20 +80,20 @@ impl Primitive for StdReg {
 
             self.done_is_high = true;
 
-            port_map.insert_val(
+            port_map.insert_val_general(
                 done,
                 AssignedValue::cell_value(BitVecValue::tru()),
             )?
         } else {
             self.done_is_high = false;
-            port_map.insert_val(
+            port_map.insert_val_general(
                 done,
                 AssignedValue::cell_value(BitVecValue::fals()),
             )?
         };
 
         Ok(done_port
-            | port_map.insert_val(
+            | port_map.insert_val_general(
                 out_idx,
                 AssignedValue::cell_value(self.internal_state.value.clone())
                     .with_clocks(self.internal_state.clocks),
@@ -105,12 +105,12 @@ impl Primitive for StdReg {
             done: Self::DONE,
             out_idx: Self::OUT];
 
-        let out_signal = port_map.insert_val(
+        let out_signal = port_map.insert_val_general(
             out_idx,
             AssignedValue::cell_value(self.internal_state.value.clone())
                 .with_clocks(self.internal_state.clocks),
         )?;
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -520,7 +520,7 @@ impl Primitive for CombMem {
             if addr.is_some() && addr.unwrap() < self.internal_state.len() {
                 let addr = addr.unwrap();
 
-                port_map.insert_val(
+                port_map.insert_val_general(
                     read_data,
                     AssignedValue::cell_value(
                         self.internal_state[addr].value.clone(),
@@ -535,7 +535,7 @@ impl Primitive for CombMem {
                 UpdateStatus::Unchanged
             };
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -567,14 +567,14 @@ impl Primitive for CombMem {
                 .ok_or(RuntimeError::UndefinedWrite(self.global_idx))?;
             self.internal_state[addr].value = write_data.val().clone();
             self.done_is_high = true;
-            port_map.insert_val(done, AssignedValue::cell_b_high())?
+            port_map.insert_val_general(done, AssignedValue::cell_b_high())?
         } else {
             self.done_is_high = false;
-            port_map.insert_val(done, AssignedValue::cell_b_low())?
+            port_map.insert_val_general(done, AssignedValue::cell_b_low())?
         };
 
         if let Some(addr) = addr {
-            Ok(port_map.insert_val(
+            Ok(port_map.insert_val_general(
                 read_data,
                 AssignedValue::cell_value(
                     self.internal_state[addr].value.clone(),
@@ -813,19 +813,21 @@ impl SeqMem {
 
 impl Primitive for SeqMem {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
-        let done_signal = port_map.insert_val(
-            self.done(),
-            AssignedValue::cell_value(if self.done_is_high {
-                BitVecValue::tru()
-            } else {
-                BitVecValue::fals()
-            }),
-        )?;
+        let done_signal = port_map
+            .insert_val(
+                self.done(),
+                AssignedValue::cell_value(if self.done_is_high {
+                    BitVecValue::tru()
+                } else {
+                    BitVecValue::fals()
+                }),
+            )
+            .map_err(|e| RuntimeError::ConflictingAssignments(e))?;
 
         let out_signal = if port_map[self.read_data()].is_undef()
             && self.read_out.is_def()
         {
-            port_map.insert_val(
+            port_map.insert_val_general(
                 self.read_data(),
                 self.read_out.as_option().unwrap().clone(),
             )?
@@ -872,15 +874,15 @@ impl Primitive for SeqMem {
             self.done_is_high = false;
         }
 
-        let done_changed = port_map.insert_val(
+        let done_changed = port_map.insert_val_general(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
             } else {
                 BitVecValue::fals()
             }),
-        );
-        Ok(done_changed?
+        )?;
+        Ok(done_changed
             | port_map
                 .write_exact_unchecked(self.read_data(), self.read_out.clone()))
     }

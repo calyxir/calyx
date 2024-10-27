@@ -165,6 +165,19 @@ impl BoxedRuntimeError {
 }
 
 #[derive(Error, Debug)]
+#[error(
+    "conflicting assigns
+        1. {a1}
+        2. {a2}
+    "
+)]
+pub struct ConflictingAssignments {
+    pub target: GlobalPortIdx,
+    pub a1: AssignedValue,
+    pub a2: AssignedValue,
+}
+
+#[derive(Error, Debug)]
 pub enum RuntimeError {
     #[error(transparent)]
     ClockError(#[from] ClockError),
@@ -211,17 +224,8 @@ pub enum RuntimeError {
     #[error("Computation has under/overflowed its bounds")]
     OverflowError,
 
-    #[error(
-        "conflicting assigns
-        1. {a1}
-        2. {a2}
-    "
-    )]
-    FlatConflictingAssignments {
-        target: GlobalPortIdx,
-        a1: AssignedValue,
-        a2: AssignedValue,
-    },
+    #[error(transparent)]
+    ConflictingAssignments(ConflictingAssignments),
 }
 
 // this is silly but needed to make the program print something sensible when returning
@@ -295,7 +299,7 @@ impl RuntimeError {
         }
 
         match self {
-            RuntimeError::FlatConflictingAssignments { target, a1, a2 } => {
+            RuntimeError::ConflictingAssignments(ConflictingAssignments { target, a1, a2 }) => {
                 let (a1_str, a1_source) = assign_to_string(&a1, env);
                 let (a2_str, a2_source) = assign_to_string(&a2, env);
 

@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     configuration::RuntimeConfig,
-    errors::{BoxedCiderError, CiderResult},
+    errors::{BoxedCiderError, CiderResult, ConflictingAssignments},
     flatten::{
         flat_ir::{
             base::{
@@ -48,7 +48,7 @@ use baa::{BitVecOps, BitVecValue};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
-use slog::warn;
+use slog::{info, warn, Logger};
 use std::fmt::Debug;
 use std::fmt::Write;
 
@@ -94,7 +94,7 @@ impl PortMap {
         &mut self,
         target: GlobalPortIdx,
         val: AssignedValue,
-    ) -> RuntimeResult<UpdateStatus> {
+    ) -> Result<UpdateStatus, ConflictingAssignments> {
         match self[target].as_option() {
             // unchanged
             Some(t) if *t == val => Ok(UpdateStatus::Unchanged),
@@ -106,14 +106,11 @@ impl PortMap {
                 // other way around
                     && !(*t.winner() == AssignmentWinner::Implicit) =>
             {
-                RuntimeResult::Err(
-                    RuntimeError::FlatConflictingAssignments {
-                        target,
-                        a1: t.clone(),
-                        a2: val,
-                    }
-                    .into(),
-                )
+                Err(ConflictingAssignments {
+                    target,
+                    a1: t.clone(),
+                    a2: val,
+                })
             }
             // changed
             Some(_) | None => {
@@ -121,6 +118,18 @@ impl PortMap {
                 Ok(UpdateStatus::Changed)
             }
         }
+    }
+
+    /// Identical to `insert_val` but returns a `RuntimeError` instead of a
+    /// `ConflictingAssignments` error. This should be used inside of primitives
+    /// while the latter is used in the general simulation flow.
+    pub fn insert_val_general(
+        &mut self,
+        target: GlobalPortIdx,
+        val: AssignedValue,
+    ) -> RuntimeResult<UpdateStatus> {
+        self.insert_val(target, val)
+            .map_err(|e| RuntimeError::ConflictingAssignments(e).into())
     }
 
     pub fn set_done(
@@ -136,6 +145,7 @@ impl PortMap {
                 BitVecValue::fals()
             }),
         )
+        .map_err(|e| RuntimeError::ConflictingAssignments(e).into())
     }
 }
 
@@ -447,6 +457,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         if let Some(header) = data_map {
             env.memory_header = Some(header.header.memories);
         }
+
+        dbg!(&env.pc);
 
         env
     }
@@ -1277,6 +1289,7 @@ pub struct Simulator<C: AsRef<Context> + Clone> {
     env: Environment<C>,
     wave: Option<WaveWriter>,
     conf: RuntimeConfig,
+    logger: Logger,
 }
 
 impl<C: AsRef<Context> + Clone> Simulator<C> {
@@ -1293,7 +1306,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     todo!("deal more gracefully with error: {err:?}")
                 }
             });
-        let mut output = Self { env, wave, conf };
+        let mut output = Self {
+            env,
+            wave,
+            conf,
+            logger: logging::empty_sublogger(),
+        };
         output.set_root_go_high();
         output
     }
@@ -2141,6 +2159,27 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> CiderResult<()> {
+        match self.run_program_inner() {
+            Ok(_) => {
+                if self.conf.debug_logging {
+                    info!(self.logger, "Finished program execution");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                if self.conf.debug_logging {
+                    slog::error!(
+                        self.logger,
+                        "Program execution failed with error: {}",
+                        e.red()
+                    );
+                }
+                Err(e)
+            }
+        }
+    }
+
+    fn run_program_inner(&mut self) -> Result<(), BoxedCiderError> {
         let mut time = 0;
         while !self.is_done() {
             if let Some(wave) = self.wave.as_mut() {
@@ -2217,6 +2256,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let mut has_changed = true;
         let mut have_zeroed_control_ports = false;
 
+        if self.conf.debug_logging {
+            info!(self.logger, "Started combinational convergence");
+        }
+
         while has_changed {
             has_changed = false;
 
@@ -2277,6 +2320,22 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .get_global_port_idx(&assign.src, *active_cell);
                             let val = &self.env.ports[port];
 
+                            if self.conf.debug_logging {
+                                info!(
+                                    self.logger,
+                                    "Assignment fired in {}: {}\n     wrote {}",
+                                    self.env.get_full_name(active_cell),
+                                    self.ctx()
+                                        .printer()
+                                        .print_assignment(
+                                            ledger.comp_id,
+                                            assign_idx
+                                        )
+                                        .yellow(),
+                                    val.bold()
+                                );
+                            }
+
                             if self.conf.check_data_race {
                                 if let Some(clocks) = val.clocks() {
                                     // skip checking clocks for continuous assignments
@@ -2327,14 +2386,22 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             }
 
                             if let Some(v) = val.as_option() {
-                                let changed = self.env.ports.insert_val(
+                                let result = self.env.ports.insert_val(
                                     dest,
                                     AssignedValue::new(
                                         v.val().clone(),
                                         assign_idx,
                                     )
                                     .with_thread_optional(thread),
-                                )?;
+                                );
+
+                                let changed = match result {
+                                    Ok(update) => update,
+                                    Err(e) => return Err(
+                                        RuntimeError::ConflictingAssignments(e)
+                                            .into(),
+                                    ),
+                                };
 
                                 has_changed |= changed.as_bool();
                             }
@@ -2436,6 +2503,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         self.env.ports[*port] =
                             PortValue::new_implicit(BitVecValue::zero(*width));
                         has_changed = true;
+
+                        if self.conf.debug_logging {
+                            info!(
+                                self.logger,
+                                "Control port {} has been implicitly set to zero",
+                                self.env.get_full_name(*port)
+                            );
+                        }
                     }
                 }
             }
@@ -2497,6 +2572,11 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 return Err(RuntimeError::UndefinedGuardError(error_v).into());
             }
         }
+
+        if self.conf.debug_logging {
+            info!(self.logger, "Finished combinational convergence");
+        }
+
         Ok(())
     }
 
@@ -2705,26 +2785,30 @@ impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalCellIdx {
 
 impl<C: AsRef<Context> + Clone> GetFullName<C> for GlobalPortIdx {
     fn get_full_name(&self, env: &Environment<C>) -> String {
-        let (parent_path, _) = env.get_parent_path_from_port(*self).unwrap();
-        let path_str = env.format_path(&parent_path);
+        if let Some((parent_path, _)) = env.get_parent_path_from_port(*self) {
+            let path_str = env.format_path(&parent_path);
 
-        let immediate_parent = parent_path.last().unwrap();
-        let comp = if env.cells[*immediate_parent].as_comp().is_some() {
-            *immediate_parent
+            let immediate_parent = parent_path.last().unwrap();
+            let comp = if env.cells[*immediate_parent].as_comp().is_some() {
+                *immediate_parent
+            } else {
+                // get second-to-last parent
+                parent_path[parent_path.len() - 2]
+            };
+
+            let ledger = env.cells[comp].as_comp().unwrap();
+
+            let local_offset = *self - &ledger.index_bases;
+            let comp_def = &env.ctx().secondary[ledger.comp_id];
+            let port_def_idx = &comp_def.port_offset_map[local_offset];
+            let port_def = &env.ctx().secondary[*port_def_idx];
+            let name = env.ctx().lookup_name(port_def.name);
+
+            format!("{path_str}.{name}")
         } else {
-            // get second-to-last parent
-            parent_path[parent_path.len() - 2]
-        };
-
-        let ledger = env.cells[comp].as_comp().unwrap();
-
-        let local_offset = *self - &ledger.index_bases;
-        let comp_def = &env.ctx().secondary[ledger.comp_id];
-        let port_def_idx = &comp_def.port_offset_map[local_offset];
-        let port_def = &env.ctx().secondary[*port_def_idx];
-        let name = env.ctx().lookup_name(port_def.name);
-
-        format!("{path_str}.{name}")
+            // TODO griffin: this is a hack plz fix
+            "<unable to get full name>".to_string()
+        }
     }
 }
 

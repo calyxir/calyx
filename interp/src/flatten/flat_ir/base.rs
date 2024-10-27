@@ -552,7 +552,7 @@ pub struct PortValue(Option<AssignedValue>);
 
 impl std::fmt::Display for PortValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{}", self.format_value(PrintCode::Unsigned))
     }
 }
 
