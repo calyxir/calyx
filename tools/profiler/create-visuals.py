@@ -42,9 +42,10 @@ class CallStackElement:
             return self.active_groups[0]
         else:
             # concatenate all parallel active groups
-            acc = self.active_groups[0]
-            for i in range(1, len(self.active_groups)):
-                suffix = self.active_groups[i].split(".")[-1]
+            sorted_active_groups = list(sorted(self.active_groups))
+            acc = sorted_active_groups[0]
+            for i in range(1, len(sorted_active_groups)):
+                suffix = sorted_active_groups[i].split(".")[-1]
                 acc += "/" + suffix
             return acc
     
