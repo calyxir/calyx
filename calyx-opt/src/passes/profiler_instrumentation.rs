@@ -53,8 +53,7 @@ impl Visitor for ProfilerInstrumentation {
                 builder.add_constant(1, 1);
             for group_name in group_names.into_iter() {
                 // store group and component name (differentiate between groups of the same name under different components)
-                let name =
-                    format!("{}__{}_probe", group_name, comp_name.to_string());
+                let name = format!("{}__{}_probe", group_name, comp_name);
                 let inst_cell = builder.add_primitive(name, "std_wire", &[1]);
                 let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
                     builder;
