@@ -47,6 +47,16 @@ pub fn config_path(name: &str) -> std::path::PathBuf {
     config_path
 }
 
+/// Location of the data directory
+pub fn data_dir(name: &str) -> std::path::PathBuf {
+    // The configuration is usually at `~/.config/driver_name.toml`.
+    let config_base = env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
+        let home = env::var("HOME").expect("$HOME not set");
+        home + "/.local/share"
+    });
+    Path::new(&config_base).join(name)
+}
+
 /// Get raw configuration data with some default options.
 pub fn default_config() -> Figment {
     Figment::from(Serialized::defaults(GlobalConfig::default()))

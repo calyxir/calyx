@@ -1276,9 +1276,9 @@ dependencies = [
 
 [[package]]
 name = "fst-writer"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d17dac4299fb4b037b8ce0d68b9e0ce7c61e5fbb038251f8f28148528f925b69"
+checksum = "d70529890a0a27d43374a430d7faf7634ef8df0ae775bb2836d92468eb74d61f"
 dependencies = [
  "lz4_flex",
  "thiserror",
@@ -1296,12 +1296,14 @@ name = "fud"
 version = "0.0.2"
 dependencies = [
  "anyhow",
+ "argh",
  "figment",
  "fud-core",
  "include_dir",
  "insta",
  "itertools 0.11.0",
  "manifest-dir-macros",
+ "toml_edit",
 ]
 
 [[package]]

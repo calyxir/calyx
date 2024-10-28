@@ -47,7 +47,7 @@ btor2i = { path = "../tools/btor2/btor2i" }
 
 ciborium = "0.2.2"
 baa = { version = "0.6.0", features = ["bigint", "serde1", "fraction1"] }
-fst-writer = "0.2.0"
+fst-writer = "0.2.1"
 bon = "2.3"
 
 

@@ -1,4 +1,4 @@
-# Wrapper script for running TDCC, running simulation, and obtaining cycle counts information
+# Wrapper script for running TDCC, running simulation, obtaining cycle counts information, and producing flame graphs to visualize
 
 if [ $# -lt 2 ]; then
     echo "USAGE: bash $0 INPUT_FILE SIM_DATA_JSON [OUT_CSV]"
@@ -13,7 +13,7 @@ INPUT_FILE=$1
 SIM_DATA_JSON=$2
 name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
 DATA_DIR=${SCRIPT_DIR}/data/${name}
-TMP_DIR=${DATA_DIR}/tmp
+TMP_DIR=${DATA_DIR}/generated-data
 if [ $# -ge 3 ]; then
     OUT_CSV=$3
 else
@@ -38,6 +38,8 @@ FSM_TIMELINE_VIEW_JSON=${TMP_DIR}/fsm-timeline.json
 FLAME_GRAPH_FOLDED=${TMP_DIR}/flame.folded
 FSM_FLAME_GRAPH_FOLDED=${TMP_DIR}/fsm-flame.folded
 FREQUENCY_FLAME_GRAPH_FOLDED=${TMP_DIR}/frequency-flame.folded
+COMPONENTS_FOLDED=${TMP_DIR}/components.folded
+FSM_COMPONENTS_FOLDED=${TMP_DIR}/fsm-components.folded
 VCD_FILE=${TMP_DIR}/trace.vcd
 LOGS_DIR=${DATA_DIR}/logs
 if [ -d ${DATA_DIR} ]; then
@@ -46,13 +48,15 @@ fi
 mkdir -p ${TMP_DIR} ${LOGS_DIR}
 rm -f ${TMP_DIR}/* ${LOGS_DIR}/* # remove data from last run
 
+CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p no-opt "
+
 
 # Run TDCC to get the FSM info
 echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
 (
     cd ${CALYX_DIR}
     set -o xtrace
-    cargo run -- ${INPUT_FILE} -p compile-repeat -p no-opt -x tdcc:dump-fsm-json="${FSM_JSON}" #  -p par-to-seq
+    cargo run -- ${INPUT_FILE} ${CALYX_ARGS} -x tdcc:dump-fsm-json="${FSM_JSON}"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-tdcc
 
@@ -78,7 +82,7 @@ fi
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
     set -o xtrace
-    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args='-p compile-repeat -p no-opt' -s sim.data=${SIM_DATA_JSON} # -p par-to-seq 
+    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args="${CALYX_ARGS}" -s sim.data=${SIM_DATA_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
 
@@ -101,10 +105,10 @@ else
     tail -3 ${LOGS_DIR}/gol-process | head -2 # last line is the set +o xtrace, which we don't need to show
 fi
 
-echo "[${SCRIPT_NAME}] Writing visualization"
+echo "[${SCRIPT_NAME}] Writing visualization files"
 (
     set -o xtrace
-    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FSM_TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED} ${FREQUENCY_FLAME_GRAPH_FOLDED}
+    python3 ${SCRIPT_DIR}/create-visuals.py ${OUT_JSON} ${CELLS_JSON} ${TIMELINE_VIEW_JSON} ${FSM_TIMELINE_VIEW_JSON} ${FLAME_GRAPH_FOLDED} ${FSM_FLAME_GRAPH_FOLDED} ${FREQUENCY_FLAME_GRAPH_FOLDED} ${COMPONENTS_FOLDED} ${FSM_COMPONENTS_FOLDED}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-visuals
 
@@ -121,7 +125,11 @@ echo "[${SCRIPT_NAME}] Creating flame graph svg"
 	echo
 	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="cycles" ${FSM_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/fsm-${filename}.svg
 	echo
-	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg	
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FREQUENCY_FLAME_GRAPH_FOLDED} > ${TMP_DIR}/frequency-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${COMPONENTS_FOLDED} > ${TMP_DIR}/components-${filename}.svg
+	echo
+	${FLAMEGRAPH_DIR}/flamegraph.pl ${opt} --countname="times active" ${FSM_COMPONENTS_FOLDED} > ${TMP_DIR}/fsm-components-${filename}.svg
     done
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-flamegraph
