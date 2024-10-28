@@ -95,7 +95,7 @@ class ProfilingInfo:
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsms, tdcc_groups, fsm_group_maps, main_component, cells): # single_enable_names,
+    def __init__(self, fsms, tdcc_groups, fsm_group_maps, main_component, cells):
         super().__init__()
         self.main_component = main_component
         self.fsms = fsms
@@ -146,11 +146,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
-            if "_probe_out" in name: # instrumentation probes are "<component>__<group>_probe"
-                split = name.split("_probe_out")[0].split("__")
-                group_name = split[0]
+            if "_probe_out" in name: # instrumentation probes are "<group>__<component>_probe"
+                group_component_split = name.split("_probe_out")[0].split("__")
+                group_name = group_component_split[0]
                 self.single_enable_names.add(group_name)
-                self.profiling_info[group_name] = ProfilingInfo(group_name, split[1])
+                self.profiling_info[group_name] = ProfilingInfo(group_name, group_component_split[1])
                 signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
