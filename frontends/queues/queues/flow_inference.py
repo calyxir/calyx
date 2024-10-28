@@ -1,6 +1,8 @@
 # pylint: disable=import-error
 import calyx.builder as cb
 from calyx.utils import bits_needed
+from calyx.tuple import insert_untuplify
+
 
 def insert_boundary_flow_inference(prog, name, boundaries):
     n = len(boundaries)
@@ -34,5 +36,24 @@ def insert_boundary_flow_inference(prog, name, boundaries):
         bound_checks.append(bound_check)
     
     comp.control += [ cb.par(*bound_checks) ]
+
+    return comp
+
+
+def insert_tuple_flow_inference(prog, name, num_flows):
+    flow_bits = bits_needed(num_flows - 1)
+
+    comp = prog.component(name)
+
+    untuplify = insert_untuplify(prog, f"{name}_untuplify", flow_bits, 32 - flow_bits)
+    untuplify = comp.cell("untuplify", untuplify)
+
+    value = comp.input("value", 32)
+    flow = comp.reg(flow_bits, "flow", is_ref=True)
+
+    with comp.continuous:
+        untuplify.tup = value
+
+    comp.control += [ comp.reg_store(flow, untuplify.fst) ]
 
     return comp
