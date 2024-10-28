@@ -67,7 +67,7 @@ done
 # for queues with 2..6 flows, each with a different strict ordering. This generates 5
 # expect file pairs.
 
-for n in {2..6}; do
+for n in {2..7}; do
     python3 $data_gen_dir/gen_oracle_data.py $num_cmds > $tests_dir/strict/strict_${n}flow_test.data
     [[ $? -eq 0 ]] && echo "Generated strict/strict_${n}flow_test.data"
     cat $tests_dir/strict/strict_${n}flow_test.data | python3 $data_gen_dir/strict_queue_oracle.py $num_cmds $queue_size $n --keepgoing > $tests_dir/strict/strict_${n}flow_test.expect
