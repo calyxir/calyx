@@ -52,25 +52,25 @@ cat $tests_dir/binheap/stable_binheap_test.data | python3 $data_gen_dir/binheap_
 [[ $? -eq 0 ]] && echo "Generated binheap/stable_binheap_test.expect"
 
 
-# For the Round Robin queues, we drop piezo mode as well and use rrqueue_oracle to
+# For the Round Robin queues, we drop piezo mode as well and use rr_oracle to
 # generate the expected output for queues with 2..7 flows. This generates 6 data expect file pairs.
 
 for n in {2..7}; do
     python3 $data_gen_dir/gen_oracle_data.py $num_cmds > $tests_dir/round_robin/rr_${n}flow_test.data
     [[ $? -eq 0 ]] && echo "Generated round_robin/rr_${n}flow_test.data"
-    cat $tests_dir/round_robin/rr_${n}flow_test.data | python3 $data_gen_dir/rr_queue_oracle.py $num_cmds $queue_size $n --keepgoing > $tests_dir/round_robin/rr_${n}flow_test.expect
+    cat $tests_dir/round_robin/rr_${n}flow_test.data | python3 $data_gen_dir/rr_oracle.py $num_cmds $queue_size $n --keepgoing > $tests_dir/round_robin/rr_${n}flow_test.expect
     [[ $? -eq 0 ]] && echo "Generated round_robin/rr_${n}flow_test.expect"
 done
 
 
-# For Strict queues, we use strict_queue_oracle.py to generate the expected output
+# For Strict queues, we use strict_oracle.py to generate the expected output
 # for queues with 2..6 flows, each with a different strict ordering. This generates 5
 # expect file pairs.
 
 for n in {2..7}; do
     python3 $data_gen_dir/gen_oracle_data.py $num_cmds > $tests_dir/strict/strict_${n}flow_test.data
     [[ $? -eq 0 ]] && echo "Generated strict/strict_${n}flow_test.data"
-    cat $tests_dir/strict/strict_${n}flow_test.data | python3 $data_gen_dir/strict_queue_oracle.py $num_cmds $queue_size $n --keepgoing > $tests_dir/strict/strict_${n}flow_test.expect
+    cat $tests_dir/strict/strict_${n}flow_test.data | python3 $data_gen_dir/strict_oracle.py $num_cmds $queue_size $n --keepgoing > $tests_dir/strict/strict_${n}flow_test.expect
     [[ $? -eq 0 ]] && echo "Generated strict/strict_${n}flow_test.expect"
 done
 
