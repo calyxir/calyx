@@ -49,8 +49,7 @@ impl Visitor for ProfilerInstrumentation {
         let mut asgn_and_cell = Vec::with_capacity(group_names.len());
         {
             let mut builder = ir::Builder::new(comp, sigs);
-            let one: std::rc::Rc<std::cell::RefCell<calyx_ir::Cell>> =
-                builder.add_constant(1, 1);
+            let one = builder.add_constant(1, 1);
             for group_name in group_names.into_iter() {
                 // store group and component name (differentiate between groups of the same name under different components)
                 let name = format!("{}__{}_probe", group_name, comp_name);
