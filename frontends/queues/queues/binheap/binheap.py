@@ -63,13 +63,13 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
     rank = comp.input("rank", rnk_w)
     value = comp.input("value", val_w)
 
-    swap = comp.cell(
-        "swap", insert_swap(prog, "swap", rnk_w + val_w, max_queue_size, addr_size)
-    )
-    tuplify = comp.cell("tuplify", insert_tuplify(prog, "tuplify", rnk_w, val_w))
-    untuplify = comp.cell(
-        "untuplify", insert_untuplify(prog, "untuplify", rnk_w, val_w)
-    )
+    swap = insert_swap(prog, f"{name}_swap", rnk_w + val_w, max_queue_size, addr_size)
+    swap = comp.cell("swap", swap)
+
+    tuplify = insert_tuplify(prog, f"{name}_tuplify", rnk_w, val_w)
+    tuplify = comp.cell("tuplify", tuplify)
+    untuplify = insert_untuplify(prog, f"{name}_untuplify", rnk_w, val_w)
+    untuplify = comp.cell("untuplify", untuplify)
 
     mem = comp.seq_mem_d1("mem", 96, max_queue_size, addr_size)
     # The memory to store the heap, represented as an array.
