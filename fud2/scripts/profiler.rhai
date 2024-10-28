@@ -19,9 +19,6 @@ fn profiling_setup(e) {
     e.config_var_or("component_cells", "component_cells", "$calyx-base/target/debug/component_cells");
     e.rule("component-cells", "$component_cells -l $calyx-base $in > $out");
 
-    // dummy rule to force ninja to build the testbench
-    e.rule("dummy", "sh -c 'cat $$0' $in > $out");
-
     // rules for postprocessing
 
     // script to process vcd and attribute active cycles to every group/cell
@@ -46,7 +43,7 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", " -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p profiler-instrumentation -p $passes -x tdcc:dump-fsm-json=fsm.json");
+    e.arg("args", " -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p compile-invoke -p profiler-instrumentation -p $passes -x tdcc:dump-fsm-json=fsm.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
