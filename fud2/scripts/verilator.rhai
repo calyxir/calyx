@@ -1,7 +1,6 @@
 import "rtl_sim" as sim;
 import "testbench" as tb;
 import "calyx" as c;
-import "profiler" as p;
 
 export const verilator_setup = verilator_setup;
 fn verilator_setup(e) {
@@ -55,13 +54,4 @@ op(
    tb::verilog_refmem,
    sim::simulator,
    |e, input, output| { verilator_build(e, input, output, false) }
-);
-
-// profiled version to impose restriction that producing flamegraphs requires going through calyx-to-instrumented-verilog
-op(
-   "verilator-instrumented",
-   [sim::sim_setup, tb::standalone_setup, verilator_setup],
-   p::instrumented_verilog,
-   p::instrumented_sim,
-   |e, input, output| { verilator_build(e, input, output, true) }
 );
