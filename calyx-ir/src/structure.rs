@@ -826,6 +826,8 @@ pub struct FSM<T> {
 
     /// Map from state identifiers to guarded transitions to other state identifiers
     pub transitions: Vec<Transition<T>>,
+    // Wire representing fsm output
+    // pub wire: RRC<Cell>,
 }
 
 impl<T> FSM<T> {

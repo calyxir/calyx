@@ -4,8 +4,8 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, Cell, Destination, GetAttributes, LibrarySignatures,
-    Printer, Transition, RRC,
+    self as ir, Attribute, BoolAttr, Cell, Destination, GetAttributes,
+    LibrarySignatures, NumAttr, Printer, Seq, State, Transition, RRC,
 };
 use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
@@ -745,13 +745,12 @@ impl<'b, 'a> Schedule<'b, 'a> {
         );
 
         // construct fsm representation
-        // let fsm_name = self.builder.generate_fsm_name();
-        let fsm = ir::FSM::new(
+        let fsm: ir::FSM<Nothing> = ir::FSM::new(
             self.builder.generate_fsm_name(),
             transitions_map
                 .drain()
                 .map(|(curr_state, next_states)| {
-                    ir::Transition::<Nothing>::new(
+                    ir::Transition::new(
                         ir::State::new(curr_state),
                         ir::Destination::new_cond(next_states),
                     )
@@ -1217,6 +1216,10 @@ impl TopDownCompileControl {
             last_state,
         }
     }
+
+    fn attach_state_id(&self, attrs: &mut ir::Attributes, v: u64) {
+        attrs.insert(Attribute::from(NumAttr::State), v);
+    }
 }
 
 impl ConstructVisitor for TopDownCompileControl {
@@ -1325,6 +1328,51 @@ impl Visitor for TopDownCompileControl {
 
         compute_unique_ids(&mut con, 0);
         // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
+        Ok(Action::Continue)
+    }
+
+    /// Assign FSM states to each child of this sequential control.
+    /// Will be used if any child is itself a schedule, to add a conditional
+    /// transition out of the child FSM's IDLE state
+    fn start_seq(
+        &mut self,
+        s: &mut calyx_ir::Seq,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let mut fsm_state: u64 = 0;
+        for ctrl in s.stmts.iter_mut() {
+            fsm_state += 1;
+            self.attach_state_id(ctrl.get_mut_attributes(), fsm_state);
+        }
+        Ok(Action::Continue)
+    }
+
+    /// Intentionally not placing parent fsm states at the nodes of each of the
+    /// children. By assumption, if no such attribute exists on the children nodes,
+    /// then the child fsm can transition out of IDLE on parent == 1
+    fn start_par(
+        &mut self,
+        _s: &mut calyx_ir::Par,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+    /// Assign FSM states to each child of this If control block.
+    /// Will be used if any child is itself a schedule, to add a conditional
+    /// transition out of the child FSM's IDLE state
+    fn start_if(
+        &mut self,
+        s: &mut calyx_ir::If,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.attach_state_id(s.tbranch.get_mut_attributes(), 1);
+        self.attach_state_id(s.fbranch.get_mut_attributes(), 2);
         Ok(Action::Continue)
     }
 
