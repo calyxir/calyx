@@ -131,10 +131,6 @@ fn main() -> CiderResult<()> {
         interp::logging::initialize_logger(config.quiet);
     }
 
-    // if !runtime_config.undef_guard_check {
-    //     warn!(interp::logging::root(), "Undefined value guard check disabled. This is not recommended as it can lead to programs spinning forever when they would otherwise crash.");
-    // }
-
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
     let i_ctx = interp::flatten::setup_simulation(
         &opts.file,
