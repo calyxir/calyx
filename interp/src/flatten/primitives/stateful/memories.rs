@@ -813,16 +813,14 @@ impl SeqMem {
 
 impl Primitive for SeqMem {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
-        let done_signal = port_map
-            .insert_val(
-                self.done(),
-                AssignedValue::cell_value(if self.done_is_high {
-                    BitVecValue::tru()
-                } else {
-                    BitVecValue::fals()
-                }),
-            )
-            .map_err(|e| RuntimeError::ConflictingAssignments(e))?;
+        let done_signal = port_map.insert_val_general(
+            self.done(),
+            AssignedValue::cell_value(if self.done_is_high {
+                BitVecValue::tru()
+            } else {
+                BitVecValue::fals()
+            }),
+        )?;
 
         let out_signal = if port_map[self.read_data()].is_undef()
             && self.read_out.is_def()
