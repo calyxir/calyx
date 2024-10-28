@@ -59,11 +59,11 @@ def buf_to_mem(fmt, buf):
 
         convert_to_fp(buf)
         return list(buf)
-    elif fmt["numeric_type"] == "bitnum":
-        return list([int(e) for e in buf])
+    elif fmt["numeric_type"] in {"bitnum", "floating_point"}:
+        return [int(value) if isinstance(value, np.integer) else float(value) for value in buf]
 
     else:
-        raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
+        raise InvalidNumericType('Fud only supports "fixed_point", "bitnum", and "floating_point".')
 
 
 def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
@@ -110,7 +110,10 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
 def _dtype(fmt) -> np.dtype:
     # See https://numpy.org/doc/stable/reference/arrays.dtypes.html for typing
     # details
-    type_string = "i" if fmt["is_signed"] else "u"
+    if (fmt["numeric_type"] == "floating_point"):
+        type_string = "f"
+    else:
+        type_string = "i" if fmt["is_signed"] else "u"
     byte_size = int(fmt["width"] / 8)
     type_string = type_string + str(byte_size)
     return np.dtype(type_string)
