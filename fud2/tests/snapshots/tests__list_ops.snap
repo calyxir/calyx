@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+snapshot_kind: text
 ---
 [
     (
@@ -96,6 +97,11 @@ source: fud2/tests/tests.rs
         "primitive-uses",
         "calyx",
         "primitive-uses-json",
+    ),
+    (
+        "profiler",
+        "calyx",
+        "flamegraph",
     ),
     (
         "simulate",

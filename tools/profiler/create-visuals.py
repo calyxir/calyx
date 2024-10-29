@@ -41,7 +41,13 @@ class CallStackElement:
         elif len(self.active_groups) == 1:
             return self.active_groups[0]
         else:
-            raise Exception(f'Component {self.component} is parallel! Active groups: {self.active_groups}')
+            # concatenate all parallel active groups
+            sorted_active_groups = list(sorted(self.active_groups))
+            acc = sorted_active_groups[0]
+            for group in sorted_active_groups[1:]:
+                suffix = group.split(".")[-1]
+                acc += "/" + suffix
+            return acc
     
     """
     Returns the identifier of this stack: either the full name of the active group, or the full name of the cell if no groups are active. 
@@ -266,7 +272,6 @@ def create_timeline_stacks(trace, main_component):
     cell_to_stackframe_info["TOP.toplevel"] = (2, 1)
 
     for i in trace:
-        print(trace[i])
         active_this_cycle = set()
         # Start from the bottom up. Parent is the previous stack!
         parent = "MAIN"

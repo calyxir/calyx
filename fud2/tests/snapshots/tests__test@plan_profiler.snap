@@ -1,0 +1,70 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: profiler"
+snapshot_kind: text
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+flags = -p none
+rule calyx-with-flags
+  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+
+cells = cells.json
+tdcc-json = fsm.json
+passes = all
+component_cells = $calyx-base/target/debug/component_cells
+rule component-cells
+  command = $component_cells -l $calyx-base $in > $out
+parse-vcd-script = $calyx-base/tools/profiler/parse-vcd.py
+rule parse-vcd
+  command = python3 $parse-vcd-script $in $tdcc-json $cells summary.csv $out
+create-visuals-script = $calyx-base/tools/profiler/create-visuals.py
+rule create-visuals
+  command = python3 $create-visuals-script $in $cells timeline.json fsm-timeline.json $out fsm-flame.folded frequency.folded components.folded fsm-components.folded
+
+verilator = verilator
+cycle-limit = 500000000
+rule verilator-compile-standalone-tb
+  command = $verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
+rule verilator-compile-custom-tb
+  command = $verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
+rule cp
+  command = cp $in $out
+
+python = python3
+build json-dat.py: get-rsrc
+rule hex-data
+  command = $python json-dat.py --from-json $in $out
+rule json-data
+  command = $python json-dat.py --to-json $out $in
+sim_data = /test/data.json
+datadir = sim_data
+build $datadir: hex-data $sim_data | json-dat.py
+rule sim-run
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+cycle-limit = 500000000
+
+build $cells: component-cells /input.ext
+build instrumented.sv: calyx /input.ext
+  backend = verilog
+  args =  -p static-inline -p compile-static -p compile-repeat -p par-to-seq -p compile-invoke -p profiler-instrumentation -p $passes -x tdcc:dump-fsm-json=fsm.json
+build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
+  out-dir = verilator-out
+build instrumented.exe: cp verilator-out/Vtoplevel
+build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
+  bin = instrumented.exe
+  args = +NOTRACE=0 +OUT=instrumented.vcd
+build elems-profiled.json: parse-vcd instrumented.vcd
+build flamegraph.folded: create-visuals elems-profiled.json | $cells
+build /output.ext: produce-flame-graph flamegraph.folded
+
+default /output.ext

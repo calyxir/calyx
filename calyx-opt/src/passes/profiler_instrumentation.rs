@@ -44,18 +44,22 @@ impl Visitor for ProfilerInstrumentation {
             .iter()
             .map(|group| group.borrow().name())
             .collect::<Vec<_>>();
+        let comp_name = comp.name;
         // for each group, construct a instrumentation cell and instrumentation assignment
         let mut asgn_and_cell = Vec::with_capacity(group_names.len());
         {
             let mut builder = ir::Builder::new(comp, sigs);
             let one = builder.add_constant(1, 1);
             for group_name in group_names.into_iter() {
-                let name = format!("{}_probe", group_name);
+                // store group and component name (differentiate between groups of the same name under different components)
+                let name = format!("{}__{}_probe", group_name, comp_name);
                 let inst_cell = builder.add_primitive(name, "std_wire", &[1]);
                 let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
                     builder;
                     inst_cell["in"] = ? one["out"];
                 );
+                // the probes should be @control because they should have value 0 whenever the corresponding group is not active.
+                inst_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
                 inst_cell.borrow_mut().add_attribute(BoolAttr::Protected, 1);
                 asgn_and_cell.push((asgn[0].clone(), inst_cell));
             }
