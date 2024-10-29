@@ -38,7 +38,13 @@ impl RuntimeConfig {
     }
 }
 
+/// Configuration struct describing what settings a logger should be created
+/// with.
 pub struct LoggingConfig {
+    /// Whether or not to silence non-error messages. Will be overridden by
+    /// `debug_logging` if set to true.
     pub quiet: bool,
+    /// Whether or not to enable debug logging. If set to true, will override
+    /// `quiet`.
     pub debug_logging: bool,
 }
