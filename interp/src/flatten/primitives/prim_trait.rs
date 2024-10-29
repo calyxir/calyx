@@ -1,5 +1,5 @@
 use crate::{
-    errors::InterpreterResult,
+    errors::RuntimeResult,
     flatten::{
         flat_ir::base::GlobalPortIdx,
         structures::{
@@ -102,7 +102,7 @@ impl std::ops::BitOrAssign for UpdateStatus {
     }
 }
 
-pub type UpdateResult = InterpreterResult<UpdateStatus>;
+pub type UpdateResult = RuntimeResult<UpdateStatus>;
 
 pub trait Primitive {
     fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {

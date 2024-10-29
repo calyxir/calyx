@@ -5,8 +5,9 @@ use super::{
     source::structures::NewSourceMap,
 };
 use crate::{
+    configuration::RuntimeConfig,
     debugger::{source::SourceMap, unwrap_error_message},
-    errors::{InterpreterError, InterpreterResult},
+    errors::{CiderError, CiderResult},
     flatten::{
         flat_ir::prelude::GroupIdx,
         setup_simulation_with_metadata,
@@ -86,7 +87,7 @@ impl OwnedDebugger {
     pub fn from_file(
         file: &FilePath,
         lib_path: &FilePath,
-    ) -> InterpreterResult<(Self, NewSourceMap)> {
+    ) -> CiderResult<(Self, NewSourceMap)> {
         let (ctx, map) = setup_simulation_with_metadata(
             &Some(PathBuf::from(file)),
             lib_path,
@@ -94,7 +95,7 @@ impl OwnedDebugger {
         )?;
 
         let debugger: Debugger<Rc<Context>> =
-            Self::new(Rc::new(ctx), &None, &None, false)?;
+            Self::new(Rc::new(ctx), &None, &None, RuntimeConfig::default())?;
 
         Ok((debugger, map))
     }
@@ -106,13 +107,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         program_context: C,
         data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
-        check_data_races: bool,
-    ) -> InterpreterResult<Self> {
+        runtime_config: RuntimeConfig,
+    ) -> CiderResult<Self> {
         let mut interpreter = Simulator::build_simulator(
             program_context.clone(),
             data_file,
             wave_file,
-            check_data_races,
+            runtime_config,
         )?;
         interpreter.converge()?;
 
@@ -155,7 +156,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     // Go to next step
-    pub fn step(&mut self, n: u32) -> InterpreterResult<ProgramStatus> {
+    pub fn step(&mut self, n: u32) -> CiderResult<ProgramStatus> {
         self.do_step(n)?;
 
         Ok(self.status())
@@ -173,7 +174,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
     #[inline]
-    fn do_step(&mut self, n: u32) -> InterpreterResult<()> {
+    fn do_step(&mut self, n: u32) -> CiderResult<()> {
         for _ in 0..n {
             self.interpreter.step()?;
         }
@@ -181,7 +182,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(())
     }
 
-    fn do_continue(&mut self) -> InterpreterResult<()> {
+    fn do_continue(&mut self) -> CiderResult<()> {
         self.debugging_context
             .set_current_time(self.interpreter.get_currently_running_groups());
 
@@ -237,7 +238,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     pub fn main_loop(
         mut self,
         info: Option<DebuggerInfo>,
-    ) -> InterpreterResult<DebuggerReturnStatus> {
+    ) -> CiderResult<DebuggerReturnStatus> {
         let (input_stream, dbg_ctx) = info
             .map(|x| (Some(x.input_stream), Some(x.ctx)))
             .unwrap_or_else(|| (None, None));
@@ -268,9 +269,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     c
                 }
                 Err(e) => match *e {
-                    InterpreterError::InvalidCommand(_)
-                    | InterpreterError::UnknownCommand(_)
-                    | InterpreterError::ParseError(_) => {
+                    CiderError::InvalidCommand(_)
+                    | CiderError::UnknownCommand(_)
+                    | CiderError::ParseError(_) => {
                         println!("Error: {}", e.red().bold());
                         err_count += 1;
                         if err_count == 3 {
@@ -393,9 +394,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             let comm = match comm {
                 Ok(c) => c,
                 Err(e) => match *e {
-                    InterpreterError::InvalidCommand(_)
-                    | InterpreterError::UnknownCommand(_)
-                    | InterpreterError::ParseError(_) => {
+                    CiderError::InvalidCommand(_)
+                    | CiderError::UnknownCommand(_)
+                    | CiderError::ParseError(_) => {
                         println!("Error: {}", e.red().bold());
                         continue;
                     }
@@ -491,7 +492,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     fn do_step_over(
         &mut self,
         target: super::commands::ParsedGroupName,
-    ) -> Result<(), crate::errors::BoxedInterpreterError> {
+    ) -> Result<(), crate::errors::BoxedCiderError> {
         let target = match target.lookup_group(self.program_context.as_ref()) {
             Ok(v) => v,
             Err(e) => {

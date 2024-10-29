@@ -18,7 +18,7 @@ fn cider_setup(e) {
     );
     e.rule(
         "run-cider-debug",
-        "$cider-exe -l $calyx-base --data data.dump $in debug || true",
+        "$cider-exe -l $calyx-base --data data.dump $cider-flags $in debug || true",
     );
     e.arg("pool", "console");
 

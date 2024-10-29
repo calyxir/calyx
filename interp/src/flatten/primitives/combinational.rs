@@ -65,7 +65,7 @@ impl Primitive for StdMux {
             port_map[cond].as_bool().map(|c| if c { tru } else { fal });
 
         if winning_idx.is_some() && port_map[winning_idx.unwrap()].is_def() {
-            Ok(port_map.insert_val(
+            Ok(port_map.insert_val_general(
                 out,
                 AssignedValue::cell_value(
                     port_map[winning_idx.unwrap()].val().unwrap().clone(),

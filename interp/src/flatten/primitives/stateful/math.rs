@@ -38,7 +38,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         let out_changed =
             port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -90,7 +90,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -345,7 +345,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         let out_changed =
             port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -406,7 +406,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
