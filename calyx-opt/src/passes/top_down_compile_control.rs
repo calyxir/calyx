@@ -4,8 +4,8 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, Attribute, BoolAttr, Cell, Destination, GetAttributes,
-    LibrarySignatures, NumAttr, Printer, Seq, State, Transition, RRC,
+    self as ir, Attribute, BoolAttr, Cell, GetAttributes, LibrarySignatures,
+    NumAttr, Printer, RRC,
 };
 use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
@@ -737,26 +737,42 @@ impl<'b, 'a> Schedule<'b, 'a> {
         > = HashMap::new();
         self.transitions.into_iter().for_each(
             |(s, e, g)| match transitions_map.get_mut(&s) {
-                Some(next_states) => next_states.push((g, ir::State::new(e))),
+                Some(next_states) => next_states.push((g, ir::State::Calc(e))),
                 None => {
-                    transitions_map.insert(s, vec![(g, ir::State::new(e))]);
+                    transitions_map.insert(s, vec![(g, ir::State::Calc(e))]);
                 }
             },
         );
 
         // construct fsm representation
-        let fsm: ir::FSM<Nothing> = ir::FSM::new(
+        let mut fsm: ir::FSM<Nothing> = ir::FSM::new(
             self.builder.generate_fsm_name(),
             transitions_map
                 .drain()
                 .map(|(curr_state, next_states)| {
-                    ir::Transition::new(
-                        ir::State::new(curr_state),
-                        ir::Destination::new_cond(next_states),
+                    ir::Branch::new(
+                        ir::State::Calc(curr_state),
+                        ir::Transition::new_cond(next_states),
                     )
                 })
                 .collect(),
         );
+
+        // add a transition away from idle (for now, make it unconditional.
+        // will eventually need to loop in guards for parent state being in
+        // state at which this schedule can run)
+        fsm.add_branch(ir::Branch::new(
+            ir::State::Idle,
+            ir::Transition::Unconditional(ir::State::Calc(1)),
+        ));
+
+        // add transition away from calc (can make this zero cycle with proper guards)
+        fsm.add_branch(ir::Branch::new(
+            ir::State::Done,
+            ir::Transition::Unconditional(ir::State::Calc(
+                fsm_rep.last_state + 1,
+            )),
+        ));
     }
 }
 
@@ -1331,6 +1347,9 @@ impl Visitor for TopDownCompileControl {
         Ok(Action::Continue)
     }
 
+    // struggling with getting good transition conditions out of idle for child
+    // fsm
+
     /// Assign FSM states to each child of this sequential control.
     /// Will be used if any child is itself a schedule, to add a conditional
     /// transition out of the child FSM's IDLE state
@@ -1373,6 +1392,18 @@ impl Visitor for TopDownCompileControl {
     ) -> VisResult {
         self.attach_state_id(s.tbranch.get_mut_attributes(), 1);
         self.attach_state_id(s.fbranch.get_mut_attributes(), 2);
+        Ok(Action::Continue)
+    }
+
+    fn start_while(
+        &mut self,
+        s: &mut calyx_ir::While,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // start child fsm at parent == 2 bc check of comb_reg occurs in parent == 1
+        self.attach_state_id(s.body.get_mut_attributes(), 2);
         Ok(Action::Continue)
     }
 

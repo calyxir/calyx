@@ -583,23 +583,23 @@ impl<StaticTiming> Assignment<StaticTiming> {
     }
 }
 
-pub struct State {
-    /// Numerical representation of this state
-    key: u64,
+pub enum State {
+    /// Inactive state before FSM computes
+    Idle,
+
+    /// Inactive state after FSM computes
+    Done,
+
+    /// Numerical representation of a computing state
+    Calc(u64),
 }
 
-impl State {
-    pub fn new(index: u64) -> Self {
-        Self { key: index }
-    }
-}
-
-pub enum Destination<T> {
+pub enum Transition<T> {
     Unconditional(State),
     Conditional(Vec<(Guard<T>, State)>),
 }
 
-impl<T> Destination<T> {
+impl<T> Transition<T> {
     pub fn new_uncond(s: State) -> Self {
         Self::Unconditional(s)
     }
@@ -609,17 +609,17 @@ impl<T> Destination<T> {
     }
 }
 
-pub struct Transition<T> {
+pub struct Branch<T> {
     /// Originating state of the FSM transition
     src: State,
 
     /// Optionally conditional destination states of the transition
-    dsts: Destination<T>,
+    dsts: Transition<T>,
 }
 
-impl<T> Transition<T> {
-    pub fn new(src: State, dsts: Destination<T>) -> Self {
-        Transition { src, dsts }
+impl<T> Branch<T> {
+    pub fn new(src: State, dsts: Transition<T>) -> Self {
+        Branch { src, dsts }
     }
 }
 
@@ -825,7 +825,7 @@ pub struct FSM<T> {
     pub(super) name: Id,
 
     /// Map from state identifiers to guarded transitions to other state identifiers
-    pub transitions: Vec<Transition<T>>,
+    pub cases: Vec<Branch<T>>,
     // Wire representing fsm output
     // pub wire: RRC<Cell>,
 }
@@ -836,8 +836,14 @@ impl<T> FSM<T> {
         self.name
     }
 
-    pub fn new(name: Id, transitions: Vec<Transition<T>>) -> Self {
-        Self { name, transitions }
+    /// Constructs a new FSM construct using a list of cases and a name
+    pub fn new(name: Id, cases: Vec<Branch<T>>) -> Self {
+        Self { name, cases }
+    }
+
+    /// Given a new branch of the case statement, inputs into existing FSM construct
+    pub fn add_branch(&mut self, new_case: Branch<T>) {
+        self.cases.push(new_case);
     }
 }
 
