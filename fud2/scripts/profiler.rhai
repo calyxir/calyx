@@ -12,7 +12,7 @@ fn profiling_setup(e) {
     e.var_("tdcc-json", "fsm.json"); // might not be necessary if we get rid of fsms?
 
     // series of passes after instrumentation?
-    e.config_var_or("passes", "passes", "all"); // set passes="no-opt" to run without optimizations
+    e.config_var_or("passes", "profiler.compilation-passes", "all"); // set passes="no-opt" to run without optimizations
 
     // rules for preprocessing
 
