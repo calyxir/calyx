@@ -8,7 +8,7 @@ use super::{
     traverser::{Path, TraversalError},
 };
 use crate::{
-    configuration::RuntimeConfig,
+    configuration::{LoggingConfig, RuntimeConfig},
     errors::{BoxedCiderError, CiderResult, ConflictingAssignments},
     flatten::{
         flat_ir::{
@@ -328,6 +328,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     pub(super) ctx: C,
 
     memory_header: Option<Vec<MemoryDeclaration>>,
+    logger: Logger,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -395,7 +396,12 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
-    pub fn new(ctx: C, data_map: Option<DataDump>, check_race: bool) -> Self {
+    pub fn new(
+        ctx: C,
+        data_map: Option<DataDump>,
+        check_race: bool,
+        logging_conf: LoggingConfig,
+    ) -> Self {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
 
@@ -418,6 +424,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
             control_ports: HashMap::new(),
+            logger: logging::initialize_logger(logging_conf),
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -599,7 +606,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             for dec in data.header.memories.iter() {
                 if !memories_initialized.contains(&dec.name) {
                     // TODO griffin: maybe make this an error?
-                    warn!(logging::root(), "Initialization was provided for memory {} but no such memory exists in the entrypoint component.", dec.name);
+                    warn!(self.logger, "Initialization was provided for memory {} but no such memory exists in the entrypoint component.", dec.name);
                 }
             }
         }
@@ -1287,7 +1294,6 @@ pub struct Simulator<C: AsRef<Context> + Clone> {
     env: Environment<C>,
     wave: Option<WaveWriter>,
     conf: RuntimeConfig,
-    logger: Logger,
 }
 
 impl<C: AsRef<Context> + Clone> Simulator<C> {
@@ -1304,12 +1310,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     todo!("deal more gracefully with error: {err:?}")
                 }
             });
-        let mut output = Self {
-            env,
-            wave,
-            conf,
-            logger: logging::empty_sublogger(),
-        };
+        let mut output = Self { env, wave, conf };
         output.set_root_go_high();
         output
     }
@@ -1347,7 +1348,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .map_or(Ok(None), |res| res.map(Some))?;
 
         Ok(Simulator::new(
-            Environment::new(ctx, data_dump, runtime_config.check_data_race),
+            Environment::new(
+                ctx,
+                data_dump,
+                runtime_config.check_data_race,
+                runtime_config.get_logging_config(),
+            ),
             wave_file,
             runtime_config,
         ))
@@ -2157,17 +2163,21 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> CiderResult<()> {
+        if self.conf.debug_logging {
+            info!(self.env.logger, "Starting program execution");
+        }
+
         match self.run_program_inner() {
             Ok(_) => {
                 if self.conf.debug_logging {
-                    info!(self.logger, "Finished program execution");
+                    info!(self.env.logger, "Finished program execution");
                 }
                 Ok(())
             }
             Err(e) => {
                 if self.conf.debug_logging {
                     slog::error!(
-                        self.logger,
+                        self.env.logger,
                         "Program execution failed with error: {}",
                         e.red()
                     );
@@ -2255,7 +2265,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let mut have_zeroed_control_ports = false;
 
         if self.conf.debug_logging {
-            info!(self.logger, "Started combinational convergence");
+            info!(self.env.logger, "Started combinational convergence");
         }
 
         while has_changed {
@@ -2320,7 +2330,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                             if self.conf.debug_logging {
                                 info!(
-                                    self.logger,
+                                    self.env.logger,
                                     "Assignment fired in {}: {}\n     wrote {}",
                                     self.env.get_full_name(active_cell),
                                     self.ctx()
@@ -2522,7 +2532,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
                         if self.conf.debug_logging {
                             info!(
-                                self.logger,
+                                self.env.logger,
                                 "Control port {} has been implicitly set to zero",
                                 self.env.get_full_name(*port)
                             );
@@ -2590,7 +2600,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
 
         if self.conf.debug_logging {
-            info!(self.logger, "Finished combinational convergence");
+            info!(self.env.logger, "Finished combinational convergence");
         }
 
         Ok(())

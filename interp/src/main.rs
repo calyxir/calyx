@@ -10,7 +10,6 @@ use interp::{
     flatten::structures::environment::Simulator,
 };
 
-use slog::warn;
 use std::{
     io::stdout,
     path::{Path, PathBuf},
@@ -55,7 +54,7 @@ pub struct Opts {
     /// upgrades [over | under]flow warnings to errors
     error_on_overflow: bool,
     /// silence warnings
-    #[argh(switch, short = 'q', long = "--quiet")]
+    #[argh(switch, short = 'q', long = "quiet")]
     quiet: bool,
 
     /// dump registers as single entry memories
@@ -107,7 +106,6 @@ fn main() -> CiderResult<()> {
     let opts: Opts = argh::from_env();
 
     let config = configuration::Config::builder()
-        .quiet(opts.quiet)
         .dump_registers(opts.dump_registers)
         .dump_all_memories(opts.dump_all_memories)
         .build();
@@ -115,21 +113,11 @@ fn main() -> CiderResult<()> {
     let runtime_config = configuration::RuntimeConfig::builder()
         .check_data_race(opts.check_data_race)
         .debug_logging(opts.debug_logging)
+        .quiet(opts.quiet)
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
         .undef_guard_check(opts.undef_guard_check)
         .build();
-
-    if runtime_config.debug_logging {
-        interp::logging::initialize_logger(false);
-        let log = interp::logging::root();
-
-        if config.quiet {
-            warn!(log, "Quiet mode ignored because debug logging is enabled")
-        }
-    } else {
-        interp::logging::initialize_logger(config.quiet);
-    }
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
     let i_ctx = interp::flatten::setup_simulation(
