@@ -11,7 +11,7 @@ def insert_runner(prog, queue, name, num_cmds, num_flows):
     """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it _one command_.
     """
-    flow_bits = bits_needed(num_flows - 1) 
+    flow_bits = bits_needed(num_flows - 1)
 
     runner = prog.component(name)
 
@@ -39,10 +39,14 @@ def insert_runner(prog, queue, name, num_cmds, num_flows):
     err = runner.reg(1, "err", is_ref=True)
 
     cycle_counter = runner.reg(32, "cycle_counter", is_ref=True)
-    i = runner.reg(32, "i", is_ref=True)  # Index of the command we're currently processing
-    wait = runner.reg(1, "wait", is_ref=True)  # Flag indicating if the `i`th packet has arrived
+    i = runner.reg(
+        32, "i", is_ref=True
+    )  # Index of the command we're currently processing
+    try_again = runner.reg(
+        1, "try_again", is_ref=True
+    )  # Flag indicating if the `i`th packet has arrived
 
-    cmd = runner.reg(1)  
+    cmd = runner.reg(1)
     value = runner.reg(32)
     arrival_cycle = runner.reg(32)
     flow = runner.reg(flow_bits)
@@ -51,62 +55,52 @@ def insert_runner(prog, queue, name, num_cmds, num_flows):
         runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),
         runner.mem_load_d1(values, i.out, value, "write_value"),
         runner.mem_load_d1(arrival_cycles, i.out, arrival_cycle, "write_arrival_cycle"),
-        runner.mem_load_d1(flows, i.out, flow, "write_flow")
+        runner.mem_load_d1(flows, i.out, flow, "write_flow"),
     ]
-    
+
     slice = runner.slice("slice", 32, 32 - flow_bits)
-    with runner.group("package_flow_and_value") as package_flow_and_value:
+    with runner.continuous:
         slice.in_ = value.out
         tuplify.fst = flow.out
         tuplify.snd = slice.out
 
-    ge = runner.ge(32)
-    eq = runner.eq(1)
-    if_or = runner.and_(1)
-    with runner.comb_group("push_arrival_check") as push_arrival_check:
-        ge.left = cycle_counter.out
-        ge.right = arrival_cycles.out
-
-        eq.left = cmd.out
-        eq.right = 0
-
-        if_or.left = ge.out
-        if_or.right = eq.out
-
     and_ = runner.and_(32)
     with runner.group("zero_out_top") as zero_out_top:
         and_.left = ans.out
-        and_.right = cb.const(2**(32 - flow_bits) - 1, 32)
+        and_.right = cb.const(32, 2 ** (32 - flow_bits) - 1)
         ans.in_ = and_.out
         ans.write_en = cb.HI
-        
+        zero_out_top.done = ans.done
+
     runner.control += [
         load_data,
-        package_flow_and_value,
         cb.if_with(
-            cb.CellAndGroup(if_or, push_arrival_check),
+            runner.ge_use(cycle_counter.out, arrival_cycle.out),
             [
-                cb.invoke(queue, in_cmd=cmd.out, in_value=tuplify.out, ref_ans=ans, ref_err=err),
+                cb.invoke(
+                    queue,
+                    in_cmd=cmd.out,
+                    in_value=tuplify.tup,
+                    ref_ans=ans,
+                    ref_err=err,
+                ),
                 cb.if_with(
-                    runner.not_use(err.out),  
-                    [ 
-                        runner.eq_store_in_reg(cmd.out, 0, has_ans)[0],  
-                        zero_out_top 
-                    ]
-                )
+                    runner.not_use(err.out),
+                    [runner.eq_store_in_reg(cmd.out, 0, has_ans)[0], zero_out_top],
+                ),
             ],
-            runner.reg_store(wait, 1)
-        )
+            runner.reg_store(try_again, 1),
+        ),
     ]
 
     return runner
 
 
 def insert_main(prog, queue, num_cmds, num_flows):
-    flow_bits = bits_needed(num_flows - 1) 
+    flow_bits = bits_needed(num_flows - 1)
 
     main = prog.component("main")
-    
+
     cycle_counter = main.reg(32, "cycle_counter")
     cycle_adder = main.add(32)
     with main.continuous:
@@ -124,55 +118,68 @@ def insert_main(prog, queue, num_cmds, num_flows):
 
     commands = main.seq_mem_d1("commands", 1, num_cmds, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
-    arrival_cycles = main.seq_mem_d1("arrival_cycles", 32, num_cmds, 32, is_external=True)
+    arrival_cycles = main.seq_mem_d1(
+        "arrival_cycles", 32, num_cmds, 32, is_external=True
+    )
     flows = main.seq_mem_d1("flows", flow_bits, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
-    departure_cycles = main.seq_mem_d1("departure_cycles", 32, num_cmds, 32, is_external=True)
+    departure_cycles = main.seq_mem_d1(
+        "departure_cycles", 32, num_cmds, 32, is_external=True
+    )
 
     i = main.reg(32, "i")
-    wait = main.reg(1, "wait")
+    try_again = main.reg(1, "try_again")
 
-    # Lower the has-ans, err, and wait flags
+    # Lower the has-ans, err, and try_again flags
     lower_flags = [
-        main.reg_store(has_ans, 0, "lower_has_ans"), 
+        main.reg_store(has_ans, 0, "lower_has_ans"),
         main.reg_store(err, 0, "lower_err"),
-        main.reg_store(wait, 0, "lower_wait")
+        main.reg_store(try_again, 0, "lower_try_again"),
     ]
 
     main.control += cb.while_with(
         main.lt_use(i.out, num_cmds),
         [
             lower_flags,
-            cb.invoke(dataplane, 
-                      ref_commands=commands, 
-                      ref_values=values, 
-                      ref_arrival_cycles=arrival_cycles,
-                      ref_flows=flows,
-                      ref_has_ans=has_ans, 
-                      ref_ans=ans, 
-                      ref_err=err,
-                      ref_cycle_counter=cycle_counter,
-                      ref_i=i,
-                      ref_wait=wait),
+            cb.invoke(
+                dataplane,
+                ref_commands=commands,
+                ref_values=values,
+                ref_arrival_cycles=arrival_cycles,
+                ref_flows=flows,
+                ref_has_ans=has_ans,
+                ref_ans=ans,
+                ref_err=err,
+                ref_cycle_counter=cycle_counter,
+                ref_i=i,
+                ref_try_again=try_again,
+            ),
             cb.if_(
-                has_ans.out,  
-                main.mem_store_d1(ans_mem, i.out, ans.out, "write_ans"),
+                has_ans.out,
+                [
+                    main.mem_store_d1(ans_mem, i.out, ans.out, "write_ans"),
+                    main.mem_store_d1(
+                        departure_cycles, i.out, cycle_counter.out, "write_cycle"
+                    ),
+                ],
                 cb.if_(
-                    err.out,  
+                    err.out,
                     main.mem_store_d1(
                         ans_mem,
                         i.out,
                         cb.const(32, ERR_CODE),
-                        "write_err",  
+                        "write_err",
                     ),
-                    main.mem_store_d1(  
+                    main.mem_store_d1(
                         ans_mem,
                         i.out,
                         cb.const(32, PUSH_CODE),
-                        "write_push",  
+                        "write_push",
                     ),
                 ),
             ),
-            cb.if_with(main.not_use(wait.out), main.incr(i))  # i++ if wait == 0
-        ]
+            cb.if_with(
+                main.not_use(try_again.out), main.incr(i)
+            ),  # i++ if try_again == 0
+        ],
     )

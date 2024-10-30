@@ -6,7 +6,7 @@ from calyx.tuple import insert_untuplify
 
 def insert_boundary_flow_inference(prog, name, boundaries):
     n = len(boundaries)
-    
+
     comp = prog.component(name)
 
     value = comp.input("value", 32)
@@ -34,8 +34,8 @@ def insert_boundary_flow_inference(prog, name, boundaries):
 
         bound_check = cb.if_with(cb.CellAndGroup(guard, bound_check_b), set_flow_b)
         bound_checks.append(bound_check)
-    
-    comp.control += [ cb.par(*bound_checks) ]
+
+    comp.control += [cb.par(*bound_checks)]
 
     return comp
 
@@ -54,6 +54,11 @@ def insert_tuple_flow_inference(prog, name, num_flows):
     with comp.continuous:
         untuplify.tup = value
 
-    comp.control += [ comp.reg_store(flow, untuplify.fst) ]
+    comp.control += [
+        comp.reg_store(flow, untuplify.fst),
+        comp.reg_store(flow, flow.out, "nop"),  # temporary no-op to get it to run
+        # question about this on Zulip:
+        # https://calyx.zulipchat.com/#narrow/channel/423433-general/topic/Circular.20Combinational.20Logic/near/479748231
+    ]
 
     return comp
