@@ -69,37 +69,4 @@ impl IntermediateRepresentation {
     pub fn is_zero(&self) -> bool {
         self.exponent == 0 && self.mantissa.is_zero()
     }
-
-    // Function to create from binary string (updated with special cases handling)
-    pub fn from_binary(
-        binary_string: &str,
-        bit_width: usize,
-        twos_comp: bool,
-    ) -> IntermediateRepresentation {
-        let sign;
-        if !twos_comp {
-            sign = false;
-        } else {
-            sign = binary_string.starts_with('1');
-        }
-
-        let binary_value = BigUint::from_str_radix(binary_string, 2)
-            .expect("Invalid binary string");
-
-        let mantissa = if sign {
-            // Calculate the two's complement for negative values
-            let max_value = BigUint::from(1u64) << bit_width;
-            &max_value - &binary_value
-        } else {
-            binary_value
-        };
-
-        let exponent = 0;  // For fixed-point or other representations, you may adjust this later
-
-        IntermediateRepresentation {
-            sign,
-            mantissa,
-            exponent,
-        }
-    }
 }
