@@ -150,7 +150,8 @@ impl std::fmt::Display for NumAttr {
 /// Internal attributes that cannot be parsed back from the IL.
 pub enum InternalAttr {
     DEAD,
-    NODE_ID,
+    STATE_ID,
+    SCHEDULE_ID,
     BEGIN_ID,
     END_ID,
     ST_ID,

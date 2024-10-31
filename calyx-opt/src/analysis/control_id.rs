@@ -1,12 +1,12 @@
 use calyx_ir as ir;
 
-const NODE_ID: ir::Attribute =
-    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
+const STATE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::STATE_ID);
 const BEGIN_ID: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
 const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 
-/// Adding "NODE_ID", "BEGIN_ID", and "END_ID" attribute to control statement
+/// Adding "STATE_ID", "BEGIN_ID", and "END_ID" attribute to control statement
 pub struct ControlId;
 
 impl ControlId {
@@ -23,7 +23,7 @@ impl ControlId {
             | ir::StaticControl::Invoke(ir::StaticInvoke {
                 attributes, ..
             }) => {
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
                 cur_state + 1
             }
             ir::StaticControl::Repeat(ir::StaticRepeat {
@@ -31,7 +31,7 @@ impl ControlId {
                 body,
                 ..
             }) => {
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
                 cur_state += 1;
                 Self::compute_unique_ids_static(body, cur_state, two_if_ids)
             }
@@ -41,7 +41,7 @@ impl ControlId {
             | ir::StaticControl::Seq(ir::StaticSeq {
                 stmts, attributes, ..
             }) => {
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
                 cur_state += 1;
                 stmts.iter_mut().for_each(|stmt| {
                     let new_state = Self::compute_unique_ids_static(
@@ -69,7 +69,7 @@ impl ControlId {
                     attributes.insert(END_ID, cur_state);
                     cur_state + 1
                 } else {
-                    attributes.insert(NODE_ID, cur_state);
+                    attributes.insert(STATE_ID, cur_state);
                     cur_state += 1;
                     cur_state = Self::compute_unique_ids_static(
                         tbranch, cur_state, two_if_ids,
@@ -83,9 +83,9 @@ impl ControlId {
         }
     }
 
-    /// Adds the @NODE_ID attribute to all control stmts except emtpy ones.
+    /// Adds the @STATE_ID attribute to all control stmts except emtpy ones.
     /// If two_if_ids is true, then if statements get a BEGIN_ID and END_ID instead
-    /// of a NODE_ID
+    /// of a STATE_ID
     ///
     /// ## Example:
     /// ```
@@ -95,22 +95,22 @@ impl ControlId {
     /// gets the labels (if two_if_ids is):
     ///
     /// ```
-    /// @NODE_ID(0)seq {
-    ///   @NODE_ID(1) A;
+    /// @STATE_ID(0)seq {
+    ///   @STATE_ID(1) A;
     ///   @BEGIN_ID(2) @END_ID(5) if cond {
-    ///     @NODE_ID(3) X
+    ///     @STATE_ID(3) X
     ///   }
     ///   else{
-    ///     @NODE_ID(4) Y
+    ///     @STATE_ID(4) Y
     ///   }
-    ///   @NODE_ID(6) par {
-    ///     @NODE_ID(7) C;
-    ///     @NODE_ID(8) D;
+    ///   @STATE_ID(6) par {
+    ///     @STATE_ID(7) C;
+    ///     @STATE_ID(8) D;
     ///   }
-    ///   @NODE_ID(9) E;
+    ///   @STATE_ID(9) E;
     /// }
     /// ```
-    /// if two_if_ids were false, the if statement would just get a single NODE_ID
+    /// if two_if_ids were false, the if statement would just get a single STATE_ID
     pub fn compute_unique_ids(
         con: &mut ir::Control,
         mut cur_state: u64,
@@ -119,7 +119,7 @@ impl ControlId {
         match con {
             ir::Control::Enable(ir::Enable { attributes, .. })
             | ir::Control::Invoke(ir::Invoke { attributes, .. }) => {
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
                 cur_state + 1
             }
             ir::Control::Par(ir::Par {
@@ -128,7 +128,7 @@ impl ControlId {
             | ir::Control::Seq(ir::Seq {
                 stmts, attributes, ..
             }) => {
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
                 cur_state += 1;
                 stmts.iter_mut().for_each(|stmt| {
                     let new_state =
@@ -155,7 +155,7 @@ impl ControlId {
                     attributes.insert(END_ID, cur_state);
                     cur_state + 1
                 } else {
-                    attributes.insert(NODE_ID, cur_state);
+                    attributes.insert(STATE_ID, cur_state);
                     cur_state += 1;
                     cur_state = Self::compute_unique_ids(
                         tbranch, cur_state, two_if_ids,
@@ -172,7 +172,7 @@ impl ControlId {
             | ir::Control::Repeat(ir::Repeat {
                 body, attributes, ..
             }) => {
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
                 cur_state += 1;
                 Self::compute_unique_ids(body, cur_state, two_if_ids)
             }
@@ -208,14 +208,14 @@ impl ControlId {
       ))
     }
 
-    // Gets attribute NODE_ID from c
+    // Gets attribute STATE_ID from c
     pub fn get_guaranteed_id(c: &ir::Control) -> u64 {
-        Self::get_guaranteed_attribute(c, NODE_ID)
+        Self::get_guaranteed_attribute(c, STATE_ID)
     }
 
-    // Gets attribute NODE_ID from c
+    // Gets attribute STATE_ID from c
     pub fn get_guaranteed_id_static(sc: &ir::StaticControl) -> u64 {
-        Self::get_guaranteed_attribute_static(sc, NODE_ID)
+        Self::get_guaranteed_attribute_static(sc, STATE_ID)
     }
 
     // takes in a static control scon, and adds unique id to each static enable.
@@ -226,7 +226,7 @@ impl ControlId {
     ) -> u64 {
         match scon {
             ir::StaticControl::Enable(se) => {
-                se.attributes.insert(NODE_ID, cur_state);
+                se.attributes.insert(STATE_ID, cur_state);
                 cur_state + 1
             }
             ir::StaticControl::Invoke(_) | ir::StaticControl::Empty(_) => {
@@ -295,11 +295,11 @@ impl ControlId {
         }
     }
 
-    // Gets NODE_ID from StaticEnable se, panics otherwise. Should be used when you know
-    // that se has attributes NODE_ID.
+    // Gets STATE_ID from StaticEnable se, panics otherwise. Should be used when you know
+    // that se has attributes STATE_ID.
     pub fn get_guaranteed_enable_id(se: &ir::StaticEnable) -> u64 {
-        se.get_attribute(NODE_ID).unwrap_or_else(||unreachable!(
-          "called get_guaranteed_enable_id, meaning we had to be sure it had a NODE_ID attribute"
+        se.get_attribute(STATE_ID).unwrap_or_else(||unreachable!(
+          "called get_guaranteed_enable_id, meaning we had to be sure it had a STATE_ID attribute"
       ))
     }
 }

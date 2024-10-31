@@ -10,8 +10,8 @@ use ir::GenericControl;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-const NODE_ID: ir::Attribute =
-    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
+const STATE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::STATE_ID);
 const BEGIN_ID: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
 const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
@@ -22,7 +22,7 @@ const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 /// - Enables
 /// - While Guards
 /// - If Guards
-/// - "End" If nodes, representing the place we're at in the program after the if
+/// - "End" If nodes, representing the place we're at in the program aftSTATE_IDer the if
 /// statement has just finished. This doesn't correspond to any actual Calyx code, but is
 /// just a conceptualization we use to reason about domination.
 /// Note that seqs and pars will *not* be included in the domination map.
@@ -112,7 +112,7 @@ impl Debug for DominatorMap {
         //must sort the hashmap and hashsets in order to get consistent ordering
         writeln!(
             f,
-            "The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes \nthat are attached to each non-empty control statement when the domination map is built. \nTo see which ID's refer to which control statement, look at the Calyx Program, which should \nbe printed along with the map when it is printed."
+            "The numbers in the domination map refer to the BEGIN_ID, END_ID, and STATE_ID attributes \nthat are attached to each non-empty control statement when the domination map is built. \nTo see which ID's refer to which control statement, look at the Calyx Program, which should \nbe printed along with the map when it is printed."
         )?;
         writeln!(
             f,
@@ -142,7 +142,7 @@ fn get_id_static<const BEGIN: bool>(c: &ir::StaticControl) -> u64 {
                 c.get_attribute(END_ID)
             }
         }
-        _ => c.get_attribute(NODE_ID),
+        _ => c.get_attribute(STATE_ID),
     };
     v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
@@ -163,7 +163,7 @@ fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
                 c.get_attribute(END_ID)
             }
         }
-        _ => c.get_attribute(NODE_ID),
+        _ => c.get_attribute(STATE_ID),
     };
     v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
@@ -201,7 +201,7 @@ fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
     match sc {
         ir::StaticControl::Empty(_) => (),
         ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
-            hs.insert(ControlId::get_guaranteed_attribute_static(sc, NODE_ID));
+            hs.insert(ControlId::get_guaranteed_attribute_static(sc, STATE_ID));
         }
         ir::StaticControl::Repeat(ir::StaticRepeat {
             body,
@@ -242,7 +242,7 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
         ir::Control::Invoke(_)
         | ir::Control::Enable(_)
         | ir::Control::While(_) => {
-            hs.insert(ControlId::get_guaranteed_attribute(c, NODE_ID));
+            hs.insert(ControlId::get_guaranteed_attribute(c, STATE_ID));
         }
         ir::Control::Repeat(ir::Repeat {
             body, num_repeats, ..
@@ -294,12 +294,12 @@ impl DominatorMap {
         match sc {
             ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
                 let id =
-                    ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
+                    ControlId::get_guaranteed_attribute_static(sc, STATE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
             }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 let id =
-                    ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
+                    ControlId::get_guaranteed_attribute_static(sc, STATE_ID);
                 self.exits_map.insert(id, get_final_static(sc));
                 self.build_exit_map_static(body);
             }
@@ -309,7 +309,7 @@ impl DominatorMap {
                     self.build_exit_map_static(stmt);
                 }
                 let id =
-                    ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
+                    ControlId::get_guaranteed_attribute_static(sc, STATE_ID);
                 self.exits_map.insert(id, get_final_static(sc));
             }
             ir::StaticControl::If(ir::StaticIf {
@@ -334,16 +334,16 @@ impl DominatorMap {
         match c {
             ir::Control::Empty(_) => (),
             ir::Control::Invoke(_) | ir::Control::Enable(_) => {
-                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
+                let id = ControlId::get_guaranteed_attribute(c, STATE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
             }
             ir::Control::While(ir::While { body, .. }) => {
-                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
+                let id = ControlId::get_guaranteed_attribute(c, STATE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
                 self.build_exit_map(body);
             }
             ir::Control::Repeat(ir::Repeat { body, .. }) => {
-                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
+                let id = ControlId::get_guaranteed_attribute(c, STATE_ID);
                 self.exits_map.insert(id, get_final(body));
                 self.build_exit_map(body);
             }
@@ -362,7 +362,7 @@ impl DominatorMap {
                 for stmt in stmts {
                     self.build_exit_map(stmt);
                 }
-                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
+                let id = ControlId::get_guaranteed_attribute(c, STATE_ID);
                 self.exits_map.insert(id, get_final(c));
             }
             ir::Control::Static(sc) => self.build_exit_map_static(sc),
@@ -387,8 +387,8 @@ impl DominatorMap {
     fn update_static_dominators(&mut self) {
         let new_static_domminators =
             self.static_par_domination.get_static_dominators();
-        for (node_id, node_dominators) in new_static_domminators {
-            let cur_dominators = self.map.entry(node_id).or_default();
+        for (state_id, node_dominators) in new_static_domminators {
+            let cur_dominators = self.map.entry(state_id).or_default();
             cur_dominators.extend(node_dominators);
         }
     }
@@ -539,11 +539,11 @@ impl DominatorMap {
                             self.update_map(main_c, body_id, pred);
                         }
                     }
-                    // Keep in mind that NODE_IDs attached to while loops/if statements
+                    // Keep in mind that STATE_ID attached to while loops/if statements
                     // refer to the while/if guard, and as we pattern match against a while
                     // or if statement, the control statement refers to the "guard",
                     // which includes their combinational group and the conditional port
-                    // So (for example) if a while loop has NODE_ID = 10, then "node 10"
+                    // So (for example) if a while loop has STATE_ID = 10, then "node 10"
                     // refers to the while guard-- comb group and conditional port-- but not the body.
                     ir::Control::While(ir::While { body, .. }) => {
                         self.update_node(pred, cur_id);
@@ -731,8 +731,8 @@ impl DominatorMap {
     }
 
     // Gets the reads of shareable cells in node
-    // Assumes the control statements in comp have been given NODE_IDs in the same
-    // style of the domination map NODE_ID stuff.
+    // Assumes the control statements in comp have been given STATE_IDs in the same
+    // style of the domination map STATE_ID stuff.
     pub fn get_node_reads(
         node: &u64,
         comp: &mut ir::Component,
@@ -742,8 +742,8 @@ impl DominatorMap {
     }
 
     // Returns whether key is guaranteed to be written in at least one of nodes
-    // Assumes the control statements in comp have been given NODE_IDs in the same
-    // style of the domination map NODE_ID stuff.
+    // Assumes the control statements in comp have been given STATE_IDs in the same
+    // style of the domination map STATE_ID stuff.
     pub fn key_written_guaranteed(
         key: ir::Id,
         nodes: &HashSet<u64>,

@@ -1,3 +1,4 @@
+#[allow(unused)]
 use super::math_utilities::get_bit_width_from;
 use crate::passes;
 use crate::traversal::{
@@ -18,8 +19,8 @@ use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::rc::Rc;
 
-const NODE_ID: ir::Attribute =
-    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
+const STATE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::STATE_ID);
 const DUPLICATE_NUM_REG: u64 = 2;
 
 /// Computes the exit edges of a given [ir::Control] program.
@@ -29,8 +30,8 @@ const DUPLICATE_NUM_REG: u64 = 2;
 /// ```
 /// while comb_reg.out {
 ///   seq {
-///     @NODE_ID(4) incr;
-///     @NODE_ID(5) cond0;
+///     @STATE_ID(4) incr;
+///     @STATE_ID(5) cond0;
 ///   }
 /// }
 /// ```
@@ -40,11 +41,11 @@ const DUPLICATE_NUM_REG: u64 = 2;
 /// Multiple exit points are created when conditions are used:
 /// ```
 /// while comb_reg.out {
-///   @NODE_ID(7) incr;
+///   @STATE_ID(7) incr;
 ///   if comb_reg2.out {
-///     @NODE_ID(8) tru;
+///     @STATE_ID(8) tru;
 ///   } else {
-///     @NODE_ID(9) fal;
+///     @STATE_ID(9) fal;
 ///   }
 /// }
 /// ```
@@ -53,7 +54,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
         ir::Control::Empty(_) => {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            let cur_state = attributes.get(NODE_ID).unwrap();
+            let cur_state = attributes.get(STATE_ID).unwrap();
             exits.push((cur_state, guard!(group["done"])))
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
@@ -84,7 +85,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     }
 }
 
-/// Adds the @NODE_ID attribute to [ir::Enable] and [ir::Par].
+/// Adds the @STATE_ID attribute to [ir::Enable] and [ir::Par].
 /// Each [ir::Enable] gets a unique label within the context of a child of
 /// a [ir::Par] node.
 /// Furthermore, if an if/while/seq statement is labeled with a `new_fsm` attribute,
@@ -99,16 +100,16 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 /// gets the labels:
 /// ```
 /// seq {
-///   @NODE_ID(1) A; @NODE_ID(2) B;
-///   @NODE_ID(3) par {
-///     @NODE_ID(0) C;
-///     @NODE_ID(0) D;
+///   @STATE_ID(1) A; @STATE_ID(2) B;
+///   @STATE_ID(3) par {
+///     @STATE_ID(0) C;
+///     @STATE_ID(0) D;
 ///   }
-///   @NODE_ID(4) E;
-///   @NODE_ID(5) seq{
-///     @NODE_ID(0) F;
-///     @NODE_ID(1) G;
-///     @NODE_ID(2) H;
+///   @STATE_ID(4) E;
+///   @STATE_ID(5) seq{
+///     @STATE_ID(0) F;
+///     @STATE_ID(1) G;
+///     @STATE_ID(2) H;
 ///   }
 /// }
 /// ```
@@ -118,11 +119,11 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
         ir::Control::Enable(ir::Enable { attributes, .. }) => {
-            attributes.insert(NODE_ID, cur_state);
+            attributes.insert(STATE_ID, cur_state);
             cur_state + 1
         }
         ir::Control::Par(ir::Par { stmts, attributes }) => {
-            attributes.insert(NODE_ID, cur_state);
+            attributes.insert(STATE_ID, cur_state);
             stmts.iter_mut().for_each(|stmt| {
                 compute_unique_ids(stmt, 0);
             });
@@ -133,7 +134,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // if new_fsm is true, then insert attribute at the seq, and then
             // start over counting states from 0
             let mut cur = if new_fsm{
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
                 0
             } else {
                 cur_state
@@ -156,7 +157,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm {
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
             }
             // If the program starts with a branch then branches can't get
             // the initial state.
@@ -186,7 +187,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm{
-                attributes.insert(NODE_ID, cur_state);
+                attributes.insert(STATE_ID, cur_state);
             }
             // If the program starts with a branch then branches can't get
             // the initial state.
@@ -808,7 +809,7 @@ impl Schedule<'_, '_> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
+            let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
             // This happens when the first control statement is an enable not
@@ -1427,10 +1428,10 @@ impl Visitor for TopDownCompileControl {
         let seq_group =
             sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
-        // Add NODE_ID to compiled group.
+        // Add STATE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
-        let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, node_id);
+        let state_id = s.attributes.get(STATE_ID).unwrap();
+        en.get_mut_attributes().insert(STATE_ID, state_id);
 
         Ok(Action::change(en))
     }
@@ -1455,10 +1456,10 @@ impl Visitor for TopDownCompileControl {
         let if_group =
             sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
-        // Add NODE_ID to compiled group.
+        // Add STATE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
-        let node_id = i.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, node_id);
+        let state_id = i.attributes.get(STATE_ID).unwrap();
+        en.get_mut_attributes().insert(STATE_ID, state_id);
 
         Ok(Action::change(en))
     }
@@ -1483,10 +1484,10 @@ impl Visitor for TopDownCompileControl {
         let if_group =
             sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
-        // Add NODE_ID to compiled group.
+        // Add STATE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
-        let node_id = w.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, node_id);
+        let state_id = w.attributes.get(STATE_ID).unwrap();
+        en.get_mut_attributes().insert(STATE_ID, state_id);
 
         Ok(Action::change(en))
     }
@@ -1585,10 +1586,10 @@ impl Visitor for TopDownCompileControl {
         );
         par_group.borrow_mut().assignments.push(done);
 
-        // Add NODE_ID to compiled group.
+        // Add STATE_ID to compiled group.
         let mut en = ir::Control::enable(par_group);
-        let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, node_id);
+        let state_id = s.attributes.get(STATE_ID).unwrap();
+        en.get_mut_attributes().insert(STATE_ID, state_id);
 
         Ok(Action::change(en))
     }

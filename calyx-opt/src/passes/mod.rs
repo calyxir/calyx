@@ -11,6 +11,7 @@ mod component_iniliner;
 mod dead_assignment_removal;
 mod dead_cell_removal;
 mod dead_group_removal;
+mod dyn_fsm_allocation;
 mod externalize;
 mod go_insertion;
 mod group_to_invoke;
@@ -82,3 +83,4 @@ pub use top_down_compile_control::TopDownCompileControl;
 pub use well_formed::WellFormed;
 pub use wire_inliner::WireInliner;
 pub use wrap_main::WrapMain;
+// pub use dyn_fsm_allocation
