@@ -137,4 +137,6 @@ pub const RESERVED_NAMES: &[&str] = &[
     "wor",
     "xnor",
     "xor",
+    "wait",
+    "break",
 ];
