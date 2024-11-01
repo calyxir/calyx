@@ -807,6 +807,8 @@ pub struct DynamicFSMAllocation {
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<ProfilingInfo>,
+    /// Map from schedule ids to their `start` and `done` wires
+    sch_interfaces: HashMap<u64, (RRC<ir::Cell>, RRC<ir::Cell>)>,
 }
 
 impl DynamicFSMAllocation {
@@ -827,6 +829,7 @@ impl ConstructVisitor for DynamicFSMAllocation {
             dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
             fsm_groups: HashSet::new(),
+            sch_interfaces: HashMap::new(),
         })
     }
 
@@ -902,7 +905,108 @@ impl Visitor for DynamicFSMAllocation {
         }
 
         compute_unique_state_ids(&mut con, 0);
-        // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
+        compute_unique_schedule_ids(&mut con, 0);
+        Ok(Action::Continue)
+    }
+    /// This function determines whether the current Seq block deserves its own schedule.
+    /// This happens exactly when the Seq has a @new_fsm attached to it.
+    fn start_seq(
+        &mut self,
+        s: &mut calyx_ir::Seq,
+        comp: &mut calyx_ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let mut builder = ir::Builder::new(comp, sigs);
+        let start = builder.add_primitive("start", "std_wire", &[1]);
+        let done = builder.add_primitive("start", "std_wire", &[1]);
+        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
+            "This node does not have a schedule ID.
+           It might be Empty or an Enable",
+        );
+        if s.attributes.has(ir::BoolAttr::NewFSM) {
+            self.sch_interfaces.insert(this_schedule_id, (start, done));
+        }
+        Ok(Action::Continue)
+    }
+
+    /// This function gives each Par block its own schedule, and ensures that
+    /// its threads will also get their own schedules. The FSM in charge of the
+    /// Par will require the `done` of each of its children, meaning we need to
+    /// store these signals as well. This function performs this second requirement
+    /// by adding a @new_fsm attribute to its children.
+    fn start_par(
+        &mut self,
+        s: &mut calyx_ir::Par,
+        comp: &mut calyx_ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let mut builder = ir::Builder::new(comp, sigs);
+        let start = builder.add_primitive("start", "std_wire", &[1]);
+        let done = builder.add_primitive("start", "std_wire", &[1]);
+        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
+            "This node does not have a schedule ID.
+         It might be Empty or an Enable",
+        );
+        self.sch_interfaces.insert(this_schedule_id, (start, done));
+        s.stmts.iter_mut().for_each(|ctrl| match ctrl {
+            ir::Control::Seq(ir::Seq { attributes, .. }) => {
+                attributes.insert(ir::BoolAttr::NewFSM, 1)
+            }
+            ir::Control::While(ir::While { attributes, .. }) => {
+                attributes.insert(ir::BoolAttr::NewFSM, 1)
+            }
+            ir::Control::If(ir::If { attributes, .. }) => {
+                attributes.insert(ir::BoolAttr::NewFSM, 1);
+            }
+            // one of the following applies for this wildcard case:
+            // construct is illegal at this point in compilation,
+            // it will get their own FSM anyway, or it is an Enable/Empty
+            _ => (),
+        });
+        Ok(Action::Continue)
+    }
+
+    /// This function determines whether the current While block deserves its own schedule.
+    /// This happens exactly when the Seq has a @new_fsm attached to it.
+    fn start_while(
+        &mut self,
+        s: &mut calyx_ir::While,
+        comp: &mut calyx_ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let mut builder = ir::Builder::new(comp, sigs);
+        let start = builder.add_primitive("start", "std_wire", &[1]);
+        let done = builder.add_primitive("start", "std_wire", &[1]);
+        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
+            "This node does not have a schedule ID.
+           It might be Empty or an Enable",
+        );
+        if s.attributes.has(ir::BoolAttr::NewFSM) {
+            self.sch_interfaces.insert(this_schedule_id, (start, done));
+        }
+        Ok(Action::Continue)
+    }
+
+    fn start_if(
+        &mut self,
+        s: &mut calyx_ir::If,
+        comp: &mut calyx_ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let mut builder = ir::Builder::new(comp, sigs);
+        let start = builder.add_primitive("start", "std_wire", &[1]);
+        let done = builder.add_primitive("start", "std_wire", &[1]);
+        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
+            "This node does not have a schedule ID.
+             It might be Empty or an Enable",
+        );
+        if s.attributes.has(ir::BoolAttr::NewFSM) {
+            self.sch_interfaces.insert(this_schedule_id, (start, done));
+        }
         Ok(Action::Continue)
     }
 }
