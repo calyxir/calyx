@@ -139,9 +139,9 @@ def convert2dat(output_dir, data, extension, round: bool):
         numeric_type = format["numeric_type"]
         is_signed = format["is_signed"]
 
-        if numeric_type not in {"bitnum", "fixed_point", "floating_point"}:
+        if numeric_type not in {"bitnum", "fixed_point", "ieee754_float"}:
             raise InvalidNumericType(
-                'Fud only supports "fixed_point", "bitnum", and "floating_point".'
+                'Fud only supports "fixed_point", "bitnum", and "ieee754_float".'
             )
 
         is_fp = numeric_type == "fixed_point"
