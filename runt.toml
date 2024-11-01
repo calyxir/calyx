@@ -213,6 +213,7 @@ paths = [
   "tests/correctness/ref-cells/*.futil",
   "tests/correctness/sync/*.futil",
   "tests/correctness/static-interface/*.futil",
+  "tests/correctness/ieee754-float/*.futil",
 ]
 cmd = """
 fud exec --from calyx --to jq \
