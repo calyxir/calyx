@@ -273,6 +273,7 @@ name = "correctness static timing"
 paths = [
   "tests/correctness/*.futil",
   "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/skid-buffers/*.futil",
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
