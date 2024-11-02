@@ -27,7 +27,7 @@ class CalyxStage(Stage):
     def _define_steps(self, input, builder, config):
         calyx_exec = config["stages", self.name, "exec"]
         lib_path = unwrap_or(
-            config["stages", self.name, "lib_path"], config["global", cfg.ROOT]
+            config.get(("stages", self.name, "lib_path")), config["global", cfg.ROOT]
         )
         cmd = " ".join(
             [
