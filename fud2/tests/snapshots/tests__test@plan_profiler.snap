@@ -1,7 +1,6 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit plan: profiler"
-snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
@@ -9,14 +8,15 @@ rule get-rsrc
 
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
 args = 
 rule calyx
-  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
-  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
 flags = -p none
 rule calyx-with-flags
-  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+  command = $calyx-exe -l $calyx-lib-path $flags $args $in > $out
 
 cells = cells.json
 tdcc-json = fsm.json
