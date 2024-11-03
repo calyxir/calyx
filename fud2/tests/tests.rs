@@ -10,14 +10,6 @@ use fud_core::{
 };
 use itertools::Itertools;
 
-#[cfg(not(feature = "migrate_to_scripts"))]
-fn test_driver() -> Driver {
-    let mut bld = DriverBuilder::new("fud2");
-    fud2::build_driver(&mut bld);
-    bld.build()
-}
-
-#[cfg(feature = "migrate_to_scripts")]
 fn test_driver() -> Driver {
     let mut bld = DriverBuilder::new("fud2-plugins");
     let config = figment::Figment::new();
