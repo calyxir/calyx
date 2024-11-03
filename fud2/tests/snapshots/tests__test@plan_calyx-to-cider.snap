@@ -15,6 +15,6 @@ rule calyx
 rule calyx-pass
   command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
 
-build /output.ext: calyx-with-flags /input.ext
+build /output.ext: calyx /input.ext
 
 default /output.ext

@@ -65,7 +65,7 @@ op(
     |e, input, output| {
         e.build_cmd(
             [output],
-            "calyx-with-flags",
+            "calyx",
             [input],
             [],
         );
