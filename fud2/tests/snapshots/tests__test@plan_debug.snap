@@ -16,9 +16,6 @@ rule calyx
   command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
-flags = -p none
-rule calyx-with-flags
-  command = $calyx-exe -l $calyx-lib-path $flags $args $in > $out
 
 cider-exe = $calyx-base/target/debug/cider
 cider-converter = $calyx-base/target/debug/cider-data-converter
