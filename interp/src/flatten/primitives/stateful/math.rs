@@ -1,22 +1,16 @@
-use ibig::ops::RemEuclid;
-
 use crate::{
     flatten::{
         flat_ir::prelude::*,
         primitives::{
-            declare_ports,
+            declare_ports, ports,
+            prim_trait::*,
             utils::{floored_division, int_sqrt, ShiftBuffer},
         },
-    },
-    values::InputNumber,
-};
-use crate::{
-    flatten::{
-        primitives::{ports, prim_trait::*},
         structures::environment::PortMap,
     },
-    values::Value,
+    values::{InputNumber, Value},
 };
+use num_traits::Euclid;
 
 pub struct StdMultPipe<const DEPTH: usize> {
     base_port: GlobalPortIdx,
@@ -199,7 +193,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                                     (left
                                         .val()
                                         .as_unsigned()
-                                        .rem_euclid(right.val().as_unsigned()))
+                                        .rem_euclid(&right.val().as_unsigned()))
                                     .into()
                                 } else {
                                     (left.val().as_signed()
@@ -530,7 +524,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
                                     (left
                                         .val()
                                         .as_unsigned()
-                                        .rem_euclid(right.val().as_unsigned()))
+                                        .rem_euclid(&right.val().as_unsigned()))
                                     .into()
                                 } else {
                                     (left.val().as_signed()

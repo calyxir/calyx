@@ -55,11 +55,17 @@ results.xml
 # btor2i ignore
 tools/btor2/btor2i/build/
 
-# vcd-parsing tmp files ignore
-tools/profiler/tmp/
-tools/profiler/logs
+# profiling ignore
+tools/profiler/data
 
 temp/
 
+# large queue .data and .expect files ignore
+frontends/queues/tests/**/*.data
+frontends/queues/tests/**/*.expect
+
 # for running a venv
 .venv
+
+# emacs
+*~

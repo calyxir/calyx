@@ -85,18 +85,21 @@ impl_index!(GlobalRefPortIdx);
 
 // Offset indices
 
-/// A local port offset for a component. These are used in the definition of
-/// assignments and can only be understood in the context of the component they
-/// are defined under. Combined with a base index from a component instance this
-/// can be resolved to a [`GlobalPortIdx`].
+/// A local port offset for a component.
+///
+/// These are used in the definition of assignments and can only be understood
+/// in the context of the component they are defined under. Combined with a base
+/// index from a component instance this can be resolved to a [`GlobalPortIdx`].
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct LocalPortOffset(u32);
 impl_index!(LocalPortOffset);
 
-/// A local ref port offset for a component. These are used in the definition of
-/// assignments and can only be understood in the context of the component they
-/// are defined under. Combined with a base index from a component instance this
-/// can be resolved to a [`GlobalRefPortIdx`].
+/// A local ref port offset for a component.
+///
+/// These are used in the definition of assignments and can only be understood
+/// in the context of the component they are defined under. Combined with a base
+/// index from a component instance this can be resolved to a
+/// [`GlobalRefPortIdx`].
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct LocalRefPortOffset(u32);
 impl_index!(LocalRefPortOffset);
@@ -380,9 +383,11 @@ impl From<CellDefinitionIdx> for CellDefinitionRef {
 pub struct AssignmentIdx(u32);
 impl_index!(AssignmentIdx);
 
-/// An enum representing the "winner" of an assignment. This tells us how the
-/// value was assigned to the port. For standard assignments, this is also used
-/// to detect conflicts where there are multiple driving assignments.
+/// An enum representing the "winner" of an assignment.
+///
+/// This tells us how the value was assigned to the port. For standard
+/// assignments, this is also used to detect conflicts where there are multiple
+/// driving assignments.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssignmentWinner {
     /// Indicates that the "winning" assignment for this port was produced by a

@@ -232,12 +232,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
@@ -715,6 +709,19 @@ name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
+
+[[package]]
+name = "component_cells"
+version = "0.7.1"
+dependencies = [
+ "argh",
+ "calyx-frontend",
+ "calyx-ir",
+ "calyx-opt",
+ "calyx-utils",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "console"
@@ -1504,19 +1511,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibig"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1fcc7f316b2c079dde77564a1360639c1a956a23fa96122732e416cb10717bb"
-dependencies = [
- "cfg-if",
- "num-traits",
- "rand 0.8.5",
- "serde",
- "static_assertions",
-]
-
-[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1601,7 +1595,6 @@ version = "0.1.1"
 dependencies = [
  "ahash 0.8.10",
  "argh",
- "base64 0.13.1",
  "bitvec",
  "btor2i",
  "calyx-frontend",
@@ -1610,9 +1603,10 @@ dependencies = [
  "calyx-utils",
  "ciborium",
  "fraction",
- "ibig",
  "itertools 0.11.0",
  "lazy_static",
+ "num-bigint",
+ "num-traits",
  "once_cell",
  "owo-colors",
  "pest",
@@ -2632,7 +2626,7 @@ version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15d167997bd841ec232f5b2b8e0e26606df2e7caa4c31b95ea9ca52b200bd270"
 dependencies = [
- "base64 0.21.7",
+ "base64",
  "chrono",
  "hex",
  "indexmap 1.9.3",

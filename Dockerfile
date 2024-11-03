@@ -20,6 +20,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN python3 -m pip install numpy==1.26.4 flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
+# Vcdvcd for profiling
+RUN python3 -m pip install vcdvcd
 
 # Install clang
 RUN apt-get install -y clang
