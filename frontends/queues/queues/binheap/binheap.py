@@ -52,7 +52,7 @@ def insert_binheap(prog, name, queue_size_factor, rnk_w, val_w):
 
     comp = prog.component(name)
 
-    max_queue_size = 2 ** queue_size_factor
+    max_queue_size = 2**queue_size_factor
     addr_size = queue_size_factor
 
     cmd = comp.input("cmd", 1)

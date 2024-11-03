@@ -3,15 +3,16 @@ use std::{
     ops::{Add, Sub},
 };
 
+use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
-    flatten::structures::index_trait::{
-        impl_index, impl_index_nonzero, IndexRange, IndexRef,
+    flatten::structures::{
+        environment::clock::ClockPair,
+        index_trait::{impl_index, impl_index_nonzero, IndexRange, IndexRef},
+        thread::ThreadIdx,
     },
     serialization::PrintCode,
-    values::Value,
 };
-
-use super::{cell_prototype::CellPrototype, prelude::Identifier};
+use baa::{BitVecOps, BitVecValue};
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
@@ -21,7 +22,7 @@ use super::{cell_prototype::CellPrototype, prelude::Identifier};
 pub struct ComponentIdx(u32);
 impl_index!(ComponentIdx);
 
-/// An index for auxillary definition information for cells. This is used to
+/// An index for auxiliary definition information for cells. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_cell_defs
@@ -29,7 +30,7 @@ impl_index!(ComponentIdx);
 pub struct CellDefinitionIdx(u32);
 impl_index!(CellDefinitionIdx);
 
-/// An index for auxillary definition information for ports. This is used to
+/// An index for auxiliary definition information for ports. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_port_defs
@@ -37,7 +38,7 @@ impl_index!(CellDefinitionIdx);
 pub struct PortDefinitionIdx(u32);
 impl_index!(PortDefinitionIdx);
 
-/// An index for auxillary definition information for ref cells. This is used to
+/// An index for auxiliary definition information for ref cells. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_cell_defs
@@ -45,7 +46,7 @@ impl_index!(PortDefinitionIdx);
 pub struct RefCellDefinitionIdx(u32);
 impl_index!(RefCellDefinitionIdx);
 
-/// An index for auxillary definition information for ref ports. This is used to
+/// An index for auxiliary definition information for ref ports. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_port_defs
@@ -117,7 +118,7 @@ impl_index!(LocalRefCellOffset);
 /// Enum used in assignments to encapsulate the different types of port
 /// references these are always relative to a component's base-point and must be
 /// converted to global references when used.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum PortRef {
     /// A port belonging to a non-ref cell/group in the current component or the
     /// component itself
@@ -399,12 +400,29 @@ pub enum AssignmentWinner {
     /// source
     Implicit,
     /// The assignment that produced this value.
-    Assign(AssignmentIdx),
+    Assign(AssignmentIdx, GlobalCellIdx),
 }
 
-impl From<AssignmentIdx> for AssignmentWinner {
-    fn from(v: AssignmentIdx) -> Self {
-        Self::Assign(v)
+impl AssignmentWinner {
+    #[must_use]
+    pub fn as_assign(&self) -> Option<&AssignmentIdx> {
+        if let Self::Assign(v, _c) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+impl From<(AssignmentIdx, GlobalCellIdx)> for AssignmentWinner {
+    fn from((v, c): (AssignmentIdx, GlobalCellIdx)) -> Self {
+        Self::Assign(v, c)
+    }
+}
+
+impl From<(GlobalCellIdx, AssignmentIdx)> for AssignmentWinner {
+    fn from((c, v): (GlobalCellIdx, AssignmentIdx)) -> Self {
+        Self::Assign(v, c)
     }
 }
 
@@ -412,15 +430,18 @@ impl From<AssignmentIdx> for AssignmentWinner {
 /// concrete value and the "winner" which assigned it.
 #[derive(Clone, PartialEq)]
 pub struct AssignedValue {
-    val: Value,
+    val: BitVecValue,
     winner: AssignmentWinner,
+    thread: Option<ThreadIdx>,
+    clocks: Option<ClockPair>,
 }
 
 impl std::fmt::Debug for AssignedValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AssignedValue")
-            .field("val", &format!("{}", &self.val))
+            .field("val", &self.val.to_bit_str())
             .field("winner", &self.winner)
+            .field("thread", &self.thread)
             .finish()
     }
 }
@@ -434,11 +455,28 @@ impl std::fmt::Display for AssignedValue {
 
 impl AssignedValue {
     /// Creates a new AssignedValue
-    pub fn new<T: Into<AssignmentWinner>>(val: Value, winner: T) -> Self {
+    pub fn new<T: Into<AssignmentWinner>>(val: BitVecValue, winner: T) -> Self {
         Self {
             val,
             winner: winner.into(),
+            thread: None,
+            clocks: None,
         }
+    }
+
+    pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
+        self.thread = Some(thread);
+        self
+    }
+
+    pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
+        self.thread = thread;
+        self
+    }
+
+    pub fn with_clocks(mut self, clock_pair: ClockPair) -> Self {
+        self.clocks = Some(clock_pair);
+        self
     }
 
     /// Returns true if the two AssignedValues do not have the same winner
@@ -447,7 +485,7 @@ impl AssignedValue {
     }
 
     /// Returns the value of the assigned value
-    pub fn val(&self) -> &Value {
+    pub fn val(&self) -> &BitVecValue {
         &self.val
     }
 
@@ -460,28 +498,34 @@ impl AssignedValue {
     /// a one bit high value
     pub fn implicit_bit_high() -> Self {
         Self {
-            val: Value::bit_high(),
+            val: BitVecValue::tru(),
             winner: AssignmentWinner::Implicit,
+            thread: None,
+            clocks: None,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
-    pub fn cell_value(val: Value) -> Self {
+    pub fn cell_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Cell,
+            thread: None,
+            clocks: None,
         }
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Implicit`] as the winner
     #[inline]
-    pub fn implicit_value(val: Value) -> Self {
+    pub fn implicit_value(val: BitVecValue) -> Self {
         Self {
             val,
             winner: AssignmentWinner::Implicit,
+            thread: None,
+            clocks: None,
         }
     }
 
@@ -489,13 +533,21 @@ impl AssignedValue {
     /// high value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_high() -> Self {
-        Self::cell_value(Value::bit_high())
+        Self::cell_value(BitVecValue::tru())
     }
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
     /// low value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_low() -> Self {
-        Self::cell_value(Value::bit_low())
+        Self::cell_value(BitVecValue::fals())
+    }
+
+    pub fn thread(&self) -> Option<ThreadIdx> {
+        self.thread
+    }
+
+    pub fn clocks(&self) -> Option<&ClockPair> {
+        self.clocks.as_ref()
     }
 }
 
@@ -506,7 +558,7 @@ pub struct PortValue(Option<AssignedValue>);
 
 impl std::fmt::Display for PortValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{}", self.format_value(PrintCode::Unsigned))
     }
 }
 
@@ -529,23 +581,44 @@ impl PortValue {
         self.0.as_ref()
     }
 
-    /// If the value is defined, returns the value cast to a boolean. Otherwise
-    /// returns `None`. It uses the [`Value::as_bool`] method and will panic if
-    /// the given value is not one bit wide.
-    pub fn as_bool(&self) -> Option<bool> {
-        self.0.as_ref().map(|x| x.val().as_bool())
+    pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
+        if let Some(val) = self.0.as_mut() {
+            val.thread = Some(thread);
+        }
+        self
     }
 
-    /// If the value is defined, returns the value cast to a usize. Otherwise
-    /// returns `None`. It uses the [`Value::as_usize`] method.
-    pub fn as_usize(&self) -> Option<usize> {
-        self.0.as_ref().map(|x| x.val().as_usize())
+    pub fn with_thread_optional(mut self, thread: Option<ThreadIdx>) -> Self {
+        if let Some(val) = self.0.as_mut() {
+            val.thread = thread;
+        }
+        self
+    }
+
+    /// If the value is defined, returns the value cast to a boolean. Otherwise
+    /// returns `None`. It will panic if the given value is not one bit wide.
+    pub fn as_bool(&self) -> Option<bool> {
+        self.0.as_ref().map(|x| x.val().to_bool().unwrap())
+    }
+
+    /// If the value is defined, returns the value cast to a u64. Otherwise,
+    /// returns `None`. It uses the [`BitVecValue::to_u64`] method.
+    pub fn as_u64(&self) -> Option<u64> {
+        self.0.as_ref().map(|x| x.val().to_u64().unwrap())
+    }
+
+    pub fn is_zero(&self) -> Option<bool> {
+        self.0.as_ref().map(|x| x.val.is_zero())
     }
 
     /// Returns a reference to the underlying value if it is defined. Otherwise
     /// returns `None`.
-    pub fn val(&self) -> Option<&Value> {
+    pub fn val(&self) -> Option<&BitVecValue> {
         self.0.as_ref().map(|x| &x.val)
+    }
+
+    pub fn clocks(&self) -> Option<ClockPair> {
+        self.0.as_ref().and_then(|x| x.clocks)
     }
 
     /// Returns a reference to the underlying [`AssignmentWinner`] if it is
@@ -565,17 +638,17 @@ impl PortValue {
     }
 
     /// Creates a [PortValue] that has the "winner" as a cell
-    pub fn new_cell(val: Value) -> Self {
+    pub fn new_cell(val: BitVecValue) -> Self {
         Self(Some(AssignedValue::cell_value(val)))
     }
 
     /// Creates a width-bit zero [PortValue] that has the "winner" as a cell
     pub fn new_cell_zeroes(width: u32) -> Self {
-        Self::new_cell(Value::zeroes(width))
+        Self::new_cell(BitVecValue::zero(width))
     }
 
     /// Creates a [PortValue] that has the "winner" as implicit
-    pub fn new_implicit(val: Value) -> Self {
+    pub fn new_implicit(val: BitVecValue) -> Self {
         Self(Some(AssignedValue::implicit_value(val)))
     }
 
@@ -591,11 +664,15 @@ impl PortValue {
         if let Some(v) = self.0.as_ref() {
             let v = &v.val;
             match print_code {
-                PrintCode::Unsigned => format!("{}", v.as_unsigned()),
-                PrintCode::Signed => format!("{}", v.as_signed()),
-                PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
-                PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
-                PrintCode::Binary => format!("{}", v),
+                PrintCode::Unsigned => format!("{}", v.to_big_uint()),
+                PrintCode::Signed => format!("{}", v.to_big_int()),
+                PrintCode::UFixed(num) => {
+                    format!("{}", v.to_unsigned_fixed_point(num).unwrap())
+                }
+                PrintCode::SFixed(num) => {
+                    format!("{}", v.to_signed_fixed_point(num).unwrap())
+                }
+                PrintCode::Binary => v.to_bit_str(),
             }
         } else {
             "undef".to_string()
@@ -653,6 +730,8 @@ where
     pub parent: ComponentIdx,
     /// The prototype of the cell
     pub prototype: CellPrototype,
+    /// Whether the cell is marked with `@data`
+    pub is_data: bool,
 }
 
 impl<C> CellDefinitionInfo<C>
@@ -665,12 +744,14 @@ where
         ports: IndexRange<C>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> Self {
         Self {
             name,
             ports,
             parent,
             prototype,
+            is_data,
         }
     }
 }

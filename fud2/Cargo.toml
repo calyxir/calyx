@@ -18,6 +18,12 @@ fud-core = { path = "fud-core", version = "0.0.2", features = ["egg_planner"] }
 anyhow.workspace = true
 manifest-dir-macros = "0.1"
 include_dir = "0.7"
+argh.workspace = true
+toml_edit = "0.22.20"
+
+[lib]
+name = "fud2"
+path = "src/lib.rs"
 
 [[bin]]
 name = "fud2"

@@ -1,6 +1,8 @@
 ver = "0.4.1"
 
 # Check basic functionality of the interpreter
+# note that due to error printing in fud2 we can't run the error tests on CI
+# through it, so this suite has direct invocations instead
 [[tests]]
 name = "unit"
 paths = ["unit/*.futil"]
@@ -14,7 +16,10 @@ expect_dir = "unit"
 name = "multi-comp"
 paths = ["multi-comp/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../ --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+fud2 --from calyx --to dat \
+         --through cider \
+         -s cider.flags="--dump-registers" \
+         {} | jq --sort-keys
 """
 timeout = 10
 
@@ -32,7 +37,10 @@ name = "complex"
 paths = ["complex/*.futil"]
 
 cmd = """
-../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+fud2 --from calyx --to dat \
+         --through cider \
+         -s cider.flags="--dump-registers" \
+         {} | jq --sort-keys
 """
 timeout = 10
 expect_dir = "complex"
@@ -41,7 +49,11 @@ expect_dir = "complex"
 name = "primitives"
 paths = ["primitives/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq  --sort-keys
+fud2 --from calyx --to dat \
+         --through cider \
+         -s calyx.args="--log off" \
+         -s cider.flags="--dump-registers" \
+         {} | jq --sort-keys
 """
 timeout = 10
 expect_dir = "primitives"
@@ -59,7 +71,10 @@ expect_dir = "par-to-seq"
 name = "control"
 paths = ["control/*.futil", "control/iteration/*.futil"]
 cmd = """
-../../target/debug/cider {} -l ../../  --dump-registers | ../../target/debug/cider-data-converter --to json | jq --sort-keys
+fud2 --from calyx --to dat \
+         --through cider \
+         -s cider.flags="--dump-registers" \
+         {} | jq --sort-keys
 """
 timeout = 10
 expect_dir = "control"
@@ -109,6 +124,28 @@ fud2 --from calyx --to dat \
 """
 
 [[tests]]
+name = "data-race detection"
+paths = ["data-race/*.futil"]
+cmd = """
+../../target/debug/cider {} -l ../../  --check-data-race
+"""
+
+[[tests]]
+name = "correctness lowered"
+paths = ["../../tests/correctness/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         -s calyx.flags="-p all" \
+         -s cider.flags="--no-verify" \
+         {} | jq --sort-keys
+"""
+timeout = 60
+
+
+[[tests]]
 name = "correctness ref cells"
 paths = ["../../tests/correctness/ref-cells/*.futil"]
 cmd = """
@@ -143,6 +180,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
+         -s cider.converter-flags="-r --legacy-quotes" \
          {} | jq --sort-keys
 """
 
@@ -178,6 +216,7 @@ fud2 --from dahlia --to dat \
          -s calyx.args="--log off" \
          {} | jq --sort-keys
 """
+timeout = 180
 
 # [[tests]]
 # name = "[frontend] systolic array correctness"

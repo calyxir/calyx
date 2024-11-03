@@ -8,11 +8,12 @@ such as registers and basic bitwise operations.
 - [Numerical Operators](#numerical-operators)
 - [Logical Operators](#logical-operators)
 - [Comparison Operators](#comparison-operators)
+- [Floating Point](#floating-point)
 - [Memories](#memories)
 
 ---
 
-## Numerical Operators
+## State Elements
 
 ### `std_reg<WIDTH>`
 
@@ -27,10 +28,55 @@ A `WIDTH`-wide register.
 **Outputs:**
 
 - `out: WIDTH` - The value contained in the register.
-- `done: 1` - The register's done signal. Set high for one cycle after writing a
-  new value.
+- `done: 1` - The register's done signal. Set high for one cycle after writing 
+  a new value.
 
 ---
+
+### `std_skid_buffer<WIDTH>`
+
+A `WIDTH`-wide non-pipelined skid buffer. Used to ensure data is not lost 
+during handshakes.
+
+**Inputs:**
+
+- `in: WIDTH` - An input value to the skid buffer `WIDTH`-bits.
+- `i_valid: 1` - The one bit input valid signal. Indicates that the data 
+  provided on the `in` wire is valid.
+- `i_ready: 1` - The one bit input ready signal. Indicates that the follower is
+  ready to recieve data from the `out` wire.
+
+**Outputs:**
+
+- `out: WIDTH` - The value contained in the register.
+- `o_valid: 1` - The one bit output valid signal. Indicates that the data 
+  provided on the `out` wire is valid.
+- `o_ready: 1` - The one bit output ready signal. Indicates that the skid buffer
+  is ready to recieve data on the `in` wire.
+
+---
+
+### `std_bypass_reg<WIDTH>`
+
+A `WIDTH`-wide bypass register.
+
+**Inputs:**
+
+- `in: WIDTH` - An input value to the bypass register `WIDTH`-bits.
+- `write_en: 1` - The one bit write enabled signal. Indicates that the bypass
+  register should store the value on the `in` wire.
+
+**Outputs:**
+
+- `out: WIDTH` - The value of the bypass register. When `write_en` is asserted 
+  the value of `in` is bypassed to `out`. Otherwise `out` is equal to the last 
+  value written to the register.
+- `done: 1` - The bypass register's done signal. Set high for one cycle after
+  `write_en` is asserted.
+
+---
+
+## Numerical Operators
 
 ### `std_const<WIDTH,VAL>`
 
@@ -312,6 +358,25 @@ Less than or equal. This component is combinational.
 **Outputs:**
 
 - `out: 1` - A single bit output. 1 if `left <= right` else 0.
+
+---
+
+## Floating Point
+
+### `std_float_const`
+
+A floating-point constant with a particular representation and bitwidth.
+Floating-point values are specially parsed by the frontend and turned into the equivalent bit pattern (as dictated by the representation).
+Similarly, the backend supports specialized printing for constants based on the representation
+
+**Parameters:**
+
+- `REP`: The representation to use. `0` corresponds to [IEEE-754 floating point][ieee754] numbers. No other representation is supported at this point.
+- `WIDTH`: Bitwidth to use. Supported values: `32`, `64`.
+- `VAL`: The floating-point value. Frontend converts this into a `u64` internally.
+
+
+[ieee754]: https://en.wikipedia.org/wiki/IEEE_754
 
 ---
 

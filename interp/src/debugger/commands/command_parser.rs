@@ -1,12 +1,13 @@
 use super::core::{
     Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
 };
+use baa::WidthInt;
 use pest_consume::{match_nodes, Error, Parser};
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use crate::{errors::InterpreterResult, serialization::PrintCode};
+use crate::{errors::CiderResult, serialization::PrintCode};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("commands.pest");
@@ -87,15 +88,15 @@ impl CommandParser {
         ))
     }
 
-    fn pc_ufx(input: Node) -> ParseResult<usize> {
+    fn pc_ufx(input: Node) -> ParseResult<WidthInt> {
         Ok(match_nodes!(input.into_children();
-            [num(n)] => n as usize
+            [num(n)] => n as WidthInt
         ))
     }
 
-    fn pc_sfx(input: Node) -> ParseResult<usize> {
+    fn pc_sfx(input: Node) -> ParseResult<WidthInt> {
         Ok(match_nodes!(input.into_children();
-            [num(n)] => n as usize
+            [num(n)] => n as WidthInt
         ))
     }
 
@@ -286,7 +287,7 @@ impl CommandParser {
 }
 
 /// Parse the given string into a debugger command.
-pub fn parse_command(input_str: &str) -> InterpreterResult<Command> {
+pub fn parse_command(input_str: &str) -> CiderResult<Command> {
     let inputs = CommandParser::parse(Rule::command, input_str)?;
     let input = inputs.single()?;
     Ok(CommandParser::command(input)?)

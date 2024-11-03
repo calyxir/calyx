@@ -10,8 +10,8 @@ use bitvec::prelude::*;
 
 pub type BitString = BitVec<usize, Lsb0>;
 
-fn slice_to_usize(slice: &BitSlice) -> usize {
-    let mut ans: usize = 0;
+fn slice_to_u64(slice: &BitSlice) -> u64 {
+    let mut ans = 0;
     for i in 0..slice.len() {
         if slice[i] {
             ans += 1 << i;
@@ -60,7 +60,7 @@ impl<'a> Btor2Program<'a> {
     pub fn run(
         &mut self,
         inputs: HashMap<String, String>,
-    ) -> Result<HashMap<String, usize>, &str> {
+    ) -> Result<HashMap<String, u64>, &str> {
         let btor2_lines: &Vec<Btor2Line<'_>> = &self
             .parser
             .read_lines(self.path)
@@ -115,7 +115,7 @@ impl<'a> Btor2Program<'a> {
                 let src_node_idx = line.args()[0] as usize;
                 let output_val = s_env.get(src_node_idx);
 
-                output_map.insert(output_name, slice_to_usize(output_val));
+                output_map.insert(output_name, slice_to_u64(output_val));
             }
         });
 

@@ -1,8 +1,13 @@
 use std::ops::Index;
 
+use calyx_ir::Direction;
+
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
-    component::{AuxillaryComponentInfo, ComponentCore, ComponentMap},
+    component::{
+        AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentCore,
+        ComponentMap,
+    },
     identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
@@ -20,8 +25,9 @@ use crate::flatten::flat_ir::{
 
 use super::{
     index_trait::{IndexRange, IndexRef},
-    indexed_map::{AuxillaryMap, IndexedMap},
+    indexed_map::{AuxiliaryMap, IndexedMap},
     printer::Printer,
+    sparse_map::AuxiliarySparseMap,
 };
 
 /// The immutable program context for the interpreter. Relevant at simulation
@@ -38,6 +44,10 @@ pub struct InterpretationContext {
     pub comb_groups: CombGroupMap,
     /// All assignment guards
     pub guards: GuardMap,
+    /// Map from guard to the ports it reads. Might be worth doing some extra
+    /// work to make this save memory since empty vecs for True guards is
+    /// probably not worth it
+    pub guard_read_map: AuxiliarySparseMap<GuardIdx, Vec<PortRef>>,
     /// Control trees
     pub control: ControlMap,
 }
@@ -97,6 +107,10 @@ pub struct PortDefinitionInfo {
     pub name: Identifier,
     /// The width of the port
     pub width: usize,
+    /// Whether the port is data
+    pub is_data: bool,
+    /// The direction of the port
+    pub direction: Direction,
 }
 
 #[derive(Debug)]
@@ -113,8 +127,8 @@ pub struct SecondaryContext {
     pub local_cell_defs: IndexedMap<CellDefinitionIdx, CellInfo>,
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
-    /// auxillary information for components
-    pub comp_aux_info: AuxillaryMap<ComponentIdx, AuxillaryComponentInfo>,
+    /// auxiliary information for components
+    pub comp_aux_info: AuxiliaryMap<ComponentIdx, AuxiliaryComponentInfo>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -158,7 +172,7 @@ impl Index<RefCellDefinitionIdx> for SecondaryContext {
 }
 
 impl Index<ComponentIdx> for SecondaryContext {
-    type Output = AuxillaryComponentInfo;
+    type Output = AuxiliaryComponentInfo;
 
     fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.comp_aux_info[index]
@@ -171,9 +185,15 @@ impl SecondaryContext {
         &mut self,
         name: Identifier,
         width: usize,
+        is_data: bool,
+        direction: Direction,
     ) -> PortDefinitionIdx {
-        self.local_port_defs
-            .push(PortDefinitionInfo { name, width })
+        self.local_port_defs.push(PortDefinitionInfo {
+            name,
+            width,
+            is_data,
+            direction,
+        })
     }
 
     /// Insert a new reference port definition into the context and return its index
@@ -188,9 +208,10 @@ impl SecondaryContext {
         ports: IndexRange<LocalPortOffset>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> CellDefinitionIdx {
         self.local_cell_defs
-            .push(CellInfo::new(name, ports, parent, prototype))
+            .push(CellInfo::new(name, ports, parent, prototype, is_data))
     }
 
     /// Insert a new reference cell definition into the context and return its index
@@ -200,9 +221,10 @@ impl SecondaryContext {
         ports: IndexRange<LocalRefPortOffset>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> RefCellDefinitionIdx {
         self.ref_cell_defs
-            .push(RefCellInfo::new(name, ports, parent, prototype))
+            .push(RefCellInfo::new(name, ports, parent, prototype, is_data))
     }
 }
 
@@ -414,6 +436,26 @@ impl Context {
     pub fn lookup_name<T: LookupName>(&self, id: T) -> &String {
         id.lookup_name(self)
     }
+
+    /// Returns information about where an assignment is defined and the
+    /// component in which it is defined.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the given assignment is not defined in any
+    /// component.
+    pub fn find_assignment_definition(
+        &self,
+        target: AssignmentIdx,
+    ) -> (ComponentIdx, AssignmentDefinitionLocation) {
+        for (idx, comp) in self.primary.components.iter() {
+            let found = comp.contains_assignment(self, target);
+            if let Some(found) = found {
+                return (idx, found);
+            }
+        }
+        unreachable!("Assignment does not belong to any component");
+    }
 }
 
 impl AsRef<Context> for &Context {
@@ -447,5 +489,12 @@ impl LookupName for Identifier {
     #[inline]
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
         ctx.resolve_id(*self)
+    }
+}
+
+impl LookupName for CombGroupIdx {
+    #[inline]
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.resolve_id(ctx.primary[*self].name())
     }
 }

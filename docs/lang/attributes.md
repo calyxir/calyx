@@ -247,3 +247,7 @@ as before.
 [externalize]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.Externalize.html
 [promotable]: #promotable(n)
 [interval]: #interval(n)
+
+### `@protected`
+
+Marks that the cell should not be removed or shared during optimization.

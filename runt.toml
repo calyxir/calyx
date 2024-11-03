@@ -37,6 +37,7 @@ paths = [
   "tests/errors/*.futil",
   "tests/errors/papercut/*.futil",
   "tests/errors/parser/*.futil",
+  "tests/errors/float/*.futil",
 ]
 cmd = """
 ./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut -l . -m file
@@ -109,10 +110,12 @@ cmd = "python3 calyx-py/calyx/gen_exp.py {}"
 [[tests]]
 name = "[frontend] queues correctness"
 paths = [
-    "frontends/queues/tests/*.py",
-    "frontends/queues/tests/round_robin/*.py",
-    "frontends/queues/tests/strict/*.py",
-    "frontends/queues/tests/binheap/*.py"
+  "frontends/queues/tests/*.py",
+  "frontends/queues/tests/round_robin/*.py",
+  "frontends/queues/tests/strict/*.py",
+  "frontends/queues/tests/binheap/*.py",
+  "frontends/queues/tests/binheap/round_robin/*.py",
+  "frontends/queues/tests/binheap/strict/*.py",
 ]
 cmd = """
 name=$(basename {} .py) &&
@@ -210,6 +213,7 @@ paths = [
   "tests/correctness/ref-cells/*.futil",
   "tests/correctness/sync/*.futil",
   "tests/correctness/static-interface/*.futil",
+  "tests/correctness/ieee754-float/*.futil",
 ]
 cmd = """
 fud exec --from calyx --to jq \
@@ -270,6 +274,7 @@ name = "correctness static timing"
 paths = [
   "tests/correctness/*.futil",
   "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/skid-buffers/*.futil",
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
@@ -323,6 +328,7 @@ timeout = 120
 name = "correctness static control"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
@@ -342,6 +348,7 @@ timeout = 120
 name = "correctness static control, one-hot fsms"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
@@ -349,7 +356,7 @@ fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke -x static-fsm-opts:one-hot-cutoff=500' \
+         -s calyx.flags '-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q

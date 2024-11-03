@@ -8,14 +8,16 @@ def remove_size_from_name(name: str) -> str:
     return name.split('[')[0]
 
 class ProfilingInfo:
-    def __init__(self, name, fsm_name=None, fsm_values=None, tdcc_group_name=None):
+    def __init__(self, name, component, fsm_name=None, fsm_values=None, tdcc_group_name=None, is_cell=False):
         self.name = name
         self.fsm_name = fsm_name
-        self.fsm_values = fsm_values
+        self.fsm_values = list(sorted(fsm_values)) if fsm_values is not None else None
         self.total_cycles = 0
         self.closed_segments = [] # Segments will be (start_time, end_time)
         self.current_segment = None
         self.tdcc_group = tdcc_group_name
+        self.component = component
+        self.is_cell = is_cell
 
     def __repr__ (self):
         segments_str = ""
@@ -23,13 +25,15 @@ class ProfilingInfo:
             if (segments_str != ""):
                 segments_str += ", "
             segments_str += f"[{segment['start']}, {segment['end']})"
-        if self.fsm_name is None:
-            header = f"[GT]  Group {self.name}:\n"
-        else:
+        if self.fsm_name is not None:
             header = (f"[FSM] Group {self.name}:\n" + 
             f"\tFSM name: {self.fsm_name}\n" +
             f"\tFSM state ids: {self.fsm_values}\n"
             )
+        elif self.component is None:
+            header = f"[CMP] Group {self.name}:\n"
+        else:
+            header = f"[GT]  Group {self.name}:\n"
 
         return (header +
         f"\tTotal cycles: {self.total_cycles}\n" +
@@ -56,6 +60,8 @@ class ProfilingInfo:
         name = self.name
         if self.fsm_name is not None:
             name += "[FSM]"
+        if self.component is None:
+            name += "[CMP]"
         return {"name": name, 
                 "total-cycles" : self.total_cycles,
                 "times-active" : len(self.closed_segments),
@@ -89,25 +95,23 @@ class ProfilingInfo:
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsms, single_enable_names, tdcc_groups, fsm_group_maps, main_component):
+    def __init__(self, fsms, tdcc_groups, fsm_group_maps, main_component, cells):
         super().__init__()
         self.main_component = main_component
         self.fsms = fsms
-        self.single_enable_names = single_enable_names
+        self.single_enable_names = set()
         # Recording the first cycle when the TDCC group became active
         self.tdcc_group_active_cycle = {tdcc_group_name : -1 for tdcc_group_name in tdcc_groups}
         # Map from a TDCC group to all FSMs that depend on it. maybe a 1:1 mapping
         self.tdcc_group_to_dep_fsms = tdcc_groups
         # Group name --> ProfilingInfo object
         self.profiling_info = {}
-        self.signal_to_curr_value = {fsm : -1 for fsm in fsms}
         for group in fsm_group_maps:
             # Differentiate FSM versions from ground truth versions
-            self.profiling_info[f"{group}FSM"] = ProfilingInfo(group, fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
-        for single_enable_group in single_enable_names:
-            self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
-            self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
-            self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
+            self.profiling_info[f"{group}FSM"] = ProfilingInfo(group, fsm_group_maps[group]["component"], fsm_group_maps[group]["fsm"], fsm_group_maps[group]["ids"], fsm_group_maps[group]["tdcc-group-name"])
+        self.cells = set(cells.keys())
+        for cell in cells:
+            self.profiling_info[cell] = ProfilingInfo(cell, cells[cell], is_cell=True)
         # Map from timestamps [ns] to value change events that happened on that timestamp
         self.timestamps_to_events = {}
 
@@ -117,14 +121,22 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         refs = sorted(refs, key=lambda e: e[0])
         names = [remove_size_from_name(e[0]) for e in refs]
         signal_id_dict = {sid : [] for sid in vcd.references_to_ids.values()} # one id can map to multiple signal names since wires are connected
-        main_go_name = f"{self.main_component}.go"
-        signal_id_dict[vcd.references_to_ids[main_go_name]] = [main_go_name]
 
         clock_name = f"{self.main_component}.clk"
         if clock_name not in names:
             print("Can't find the clock? Exiting...")
             sys.exit(1)
         signal_id_dict[vcd.references_to_ids[clock_name]] = [clock_name]
+
+        # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
+        for cell in self.cells:
+            cell_go = cell + ".go"
+            cell_done = cell + ".done"
+            if cell_go not in vcd.references_to_ids:
+                print(f"Not accounting for cell {cell} (probably combinational)")
+                continue
+            signal_id_dict[vcd.references_to_ids[cell_go]].append(cell_go)
+            signal_id_dict[vcd.references_to_ids[cell_done]].append(cell_done)
 
         for name, sid in refs:
             # FIXME: We may want to optimize these nested for loops
@@ -134,11 +146,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
-            for single_enable_group in self.single_enable_names:
-                if name.startswith(f"{single_enable_group}_go.out["):
-                    signal_id_dict[sid].append(name)
-                if name.startswith(f"{single_enable_group}_done.out["):
-                    signal_id_dict[sid].append(name)
+            if "_probe_out" in name: # instrumentation probes are "<group>__<component>_probe"
+                group_component_split = name.split("_probe_out")[0].split("__")
+                group_name = group_component_split[0]
+                self.single_enable_names.add(group_name)
+                self.profiling_info[group_name] = ProfilingInfo(group_name, group_component_split[1])
+                signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
@@ -199,7 +212,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # checking whether the timestamp has a rising edge (hacky)
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
-            # TDCC groups need to be recorded for tracking FSM values
+            # TDCC groups need to be recorded (before FSMs) for tracking FSM values
             # (ex. if the FSM has value 0 but the TDCC group isn't active, then the group represented by the
             # FSM's 0 value should not be considered as active)
             for tdcc_event in filter(lambda e : "tdcc" in e["signal"] and "go" in e["signal"], events):
@@ -209,6 +222,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     for fsm in self.tdcc_group_to_dep_fsms[tdcc_group]:
                         value = fsm_to_curr_value[fsm]
                         if value != -1:
+                            if value not in self.fsms[fsm]:
+                                continue
                             next_group = f"{self.fsms[fsm][value]}FSM"
                             fsm_to_active_group[fsm] = next_group
                             self.profiling_info[next_group].start_new_segment(clock_cycles)
@@ -219,11 +234,17 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 value = event["value"]
                 if "tdcc" in signal_name and "go" in signal_name: # skip all tdcc events since we've already processed them
                     continue
-                if "_go" in signal_name and value == 1:
-                    group = "_".join(signal_name.split("_")[0:-1])
+                if signal_name.endswith(".go") and value == 1: # cells have .go and .done
+                    cell = signal_name.split(".go")[0]
+                    self.profiling_info[cell].start_new_segment(clock_cycles)
+                if signal_name.endswith(".done") and value == 1: # cells have .go and .done
+                    cell = signal_name.split(".done")[0]
+                    self.profiling_info[cell].end_current_segment(clock_cycles)
+                if "_probe_out" in signal_name and value == 1: # instrumented group started being active
+                    group = signal_name.split("_probe_out")[0].split("__")[0]
                     self.profiling_info[group].start_new_segment(clock_cycles)
-                elif "_done" in signal_name and value == 1:
-                    group = "_".join(signal_name.split("_")[0:-1])
+                elif "_probe_out" in signal_name and value == 0: # instrumented group stopped being active
+                    group = signal_name.split("_probe_out")[0].split("__")[0]
                     self.profiling_info[group].end_current_segment(clock_cycles)
                 elif "fsm" in signal_name:
                     fsm = ".".join(signal_name.split(".")[0:-1])
@@ -274,9 +295,9 @@ def read_component_cell_names_json(json_file):
     return full_main_component, components_to_cells
 
 # Reads json generated by TDCC (via dump-fsm-json option) to produce initial group information
-def remap_tdcc_json(json_file, components_to_cells):
-    profiling_infos = json.load(open(json_file))
-    group_names = set() # all groups (to record ground truth)
+def remap_tdcc_json(tdcc_json_file, components_to_cells):
+    profiling_infos = json.load(open(tdcc_json_file))
+    cells_to_components = {} # go and done info are needed for cells. cell --> component name
     tdcc_groups = {} # TDCC-generated groups that manage control flow using FSMs. maps to all fsms that map to the tdcc group
     fsm_group_maps = {} # fsm-managed groups info (fsm register, TDCC group that manages fsm, id of group within fsm)
     fsms = {} # Remapping of JSON data for easy access
@@ -292,18 +313,17 @@ def remap_tdcc_json(json_file, components_to_cells):
                     fsms[fsm_name][state["id"]] = group_name
                     tdcc_group = cell + "." + fsm["group"]
                     if group_name not in fsm_group_maps:
-                        fsm_group_maps[group_name] = {"fsm": fsm_name, "tdcc-group-name": tdcc_group, "ids": [state["id"]]}
+                        fsm_group_maps[group_name] = {"fsm": fsm_name, "tdcc-group-name": tdcc_group, "ids": [state["id"]], "component": fsm["component"]}
                         if tdcc_group not in tdcc_groups: # Keep track of the TDCC group to figure out when first group starts
                             tdcc_groups[tdcc_group] = set()
                         tdcc_groups[tdcc_group].add(fsm_name)
-                        group_names.add(group_name)
-                    else:     
+                    else:
                         fsm_group_maps[group_name]["ids"].append(state["id"])  
-        else:
-            for cell in components_to_cells[profiling_info["SingleEnable"]["component"]]: # get all possibilities of cells
-                group_names.add(cell + "." + profiling_info["SingleEnable"]["group"])
+    for component in components_to_cells:
+        for cell in components_to_cells[component]:
+            cells_to_components[cell] = component
 
-    return fsms, group_names, tdcc_groups, fsm_group_maps
+    return fsms, tdcc_groups, fsm_group_maps, cells_to_components
 
 def output_result(out_csv, dump_out_json, converter):
     print(f"Total clock cycles: {converter.clock_cycles}")
@@ -322,6 +342,8 @@ def output_result(out_csv, dump_out_json, converter):
     print()
     for group_info in groups_to_emit:
         print(group_info)
+    # Add total cycles for visualizer script (probably want to do this in a neater fashion in the future)
+    dump_json_acc.append({"name": "TOTAL", "total_cycles": converter.clock_cycles, "main_full_path": converter.main_component})
     # emit a json for visualizer script
     print(f"Writing dump JSON to {dump_out_json}")
     with open(dump_out_json, "w", encoding="utf-8") as dump_file:
@@ -337,10 +359,10 @@ def output_result(out_csv, dump_out_json, converter):
     writer.writeheader()
     writer.writerows(csv_acc)
 
-def main(vcd_filename, groups_json_file, cells_json_file, out_csv, dump_out_json):
+def main(vcd_filename, tdcc_json_file, cells_json_file, out_csv, dump_out_json):
     main_component, components_to_cells = read_component_cell_names_json(cells_json_file)
-    fsms, group_names, tdcc_group_names, fsm_group_maps = remap_tdcc_json(groups_json_file, components_to_cells)
-    converter = VCDConverter(fsms, group_names, tdcc_group_names, fsm_group_maps, main_component)
+    fsms, tdcc_group_names, fsm_group_maps, cells = remap_tdcc_json(tdcc_json_file, components_to_cells)
+    converter = VCDConverter(fsms, tdcc_group_names, fsm_group_maps, main_component, cells)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     converter.postprocess()
     output_result(out_csv, dump_out_json, converter)
@@ -363,6 +385,8 @@ if __name__ == "__main__":
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         print("TDCC_JSON: Run Calyx with `tdcc:dump-fsm-json` option")
-        print("CELLS_JSON: Run Calyx with `component-cells` backend")
+        print("CELLS_JSON: Run the `component_cells` tool")
+        print("GROUPS_JSON: Run the `component_groups` tool")
         print("If SUMMARY_OUT_CSV is STDOUT, then summary CSV will be printed to stdout")
+        print("DUMP_OUT_JSON: output json file for group-specific")
         sys.exit(-1)

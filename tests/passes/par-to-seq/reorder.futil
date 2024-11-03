@@ -1,4 +1,4 @@
-// -p validate -p par-to-seq
+// -p validate -p par-to-seq -x par-to-seq:correctness-checking
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 component main() -> () {

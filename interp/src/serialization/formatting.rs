@@ -3,13 +3,12 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::fmt::{Debug, Display};
 
-use crate::{
-    flatten::flat_ir::cell_prototype::MemoryDimensions, values::Value,
-};
+use crate::flatten::flat_ir::cell_prototype::MemoryDimensions;
+use baa::{BitVecOps, BitVecValue, WidthInt};
 
 /// An enum wrapping over a tuple representing the shape of a multi-dimensional
 /// array
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Shape {
     D1(usize),
     D2(usize, usize),
@@ -30,6 +29,17 @@ impl Shape {
             Shape::D2(d0, d1) => d0 * d1,
             Shape::D3(d0, d1, d2) => d0 * d1 * d2,
             Shape::D4(d0, d1, d2, d3) => d0 * d1 * d2 * d3,
+        }
+    }
+
+    pub fn as_string(&self) -> String {
+        match self {
+            Shape::D1(d0) => format!("({})", d0),
+            Shape::D2(d0, d1) => format!("({}, {})", d0, d1),
+            Shape::D3(d0, d1, d2) => format!("({}, {}, {})", d0, d1, d2),
+            Shape::D4(d0, d1, d2, d3) => {
+                format!("({}, {}, {}, {})", d0, d1, d2, d3)
+            }
         }
     }
 }
@@ -107,7 +117,7 @@ pub enum Entry {
     U(u64),
     I(i64),
     Frac(Fraction),
-    Value(Value),
+    Value(BitVecValue),
 }
 
 impl From<u64> for Entry {
@@ -129,12 +139,16 @@ impl From<Fraction> for Entry {
 }
 
 impl Entry {
-    pub fn from_val_code(val: &Value, code: &PrintCode) -> Self {
+    pub fn from_val_code(val: &BitVecValue, code: &PrintCode) -> Self {
         match code {
-            PrintCode::Unsigned => val.as_u64().into(),
-            PrintCode::Signed => val.as_i64().into(),
-            PrintCode::UFixed(f) => val.as_ufp(*f).into(),
-            PrintCode::SFixed(f) => val.as_sfp(*f).into(),
+            PrintCode::Unsigned => val.to_u64().unwrap().into(),
+            PrintCode::Signed => val.to_i64().unwrap().into(),
+            PrintCode::UFixed(f) => {
+                val.to_unsigned_fixed_point(*f).unwrap().into()
+            }
+            PrintCode::SFixed(f) => {
+                val.to_signed_fixed_point(*f).unwrap().into()
+            }
             PrintCode::Binary => Entry::Value(val.clone()),
         }
     }
@@ -146,7 +160,7 @@ impl Display for Entry {
             Entry::U(v) => write!(f, "{}", v),
             Entry::I(v) => write!(f, "{}", v),
             Entry::Frac(v) => write!(f, "{}", v),
-            Entry::Value(v) => write!(f, "{}", v),
+            Entry::Value(v) => write!(f, "{}", v.to_bit_str()),
         }
     }
 }
@@ -162,8 +176,8 @@ pub enum PrintCode {
     Binary,
     Unsigned,
     Signed,
-    UFixed(usize),
-    SFixed(usize),
+    UFixed(WidthInt),
+    SFixed(WidthInt),
 }
 
 impl Default for PrintCode {

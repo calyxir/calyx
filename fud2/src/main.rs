@@ -1,4 +1,5 @@
-use fud_core::{cli, DriverBuilder};
+use fud2::Fud2CliExt;
+use fud_core::{cli::CliStart, DriverBuilder};
 
 fn main() -> anyhow::Result<()> {
     let mut bld = DriverBuilder::new("fud2");
@@ -22,10 +23,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Get config values from cli.
-    let config = cli::config_from_cli(&bld.name)?;
+    let config = Fud2CliExt::config_from_cli(&bld.name)?;
 
     bld = bld.load_plugins(&config)?;
 
     let driver = bld.build();
-    cli::cli(&driver, &config)
+    Fud2CliExt::cli(&driver, &config)
 }

@@ -201,8 +201,19 @@ impl DataDump {
         declaration: MemoryDeclaration,
         data: T,
     ) {
-        self.header.memories.push(declaration);
+        let old_len = self.data.len();
         self.data.extend(data);
+        let new_len = self.data.len();
+        let data_segment = new_len - old_len;
+        assert_eq!(
+            declaration.byte_count(),
+            data_segment,
+            "Data segment size does not match the memory declaration {:?}. Expected {} bytes, but got {}",
+            declaration,
+            declaration.byte_count(),
+            data_segment
+        );
+        self.header.memories.push(declaration);
     }
 
     pub fn push_reg<T: IntoIterator<Item = u8>>(
@@ -282,7 +293,10 @@ impl DataDump {
         // instead to avoid allowing incorrect/malformed data files
         let amount_read = reader.read_to_end(&mut data)?;
         if amount_read != header.data_size() {
-            return Err(SerializationError::MalformedData);
+            return Err(SerializationError::MalformedData {
+                expected_size: header.data_size(),
+                given_size: amount_read,
+            });
         }
 
         Ok(DataDump { header, data })
@@ -327,9 +341,12 @@ pub enum SerializationError {
     MalformedHeader,
 
     #[error(
-        "Malformed data dump, data section does not match header description"
+        "Malformed data dump, data section does not match header description. Expected {expected_size} bytes, but got {given_size} bytes"
     )]
-    MalformedData,
+    MalformedData {
+        expected_size: usize,
+        given_size: usize,
+    },
 
     #[error("Input is not a valid data dump")]
     InvalidMagicNumber,
@@ -466,7 +483,7 @@ mod tests {
     }
 
     use crate::flatten::{
-        flat_ir::prelude::GlobalPortIdx,
+        flat_ir::{base::GlobalCellIdx, prelude::GlobalPortIdx},
         primitives::stateful::{CombMemD1, SeqMemD1},
         structures::index_trait::IndexRef,
     };
@@ -475,7 +492,7 @@ mod tests {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap(), &mut None);
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
@@ -484,7 +501,7 @@ mod tests {
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap(), &mut None);
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }

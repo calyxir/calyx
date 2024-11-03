@@ -1,8 +1,8 @@
 # For usage, see gen_queue_data_expect.sh
 
 import sys
-import queues 
-import util 
+import queues
+import util
 
 
 if __name__ == "__main__":
@@ -27,7 +27,7 @@ if __name__ == "__main__":
         boundaries = [50, 100, 150, 200, 250, 300, 400]
     else:
         raise ValueError("Unsupported number of flows")
-    
+
     subqueues = [queues.Fifo(len) for _ in range(numflows)]
 
     # Our Round Robin Queue orchestrates n subqueues, in this case provided as
