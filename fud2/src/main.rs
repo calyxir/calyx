@@ -8,6 +8,8 @@ fn main() -> anyhow::Result<()> {
     #[cfg(debug_assertions)]
     {
         bld.rsrc_dir(manifest_dir_macros::directory_path!("rsrc"));
+
+        bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
     }
 
     // In release mode, embed resources into the binary.
@@ -16,6 +18,14 @@ fn main() -> anyhow::Result<()> {
         bld.rsrc_files({
             const DIR: include_dir::Dir =
                 include_dir::include_dir!("$CARGO_MANIFEST_DIR/rsrc");
+            DIR.files()
+                .map(|file| (file.path().to_str().unwrap(), file.contents()))
+                .collect()
+        });
+
+        bld.script_files({
+            const DIR: include_dir::Dir =
+                include_dir::include_dir!("$CARGO_MANIFEST_DIR/scripts");
             DIR.files()
                 .map(|file| (file.path().to_str().unwrap(), file.contents()))
                 .collect()
