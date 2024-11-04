@@ -4,6 +4,7 @@ use crate::{
         flat_ir::base::GlobalPortIdx,
         structures::{
             environment::{clock::ClockMap, PortMap},
+            index_trait::SplitIndexRange,
             thread::ThreadMap,
         },
     },
@@ -134,6 +135,8 @@ pub trait Primitive {
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         None
     }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx>;
 }
 
 pub trait RaceDetectionPrimitive: Primitive {
@@ -159,15 +162,3 @@ pub trait RaceDetectionPrimitive: Primitive {
     /// optional default implementation due to size rules
     fn as_primitive(&self) -> &dyn Primitive;
 }
-
-/// An empty primitive implementation used for testing. It does not do anything
-/// and has no ports of any kind
-pub struct DummyPrimitive;
-
-impl DummyPrimitive {
-    pub fn new_dyn() -> Box<dyn Primitive> {
-        Box::new(Self)
-    }
-}
-
-impl Primitive for DummyPrimitive {}

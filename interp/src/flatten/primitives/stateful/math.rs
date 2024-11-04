@@ -5,7 +5,7 @@ use crate::flatten::{
         prim_trait::*,
         utils::{floored_division, int_sqrt, ShiftBuffer},
     },
-    structures::environment::PortMap,
+    structures::{environment::PortMap, index_trait::SplitIndexRange},
 };
 use baa::{BitVecOps, BitVecValue, WidthInt};
 use num_traits::Euclid;
@@ -19,7 +19,7 @@ pub struct StdMultPipe<const DEPTH: usize> {
 }
 
 impl<const DEPTH: usize> StdMultPipe<DEPTH> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT: 5, DONE: 6];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT: 5, DONE: 6];
     pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         Self {
             base_port,
@@ -104,6 +104,10 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
                 | done_signal,
         )
     }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
+    }
 }
 
 pub struct StdDivPipe<const DEPTH: usize, const SIGNED: bool> {
@@ -116,7 +120,7 @@ pub struct StdDivPipe<const DEPTH: usize, const SIGNED: bool> {
 }
 
 impl<const DEPTH: usize, const SIGNED: bool> StdDivPipe<DEPTH, SIGNED> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT_QUOTIENT: 5, OUT_REMAINDER: 6, DONE: 7];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT_QUOTIENT: 5, OUT_REMAINDER: 6, DONE: 7];
     pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         Self {
             base_port,
@@ -224,6 +228,10 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
 
         Ok(quot_changed | rem_changed | done_signal)
     }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -236,7 +244,7 @@ pub struct Sqrt<const IS_FIXED_POINT: bool> {
 }
 
 impl<const IS_FIXED_POINT: bool> Sqrt<IS_FIXED_POINT> {
-    declare_ports!(_CLK: 0, RESET: 1, GO: 2, IN: 3, OUT: 4, DONE: 5);
+    declare_ports!(_CLK: 0, RESET: 1, GO: 2, IN: 3, | OUT: 4, DONE: 5);
     pub fn new(
         base_port: GlobalPortIdx,
         width: u32,
@@ -307,6 +315,10 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
 
         Ok(out_changed | done_signal)
     }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
+    }
 }
 
 pub struct FxpMultPipe<const DEPTH: usize> {
@@ -319,7 +331,7 @@ pub struct FxpMultPipe<const DEPTH: usize> {
 }
 
 impl<const DEPTH: usize> FxpMultPipe<DEPTH> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT: 5, DONE: 6];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT: 5, DONE: 6];
     pub fn new(
         base_port: GlobalPortIdx,
         int_width: u32,
@@ -420,6 +432,10 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
                 | done_signal,
         )
     }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
+    }
 }
 
 pub struct FxpDivPipe<const DEPTH: usize, const SIGNED: bool> {
@@ -433,7 +449,7 @@ pub struct FxpDivPipe<const DEPTH: usize, const SIGNED: bool> {
 }
 
 impl<const DEPTH: usize, const SIGNED: bool> FxpDivPipe<DEPTH, SIGNED> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT_REMAINDER: 5, OUT_QUOTIENT: 6, DONE: 7];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT_REMAINDER: 5, OUT_QUOTIENT: 6, DONE: 7];
     pub fn new(
         base_port: GlobalPortIdx,
         int_width: u32,
@@ -553,5 +569,9 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             .write_exact_unchecked(out_rem, self.output_remainder.clone());
 
         Ok(quot_changed | rem_changed | done_signal)
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
     }
 }

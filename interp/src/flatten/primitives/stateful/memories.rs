@@ -8,7 +8,7 @@ use crate::{
             prelude::{AssignedValue, GlobalPortIdx, PortValue},
         },
         primitives::{
-            declare_ports, make_getters, ports,
+            declare_ports, declare_ports_no_signature, make_getters, ports,
             prim_trait::{RaceDetectionPrimitive, UpdateResult, UpdateStatus},
             utils::infer_thread_id,
             Primitive,
@@ -18,7 +18,7 @@ use crate::{
                 clock::{new_clock, ClockMap, ValueWithClock},
                 PortMap,
             },
-            index_trait::IndexRef,
+            index_trait::{IndexRef, SplitIndexRange},
             thread::{ThreadIdx, ThreadMap},
         },
     },
@@ -35,7 +35,7 @@ pub struct StdReg {
 }
 
 impl StdReg {
-    declare_ports![IN: 0, WRITE_EN: 1, _CLK: 2, RESET: 3, OUT: 4, DONE: 5];
+    declare_ports![IN: 0, WRITE_EN: 1, _CLK: 2, RESET: 3, | OUT: 4, DONE: 5];
 
     pub fn new(
         base_port: GlobalPortIdx,
@@ -136,6 +136,10 @@ impl Primitive for StdReg {
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         Some(self.internal_state.value.clone().to_bytes_le())
     }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
+    }
 }
 
 impl RaceDetectionPrimitive for StdReg {
@@ -190,7 +194,7 @@ impl<const SEQ: bool> MemDx<SEQ> {
         }
     }
 
-    declare_ports![
+    declare_ports_no_signature![
         SEQ_ADDR0: 2, COMB_ADDR0: 0,
         SEQ_ADDR1: 3, COMB_ADDR1: 1,
         SEQ_ADDR2: 4, COMB_ADDR2: 2,
@@ -401,7 +405,7 @@ pub struct CombMem {
     global_idx: GlobalCellIdx,
 }
 impl CombMem {
-    declare_ports![
+    declare_ports_no_signature![
         WRITE_DATA:0,
         WRITE_EN: 1,
         _CLK: 2,
@@ -606,6 +610,14 @@ impl Primitive for CombMem {
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         Some(self.dump_data())
     }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        SplitIndexRange::new(
+            self.base_port,
+            self.read_data(),
+            (self.done().index() + 1).into(),
+        )
+    }
 }
 
 impl RaceDetectionPrimitive for CombMem {
@@ -759,14 +771,14 @@ impl SeqMem {
         }
     }
 
-    declare_ports![
+    declare_ports_no_signature![
         _CLK: 0,
         RESET: 1,
     ];
 
     // these port offsets are placed after the address ports and so need the end
     // of the address base to work correctly.
-    declare_ports![
+    declare_ports_no_signature![
         CONTENT_ENABLE: 0,
         WRITE_ENABLE: 1,
         WRITE_DATA: 2,
@@ -911,6 +923,14 @@ impl Primitive for SeqMem {
 
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         Some(self.dump_data())
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        SplitIndexRange::new(
+            self.base_port,
+            self.read_data(),
+            (self.done().index() + 1).into(),
+        )
     }
 }
 
