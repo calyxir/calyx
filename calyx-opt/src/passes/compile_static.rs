@@ -350,6 +350,9 @@ impl CompileStatic {
                     Self::add_par_conflicts(stmt, fsm_trees, conflict_graph);
                 }
             }
+            ir::Control::FSMEnable(_) => {
+                unreachable!("should not encounter fsm nodes")
+            }
         }
     }
 
@@ -810,6 +813,9 @@ impl CompileStatic {
                     unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
                 };
                 vec![s.group.borrow().name()]
+            }
+            ir::Control::FSMEnable(_) => {
+                unreachable!("should not encounter fsm nodes")
             }
         }
     }

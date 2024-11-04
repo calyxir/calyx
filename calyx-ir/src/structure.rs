@@ -583,6 +583,8 @@ impl<StaticTiming> Assignment<StaticTiming> {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum State {
     /// Inactive state before FSM computes
     Idle,
@@ -594,31 +596,35 @@ pub enum State {
     Calc(u64),
 }
 
-pub enum Transition<T> {
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub enum Transition {
     Unconditional(State),
-    Conditional(Vec<(Guard<T>, State)>),
+    Conditional(Vec<(Guard<Nothing>, State)>),
 }
 
-impl<T> Transition<T> {
+impl Transition {
     pub fn new_uncond(s: State) -> Self {
         Self::Unconditional(s)
     }
 
-    pub fn new_cond(conds: Vec<(Guard<T>, State)>) -> Self {
+    pub fn new_cond(conds: Vec<(Guard<Nothing>, State)>) -> Self {
         Self::Conditional(conds)
     }
 }
 
-pub struct Branch<T> {
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub struct Branch {
     /// Originating state of the FSM transition
     src: State,
 
     /// Optionally conditional destination states of the transition
-    dsts: Transition<T>,
+    dsts: Transition,
 }
 
-impl<T> Branch<T> {
-    pub fn new(src: State, dsts: Transition<T>) -> Self {
+impl Branch {
+    pub fn new(src: State, dsts: Transition) -> Self {
         Branch { src, dsts }
     }
 }
@@ -820,29 +826,39 @@ impl CombGroup {
     }
 }
 
-pub struct FSM<T> {
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub struct FSM {
     /// Name of this construct
     pub(super) name: Id,
 
+    /// Attributes for this FSM
+    pub attributes: Attributes,
+
     /// Map from state identifiers to guarded transitions to other state identifiers
-    pub cases: Vec<Branch<T>>,
+    pub cases: Vec<Branch>,
     // Wire representing fsm output
-    // pub wire: RRC<Cell>,
+    pub wires: SmallVec<[RRC<Port>; 2]>,
 }
 
-impl<T> FSM<T> {
+impl FSM {
     /// Grants immutable access to the name of this cell.
     pub fn name(&self) -> Id {
         self.name
     }
 
     /// Constructs a new FSM construct using a list of cases and a name
-    pub fn new(name: Id, cases: Vec<Branch<T>>) -> Self {
-        Self { name, cases }
+    pub fn new(name: Id, cases: Vec<Branch>) -> Self {
+        Self {
+            name,
+            cases,
+            wires: SmallVec::new(),
+            attributes: Attributes::default(),
+        }
     }
 
     /// Given a new branch of the case statement, inputs into existing FSM construct
-    pub fn add_branch(&mut self, new_case: Branch<T>) {
+    pub fn add_branch(&mut self, new_case: Branch) {
         self.cases.push(new_case);
     }
 }
@@ -871,7 +887,7 @@ impl GetName for StaticGroup {
     }
 }
 
-impl<T> GetName for FSM<T> {
+impl GetName for FSM {
     fn name(&self) -> Id {
         self.name()
     }

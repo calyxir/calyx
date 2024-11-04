@@ -3,7 +3,9 @@ use calyx_frontend::Attribute;
 use super::StaticGroup;
 use std::rc::Rc;
 
-use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
+use super::{
+    Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, FSM, RRC,
+};
 
 type StaticLatency = u64;
 
@@ -230,6 +232,25 @@ impl GetAttributes for Enable {
     }
 }
 
+/// Data for the `enable` control statement.
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub struct FSMEnable {
+    /// List of components to run.
+    pub fsm: RRC<FSM>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
+}
+impl GetAttributes for FSMEnable {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
 /// Data for the `enable` control for a static group.
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
@@ -340,6 +361,8 @@ pub enum Control {
     Invoke(Invoke),
     /// Runs the control for a list of subcomponents.
     Enable(Enable),
+    /// Runs the FSM to conditionally transition
+    FSMEnable(FSMEnable),
     /// Control statement that does nothing.
     Empty(Empty),
     /// Static Control
@@ -417,6 +440,7 @@ impl GetAttributes for Control {
             | Self::Repeat(Repeat { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
+            | Self::FSMEnable(FSMEnable { attributes, .. })
             | Self::Empty(Empty { attributes }) => attributes,
             Self::Static(s) => s.get_mut_attributes(),
         }
@@ -431,6 +455,7 @@ impl GetAttributes for Control {
             | Self::Repeat(Repeat { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
+            | Self::FSMEnable(FSMEnable { attributes, .. })
             | Self::Empty(Empty { attributes }) => attributes,
             Self::Static(s) => s.get_attributes(),
         }
@@ -716,6 +741,13 @@ impl Cloner {
         }
     }
 
+    pub fn fsm_enable(fen: &FSMEnable) -> FSMEnable {
+        FSMEnable {
+            fsm: Rc::clone(&fen.fsm),
+            attributes: fen.attributes.clone(),
+        }
+    }
+
     pub fn static_enable(en: &StaticEnable) -> StaticEnable {
         StaticEnable {
             group: Rc::clone(&en.group),
@@ -859,6 +891,7 @@ impl Cloner {
             Control::Repeat(repeat) => Control::Repeat(Cloner::repeat(repeat)),
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
+            Control::FSMEnable(e) => Control::FSMEnable(Cloner::fsm_enable(e)),
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),
             Control::Static(s) => Control::Static(Cloner::static_control(s)),
         }

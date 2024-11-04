@@ -506,6 +506,9 @@ impl InferenceAnalysis {
                     Self::remove_promotable_attribute(stmt);
                 }
             }
+            ir::Control::FSMEnable(_) => {
+                unreachable!("should not encounter fsm nodes")
+            }
         }
     }
 

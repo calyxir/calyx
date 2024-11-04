@@ -88,5 +88,8 @@ fn remove_ids(c: &mut ir::Control) {
             }
         }
         ir::Control::Static(sc) => remove_ids_static(sc),
+        ir::Control::FSMEnable(_) => {
+            unreachable!("should not encounter fsm nodes")
+        }
     }
 }

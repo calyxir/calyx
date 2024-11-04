@@ -679,5 +679,8 @@ fn build_reaching_def(
         ir::Control::Static(sc) => {
             build_reaching_def_static(sc, reach, killed, rd, counter)
         }
+        ir::Control::FSMEnable(_) => {
+            unreachable!("should not encounter fsm nodes")
+        }
     }
 }

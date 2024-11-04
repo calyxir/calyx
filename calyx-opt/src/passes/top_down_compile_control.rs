@@ -52,7 +52,7 @@ const DUPLICATE_NUM_REG: u64 = 2;
 /// The exit set is `[(8, tru[done] & !comb_reg.out), (9, fal & !comb_reg.out)]`.
 fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
-        ir::Control::Empty(_) => {}
+        ir::Control::Empty(_)  | ir::Control::FSMEnable(_)=> {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(STATE_ID).unwrap();
             exits.push((cur_state, guard!(group["done"])))
@@ -118,6 +118,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 /// and [control_exits].
 fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
+        ir::Control::FSMEnable(_) => unreachable!(),
         ir::Control::Enable(ir::Enable { attributes, .. }) => {
             attributes.insert(STATE_ID, cur_state);
             cur_state + 1
@@ -686,95 +687,95 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group
     }
 
-    /// Implement a given [Schedule] and return the name of the [ir::Group] that
-    /// implements it.
-    fn realize_fsm(
-        self,
-        // dump_fsm: bool,
-        // fsm_groups: &mut HashSet<ProfilingInfo>,
-        fsm_rep: FSMRepresentation,
-    ) -> () {
-        // confirm all states are reachable
-        self.validate();
+    // /// Implement a given [Schedule] and return the name of the [ir::Group] that
+    // /// implements it.
+    // fn realize_fsm(
+    //     self,
+    //     // dump_fsm: bool,
+    //     // fsm_groups: &mut HashSet<ProfilingInfo>,
+    //     fsm_rep: FSMRepresentation,
+    // ) -> () {
+    //     // confirm all states are reachable
+    //     self.validate();
 
-        // fsm bit width
-        let fsm_size = match fsm_rep.encoding {
-            RegisterEncoding::Binary => {
-                get_bit_width_from(fsm_rep.last_state + 1)
-            }
-            RegisterEncoding::OneHot => fsm_rep.last_state + 1,
-        };
+    //     // fsm bit width
+    //     let fsm_size = match fsm_rep.encoding {
+    //         RegisterEncoding::Binary => {
+    //             get_bit_width_from(fsm_rep.last_state + 1)
+    //         }
+    //         RegisterEncoding::OneHot => fsm_rep.last_state + 1,
+    //     };
 
-        // instantiate wire representing fsm.out value
-        let fsm_wire =
-            self.builder.add_primitive("fsm", "std_wire", &[fsm_size]);
+    //     // instantiate wire representing fsm.out value
+    //     let fsm_wire =
+    //         self.builder.add_primitive("fsm", "std_wire", &[fsm_size]);
 
-        // make enables (group `go` conditions) continuous assignments
-        // (* change for idle state of fsm *)
-        let continuous_enables = self
-            .enables
-            .into_iter()
-            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .flat_map(|(state, mut assigns_to_enable)| {
-                let state_const = // s + 1 b/c assume exists new idle state = 0: FIX
-                    self.builder.add_constant(state + 1, fsm_size);
-                let state_guard = guard!(fsm_wire["out"] == state_const["out"]);
-                assigns_to_enable.iter_mut().for_each(|assign| {
-                    assign.guard.update(|g| g.and(state_guard.clone()))
-                });
-                assigns_to_enable
-            })
-            .collect_vec();
+    //     // make enables (group `go` conditions) continuous assignments
+    //     // (* change for idle state of fsm *)
+    //     let continuous_enables = self
+    //         .enables
+    //         .into_iter()
+    //         .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+    //         .flat_map(|(state, mut assigns_to_enable)| {
+    //             let state_const = // s + 1 b/c assume exists new idle state = 0: FIX
+    //                 self.builder.add_constant(state + 1, fsm_size);
+    //             let state_guard = guard!(fsm_wire["out"] == state_const["out"]);
+    //             assigns_to_enable.iter_mut().for_each(|assign| {
+    //                 assign.guard.update(|g| g.and(state_guard.clone()))
+    //             });
+    //             assigns_to_enable
+    //         })
+    //         .collect_vec();
 
-        self.builder
-            .component
-            .continuous_assignments
-            .extend(continuous_enables);
+    //     self.builder
+    //         .component
+    //         .continuous_assignments
+    //         .extend(continuous_enables);
 
-        // map each source state to a list of conditional transitions
-        let mut transitions_map: HashMap<
-            u64,
-            Vec<(ir::Guard<Nothing>, ir::State)>,
-        > = HashMap::new();
-        self.transitions.into_iter().for_each(
-            |(s, e, g)| match transitions_map.get_mut(&s) {
-                Some(next_states) => next_states.push((g, ir::State::Calc(e))),
-                None => {
-                    transitions_map.insert(s, vec![(g, ir::State::Calc(e))]);
-                }
-            },
-        );
+    //     // map each source state to a list of conditional transitions
+    //     let mut transitions_map: HashMap<
+    //         u64,
+    //         Vec<(ir::Guard<Nothing>, ir::State)>,
+    //     > = HashMap::new();
+    //     self.transitions.into_iter().for_each(
+    //         |(s, e, g)| match transitions_map.get_mut(&s) {
+    //             Some(next_states) => next_states.push((g, ir::State::Calc(e))),
+    //             None => {
+    //                 transitions_map.insert(s, vec![(g, ir::State::Calc(e))]);
+    //             }
+    //         },
+    //     );
 
-        // construct fsm representation
-        let mut fsm: ir::FSM<Nothing> = ir::FSM::new(
-            self.builder.generate_fsm_name(),
-            transitions_map
-                .drain()
-                .map(|(curr_state, next_states)| {
-                    ir::Branch::new(
-                        ir::State::Calc(curr_state),
-                        ir::Transition::new_cond(next_states),
-                    )
-                })
-                .collect(),
-        );
+    //     // construct fsm representation
+    //     let mut fsm: ir::FSM<Nothing> = ir::FSM::new(
+    //         self.builder.generate_fsm_name(),
+    //         transitions_map
+    //             .drain()
+    //             .map(|(curr_state, next_states)| {
+    //                 ir::Branch::new(
+    //                     ir::State::Calc(curr_state),
+    //                     ir::Transition::new_cond(next_states),
+    //                 )
+    //             })
+    //             .collect(),
+    //     );
 
-        // add a transition away from idle (for now, make it unconditional.
-        // will eventually need to loop in guards for parent state being in
-        // state at which this schedule can run)
-        fsm.add_branch(ir::Branch::new(
-            ir::State::Idle,
-            ir::Transition::Unconditional(ir::State::Calc(1)),
-        ));
+    //     // add a transition away from idle (for now, make it unconditional.
+    //     // will eventually need to loop in guards for parent state being in
+    //     // state at which this schedule can run)
+    //     fsm.add_branch(ir::Branch::new(
+    //         ir::State::Idle,
+    //         ir::Transition::Unconditional(ir::State::Calc(1)),
+    //     ));
 
-        // add transition away from calc (can make this zero cycle with proper guards)
-        fsm.add_branch(ir::Branch::new(
-            ir::State::Done,
-            ir::Transition::Unconditional(ir::State::Calc(
-                fsm_rep.last_state + 1,
-            )),
-        ));
-    }
+    //     // add transition away from calc (can make this zero cycle with proper guards)
+    //     fsm.add_branch(ir::Branch::new(
+    //         ir::State::Done,
+    //         ir::Transition::Unconditional(ir::State::Calc(
+    //             fsm_rep.last_state + 1,
+    //         )),
+    //     ));
+    // }
 }
 
 /// Represents an edge from a predeccesor to the current control node.
@@ -807,6 +808,7 @@ impl Schedule<'_, '_> {
         has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         match con {
+        ir::Control::FSMEnable(_) => unreachable!(),
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));

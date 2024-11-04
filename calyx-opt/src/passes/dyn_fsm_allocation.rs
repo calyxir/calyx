@@ -53,6 +53,7 @@ const SCHEDULE_ID: ir::Attribute =
 /// The exit set is `[(8, tru[done] & !comb_reg.out), (9, fal & !comb_reg.out)]`.
 fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
+        ir::Control::FSMEnable(_) => todo!(),
         ir::Control::Empty(_) => {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(STATE_ID).unwrap();
@@ -121,6 +122,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 /// and [control_exits].
 fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
+        ir::Control::FSMEnable(_) => todo!(),
       ir::Control::Enable(ir::Enable { attributes, .. }) => {
           attributes.insert(STATE_ID, cur_state);
           cur_state + 1
@@ -221,6 +223,7 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 /// to respectively drive and read the child's `start` and `done` wires
 fn compute_unique_schedule_ids(con: &mut ir::Control, cur_sch: u64) -> u64 {
     match con {
+        ir::Control::FSMEnable(_) => todo!(),
         // no need to label enables or empty control structures; 
         // they will never get their own fsm
         ir::Control::Enable(..) | ir::Control::Empty(..) => cur_sch,
@@ -415,6 +418,7 @@ impl Schedule<'_, '_> {
         has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         match con {
+        ir::Control::FSMEnable(_) => todo!(),
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));

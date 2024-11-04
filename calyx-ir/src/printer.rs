@@ -613,6 +613,10 @@ impl Printer {
             write!(f, "{}", " ".repeat(indent_level))?;
         }
         match control {
+            ir::Control::FSMEnable(ir::FSMEnable { fsm, attributes }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "{};", fsm.borrow().name().id)
+            }
             ir::Control::Enable(ir::Enable { group, attributes }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "{};", group.borrow().name().id)

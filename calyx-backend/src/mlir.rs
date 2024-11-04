@@ -394,6 +394,9 @@ impl MlirBackend {
                 write!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Empty(_) => writeln!(f),
+            ir::Control::FSMEnable(_) => {
+                unreachable!()
+            }
         }?;
         let attr = control.get_attributes();
         write!(f, "{}", Self::format_attributes(attr))?;

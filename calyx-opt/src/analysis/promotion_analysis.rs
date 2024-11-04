@@ -219,6 +219,9 @@ impl PromotionAnalysis {
             }
             ir::Control::Static(_) => c.take_static_control(),
             ir::Control::Invoke(s) => self.convert_invoke_to_static(s),
+            ir::Control::FSMEnable(_) => {
+                unreachable!("should not encounter fsm nodes")
+            }
         }
     }
 

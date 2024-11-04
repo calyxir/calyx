@@ -210,7 +210,7 @@ impl Rewriter {
     /// rewrite maps.
     pub fn rewrite_control(&self, c: &mut ir::Control) {
         match c {
-            ir::Control::Empty(_) => (),
+            ir::Control::Empty(_) | ir::Control::FSMEnable(_) => (),
             ir::Control::Enable(en) => {
                 let g = &en.group.borrow().name();
                 if let Some(new_group) = self.group_map.get(g) {
