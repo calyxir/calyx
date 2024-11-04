@@ -75,7 +75,26 @@ impl<'a> Builder<'a> {
             "Cannot construct group with empty name prefix"
         );
         let name = self.component.generate_name(prefix);
+
+        // Construct a new FSM
         let fsm = ir::rrc(ir::FSM::new(name));
+
+        // Fill in the ports of the FSM with default wires
+
+        // Add default holes to the group.
+        // for (name, width) in &[("go", 1), ("done", 1)] {
+        //     let hole = ir::rrc(ir::Port {
+        //         name: ir::Id::from(*name),
+        //         width: *width,
+        //         direction: ir::Direction::Inout,
+        //         parent: ir::PortParent::Group(WRC::from::<ir::FSM>(&fsm)),
+        //         attributes: ir::Attributes::default(),
+        //     });
+        //     fsm.borrow_mut().wires.push(hole);
+        // }
+
+        // Add the group to the component.
+        self.component.get_fsms_mut().add(Rc::clone(&fsm));
 
         fsm
     }

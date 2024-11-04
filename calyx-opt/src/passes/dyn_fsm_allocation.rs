@@ -395,7 +395,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
     fn realize_fsm(self, dump_fsm: bool) -> RRC<ir::FSM> {
         ir::rrc(ir::FSM::new(Id::new("fsm")))
-        
     }
 }
 
@@ -448,7 +447,7 @@ impl Schedule<'_, '_> {
             );
 
             self.fsm_enables.entry(cur_state).or_default().extend(en_go);
-            
+
             // Enable FSM to be triggered by states besides the most recent
             if early_transitions || has_fast_guarantee {
                 for (st, g) in &prev_states {
@@ -963,22 +962,19 @@ impl Visitor for DynamicFSMAllocation {
     }
 
     fn finish_seq(
-            &mut self,
-            s: &mut calyx_ir::Seq,
-            comp: &mut calyx_ir::Component,
-            sigs: &LibrarySignatures,
-            _comps: &[calyx_ir::Component],
-        ) -> VisResult {
-
+        &mut self,
+        s: &mut calyx_ir::Seq,
+        comp: &mut calyx_ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
         if !s.attributes.has(ir::BoolAttr::NewFSM) {
-           return Ok(Action::Continue)
+            return Ok(Action::Continue);
         }
 
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
-
-        
 
         Ok(Action::Continue)
     }
