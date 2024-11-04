@@ -124,7 +124,7 @@ impl NodeReads {
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
                 | ir::Control::Repeat(_)
-                | ir::Control::Static(_) 
+                | ir::Control::Static(_)
                 | ir::Control::FSMEnable(_) => {
                     unreachable!(
                         "no empty/seqs/pars/static/fsms should be in domination map"
@@ -295,7 +295,7 @@ impl NodeSearch {
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
                 | ir::Control::Repeat(_)
-                | ir::Control::Static(_) 
+                | ir::Control::Static(_)
                 | ir::Control::FSMEnable(_) => {
                     unreachable!(
                         "no empty/seqs/pars/repeat/static should be in domination map"

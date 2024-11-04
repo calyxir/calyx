@@ -65,6 +65,21 @@ impl<'a> Builder<'a> {
         self.component.generate_name("fsm")
     }
 
+    pub fn add_fsm<S>(&mut self, prefix: S) -> RRC<ir::FSM>
+    where
+        S: Into<ir::Id>,
+    {
+        let prefix: ir::Id = prefix.into();
+        assert!(
+            prefix != "",
+            "Cannot construct group with empty name prefix"
+        );
+        let name = self.component.generate_name(prefix);
+        let fsm = ir::rrc(ir::FSM::new(name));
+
+        fsm
+    }
+
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.

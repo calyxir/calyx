@@ -848,10 +848,10 @@ impl FSM {
     }
 
     /// Constructs a new FSM construct using a list of cases and a name
-    pub fn new(name: Id, cases: Vec<Branch>) -> Self {
+    pub fn new(name: Id) -> Self {
         Self {
             name,
-            cases,
+            cases: vec![],
             wires: SmallVec::new(),
             attributes: Attributes::default(),
         }
@@ -860,6 +860,28 @@ impl FSM {
     /// Given a new branch of the case statement, inputs into existing FSM construct
     pub fn add_branch(&mut self, new_case: Branch) {
         self.cases.push(new_case);
+    }
+
+    /// Get a reference to the named hole if it exists.
+    pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display,
+        Id: PartialEq<S>,
+    {
+        self.wires
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(Rc::clone)
+    }
+
+    pub fn get<S>(&self, name: S) -> RRC<Port>
+    where
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
+    {
+        self.find(name.clone()).unwrap_or_else(|| {
+            panic!("Wire `{name}' not found on group `{}'", self.name)
+        })
     }
 }
 

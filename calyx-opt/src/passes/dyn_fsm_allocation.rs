@@ -53,12 +53,15 @@ const SCHEDULE_ID: ir::Attribute =
 /// The exit set is `[(8, tru[done] & !comb_reg.out), (9, fal & !comb_reg.out)]`.
 fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
-        ir::Control::FSMEnable(_) => todo!(),
-        ir::Control::Empty(_) => {}
+        ir::Control::Empty(_) => {},
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(STATE_ID).unwrap();
             exits.push((cur_state, guard!(group["done"])))
-        }
+        },
+        ir::Control::FSMEnable(ir::FSMEnable{attributes, fsm}) => {
+            let cur_state = attributes.get(STATE_ID).unwrap();
+            exits.push((cur_state, guard!(fsm["done"])))
+        },
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             if let Some(stmt) = stmts.last() { control_exits(stmt, exits) }
         }
@@ -122,7 +125,6 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 /// and [control_exits].
 fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
-        ir::Control::FSMEnable(_) => todo!(),
       ir::Control::Enable(ir::Enable { attributes, .. }) => {
           attributes.insert(STATE_ID, cur_state);
           cur_state + 1
@@ -212,6 +214,7 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
               body_nxt
           }
       }
+      ir::Control::FSMEnable(_) => unreachable!("shouldn't encounter fsm node"),
       ir::Control::Empty(_) => cur_state,
       ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
       ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
@@ -223,7 +226,6 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 /// to respectively drive and read the child's `start` and `done` wires
 fn compute_unique_schedule_ids(con: &mut ir::Control, cur_sch: u64) -> u64 {
     match con {
-        ir::Control::FSMEnable(_) => todo!(),
         // no need to label enables or empty control structures; 
         // they will never get their own fsm
         ir::Control::Enable(..) | ir::Control::Empty(..) => cur_sch,
@@ -265,6 +267,7 @@ fn compute_unique_schedule_ids(con: &mut ir::Control, cur_sch: u64) -> u64 {
           cur_sch = compute_unique_schedule_ids(body, cur_sch + 1);
           cur_sch
         },
+        ir::Control::FSMEnable(_) => unreachable!("shouldn't encounter fsm node"),
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
@@ -277,6 +280,8 @@ struct Schedule<'b, 'a: 'b> {
     pub groups_to_states: HashSet<FSMStateInfo>,
     /// Assigments that should be enabled in a given state.
     pub enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
+    /// FSMs that should be triggered in a given state.
+    pub fsm_enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when the guard is true.
     pub transitions: Vec<(u64, u64, ir::Guard<Nothing>)>,
     /// The component builder. The reference has a shorter lifetime than the builder itself
@@ -333,6 +338,7 @@ impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
         Schedule {
             groups_to_states: HashSet::new(),
             enables: HashMap::new(),
+            fsm_enables: HashMap::new(),
             transitions: Vec::new(),
             builder,
         }
@@ -386,6 +392,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .unwrap();
             });
     }
+
+    fn realize_fsm(self, dump_fsm: bool) -> RRC<ir::FSM> {
+        ir::rrc(ir::FSM::new(Id::new("fsm")))
+        
+    }
 }
 
 /// Represents an edge from a predeccesor to the current control node.
@@ -418,7 +429,45 @@ impl Schedule<'_, '_> {
         has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         match con {
-        ir::Control::FSMEnable(_) => todo!(),
+        ir::Control::FSMEnable(ir::FSMEnable {fsm, attributes}) => {
+            let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", fsm.borrow().name()));
+            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
+                (preds[0].0, vec![])
+            } else {
+                (cur_state, preds)
+            };
+            // Add group to mapping for emitting group JSON info
+            self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: fsm.borrow().name() });
+
+            let not_done = ir::Guard::True;
+            let signal_on = self.builder.add_constant(1, 1);
+
+            // Activate this fsm in the current state
+            let en_go : [ir::Assignment<Nothing>; 1] = build_assignments!(self.builder;
+                fsm["start"] = not_done ? signal_on["out"];
+            );
+
+            self.fsm_enables.entry(cur_state).or_default().extend(en_go);
+            
+            // Enable FSM to be triggered by states besides the most recent
+            if early_transitions || has_fast_guarantee {
+                for (st, g) in &prev_states {
+                    let early_go = build_assignments!(self.builder;
+                        fsm["start"] = g ? signal_on["out"];
+                    );
+                    self.fsm_enables.entry(*st).or_default().extend(early_go);
+                }
+            }
+
+            let transitions = prev_states
+                .into_iter()
+                .map(|(st, guard)| (st, cur_state, guard));
+            self.transitions.extend(transitions);
+
+            let done_cond = guard!(fsm["done"]);
+            Ok(vec![(cur_state, done_cond)])
+
+        },
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));
@@ -912,105 +961,25 @@ impl Visitor for DynamicFSMAllocation {
         compute_unique_schedule_ids(&mut con, 0);
         Ok(Action::Continue)
     }
-    /// This function determines whether the current Seq block deserves its own schedule.
-    /// This happens exactly when the Seq has a @new_fsm attached to it.
-    fn start_seq(
-        &mut self,
-        s: &mut calyx_ir::Seq,
-        comp: &mut calyx_ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, sigs);
-        let start = builder.add_primitive("start", "std_wire", &[1]);
-        let done = builder.add_primitive("start", "std_wire", &[1]);
-        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
-            "This node does not have a schedule ID.
-           It might be Empty or an Enable",
-        );
-        if s.attributes.has(ir::BoolAttr::NewFSM) {
-            self.sch_interfaces.insert(this_schedule_id, (start, done));
-        }
-        Ok(Action::Continue)
-    }
 
-    /// This function gives each Par block its own schedule, and ensures that
-    /// its threads will also get their own schedules. The FSM in charge of the
-    /// Par will require the `done` of each of its children, meaning we need to
-    /// store these signals as well. This function performs this second requirement
-    /// by adding a @new_fsm attribute to its children.
-    fn start_par(
-        &mut self,
-        s: &mut calyx_ir::Par,
-        comp: &mut calyx_ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, sigs);
-        let start = builder.add_primitive("start", "std_wire", &[1]);
-        let done = builder.add_primitive("start", "std_wire", &[1]);
-        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
-            "This node does not have a schedule ID.
-         It might be Empty or an Enable",
-        );
-        self.sch_interfaces.insert(this_schedule_id, (start, done));
-        s.stmts.iter_mut().for_each(|ctrl| match ctrl {
-            ir::Control::Seq(ir::Seq { attributes, .. }) => {
-                attributes.insert(ir::BoolAttr::NewFSM, 1)
-            }
-            ir::Control::While(ir::While { attributes, .. }) => {
-                attributes.insert(ir::BoolAttr::NewFSM, 1)
-            }
-            ir::Control::If(ir::If { attributes, .. }) => {
-                attributes.insert(ir::BoolAttr::NewFSM, 1);
-            }
-            // one of the following applies for this wildcard case:
-            // construct is illegal at this point in compilation,
-            // it will get their own FSM anyway, or it is an Enable/Empty
-            _ => (),
-        });
-        Ok(Action::Continue)
-    }
+    fn finish_seq(
+            &mut self,
+            s: &mut calyx_ir::Seq,
+            comp: &mut calyx_ir::Component,
+            sigs: &LibrarySignatures,
+            _comps: &[calyx_ir::Component],
+        ) -> VisResult {
 
-    /// This function determines whether the current While block deserves its own schedule.
-    /// This happens exactly when the Seq has a @new_fsm attached to it.
-    fn start_while(
-        &mut self,
-        s: &mut calyx_ir::While,
-        comp: &mut calyx_ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, sigs);
-        let start = builder.add_primitive("start", "std_wire", &[1]);
-        let done = builder.add_primitive("start", "std_wire", &[1]);
-        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
-            "This node does not have a schedule ID.
-           It might be Empty or an Enable",
-        );
-        if s.attributes.has(ir::BoolAttr::NewFSM) {
-            self.sch_interfaces.insert(this_schedule_id, (start, done));
+        if !s.attributes.has(ir::BoolAttr::NewFSM) {
+           return Ok(Action::Continue)
         }
-        Ok(Action::Continue)
-    }
 
-    fn start_if(
-        &mut self,
-        s: &mut calyx_ir::If,
-        comp: &mut calyx_ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        let start = builder.add_primitive("start", "std_wire", &[1]);
-        let done = builder.add_primitive("start", "std_wire", &[1]);
-        let this_schedule_id = s.attributes.get(SCHEDULE_ID).expect(
-            "This node does not have a schedule ID.
-             It might be Empty or an Enable",
-        );
-        if s.attributes.has(ir::BoolAttr::NewFSM) {
-            self.sch_interfaces.insert(this_schedule_id, (start, done));
-        }
+        let mut sch = Schedule::from(&mut builder);
+        sch.calculate_states_seq(s, self.early_transitions)?;
+
+        
+
         Ok(Action::Continue)
     }
 }
