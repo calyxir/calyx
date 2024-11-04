@@ -164,6 +164,46 @@ where
     }
 }
 
+/// A continuous range of indices that is split into two parts.
+///
+/// Represents the ranges
+/// `[start, split)` and `[split, end)`
+#[derive(Debug, Clone)]
+pub struct SplitIndexRange<I: IndexRef + PartialOrd> {
+    start: I,
+    split: I,
+    end: I,
+}
+
+impl<I: IndexRef + PartialOrd> SplitIndexRange<I> {
+    /// Create a new split index range.
+    ///
+    /// The `start` must be less than or equal to
+    /// the `split`, and the `split` must be less than or equal to the `end`. It will
+    /// panic if these conditions are not met.
+    pub fn new(start: I, split: I, end: I) -> Self {
+        assert!(start <= split);
+        assert!(split <= end);
+
+        Self { start, split, end }
+    }
+
+    /// Returns an iterator over the first segment of the range, i.e `[start, split)`.
+    pub fn iter_first(&self) -> OwnedIndexRangeIterator<I> {
+        OwnedIndexRangeIterator::new(IndexRange::new(self.start, self.split))
+    }
+
+    /// Returns an iterator over the second segment of the range, i.e `[split, end)`.
+    pub fn iter_second(&self) -> OwnedIndexRangeIterator<I> {
+        OwnedIndexRangeIterator::new(IndexRange::new(self.split, self.end))
+    }
+
+    /// Returns an iterator over the entire range.
+    pub fn iter_all(&self) -> OwnedIndexRangeIterator<I> {
+        OwnedIndexRangeIterator::new(IndexRange::new(self.start, self.end))
+    }
+}
+
 impl<I> IntoIterator for IndexRange<I>
 where
     I: IndexRef + PartialOrd,
@@ -242,10 +282,10 @@ where
         (size, Some(size))
     }
 }
-/// An iterator over a range of indices but without
+/// An iterator over a range of indices that owns the range, rather than borrowing it.
 ///
 /// Because I really played myself by making the [IndexRangeIterator] have a
-/// lifetime attached to it. This one doesn't do that. As with it's sibling, the
+/// lifetime attached to it. This one doesn't do that. As with its sibling, the
 /// range is half open, meaning that the start is inclusive, but the end is
 /// exclusive.
 pub struct OwnedIndexRangeIterator<I>
@@ -253,7 +293,6 @@ where
     I: IndexRef + PartialOrd,
 {
     range: IndexRange<I>,
-    current: I,
 }
 
 impl<I> OwnedIndexRangeIterator<I>
@@ -261,10 +300,7 @@ where
     I: IndexRef + PartialOrd,
 {
     pub fn new(range: IndexRange<I>) -> Self {
-        Self {
-            range,
-            current: range.start,
-        }
+        Self { range }
     }
 }
 
@@ -275,18 +311,18 @@ where
     type Item = I;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current < self.range.end {
-            let current = self.current;
-            self.current = I::new(self.current.index() + 1);
-            Some(current)
+        if self.range.start < self.range.end {
+            let out = self.range.start;
+            self.range.start = I::new(self.range.start.index() + 1);
+            Some(out)
         } else {
             None
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = if self.range.end.index() > self.current.index() {
-            self.range.end.index() - self.current.index()
+        let size = if self.range.end > self.range.start {
+            self.range.end.index() - self.range.start.index()
         } else {
             0
         };
