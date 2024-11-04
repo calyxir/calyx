@@ -434,6 +434,7 @@ pub struct AssignedValue {
     winner: AssignmentWinner,
     thread: Option<ThreadIdx>,
     clocks: Option<ClockPair>,
+    assigned_by_comb: bool,
 }
 
 impl std::fmt::Debug for AssignedValue {
@@ -461,6 +462,7 @@ impl AssignedValue {
             winner: winner.into(),
             thread: None,
             clocks: None,
+            assigned_by_comb: false,
         }
     }
 
@@ -476,6 +478,11 @@ impl AssignedValue {
 
     pub fn with_clocks(mut self, clock_pair: ClockPair) -> Self {
         self.clocks = Some(clock_pair);
+        self
+    }
+
+    pub fn with_comb(mut self, assigned_by_comb: bool) -> Self {
+        self.assigned_by_comb = assigned_by_comb;
         self
     }
 
@@ -502,6 +509,7 @@ impl AssignedValue {
             winner: AssignmentWinner::Implicit,
             thread: None,
             clocks: None,
+            assigned_by_comb: false,
         }
     }
 
@@ -514,6 +522,7 @@ impl AssignedValue {
             winner: AssignmentWinner::Cell,
             thread: None,
             clocks: None,
+            assigned_by_comb: false,
         }
     }
 
@@ -526,6 +535,7 @@ impl AssignedValue {
             winner: AssignmentWinner::Implicit,
             thread: None,
             clocks: None,
+            assigned_by_comb: false,
         }
     }
 
