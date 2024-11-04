@@ -20,10 +20,11 @@ rule calyx-with-flags
 
 cocotb-makefile-dir = $calyx-base/yxi/axi-calyx/cocotb
 sim_data = /test/data.json
+cocotb-args = 
+rule make-cocotb
+  command = make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL $cocotb-args > $out
 rule copy
   command = cp $in $out
-rule make-cocotb
-  command = make DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out
 rule cleanup-cocotb
   command = sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out
 
