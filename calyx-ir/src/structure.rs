@@ -20,6 +20,7 @@ pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
     StaticGroup(WRC<StaticGroup>),
+    FSM(WRC<FSM>),
 }
 
 /// Represents a port on a cell.
@@ -93,6 +94,7 @@ impl Port {
             PortParent::Cell(cell) => cell.upgrade().borrow().name,
             PortParent::Group(group) => group.upgrade().borrow().name,
             PortParent::StaticGroup(group) => group.upgrade().borrow().name,
+            PortParent::FSM(fsm) => fsm.upgrade().borrow().name,
         }
     }
 
@@ -831,12 +833,12 @@ impl CombGroup {
 pub struct FSM {
     /// Name of this construct
     pub(super) name: Id,
-
     /// Attributes for this FSM
     pub attributes: Attributes,
-
-    /// Map from state identifiers to guarded transitions to other state identifiers
-    pub cases: Vec<Branch>,
+    /// State indexes into assignments that are supposed to be enabled at that state
+    pub assignments: Vec<Vec<Assignment<Nothing>>>,
+    /// State indexes into (potentially guarded) next states
+    pub transitions: Vec<Transition>,
     // Wire representing fsm output
     pub wires: SmallVec<[RRC<Port>; 2]>,
 }
@@ -851,15 +853,11 @@ impl FSM {
     pub fn new(name: Id) -> Self {
         Self {
             name,
-            cases: vec![],
+            assignments: vec![],
+            transitions: vec![],
             wires: SmallVec::new(),
             attributes: Attributes::default(),
         }
-    }
-
-    /// Given a new branch of the case statement, inputs into existing FSM construct
-    pub fn add_branch(&mut self, new_case: Branch) {
-        self.cases.push(new_case);
     }
 
     /// Get a reference to the named hole if it exists.

@@ -837,6 +837,20 @@ impl Printer {
                     .id,
                 port.name.id
             ),
+            ir::PortParent::FSM(fsm_wref) => format!(
+                "{}[{}]",
+                fsm_wref
+                    .internal
+                    .upgrade()
+                    .unwrap_or_else(|| panic!(
+                        "Malformed AST: No reference to FSM for port `{:#?}'",
+                        port
+                    ))
+                    .borrow()
+                    .name()
+                    .id,
+                port.name.id
+            ),
             ir::PortParent::StaticGroup(group_wref) => format!(
                 "{}[{}]",
                 group_wref

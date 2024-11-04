@@ -369,6 +369,20 @@ impl InferenceAnalysis {
                       }
                   }
               }
+              ir::PortParent::FSM(_) => {
+                if port.borrow().name == "done" {
+                    for write_port in graph.writes_to(&port.borrow()) {
+                        if !self.is_done_port_or_const(&write_port.borrow())
+                        {
+                            log::debug!(
+                                "`{}` is not a done port",
+                                write_port.borrow().canonical(),
+                            );
+                            return true;
+                        }
+                    }
+                }
+              }
 
               ir::PortParent::StaticGroup(_) => // done ports of static groups should clearly NOT have static latencies
               panic!("Have not decided how to handle static groups in infer-static-timing"),

@@ -385,6 +385,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
                     _ => None,
                 }
             }
+            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Group(_) => unreachable!(),
             ir::PortParent::StaticGroup(_) => unreachable!(),
         })
@@ -653,6 +654,7 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
                 )),
             }
         }
+        ir::PortParent::FSM(_) => todo!(),
         ir::PortParent::Group(_) => unreachable!(),
         ir::PortParent::StaticGroup(_) => unreachable!(),
     }
@@ -727,6 +729,7 @@ impl<'a> std::fmt::Display for VerilogPortRef<'a> {
                     }
                 }
             }
+            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Group(_) => unreachable!(),
             ir::PortParent::StaticGroup(_) => unreachable!(),
         }

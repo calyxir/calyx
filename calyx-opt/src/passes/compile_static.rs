@@ -601,7 +601,7 @@ impl CompileStatic {
                         panic!("")
                     }
                 }
-                PortParent::Group(_) => panic!(""),
+                PortParent::Group(_) | PortParent::FSM(_) => panic!(""),
                 PortParent::StaticGroup(sgroup) => {
                     assert!(assign.src.borrow().is_constant(1, 1));
                     let (beg, end) = Self::get_interval_from_guard(
@@ -694,7 +694,7 @@ impl CompileStatic {
             // Looking for static_child[go] = %[i:j] ? 1'd1; to build children.
             match &assign.dst.borrow().parent {
                 PortParent::Cell(_) => (),
-                PortParent::Group(_) => unreachable!(""),
+                PortParent::Group(_) | PortParent::FSM(_) => unreachable!(""),
                 PortParent::StaticGroup(sgroup) => {
                     assert!(assign.src.borrow().is_constant(1, 1));
                     let (beg, end) = Self::get_interval_from_guard(
@@ -1004,6 +1004,7 @@ impl CompileStatic {
                         // Don't add assignment to `group[done]`
                         PortParent::Group(_) => dst.name != "done",
                         PortParent::StaticGroup(_) => true,
+                        PortParent::FSM(_) => unreachable!(),
                     }
                 }),
             );

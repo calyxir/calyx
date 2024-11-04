@@ -81,6 +81,9 @@ impl Serialize for PortParent {
             PortParent::StaticGroup(weak_sgroup_ref) => {
                 weak_sgroup_ref.upgrade().borrow().name().serialize(ser)
             }
+            PortParent::FSM(wref_fsm) => {
+                wref_fsm.upgrade().borrow().name().serialize(ser)
+            }
         }
     }
 }

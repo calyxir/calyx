@@ -283,8 +283,9 @@ impl CombProp {
                 let cell = cr.borrow();
                 cell.is_primitive(Some("std_wire"))
             }
-            ir::PortParent::Group(_) => false,
-            ir::PortParent::StaticGroup(_) => false,
+            ir::PortParent::Group(_)
+            | ir::PortParent::StaticGroup(_)
+            | ir::PortParent::FSM(_) => false,
         }
     }
 
