@@ -53,8 +53,6 @@ def draw(data, stat, logic, unit):
     else:
         ax.set_ylabel(f"{stat} ({unit})", fontsize=20)
 
-    file = ""
-
     if logic == Logic.RR:
         specialized = ax.scatter(
             data["specialized"]["round_robin"].keys(),
@@ -83,39 +81,36 @@ def draw(data, stat, logic, unit):
         ax.set_title("Strict Queues", fontweight="bold", fontsize=20)
         file = append_path_prefix(f"{stat}_strict")
 
-    plt.legend(
-        (specialized, binheap),
-        ("Specialized (i.e. Cassandra style)", "Binary Heap"),
-        fontsize=12,
-    )
+    plt.legend((specialized, binheap), ("Specialized", "Binary Heap"), fontsize=12)
 
     plt.savefig(file)
 
     print(f"Generated {file}.png")
 
 
-# Parse data for round_robin and strict queues
-stat = sys.argv[1]
-data = {}
-if stat == "total_time":
-    file1 = sys.argv[2]
-    file2 = sys.argv[3]
+if __name__ == "__main__":
+    # Parse data for round_robin and strict queues
+    stat = sys.argv[1]
+    data = {}
+    if stat == "total_time":
+        file1 = sys.argv[2]
+        file2 = sys.argv[3]
 
-    cycle_data = parse("cycles", file1)
-    slack_data = parse("worst_slack", file2)
+        cycle_data = parse("cycles", file1)
+        slack_data = parse("worst_slack", file2)
 
-    data = cycle_data.copy()
-    for impl in data.keys():
-        for logic in data[impl].keys():
-            for flow_no in data[impl][logic].keys():
-                cycles = cycle_data[impl][logic][flow_no]
-                slack = slack_data[impl][logic][flow_no]
-                data[impl][logic][flow_no] = (1000 * cycles) / (7 - slack)
-else:
-    file = sys.argv[2]
-    data = parse(stat, file)
+        data = cycle_data.copy()
+        for impl in data.keys():
+            for logic in data[impl].keys():
+                for flow_no in data[impl][logic].keys():
+                    cycles = cycle_data[impl][logic][flow_no]
+                    slack = slack_data[impl][logic][flow_no]
+                    data[impl][logic][flow_no] = (1000 * cycles) / (7 - slack)
+    else:
+        file = sys.argv[2]
+        data = parse(stat, file)
 
-# Draw results
-unit = "μs" if stat == "total_time" else None
-draw(data, stat, Logic.RR, unit)
-draw(data, stat, Logic.STRICT, unit)
+    # Draw results
+    unit = "μs" if stat == "total_time" else None
+    draw(data, stat, Logic.RR, unit)
+    draw(data, stat, Logic.STRICT, unit)
