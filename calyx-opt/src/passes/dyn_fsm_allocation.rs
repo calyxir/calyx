@@ -394,7 +394,38 @@ impl<'b, 'a> Schedule<'b, 'a> {
     }
 
     fn realize_fsm(self, dump_fsm: bool) -> RRC<ir::FSM> {
-        ir::rrc(ir::FSM::new(Id::new("fsm")))
+        // STATES ARE NOW INDEXED FROM 1
+        // ensure schedule is valid
+        self.validate();
+
+        // compute final state and fsm_size, and register initial fsm
+        let last_state = self.last_state();
+        let fsm_size = get_bit_width_from(last_state + 1);
+        let fsm = self.builder.add_fsm("fsm");
+
+        // register group enables that are dependent on fsm state as continuous assignments
+        let continuous_enables = self
+            .enables
+            .into_iter()
+            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+            .flat_map(|(state, mut assigns_to_enable)| {
+                let state_const = self.builder.add_constant(state, fsm_size);
+                let state_guard = guard!(fsm["state"] == state_const["out"]);
+                assigns_to_enable.iter_mut().for_each(|assign| {
+                    assign.guard.update(|g| g.and(state_guard.clone()))
+                });
+                assigns_to_enable
+            })
+            .collect_vec();
+
+        self.builder
+            .component
+            .continuous_assignments
+            .extend(continuous_enables);
+
+        // add
+
+        fsm
     }
 }
 
@@ -669,7 +700,7 @@ impl Schedule<'_, '_> {
         seq: &ir::Seq,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
+        let first_state = (1, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -686,7 +717,7 @@ impl Schedule<'_, '_> {
         if_stmt: &ir::If,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
+        let first_state = (1, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -703,7 +734,7 @@ impl Schedule<'_, '_> {
         while_stmt: &ir::While,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
+        let first_state = (1, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -743,7 +774,7 @@ impl Schedule<'_, '_> {
         con: &ir::Control,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
+        let first_state = (1, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into

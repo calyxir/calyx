@@ -239,6 +239,7 @@ impl Printer {
             Self::write_static_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
+        for fsm in comp.get_fsms().iter() {}
         for comb_group in comp.comb_groups.iter() {
             Self::write_comb_group(&comb_group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -422,6 +423,61 @@ impl Printer {
         for assign in &group.assignments {
             Self::write_assignment(assign, indent_level + 2, f)?;
             writeln!(f)?;
+        }
+        write!(f, "{}}}", " ".repeat(indent_level))
+    }
+
+    /// Formt and write an FSM
+    pub fn write_fsm<F: io::Write>(
+        fsm: &ir::FSM,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "fsm {}", fsm.name().id)?;
+        if !fsm.attributes.is_empty() {
+            write!(f, "{}", Self::format_attributes(&fsm.attributes))?;
+        }
+        writeln!(f, " {{")?;
+        for (i, (assigns, trans)) in
+            fsm.assignments.iter().zip(&fsm.transitions).enumerate()
+        {
+            // WRITE ASSIGNMENTS
+            write!(f, "{}", " ".repeat(indent_level + 2))?;
+            write!(f, "{} : ", i + 1)?;
+            match assigns.is_empty() {
+                true => {
+                    // skip directly to transitions section
+                    write!(f, "{{")?;
+                    write!(f, "}} ")?;
+                    write!(f, "=> ")?;
+                }
+                false => {
+                    writeln!(f, "{{")?;
+                    for assign in assigns {
+                        Self::write_assignment(assign, indent_level + 4, f)?;
+                        writeln!(f)?;
+                    }
+                    write!(f, "{}", " ".repeat(indent_level + 2))?;
+                    write!(f, "}} => ")?;
+                }
+            }
+
+            // WRITE TRANSITIONS
+            match trans {
+                ir::Transition::Unconditional(s) => {
+                    writeln!(f, "{},", s)?;
+                }
+                ir::Transition::Conditional(cond_dsts) => {
+                    writeln!(f, "{{")?;
+                    for (g, dst) in cond_dsts.iter() {
+                        write!(f, "{}", " ".repeat(indent_level + 4))?;
+                        writeln!(f, "{} ? {} :", Self::guard_str(g), dst)?;
+                    }
+                    write!(f, "{}", " ".repeat(indent_level + 2))?;
+                    writeln!(f, "}},")?;
+                }
+            }
         }
         write!(f, "{}}}", " ".repeat(indent_level))
     }

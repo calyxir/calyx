@@ -80,7 +80,7 @@ impl<'a> Builder<'a> {
         let fsm = ir::rrc(ir::FSM::new(name));
 
         // Fill in the ports of the FSM with default wires
-        for (name, width) in &[("go", 1), ("done", 1)] {
+        for (name, width) in &[("go", 1), ("done", 1), ("state", 1)] {
             let hole = ir::rrc(ir::Port {
                 name: ir::Id::from(*name),
                 width: *width,

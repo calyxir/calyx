@@ -601,33 +601,13 @@ pub enum State {
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Transition {
-    Unconditional(State),
-    Conditional(Vec<(Guard<Nothing>, State)>),
+    Unconditional(u64),
+    Conditional(Vec<(Guard<Nothing>, u64)>),
 }
 
 impl Transition {
-    pub fn new_uncond(s: State) -> Self {
+    pub fn new_uncond(s: u64) -> Self {
         Self::Unconditional(s)
-    }
-
-    pub fn new_cond(conds: Vec<(Guard<Nothing>, State)>) -> Self {
-        Self::Conditional(conds)
-    }
-}
-
-#[derive(Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-pub struct Branch {
-    /// Originating state of the FSM transition
-    src: State,
-
-    /// Optionally conditional destination states of the transition
-    dsts: Transition,
-}
-
-impl Branch {
-    pub fn new(src: State, dsts: Transition) -> Self {
-        Branch { src, dsts }
     }
 }
 
@@ -833,6 +813,8 @@ impl CombGroup {
 pub struct FSM {
     /// Name of this construct
     pub(super) name: Id,
+    /// Number of states in this FSM
+    pub num_states: u64,
     /// Attributes for this FSM
     pub attributes: Attributes,
     /// State indexes into assignments that are supposed to be enabled at that state
@@ -853,6 +835,7 @@ impl FSM {
     pub fn new(name: Id) -> Self {
         Self {
             name,
+            num_states: 0,
             assignments: vec![],
             transitions: vec![],
             wires: SmallVec::new(),

@@ -156,6 +156,11 @@ impl Component {
         &self.groups
     }
 
+    /// get the component's fsms
+    pub fn get_fsms(&self) -> &IdList<FSM> {
+        &self.fsms
+    }
+
     /// gets the component's static groups
     pub fn get_static_groups(&self) -> &IdList<StaticGroup> {
         &self.static_groups
