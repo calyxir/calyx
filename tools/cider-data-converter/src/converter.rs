@@ -418,7 +418,6 @@ mod tests {
         };
 
         let result = unroll_float(float, &format, true);
-        let result = result.collect_vec();
         BigInt::from_signed_bytes_le(&result);
         let parsed_res =
             parse_bytes_fixed(&result, int_width, frac_width, signed);
