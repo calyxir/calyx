@@ -55,6 +55,10 @@ pub enum FormatInfo {
         int_width: u32,
         frac_width: u32,
     },
+    IEEFloat {
+        signed: bool,
+        width: u32,
+    },
 }
 
 impl FormatInfo {
@@ -62,6 +66,7 @@ impl FormatInfo {
         match self {
             FormatInfo::Bitnum { signed, .. } => *signed,
             FormatInfo::Fixed { signed, .. } => *signed,
+            FormatInfo::IEEFloat { signed, .. } => *signed,
         }
     }
 
@@ -73,6 +78,7 @@ impl FormatInfo {
                 frac_width,
                 ..
             } => *int_width + *frac_width,
+            FormatInfo::IEEFloat { width, .. } => *width,
         }
     }
 }

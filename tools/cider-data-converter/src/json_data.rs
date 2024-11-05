@@ -6,12 +6,14 @@ use serde::{self, Deserialize, Serialize};
 use serde_json::Number;
 use thiserror::Error;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum NumericType {
     Bitnum,
     #[serde(alias = "fixed_point")]
     Fixed,
+    #[serde(alias = "ieee754_float")]
+    IEEE754Float,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -44,6 +46,10 @@ impl FormatInfo {
         self.int_width.is_some() && self.frac_width.is_some()
             || self.width.is_some() && self.frac_width.is_some()
             || self.width.is_some() && self.int_width.is_some()
+    }
+
+    pub fn is_floating_point(&self) -> bool {
+        self.numeric_type == NumericType::IEEE754Float
     }
 
     pub fn int_width(&self) -> Option<u32> {
@@ -97,6 +103,12 @@ impl FormatInfo {
                     signed: self.is_signed,
                     int_width,
                     frac_width,
+                }
+            }
+            NumericType::IEEE754Float => {
+                interp::serialization::FormatInfo::IEEFloat {
+                    signed: self.is_signed,
+                    width: self.width.unwrap(),
                 }
             }
         }
@@ -227,7 +239,7 @@ impl ParseVec {
     }
 
     pub fn parse(&self, format: &FormatInfo) -> Result<DataVec, ParseError> {
-        if format.is_fixedpt() {
+        if format.is_fixedpt() || format.is_floating_point() {
             match self {
                 ParseVec::D1(v) => {
                     let parsed: Vec<_> = v

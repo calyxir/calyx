@@ -1,12 +1,11 @@
+use super::json_data::*;
+use interp::serialization::*;
 use itertools::Itertools;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_rational::BigRational;
 use num_traits::{sign::Signed, Num, ToPrimitive};
 use serde_json::Number;
 use std::{collections::HashMap, iter::repeat, str::FromStr};
-
-use super::json_data::*;
-use interp::serialization::*;
 
 fn msb(width: u32) -> u8 {
     let rem = width % 8;
@@ -165,66 +164,75 @@ fn unroll_float(
     val: f64,
     format: &interp::serialization::FormatInfo,
     round_float: bool,
-) -> impl Iterator<Item = u8> {
-    if let &interp::serialization::FormatInfo::Fixed {
-        signed,
-        int_width,
-        frac_width,
-    } = format
-    {
-        let rational = float_to_rational(val);
-
-        let frac_part = rational.fract().abs();
-        let frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
-
-        let number = if frac_log.is_none() && round_float {
-            let w = BigInt::from(1) << frac_width;
-            let new = (val * w.to_f64().unwrap()).round();
-            new.to_bigint().unwrap()
-        } else if frac_log.is_none() {
-            panic!("Number {val} cannot be represented as a fixed-point number. If you want to approximate the number, set the `round_float` flag to true.");
-        } else {
-            let int_part = rational.to_integer();
-
-            let frac_log = frac_log.unwrap_or_else(|| panic!("unable to round the given value to a value representable with {frac_width} fractional bits"));
-            if frac_log > frac_width {
-                panic!("cannot represent value with {frac_width} fractional bits, requires at least {frac_log} bits");
-            }
-
-            let mut int_log =
-                log2_round_down(&int_part.abs().to_biguint().unwrap());
-            if (BigInt::from(1) << int_log) <= int_part.abs() {
-                int_log += 1;
-            }
-            if signed {
-                int_log += 1;
-            }
-
-            if int_log > int_width {
-                let signed_str = if signed { "signed " } else { "" };
-
-                panic!("cannot represent {signed_str}value of {val} with {int_width} integer bits, requires at least {int_log} bits");
-            }
-
-            rational.numer() << (frac_width - frac_log)
-        };
-
-        let bit_count = number.bits() + if signed { 1 } else { 0 };
-
-        if bit_count > (frac_width + int_width) as u64 {
-            let difference = bit_count - frac_width as u64;
-            panic!("The approximation of the number {val} cannot be represented with {frac_width} fractional bits and {int_width} integer bits. Requires at least {difference} integer bits.");
-        }
-
-        sign_extend_vec(
-            number.to_signed_bytes_le(),
-            frac_width + int_width,
+) -> Vec<u8> {
+    match *format {
+        interp::serialization::FormatInfo::Fixed {
             signed,
-        )
-        .into_iter()
-        .take((frac_width + int_width).div_ceil(8) as usize)
-    } else {
-        panic!("Called unroll_float on a non-fixed point type");
+            int_width,
+            frac_width,
+        } =>
+            {
+                let rational = float_to_rational(val);
+
+                let frac_part = rational.fract().abs();
+                let frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
+
+                let number = if frac_log.is_none() && round_float {
+                    let w = BigInt::from(1) << frac_width;
+                    let new = (val * w.to_f64().unwrap()).round();
+                    new.to_bigint().unwrap()
+                } else if frac_log.is_none() {
+                    panic!("Number {val} cannot be represented as a fixed-point number. If you want to approximate the number, set the `round_float` flag to true.");
+                } else {
+                    let int_part = rational.to_integer();
+
+                    let frac_log = frac_log.unwrap_or_else(|| panic!("unable to round the given value to a value representable with {frac_width} fractional bits"));
+                    if frac_log > frac_width {
+                        panic!("cannot represent value with {frac_width} fractional bits, requires at least {frac_log} bits");
+                    }
+
+                    let mut int_log =
+                        log2_round_down(&int_part.abs().to_biguint().unwrap());
+                    if (BigInt::from(1) << int_log) <= int_part.abs() {
+                        int_log += 1;
+                    }
+                    if signed {
+                        int_log += 1;
+                    }
+
+                    if int_log > int_width {
+                        let signed_str = if signed { "signed " } else { "" };
+
+                        panic!("cannot represent {signed_str}value of {val} with {int_width} integer bits, requires at least {int_log} bits");
+                    }
+
+                    rational.numer() << (frac_width - frac_log)
+                };
+
+                let bit_count = number.bits() + if signed { 1 } else { 0 };
+
+                if bit_count > (frac_width + int_width) as u64 {
+                    let difference = bit_count - frac_width as u64;
+                    panic!("The approximation of the number {val} cannot be represented with {frac_width} fractional bits and {int_width} integer bits. Requires at least {difference} integer bits.");
+                }
+
+                sign_extend_vec(
+                    number.to_signed_bytes_le(),
+                    frac_width + int_width,
+                    signed,
+                )
+                    .into_iter()
+                    .take((frac_width + int_width).div_ceil(8) as usize)
+                    .collect::<Vec<_>>()
+            }
+        interp::serialization::FormatInfo::IEEFloat { width, .. } => {
+            match width {
+                32 => Vec::from((val as f32).to_le_bytes().as_slice()),
+                64 => Vec::from(val.to_le_bytes().as_slice()),
+                _ => unreachable!("Unsupported width {width}. Only 32 and 64 bit floats are supported.")
+            }
+        }
+        _ => panic!("Called unroll_float on a non-fixed point type"),
     }
 }
 
@@ -280,6 +288,23 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
                     let float = int.to_f64().unwrap();
 
                     Number::from_f64(float).unwrap()
+                }
+                interp::serialization::FormatInfo::IEEFloat {
+                    width,
+                    ..
+                } => {
+                    let value = match width {
+                        32 => {
+                            debug_assert_eq!(chunk.len(), 4);
+                            f32::from_le_bytes(chunk.try_into().unwrap()) as f64
+                        }
+                        64 => {
+                            debug_assert_eq!(chunk.len(), 8);
+                            f64::from_le_bytes(chunk.try_into().unwrap())
+                        }
+                        _ => unreachable!("Unsupported width {width}. Only 32 and 64 bit floats are supported.")
+                    };
+                    Number::from_f64(value).unwrap()
                 }
             }
         });
