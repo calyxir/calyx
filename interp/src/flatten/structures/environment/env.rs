@@ -3,7 +3,7 @@ use super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::{ClockMap, VectorClock},
+    clock::{self, ClockMap, VectorClock},
     program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
@@ -2329,53 +2329,27 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             let val = &self.env.ports[port];
 
                             if self.conf.debug_logging {
-                                info!(
-                                    self.env.logger,
-                                    "Assignment fired in {}: {}\n     wrote {}",
-                                    self.env.get_full_name(active_cell),
-                                    self.ctx()
-                                        .printer()
-                                        .print_assignment(
-                                            ledger.comp_id,
-                                            assign_idx
-                                        )
-                                        .yellow(),
-                                    val.bold()
+                                self.log_assignment(
+                                    active_cell,
+                                    ledger,
+                                    assign_idx,
+                                    val,
                                 );
                             }
 
                             if self.conf.check_data_race {
-                                if let Some(clocks) = val.clocks() {
-                                    // skip checking clocks for continuous assignments
-                                    if !is_cont {
-                                        if let Some(thread) = thread {
-                                            let thread_clock = self
-                                                .env
-                                                .thread_map
-                                                .unwrap_clock_id(thread);
-
-                                            clocks
-                                                .check_read(
-                                                    (thread, thread_clock),
-                                                    &mut self.env.clocks,
-                                                )
-                                                .map_err(|e| {
-                                                    // TODO griffin: find a less hacky way to
-                                                    // do this
-                                                    e.add_cell_info(
-                                                self.env
-                                                    .get_parent_cell_from_port(
-                                                        assign.src,
-                                                        *active_cell,
-                                                    )
-                                                    .unwrap(),
-                                            )
-                                                })?;
-                                        } else {
-                                            panic!("cannot determine thread for non-continuous assignment that touches a checked port");
-                                        }
-                                    }
-                                }
+                                // needed for mutability reasons
+                                let mut clock_map =
+                                    std::mem::take(&mut self.env.clocks);
+                                self.check_read(
+                                    val,
+                                    is_cont,
+                                    thread,
+                                    assign,
+                                    active_cell,
+                                    &mut clock_map,
+                                )?;
+                                self.env.clocks = clock_map;
                             }
 
                             let dest = self
@@ -2604,6 +2578,63 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
 
         Ok(())
+    }
+
+    fn check_read(
+        &self,
+        val: &PortValue,
+        is_cont: &bool,
+        thread: Option<ThreadIdx>,
+        assign: &Assignment,
+        active_cell: &GlobalCellIdx,
+        clock_map: &mut ClockMap,
+    ) -> Result<(), crate::errors::BoxedRuntimeError> {
+        if let Some(clocks) = val.clocks() {
+            // skip checking clocks for continuous assignments
+            if !is_cont {
+                if let Some(thread) = thread {
+                    let thread_clock =
+                        self.env.thread_map.unwrap_clock_id(thread);
+
+                    clocks
+                        .check_read((thread, thread_clock), clock_map)
+                        .map_err(|e| {
+                            // TODO griffin: find a less hacky way to
+                            // do this
+                            e.add_cell_info(
+                                self.env
+                                    .get_parent_cell_from_port(
+                                        assign.src,
+                                        *active_cell,
+                                    )
+                                    .unwrap(),
+                            )
+                        })?;
+                } else {
+                    panic!("cannot determine thread for non-continuous assignment that touches a checked port");
+                }
+            }
+        };
+        Ok(())
+    }
+
+    fn log_assignment(
+        &self,
+        active_cell: &GlobalCellIdx,
+        ledger: &ComponentLedger,
+        assign_idx: AssignmentIdx,
+        val: &PortValue,
+    ) {
+        info!(
+            self.env.logger,
+            "Assignment fired in {}: {}\n     wrote {}",
+            self.env.get_full_name(active_cell),
+            self.ctx()
+                .printer()
+                .print_assignment(ledger.comp_id, assign_idx)
+                .yellow(),
+            val.bold()
+        );
     }
 
     /// Attempts to compute the thread id for the given group/component.
