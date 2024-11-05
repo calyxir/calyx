@@ -91,6 +91,7 @@ impl InstaTest for Plan {
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
             .merge(("dahlia", "/test/bin/dahlia"))
+            .merge(("jq.expr", "."))
             .merge(("c0", "v1"));
         let run = Run::with_config(driver, self, config);
         let mut buf = vec![];
