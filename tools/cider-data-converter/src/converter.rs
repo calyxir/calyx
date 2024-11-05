@@ -296,15 +296,16 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
                     let value = match width {
                         32 => {
                             debug_assert_eq!(chunk.len(), 4);
-                            f32::from_le_bytes(chunk.try_into().unwrap()) as f64
+                            format!("{}", f32::from_le_bytes(chunk.try_into().unwrap()))
                         }
                         64 => {
                             debug_assert_eq!(chunk.len(), 8);
-                            f64::from_le_bytes(chunk.try_into().unwrap())
+                            format!("{}", f64::from_le_bytes(chunk.try_into().unwrap()))
                         }
                         _ => unreachable!("Unsupported width {width}. Only 32 and 64 bit floats are supported.")
                     };
-                    Number::from_f64(value).unwrap()
+                    // we need to inject the string directly in order to maintain the correct rounding
+                    Number::from_string_unchecked(value)
                 }
             }
         });

@@ -153,6 +153,16 @@ fud2 --from calyx --to jq \
 """
 timeout = 60
 
+[[tests]]
+name = "correctness ieee754-float"
+paths = ["../../tests/correctness/ieee754-float/*.futil"]
+cmd = """
+fud2 --from calyx --to dat \
+         --through cider \
+         -s sim.data={}.data \
+         -s calyx.args="--log off" \
+         {} | jq --sort-keys
+"""
 
 [[tests]]
 name = "correctness ref cells"
