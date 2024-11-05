@@ -43,8 +43,6 @@ calyx-utils = { path = "../calyx-utils", features = ["serialize"] }
 calyx-opt = { path = "../calyx-opt" }
 calyx-frontend = { path = "../calyx-frontend" }
 
-btor2i = { path = "../tools/btor2/btor2i" }
-
 ciborium = "0.2.2"
 baa = { version = "0.14.0", features = ["bigint", "serde1", "fraction1"] }
 fst-writer = "0.2.1"
