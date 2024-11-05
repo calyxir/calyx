@@ -80,7 +80,7 @@ impl<'a> Builder<'a> {
         let fsm = ir::rrc(ir::FSM::new(name));
 
         // Fill in the ports of the FSM with default wires
-        for (name, width) in &[("go", 1), ("done", 1), ("state", 1)] {
+        for (name, width) in &[("start", 1), ("done", 1), ("state", 1)] {
             let hole = ir::rrc(ir::Port {
                 name: ir::Id::from(*name),
                 width: *width,
@@ -373,9 +373,7 @@ impl<'a> Builder<'a> {
     /// offending code.
     fn is_port_well_formed(&self, port: &ir::Port) {
         match &port.parent {
-            ir::PortParent::FSM(cell_fsm) => {
-                todo!()
-            }
+            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Cell(cell_wref) => {
                 let cell_ref = cell_wref.internal.upgrade().expect("Weak reference to port's parent cell points to nothing. This usually means that the Component did not retain a pointer to the Cell.");
 

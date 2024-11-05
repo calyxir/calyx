@@ -524,6 +524,14 @@ impl Control {
         })
     }
 
+    /// Convenience constructor for fsm enables.
+    pub fn fsm_enable(fsm: RRC<FSM>) -> Self {
+        Control::FSMEnable(FSMEnable {
+            fsm,
+            attributes: Attributes::default(),
+        })
+    }
+
     /// Convience constructor for enable.
     pub fn static_enable(group: RRC<StaticGroup>) -> Self {
         Control::Static(StaticControl::Enable(StaticEnable {

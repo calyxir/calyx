@@ -10,7 +10,6 @@ use calyx_frontend::{Attribute, BoolAttr};
 use calyx_utils::{CalyxResult, Error, GetName};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 

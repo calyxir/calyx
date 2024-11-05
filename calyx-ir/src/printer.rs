@@ -239,7 +239,10 @@ impl Printer {
             Self::write_static_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
-        for fsm in comp.get_fsms().iter() {}
+        for fsm in comp.get_fsms().iter() {
+            Self::write_fsm(&fsm.borrow(), 4, f)?;
+            writeln!(f)?;
+        }
         for comb_group in comp.comb_groups.iter() {
             Self::write_comb_group(&comb_group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -444,7 +447,7 @@ impl Printer {
         {
             // WRITE ASSIGNMENTS
             write!(f, "{}", " ".repeat(indent_level + 2))?;
-            write!(f, "{} : ", i + 1)?;
+            write!(f, "{} : ", i)?;
             match assigns.is_empty() {
                 true => {
                     // skip directly to transitions section
@@ -470,9 +473,31 @@ impl Printer {
                 }
                 ir::Transition::Conditional(cond_dsts) => {
                     writeln!(f, "{{")?;
-                    for (g, dst) in cond_dsts.iter() {
-                        write!(f, "{}", " ".repeat(indent_level + 4))?;
-                        writeln!(f, "{} ? {} :", Self::guard_str(g), dst)?;
+                    for (i, (g, dst)) in cond_dsts.iter().enumerate() {
+                        // if at second-to-last, assume the next is self-loop
+                        if i == cond_dsts.len() - 2 {
+                            write!(f, "{}", " ".repeat(indent_level + 4))?;
+                            write!(f, "{} ? {} : ", Self::guard_str(g), dst)?;
+                        }
+                        // if at last, simply write current state
+                        else if i == cond_dsts.len() - 1 {
+                            if g.is_true() {
+                                write!(f, "{}", dst)?;
+                                writeln!(f, "")?;
+                            } else {
+                                writeln!(
+                                    f,
+                                    "{} ? {} :",
+                                    Self::guard_str(g),
+                                    dst
+                                )?;
+                            }
+                        }
+                        // otherwise, keep printing out guards, transitions & newlines
+                        else {
+                            write!(f, "{}", " ".repeat(indent_level + 4))?;
+                            writeln!(f, "{} ? {} :", Self::guard_str(g), dst)?;
+                        }
                     }
                     write!(f, "{}", " ".repeat(indent_level + 2))?;
                     writeln!(f, "}},")?;

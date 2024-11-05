@@ -4,17 +4,16 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, Attribute, BoolAttr, Cell, GetAttributes, LibrarySignatures,
-    NumAttr, Printer, RRC,
+    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer, RRC,
 };
-use calyx_ir::{build_assignments, guard, structure, Id};
+use calyx_ir::{build_assignments, guard, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Write;
 use std::rc::Rc;
 
@@ -399,8 +398,16 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // compute final state and fsm_size, and register initial fsm
         let last_state = self.last_state();
-        let fsm_size = get_bit_width_from(last_state + 1);
-        let mut fsm = self.builder.add_fsm("fsm");
+        let fsm_size = get_bit_width_from(last_state + 2);
+        let fsm = self.builder.add_fsm("fsm");
+
+        if dump_fsm {
+            self.display(format!(
+                "{}:{}",
+                self.builder.component.name,
+                fsm.borrow().name()
+            ));
+        }
 
         // register group enables that are dependent on fsm state as continuous assignments
         let continuous_enables = self
@@ -408,7 +415,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
             .into_iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .flat_map(|(state, mut assigns_to_enable)| {
-                let state_const = self.builder.add_constant(state, fsm_size);
+                let state_const =
+                    self.builder.add_constant(state + 1, fsm_size);
                 let state_guard = guard!(fsm["state"] == state_const["out"]);
                 assigns_to_enable.iter_mut().for_each(|assign| {
                     assign.guard.update(|g| g.and(state_guard.clone()))
@@ -426,29 +434,51 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let mut transitions_map: HashMap<u64, Vec<(ir::Guard<Nothing>, u64)>> =
             HashMap::new();
         self.transitions.into_iter().for_each(
-            |(s, e, g)| match transitions_map.get_mut(&s) {
-                Some(next_states) => next_states.push((g, e)),
+            |(s, e, g)| match transitions_map.get_mut(&(s + 1)) {
+                Some(next_states) => next_states.push((g, e + 1)),
                 None => {
-                    transitions_map.insert(s, vec![(g, e)]);
+                    transitions_map.insert(s + 1, vec![(g, e + 1)]);
                 }
             },
         );
 
-        // create the data structures to represent each state's assignments and transitions
-        let (transitions, assignments): (
-            Vec<ir::Transition>,
-            Vec<Vec<ir::Assignment<Nothing>>>,
+        // push the cases of the fsm to the fsm instantiation
+        let (mut transitions, mut assignments): (
+            VecDeque<ir::Transition>,
+            VecDeque<Vec<ir::Assignment<Nothing>>>,
         ) = transitions_map
             .drain()
-            .map(|(state, cond_dsts)| {
-                let assigns = match self.fsm_enables.get(&state) {
+            .sorted_by(|(s1, _), (s2, _)| s1.cmp(s2))
+            .map(|(state, mut cond_dsts)| {
+                let assigns = match self.fsm_enables.get(&(state - 1)) {
                     None => vec![],
                     Some(assigns) => assigns.clone(),
                 };
+                // self-loop if all other guards are not met;
+                // should be at the end of the conditional destinations vec!
+                cond_dsts.push((ir::Guard::True, state));
 
                 (ir::Transition::Conditional(cond_dsts), assigns)
             })
             .unzip();
+
+        // insert transition condition from 0 to 1
+        let true_guard = ir::Guard::True;
+        assignments.push_front(vec![]);
+        transitions.push_front(ir::Transition::Conditional(vec![
+            (guard!(fsm["start"]), 1),
+            (true_guard.clone(), 0),
+        ]));
+
+        // insert transition from final calc state to `done` state
+        let signal_on = self.builder.add_constant(1, 1);
+        let assign = build_assignments!(self.builder;
+            fsm["done"] = true_guard ? signal_on["out"];
+        );
+        assignments.push_back(assign.to_vec());
+        transitions.push_back(ir::Transition::Unconditional(0));
+
+        // transitions.push_front();
 
         fsm.borrow_mut().assignments.extend(assignments);
         fsm.borrow_mut().transitions.extend(transitions);
@@ -727,7 +757,7 @@ impl Schedule<'_, '_> {
         seq: &ir::Seq,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (1, ir::Guard::True);
+        let first_state = (0, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -744,7 +774,7 @@ impl Schedule<'_, '_> {
         if_stmt: &ir::If,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (1, ir::Guard::True);
+        let first_state = (0, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -761,7 +791,7 @@ impl Schedule<'_, '_> {
         while_stmt: &ir::While,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (1, ir::Guard::True);
+        let first_state = (0, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -801,7 +831,7 @@ impl Schedule<'_, '_> {
         con: &ir::Control,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (1, ir::Guard::True);
+        let first_state = (0, ir::Guard::True);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -917,14 +947,6 @@ pub struct DynamicFSMAllocation {
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<ProfilingInfo>,
-    /// Map from schedule ids to their `start` and `done` wires
-    sch_interfaces: HashMap<u64, (RRC<ir::Cell>, RRC<ir::Cell>)>,
-}
-
-impl DynamicFSMAllocation {
-    fn attach_state_id(&self, attrs: &mut ir::Attributes, v: u64) {
-        attrs.insert(Attribute::from(NumAttr::State), v);
-    }
 }
 
 impl ConstructVisitor for DynamicFSMAllocation {
@@ -939,7 +961,6 @@ impl ConstructVisitor for DynamicFSMAllocation {
             dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
             fsm_groups: HashSet::new(),
-            sch_interfaces: HashMap::new(),
         })
     }
 
@@ -1029,11 +1050,24 @@ impl Visitor for DynamicFSMAllocation {
         if !s.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
-
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
+        let seq_fsm = sch.realize_fsm(self.dump_fsm);
+        let fsm_en = ir::Control::fsm_enable(seq_fsm);
 
+        Ok(Action::change(fsm_en))
+    }
+
+    fn finish_par(
+        &mut self,
+        _s: &mut calyx_ir::Par,
+        comp: &mut calyx_ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        let mut builder = ir::Builder::new(comp, sigs);
+        // let par_fsm
         Ok(Action::Continue)
     }
 }
