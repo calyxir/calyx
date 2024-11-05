@@ -1,6 +1,5 @@
 ---
 source: fud2/tests/tests.rs
-snapshot_kind: text
 ---
 [
     "calyx",
@@ -12,6 +11,7 @@ snapshot_kind: text
     "firrtl",
     "firrtl-with-primitives",
     "flamegraph",
+    "jq",
     "mrxl",
     "primitive-uses-json",
     "sim",

@@ -1,6 +1,5 @@
 ---
 source: fud2/tests/tests.rs
-snapshot_kind: text
 ---
 [
     (
@@ -47,6 +46,11 @@ snapshot_kind: text
         "dahlia-to-calyx",
         "dahlia",
         "calyx",
+    ),
+    (
+        "dat_to_jq",
+        "dat",
+        "jq",
     ),
     (
         "debug",
