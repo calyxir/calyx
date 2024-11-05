@@ -42,7 +42,7 @@ def parse_dat(path, is_bn, args):
                 return int(bn.str_value())
         else:
             fp = FloatingPoint(hex_value, **args)
-            return fp.to_dec(round_place=2)
+            return fp.to_dec()
 
     with path.open("r") as f:
         lines = []
