@@ -16,10 +16,11 @@ expect_dir = "unit"
 name = "multi-comp"
 paths = ["multi-comp/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s cider.flags="--dump-registers" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 timeout = 10
 
@@ -37,10 +38,11 @@ name = "complex"
 paths = ["complex/*.futil"]
 
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s cider.flags="--dump-registers" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 timeout = 10
 expect_dir = "complex"
@@ -49,11 +51,12 @@ expect_dir = "complex"
 name = "primitives"
 paths = ["primitives/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s calyx.args="--log off" \
          -s cider.flags="--dump-registers" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 timeout = 10
 expect_dir = "primitives"
@@ -71,10 +74,11 @@ expect_dir = "par-to-seq"
 name = "control"
 paths = ["control/*.futil", "control/iteration/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s cider.flags="--dump-registers" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 timeout = 10
 expect_dir = "control"
@@ -83,7 +87,7 @@ expect_dir = "control"
 name = "invoke"
 paths = ["control/invoke/*.futil"]
 cmd = """
-fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
+fud2 {} --from calyx --to jq --through cider -s sim.data={}.data -s calyx.args="--log off" -s jq.flags="--sort-keys"
 """
 timeout = 10
 
@@ -91,7 +95,10 @@ timeout = 10
 name = "invoke compiled"
 paths = ["control/invoke/*.futil"]
 cmd = """
-fud2 {} --from calyx --to dat --through cider -s calyx.flags=" -p compile-invoke" -s sim.data={}.data -s calyx.args="--log off" | jq --sort-keys
+fud2 {} --from calyx --to jq --through cider \
+ -s calyx.flags=" -p compile-invoke" \
+ -s sim.data={}.data -s calyx.args="--log off" \
+ -s jq.flags="--sort-keys"
 """
 
 [[tests]]
@@ -116,11 +123,12 @@ expect_dir = "tests/lowered/"
 name = "correctness dynamic"
 paths = ["../../tests/correctness/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 
 [[tests]]
@@ -134,13 +142,14 @@ cmd = """
 name = "correctness lowered"
 paths = ["../../tests/correctness/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s calyx.flags="-p all" \
          -s cider.flags="--no-verify" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 timeout = 60
 
@@ -149,23 +158,25 @@ timeout = 60
 name = "correctness ref cells"
 paths = ["../../tests/correctness/ref-cells/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 
 [[tests]]
 name = "correctness ref cells compiled"
 paths = ["../../tests/correctness/ref-cells/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s calyx.flags=" -p compile-invoke" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 
 [[tests]]
@@ -176,45 +187,49 @@ paths = [
   "../../tests/correctness/numeric-types/fixed-point/*.futil",
 ]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s cider.converter-flags="-r --legacy-quotes" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 
 [[tests]]
 name = "[frontend] tcam testing"
 paths = ["../../tests/correctness/tcam/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
       --through cider \
       -s calyx.args="--log off" \
       -s sim.data={}.data \
-      {} | jq --sort-keys
+      -s jq.flags="--sort-keys" \
+      {}
 """
 
 [[tests]]
 name = "benchmark misc"
 paths = ["benchmarks/*.futil"]
 cmd = """
-fud2 --from calyx --to dat \
+fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 
 [[tests]]
 name = "benchmark polybench"
 paths = ["benchmarks/polybench/*.fuse"]
 cmd = """
-fud2 --from dahlia --to dat \
+fud2 --from dahlia --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         {} | jq --sort-keys
+          -s jq.flags="--sort-keys" \
+         {}
 """
 timeout = 180
 
