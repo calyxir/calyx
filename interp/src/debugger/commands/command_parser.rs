@@ -1,5 +1,8 @@
-use super::core::{
-    Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+use super::{
+    core::{
+        Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+    },
+    PrintCommand,
 };
 use pest_consume::{match_nodes, Error, Parser};
 
@@ -20,7 +23,12 @@ impl CommandParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
+
     fn code_calyx(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn code_nodes(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
@@ -59,8 +67,9 @@ impl CommandParser {
 
     fn comm_where(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [code_calyx(_)] => Command::PrintPC(true),
-            [] => Command::PrintPC(false),
+            [code_calyx(_)] => Command::PrintPC(PrintCommand::PrintCalyx),
+            [code_nodes(_)] => Command::PrintPC(PrintCommand::PrintNodes),
+            [] => Command::PrintPC(PrintCommand::Normal),
         ))
     }
 

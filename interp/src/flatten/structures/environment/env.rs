@@ -727,6 +727,18 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
+    pub fn print_pc_string(&self) {
+        let current_nodes = self.pc.iter();
+        let ctx = &self.ctx.as_ref();
+        for node in current_nodes {
+            println!(
+                "{}: {}",
+                self.get_full_name(node.comp),
+                node.string_path(ctx)
+            );
+        }
+    }
+
     fn get_name_from_cell_and_parent(
         &self,
         parent: GlobalCellIdx,
@@ -1272,6 +1284,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     pub fn print_pc(&self) {
         self.env.print_pc()
+    }
+
+    pub fn print_pc_string(&self) {
+        self.env.print_pc_string()
     }
 
     /// Pins the port with the given name to the given value. This may only be

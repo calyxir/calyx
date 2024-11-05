@@ -5,7 +5,9 @@ use super::{
     source::structures::NewSourceMap,
 };
 use crate::{
-    debugger::{source::SourceMap, unwrap_error_message},
+    debugger::{
+        commands::PrintCommand, source::SourceMap, unwrap_error_message,
+    },
     errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::prelude::GroupIdx,
@@ -220,22 +222,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(())
     }
 
-    // Print executing points
-    pub fn print_executing(&self) {
-        let env = self.interpreter.env();
-        let ctx = self.program_context.as_ref();
-
-        let mut pc_iterable = env.pc_iter();
-
-        // For now we do all control points:
-        let mut item = pc_iterable.next();
-        while item.is_some() {
-            let control_point = item.unwrap();
-            println!("{}", control_point.string_path(ctx));
-            item = pc_iterable.next();
-        }
-    }
-
     // so on and so forth
 
     /// The main loop of the debugger. This function is the entry point for the
@@ -297,10 +283,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             };
 
             match comm {
-                Command::Step(n) => {
-                    self.print_executing();
-                    self.do_step(n)?
-                }
+                Command::Step(n) => self.do_step(n)?,
                 Command::StepOver(target) => {
                     self.do_step_over(target)?;
                 }
@@ -379,10 +362,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::InfoWatch => self
                     .debugging_context
                     .print_watchpoints(self.interpreter.env()),
-                Command::PrintPC(_override_flag) => {
-                    self.interpreter.print_pc();
-                }
 
+                Command::PrintPC(print_mode) => match print_mode {
+                    PrintCommand::Normal | PrintCommand::PrintCalyx => {
+                        self.interpreter.print_pc();
+                    }
+                    PrintCommand::PrintNodes => {
+                        self.interpreter.print_pc_string();
+                    }
+                },
                 Command::Explain => {
                     print!("{}", Command::get_explain_string())
                 }
