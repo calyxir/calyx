@@ -14,9 +14,9 @@ rule calyx
   command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
-flags = -p none
-rule calyx-with-flags
-  command = $calyx-exe -l $calyx-lib-path $flags $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
 build _to_stdout_verilog.sv: calyx _from_stdin_calyx.futil
   backend = verilog

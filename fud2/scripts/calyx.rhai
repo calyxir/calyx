@@ -12,10 +12,10 @@ fn calyx_setup(e) {
    e.rule("calyx", "$calyx-exe -l $calyx-lib-path -b $backend $args $in > $out");
    e.rule("calyx-pass", "$calyx-exe -l $calyx-lib-path -p $pass $args $in > $out");
 
-   e.config_var_or("flags", "calyx.flags", "-p none");
+   e.config_var_or("cider-calyx-passes", "cider.calyx-passes", "-p none");
    e.rule(
-       "calyx-with-flags",
-       "$calyx-exe -l $calyx-lib-path $flags $args $in > $out",
+       "calyx-cider",
+       "$calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out",
    );
 }
 

@@ -96,7 +96,7 @@ name = "invoke compiled"
 paths = ["control/invoke/*.futil"]
 cmd = """
 fud2 {} --from calyx --to jq --through cider \
- -s calyx.flags=" -p compile-invoke" \
+ -s cider.calyx-passes=" -p compile-invoke" \
  -s sim.data={}.data -s calyx.args="--log off" \
  -s jq.flags="--sort-keys"
 """
@@ -146,7 +146,7 @@ fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         -s calyx.flags="-p all" \
+         -s cider.calyx-passes="-p all" \
          -s cider.flags="--no-verify" \
          -s jq.flags="--sort-keys" \
          {}
@@ -174,7 +174,7 @@ fud2 --from calyx --to jq \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         -s calyx.flags=" -p compile-invoke" \
+         -s cider.calyx-passes=" -p compile-invoke" \
          -s jq.flags="--sort-keys" \
          {}
 """

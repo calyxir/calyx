@@ -14,9 +14,9 @@ rule calyx
   command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
   command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
-flags = -p none
-rule calyx-with-flags
-  command = $calyx-exe -l $calyx-lib-path $flags $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
 build tb.sv: get-rsrc
 
@@ -37,7 +37,7 @@ rule dump-to-interp
   command = $cider-converter --to cider $converter-flags $in > $out
 build data.dump: dump-to-interp $sim_data | $cider-converter
 
-build pseudo_cider: calyx-with-flags _from_stdin_calyx.futil
+build pseudo_cider: calyx-cider _from_stdin_calyx.futil
 build _to_stdout_cider-debug: run-cider-debug pseudo_cider | data.dump
 
 default _to_stdout_cider-debug
