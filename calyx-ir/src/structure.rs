@@ -587,19 +587,6 @@ impl<StaticTiming> Assignment<StaticTiming> {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-pub enum State {
-    /// Inactive state before FSM computes
-    Idle,
-
-    /// Inactive state after FSM computes
-    Done,
-
-    /// Numerical representation of a computing state
-    Calc(u64),
-}
-
-#[derive(Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Transition {
     Unconditional(u64),
     Conditional(Vec<(Guard<Nothing>, u64)>),

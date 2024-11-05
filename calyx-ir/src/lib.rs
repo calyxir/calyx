@@ -38,8 +38,8 @@ pub use printer::Printer;
 pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;
 pub use structure::{
-    Assignment, Binding, Branch, Canonical, Cell, CellType, CombGroup, Group,
-    Port, PortIterator, PortParent, State, StaticGroup, Transition, FSM,
+    Assignment, Binding, Canonical, Cell, CellType, CombGroup, Group, Port,
+    PortIterator, PortParent, StaticGroup, Transition, FSM,
 };
 
 // Re-export types from the frontend.

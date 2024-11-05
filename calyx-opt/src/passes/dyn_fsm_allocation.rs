@@ -394,14 +394,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
     }
 
     fn realize_fsm(self, dump_fsm: bool) -> RRC<ir::FSM> {
-        // STATES ARE NOW INDEXED FROM 1
         // ensure schedule is valid
         self.validate();
 
         // compute final state and fsm_size, and register initial fsm
         let last_state = self.last_state();
         let fsm_size = get_bit_width_from(last_state + 1);
-        let fsm = self.builder.add_fsm("fsm");
+        let mut fsm = self.builder.add_fsm("fsm");
 
         // register group enables that are dependent on fsm state as continuous assignments
         let continuous_enables = self
@@ -423,8 +422,36 @@ impl<'b, 'a> Schedule<'b, 'a> {
             .continuous_assignments
             .extend(continuous_enables);
 
-        // add
+        // map each source state to a list of conditional transitions
+        let mut transitions_map: HashMap<u64, Vec<(ir::Guard<Nothing>, u64)>> =
+            HashMap::new();
+        self.transitions.into_iter().for_each(
+            |(s, e, g)| match transitions_map.get_mut(&s) {
+                Some(next_states) => next_states.push((g, e)),
+                None => {
+                    transitions_map.insert(s, vec![(g, e)]);
+                }
+            },
+        );
 
+        // create the data structures to represent each state's assignments and transitions
+        let (transitions, assignments): (
+            Vec<ir::Transition>,
+            Vec<Vec<ir::Assignment<Nothing>>>,
+        ) = transitions_map
+            .drain()
+            .map(|(state, cond_dsts)| {
+                let assigns = match self.fsm_enables.get(&state) {
+                    None => vec![],
+                    Some(assigns) => assigns.clone(),
+                };
+
+                (ir::Transition::Conditional(cond_dsts), assigns)
+            })
+            .unzip();
+
+        fsm.borrow_mut().assignments.extend(assignments);
+        fsm.borrow_mut().transitions.extend(transitions);
         fsm
     }
 }
