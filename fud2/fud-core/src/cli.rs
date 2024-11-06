@@ -142,7 +142,7 @@ pub enum Subcommand<T: CliExt> {
 
 #[derive(FromArgs)]
 /// A generic compiler driver.
-pub struct FakeArgs<T: CliExt> {
+pub struct FudArgs<T: CliExt> {
     #[argh(subcommand)]
     pub sub: Option<Subcommand<T>>,
 
@@ -190,6 +190,10 @@ pub struct FakeArgs<T: CliExt> {
     #[argh(switch, short = 'v')]
     verbose: Option<bool>,
 
+    /// quiet mode
+    #[argh(switch, short = 'q')]
+    quiet: bool,
+
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
@@ -229,7 +233,7 @@ fn get_states_with_errors(
 
 fn from_states<T: CliExt>(
     driver: &Driver,
-    args: &FakeArgs<T>,
+    args: &FudArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
@@ -243,7 +247,7 @@ fn from_states<T: CliExt>(
 
 fn to_state<T: CliExt>(
     driver: &Driver,
-    args: &FakeArgs<T>,
+    args: &FudArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
@@ -257,7 +261,7 @@ fn to_state<T: CliExt>(
 
 fn get_request<T: CliExt>(
     driver: &Driver,
-    args: &FakeArgs<T>,
+    args: &FudArgs<T>,
 ) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
     let workdir = args.dir.clone().unwrap_or_else(|| match args.mode {
@@ -407,7 +411,7 @@ impl<T: CliExt> CliStart<T> for T {
 fn config_from_cli_ext<T: CliExt>(
     name: &str,
 ) -> anyhow::Result<figment::Figment> {
-    let args: FakeArgs<T> = argh::from_env();
+    let args: FudArgs<T> = argh::from_env();
     let mut config = config::load_config(name);
 
     // Use `--set` arguments to override configuration values.
@@ -428,7 +432,7 @@ fn cli_ext<T: CliExt>(
     driver: &Driver,
     config: &figment::Figment,
 ) -> anyhow::Result<()> {
-    let args: FakeArgs<T> = argh::from_env();
+    let args: FudArgs<T> = argh::from_env();
     // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
@@ -479,8 +483,8 @@ fn cli_ext<T: CliExt>(
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir, false)?,
-        Mode::Cmds => run.emit_and_run(&workdir, true)?,
+        Mode::Run => run.emit_and_run(&workdir, false, args.quiet)?,
+        Mode::Cmds => run.emit_and_run(&workdir, true, false)?,
     }
 
     Ok(())
