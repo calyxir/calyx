@@ -161,7 +161,8 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         {} | jq --sort-keys
+         -s jq.flags="--sort-keys" \
+         {}
 """
 
 [[tests]]
@@ -280,7 +281,8 @@ timeout = 180
 #             --through cider \
 #             -s sim.data={}.data \
 #             -s calyx.args="--log off" \
-#        | jq --sort-keys
+#             -s jq.flags "--sort-keys " \
+#             {}
 # """
 
 # [[tests]]
