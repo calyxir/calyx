@@ -355,14 +355,14 @@ class IEEE754Float(NumericType):
             self.uint_repr = int(self.bit_string_repr, 2)
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
-    def to_dec(self):
+    def as_str(self):
         float_value = struct.unpack(
             "!f", int(self.bit_string_repr, 2).to_bytes(4, byteorder="big")
         )[0]
         if self.width == 32:
-            return np.float32(float_value)
+            return str(np.float32(float_value))
         elif self.width == 64:
-            return np.float64(float_value)
+            return str(np.float64(float_value))
         else:
             raise InvalidNumericType(
                 f"Unsupported width: {self.width} for floating point."

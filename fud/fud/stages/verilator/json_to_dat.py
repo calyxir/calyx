@@ -44,7 +44,7 @@ def parse_dat(path, is_bn, args):
                 return int(bn.str_value())
         else:
             fp = IEEE754Float(hex_value, **args)
-            return fp.to_dec()
+            return fp.as_str()
 
     with path.open("r") as f:
         lines = []
