@@ -1,9 +1,11 @@
 # Contributing to Calyx
 
 ## Github Workflow
+
 The current home of the Calyx repo can be found [here][calyx_repo]. As with many
 large projects, we protect the main branch of the repo so that updates can only
 be made via pull requests. So the development cycle tends to look like:
+
 ```
 checkout main -> develop code -> open PR -> revise -> merge PR
 ```
@@ -20,7 +22,12 @@ there will be extensive merge conflicts due to the squash and merge tactic. For
 this reason we always recommend creating branches off of the main branch if you
 intend to have them merged into it.
 
+## Local Development
+
+Once you've [setup a local installation](./intro.md) for contributing, you can setup git hooks with `/bin/sh setup_hooks.sh`.
+
 ### CI Behavior
+
 The CI runs a number of tests including ensuring that Rust and Python code has
 been formatted. For Python we use the [Black](https://github.com/psf/black) formatter and for Rust we use the
 standard `cargo fmt`.
@@ -32,7 +39,6 @@ within Rust to suppress the lint.
 
 If changes are made to the `Dockerfile` then the CI will automatically rebuild
 the Docker image and run your tests on it.
-
 
 [calyx_repo]: https://github.com/calyxir/calyx
 [clippy]: https://github.com/rust-lang/rust-clippy
