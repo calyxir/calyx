@@ -1,9 +1,11 @@
-import simplejson as sjson
-import numpy as np
-from calyx.numeric_types import FixedPoint, Bitnum, FloatingPoint, InvalidNumericType
-from pathlib import Path
-from fud.errors import Malformed
 import logging as log
+from pathlib import Path
+
+import numpy as np
+import simplejson as sjson
+from calyx.numeric_types import Bitnum, FixedPoint, IEEE754Float, InvalidNumericType
+
+from fud.errors import Malformed
 
 
 def float_to_fixed(value: float, N: int) -> float:
@@ -41,7 +43,7 @@ def parse_dat(path, is_bn, args):
             else:
                 return int(bn.str_value())
         else:
-            fp = FloatingPoint(hex_value, **args)
+            fp = IEEE754Float(hex_value, **args)
             return fp.to_dec()
 
     with path.open("r") as f:
@@ -95,13 +97,15 @@ def parse_fp_widths(format):
 
 def convert(x, round: bool, is_signed: bool, width: int, is_bn: bool, int_width=None):
     with_prefix = False
+
     # If `int_width` is not defined, then this is a `Bitnum`
     if int_width is None:
         if is_bn:
             return Bitnum(x, width, is_signed).hex_string(with_prefix)
         else:
-            return FloatingPoint(x, width, is_signed).hex_string(with_prefix)
+            return IEEE754Float(x, width, is_signed).hex_string(with_prefix)
 
+    # Otherwise, this is a fixed-point number.
     try:
         return FixedPoint(x, width, int_width, is_signed).hex_string(with_prefix)
     except InvalidNumericType as error:
