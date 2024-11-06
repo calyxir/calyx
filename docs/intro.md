@@ -71,8 +71,7 @@ We recommend installing the git hooks to run linting and formatting checks befor
 You can build the docs by installing `mdbook` and the callouts preprocessor:
 
 ```sh
-cargo install mdbook 
-cargo install --git https://github.com/ToolmanP/rs-mdbook-callout
+/bin/sh docs/install_tools.sh
 ```
 
 Then, run `mdbook serve` from the project root.

@@ -22,6 +22,10 @@ there will be extensive merge conflicts due to the squash and merge tactic. For
 this reason we always recommend creating branches off of the main branch if you
 intend to have them merged into it.
 
+## Local Development
+
+Once you've [setup a local installation](./intro.md) for contributing, you can setup git hooks with `/bin/sh setup_hooks.sh`.
+
 ### CI Behavior
 
 The CI runs a number of tests including ensuring that Rust and Python code has
@@ -35,10 +39,6 @@ within Rust to suppress the lint.
 
 If changes are made to the `Dockerfile` then the CI will automatically rebuild
 the Docker image and run your tests on it.
-
-## Local Development
-
-You can setup git hooks with `/bin/sh setup_hooks.sh`.
 
 [calyx_repo]: https://github.com/calyxir/calyx
 [clippy]: https://github.com/rust-lang/rust-clippy

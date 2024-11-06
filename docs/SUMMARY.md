@@ -31,7 +31,6 @@
 # Compiler Development Guide
 
 - [The Calyx Compiler](./compiler.md)
-- [Visualizing Compiler Passes](./dev/calyx-pass-explorer.md)
 - [Adding a New Pass](./new-pass.md)
 - [Primitive Library](./libraries/core.md)
 - [The `calyx` Library](./compiler-as-library.md)
@@ -61,6 +60,7 @@
 - [`exp` Generator](./tools/exp-generator.md)
 - [Editor Highlighting](./tools/editor-highlighting.md)
 - [Language Server](./tools/language-server.md)
+- [Visualizing Compiler Passes](./dev/calyx-pass-explorer.md)
 
 ----
 [Contributors](./contributors.md)

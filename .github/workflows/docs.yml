@@ -19,7 +19,7 @@ jobs:
         with:
           mdbook-version: "latest"
       - name: Install callouts preprocessor
-        run: cargo install --git https://github.com/ToolmanP/rs-mdbook-callout
+        run: cargo install --git https://github.com/ToolmanP/rs-mdbook-callouts --rev 83898e352a961fc65044e04c864141c8b5481722
       - name: mdbook
         run: mdbook build
       - name: Install Rust stable
