@@ -31,9 +31,11 @@ First, install [Rust][rust].
 This should automatically install `cargo`.
 
 If you want just to play with the compiler, install the [`calyx` crate][calyx-crate]:
+
 ```
 cargo install calyx
 ```
+
 This will install the `calyx` binary which can optimize and compile Calyx programs. You will still need the [`primitives/core.futil`][core-lib] and [its accompanying Verilog file](https://github.com/calyxir/calyx/blob/master/primitives/core.sv) library to compile most programs.
 
 ### Installing from Source (to use and extend Calyx)
@@ -42,29 +44,44 @@ First, install [Rust][rust].
 This should automatically install `cargo`.
 
 Clone the repository:
+
 ```
 git clone https://github.com/calyxir/calyx.git
 ```
+
 Then build the compiler:
+
 ```
 cargo build
 ```
 
 You can build and run the compiler with:
+
 ```
 cargo build # Builds the compiler
 ./target/debug/calyx --help # Executes the compiler binary
 ```
 
 We recommend installing the git hooks to run linting and formatting checks before each commit:
+
 ```shell
 /bin/sh setup_hooks.sh
 ```
+
+You can build the docs by installing `mdbook` and the callouts preprocessor:
+
+```sh
+cargo install mdbook 
+cargo install --git https://github.com/ToolmanP/rs-mdbook-callout
+```
+
+Then, run `mdbook serve` from the project root.
 
 ## Running Core Tests
 
 The core test suite tests the Calyx compiler's various passes.
 Install the following tools:
+
   1. [runt][] hosts our testing infrastructure. Install with:
   `cargo install runt`
   2. [jq][] is a command-line JSON processor. Install with:
@@ -73,10 +90,13 @@ Install the following tools:
      * Other platforms: [JQ installation][jq-install]
 
 Build the compiler:
+
 ```
 cargo build
 ```
+
 Then run the core tests with:
+
 ```
 runt -i core
 ```
@@ -91,24 +111,31 @@ backends to simplify running Calyx programs.
 Start at the root of the repository.
 
 Install [Flit][]:
+
 ```
 pip3 install flit
 ```
 
 Install [`calyx-py`](builder/calyx-py.md):
+
 ```
 cd calyx-py && flit install -s && cd -
 ```
 
 Install `fud`:
+
 ```
 flit -f fud/pyproject.toml install -s --deps production
 ```
+
 Configure `fud`:
+
 ```
 fud config --create global.root <full path to Calyx repository>
 ```
+
 Check the `fud` configuration:
+
 ```
 fud check
 ```
@@ -133,12 +160,14 @@ Some missing tools are again expected; just pay attention to the report for `sta
 
 It is worth saying a little about the alternatives.
 You could consider:
+
 1. [Setting up Verilator][fud-verilator] for faster performance, which is good for long-running simulations.
 2. Using the [interpreter][] to avoid RTL simulation altogether.
 
 ## Running a Hardware Design
 
 You're all set to run a Calyx hardware design now. Run the following command:
+
 ```
 fud e examples/tutorial/language-tutorial-iterate.futil \
   -s verilog.data examples/tutorial/data.json \
@@ -155,28 +184,19 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 ## Where to go next?
 
-- [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
-- [How does the language work?](./tutorial/language-tut.md)
-- [How do I install Calyx frontends?](./running-calyx/fud/index.html#dahlia-fronted)
-- [Where can I see further examples with `fud`?](./running-calyx/fud/examples.md)
-- [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
-
+* [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
+* [How does the language work?](./tutorial/language-tut.md)
+* [How do I install Calyx frontends?](./running-calyx/fud/index.html#dahlia-fronted)
+* [Where can I see further examples with `fud`?](./running-calyx/fud/examples.md)
+* [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
 
 [rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html
 [runt]: https://github.com/rachitnigam/runt
-[vcdump]: https://github.com/sgpthomas/vcdump
 [verilator]: https://www.veripool.org/wiki/verilator
-[verilator-install]: https://www.veripool.org/projects/verilator/wiki/Installing
 [icarus verilog]: http://iverilog.icarus.com
 [jq]: https://stedolan.github.io/jq/
 [jq-install]: https://stedolan.github.io/jq/
-[frontends]: ./frontends/index.md
-[calyx-py]: ./calyx-py.md
 [flit]: https://flit.readthedocs.io/en/latest/
-[vcd]: https://en.wikipedia.org/wiki/Value_change_dump
-[dahlia]: https://github.com/cucapra/dahlia
-[dahlia-install]: https://github.com/cucapra/dahlia#set-it-up
-[sbt]: https://www.scala-sbt.org/download.html
 [interpreter]: ./running-calyx/interpreter.md
 [homebrew]: https://brew.sh
 [fud-icarus]: ./running-calyx/fud/index.md#icarus-verilog

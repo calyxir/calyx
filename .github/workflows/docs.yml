@@ -17,15 +17,17 @@ jobs:
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
-          mdbook-version: 'latest'
+          mdbook-version: "latest"
+      - name: Install callouts preprocessor
+        run: cargo install --git https://github.com/ToolmanP/rs-mdbook-callout
       - name: mdbook
         run: mdbook build
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: 1.66.0
-            override: true
-            components: rustfmt, clippy
+          toolchain: 1.66.0
+          override: true
+          components: rustfmt, clippy
       - name: Build source documentation
         uses: actions-rs/cargo@v1
         with:
