@@ -339,11 +339,13 @@ def bitnum_to_fixed(bitnum: Bitnum, int_width: int) -> FixedPoint:
 
 
 @dataclass
-class FloatingPoint(NumericType):
+class IEEE754Float(NumericType):
     """Represents a floating point number."""
 
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
+
+        assert width in [32, 64], "Floating point numbers must be either 32 or 64 bits."
 
         if self.bit_string_repr is None and self.hex_string_repr is None:
             # The decimal representation was passed in.
@@ -353,8 +355,15 @@ class FloatingPoint(NumericType):
             self.uint_repr = int(self.bit_string_repr, 2)
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
-    def to_dec(self, round_place: int):
+    def as_str(self):
         float_value = struct.unpack(
             "!f", int(self.bit_string_repr, 2).to_bytes(4, byteorder="big")
         )[0]
-        return round(float_value, round_place)
+        if self.width == 32:
+            return str(np.float32(float_value))
+        elif self.width == 64:
+            return str(np.float64(float_value))
+        else:
+            raise InvalidNumericType(
+                f"Unsupported width: {self.width} for floating point."
+            )
