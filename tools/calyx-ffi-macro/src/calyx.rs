@@ -17,16 +17,17 @@ impl CalyxComponent {
 
 pub fn parse_calyx_file(
     args: &CalyxFFIMacroArgs,
+    file: PathBuf,
 ) -> Result<CalyxComponent, TokenStream> {
     // there has to be a better way to find lib
     let home_dir = env::var("HOME").expect("user home not set");
     let mut lib_path = PathBuf::from(home_dir);
     lib_path.push(".calyx");
-    let ws = calyx_frontend::Workspace::construct(
-        &Some(args.src.clone()),
-        &lib_path,
-    )
-    .map_err(|err| util::compile_error(&args.src_attr_span, err.message()))?;
+    let ws =
+        calyx_frontend::Workspace::construct(&Some(file.clone()), &lib_path)
+            .map_err(|err| {
+                util::compile_error(&args.src_attr_span, err.message())
+            })?;
     let ctx = calyx_ir::from_ast::ast_to_ir(ws).map_err(|err| {
         util::compile_error(&args.src_attr_span, err.message())
     })?;

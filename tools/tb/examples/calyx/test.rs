@@ -9,7 +9,7 @@ declare_calyx_interface! {
 }
 
 #[calyx_ffi(
-    src = "/home/runner/work/calyx/calyx/tools/tb/examples/calyx/adder.futil",
+    src = "/Users/ethan/Documents/GitHub/calyx/tools/tb/examples/calyx/adder.futil",
     comp = "main",
     backend = cider_ffi_backend,
     derive = [
@@ -19,7 +19,7 @@ declare_calyx_interface! {
 struct Adder;
 
 #[calyx_ffi(
-    src = "/home/runner/work/calyx/calyx/tools/tb/examples/calyx/subber.futil",
+    src = "/Users/ethan/Documents/GitHub/calyx/tools/tb/examples/calyx/subber.futil",
     comp = "main",
     backend = cider_ffi_backend,
     derive = [

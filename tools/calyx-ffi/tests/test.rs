@@ -3,9 +3,9 @@ use calyx_ffi::prelude::*;
 use calyx_ffi::useless_ffi_backend;
 
 #[calyx_ffi(
-    src = "/home/runner/work/calyx/calyx/tools/calyx-ffi/tests/file.futil",
+    src = "file.futil",
     comp = "main",
-    backend = useless_ffi_backend
+  backend = useless_ffi_backend
 )]
 struct Main;
 

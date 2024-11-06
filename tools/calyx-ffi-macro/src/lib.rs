@@ -1,3 +1,7 @@
+#![feature(proc_macro_span)]
+
+use std::{env, path::PathBuf};
+
 use parse::CalyxFFIMacroArgs;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -7,15 +11,42 @@ mod calyx;
 mod parse;
 mod util;
 
+fn get_first_token_span(ts: &TokenStream) -> Option<proc_macro::Span> {
+    let mut iter = ts.clone().into_iter();
+    iter.next().map(|token| token.span())
+}
+
 #[proc_macro_attribute]
 pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    let source_manifest_dir = PathBuf::from(
+        env::vars()
+            .find(|(name, _)| name == "CARGO_MANIFEST_DIR")
+            .expect("caller of calyx_ffi did not use cargo to build project")
+            .1,
+    );
+
+    let source_path =
+        get_first_token_span(&attrs).unwrap().source_file().path();
+
     let args = parse_macro_input!(attrs as CalyxFFIMacroArgs);
     let item_struct = parse_macro_input!(item as syn::ItemStruct);
     let name = item_struct.ident;
-    let path = args.src.to_string_lossy().to_string();
+    let given_path = args.src.to_string_lossy().to_string();
+    // panic!(
+    //     "{} {} {}",
+    //     source_manifest_dir.to_string_lossy(),
+    //     source_path.path().to_string_lossy(),
+    //     given_path
+    // );
+
+    let mut path = source_manifest_dir;
+    path.push(source_path);
+    path.pop(); // remove the file
+    path.push(given_path);
+    let path = path;
 
     // <sorry>
-    let comp = calyx::parse_calyx_file(&args);
+    let comp = calyx::parse_calyx_file(&args, path.clone());
     if let Err(error) = comp {
         return error;
     }
@@ -26,8 +57,11 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let comp_name =
         syn::parse_str::<syn::LitStr>(&format!("\"{}\"", comp.name))
             .expect("failed to turn quoted name into string");
-    let comp_path = syn::parse_str::<syn::LitStr>(&format!("\"{}\"", path))
-        .expect("failed to turn quoted path into string");
+    let comp_path = syn::parse_str::<syn::LitStr>(&format!(
+        "\"{}\"",
+        path.to_string_lossy()
+    ))
+    .expect("failed to turn quoted path into string");
 
     let backend_macro = args.backend;
     let mut input_names = Vec::new();
