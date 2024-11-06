@@ -1,9 +1,9 @@
-use std::{collections::HashMap, num::ParseFloatError, str::FromStr};
-
 use interp::serialization::Dimensions;
 use num_bigint::{BigInt, ParseBigIntError};
-use serde::{self, Deserialize, Serialize};
+use serde::{self, Deserialize, Serialize, Serializer};
 use serde_json::Number;
+use std::collections::BTreeMap;
+use std::{collections::HashMap, num::ParseFloatError, str::FromStr};
 use thiserror::Error;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
@@ -537,8 +537,23 @@ pub struct JsonData(pub HashMap<String, JsonDataEntry>);
 #[serde(untagged)]
 /// A structure meant to mimic the old style of data dump printing.
 pub enum JsonPrintDump {
+    #[serde(serialize_with = "ordered_map")]
     Normal(HashMap<String, ParseVec>),
+    #[serde(serialize_with = "ordered_map")]
     Quoted(HashMap<String, PrintVec>),
+}
+
+/// For use with serde's [serialize_with] attribute
+/// see: https://stackoverflow.com/questions/42723065/how-to-sort-hashmap-keys-when-serializing-with-serde
+fn ordered_map<S, K: Ord + Serialize, V: Serialize>(
+    value: &HashMap<K, V>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let ordered: BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
 }
 
 impl JsonPrintDump {
