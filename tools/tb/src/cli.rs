@@ -30,7 +30,7 @@ impl FromStr for ConfigSet {
 /// Test verilog files under various harnesses.
 pub struct CLI {
     #[argh(positional)]
-    /// verilog file
+    /// verilog or calyx file
     pub input: String,
 
     #[argh(option, short = 't', long = "test")]
@@ -42,7 +42,7 @@ pub struct CLI {
     pub set: Vec<ConfigSet>,
 
     #[argh(option, short = 'u')]
-    /// the testbench to invoke
+    /// the testbench to invoke, e.g., verilator, cocotb, calyx
     pub using: String,
 
     /// path to the config file
