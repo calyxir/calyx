@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-ffi-macro"
-version = "0.7.1"
+version = "0.0.0"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
@@ -570,9 +570,9 @@ checksum = "c59e92b5a388f549b863a7bea62612c09f24c8393560709a54558a9abdfb3b9c"
 
 [[package]]
 name = "cargo_toml"
-version = "0.20.3"
+version = "0.20.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4895c018bb228aa6b3ba1a0285543fcb4b704734c3fb1f72afaa75aa769500c1"
+checksum = "88da5a13c620b4ca0078845707ea9c3faf11edbc3ffd8497d11d686211cd1ac0"
 dependencies = [
  "serde",
  "toml",

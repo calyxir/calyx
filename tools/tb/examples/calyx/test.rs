@@ -1,15 +1,15 @@
-use calyx_ffi::declare_calyx_interface;
+use calyx_ffi::declare_calyx_ffi_interface;
 use calyx_ffi::prelude::*;
 
 use calyx_ffi::cider_ffi_backend;
 
 // not necessary, just to show it off
-declare_calyx_interface! {
+declare_calyx_ffi_interface! {
     In2Out1(lhs, rhs) -> (result)
 }
 
 #[calyx_ffi(
-    src = "/Users/ethan/Documents/GitHub/calyx/tools/tb/examples/calyx/adder.futil",
+    src = "adder.futil",
     comp = "main",
     backend = cider_ffi_backend,
     derive = [
@@ -19,7 +19,7 @@ declare_calyx_interface! {
 struct Adder;
 
 #[calyx_ffi(
-    src = "/Users/ethan/Documents/GitHub/calyx/tools/tb/examples/calyx/subber.futil",
+    src = "subber.futil",
     comp = "main",
     backend = cider_ffi_backend,
     derive = [

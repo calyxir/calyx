@@ -21,11 +21,10 @@ members = [
     "tools/yxi",
     "tools/calyx-writer",
     "tools/tb",
-    # "tools/calyx-ffi-macro",
-    # "tools/calyx-ffi",
+    "tools/calyx-ffi-macro",
+    "tools/calyx-ffi",
     "tools/tb/examples/calyx",
 ]
-exclude = ["site"]
 
 [workspace.package]
 authors = ["The Calyx Team"]

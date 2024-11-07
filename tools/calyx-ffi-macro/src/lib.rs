@@ -1,5 +1,3 @@
-#![feature(proc_macro_span)]
-
 use std::{env, path::PathBuf};
 
 use parse::CalyxFFIMacroArgs;
@@ -25,23 +23,12 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
             .1,
     );
 
-    let source_path =
-        get_first_token_span(&attrs).unwrap().source_file().path();
-
     let args = parse_macro_input!(attrs as CalyxFFIMacroArgs);
     let item_struct = parse_macro_input!(item as syn::ItemStruct);
     let name = item_struct.ident;
     let given_path = args.src.to_string_lossy().to_string();
-    // panic!(
-    //     "{} {} {}",
-    //     source_manifest_dir.to_string_lossy(),
-    //     source_path.path().to_string_lossy(),
-    //     given_path
-    // );
 
     let mut path = source_manifest_dir;
-    path.push(source_path);
-    path.pop(); // remove the file
     path.push(given_path);
     let path = path;
 
