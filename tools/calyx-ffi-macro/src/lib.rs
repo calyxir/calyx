@@ -9,11 +9,6 @@ mod calyx;
 mod parse;
 mod util;
 
-fn get_first_token_span(ts: &TokenStream) -> Option<proc_macro::Span> {
-    let mut iter = ts.clone().into_iter();
-    iter.next().map(|token| token.span())
-}
-
 #[proc_macro_attribute]
 pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let source_manifest_dir = PathBuf::from(
