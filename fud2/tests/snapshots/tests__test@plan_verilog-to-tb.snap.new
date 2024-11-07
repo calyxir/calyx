@@ -1,0 +1,13 @@
+---
+source: fud2/tests/tests.rs
+assertion_line: 66
+description: "emit plan: verilog-to-tb"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+
+build /output.ext: verilog-to-tb /input.ext
+
+default /output.ext
