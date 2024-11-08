@@ -1,29 +1,28 @@
-use calyx_ffi::declare_calyx_ffi_interface;
 use calyx_ffi::prelude::*;
 
 use calyx_ffi::cider_ffi_backend;
 
 // not necessary, just to show it off
-declare_calyx_ffi_interface! {
-    In2Out1(lhs, rhs) -> (result)
+calyx_ffi::declare_interface! {
+    In2Out1(lhs: 64, rhs: 64) -> (result: 64)
 }
 
 #[calyx_ffi(
-    src = "adder.futil",
+    src = "tests/adder.futil",
     comp = "main",
     backend = cider_ffi_backend,
     derive = [
-        In2Out1(lhs, rhs) -> (result)
+        In2Out1(lhs: 64, rhs: 64) -> (result: 64)
     ]
 )]
 struct Adder;
 
 #[calyx_ffi(
-    src = "subber.futil",
+    src = "tests/subber.futil",
     comp = "main",
     backend = cider_ffi_backend,
     derive = [
-        In2Out1(lhs, rhs) -> (result)
+        In2Out1(lhs: 64, rhs: 64) -> (result: 64)
     ]
 )]
 struct Subber;
@@ -31,9 +30,10 @@ struct Subber;
 #[cfg(test)]
 #[calyx_ffi_tests]
 mod tests {
+    use std::mem;
+
     use super::*;
     use rand::Rng;
-    use std::mem;
 
     // inv: the left argument will always be greater than the right
     fn fuzz_in2out1<I: In2Out1, F: Fn(u64, u64) -> u64>(
@@ -46,10 +46,17 @@ mod tests {
             if y > x {
                 mem::swap(&mut x, &mut y);
             }
-            *comp.lhs() = x;
-            *comp.rhs() = y;
+            comp.set_lhs(x);
+            comp.set_rhs(y);
             comp.go();
-            assert_eq!(oracle(x, y), comp.result(), "testing f({}, {})", x, y);
+            assert_eq!(
+                oracle(x, y),
+                comp.result(),
+                "component did not evaluate f({}, {}) = {} correctly",
+                x,
+                y,
+                oracle(x, y)
+            );
         }
     }
 

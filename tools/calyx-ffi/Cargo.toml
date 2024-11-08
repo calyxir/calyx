@@ -17,3 +17,7 @@ calyx-ffi-macro = { path = "../calyx-ffi-macro" }
 calyx-frontend.workspace = true
 calyx-ir.workspace = true
 interp = { path = "../../interp" }
+paste = "1.0.15"
+
+[dev-dependencies]
+rand = "0.8.5"

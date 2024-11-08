@@ -344,15 +344,7 @@ dependencies = [
  "calyx-frontend",
  "calyx-ir",
  "interp",
-]
-
-[[package]]
-name = "calyx-ffi-example"
-version = "0.7.1"
-dependencies = [
- "calyx-ffi",
- "calyx-ir",
- "interp",
+ "paste",
  "rand 0.8.5",
 ]
 

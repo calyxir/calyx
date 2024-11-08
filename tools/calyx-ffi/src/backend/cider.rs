@@ -7,7 +7,7 @@ use interp::{
             context::Context as CiderContext, environment::Simulator,
         },
     },
-    BitVecOps, BitVecValue,
+    BitVecValue,
 };
 use std::rc::Rc;
 
@@ -29,20 +29,17 @@ impl CiderFFIBackend {
         Self { simulator }
     }
 
-    pub fn write_port(&mut self, name: &'static str, value: u64) {
+    pub fn write_port(&mut self, name: &'static str, value: &BitVecValue) {
         if name == "go" || name == "reset" {
             return;
         }
-        self.simulator
-            .pin_value(name, BitVecValue::from_u64(value, 64));
+        self.simulator.pin_value(name, value.clone());
     }
 
-    pub fn read_port(&self, name: &'static str) -> u64 {
+    pub fn read_port(&self, name: &'static str) -> BitVecValue {
         self.simulator
             .lookup_port_from_string(&String::from(name))
             .expect("wrong port name")
-            .to_u64()
-            .expect("type was not u64")
     }
 
     pub fn step(&mut self) {
@@ -86,7 +83,7 @@ macro_rules! cider_ffi_backend {
         // println!("cider_ffi_backend tick");
         let cider = unsafe { $dut.user_data.assume_init_mut() };
         $(
-            cider.write_port(stringify!($input), $dut.$input);
+            cider.write_port(stringify!($input), &$dut.$input);
         )*
         cider.step();
         $(
@@ -97,7 +94,7 @@ macro_rules! cider_ffi_backend {
         // println!("cider_ffi_backend go");
         let cider = unsafe { $dut.user_data.assume_init_mut() };
         $(
-            cider.write_port(stringify!($input), $dut.$input);
+            cider.write_port(stringify!($input), &$dut.$input);
         )*
         cider.go();
         $(

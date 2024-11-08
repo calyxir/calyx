@@ -9,27 +9,27 @@ macro_rules! useless_ffi_backend {
     };
     (@reset $dut:ident; $($input:ident),*; $($output:ident),*) => {
         println!("useless_ffi_backend reset");
-        $dut.done = 0;
-        $dut.reset = 1;
+        $dut.done = interp::BitVecValue::from_u64(0, $dut.done_width() as u32);
+        $dut.set_reset(1);
         for i in 0..5 {
             $dut.tick();
         }
-        $dut.reset = 0;
+        $dut.set_reset(0);
     };
     (@can_tick $dut:ident; $($input:ident),*; $($output:ident),*) => {
         true
     };
     (@tick $dut:ident; $($input:ident),*; $($output:ident),*) => {
         println!("useless_ffi_backend tick");
-        if $dut.done == 1 {
-            $dut.done = 0;
+        if $dut.done() == 1 {
+            $dut.set_reset(0);
         }
     };
     (@go $dut:ident; $($input:ident),*; $($output:ident),*) => {
         println!("useless_ffi_backend go");
-        $dut.go = 1;
-        $dut.go = 0;
-        $dut.done = 1;
+        $dut.set_go(1);
+        $dut.set_go(0);
+        $dut.done = interp::BitVecValue::from_u64(1, $dut.done_width() as u32);
         $dut.tick();
     };
 }

@@ -1,8 +1,8 @@
 use std::{env, path::PathBuf};
 
-use parse::CalyxFFIMacroArgs;
+use parse::{CalyxFFIMacroArgs, CalyxPortDeclaration};
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, spanned::Spanned};
 
 mod calyx;
@@ -48,32 +48,58 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let backend_macro = args.backend;
     let mut input_names = Vec::new();
     let mut output_names = Vec::new();
-    let mut field_names = vec![];
     let mut fields = vec![];
+    let mut default_field_inits = vec![];
     let mut getters = vec![];
+    let mut setters = vec![];
+    let mut width_getters = vec![];
 
     for port in comp.signature.borrow().ports() {
         let port_name_str = port.borrow().name.to_string();
         let port_name = syn::parse_str::<syn::Ident>(&port_name_str)
             .expect("failed to turn port name into identifier");
-        field_names.push(port_name.clone());
-        // let port_width = port.borrow().width;
+
+        let port_width = port.borrow().width;
+        let width_getter = format_ident!("{}_width", port_name);
+        width_getters.push(quote! {
+            pub const fn #width_getter() -> u64 {
+                #port_width
+            }
+        });
+
+        default_field_inits.push(quote! {
+            #port_name: calyx_ffi::value_from_u64::<#port_width>(0)
+        });
 
         // idk why input output ports are being flipped??
         match port.borrow().direction.reverse() {
             calyx_ir::Direction::Input => {
+                let setter = format_ident!("set_{}", port_name);
                 fields.push(quote! {
-                    pub #port_name: u64
+                    pub #port_name: calyx_ffi::Value<#port_width>
+                });
+                setters.push(quote! {
+                    pub fn #setter(&mut self, value: u64) {
+                        self.#port_name = calyx_ffi::value_from_u64::<#port_width>(value);
+                    }
                 });
                 input_names.push(port_name);
             }
             calyx_ir::Direction::Output => {
                 fields.push(quote! {
-                    #port_name: u64
+                    #port_name: calyx_ffi::Value<#port_width>
+
                 });
+
+                let bitvec_getter = format_ident!("{}_bits", port_name);
+
                 getters.push(quote! {
                     pub fn #port_name(&self) -> u64 {
-                        self.#port_name
+                        interp::BitVecOps::to_u64(&self.#port_name).expect("port value wider than 64 bits")
+                    }
+
+                    pub const fn #bitvec_getter(&self) -> &calyx_ffi::Value<#port_width> {
+                        &self.#port_name
                     }
                 });
                 output_names.push(port_name);
@@ -93,13 +119,15 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
     let impl_block = quote! {
         impl #name {
+            #(#width_getters)*
             #(#getters)*
+            #(#setters)*
         }
 
         impl std::default::Default for #name {
             fn default() -> Self {
                 Self {
-                    #(#field_names: std::default::Default::default(),)*
+                    #(#default_field_inits),*,
                     user_data: unsafe { std::mem::MaybeUninit::zeroed() }
                 }
             }
@@ -142,21 +170,34 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
         let trait_name = derive.name;
 
         let mut getters = Vec::new();
-        for output in derive.outputs {
+        for CalyxPortDeclaration(name, width) in derive.outputs {
+            let name_bits = format_ident!("{}_bits", &name);
+
             getters.push(quote! {
-                fn #output(&self) -> u64 {
-                    self.#output
+                fn #name_bits(&self) -> &calyx_ffi::Value<#width> {
+                    &self.#name
                 }
-            })
+
+                fn #name(&self) -> u64 {
+                    Self::#name(self)
+                }
+            });
         }
 
         let mut setters = Vec::new();
-        for input in derive.inputs {
+        for CalyxPortDeclaration(name, width) in derive.inputs {
+            let name_bits = format_ident!("{}_bits", name);
+            let setter = format_ident!("set_{}", name);
+
             setters.push(quote! {
-                fn #input(&mut self) -> &mut u64 {
-                    &mut self.#input
+                fn #name_bits(&mut self) -> &mut calyx_ffi::Value<#width> {
+                    &mut self.#name
                 }
-            })
+
+                fn #setter(&mut self, value: u64) {
+                    Self::#setter(self, value);
+                }
+            });
         }
 
         derive_impls.push(quote! {

@@ -6,10 +6,21 @@ use syn::{
     parse::{Parse, ParseStream},
 };
 
+pub struct CalyxPortDeclaration(pub syn::Ident, pub syn::LitInt);
+
+impl Parse for CalyxPortDeclaration {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name = input.parse::<syn::Ident>()?;
+        input.parse::<syn::Token![:]>()?;
+        let width = input.parse::<syn::LitInt>()?;
+        Ok(Self(name, width))
+    }
+}
+
 pub struct CalyxInterface {
     pub name: syn::Ident,
-    pub inputs: Vec<syn::Ident>,
-    pub outputs: Vec<syn::Ident>,
+    pub inputs: Vec<CalyxPortDeclaration>,
+    pub outputs: Vec<CalyxPortDeclaration>,
 }
 
 impl Parse for CalyxInterface {
@@ -19,13 +30,13 @@ impl Parse for CalyxInterface {
         let outputs;
         parenthesized!(inputs in input);
         let inputs = inputs
-            .parse_terminated(syn::Ident::parse, syn::Token![,])?
+            .parse_terminated(CalyxPortDeclaration::parse, syn::Token![,])?
             .into_iter()
             .collect();
         input.parse::<syn::Token![->]>()?;
         parenthesized!(outputs in input);
         let outputs = outputs
-            .parse_terminated(syn::Ident::parse, syn::Token![,])?
+            .parse_terminated(CalyxPortDeclaration::parse, syn::Token![,])?
             .into_iter()
             .collect();
         Ok(Self {

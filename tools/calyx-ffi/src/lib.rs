@@ -74,3 +74,9 @@ impl CalyxFFI {
         box_calyx_ffi_component(comp)
     }
 }
+
+pub type Value<const N: u64> = interp::BitVecValue;
+
+pub fn value_from_u64<const N: u64>(value: u64) -> Value<N> {
+    Value::from_u64(value, N as u32)
+}

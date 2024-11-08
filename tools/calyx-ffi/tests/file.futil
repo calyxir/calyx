@@ -1,5 +1,0 @@
-component main(foo: 1) -> () {
-  cells {}
-  wires {}
-  control {}
-}

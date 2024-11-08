@@ -23,7 +23,6 @@ members = [
     "tools/tb",
     "tools/calyx-ffi-macro",
     "tools/calyx-ffi",
-    "tools/tb/examples/calyx-native",
 ]
 
 [workspace.package]
