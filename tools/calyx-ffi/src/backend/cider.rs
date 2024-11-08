@@ -1,12 +1,13 @@
 use calyx_ir::Context;
 use interp::{
+    configuration::RuntimeConfig,
     flatten::{
         flat_ir,
         structures::{
             context::Context as CiderContext, environment::Simulator,
         },
     },
-    values::Value,
+    BitVecOps, BitVecValue,
 };
 use std::rc::Rc;
 
@@ -18,23 +19,30 @@ impl CiderFFIBackend {
     pub fn from(ctx: &Context, _name: &'static str) -> Self {
         // TODO(ethan, maybe griffin): use _name to select the component somehow
         let ctx = flat_ir::translate(ctx);
-        let simulator = Simulator::build_simulator(Rc::new(ctx), &None)
-            .expect("we live on the edge");
+        let simulator = Simulator::build_simulator(
+            Rc::new(ctx),
+            &None,
+            &None,
+            RuntimeConfig::default(),
+        )
+        .expect("we live on the edge");
         Self { simulator }
     }
 
     pub fn write_port(&mut self, name: &'static str, value: u64) {
-        if name == "go" {
+        if name == "go" || name == "reset" {
             return;
         }
-        self.simulator.pin_value(name, Value::from(value, 64));
+        self.simulator
+            .pin_value(name, BitVecValue::from_u64(value, 64));
     }
 
     pub fn read_port(&self, name: &'static str) -> u64 {
         self.simulator
             .lookup_port_from_string(&String::from(name))
             .expect("wrong port name")
-            .as_u64()
+            .to_u64()
+            .expect("type was not u64")
     }
 
     pub fn step(&mut self) {
@@ -75,7 +83,7 @@ macro_rules! cider_ffi_backend {
         true
     };
     (@tick $dut:ident; $($input:ident),*; $($output:ident),*) => {
-        println!("cider_ffi_backend tick");
+        // println!("cider_ffi_backend tick");
         let cider = unsafe { $dut.user_data.assume_init_mut() };
         $(
             cider.write_port(stringify!($input), $dut.$input);
@@ -86,7 +94,7 @@ macro_rules! cider_ffi_backend {
         )*
     };
     (@go $dut:ident; $($input:ident),*; $($output:ident),*) => {
-        println!("cider_ffi_backend go");
+        // println!("cider_ffi_backend go");
         let cider = unsafe { $dut.user_data.assume_init_mut() };
         $(
             cider.write_port(stringify!($input), $dut.$input);
