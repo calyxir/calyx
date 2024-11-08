@@ -3,6 +3,12 @@ use std::hash::Hash;
 
 use crate::flatten::structures::index_trait::{impl_index, IndexRef};
 
+/// An index type corresponding to a string.
+///
+/// Similar to [calyx_ir::Id] but cannot be turned into a string directly.
+/// Strings are stored in the interpretation context
+/// [crate::flatten::structures::context::Context] and can be looked up via
+/// [crate::flatten::structures::context::Context::lookup_name]
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Identifier(u32);
 
@@ -31,18 +37,28 @@ pub enum NameType {
     /// The standard port on a cell
     Cell,
 }
-
+/// The canonical way of representing a port definition. This is used to print values
 pub enum CanonicalIdentifier {
+    /// A normal port definition
     Standard {
+        /// The name of the port's parent
         parent: Identifier,
+        /// The name of the port
         name: Identifier,
+        /// The type of the parent
         name_type: NameType,
     },
     /// A constant literal
-    Literal { width: u64, val: u64 },
+    Literal {
+        /// The width of the literal
+        width: u64,
+        /// The value of the literal
+        val: u64,
+    },
 }
 
 impl CanonicalIdentifier {
+    /// Creates a new interface port
     pub fn interface_port(parent: Identifier, name: Identifier) -> Self {
         Self::Standard {
             parent,
@@ -51,6 +67,7 @@ impl CanonicalIdentifier {
         }
     }
 
+    /// Creates a new group hole port
     pub fn group_port(parent: Identifier, name: Identifier) -> Self {
         Self::Standard {
             parent,
@@ -59,6 +76,7 @@ impl CanonicalIdentifier {
         }
     }
 
+    /// Creates a new cell port
     pub fn cell_port(parent: Identifier, name: Identifier) -> Self {
         Self::Standard {
             parent,
@@ -67,10 +85,12 @@ impl CanonicalIdentifier {
         }
     }
 
+    /// Creates a new literal
     pub fn literal(width: u64, val: u64) -> Self {
         Self::Literal { width, val }
     }
 
+    /// Formats the name of the port
     pub fn format_name(&self, resolver: &IdMap) -> String {
         match self {
             CanonicalIdentifier::Standard {
@@ -92,6 +112,7 @@ impl CanonicalIdentifier {
         }
     }
 
+    /// Returns the name of the port, if it is not a literal
     pub fn name(&self) -> Option<&Identifier> {
         match self {
             CanonicalIdentifier::Standard { name, .. } => name.into(),

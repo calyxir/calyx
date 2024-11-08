@@ -8,14 +8,15 @@ rule get-rsrc
 
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
 args = 
 rule calyx
-  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
-  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
-flags = -p none
-rule calyx-with-flags
-  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
 python = python3
 build json-dat.py: get-rsrc
@@ -35,17 +36,17 @@ build tb.sv: get-rsrc
 verilator = verilator
 cycle-limit = 500000000
 rule verilator-compile-standalone-tb
-  command = $verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+  command = $verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
 rule verilator-compile-custom-tb
-  command = $verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+  command = $verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
 rule cp
   command = cp $in $out
 
 build verilog.sv: calyx _from_stdin_calyx.futil
   backend = verilog
-build verilator-out/VTOP: verilator-compile-standalone-tb verilog.sv | tb.sv
+build verilator-out/Vtoplevel: verilator-compile-standalone-tb verilog.sv | tb.sv
   out-dir = verilator-out
-build sim.exe: cp verilator-out/VTOP
+build sim.exe: cp verilator-out/Vtoplevel
 build sim.log: sim-run sim.exe $datadir
   bin = sim.exe
   args = +NOTRACE=1

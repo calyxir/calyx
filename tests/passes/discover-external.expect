@@ -22,5 +22,5 @@ component mlir_funcSYCL_class_vector_addition<"toplevel"=1>(@clk clk: 1, @reset 
   }
 }
 ---STDERR---
-[WARN  calyx_opt::passes::discover_external] Unable to infer parameter value for ext_mem0_ in comb_mem_d1, defaulting to 16
-[WARN  calyx_opt::passes::discover_external] Unable to infer parameter value for ext_mem1_ in comb_mem_d1, defaulting to 16
+[WARN  calyx_opt::passes_experimental::discover_external] Unable to infer parameter value for ext_mem0_ in comb_mem_d1, defaulting to 16
+[WARN  calyx_opt::passes_experimental::discover_external] Unable to infer parameter value for ext_mem1_ in comb_mem_d1, defaulting to 16

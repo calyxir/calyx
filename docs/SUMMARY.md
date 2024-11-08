@@ -26,6 +26,7 @@
   - [Scripting](./running-calyx/fud2/scripts.md)
 - [Interfacing with Calyx RTL](./running-calyx/interfacing.md)
 - [The Calyx Interpreter](./running-calyx/interpreter.md)
+- [FIRRTL Backend](./running-calyx/firrtl.md)
 
 # Compiler Development Guide
 
@@ -59,6 +60,7 @@
 - [`exp` Generator](./tools/exp-generator.md)
 - [Editor Highlighting](./tools/editor-highlighting.md)
 - [Language Server](./tools/language-server.md)
+- [Visualizing Compiler Passes](./dev/calyx-pass-explorer.md)
 
 ----
 [Contributors](./contributors.md)

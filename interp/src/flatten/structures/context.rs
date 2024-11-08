@@ -1,8 +1,13 @@
 use std::ops::Index;
 
+use calyx_ir::Direction;
+
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
-    component::{AuxillaryComponentInfo, ComponentCore, ComponentMap},
+    component::{
+        AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentCore,
+        ComponentMap,
+    },
     identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
@@ -20,8 +25,9 @@ use crate::flatten::flat_ir::{
 
 use super::{
     index_trait::{IndexRange, IndexRef},
-    indexed_map::{AuxillaryMap, IndexedMap},
+    indexed_map::{AuxiliaryMap, IndexedMap},
     printer::Printer,
+    sparse_map::AuxiliarySparseMap,
 };
 
 /// The immutable program context for the interpreter. Relevant at simulation
@@ -38,6 +44,10 @@ pub struct InterpretationContext {
     pub comb_groups: CombGroupMap,
     /// All assignment guards
     pub guards: GuardMap,
+    /// Map from guard to the ports it reads. Might be worth doing some extra
+    /// work to make this save memory since empty vecs for True guards is
+    /// probably not worth it
+    pub guard_read_map: AuxiliarySparseMap<GuardIdx, Vec<PortRef>>,
     /// Control trees
     pub control: ControlMap,
 }
@@ -90,16 +100,17 @@ impl Index<ControlIdx> for InterpretationContext {
     }
 }
 
-impl InterpretationContext {
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
-
+/// Information about a port definition
 #[derive(Debug)]
 pub struct PortDefinitionInfo {
+    /// The name of the port
     pub name: Identifier,
+    /// The width of the port
     pub width: usize,
+    /// Whether the port is data
+    pub is_data: bool,
+    /// The direction of the port
+    pub direction: Direction,
 }
 
 #[derive(Debug)]
@@ -116,8 +127,8 @@ pub struct SecondaryContext {
     pub local_cell_defs: IndexedMap<CellDefinitionIdx, CellInfo>,
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
-    /// auxillary information for components
-    pub comp_aux_info: AuxillaryMap<ComponentIdx, AuxillaryComponentInfo>,
+    /// auxiliary information for components
+    pub comp_aux_info: AuxiliaryMap<ComponentIdx, AuxiliaryComponentInfo>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -161,7 +172,7 @@ impl Index<RefCellDefinitionIdx> for SecondaryContext {
 }
 
 impl Index<ComponentIdx> for SecondaryContext {
-    type Output = AuxillaryComponentInfo;
+    type Output = AuxiliaryComponentInfo;
 
     fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.comp_aux_info[index]
@@ -169,43 +180,51 @@ impl Index<ComponentIdx> for SecondaryContext {
 }
 
 impl SecondaryContext {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
+    /// Insert a new local port definition into the context and return its index
     pub fn push_local_port(
         &mut self,
         name: Identifier,
         width: usize,
+        is_data: bool,
+        direction: Direction,
     ) -> PortDefinitionIdx {
-        self.local_port_defs
-            .push(PortDefinitionInfo { name, width })
+        self.local_port_defs.push(PortDefinitionInfo {
+            name,
+            width,
+            is_data,
+            direction,
+        })
     }
 
+    /// Insert a new reference port definition into the context and return its index
     pub fn push_ref_port(&mut self, id: Identifier) -> RefPortDefinitionIdx {
         self.ref_port_defs.push(id)
     }
 
+    /// Insert a new local cell definition into the context and return its index
     pub fn push_local_cell(
         &mut self,
         name: Identifier,
         ports: IndexRange<LocalPortOffset>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> CellDefinitionIdx {
         self.local_cell_defs
-            .push(CellInfo::new(name, ports, parent, prototype))
+            .push(CellInfo::new(name, ports, parent, prototype, is_data))
     }
 
+    /// Insert a new reference cell definition into the context and return its index
     pub fn push_ref_cell(
         &mut self,
         name: Identifier,
         ports: IndexRange<LocalRefPortOffset>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> RefCellDefinitionIdx {
         self.ref_cell_defs
-            .push(RefCellInfo::new(name, ports, parent, prototype))
+            .push(RefCellInfo::new(name, ports, parent, prototype, is_data))
     }
 }
 
@@ -258,19 +277,24 @@ impl From<(InterpretationContext, SecondaryContext)> for Context {
 }
 
 impl Context {
+    /// Create a new empty context
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Resolve the string associated with the given identifier
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
         self.secondary.string_table.lookup_string(&id).unwrap()
     }
 
+    /// Create a new printer for the given context
     pub fn printer(&self) -> Printer {
         Printer::new(self)
     }
 
+    /// lookup the port definition for a port offset in a given component. This
+    /// will error is the offset is not valid.
     pub fn lookup_port_def(
         &self,
         comp: &ComponentIdx,
@@ -280,6 +304,8 @@ impl Context {
             [self.secondary.comp_aux_info[*comp].port_offset_map[port]]
     }
 
+    /// Lookup the reference port definition for a port offset in a given
+    /// component. This will error is the offset is not valid.
     pub fn lookup_ref_port_def(
         &self,
         comp: &ComponentIdx,
@@ -289,6 +315,8 @@ impl Context {
             [self.secondary.comp_aux_info[*comp].ref_port_offset_map[port]]
     }
 
+    /// Lookup the local cell definition for a cell offset in a given component.
+    /// This will error is the offset is not valid.
     pub fn lookup_cell_def(
         &self,
         comp: &ComponentIdx,
@@ -298,6 +326,8 @@ impl Context {
             [self.secondary.comp_aux_info[*comp].cell_offset_map[cell]]
     }
 
+    /// Lookup the reference cell definition for a cell offset in a given
+    /// component. This will error is the offset is not valid.
     pub fn lookup_ref_cell_def(
         &self,
         comp: &ComponentIdx,
@@ -323,6 +353,7 @@ impl Context {
         }
     }
 
+    /// Returns the component index with the given name, if such a component exists
     pub fn lookup_comp_by_name(&self, name: &str) -> Option<ComponentIdx> {
         self.primary
             .components
@@ -330,6 +361,7 @@ impl Context {
             .find(|c| self.resolve_id(self.secondary[*c].name) == name)
     }
 
+    /// Returns the group index with the given name within the given component, if such a group exists
     pub fn lookup_group_by_name(
         &self,
         name: &str,
@@ -342,6 +374,7 @@ impl Context {
             .find(|x| self.resolve_id(self.primary[*x].name()) == name)
     }
 
+    /// Return the index of the component which defines the given group
     pub fn get_component_from_group(&self, group: GroupIdx) -> ComponentIdx {
         self.primary
             .components
@@ -398,8 +431,30 @@ impl Context {
         }
     }
 
+    /// Lookup the name of the given object. This is used for definitions. For
+    /// instances, see [`Environment::get_full_name`](crate::flatten::structures::environment::Environment::get_full_name)
     pub fn lookup_name<T: LookupName>(&self, id: T) -> &String {
         id.lookup_name(self)
+    }
+
+    /// Returns information about where an assignment is defined and the
+    /// component in which it is defined.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the given assignment is not defined in any
+    /// component.
+    pub fn find_assignment_definition(
+        &self,
+        target: AssignmentIdx,
+    ) -> (ComponentIdx, AssignmentDefinitionLocation) {
+        for (idx, comp) in self.primary.components.iter() {
+            let found = comp.contains_assignment(self, target);
+            if let Some(found) = found {
+                return (idx, found);
+            }
+        }
+        unreachable!("Assignment does not belong to any component");
     }
 }
 
@@ -409,7 +464,10 @@ impl AsRef<Context> for &Context {
     }
 }
 
+/// A trait for objects which have a name associated with them in the context.
+/// This is used for definitions.
 pub trait LookupName {
+    /// Lookup the name of the object
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String;
 }
 
@@ -431,5 +489,12 @@ impl LookupName for Identifier {
     #[inline]
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
         ctx.resolve_id(*self)
+    }
+}
+
+impl LookupName for CombGroupIdx {
+    #[inline]
+    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
+        ctx.resolve_id(ctx.primary[*self].name())
     }
 }

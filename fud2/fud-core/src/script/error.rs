@@ -21,6 +21,7 @@ pub(super) enum RhaiSystemErrorKind {
     ExpectedString(String),
     ExpectedShell,
     ExpectedShellDeps,
+    EmptyOp,
 }
 
 impl RhaiSystemError {
@@ -90,6 +91,13 @@ impl RhaiSystemError {
         }
     }
 
+    pub(super) fn empty_op() -> Self {
+        Self {
+            kind: RhaiSystemErrorKind::EmptyOp,
+            position: rhai::Position::NONE,
+        }
+    }
+
     pub(super) fn with_pos(mut self, p: rhai::Position) -> Self {
         self.position = p;
         self
@@ -128,6 +136,9 @@ impl Display for RhaiSystemError {
             }
             RhaiSystemErrorKind::ExpectedShellDeps => {
                 write!(f, "Expected `shell_deps`, got `shell`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
+            }
+            RhaiSystemErrorKind::EmptyOp => {
+                write!(f, "Error: Op must contain at least one call to `shell` or `shell_deps`.")
             }
         }
     }

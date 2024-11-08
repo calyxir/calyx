@@ -1,3 +1,5 @@
+//! This module contains the core data structures and commands used by the debugger
+
 use itertools::{self, Itertools};
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
@@ -40,6 +42,8 @@ impl Display for WatchpointIdx {
     }
 }
 
+/// The name of a group taken from user input. The component may be elided in
+/// which case it is generally assumed to be the entry point.
 #[derive(Debug)]
 pub struct ParsedGroupName {
     component: Option<String>,
@@ -47,6 +51,7 @@ pub struct ParsedGroupName {
 }
 
 impl ParsedGroupName {
+    /// Create a new [ParsedGroupName] from just a group name.
     pub fn from_group_name(group: String) -> Self {
         Self {
             component: None,
@@ -54,6 +59,7 @@ impl ParsedGroupName {
         }
     }
 
+    /// Create a new [ParsedGroupName] from a component and group name.
     pub fn from_comp_and_group(component: String, group: String) -> Self {
         Self {
             component: Some(component),
@@ -61,28 +67,8 @@ impl ParsedGroupName {
         }
     }
 
-    pub fn is_concrete(&self) -> bool {
-        self.component.is_some()
-    }
-
-    pub fn concretize(&self, component: String) -> GroupName {
-        GroupName {
-            component: self.component.as_ref().cloned().unwrap_or(component),
-            group: self.group.clone(),
-        }
-    }
-
-    pub fn get_concrete(&self) -> Option<GroupName> {
-        if self.is_concrete() {
-            Some(GroupName {
-                component: self.component.as_ref().cloned().unwrap(),
-                group: self.group.clone(),
-            })
-        } else {
-            None
-        }
-    }
-
+    /// Attempts to look up the group of the given name in the context. If the
+    /// group lacks a component, it is assumed to be the entry point.
     pub fn lookup_group(&self, context: &Context) -> Result<GroupIdx, String> {
         let comp = if let Some(c) = &self.component {
             context
@@ -98,18 +84,17 @@ impl ParsedGroupName {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct GroupName {
-    pub component: String,
-    pub group: String,
-}
-
+/// An enum representing a breakpoint/watchpoint from user input. This may or
+/// may not be valid.
 pub enum ParsedBreakPointID {
+    /// A breakpoint given by the group name.
     Name(ParsedGroupName),
+    /// A breakpoint given by the identifying number.
     Number(u32),
 }
 
 impl ParsedBreakPointID {
+    /// Attempts to parse the breakpoint from user input into a concrete [BreakpointID].
     pub fn parse_to_break_ids(
         &self,
         context: &Context,
@@ -125,6 +110,7 @@ impl ParsedBreakPointID {
         }
     }
 
+    /// Attempts to parse the watchpoint from user input into a concrete [WatchID].
     pub fn parse_to_watch_ids(
         &self,
         context: &Context,
@@ -153,12 +139,19 @@ impl From<ParsedGroupName> for ParsedBreakPointID {
     }
 }
 
+/// A concrete breakpoint
 pub enum BreakpointID {
+    /// A breakpoint on the given group. This does not guarantee that there is
+    /// such a breakpoint, but it does guarantee that the group exists.
     Name(GroupIdx),
+    /// A breakpoint on the given ID. This does not guarantee that there is a
+    /// breakpoint by the given ID. In such cases, operations on the breakpoint
+    /// will produce an error.
     Number(BreakpointIdx),
 }
 
 impl BreakpointID {
+    /// Attempts to get the breakpoint ID as a number.
     #[must_use]
     pub fn as_number(&self) -> Option<&BreakpointIdx> {
         if let Self::Number(v) = self {
@@ -168,6 +161,7 @@ impl BreakpointID {
         }
     }
 
+    /// Attempts to get the breakpoint ID as a group.
     #[must_use]
     pub fn as_name(&self) -> Option<&GroupIdx> {
         if let Self::Name(v) = self {
@@ -178,12 +172,21 @@ impl BreakpointID {
     }
 }
 
+/// A concrete watchpoint
 pub enum WatchID {
+    /// A watchpoint on the given group. This does not guarantee that there is
+    /// such a watchpoint, but it does guarantee that the group exists. Since
+    /// multiple watchpoints may exist for a single group, any operation applied
+    /// to this watchpoint will affect all of them.
     Name(GroupIdx),
+    /// A watchpoint on the given ID. This does not guarantee that there is a
+    /// watchpoint by the given ID. In such cases, operations on the watchpoint
+    /// will produce an error.
     Number(WatchpointIdx),
 }
 
 impl WatchID {
+    /// Attempts to get the watchpoint ID as a name.
     #[must_use]
     pub fn as_name(&self) -> Option<&GroupIdx> {
         if let Self::Name(v) = self {
@@ -193,6 +196,7 @@ impl WatchID {
         }
     }
 
+    /// Attempts to get the watchpoint ID as a number.
     #[must_use]
     pub fn as_number(&self) -> Option<&WatchpointIdx> {
         if let Self::Number(v) = self {
@@ -203,9 +207,12 @@ impl WatchID {
     }
 }
 
+/// The position of a watchpoint relative to a group's execution.
 #[derive(Clone, Copy, Debug)]
 pub enum WatchPosition {
+    /// The watchpoint is placed at the beginning of the group execution.
     Before,
+    /// The watchpoint is placed at the end of the group execution.
     After,
 }
 
@@ -215,27 +222,42 @@ impl Default for WatchPosition {
     }
 }
 
+/// An enum representing what information the print command targets.
 #[derive(Debug, Clone, Copy)]
 pub enum PrintMode {
+    /// The print command targets the state of the cell. This only works for
+    /// cells which contain internal state such as registers or memories.
     State,
+    /// The print command targets the port information. This may be applied to a
+    /// single port, or the cell in which case all ports are printed.
     Port,
 }
+
+/// A tuple representing a print command.
+///
+/// The tuple consists of a list of paths to the targets to print, an optional
+/// print code used to format the information, and the print mode.
 #[derive(Debug, Clone)]
 pub struct PrintTuple(Vec<Path>, Option<PrintCode>, PrintMode);
 
 impl PrintTuple {
+    /// Returns a reference to the list of targets to print.
     pub fn target(&self) -> &Vec<Path> {
         &self.0
     }
 
+    /// Returns a reference to the print code.
     pub fn print_code(&self) -> &Option<PrintCode> {
         &self.1
     }
 
+    /// Returns a reference to the print mode.
     pub fn print_mode(&self) -> &PrintMode {
         &self.2
     }
 
+    /// Return a formatted string representing the print tuple. Used to display
+    /// stored watchpoints to the user.
     pub fn format<C: AsRef<Context> + Clone>(
         &self,
         env: &Environment<C>,
@@ -277,24 +299,44 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
     }
 }
 
+/// A command that can be sent to the debugger.
 pub enum Command {
-    Step(u32),                                             // Step execution
-    Continue, // Execute until breakpoint
-    Empty,    // Empty command, does nothing
-    Display,  // Display full environment contents
-    Print(Vec<Vec<String>>, Option<PrintCode>, PrintMode), // Print something
-    Break(Vec<ParsedGroupName>), // Create a breakpoint
-    Help,     // Help message
-    Exit,     // Exit the debugger
-    InfoBreak, // List breakpoints
+    /// Advance the execution by a given number of steps (cycles).
+    Step(u32),
+    /// Execute until the next breakpoint. Or until the program finishes
+    Continue,
+    /// Empty command, does nothing.
+    Empty,
+    /// Display the full environment contents. Currently this command is defunct
+    Display,
+    /// Print out the value of the given target. Can be configured with
+    /// different modes and print formats.
+    Print(Vec<Vec<String>>, Option<PrintCode>, PrintMode),
+    /// Create a breakpoint on the given groups.
+    Break(Vec<ParsedGroupName>),
+    /// Display the help message.
+    Help,
+    /// Exit the debugger.
+    Exit,
+    /// List all breakpoints.
+    InfoBreak,
+    /// List all watchpoints.
     InfoWatch,
+    /// Disable the given breakpoints.
     Disable(Vec<ParsedBreakPointID>),
+    /// Enable the given breakpoints.
     Enable(Vec<ParsedBreakPointID>),
+    /// Delete the given breakpoints.
     Delete(Vec<ParsedBreakPointID>),
+    /// Enable the given watchpoints.
     EnableWatch(Vec<ParsedBreakPointID>),
+    /// Disable the given watchpoints.
     DisableWatch(Vec<ParsedBreakPointID>),
+    /// Delete the given watchpoints.
     DeleteWatch(Vec<ParsedBreakPointID>),
+    /// Advance the execution until the given group is no longer running.
     StepOver(ParsedGroupName),
+    /// Create a watchpoint
     Watch(
         ParsedGroupName,
         WatchPosition,
@@ -302,8 +344,11 @@ pub enum Command {
         Option<PrintCode>,
         PrintMode,
     ),
+    /// Print the current program counter
     PrintPC(bool),
+    /// Show command examples
     Explain,
+    /// Restart the debugger from the beginning of the execution. Command history, breakpoints, watchpoints, etc. are preserved.
     Restart,
 }
 
@@ -312,21 +357,24 @@ type UsageExample = &'static str;
 type CommandName = &'static str;
 
 impl Command {
+    /// Returns the help message for the debugger.
     pub fn get_help_string() -> String {
         let mut out = String::new();
+
         for CommandInfo {
             invocation: names,
             description: message,
             ..
         } in COMMAND_INFO.iter()
         {
-            writeln!(out, "    {: <20}{}", names.join(", "), message.green())
+            writeln!(out, "    {: <30}{}", names.join(", "), message.green())
                 .unwrap();
         }
 
         out
     }
 
+    /// Returns the usage examples for the debugger.
     pub fn get_explain_string() -> String {
         let mut out = String::new();
         for CommandInfo {
@@ -413,19 +461,36 @@ lazy_static! {
                 .description("Delete target breakpoint")
                 .usage("> del 1").usage("> del do_add").build(),
             // enable
-            CIBuilder::new().invocation("enable")
+            CIBuilder::new().invocation("enable").invocation("en")
                 .description("Enable target breakpoint")
                 .usage("> enable 1").usage("> enable do_add").build(),
             // disable
-            CIBuilder::new().invocation("disable")
+            CIBuilder::new().invocation("disable").invocation("dis")
                 .description("Disable target breakpoint")
                 .usage("> disable 4").usage("> disable do_mult").build(),
+
+            // del watch
+            CIBuilder::new().invocation("delete-watch").invocation("delw")
+                .description("Delete target watchpoint")
+                .usage("> delete-watch 1")
+                .usage("> delete-watch do_add").build(),
+
+            CIBuilder::new().invocation("enable-watch").invocation("enw")
+                .description("Enable target watchpoint")
+                .usage("> enable-watch 1")
+                .usage("> enable-watch do_add").build(),
+
+            CIBuilder::new().invocation("disable-watch").invocation("disw")
+                .description("Disable target watchpoint")
+                .usage("> disable-watch 4")
+                .usage("> disable-watch do_mult").build(),
+
             // explain
             CIBuilder::new().invocation("explain")
                 .description("Show examples of commands which take arguments").build(),
             CIBuilder::new().invocation("restart")
-                .description("Restart the debugger from the beginning of the execution. Command history, breakpoints, watchpoints, etc. are preserved").build(),
-            // exit/quit
+                .description("Restart the debugger from the beginning of the execution. Command history, breakpoints, watchpoints, etc. are preserved")
+                .build(),
             CIBuilder::new().invocation("exit")
                 .invocation("quit")
                 .description("Exit the debugger").build(),
@@ -434,7 +499,7 @@ lazy_static! {
 }
 
 #[derive(Clone, Debug)]
-pub struct CommandInfo {
+struct CommandInfo {
     invocation: Vec<CommandName>,
     description: Description,
     usage_example: Vec<UsageExample>,

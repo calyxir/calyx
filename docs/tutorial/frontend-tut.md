@@ -115,7 +115,7 @@ The compilation process breaks into two steps:
 ## Parsing MrXL into an AST
 
 To start, we'll parse the MrXL program into a Python AST representation.
-We choose to represent [AST][astcode] nodes with [Python dataclasses][].
+We choose to represent [AST][mrxl-ast] nodes with [Python dataclasses][].
 A program is a sequence of array/register declarations followed by computation statements:
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:prog}}
@@ -445,7 +445,6 @@ mrxl frontends/mrxl/test/squares.mrxl --data frontends/mrxl/test/squares.mrxl.da
 
 This transformation is achieved using a [`fud`][fud] pass that converts MrXL-native data files into Calyx-native data files.
 
-[astcode]: https://github.com/calyxir/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
 [fud]: ../running-calyx/fud/index.md
 [fud-data]: ../lang/data-format.md

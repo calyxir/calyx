@@ -1,0 +1,7 @@
+component main() -> () {
+    cells {
+        f = std_float_const(0, 16, 0.5);
+    }
+    wires {}
+    control {}
+}

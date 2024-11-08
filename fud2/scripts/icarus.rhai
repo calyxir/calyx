@@ -7,11 +7,11 @@ fn icarus_setup(e) {
     e.var_("iverilog", "iverilog");
     e.rule(
         "icarus-compile-standalone-tb",
-        "$iverilog -g2012 -o $out tb.sv $in",
+        "$iverilog -g2012 -s toplevel -o $out tb.sv $in",
     );
     e.rule(
         "icarus-compile-custom-tb",
-        "$iverilog -g2012 -o $out tb.sv memories.sv $in",
+        "$iverilog -g2012 -s toplevel -o $out tb.sv memories.sv $in",
     );
 }
 
