@@ -1,3 +1,5 @@
+// this file is extended with .rs_ instead of .rs to avoid clippy errors
+
 use calyx_ffi::prelude::*;
 
 use calyx_ffi::cider_ffi_backend;
