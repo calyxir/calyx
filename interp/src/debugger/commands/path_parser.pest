@@ -1,0 +1,11 @@
+root = { "." }
+
+seperator = { "-" }
+
+body = { "b" }
+
+num = { ASCII_DIGIT+ }
+
+clause = { seperator ~ (body | num) }
+
+path = { SOI ~ root ~ clause* ~ EOI }

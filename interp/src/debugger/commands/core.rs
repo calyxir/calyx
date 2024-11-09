@@ -298,6 +298,13 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
         PrintTuple(val.0, val.1, val.2)
     }
 }
+pub enum ParsePath {
+    Root,
+    Body,
+    Offset(u32),
+    Separator,
+    End,
+}
 
 // Different types of printing commands
 pub enum PrintCommand {
