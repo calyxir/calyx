@@ -4,28 +4,31 @@ use interp::{
     flatten::{
         flat_ir,
         structures::{
-            context::Context as CiderContext, environment::Simulator,
+            context::Context as CiderContext,
+            environment::{BaseSimulator, Environment},
         },
     },
     BitVecValue,
 };
 use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct CiderFFIBackend {
-    simulator: Simulator<Rc<CiderContext>>,
+    simulator: BaseSimulator<Rc<CiderContext>>,
 }
 
 impl CiderFFIBackend {
     pub fn from(ctx: &Context, _name: &'static str) -> Self {
         // TODO(ethan, maybe griffin): use _name to select the component somehow
         let ctx = flat_ir::translate(ctx);
-        let simulator = Simulator::build_simulator(
+        let config = RuntimeConfig::default();
+        let enviroment = Environment::new(
             Rc::new(ctx),
-            &None,
-            &None,
-            RuntimeConfig::default(),
-        )
-        .expect("we live on the edge");
+            None,
+            false,
+            config.get_logging_config(),
+        );
+        let simulator = BaseSimulator::new(enviroment, config);
         Self { simulator }
     }
 
@@ -49,7 +52,9 @@ impl CiderFFIBackend {
     }
 
     pub fn go(&mut self) {
-        self.simulator.run_program().expect("failed to run program");
+        self.simulator
+            .run_program_inner(None)
+            .expect("failed to run program");
         self.step(); // since griffin said so
     }
 }

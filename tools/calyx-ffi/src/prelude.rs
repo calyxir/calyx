@@ -7,7 +7,11 @@ pub use interp;
 
 #[macro_export]
 macro_rules! declare_interface {
-    ($name:ident($($input:ident: $input_width:literal),*) -> ($($output:ident: $output_width:literal),*)) => {
+    ($name:ident($($input:ident: $input_width:literal),*)
+    -> ($($output:ident: $output_width:literal),*)
+    $(impl {
+        $(fn $fn:ident(&mut $self:ident $(, $arg:ident: $argty:ty)* $(,)?) $(-> $ret:ty)? $body:block)*
+    })? ) => {
         paste::paste! {
             pub trait $name: CalyxFFIComponent {
                 $(
@@ -20,6 +24,9 @@ macro_rules! declare_interface {
 
                     fn $output(&self) -> u64;
                 )*
+                $($(
+                    fn $fn(&mut $self, $($arg: $argty),*) $(-> $ret)* {$body}
+                )*)*
             }
         }
     };

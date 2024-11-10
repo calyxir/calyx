@@ -1,0 +1,57 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+
+component main(cmd: 1, value: 32) -> (out: 32) {
+    cells {
+        store = seq_mem_d1(32, 16, 4);
+        next = std_reg(            4);
+        incr = std_add(            4);
+        decr = std_sub(            4);
+        last = std_reg(32);
+    }
+    wires {
+        out = last.out;
+
+        group write_at_next {
+            store.addr0 = next.out;
+            store.write_data = value;
+            store.write_en = 1'b1;
+            write_at_next[done] = store.done;
+        }
+        group read_from_next {
+            store.addr0 = next.out;
+            last.in = store.read_data;
+            last.write_en = 1'b1;
+            read_from_next[done] = last.done;
+        }
+        group increment_next {
+            incr.left = next.out;
+            incr.right = 4'd1;
+            next.in = incr.out;
+            next.write_en = 1'b1;
+            increment_next[done] = next.done;
+        }
+        group decrement_next {
+            decr.left = next.out;
+            decr.right = 4'd1;
+            next.in = decr.out;
+            next.write_en = 1'b1;
+            decrement_next[done] = next.done;
+        }
+    }
+    control {
+        if cmd {
+            seq {
+                write_at_next;
+                increment_next;
+            }
+        } else {
+            seq {
+                decrement_next;
+                read_from_next;
+            }
+        }
+    }
+}
+
