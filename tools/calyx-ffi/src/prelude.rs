@@ -4,6 +4,7 @@ pub use super::{
 pub use calyx_ffi_macro::{calyx_ffi, calyx_ffi_test, calyx_ffi_tests};
 pub use calyx_ir;
 pub use interp;
+pub use paste;
 
 #[macro_export]
 macro_rules! declare_interface {
@@ -12,7 +13,7 @@ macro_rules! declare_interface {
     $(impl {
         $(fn $fn:ident(&mut $self:ident $(, $arg:ident: $argty:ty)* $(,)?) $(-> $ret:ty)? $body:block)*
     })? ) => {
-        paste::paste! {
+        calyx_ffi::prelude::paste::paste! {
             pub trait $name: CalyxFFIComponent {
                 $(
                     fn [<$input _bits>](&mut self) -> &mut calyx_ffi::Value<$input_width>;
