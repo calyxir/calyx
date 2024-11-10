@@ -96,24 +96,23 @@ impl ControlPoint {
                 _ => {}
             };
             // At root, at end to process logic above.
-            if string_path == String::from("") {
-                string_path = string_path + ".";
+            if string_path == "" {
+                string_path += ".";
                 continue;
             }
             let control_type = if body {
                 body = false;
                 count = -1;
                 String::from("b")
+            } else if if_branches.contains_key(&control_idx) {
+                let (_, branch) =
+                    if_branches.get_key_value(&control_idx).unwrap();
+                branch.clone()
             } else {
-                if if_branches.contains_key(&control_idx) {
-                    let (_, branch) =
-                        if_branches.get_key_value(&control_idx).unwrap();
-                    branch.clone()
-                } else {
-                    count += 1;
-                    count.to_string()
-                }
+                count += 1;
+                count.to_string()
             };
+
             string_path = string_path + "-" + &control_type;
         }
         string_path
