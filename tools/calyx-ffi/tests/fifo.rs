@@ -50,33 +50,6 @@ calyx_ffi::declare_interface! {
 )]
 struct Fifo;
 
-// struct State<T> {
-//     inner: T,
-// }
-//
-// struct EquationalStrategy<T> {
-//     leaves: Vec<T>,
-//     builders:
-// }
-//
-// impl<T> Strategy<T> for EquationalStrategy<T> {
-//    fn generate(&mut self) -> T {
-//         self.leaves.ra
-//     }
-// }
-//
-// trait Strategy<T> {
-//     fn generate(&mut self) -> T;
-//
-//     fn evolve(&mut self, value: &mut T) {
-//         *value = self.generate();
-//     }
-// }
-//
-// struct FifoStrategy: Strategy<Fifo> {
-//
-// }
-
 #[cfg(test)]
 #[calyx_ffi_tests]
 mod tests {
