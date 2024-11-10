@@ -103,18 +103,18 @@ impl ControlPoint {
             let control_type = if body {
                 body = false;
                 count = -1;
-                "b"
+                String::from("b")
             } else {
                 if if_branches.contains_key(&control_idx) {
                     let (_, branch) =
                         if_branches.get_key_value(&control_idx).unwrap();
-                    branch
+                    branch.clone()
                 } else {
                     count += 1;
-                    &count.to_string()
+                    count.to_string()
                 }
             };
-            string_path = string_path + "-" + control_type;
+            string_path = string_path + "-" + &control_type;
         }
         string_path
     }
