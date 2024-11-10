@@ -96,7 +96,7 @@ impl ControlPoint {
                 _ => {}
             };
             // At root, at end to process logic above.
-            if string_path == "" {
+            if string_path.is_empty() {
                 string_path += ".";
                 continue;
             }
