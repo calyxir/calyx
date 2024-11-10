@@ -9,7 +9,7 @@ use super::{
 pub struct ThreadIdx(NonZeroU32);
 impl_index_nonzero!(ThreadIdx);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ThreadInfo {
     parent: Option<ThreadIdx>,
     clock_id: ClockIdx,
@@ -25,7 +25,7 @@ impl ThreadInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ThreadMap {
     map: IndexedMap<ThreadIdx, ThreadInfo>,
 }

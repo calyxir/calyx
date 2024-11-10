@@ -143,6 +143,20 @@ where
         Self::new()
     }
 }
+
+impl<T, K> Clone for IndexedMap<K, T>
+where
+    K: IndexRef,
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            phantom: PhantomData,
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub struct IndexedMapRangeIterator<'range, 'data, K, D>
 where
