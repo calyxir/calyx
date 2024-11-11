@@ -4,19 +4,21 @@
 #
 # Positional Arguments:
 #  PCAP                Packet Capture to parse
-#  Addr2Flow           JSON mapping MAC addresses to integer flows
 #  Out                 Path to save generated .data file
 #
 # Options:
 #  -h --help           Display this message
 #
-#  --num-packets  N    No. packets in PCAP to parse
-#                      [default: 500]
+#  --start        S    Start parsing from packet number S (0-indexed)
+#                      [default: 0]
 #
-#  --clock-period C    Clock period of hardware in ns
+#  --end          E    Stop parsing at packet number E - 1 (0-indexed)
+#                      [default: last packet in PCAP]
+#
+#  --clock-period C    Clock period of the hardware in ns
 #                      [default: 7]
 #
-#  --line-rate    L    Target line rate for pop frequency calculation in Gbit/s
+#  --line-rate    L    Target line rate for the pop frequency calculation in Gbit/s
 #                      [default: 1]
 #
 #  --pop-tick     P    Time between consecutive pops in ns
@@ -30,7 +32,7 @@
 #                      [default: max value in Addr2Int + 1]
 #
 # Example:
-#   python3 parse_pcap.py example.pcap example.data --addr2int addr2int.json --num-packets 250
+#   python3 parse_pcap.py example.pcap example.data --start 10 --end 20 --num-flows 3
 
 import sys
 import random
@@ -45,12 +47,27 @@ CMD_POP = 0
 DONTCARE = 0
 
 CLOCK_PERIOD = 7  # in ns
-NUM_PKTS = 500
-POP_TICK = None  # in ns
 LINE_RATE = 1  # in Gbit/s
+START = 0
+
+POP_TICK = None  # in ns
+ADDR2INT = None
+NUM_FLOWS = None
+END = None
+
+PKTS_PER_SEC = None
+BITS_PER_SEC = None
 
 
 class UnknownAddress(Exception):
+    pass
+
+
+class OutOfBounds(Exception):
+    pass
+
+
+class InvalidRange(Exception):
     pass
 
 
@@ -86,8 +103,9 @@ def parse_cmdline():
         return x
 
     parser.add_argument(
-        "--num-packets", type=check_positive_int, action="store", default=NUM_PKTS
+        "--start", type=check_positive_int, action="store", default=START
     )
+    parser.add_argument("--end", type=check_positive_int, action="store")
     parser.add_argument(
         "--clock-period", type=check_positive_int, action="store", default=CLOCK_PERIOD
     )
@@ -116,48 +134,78 @@ def parse_cmdline():
     return parser.parse_args()
 
 
-def parse_pcap(pcap, addr2int, num_flows):
+def parse_pcap(pcap_file):
     global POP_TICK
+    global ADDR2INT
+    global NUM_FLOWS
+    global END
+
+    global PKTS_PER_SEC
+    global BITS_PER_SEC
 
     def mac_addr(addr):
         return ":".join("%02x" % dpkt.compat.compat_ord(b) for b in addr)
 
-    offset = None
+    pcap = dpkt.pcap.Reader(pcap_file)
+
+    star_ts = None
+    end_ts = None
     total_size = 0
-    make_addr_map = addr2int == None
-    if make_addr_map:
-        addr2int = {}
-        addr_count = 0
-    for i, (ts, buf) in zip(range(NUM_PKTS), pcap):
-        if i == 0:
-            offset = ts
+    make_addr_map = ADDR2INT is None
+    ADDR2INT = {} if ADDR2INT is None else ADDR2INT
+    addr_count, pkt_count = 0, 0
+    for i, (ts, buf) in enumerate(pcap):
+        if i < START:
+            continue
+        elif i == START:
+            start_ts = ts
+        elif END is not None and i >= END:
+            break
 
         eth = dpkt.ethernet.Ethernet(buf)
         addr = mac_addr(eth.src)
-        if addr not in addr2int:
+        if addr not in ADDR2INT:
             if make_addr_map:
-                addr2int[addr] = addr_count
+                ADDR2INT[addr] = addr_count
                 addr_count += 1
             else:
                 raise UnknownAddress(
-                    f"MAC address {addr} for packet {i} not found in Addr2Flow map:\n {addr2int}"
+                    f"MAC address {addr} for packet {i} not found in Addr2Int map"
                 )
 
         total_size += len(buf)
+        pkt_count += 1
+        end_ts = ts
+    END = START + pkt_count if END is None else END
 
-    if num_flows is None:
-        num_flows = max(addr2int[addr] for addr in addr2int) + 1
+    if start_ts is None:
+        raise OutOfBounds(f"Index {START} out of bounds for PCAP {pcap_file.name}")
+    elif START >= END:
+        raise InvalidRange(f"Start index {START} >= end index {END}")
+
+    total_time = end_ts - start_ts
+    PKTS_PER_SEC = (END - START) / total_time
+    BITS_PER_SEC = (total_size * 8) / total_time
+
+    if NUM_FLOWS is None:
+        NUM_FLOWS = max(ADDR2INT[addr] for addr in ADDR2INT) + 1
 
     if POP_TICK is None:
-        POP_TICK = int((total_size * 8) // (LINE_RATE * NUM_PKTS))
+        POP_TICK = int((total_size * 8) // (LINE_RATE * (END - START)))
 
     pcap_file.seek(0)
     pcap = dpkt.pcap.Reader(pcap_file)
+
     data = {"commands": [], "arrival_cycles": [], "flows": [], "pkt_ids": []}
     prev_time = 0
     pkts_in_switch = 0
-    for i, (ts, buf) in zip(range(NUM_PKTS), pcap):
-        time = (ts - offset) * 10**9
+    for i, (ts, buf) in enumerate(pcap):
+        if i < START:
+            continue
+        elif i >= END:
+            break
+
+        time = (ts - start_ts) * 10**9
 
         pop_time = (prev_time % POP_TICK) + prev_time
         num_pops = int((time - pop_time) // POP_TICK) if time > pop_time else 0
@@ -174,7 +222,7 @@ def parse_pcap(pcap, addr2int, num_flows):
 
         eth = dpkt.ethernet.Ethernet(buf)
         addr = mac_addr(eth.src)
-        flow = addr2int[addr] % num_flows
+        flow = ADDR2INT[addr] % NUM_FLOWS
         cycle = int(time // CLOCK_PERIOD)
         pkt_id = i + 1
         pkts_in_switch += 1
@@ -197,10 +245,10 @@ def parse_pcap(pcap, addr2int, num_flows):
         data["flows"].append(DONTCARE)
         data["pkt_ids"].append(DONTCARE)
 
-    return data, num_flows, addr2int
+    return data
 
 
-def dump_json(data, flow_bits, data_file):
+def dump_json(data, data_file):
     commands = data["commands"]
     arrival_cycles = data["arrival_cycles"]
     flows = data["flows"]
@@ -215,7 +263,7 @@ def dump_json(data, flow_bits, data_file):
     arrival_cycles = {
         "arrival_cycles": {"data": arrival_cycles, "format": format_gen(32)}
     }
-    flows = {"flows": {"data": flows, "format": format_gen(flow_bits)}}
+    flows = {"flows": {"data": flows, "format": format_gen(bits_needed(NUM_FLOWS - 1))}}
     values = {"values": {"data": values, "format": format_gen(32)}}
     ans_mem = {"ans_mem": {"data": ans_mem, "format": format_gen(32)}}
     departure_cycles = {
@@ -232,26 +280,27 @@ def dump_json(data, flow_bits, data_file):
 if __name__ == "__main__":
     opts = parse_cmdline()
 
+    pcap_file = open(opts.PCAP, "rb")
+    addr2int_json = None if opts.addr2int is None else open(opts.addr2int)
+
+    ADDR2INT = None if addr2int_json is None else json.load(addr2int_json)
     CLOCK_PERIOD = opts.clock_period
-    NUM_PKTS = opts.num_packets
     POP_TICK = opts.pop_tick
+    NUM_FLOWS = opts.num_flows
+    START = opts.start
+    END = opts.end
 
-    with open(opts.PCAP, "rb") as pcap_file:
-        with (
-            nullcontext() if opts.addr2int is None else open(opts.addr2int)
-        ) as addr2int_json:
-            pcap = dpkt.pcap.Reader(pcap_file)
-            addr2int = None if addr2int_json is None else json.load(addr2int_json)
-            num_flows = opts.num_flows
+    data = parse_pcap(pcap_file)
 
-            data, num_flows, addr2int = parse_pcap(pcap, addr2int, num_flows)
+    data_file = open(opts.Out, "w")
+    dump_json(data, data_file)
 
-            with open(opts.Out, "w") as data_file:
-                flow_bits = bits_needed(num_flows - 1)
-                json = dump_json(data, flow_bits, data_file)
+    stats = {}
+    stats["num_cmds"] = len(data["commands"])
+    stats["num_flows"] = NUM_FLOWS
+    stats["addr2flow"] = {addr: ADDR2INT[addr] % NUM_FLOWS for addr in ADDR2INT}
+    stats["pop_tick_ns"] = POP_TICK
+    stats["pkts_per_sec"] = PKTS_PER_SEC
+    stats["bits_per_sec"] = BITS_PER_SEC
 
-            print(f"Number of commands = {len(data['commands'])}")
-            print("Addresses to flows:")
-            for addr in addr2int:
-                print(f"\t{addr} -> {addr2int[addr] % num_flows}")
-            print(f"Pop tick = {POP_TICK} ns or {POP_TICK / CLOCK_PERIOD} cycles")
+    print(json.dumps(stats, indent=2))
