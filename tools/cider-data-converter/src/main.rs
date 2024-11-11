@@ -151,6 +151,7 @@ fn main() -> Result<(), CiderDataConverterError> {
                             for line in mem_file.lines() {
                                 let line = line?;
                                 for pair in &line.chars().chunks(2) {
+                                    // there has got to be a better way to do this...
                                     let string =
                                         pair.into_iter().collect::<String>();
                                     let val = u8::from_str_radix(&string, 16)
@@ -227,7 +228,7 @@ fn main() -> Result<(), CiderDataConverterError> {
                         for bytes in data
                             .get_data(&memory.name)
                             .unwrap()
-                            .chunks_exact(memory.width().div_ceil(8) as usize)
+                            .chunks_exact(memory.bytes_per_entry() as usize)
                         {
                             // data file seems to expect lsb on the right
                             // for the moment electing to print out every byte
