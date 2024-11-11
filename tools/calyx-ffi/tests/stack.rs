@@ -9,8 +9,8 @@ enum StackCommand {
 const STACK_CAPACITY: u64 = 16;
 
 calyx_ffi::declare_interface! {
-    Stack(cmd: 1, value: 32) -> (out: 32, length: 4) impl {
-        fn push(&mut self, value: u32) {
+    Stack(cmd: 1, value: 32) -> (out: 32, length: 4) mut impl {
+        fn push(&mut self, value: u32,) {
             assert!(self.length() < STACK_CAPACITY, "tried to push when length={}", STACK_CAPACITY);
             println!("stack has length {} before push", self.length());
             let old_length = self.length();

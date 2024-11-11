@@ -14,10 +14,10 @@ enum QueueStatus {
 
 calyx_ffi::declare_interface! {
     Queue(cmd: 1, value: 32) -> (ans: 32, err: 1) impl {
-        fn status(&mut self) -> QueueStatus {
+        fn status(&self) -> QueueStatus {
             if self.err() == 0 { QueueStatus::Ok } else { QueueStatus::Err }
         }
-
+    } mut impl {
         fn assert_no_error(&mut self) {
             assert_eq!(QueueStatus::Ok, self.status(), "queue underflowed or overflowed");
         }
