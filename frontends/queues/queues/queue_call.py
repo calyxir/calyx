@@ -21,16 +21,15 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
        `1`: push
     - 2: `values`, a list of values.
        Where each value is a 32-bit unsigned integer.
-       The value at `i` is pushed if the command at `i` is `2`.
+       The value at `i` is pushed if the command at `i` is `1`.
     - 3: `ranks`, a list of ranks. [optional]
        Where each rank is a 32-bit unsigned integer.
-       The value at `i` is pushed with the rank at `i` if the command at `i` is `2`.
-    - 4: `cycles`, a list of cycles.
-    - 5: `has_ans`, a 1-bit unsigned integer.
+       The value at `i` is pushed with the rank at `i` if the command at `i` is `1`.
+    - 4: `has_ans`, a 1-bit unsigned integer.
        We raise/lower this to indicate whether the queue had a reply to the command.
-    - 6: `component_ans`, a 32-bit unsigned integer.
+    - 5: `component_ans`, a 32-bit unsigned integer.
        We put in this register the answer, if any.
-    - 7: `component_err`, a 1-bit unsigned integer.
+    - 6: `component_err`, a 1-bit unsigned integer.
        We raise/lower it to indicate whether an error occurred.
     """
     assert (
@@ -41,9 +40,11 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
 
     # We take a stats component by reference,
     # but all we'll really do with it is pass it to the queue component.
-    stats_cell = None
-    if stats_component:
-        stats_cell = runner.cell("stats_runner", stats_component, is_ref=True)
+    stats_cell = (
+        runner.cell("stats_runner", stats_component, is_ref=True)
+        if stats_component
+        else None
+    )
 
     # We'll invoke the queue component.
     queue = runner.cell("myqueue", queue)
@@ -54,17 +55,15 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     #    `1`: push
     # - input `value`
     #   which is a 32-bit unsigned integer. If `cmd` is `1`, push this value.
-    # - input `rank` [optional]
-    #   which is a 32-bit unsigned integer. If `cmd` is `1`, push `value` with this rank.
     # - ref register `ans`, into which the result of a pop is written.
     # - ref register `err`, which is raised if an error occurs.
 
     # Our memories and registers, all of which are passed to us by reference.
     commands = runner.seq_mem_d1("commands", 1, num_cmds, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, num_cmds, 32, is_ref=True)
-    ranks = None
-    if use_ranks:
-        ranks = runner.seq_mem_d1("ranks", 32, num_cmds, 32, is_ref=True)
+    ranks = (
+        runner.seq_mem_d1("ranks", 32, num_cmds, 32, is_ref=True) if use_ranks else None
+    )
     has_ans = runner.reg(1, "has_ans", is_ref=True)
     ans = runner.reg(32, "component_ans", is_ref=True)
     err = runner.reg(1, "component_err", is_ref=True)
@@ -72,64 +71,60 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     i = runner.reg(32)  # The index of the command we're currently processing
     cmd = runner.reg(1)  # The command we're currently processing
     value = runner.reg(32)  # The value we're currently processing
-    rank = None  # The rank we're currently processing
-    if use_ranks:
-        rank = runner.reg(32)
+    rank = runner.reg(32)  # The rank we're currently processing
 
-    load_data = [
-        # `cmd := commands[i]`, `value := values[i]`
-        runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),
-        runner.mem_load_d1(values, i.out, value, "write_value"),
-    ]
-    if use_ranks:
-        # `cmd := commands[i]`, `value := values[i]`, `rank := ranks[i]`
-        load_data += [runner.mem_load_d1(ranks, i.out, rank, "write_rank")]
-
-    # Invoke the queue without stats or ranks.
-    invoke_queue = cb.invoke(
-        queue, in_cmd=cmd.out, in_value=value.out, ref_ans=ans, ref_err=err
+    load_data = (
+        [  # `cmd := commands[i]`, `value := values[i]`, `rank := ranks[i]`
+            runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),
+            runner.mem_load_d1(values, i.out, value, "write_value"),
+            runner.mem_load_d1(ranks, i.out, rank, "write_rank"),
+        ]
+        if use_ranks
+        else [  # `cmd := commands[i]`, `value := values[i]`
+            runner.mem_load_d1(commands, i.out, cmd, "write_cmd"),
+            runner.mem_load_d1(values, i.out, value, "write_value"),
+        ]
     )
-    if stats_component and use_ranks:
-        # with ranks and a stats component.
-        invoke_queue = cb.invoke(
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            in_rank=rank.out,
-            ref_ans=ans,
-            ref_err=err,
-            ref_stats=stats_cell,
-        )
-    elif stats_component:
-        # with only a stats component.
-        invoke_queue = cb.invoke(
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
-            ref_stats=stats_cell,
-        )
-    elif use_ranks:
-        # with only ranks.
-        invoke_queue = cb.invoke(
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            in_rank=rank.out,
-            ref_ans=ans,
-            ref_err=err,
-        )
 
     runner.control += [
         load_data,
-        invoke_queue,
+        (
+            cb.invoke(  # Invoke the queue with a stats component.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+                ref_stats=stats_cell,
+            )
+            if stats_component
+            else (
+                cb.invoke(  # Invoke the queue with ranks.
+                    queue,
+                    in_cmd=cmd.out,
+                    in_value=value.out,
+                    in_rank=rank.out,
+                    ref_ans=ans,
+                    ref_err=err,
+                )
+                if use_ranks
+                else cb.invoke(  # Invoke the queue without stats or ranks.
+                    queue,
+                    in_cmd=cmd.out,
+                    in_value=value.out,
+                    ref_ans=ans,
+                    ref_err=err,
+                )
+            )
+        ),
         # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
             runner.not_use(err.out),  # If there was no error
-            # If cmd = 0, meaning cmd is pop, raise the `has_ans` flag.
-            # has_ans := cmd == 0
-            runner.eq_store_in_reg(cmd.out, 0, has_ans)[0],
+            [
+                # If cmd = 1, meaning cmd is pop, raise the `has_ans` flag.
+                # Otherwise, lower the `has_ans` flag.
+                runner.eq_store_in_reg(cmd.out, 0, has_ans)[0]
+            ],
         ),
         runner.incr(i),  # i++
     ]
@@ -168,15 +163,17 @@ def insert_main(
     commands = main.seq_mem_d1("commands", 1, num_cmds, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, num_cmds, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, num_cmds, 32, is_external=True)
-    ranks = None
-    if use_ranks:
-        ranks = main.seq_mem_d1("ranks", 32, num_cmds, 32, is_external=True)
+    ranks = (
+        main.seq_mem_d1("ranks", 32, num_cmds, 32, is_external=True)
+        if use_ranks
+        else None
+    )
     i = main.reg(32)  # A counter for how many times we have invoked the dataplane.
     keep_looping = main.and_(1)  # If this is high, we keep going. Otherwise, we stop.
     lt = main.lt(32)
     not_err = main.not_(1)
 
-    with main.comb_group("compute_keep_looping") as compute_keep_looping:
+    with main.comb_group("Compute_keep_looping") as compute_keep_looping:
         # The condition to keep looping is:
         # The index `i` is less than the number of commands `num_cmds`
         # AND
@@ -187,54 +184,6 @@ def insert_main(
         keep_looping.left = lt.out
         keep_looping.right = cb.HI if keepgoing else not_err.out
 
-    # Invoke the dataplane component without stats or ranks.
-    invoke_dataplane = cb.invoke(
-        dataplane,
-        ref_commands=commands,
-        ref_values=values,
-        ref_has_ans=has_ans,
-        ref_component_ans=dataplane_ans,
-        ref_component_err=dataplane_err,
-    )
-    if stats_component and use_ranks:
-        # with ranks and a stats component.
-        invoke_dataplane = cb.invoke(
-            dataplane,
-            ref_commands=commands,
-            ref_values=values,
-            ref_ranks=ranks,
-            ref_has_ans=has_ans,
-            ref_component_ans=dataplane_ans,
-            ref_component_err=dataplane_err,
-            ref_stats_runner=stats,
-        )
-    elif stats_component:
-        # with only a stats component.
-        invoke_dataplane = cb.invoke(
-            dataplane,
-            ref_commands=commands,
-            ref_values=values,
-            ref_has_ans=has_ans,
-            ref_component_ans=dataplane_ans,
-            ref_component_err=dataplane_err,
-            ref_stats_runner=stats,
-        )
-    elif use_ranks:
-        # with only ranks.
-        invoke_dataplane = cb.invoke(
-            dataplane,
-            ref_commands=commands,
-            ref_values=values,
-            ref_ranks=ranks,
-            ref_has_ans=has_ans,
-            ref_component_ans=dataplane_ans,
-            ref_component_err=dataplane_err,
-        )
-
-    invoke_controller = Empty
-    if controller is not None:
-        invoke_controller = cb.invoke(controller, ref_stats_controller=stats)
-
     main.control += cb.while_with(
         # We will run the dataplane and controller components in sequence,
         # in a while loop. The loop will terminate when `break_` has a value of `1`.
@@ -242,7 +191,41 @@ def insert_main(
         [
             main.reg_store(has_ans, 0, "lower_has_ans"),  # Lower the has-ans flag.
             main.reg_store(dataplane_err, 0, "lower_err"),  # Lower the has-err flag.
-            invoke_dataplane,
+            (
+                cb.invoke(
+                    # Invoke the dataplane component with a stats component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                    ref_stats_runner=stats,
+                )
+                if stats_component
+                else (
+                    cb.invoke(
+                        # Invoke the dataplane component with ranks.
+                        dataplane,
+                        ref_commands=commands,
+                        ref_values=values,
+                        ref_ranks=ranks,
+                        ref_has_ans=has_ans,
+                        ref_component_ans=dataplane_ans,
+                        ref_component_err=dataplane_err,
+                    )
+                    if use_ranks
+                    else cb.invoke(
+                        # Invoke the dataplane component without stats or ranks.
+                        dataplane,
+                        ref_commands=commands,
+                        ref_values=values,
+                        ref_has_ans=has_ans,
+                        ref_component_ans=dataplane_ans,
+                        ref_component_err=dataplane_err,
+                    )
+                )
+            ),
             # If the dataplane component has an answer,
             # write it to the answer-list and increment the index `i`.
             cb.if_(
@@ -264,7 +247,14 @@ def insert_main(
                     ),
                 ),
             ),
-            invoke_controller,
+            (
+                cb.invoke(  # Invoke the controller component.
+                    controller,
+                    ref_stats_controller=stats,
+                )
+                if controller
+                else Empty
+            ),
             main.incr(i),  # i++
         ],
     )
