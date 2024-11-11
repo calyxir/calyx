@@ -148,6 +148,10 @@ impl MemoryDeclaration {
         self.format.width()
     }
 
+    pub fn bytes_per_entry(&self) -> u32 {
+        self.format.width().div_ceil(8)
+    }
+
     pub fn signed(&self) -> bool {
         self.format.signed()
     }
@@ -171,6 +175,17 @@ impl DataHeader {
         self.memories
             .iter()
             .fold(0, |acc, mem| acc + mem.byte_count())
+    }
+
+    pub fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
+        let mut header_str = Vec::new();
+        ciborium::ser::into_writer(&self, &mut header_str)?;
+        Ok(header_str)
+    }
+
+    pub fn deserialize(data: &[u8]) -> Result<Self, SerializationError> {
+        let header: Self = ciborium::from_reader(data)?;
+        Ok(header)
     }
 }
 
@@ -237,13 +252,11 @@ impl DataDump {
         self.push_memory(declaration, data)
     }
 
-    // TODO Griffin: handle the errors properly
-    pub fn serialize(
+    pub fn serialize<W: std::io::Write>(
         &self,
-        writer: &mut dyn std::io::Write,
+        mut writer: W,
     ) -> Result<(), SerializationError> {
-        let mut header_str = Vec::new();
-        ciborium::ser::into_writer(&self.header, &mut header_str)?;
+        let header_str = self.header.serialize()?;
         writer.write_all(&Self::MAGIC_NUMBER)?;
 
         let len_bytes: u32 = header_str
@@ -257,9 +270,8 @@ impl DataDump {
         Ok(())
     }
 
-    // TODO Griffin: handle the errors properly
-    pub fn deserialize(
-        reader: &mut dyn std::io::Read,
+    pub fn deserialize<R: std::io::Read>(
+        mut reader: R,
     ) -> Result<Self, SerializationError> {
         let mut magic_number = [0u8; 4];
         reader.read_exact(&mut magic_number).map_err(|e| {
@@ -291,7 +303,7 @@ impl DataDump {
                 SerializationError::IoError(e)
             }
         })?;
-        let header: DataHeader = ciborium::from_reader(raw_header.as_slice())?;
+        let header = DataHeader::deserialize(&raw_header)?;
 
         let mut data: Vec<u8> = Vec::with_capacity(header.data_size());
 
