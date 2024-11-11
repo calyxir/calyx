@@ -53,11 +53,14 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let mut getters = vec![];
     let mut setters = vec![];
     let mut width_getters = vec![];
+    let mut port_names = vec![];
 
     for port in comp.signature.borrow().ports() {
         let port_name_str = port.borrow().name.to_string();
         let port_name = syn::parse_str::<syn::Ident>(&port_name_str)
             .expect("failed to turn port name into identifier");
+
+        port_names.push(port_name.clone());
 
         let port_width = port.borrow().width;
         let width_getter = format_ident!("{}_width", port_name);
@@ -129,6 +132,15 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 Self {
                     #(#default_field_inits),*,
                     user_data: unsafe { std::mem::MaybeUninit::zeroed() }
+                }
+            }
+        }
+
+        impl std::clone::Clone for #name {
+            fn clone(&self) -> Self {
+                Self {
+                    #(#port_names: self.#port_names.clone()),*,
+                    user_data: unsafe { std::mem::MaybeUninit::new(self.user_data.assume_init_ref().clone()) }
                 }
             }
         }
