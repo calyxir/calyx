@@ -157,6 +157,9 @@ fn main() -> Result<(), CiderDataConverterError> {
                                         .expect("invalid hex");
                                     line_data.push(val);
                                 }
+                                // TODO griffin: handle inputs that are
+                                // truncated or otherwise shorter than expected
+
                                 assert!(
                                     line_data.len()
                                         == (mem_dec.bytes_per_entry() as usize)
