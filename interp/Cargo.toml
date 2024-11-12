@@ -48,8 +48,6 @@ baa = { version = "0.14.0", features = ["bigint", "serde1", "fraction1"] }
 fst-writer = "0.2.1"
 bon = "2.3"
 
-# derivative = "2.2.0"
-
 [dev-dependencies]
 proptest = "1.0.0"
 

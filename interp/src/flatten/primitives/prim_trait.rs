@@ -161,7 +161,7 @@ pub trait RaceDetectionPrimitive: Primitive {
     /// optional default implementation due to size rules
     fn as_primitive(&self) -> &dyn Primitive;
 
-    fn clone_boxed(&self) -> Box<dyn RaceDetectionPrimitive>;
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive>;
 }
 
 /// An empty primitive implementation used for testing. It does not do anything

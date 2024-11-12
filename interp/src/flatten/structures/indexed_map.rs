@@ -4,7 +4,7 @@ use std::{
     ops::{self, Index},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexedMap<K, D>
 where
     K: IndexRef,
@@ -141,19 +141,6 @@ where
 {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl<T, K> Clone for IndexedMap<K, T>
-where
-    K: IndexRef,
-    T: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            data: self.data.clone(),
-            phantom: PhantomData,
-        }
     }
 }
 

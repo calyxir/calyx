@@ -144,7 +144,7 @@ impl Primitive for StdReg {
 }
 
 impl RaceDetectionPrimitive for StdReg {
-    fn clone_boxed(&self) -> Box<dyn RaceDetectionPrimitive> {
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive> {
         Box::new(self.clone())
     }
 
@@ -624,7 +624,7 @@ impl Primitive for CombMem {
 }
 
 impl RaceDetectionPrimitive for CombMem {
-    fn clone_boxed(&self) -> Box<dyn RaceDetectionPrimitive> {
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive> {
         Box::new(self.clone())
     }
 
@@ -939,7 +939,7 @@ impl Primitive for SeqMem {
 }
 
 impl RaceDetectionPrimitive for SeqMem {
-    fn clone_boxed(&self) -> Box<dyn RaceDetectionPrimitive> {
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive> {
         Box::new(self.clone())
     }
 

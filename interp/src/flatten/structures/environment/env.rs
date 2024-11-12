@@ -49,8 +49,8 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use slog::{info, warn, Logger};
+use std::fmt::Debug;
 use std::fmt::Write;
-use std::{fmt::Debug, ops::Deref};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -201,9 +201,7 @@ impl Clone for CellLedger {
             },
             Self::RaceDetectionPrimitive { cell_dyn } => {
                 Self::RaceDetectionPrimitive {
-                    cell_dyn: RaceDetectionPrimitive::clone_boxed(
-                        cell_dyn.deref(),
-                    ),
+                    cell_dyn: cell_dyn.clone_boxed_rd(),
                 }
             }
             Self::Component(component_ledger) => {
