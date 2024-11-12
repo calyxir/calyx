@@ -1,0 +1,38 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/float.futil";
+
+component main() -> () {
+    cells {
+        f = std_float_const(0, 32, 0.56);
+        @external inp = seq_mem_d1(32, 1, 1);
+        @external out = seq_mem_d1(32, 2, 2);
+    }
+
+    wires {
+        group set_in {
+            inp.addr0 = 1'd0;
+            inp.content_en = 1'd1;
+            set_in[done] = inp.done;
+        }
+        group write_from_in {
+            out.content_en = 1'd1;
+            out.addr0 = 2'd0;
+            out.write_en = 1'd1;
+            out.write_data = inp.read_data;
+            write_from_in[done] = out.done;
+        }
+        group write_from_const {
+            out.content_en = 1'd1;
+            out.addr0 = 2'd1;
+            out.write_en = 1'd1;
+            out.write_data = f.out;
+            write_from_const[done] = out.done;
+        }
+    }
+    control {
+        set_in;
+        write_from_in;
+        write_from_const;
+    }
+}

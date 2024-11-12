@@ -60,6 +60,7 @@
 - [`exp` Generator](./tools/exp-generator.md)
 - [Editor Highlighting](./tools/editor-highlighting.md)
 - [Language Server](./tools/language-server.md)
+- [Visualizing Compiler Passes](./dev/calyx-pass-explorer.md)
 
 ----
 [Contributors](./contributors.md)

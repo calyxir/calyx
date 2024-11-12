@@ -317,45 +317,50 @@ impl Traverser {
             }
         } else {
             let current_comp = *self.concrete_path.last().unwrap();
+            let current_comp = if env.cells[current_comp].as_comp().is_some() {
+                current_comp
+            } else {
+                // we are in a primitive component so need to go up a level
+                self.concrete_path[self.concrete_path.len() - 2]
+            };
 
             let current_comp_ledger =
-                env.cells[current_comp].as_comp().unwrap_or_else(|| {
-                    // we are in a primitive component so need to go up a level
-                    env.cells[self.concrete_path[self.concrete_path.len() - 2]]
-                        .unwrap_comp()
-                });
+                env.cells[current_comp].as_comp().unwrap();
             let comp_def = &env.ctx().secondary[current_comp_ledger.comp_id];
 
-            // check cells
-            for (offset, def_idx) in comp_def.cell_offset_map.iter() {
-                let def = &env.ctx().secondary[*def_idx];
-                if env.ctx().lookup_name(def.name) == target.as_ref() {
-                    return Ok(Path::Cell(
-                        &current_comp_ledger.index_bases + offset,
-                    ));
-                }
-            }
-
-            // check ref cells
-            for (offset, def_idx) in comp_def.ref_cell_offset_map.iter() {
-                let def = &env.ctx().secondary[*def_idx];
-                if env.ctx().lookup_name(def.name) == target.as_ref() {
-                    let global_offset =
-                        &current_comp_ledger.index_bases + offset;
-
-                    return Ok(Path::AbstractCell(LazyCellPath {
-                        concrete_prefix: self.concrete_path,
-                        first_ref: global_offset,
-                        abstract_suffix: SmallVec::new(),
-                    }));
-                }
-
-                // we don't check ports here since there can't be ref ports
-                // without first having visited a ref cell
-            }
-
-            // check ports
             if current_comp == *self.concrete_path.last().unwrap() {
+                // looking for either a cell or a port on the current component
+
+                // check cells
+                for (offset, def_idx) in comp_def.cell_offset_map.iter() {
+                    let def = &env.ctx().secondary[*def_idx];
+                    if env.ctx().lookup_name(def.name) == target.as_ref() {
+                        return Ok(Path::Cell(
+                            &current_comp_ledger.index_bases + offset,
+                        ));
+                    }
+                }
+
+                // check ref cells
+                for (offset, def_idx) in comp_def.ref_cell_offset_map.iter() {
+                    let def = &env.ctx().secondary[*def_idx];
+                    if env.ctx().lookup_name(def.name) == target.as_ref() {
+                        let global_offset =
+                            &current_comp_ledger.index_bases + offset;
+
+                        return Ok(Path::AbstractCell(LazyCellPath {
+                            concrete_prefix: self.concrete_path,
+                            first_ref: global_offset,
+                            abstract_suffix: SmallVec::new(),
+                        }));
+                    }
+
+                    // we don't check ports here since there can't be ref ports
+                    // without first having visited a ref cell
+                }
+
+                // check signature
+
                 for port in
                     env.ctx().secondary[current_comp_ledger.comp_id].signature()
                 {

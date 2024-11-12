@@ -17,7 +17,7 @@ component main() -> () {
     @external mult = std_mult_pipe(32);
   }
   wires {
-    comb group is_less_than<"static"=0> {
+    comb group is_less_than {
       lt0.left = counter.out;
       lt0.right = 3'd4;
     } // Control segment for `counter` < `4`.
@@ -70,13 +70,13 @@ component main() -> () {
       initialize_mem_3[done] = mem0.done & mem1.done ? 1'd1;
     }
 
-    group initialize_counter<"static"=1> {
+    group initialize_counter {
       counter.in = 3'd0;
       counter.write_en = 1'd1;
       initialize_counter[done] = counter.done;
     }
 
-    group incr_counter<"static"=1> {
+    group incr_counter {
       counter.write_en = 1'd1;
       add0.left = counter.out;
       add0.right = 3'd1; // Increment by 1.
@@ -100,7 +100,7 @@ component main() -> () {
       mul[done] = t.done;
     }
 
-    group add<"static"=1> {
+    group add {
       add1.left = t.out;
       add1.right = r_2.out;
       r_2.write_en = 1'd1;

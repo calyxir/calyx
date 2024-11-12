@@ -1,3 +1,4 @@
+use super::super::structures::context::Context;
 use crate::flatten::structures::{
     index_trait::{IndexRange, SignatureRange},
     indexed_map::IndexedMap,
@@ -6,13 +7,35 @@ use crate::flatten::structures::{
 
 use super::{control::structures::ControlIdx, prelude::*};
 
+/// Stores the definitions created under a component.
+///
+/// # Note
+/// In most cases, this is different that what is directly defined by the
+/// component as this also includes ports/cells defined by sub-components. The
+/// exceptions are the groups and comb groups which only includes those defined
+/// directly by the component.
+///
+/// For cases where only the direct definitions are needed use the offset maps
+/// in the auxiliary component info.
 #[derive(Debug, Clone)]
 pub struct DefinitionRanges {
+    /// The entire range of cells defined by this component and any
+    /// sub-component instances it contains
     cells: IndexRange<CellDefinitionIdx>,
+    /// The entire range of ports defined by this component and any
+    /// sub-component instances it contains
     ports: IndexRange<PortDefinitionIdx>,
+    /// The entire range of ref-cells defined by this component and any
+    /// sub-component instances it contains
     ref_cells: IndexRange<RefCellDefinitionIdx>,
+    /// The entire range of ref-ports defined by this component and any
+    /// sub-component instances it contains
     ref_ports: IndexRange<RefPortDefinitionIdx>,
+    /// The entire range of groups defined by this component. Does not include
+    /// sub-component instances.
     groups: IndexRange<GroupIdx>,
+    /// The entire range of comb-groups defined by this component. Does not
+    /// include sub-component instances.
     comb_groups: IndexRange<CombGroupIdx>,
 }
 
@@ -71,37 +94,136 @@ pub struct ComponentCore {
     pub done: LocalPortOffset,
 }
 
+pub enum AssignmentDefinitionLocation {
+    /// The assignment is contained in a comb group
+    CombGroup(CombGroupIdx),
+    /// The assignment is contained in a group
+    Group(GroupIdx),
+    /// The assignment is one of the continuous assignments for the component
+    ContinuousAssignment,
+    /// The assignment is implied by an invoke
+    Invoke(ControlIdx),
+}
+
+impl ComponentCore {
+    /// Returns true if the given assignment is contained in this component.
+    ///
+    /// Note: This is not a very efficient implementation since it's doing a
+    /// DFS search over the control tree.
+    pub fn contains_assignment(
+        &self,
+        ctx: &Context,
+        assign: AssignmentIdx,
+    ) -> Option<AssignmentDefinitionLocation> {
+        if self.continuous_assignments.contains(assign) {
+            return Some(AssignmentDefinitionLocation::ContinuousAssignment);
+        } else if let Some(root) = self.control {
+            let mut search_stack = vec![root];
+            while let Some(node) = search_stack.pop() {
+                match &ctx.primary[node] {
+                    ControlNode::Empty(_) => {}
+                    ControlNode::Enable(e) => {
+                        if ctx.primary[e.group()].assignments.contains(assign) {
+                            return Some(AssignmentDefinitionLocation::Group(
+                                e.group(),
+                            ));
+                        }
+                    }
+                    ControlNode::Seq(s) => {
+                        for stmt in s.stms() {
+                            search_stack.push(*stmt);
+                        }
+                    }
+                    ControlNode::Par(p) => {
+                        for stmt in p.stms() {
+                            search_stack.push(*stmt);
+                        }
+                    }
+                    ControlNode::If(i) => {
+                        if let Some(comb) = i.cond_group() {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+
+                        search_stack.push(i.tbranch());
+                        search_stack.push(i.fbranch());
+                    }
+                    ControlNode::While(wh) => {
+                        if let Some(comb) = wh.cond_group() {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+                        search_stack.push(wh.body());
+                    }
+                    ControlNode::Repeat(r) => {
+                        search_stack.push(r.body);
+                    }
+                    ControlNode::Invoke(i) => {
+                        if let Some(comb) = i.comb_group {
+                            if ctx.primary[comb].assignments.contains(assign) {
+                                return Some(
+                                    AssignmentDefinitionLocation::CombGroup(
+                                        comb,
+                                    ),
+                                );
+                            }
+                        }
+
+                        if i.assignments.contains(assign) {
+                            return Some(AssignmentDefinitionLocation::Invoke(
+                                node,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
 #[derive(Debug, Clone)]
 /// Other information about a component definition. This is not on the hot path
 /// and is instead needed primarily during setup and error reporting.
-pub struct AuxillaryComponentInfo {
+pub struct AuxiliaryComponentInfo {
     /// Name of the component.
     pub name: Identifier,
-    /// The input/output signature of this component. This could probably be
-    /// rolled into a single range, or specialized construct but this is
-    /// probably fine for now.
+    /// The input ports of this component
     pub signature_in: SignatureRange,
+    /// The output ports of this component
     pub signature_out: SignatureRange,
-
     /// the definitions created by this component
     pub definitions: DefinitionRanges,
-
+    /// A map from local port offsets to their definition indices.
     pub port_offset_map: SparseMap<LocalPortOffset, PortDefinitionIdx>,
+    /// A map from ref port offsets to their definition indices
     pub ref_port_offset_map:
         SparseMap<LocalRefPortOffset, RefPortDefinitionIdx>,
+    /// A map from local cell offsets to their definition indices
     pub cell_offset_map: SparseMap<LocalCellOffset, CellDefinitionIdx>,
+    /// A map from ref cell offsets to their definition indices
     pub ref_cell_offset_map:
         SparseMap<LocalRefCellOffset, RefCellDefinitionIdx>,
 }
 
-impl Default for AuxillaryComponentInfo {
+impl Default for AuxiliaryComponentInfo {
     fn default() -> Self {
         Self::new_with_name(Identifier::get_default_id())
     }
 }
 
-impl AuxillaryComponentInfo {
-    /// Creates a new [`AuxillaryComponentInfo`] with the given name. And
+impl AuxiliaryComponentInfo {
+    /// Creates a new [`AuxiliaryComponentInfo`] with the given name. And
     /// default values elsewhere.
     pub fn new_with_name(id: Identifier) -> Self {
         Self {

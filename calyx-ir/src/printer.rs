@@ -3,6 +3,7 @@
 //! to the Component.
 use crate::{self as ir, RRC};
 use calyx_frontend::PrimitiveInfo;
+use calyx_utils::float;
 use itertools::Itertools;
 use std::io;
 use std::path::Path;
@@ -274,6 +275,39 @@ impl Printer {
         write!(f, "}}")
     }
 
+    pub fn write_float_const<F: io::Write>(
+        cell: &ir::Cell,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        let ir::CellType::Primitive {
+            name: prim,
+            param_binding,
+            ..
+        } = &cell.prototype
+        else {
+            unreachable!("Expected std_float_const cell")
+        };
+
+        let (rep, width, val) =
+            (param_binding[0].1, param_binding[1].1, param_binding[2].1);
+
+        let fl = match float::emit(val, width) {
+            Ok(fl) => fl,
+            Err(e) => {
+                panic!("Error emitting float constant: {e:?}")
+            }
+        };
+
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "{}", Self::format_at_attributes(&cell.attributes))?;
+        if cell.is_reference() {
+            write!(f, "ref ")?;
+        }
+        writeln!(f, "{} = {prim}({rep}, {width}, {fl});", cell.name().id)?;
+        Ok(())
+    }
+
     /// Format and write a cell.
     pub fn write_cell<F: io::Write>(
         cell: &ir::Cell,
@@ -286,6 +320,10 @@ impl Printer {
                 param_binding,
                 ..
             } => {
+                if name == "std_float_const" {
+                    return Self::write_float_const(cell, indent_level, f);
+                }
+
                 write!(f, "{}", " ".repeat(indent_level))?;
                 write!(f, "{}", Self::format_at_attributes(&cell.attributes))?;
                 if cell.is_reference() {

@@ -3,10 +3,12 @@ use std::hash::Hash;
 
 use crate::flatten::structures::index_trait::{impl_index, IndexRef};
 
-/// An index type corresponding to a string. Similar to [calyx_ir::Id] but
-/// cannot be turned into a string directly. Strings are stored in the
-/// interpretation context [crate::flatten::structures::context::Context] and
-/// can be looked up via [crate::flatten::structures::context::Context::lookup_name]
+/// An index type corresponding to a string.
+///
+/// Similar to [calyx_ir::Id] but cannot be turned into a string directly.
+/// Strings are stored in the interpretation context
+/// [crate::flatten::structures::context::Context] and can be looked up via
+/// [crate::flatten::structures::context::Context::lookup_name]
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Identifier(u32);
 
