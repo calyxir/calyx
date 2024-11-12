@@ -66,7 +66,7 @@ impl ControlPoint {
         // Remove first element since we know it is a root
         path_vec.remove(0);
         let mut string_path = String::new();
-        string_path.push_str(".");
+        string_path.push('.');
         let control_map = &ctx.primary.control;
         let mut count = -1;
         let mut body = false;
