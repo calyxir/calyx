@@ -93,39 +93,48 @@ def parse_cmdline():
     parser.add_argument("PCAP")
     parser.add_argument("Out")
 
-    def check_positive_int(x):
+    def error(s):
+        raise argparse.ArgumentTypeError(s)
+
+    def nonnegative_int(x):
+        try:
+            x = int(x)
+            if x < 0:
+                raise error(f"{x} is not a non-negative integer")
+        except ValueError:
+            raise error(f"{x} is not an integer")
+        return x
+
+    def positive_int(x):
         try:
             x = int(x)
             if x <= 0:
-                raise argparse.ArgumentTypeError(f"{x} is not a positive integer")
+                raise error(f"{x} is not a positive integer")
         except ValueError:
-            raise argparse.ArgumentTypeError(f"{x} is not an integer")
+            raise error(f"{x} is not an integer")
         return x
 
-    parser.add_argument(
-        "--start", type=check_positive_int, action="store", default=START
-    )
-    parser.add_argument("--end", type=check_positive_int, action="store")
-    parser.add_argument(
-        "--clock-period", type=check_positive_int, action="store", default=CLOCK_PERIOD
-    )
-    parser.add_argument(
-        "--pop-tick", type=check_positive_int, action="store", default=POP_TICK
-    )
-    parser.add_argument("--addr2int", action="store")
-    parser.add_argument("--num-flows", type=check_positive_int, action="store")
-
-    def check_positive_float(x):
+    def positive_float(x):
         try:
             x = float(x)
             if x <= 0:
-                raise argparse.ArgumentTypeError(f"{x} is not a positive float")
+                raise error(f"{x} is not a positive float")
         except ValueError:
-            raise argparse.ArgumentTypeError(f"{x} is not a float")
+            raise error(f"{x} is not a float")
         return x
 
+    parser.add_argument("--start", type=nonnegative_int, action="store", default=START)
+    parser.add_argument("--end", type=positive_int, action="store")
     parser.add_argument(
-        "--line-rate", type=check_positive_float, action="store", default=LINE_RATE
+        "--clock-period", type=positive_int, action="store", default=CLOCK_PERIOD
+    )
+    parser.add_argument(
+        "--pop-tick", type=positive_int, action="store", default=POP_TICK
+    )
+    parser.add_argument("--addr2int", action="store")
+    parser.add_argument("--num-flows", type=positive_int, action="store")
+    parser.add_argument(
+        "--line-rate", type=positive_float, action="store", default=LINE_RATE
     )
 
     if "-h" in sys.argv or "--help" in sys.argv:
@@ -184,8 +193,8 @@ def parse_pcap(pcap_file):
         raise InvalidRange(f"Start index {START} >= end index {END}")
 
     total_time = end_ts - start_ts
-    PKTS_PER_SEC = (END - START) / total_time
-    BITS_PER_SEC = (total_size * 8) / total_time
+    PKTS_PER_SEC = float("inf") if total_time == 0 else (END - START) / total_time
+    BITS_PER_SEC = float("inf") if total_time == 0 else (total_size * 8) / total_time
 
     if NUM_FLOWS is None:
         NUM_FLOWS = max(ADDR2INT[addr] for addr in ADDR2INT) + 1
