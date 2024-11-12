@@ -57,17 +57,21 @@ impl ControlPoint {
         }
     }
 
-    /// Returns a string showing the path from the root node to input node.
-    /// How to get context?
+    /// Returns a string showing the path from the root node to input node. This
+    /// path is displayed in the minimal metadata path syntax.
     pub fn string_path(&self, ctx: &Context) -> String {
-        // Does it matter if it takes ownership?
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
+        let mut path_vec = path.path;
+
+        // Remove first element since we know it is a root
+        path_vec.remove(0);
+        let mut string_path = String::new();
+        string_path.push_str(".");
         let control_map = &ctx.primary.control;
-        let mut string_path = String::from("");
         let mut count = -1;
         let mut body = false;
         let mut if_branches: HashMap<ControlIdx, String> = HashMap::new();
-        for search_node in path.path {
+        for search_node in path_vec {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
             let control_idx = search_node.node;
@@ -95,11 +99,7 @@ impl ControlPoint {
                 }
                 _ => {}
             };
-            // At root, at end to process logic above.
-            if string_path.is_empty() {
-                string_path += ".";
-                continue;
-            }
+
             let control_type = if body {
                 body = false;
                 count = -1;

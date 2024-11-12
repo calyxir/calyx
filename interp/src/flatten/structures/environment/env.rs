@@ -729,7 +729,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn print_pc_string(&self) {
         let current_nodes = self.pc.iter();
-        let ctx = &self.ctx.as_ref();
+        let ctx = self.ctx.as_ref();
         for node in current_nodes {
             println!(
                 "{}: {}",
