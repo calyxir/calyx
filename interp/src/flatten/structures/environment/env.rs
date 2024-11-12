@@ -1475,6 +1475,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     ) -> DataDump {
         self.base.dump_memories(dump_registers, all_mems)
     }
+
+    pub fn print_pc_string(&self) {
+        self.base.print_pc_string()
+    }
 }
 
 impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
