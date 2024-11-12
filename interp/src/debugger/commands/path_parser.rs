@@ -1,4 +1,4 @@
-use super::core::ParsePath;
+use super::{core::ParseNodes, ParsePath};
 
 use pest_consume::{match_nodes, Error, Parser};
 
@@ -27,6 +27,10 @@ impl PathParser {
         Ok(())
     }
 
+    fn seperator(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
     fn num(input: Node) -> ParseResult<u32> {
         input
             .as_str()
@@ -34,30 +38,78 @@ impl PathParser {
             .map_err(|_| input.error("Expected non-negative number"))
     }
 
-    fn clause(input: Node) -> ParseResult<ParsePath> {
+    fn branch(input: Node) -> ParseResult<bool> {
+        let b = input.as_str();
+        let result = if b == "f" { false } else { true };
+        Ok(result)
+    }
+
+    fn clause(input: Node) -> ParseResult<ParseNodes> {
         Ok(match_nodes!(input.into_children();
-            [num(n)] => ParsePath::Offset(n),
-            [body(_)] => ParsePath::Body,
-            [] => ParsePath::Separator,
+            [seperator(_), num(n)] => ParseNodes::Offset(n),
+            [seperator(_), body(_)] => ParseNodes::Body,
+            [seperator(_), branch(b)] => ParseNodes::If(b)
         ))
     }
 
     fn path(input: Node) -> ParseResult<ParsePath> {
         Ok(match_nodes!(input.into_children();
-            [root(_), EOI(_)] => ParsePath::Root,
-            [clause(c).., EOI(_)] => c,
-            [EOI(_)] => ParsePath::End,
+            [root(_), clause(c).., EOI(_)] => ParsePath::from_iter(c),
         ))
     }
 }
 
 // Parse the path
-pub fn parse_path(input_str: &str) -> Result<Vec<ParsePath>, Error<Rule>> {
-    let mut path_vec = vec![];
+pub fn parse_path(input_str: &str) -> Result<ParsePath, Error<Rule>> {
     let entries = PathParser::parse(Rule::path, input_str)?;
     let entry = entries.single()?;
 
-    path_vec.extend(PathParser::path(entry));
+    PathParser::path(entry)
+}
 
-    Ok(path_vec)
+#[cfg(test)]
+#[test]
+fn root() {
+    let path = parse_path(".").unwrap();
+    dbg!(path.get_path());
+    assert_eq!(path.get_path(), Vec::new())
+}
+
+#[test]
+fn body() {
+    let path = parse_path(".-b").unwrap();
+    dbg!(path.get_path());
+    assert_eq!(path.get_path(), vec![ParseNodes::Body])
+}
+
+#[test]
+fn branch() {
+    let path = parse_path(".-f").unwrap();
+    dbg!(path.get_path());
+    assert_eq!(path.get_path(), vec![ParseNodes::If(false)])
+}
+
+#[test]
+fn offset() {
+    let path = parse_path(".-0-1").unwrap();
+    dbg!(path.get_path());
+    assert_eq!(
+        path.get_path(),
+        vec![ParseNodes::Offset(0), ParseNodes::Offset(1)]
+    )
+}
+
+#[test]
+fn multiple() {
+    let path = parse_path(".-0-1-b-t").unwrap();
+    dbg!(path.get_path());
+    assert_eq!(
+        path.get_path(),
+        vec![
+            ParseNodes::Offset(0),
+            ParseNodes::Offset(1),
+            ParseNodes::Body,
+            ParseNodes::If(true)
+        ]
+    )
 }

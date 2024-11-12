@@ -6,6 +6,7 @@ use owo_colors::OwoColorize;
 use std::{
     fmt::{Display, Write},
     marker::PhantomData,
+    vec::IntoIter,
 };
 
 use crate::{
@@ -298,12 +299,32 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
         PrintTuple(val.0, val.1, val.2)
     }
 }
-pub enum ParsePath {
-    Root,
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ParseNodes {
     Body,
     Offset(u32),
-    Separator,
-    End,
+    If(bool),
+}
+pub struct ParsePath {
+    nodes: Vec<ParseNodes>,
+}
+
+impl ParsePath {
+    pub fn new(nodes: Vec<ParseNodes>) -> ParsePath {
+        ParsePath { nodes }
+    }
+
+    pub fn get_path(&self) -> Vec<ParseNodes> {
+        self.nodes.clone()
+    }
+
+    pub fn from_iter<I>(iter: I) -> ParsePath
+    where
+        I: IntoIterator<Item = ParseNodes>,
+    {
+        ParsePath::new(iter.into_iter().collect())
+    }
 }
 
 // Different types of printing commands

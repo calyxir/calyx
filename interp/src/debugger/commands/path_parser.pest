@@ -6,6 +6,8 @@ body = { "b" }
 
 num = { ASCII_DIGIT+ }
 
-clause = { seperator ~ (body | num) }
+branch = {"t" | "f"}
+
+clause = { seperator ~ (body | num | branch) }
 
 path = { SOI ~ root ~ clause* ~ EOI }
