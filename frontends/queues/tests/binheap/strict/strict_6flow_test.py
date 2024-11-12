@@ -1,6 +1,7 @@
 import sys
 import calyx.builder as cb
 import queues.queue_call as qc
+import queues.sim_pcap as sp
 import queues.binheap.strict as st
 import queues.flow_inference as fi
 
@@ -15,11 +16,13 @@ if __name__ == "__main__":
 
     prog = cb.Builder()
 
+    order = [3, 1, 5, 2, 4, 0]
     if sim_pcap:
-        raise Exception("Not Implemented")
+        flow_infer = fi.insert_tuple_flow_inference(prog, "flow_inference", NUMFLOWS)
+        pifo = st.insert_binheap_strict(prog, "pifo", NUMFLOWS, order, flow_infer)
+        sp.insert_main(prog, pifo, num_cmds, NUMFLOWS)
     else:
         boundaries = [66, 100, 200, 220, 300, 400]
-        order = [3, 1, 5, 2, 4, 0]
         flow_infer = fi.insert_boundary_flow_inference(
             prog, "flow_inference", boundaries
         )
