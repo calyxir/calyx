@@ -1,0 +1,16 @@
+---
+source: fud2/tests/tests.rs
+assertion_line: 66
+description: "emit plan: calyx_py-to-calyx"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+py_args = 
+rule calyx_py-to-calyx
+  command = python3 $in $py_args > $out
+
+build /output.ext: calyx_py-to-calyx /input.ext
+
+default /output.ext
