@@ -340,8 +340,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.ctx.as_ref()
     }
 
-    pub fn pc_iter(&self) -> Iter<'_, ControlPoint> {
-        self.pc.iter()
+    pub fn pc_iter(&self) -> impl Iterator<Item = &ControlPoint> {
+        self.pc.iter().map(|(_, x)| x)
     }
 
     /// Returns the full name and port list of each cell in the context
@@ -845,9 +845,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     pub fn print_pc_string(&self) {
-        let current_nodes = self.pc.iter();
         let ctx = self.ctx.as_ref();
-        for node in current_nodes {
+        for node in self.pc_iter() {
             println!(
                 "{}: {}",
                 self.get_full_name(node.comp),
