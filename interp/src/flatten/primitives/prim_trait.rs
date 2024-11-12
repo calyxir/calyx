@@ -134,6 +134,8 @@ pub trait Primitive {
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         None
     }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive>;
 }
 
 pub trait RaceDetectionPrimitive: Primitive {
@@ -158,10 +160,13 @@ pub trait RaceDetectionPrimitive: Primitive {
     /// Get a reference to the underlying primitive. Unfortunately cannot add an
     /// optional default implementation due to size rules
     fn as_primitive(&self) -> &dyn Primitive;
+
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive>;
 }
 
 /// An empty primitive implementation used for testing. It does not do anything
 /// and has no ports of any kind
+#[derive(Clone, Copy)]
 pub struct DummyPrimitive;
 
 impl DummyPrimitive {
@@ -170,4 +175,8 @@ impl DummyPrimitive {
     }
 }
 
-impl Primitive for DummyPrimitive {}
+impl Primitive for DummyPrimitive {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(*self)
+    }
+}

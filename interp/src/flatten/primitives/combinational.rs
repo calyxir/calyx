@@ -11,6 +11,7 @@ use baa::{BitVecOps, BitVecValue};
 
 use super::prim_trait::UpdateResult;
 
+#[derive(Clone)]
 pub struct StdConst {
     value: BitVecValue,
     out: GlobalPortIdx,
@@ -44,8 +45,13 @@ impl Primitive for StdConst {
     fn has_stateful(&self) -> bool {
         false
     }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
 }
 
+#[derive(Clone)]
 pub struct StdMux {
     base: GlobalPortIdx,
 }
@@ -79,6 +85,10 @@ impl Primitive for StdMux {
 
     fn has_stateful(&self) -> bool {
         false
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
     }
 }
 
@@ -275,6 +285,7 @@ comb_primitive!(StdUnsynSmod[WIDTH](left [0], right [1]) -> (out [2]) {
     Ok(Some(BitVecValue::from_big_int(&res, WIDTH)))
 });
 
+#[derive(Clone)]
 pub struct StdUndef(GlobalPortIdx);
 
 impl StdUndef {
@@ -287,5 +298,9 @@ impl Primitive for StdUndef {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         port_map.write_undef(self.0)?;
         Ok(UpdateStatus::Unchanged)
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
     }
 }

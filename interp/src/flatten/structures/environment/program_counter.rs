@@ -375,7 +375,7 @@ impl WithEntry {
 
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlTuple>,
     par_map: HashMap<ControlPoint, ChildCount>,
