@@ -40,11 +40,17 @@ fn comment(input: &str) -> IResult<&str, LineOrComment> {
     let (input, _) = many_till(anychar, alt((line_ending, eof)))(input)?;
     Ok((input, LineOrComment::Comment))
 }
+/// Parse a line which only contains whitespace
+fn empty_line(input: &str) -> IResult<&str, LineOrComment> {
+    // skip any whitespace
+    let (input, _) = multispace0(input)?;
+    Ok((input, LineOrComment::EmptyLine))
+}
 
 pub fn line_or_comment(
     input: &str,
 ) -> Result<LineOrComment, nom::Err<Error<&str>>> {
-    let (_, res) = alt((hex_line, comment))(input)?;
+    let (_, res) = alt((hex_line, comment, empty_line))(input)?;
     Ok(res)
 }
 
@@ -52,16 +58,19 @@ pub fn line_or_comment(
 pub enum LineOrComment {
     Line(Vec<u8>),
     Comment,
+    EmptyLine,
 }
 
-/// Parse a single line of hex characters, or a comment. Returns None if it's a comment
-/// and Some(Vec<u8>) if it's a hex line. Panics on a parse error.
+/// Parse a single line of hex characters, or a comment. Returns None if it's a
+/// comment or an empty line and Some(Vec<u8>) if it's a hex line. Panics on a
+/// parse error.
 ///
 /// For the fallible version, see `line_or_comment`.
 pub fn unwrap_line_or_comment(input: &str) -> Option<Vec<u8>> {
     match line_or_comment(input).expect("hex parse failed") {
         LineOrComment::Line(vec) => Some(vec),
         LineOrComment::Comment => None,
+        LineOrComment::EmptyLine => None,
     }
 }
 
