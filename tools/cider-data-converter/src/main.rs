@@ -4,7 +4,6 @@ use cider_data_converter::{
 };
 use core::str;
 use interp::serialization::{self, DataDump, SerializationError};
-use itertools::Itertools;
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, BufWriter, Read, Write},
@@ -104,9 +103,10 @@ struct Opts {
     use_quotes: bool,
 
     /// the file extension to use for the output/input file when parsing to and
-    /// from the dat target. If not provided, no extension will be used
+    /// from the dat target. If not provided, the extension is assumed to be .dat
     #[argh(option, short = 'e', long = "dat-file-extension")]
-    file_extension: Option<String>,
+    #[argh(default = "String::from(DAT_EXTENSION)")]
+    file_extension: String,
 }
 
 fn main() -> Result<(), CiderDataConverterError> {
@@ -170,12 +170,8 @@ fn main() -> Result<(), CiderDataConverterError> {
                             let starting_len = data.len();
                             let mem_file = BufReader::new(File::open(
                                 path.join(format!(
-                                    "{}{}",
-                                    mem_dec.name,
-                                    opts.file_extension
-                                        .as_ref()
-                                        .map(|x| format!(".{}", x))
-                                        .unwrap_or_default()
+                                    "{}.{}",
+                                    mem_dec.name, opts.file_extension
                                 )),
                             )?);
 
@@ -256,13 +252,9 @@ fn main() -> Result<(), CiderDataConverterError> {
 
                     for memory in &data.header.memories {
                         let file = File::create(path.join(format!(
-                                    "{}{}",
-                                    memory.name,
-                                    opts.file_extension
-                                        .as_ref()
-                                        .map(|x| format!(".{}", x))
-                                        .unwrap_or_default()
-                                )))?;
+                            "{}.{}",
+                            memory.name, opts.file_extension
+                        )))?;
                         let mut writer = BufWriter::new(file);
                         for bytes in data
                             .get_data(&memory.name)
