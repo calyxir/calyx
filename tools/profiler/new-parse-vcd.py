@@ -18,16 +18,10 @@ class StackTree:
 
 
 class ProfilingInfo:
-    def __init__(self, probe_encoded_name, is_cell=False):
-        if is_cell:
-            self.name = probe_encoded_name
-            self.callsite = None
-            self.component = None
-        else:
-            encoding_split = probe_encoded_name.split("__")
-            self.name = encoding_split[0]
-            self.callsite = encoding_split[1]
-            self.component = encoding_split[2]
+    def __init__(self, name, callsite=None, component=None, is_cell=False):
+        self.name = name
+        self.callsite = callsite
+        self.component = component
         self.shortname = self.name.split(".")[-1]
         self.closed_segments = [] # Segments will be (start_time, end_time)
         self.current_segment = None
@@ -76,7 +70,13 @@ class ProfilingInfo:
             self.current_segment["end"] = curr_clock_cycle
             self.closed_segments.append(self.current_segment)
             self.total_cycles += curr_clock_cycle - self.current_segment["start"]
-            self.current_segment = None # Reset current segment    
+            self.current_segment = None # Reset current segment
+
+    def is_active_at_cycle(self, i): # is the probe active at cycle i?
+        for segment in self.closed_segments:
+            if segment["start"] <= i and i < segment["end"]:
+                return True
+        return False
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components):
@@ -87,9 +87,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # Map from timestamps [ns] to value change events that happened on that timestamp
         self.timestamps_to_events = {}
         self.cells = cells_to_components
-        self.profiling_info = {}
+        self.active_elements_info = {} # for every group/cell, maps to a corresponding ProfilingInfo object signalling when group/cell was active
+        self.call_stack_probe_info = {} # group --> {parent group --> ProfilingInfo object}
         for cell in self.cells:
-            self.profiling_info[cell] = ProfilingInfo(cell, is_cell=True)
+            self.active_elements_info[cell] = ProfilingInfo(cell, is_cell=True)
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -118,18 +119,29 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for name, sid in refs:
             # check if we have a probe. instrumentation probes are "<group>__<callsite>__<component>_probe".
             # callsite is either the name of another group or "instrumentation_wrapper[0-9]*" in the case it is invoked from control.
-            if "_probe_out" in name: # this signal is a probe.
-                # FIXME: this doesn't work when control invokes a group twice
-                probe_encoded_name = name.split("_probe_out")[0]
-                self.profiling_info[probe_encoded_name] = ProfilingInfo(probe_encoded_name)
-                # group_component_split = name.split("_probe_out")[0].split("__")
-                # group_name = group_component_split[0]
-                # self.single_enable_names.add(group_name)
-                # self.profiling_info[group_name] = ProfilingInfo(group_name, group_component_split[1])
+            if "group_probe_out" in name: # this signal is a probe for group activation.
+                encoded_info = name.split("_group_probe_out")[0]
+                probe_info_split = encoded_info.split("__")
+                group_name = probe_info_split[0]
+                group_component = probe_info_split[1]
+                self.active_elements_info[encoded_info] = ProfilingInfo(group_name, component=group_component)
+                signal_id_dict[sid].append(name)
+
+            elif "se_probe_out" in name: # this signal is a probe for structural enables.
+                encoded_info = name.split("_se_probe_out")[0]
+                probe_info_split = encoded_info.split("__")
+                group_name = probe_info_split[0]
+                group_parent = probe_info_split[1]
+                group_component = probe_info_split[2]
+                group_id = group_name + "_" + group_component
+                if group_id not in self.call_stack_probe_info:
+                    self.call_stack_probe_info[group_id] = {}
+                self.call_stack_probe_info[group_id][group_parent] = ProfilingInfo(group_name, callsite=group_parent, component=group_component)
                 signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
+        print(self.signal_id_to_names)
     
     def value(self, vcd, time, value, identifier_code, cur_sig_vals):
         # ignore all signals we don't care about
@@ -156,6 +168,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         clock_cycles = -1
         started = False
         currently_active = set()
+        se_currently_active = set()
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
             started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
@@ -169,22 +182,40 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 value = event["value"]
                 if signal_name.endswith(".go") and value == 1: # cells have .go and .done
                     cell = signal_name.split(".go")[0]
-                    self.profiling_info[cell].start_new_segment(clock_cycles)
+                    self.active_elements_info[cell].start_new_segment(clock_cycles)
                     currently_active.add(cell)
                 if signal_name.endswith(".done") and value == 1: # cells have .go and .done
                     cell = signal_name.split(".done")[0]
-                    self.profiling_info[cell].end_current_segment(clock_cycles)
+                    self.active_elements_info[cell].end_current_segment(clock_cycles)
                     currently_active.remove(cell)
-                if "_probe_out" in signal_name and value == 1: # instrumented group started being active
-                    encoded_info = signal_name.split("_probe_out")[0]
-                    self.profiling_info[encoded_info].start_new_segment(clock_cycles)
+                if "group_probe_out" in signal_name and value == 1: # instrumented group started being active
+                    encoded_info = signal_name.split("_group_probe_out")[0]
+                    self.active_elements_info[encoded_info].start_new_segment(clock_cycles)
                     currently_active.add(encoded_info)
-                elif "_probe_out" in signal_name and value == 0: # instrumented group stopped being active
-                    encoded_info = signal_name.split("_probe_out")[0]
-                    self.profiling_info[encoded_info].end_current_segment(clock_cycles)
+                elif "group_probe_out" in signal_name and value == 0: # instrumented group stopped being active
+                    encoded_info = signal_name.split("_group_probe_out")[0]
+                    self.active_elements_info[encoded_info].end_current_segment(clock_cycles)
                     currently_active.remove(encoded_info)
-        for active in currently_active: # anything that is still around...
-            self.profiling_info[active].end_current_segment(clock_cycles)
+                elif "se_probe_out" in signal_name and value == 1:
+                    encoded_info_split = signal_name.split("_se_probe_out")[0].split("__")
+                    child_group_name = encoded_info_split[0]
+                    parent = encoded_info_split[1]
+                    child_group_component = encoded_info_split[2]
+                    group_id = child_group_name + "_" + child_group_component
+                    self.call_stack_probe_info[group_id][parent].start_new_segment(clock_cycles)
+                    se_currently_active.add(group_id)
+                elif "se_probe_out" in signal_name and value == 0:
+                    encoded_info_split = signal_name.split("_se_probe_out")[0].split("__")
+                    child_group_name = encoded_info_split[0]
+                    parent = encoded_info_split[1]
+                    child_group_component = encoded_info_split[2]
+                    group_id = child_group_name + "_" + child_group_component
+                    self.call_stack_probe_info[group_id][parent].end_current_segment(clock_cycles)
+                    se_currently_active.remove(group_id)
+        for active in currently_active: # end any group/cell activitations that are still around...
+            self.active_elements_info[active].end_current_segment(clock_cycles)
+        for active in se_currently_active: # end any structural enables that are still around...
+            self.call_stack_probe_info[active].end_current_segment(clock_cycles)
 
         self.clock_cycles = clock_cycles
 
@@ -311,11 +342,13 @@ def main(vcd_filename, cells_json_file, out_dir):
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     converter.postprocess()
 
+    print(converter.call_stack_probe_info)
+
     # NOTE: for a more robust implementation, we can even skip the part where we store active
     # cycles per group.
-    new_timeline_map = create_traces(converter.profiling_info, converter.clock_cycles, main_component)
+    # new_timeline_map = create_traces(converter.profiling_info, converter.clock_cycles, main_component)
 
-    create_output(new_timeline_map, out_dir)
+    # create_output(new_timeline_map, out_dir)
 
 
 if __name__ == "__main__":

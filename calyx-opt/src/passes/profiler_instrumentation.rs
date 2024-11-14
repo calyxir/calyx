@@ -90,7 +90,7 @@ impl Visitor for ProfilerInstrumentation {
             // FIXME: probably best to remove the code clone by extracting this out into a different function?
             for group_name in group_names.into_iter() {
                 // store group and component name (differentiate between groups of the same name under different components)
-                let name = format!("{}__{}_probe_group", group_name, comp_name);
+                let name = format!("{}__{}_group_probe", group_name, comp_name);
                 let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
                 let probe_asgn: ir::Assignment<Nothing> = builder
                     .build_assignment(
@@ -112,7 +112,7 @@ impl Visitor for ProfilerInstrumentation {
             {
                 for (parent_group, guard) in parent_groups.iter() {
                     let probe_cell_name = format!(
-                        "{}__{}__{}_probe_se",
+                        "{}__{}__{}_se_probe",
                         invoked_group_name, parent_group, comp_name
                     );
                     let probe_cell = builder.add_primitive(
