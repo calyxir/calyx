@@ -1,11 +1,13 @@
 use argh::FromArgs;
-use cider_data_converter::{converter, json_data::JsonData};
+use cider_data_converter::{
+    converter, dat_parser::unwrap_line_or_comment, json_data::JsonData,
+};
 use core::str;
 use interp::serialization::{self, DataDump, SerializationError};
-use itertools::Itertools;
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, BufWriter, Read, Write},
+    iter::repeat,
     path::PathBuf,
     str::FromStr,
 };
@@ -13,6 +15,7 @@ use thiserror::Error;
 
 const JSON_EXTENSION: &str = "data";
 const CIDER_EXTENSION: &str = "dump";
+const DAT_EXTENSION: &str = "dat";
 
 const HEADER_FILENAME: &str = "header";
 
@@ -32,6 +35,14 @@ enum CiderDataConverterError {
 
     #[error(transparent)]
     DataDumpError(#[from] SerializationError),
+
+    #[error(
+        "Missing output path. This is required for the \"to dat\" conversion"
+    )]
+    MissingDatOutputPath,
+
+    #[error("Output path for \"to dat\" exists but it is a file")]
+    DatOutputPathIsFile,
 }
 
 impl std::fmt::Debug for CiderDataConverterError {
@@ -90,6 +101,12 @@ struct Opts {
     /// exists solely for backwards compatibility with the old display format.
     #[argh(switch, long = "legacy-quotes")]
     use_quotes: bool,
+
+    /// the file extension to use for the output/input file when parsing to and
+    /// from the dat target. If not provided, the extension is assumed to be .dat
+    #[argh(option, short = 'e', long = "dat-file-extension")]
+    #[argh(default = "String::from(DAT_EXTENSION)")]
+    file_extension: String,
 }
 
 fn main() -> Result<(), CiderDataConverterError> {
@@ -97,19 +114,27 @@ fn main() -> Result<(), CiderDataConverterError> {
 
     // if no action is specified, try to guess based on file extensions
     if opts.action.is_none()
+        // input is .json
         && (opts.input_path.as_ref().is_some_and(|x| {
             x.extension().map_or(false, |y| y == JSON_EXTENSION)
-        }) || opts.output_path.as_ref().is_some_and(|x| {
+        })
+        // output is .dump
+        || opts.output_path.as_ref().is_some_and(|x| {
             x.extension().map_or(false, |y| y == CIDER_EXTENSION)
         }))
     {
         opts.action = Some(Target::DataDump);
     } else if opts.action.is_none()
+        // output is .json
         && (opts.output_path.as_ref().is_some_and(|x| {
             x.extension().map_or(false, |x| x == JSON_EXTENSION)
-        }) || opts.input_path.as_ref().is_some_and(|x| {
+        })
+        // input is .dump
+        || opts.input_path.as_ref().is_some_and(|x| {
             x.extension().map_or(false, |x| x == CIDER_EXTENSION)
-        }))
+        })
+        // input is a directory (suggesting a deserialization from dat)
+        || opts.input_path.as_ref().is_some_and(|x| x.is_dir()))
     {
         opts.action = Some(Target::Json);
     }
@@ -144,30 +169,31 @@ fn main() -> Result<(), CiderDataConverterError> {
                         for mem_dec in &header.memories {
                             let starting_len = data.len();
                             let mem_file = BufReader::new(File::open(
-                                path.join(&mem_dec.name),
+                                path.join(format!(
+                                    "{}.{}",
+                                    mem_dec.name, opts.file_extension
+                                )),
                             )?);
 
-                            let mut line_data = vec![];
                             for line in mem_file.lines() {
                                 let line = line?;
-                                for pair in &line.chars().chunks(2) {
-                                    // there has got to be a better way to do this...
-                                    let string =
-                                        pair.into_iter().collect::<String>();
-                                    let val = u8::from_str_radix(&string, 16)
-                                        .expect("invalid hex");
-                                    line_data.push(val);
-                                }
-                                // TODO griffin: handle inputs that are
-                                // truncated or otherwise shorter than expected
+                                if let Some(line_data) =
+                                    unwrap_line_or_comment(&line)
+                                {
+                                    assert!(
+                                        line_data.len()
+                                            <= mem_dec.bytes_per_entry()
+                                                as usize,
+                                        "line data too long"
+                                    );
 
-                                assert!(
-                                    line_data.len()
-                                        == (mem_dec.bytes_per_entry() as usize)
-                                );
-                                // reverse the byte order to get the expected
-                                // little endian and reuse the vec
-                                data.extend(line_data.drain(..).rev())
+                                    let padding = (mem_dec.bytes_per_entry()
+                                        as usize)
+                                        - line_data.len();
+
+                                    data.extend(line_data.into_iter().rev());
+                                    data.extend(repeat(0u8).take(padding))
+                                }
                             }
 
                             assert_eq!(
@@ -213,17 +239,22 @@ fn main() -> Result<(), CiderDataConverterError> {
 
                 if let Some(path) = opts.output_path {
                     if path.exists() && !path.is_dir() {
-                        // TODO griffin: Make this an actual error
-                        panic!("Output path exists but is not a directory")
+                        return Err(
+                            CiderDataConverterError::DatOutputPathIsFile,
+                        );
                     } else if !path.exists() {
                         std::fs::create_dir(&path)?;
                     }
 
-                    let mut header_output = File::create(path.join("header"))?;
+                    let mut header_output =
+                        File::create(path.join(HEADER_FILENAME))?;
                     header_output.write_all(&data.header.serialize()?)?;
 
                     for memory in &data.header.memories {
-                        let file = File::create(path.join(&memory.name))?;
+                        let file = File::create(path.join(format!(
+                            "{}.{}",
+                            memory.name, opts.file_extension
+                        )))?;
                         let mut writer = BufWriter::new(file);
                         for bytes in data
                             .get_data(&memory.name)
@@ -243,8 +274,7 @@ fn main() -> Result<(), CiderDataConverterError> {
                         }
                     }
                 } else {
-                    // TODO griffin: Make this an actual error
-                    panic!("Output path not specified, this is required for the dat target")
+                    return Err(CiderDataConverterError::MissingDatOutputPath);
                 }
             }
         }
