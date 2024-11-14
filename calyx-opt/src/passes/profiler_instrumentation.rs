@@ -60,28 +60,19 @@ impl Visitor for ProfilerInstrumentation {
                     &dst_borrow.parent
                 {
                     if dst_borrow.name == "go" {
-                        let done_port_ref =
-                            parent_group_ref.upgrade().borrow().get("done");
                         // found an invocation of go
-                        // FIXME: guard needs to be anded with the child group not being done
                         let invoked_group_name =
                             parent_group_ref.upgrade().borrow().name();
                         let guard = *(assigment_ref.guard.clone());
-                        let combined_guard: Guard<Nothing> = Guard::and(
-                            guard,
-                            Guard::Not(Box::new(Guard::port(
-                                done_port_ref.clone(),
-                            ))),
-                        );
                         match structural_enable_map.get_mut(&invoked_group_name)
                         {
                             Some(vec_ref) => {
-                                vec_ref.push((group.name(), combined_guard))
+                                vec_ref.push((group.name(), guard))
                             }
                             None => {
                                 structural_enable_map.insert(
                                     invoked_group_name,
-                                    vec![(group.name(), combined_guard)],
+                                    vec![(group.name(), guard)],
                                 );
                             }
                         }
@@ -101,10 +92,6 @@ impl Visitor for ProfilerInstrumentation {
                 // store group and component name (differentiate between groups of the same name under different components)
                 let name = format!("{}__{}_probe_group", group_name, comp_name);
                 let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
-                // let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
-                //     builder;
-                //     inst_cell["in"] = ? one["out"];
-                // );
                 let probe_asgn: ir::Assignment<Nothing> = builder
                     .build_assignment(
                         probe_cell.borrow().get("in"),
