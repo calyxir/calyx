@@ -6,10 +6,7 @@ use calyx_utils::CalyxResult;
 
 /// Adds probe wires to each group to detect when a group is active.
 /// Used by the profiler.
-pub struct ProfilerInstrumentation {
-    // map from group to invocations
-    group_map: HashMap<ir::Id, Vec<(ir::Id, ir::Guard<Nothing>)>>,
-}
+pub struct ProfilerInstrumentation {}
 
 impl Named for ProfilerInstrumentation {
     fn name() -> &'static str {
@@ -30,9 +27,7 @@ impl ConstructVisitor for ProfilerInstrumentation {
     where
         Self: Sized + Named,
     {
-        Ok(ProfilerInstrumentation {
-            group_map: HashMap::new(),
-        })
+        Ok(ProfilerInstrumentation {})
     }
 
     fn clear_data(&mut self) {}
@@ -47,7 +42,16 @@ impl Visitor for ProfilerInstrumentation {
     ) -> VisResult {
         let mut acc = 0;
         let comp_name = comp.name;
-        // iterate and check whether any groups invoke other groups
+        let mut structural_enable_map: HashMap<
+            ir::Id,
+            Vec<(ir::Id, ir::Guard<Nothing>)>,
+        > = HashMap::new();
+        let group_names = comp
+            .groups
+            .iter()
+            .map(|group| group.borrow().name())
+            .collect::<Vec<_>>();
+        // iterate and check for structural enables
         for group_ref in comp.groups.iter() {
             let group = &group_ref.borrow();
             for assigment_ref in group.assignments.iter() {
@@ -69,12 +73,13 @@ impl Visitor for ProfilerInstrumentation {
                                 done_port_ref.clone(),
                             ))),
                         );
-                        match self.group_map.get_mut(&invoked_group_name) {
+                        match structural_enable_map.get_mut(&invoked_group_name)
+                        {
                             Some(vec_ref) => {
                                 vec_ref.push((group.name(), combined_guard))
                             }
                             None => {
-                                self.group_map.insert(
+                                structural_enable_map.insert(
                                     invoked_group_name,
                                     vec![(group.name(), combined_guard)],
                                 );
@@ -85,14 +90,42 @@ impl Visitor for ProfilerInstrumentation {
                 }
             }
         }
-        // build probe and assignments for every group
+        // build probe and assignments for every group + all structural invokes
         let mut builder = ir::Builder::new(comp, sigs);
+        let one = builder.add_constant(1, 1);
         let mut group_name_assign_and_cell = Vec::with_capacity(acc);
         {
-            for (invoked_group_name, parent_groups) in self.group_map.iter() {
+            // probe and assignments for group (this group is currently active)
+            // FIXME: probably best to remove the code clone by extracting this out into a different function?
+            for group_name in group_names.into_iter() {
+                // store group and component name (differentiate between groups of the same name under different components)
+                let name = format!("{}__{}_probe_group", group_name, comp_name);
+                let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
+                // let asgn: [ir::Assignment<ir::Nothing>; 1] = build_assignments!(
+                //     builder;
+                //     inst_cell["in"] = ? one["out"];
+                // );
+                let probe_asgn: ir::Assignment<Nothing> = builder
+                    .build_assignment(
+                        probe_cell.borrow().get("in"),
+                        one.borrow().get("out"),
+                        Guard::True,
+                    );
+                // the probes should be @control because they should have value 0 whenever the corresponding group is not active.
+                probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
+                probe_cell
+                    .borrow_mut()
+                    .add_attribute(BoolAttr::Protected, 1);
+                group_name_assign_and_cell
+                    .push((group_name, probe_asgn, probe_cell));
+            }
+            // probe and assignments for structural enables (this group is structurally enabling a child group)
+            for (invoked_group_name, parent_groups) in
+                structural_enable_map.iter()
+            {
                 for (parent_group, guard) in parent_groups.iter() {
                     let probe_cell_name = format!(
-                        "{}__{}__{}_probe",
+                        "{}__{}__{}_probe_se",
                         invoked_group_name, parent_group, comp_name
                     );
                     let probe_cell = builder.add_primitive(
@@ -104,7 +137,6 @@ impl Visitor for ProfilerInstrumentation {
                     probe_cell
                         .borrow_mut()
                         .add_attribute(BoolAttr::Protected, 1);
-                    let one = builder.add_constant(1, 1);
                     // FIXME: the assignment needs to take on the guard of the assignment and not the child group being done
                     let probe_asgn: ir::Assignment<Nothing> = builder
                         .build_assignment(
@@ -130,78 +162,5 @@ impl Visitor for ProfilerInstrumentation {
             }
         }
         Ok(Action::Continue)
-    }
-
-    fn enable(
-        &mut self,
-        s: &mut calyx_ir::Enable,
-        comp: &mut calyx_ir::Component,
-        sigs: &calyx_ir::LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
-        let invoked_group_name = s.group.borrow().name();
-        let comp_name = comp.name;
-        match self.group_map.get_mut(&invoked_group_name) {
-            Some(vec_ref) => vec_ref.push((comp_name, calyx_ir::Guard::True)),
-            None => {
-                self.group_map.insert(
-                    invoked_group_name,
-                    vec![(comp_name, calyx_ir::Guard::True)],
-                );
-            }
-        }
-        // build a wrapper group
-        let mut builder = ir::Builder::new(comp, sigs);
-        let wrapper_group = builder.add_group("instrumentation_wrapper");
-        let probe_cell_name = format!(
-            "{}__{}__{}_probe",
-            invoked_group_name,
-            wrapper_group.borrow().name(),
-            comp_name // wrapper_group.borrow().name()
-        );
-        let probe_cell =
-            builder.add_primitive(probe_cell_name, "std_wire", &[1]);
-        probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
-        probe_cell
-            .borrow_mut()
-            .add_attribute(BoolAttr::Protected, 1);
-        let one = builder.add_constant(1, 1);
-        wrapper_group.borrow().get("done");
-        // there is probably a better way to do this
-        let start_invoked_group: ir::Assignment<Nothing> = builder
-            .build_assignment(
-                s.group.borrow().get("go"),
-                one.borrow().get("out"),
-                calyx_ir::Guard::True,
-            );
-        wrapper_group
-            .borrow_mut()
-            .assignments
-            .push(start_invoked_group);
-        let probe_asgn: ir::Assignment<Nothing> = builder.build_assignment(
-            probe_cell.borrow().get("in"),
-            one.borrow().get("out"),
-            calyx_ir::Guard::True,
-        );
-        wrapper_group.borrow_mut().assignments.push(probe_asgn);
-        let wrapper_done: ir::Assignment<Nothing> = builder.build_assignment(
-            wrapper_group.borrow().get("done"),
-            s.group.borrow().get("done"),
-            calyx_ir::Guard::True,
-        );
-        wrapper_group.borrow_mut().assignments.push(wrapper_done);
-        // TODO: need to replace the invocation of the original group with the wrapper group
-        let en = ir::Control::enable(wrapper_group);
-        Ok(Action::change(en)) // need to call Action::change() to swap out
-    }
-
-    fn finish(
-        &mut self,
-        _comp: &mut calyx_ir::Component,
-        _sigs: &calyx_ir::LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
-        // return
-        Ok(Action::Stop)
     }
 }
