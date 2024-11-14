@@ -78,6 +78,9 @@ class ProfilingInfo:
                 return True
         return False
 
+    def id(self):
+        return f"{self.name}_{self.component}"
+
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components):
         # NOTE: assuming single-component programs for now
@@ -256,11 +259,11 @@ def read_component_cell_names_json(json_file):
 
     return full_main_component, full_cell_names_to_components
 
-def create_traces(profiled_info, total_cycles, main_component):
+def create_traces(active_element_probes_info, call_stack_probes_info, total_cycles, main_component):
     timeline_map = {i : set() for i in range(total_cycles)}
     # first iterate through all of the profiled info
-    for unit_name in profiled_info:
-        unit = profiled_info[unit_name]
+    for unit_name in active_element_probes_info:
+        unit = active_element_probes_info[unit_name]
         for segment in unit.closed_segments:
             for i in range(segment["start"], segment["end"]):
                 timeline_map[i].add(unit) # maybe too memory intensive?
@@ -268,40 +271,78 @@ def create_traces(profiled_info, total_cycles, main_component):
     new_timeline_map = {i : [] for i in range(total_cycles)}
     # now, we need to figure out the sets of traces
     for i in timeline_map:
+        print(f"cycle {i}")
         parents = set()
         i_mapping = {} # each unique group inv mapping to its stack. the "group" should be the last item on each stack
         # FIXME: probably want to wrap this around a while loop or sth?
         curr_component = main_component
         main_component_info = list(filter(lambda x : x.name == main_component, timeline_map[i]))[0]
-        i_mapping[main_component_info] = [main_component_info]
-        # find all of the invocations from control
-        for elem in filter((lambda x: x.callsite is not None and "instrumentation_wrapper" in x.callsite), timeline_map[i]):
-            i_mapping[elem] = i_mapping[main_component_info] + [elem]
-            parents.add(main_component_info)
-        # now, walk through everything else before saturation
-        new_groups = set()
-        started = False
-        while not started or len(new_groups) == 1:
-            started = True
-            new_groups = set()
-            for elem in timeline_map[i]:
-                if elem in i_mapping:
-                    continue
-                parent_find_attempt = list(filter(lambda x : x.shortname == elem.callsite, i_mapping))
-                if len(parent_find_attempt) == 1: # found a match!
-                    parent_info = parent_find_attempt[0]
-                    i_mapping[elem] = i_mapping[parent_info] + [elem]
-                    parents.add(parent_info)
-                    new_groups.add(elem)
+        i_mapping[main_component] = [main_component]
 
+        # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
+        for active_unit in timeline_map[i]:
+            if active_unit.is_cell: # skip cells for now as we're considering only single component programs
+                continue
+            if active_unit.id() not in call_stack_probes_info: # no maps in call_stack_probes_info
+                i_mapping[active_unit.name] = i_mapping[main_component] + [active_unit.shortname]
+                parents.add(main_component)
+            else:
+                # loop through all parents and see if any of them are active
+                contains_active_parent = False
+                for parent, call_probe_info in call_stack_probes_info[active_unit.id()].items():
+                    if call_probe_info.is_active_at_cycle(i):
+                        contains_active_parent = True
+                        break
+                if not contains_active_parent:
+                    i_mapping[active_unit.name] = i_mapping[main_component] + [active_unit.shortname]
+                    parents.add(main_component)
+        # FIXME: need to get to fixpoint
+        # loop through all other elements to figure out parent child info
+        for active_unit in timeline_map[i]:
+            if active_unit.is_cell or active_unit.name in i_mapping:
+                continue
+            for parent, call_probe_info in call_stack_probes_info[active_unit.id()].items():
+                # FIXME: big hack below assuming that the program is single component. need to fix!!!!
+                if f"{main_component}.{parent}" in i_mapping: # we can directly build on top of the parent
+                    i_mapping[active_unit.name] = i_mapping[f"{main_component}.{parent}"] + [active_unit.shortname]
+                parents.add(f"{main_component}.{parent}")
         for elem in i_mapping:
             if elem not in parents:
                 new_timeline_map[i].append(i_mapping[elem])
+
+
+        print(new_timeline_map[i])
+    exit(1)
+
+
+    #     # find all of the invocations from control
+    #     for elem in filter((lambda x: x.callsite is not None and "instrumentation_wrapper" in x.callsite), timeline_map[i]):
+    #         i_mapping[elem] = i_mapping[main_component_info] + [elem]
+    #         parents.add(main_component_info)
+    #     # now, walk through everything else before saturation
+    #     new_groups = set()
+    #     started = False
+    #     while not started or len(new_groups) == 1:
+    #         started = True
+    #         new_groups = set()
+    #         for elem in timeline_map[i]:
+    #             if elem in i_mapping:
+    #                 continue
+    #             parent_find_attempt = list(filter(lambda x : x.shortname == elem.callsite, i_mapping))
+    #             if len(parent_find_attempt) == 1: # found a match!
+    #                 parent_info = parent_find_attempt[0]
+    #                 i_mapping[elem] = i_mapping[parent_info] + [elem]
+    #                 parents.add(parent_info)
+    #                 new_groups.add(elem)
+
+    #     for elem in i_mapping:
+    #         if elem not in parents:
+    #             new_timeline_map[i].append(i_mapping[elem])
         
-    for i in new_timeline_map:
-        print(i)
-        for stack in new_timeline_map[i]:
-            print(f"\t{stack}")
+    # for i in new_timeline_map:
+    #     print(i)
+    #     for stack in new_timeline_map[i]:
+    #         print(f"\t{stack}")
 
     return new_timeline_map
 
@@ -342,11 +383,14 @@ def main(vcd_filename, cells_json_file, out_dir):
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     converter.postprocess()
 
-    print(converter.call_stack_probe_info)
+    print("Active groups info: " + str(converter.active_elements_info))
+    print()
+    print("Call stack info: " + str(converter.call_stack_probe_info))
+    print()
 
     # NOTE: for a more robust implementation, we can even skip the part where we store active
     # cycles per group.
-    # new_timeline_map = create_traces(converter.profiling_info, converter.clock_cycles, main_component)
+    new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.clock_cycles, main_component)
 
     # create_output(new_timeline_map, out_dir)
 
