@@ -75,9 +75,6 @@ if [ ! -f ${VCD_FILE} ]; then
     exit 1
 fi
 
-echo exiting early
-exit 1
-
 # Run script to get cycle level counts
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
@@ -86,7 +83,7 @@ echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-process
 
-# # Convert all dot files to pdf
+# Convert all dot files to pdf
 # TREES_PDF_DIR=${OUT_DIR}-pdf
 # mkdir -p ${TREES_PDF_DIR}
 # for f in $( ls ${OUT_DIR} | grep dot$ ); do

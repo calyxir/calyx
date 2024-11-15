@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, BoolAttr, Guard, Nothing};
+use calyx_ir::{self as ir, BoolAttr, Guard, Id, Nothing};
 use calyx_utils::CalyxResult;
 
 /// Adds probe wires to each group to detect when a group is active.
@@ -43,15 +43,17 @@ impl Visitor for ProfilerInstrumentation {
         let mut acc = 0;
         let comp_name = comp.name;
         let mut structural_enable_map: HashMap<
-            ir::Id,
-            Vec<(ir::Id, ir::Guard<Nothing>)>,
+            Id,
+            Vec<(Id, ir::Guard<Nothing>)>,
         > = HashMap::new();
+        // groups to cells that they invoked?
+        let mut cell_invoke_map: HashMap<Id, Vec<Id>> = HashMap::new();
         let group_names = comp
             .groups
             .iter()
             .map(|group| group.borrow().name())
             .collect::<Vec<_>>();
-        // iterate and check for structural enables
+        // iterate and check for structural enables and for cell invokes
         for group_ref in comp.groups.iter() {
             let group = &group_ref.borrow();
             for assigment_ref in group.assignments.iter() {
@@ -77,6 +79,20 @@ impl Visitor for ProfilerInstrumentation {
                             }
                         }
                         acc += 1; // really sad hack
+                    }
+                }
+                if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
+                    if dst_borrow.name == "go" {
+                        let cell_name = cell_ref.upgrade().borrow().name();
+                        match cell_invoke_map.get_mut(&group.name()) {
+                            Some(vec_ref) => {
+                                vec_ref.push(cell_name);
+                            }
+                            None => {
+                                cell_invoke_map
+                                    .insert(group.name(), vec![cell_name]);
+                            }
+                        }
                     }
                 }
             }
@@ -133,6 +149,36 @@ impl Visitor for ProfilerInstrumentation {
                         );
                     group_name_assign_and_cell.push((
                         parent_group.clone(),
+                        probe_asgn,
+                        probe_cell,
+                    ));
+                }
+            }
+            // probe cell and assignments for structural cell invocations (the group is structurally invoking a cell.)
+            for (invoker_group, invoked_cells) in cell_invoke_map.iter() {
+                for invoked_cell in invoked_cells {
+                    let probe_cell_name = format!(
+                        "{}__{}__{}_cell_probe",
+                        invoked_cell, invoker_group, comp_name
+                    );
+                    let probe_cell = builder.add_primitive(
+                        probe_cell_name,
+                        "std_wire",
+                        &[1],
+                    );
+                    probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
+                    probe_cell
+                        .borrow_mut()
+                        .add_attribute(BoolAttr::Protected, 1);
+                    // FIXME: for correctness we'd probably want to get the go guard of the cell, but it doesn't *really* matter for the first pass
+                    let probe_asgn: ir::Assignment<Nothing> = builder
+                        .build_assignment(
+                            probe_cell.borrow().get("in"),
+                            one.borrow().get("out"),
+                            Guard::True,
+                        );
+                    group_name_assign_and_cell.push((
+                        invoker_group.clone(),
                         probe_asgn,
                         probe_cell,
                     ));

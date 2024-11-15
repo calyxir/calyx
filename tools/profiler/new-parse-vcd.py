@@ -20,7 +20,7 @@ class StackTree:
 class ProfilingInfo:
     def __init__(self, name, callsite=None, component=None, is_cell=False):
         self.name = name
-        self.callsite = callsite
+        self.callsite = callsite # "official" call site. Should only be used for probes?
         self.component = component
         self.shortname = self.name.split(".")[-1]
         self.closed_segments = [] # Segments will be (start_time, end_time)
@@ -59,7 +59,7 @@ class ProfilingInfo:
 
     def start_new_segment(self, curr_clock_cycle):
         if self.current_segment is None:
-            self.current_segment = {"start": curr_clock_cycle, "end": -1}
+            self.current_segment = {"start": curr_clock_cycle, "end": -1, "callsite": self.callsite} # NOTE: see if this backfires
         else:
             print(f"Error! The group {self.name} is starting a new segment while the current segment is not closed.")
             print(f"Current segment: {self.current_segment}")
@@ -72,11 +72,14 @@ class ProfilingInfo:
             self.total_cycles += curr_clock_cycle - self.current_segment["start"]
             self.current_segment = None # Reset current segment
 
-    def is_active_at_cycle(self, i): # is the probe active at cycle i?
+    def get_segment_active_at_cycle(self, i): # get the segment that contains cycle i if one exists. Otherwise return None
         for segment in self.closed_segments:
             if segment["start"] <= i and i < segment["end"]:
-                return True
-        return False
+                return segment
+        return None
+
+    def is_active_at_cycle(self, i): # is the probe active at cycle i?
+        return self.get_segment_active_at_cycle(i) != None        
 
     def id(self):
         return f"{self.name}_{self.component}"
@@ -91,7 +94,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.timestamps_to_events = {}
         self.cells = cells_to_components
         self.active_elements_info = {} # for every group/cell, maps to a corresponding ProfilingInfo object signalling when group/cell was active
-        self.call_stack_probe_info = {} # group --> {parent group --> ProfilingInfo object}
+        self.call_stack_probe_info = {} # group --> {parent group --> ProfilingInfo object}. This is for tracking structural enables within the same component.
+        self.cell_invoke_probe_info = {} # {cell}_{component the cell was called from} --> {parent group --> ProfilingInfo Object}  (FIXME: maybe we want this the other way around?)
         for cell in self.cells:
             self.active_elements_info[cell] = ProfilingInfo(cell, is_cell=True)
 
@@ -142,6 +146,20 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 self.call_stack_probe_info[group_id][group_parent] = ProfilingInfo(group_name, callsite=group_parent, component=group_component)
                 signal_id_dict[sid].append(name)
 
+            elif "cell_probe_out" in name:
+                encoded_info = name.split("_cell_probe_out")[0]
+                probe_info_split = encoded_info.split("__")
+                cell_name = probe_info_split[0]
+                invoker_group = probe_info_split[1]
+                component = probe_info_split[2]
+                probe_info_obj = ProfilingInfo(cell_name, callsite=invoker_group, component=component, is_cell=True)
+                cell_id = cell_name + "_" + component
+                if cell_name not in self.cell_invoke_probe_info:
+                    self.cell_invoke_probe_info[cell_id] = {invoker_group: probe_info_obj}
+                else:
+                    self.call_stack_probe_info[cell_id][invoker_group] = probe_info_obj
+                signal_id_dict[sid].append(name)
+
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
         print(self.signal_id_to_names)
@@ -171,7 +189,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         clock_cycles = -1
         started = False
         currently_active = set()
-        se_currently_active = set()
+        se_currently_active = set() # structural group enables
+        ci_currently_active = set() # cell invokes
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
             started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
@@ -215,6 +234,20 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     group_id = child_group_name + "_" + child_group_component
                     self.call_stack_probe_info[group_id][parent].end_current_segment(clock_cycles)
                     se_currently_active.remove(group_id)
+                elif "cell_probe_out" in signal_name and value == 1:
+                    encoded_info_split = signal_name.split("_cell_probe_out")[0].split("__")
+                    cell_name = encoded_info_split[0]
+                    parent = encoded_info_split[1]
+                    parent_component = encoded_info_split[2]
+                    cell_id = cell_name + "_" + parent_component
+                    self.cell_invoke_probe_info[cell_id][parent].start_new_segment(clock_cycles)
+                elif "cell_probe_out" in signal_name and value == 0:
+                    encoded_info_split = signal_name.split("_cell_probe_out")[0].split("__")
+                    cell_name = encoded_info_split[0]
+                    parent = encoded_info_split[1]
+                    parent_component = encoded_info_split[2]
+                    cell_id = cell_name + "_" + parent_component
+                    self.cell_invoke_probe_info[cell_id][parent].end_current_segment(clock_cycles)
         for active in currently_active: # end any group/cell activitations that are still around...
             self.active_elements_info[active].end_current_segment(clock_cycles)
         for active in se_currently_active: # end any structural enables that are still around...
@@ -271,13 +304,12 @@ def create_traces(active_element_probes_info, call_stack_probes_info, total_cycl
     new_timeline_map = {i : [] for i in range(total_cycles)}
     # now, we need to figure out the sets of traces
     for i in timeline_map:
-        print(f"cycle {i}")
         parents = set()
         i_mapping = {} # each unique group inv mapping to its stack. the "group" should be the last item on each stack
         # FIXME: probably want to wrap this around a while loop or sth?
         curr_component = main_component
         main_component_info = list(filter(lambda x : x.name == main_component, timeline_map[i]))[0]
-        i_mapping[main_component] = [main_component]
+        i_mapping[main_component] = ["main"] # [main_component]
 
         # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
         for active_unit in timeline_map[i]:
@@ -309,45 +341,16 @@ def create_traces(active_element_probes_info, call_stack_probes_info, total_cycl
         for elem in i_mapping:
             if elem not in parents:
                 new_timeline_map[i].append(i_mapping[elem])
-
-
-        print(new_timeline_map[i])
-    exit(1)
-
-
-    #     # find all of the invocations from control
-    #     for elem in filter((lambda x: x.callsite is not None and "instrumentation_wrapper" in x.callsite), timeline_map[i]):
-    #         i_mapping[elem] = i_mapping[main_component_info] + [elem]
-    #         parents.add(main_component_info)
-    #     # now, walk through everything else before saturation
-    #     new_groups = set()
-    #     started = False
-    #     while not started or len(new_groups) == 1:
-    #         started = True
-    #         new_groups = set()
-    #         for elem in timeline_map[i]:
-    #             if elem in i_mapping:
-    #                 continue
-    #             parent_find_attempt = list(filter(lambda x : x.shortname == elem.callsite, i_mapping))
-    #             if len(parent_find_attempt) == 1: # found a match!
-    #                 parent_info = parent_find_attempt[0]
-    #                 i_mapping[elem] = i_mapping[parent_info] + [elem]
-    #                 parents.add(parent_info)
-    #                 new_groups.add(elem)
-
-    #     for elem in i_mapping:
-    #         if elem not in parents:
-    #             new_timeline_map[i].append(i_mapping[elem])
         
-    # for i in new_timeline_map:
-    #     print(i)
-    #     for stack in new_timeline_map[i]:
-    #         print(f"\t{stack}")
+    for i in new_timeline_map:
+        print(i)
+        for stack in new_timeline_map[i]:
+            print(f"\t{stack}")
 
     return new_timeline_map
 
 def create_output(timeline_map, out_dir):
-    shutil.rmtree(out_dir)
+    # shutil.rmtree(out_dir)
     os.mkdir(out_dir)
     for i in timeline_map:
         fpath = os.path.join(out_dir, f"cycle{i}.dot")
@@ -357,8 +360,11 @@ def create_output(timeline_map, out_dir):
             for stack in timeline_map[i]:
                 acc = "\t"
                 for stack_elem in stack[0:-1]:
-                    acc += stack_elem.shortname + " -> "
-                acc += stack[-1].shortname + ";\n"
+                    acc += stack_elem + " -> "
+                acc += stack[-1] + ";\n"
+                # for stack_elem in stack[0:-1]:
+                #     acc += stack_elem.shortname + " -> "
+                # acc += stack[-1].shortname + ";\n"
                 f.write(acc)
             f.write("}")
 
@@ -366,7 +372,8 @@ def create_output(timeline_map, out_dir):
     stacks = {} # stack to number of cycles
     for i in timeline_map:
         for stack_list in timeline_map[i]:
-            stack_str = ";".join(map(lambda x : x.flame_repr(), stack_list))
+            # stack_str = ";".join(map(lambda x : x.flame_repr(), stack_list))
+            stack_str = ";".join(stack_list)
             if stack_str not in stacks:
                 stacks[stack_str] = 1
             else:
@@ -387,10 +394,12 @@ def main(vcd_filename, cells_json_file, out_dir):
     print()
     print("Call stack info: " + str(converter.call_stack_probe_info))
     print()
+    print("Cell stack info: " + str(converter.cell_invoke_probe_info))
+    print()
 
     # NOTE: for a more robust implementation, we can even skip the part where we store active
     # cycles per group.
-    new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.clock_cycles, main_component)
+    # new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.clock_cycles, main_component)
 
     # create_output(new_timeline_map, out_dir)
 
