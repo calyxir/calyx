@@ -244,7 +244,7 @@ impl MyAdapter {
     pub fn get_scopes(&mut self, frame: i64) -> Vec<Scope> {
         let mut out_vec = vec![];
         let component = self.frames_to_cmpts.get(&frame).unwrap();
-        let cell_names = self.debugger.get_comp_cells(component.clone());
+        let cell_names = self.debugger.get_comp_cells(*component);
         let mut var_ref_count = 1;
         for (name, ports) in cell_names {
             self.object_references.insert(var_ref_count, ports);

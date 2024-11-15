@@ -299,11 +299,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let cells_keys = self.ctx().secondary.comp_aux_info[ledger.comp_id]
             .cell_offset_map
             .keys();
-        let cells = cells_keys.map(|x| {
+        cells_keys.map(|x| {
             let idx = &ledger.index_bases + x;
             (idx.get_full_name(self), self.ports_helper(idx))
-        });
-        cells
+        })
     }
 
     /// Returns the full name and port list of each cell in the context
