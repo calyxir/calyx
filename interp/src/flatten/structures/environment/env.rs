@@ -40,8 +40,8 @@ use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
+use std::fmt::Debug;
 use std::fmt::Write;
-use std::{borrow::Borrow, fmt::Debug};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -303,7 +303,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let idx = &ledger.index_bases + x;
             (idx.get_full_name(self), self.ports_helper(idx))
         });
-        return cells;
+        cells
     }
 
     /// Returns the full name and port list of each cell in the context

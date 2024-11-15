@@ -9,14 +9,13 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
-            base::{ComponentIdx, GlobalCellIdx, PortValue},
+            base::{GlobalCellIdx, PortValue},
             prelude::GroupIdx,
         },
         setup_simulation_with_metadata,
         structures::{
             context::Context,
             environment::{Path as ParsePath, PathError, Simulator},
-            index_trait::IndexRef,
         },
     },
     serialization::PrintCode,
