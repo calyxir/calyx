@@ -220,7 +220,7 @@ impl MyAdapter {
                     .map(|(nam, val)| {
                         let valu = match val.as_option() {
                             None => 0,
-                            Some(assigned_val) => assigned_val.val().as_i64(),
+                            Some(assigned_val) => assigned_val.val().as_u64(),
                         };
                         Variable {
                             name: String::from(nam),
