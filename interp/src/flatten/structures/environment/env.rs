@@ -40,8 +40,8 @@ use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use slog::warn;
-use std::fmt::Debug;
 use std::fmt::Write;
+use std::{borrow::Borrow, fmt::Debug};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -277,13 +277,42 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
     }
+    // iterate component instances for DAP
+    pub fn iter_compts(
+        &self,
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+        self.cells.iter().filter_map(|(idx, ledge)| match ledge {
+            CellLedger::Primitive { .. } => None,
+            CellLedger::Component(component_ledger) => {
+                Some((idx, self.ctx().lookup_name(component_ledger.comp_id)))
+            }
+        })
+    }
+    pub fn iter_cmpt_cells(
+        &self,
+        cpt: GlobalCellIdx,
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+        // take globalcellid, look up in env to get compt ledger and get base indices
+        // w cmpt id, go to context look at ctx.secondary[cmptidx] to get aux info, want cell offset map just keys
+        // add local and globel offset, lookup full name and port info
+        let ledger = self.cells[cpt].as_comp().unwrap();
+        let cells_keys = self.ctx().secondary.comp_aux_info[ledger.comp_id]
+            .cell_offset_map
+            .keys();
+        let cells = cells_keys.map(|x| {
+            let idx = &ledger.index_bases + x;
+            (idx.get_full_name(self), self.ports_helper(idx))
+        });
+        return cells;
+    }
+
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
         let env = self;
         let cell_names = self.cells.iter().map(|(idx, _ledger)| {
-            (idx.get_full_name(env), self.get_ports_for_cell(idx))
+            (idx.get_full_name(env), self.ports_helper(idx))
         });
 
         cell_names
@@ -292,45 +321,66 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     //not sure if beneficial to change this to be impl iterator as well
-    fn get_ports_for_cell(&self, cell: GlobalCellIdx) -> Vec<String> {
+    fn ports_helper(&self, cell: GlobalCellIdx) -> Vec<(String, PortValue)> {
         let parent = self.get_parent_cell_from_cell(cell);
         match parent {
             None => {
-                let comp_ledger = self.cells[cell].as_comp().unwrap();
-                let comp_info =
-                    self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
-                let port_ids = comp_info.signature().into_iter().map(|x| {
-                    &self.ctx().secondary.local_port_defs
-                        [comp_info.port_offset_map[x]]
-                        .name
-                });
-                let port_names = port_ids
-                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                let ports = self.get_ports_from_cell(cell);
+                let info = ports
+                    .map(|(name, id)| {
+                        (
+                            (name.lookup_name(self.ctx())).clone(),
+                            self.ports[id].clone(),
+                        )
+                    })
                     .collect_vec();
-                port_names
+                info
+                // figure out how to unwrap this so i can get the things i need
+                // let comp_ledger = self.cells[cell].as_comp().unwrap();
+                // let comp_info =
+                //     self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
+                // let port_ids = comp_info.signature().into_iter().map(|x| {
+                //     &self.ctx().secondary.local_port_defs
+                //         [comp_info.port_offset_map[x]]
+                //         .name
+                // });
+                // let port_names = port_ids
+                //     .map(|x| String::from(x.lookup_name(self.ctx())))
+                //     .collect_vec();
+                // port_names
             }
             Some(parent_cell) => {
-                let parent_comp_ledger = self.cells[parent_cell].unwrap_comp();
-                let comp_info = self
-                    .ctx()
-                    .secondary
-                    .comp_aux_info
-                    .get(parent_comp_ledger.comp_id);
-                let local_offset = cell - &parent_comp_ledger.index_bases;
-
-                let port_ids = self.ctx().secondary.local_cell_defs
-                    [comp_info.cell_offset_map[local_offset]]
-                    .ports
-                    .into_iter()
-                    .map(|x| {
-                        &self.ctx().secondary.local_port_defs
-                            [comp_info.port_offset_map[x]]
-                            .name
-                    });
-                let names = port_ids
-                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                let ports = self.get_ports_from_cell(parent_cell);
+                let info = ports
+                    .map(|(name, id)| {
+                        (
+                            (name.lookup_name(self.ctx())).clone(),
+                            self.ports[id].clone(),
+                        )
+                    })
                     .collect_vec();
-                names
+                info
+                // let parent_comp_ledger = self.cells[parent_cell].unwrap_comp();
+                // let comp_info = self
+                //     .ctx()
+                //     .secondary
+                //     .comp_aux_info
+                //     .get(parent_comp_ledger.comp_id);
+                // let local_offset = cell - &parent_comp_ledger.index_bases;
+
+                // let port_ids = self.ctx().secondary.local_cell_defs
+                //     [comp_info.cell_offset_map[local_offset]]
+                //     .ports
+                //     .into_iter()
+                //     .map(|x| {
+                //         &self.ctx().secondary.local_port_defs
+                //             [comp_info.port_offset_map[x]]
+                //             .name
+                //     });
+                // let names = port_ids
+                //     .map(|x| String::from(x.lookup_name(self.ctx())))
+                //     .collect_vec();
+                // names
             }
         }
     }

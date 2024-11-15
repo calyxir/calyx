@@ -8,11 +8,15 @@ use crate::{
     debugger::{source::SourceMap, unwrap_error_message},
     errors::{InterpreterError, InterpreterResult},
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::{
+            base::{ComponentIdx, GlobalCellIdx, PortValue},
+            prelude::GroupIdx,
+        },
         setup_simulation_with_metadata,
         structures::{
             context::Context,
             environment::{Path as ParsePath, PathError, Simulator},
+            index_trait::IndexRef,
         },
     },
     serialization::PrintCode,
@@ -140,21 +144,23 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         (parent_name, group_name)
     }
 
-    pub fn get_cells(
+    pub fn get_all_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
         self.interpreter.env().iter_cells()
     }
-
-    pub fn get_components(&self) -> impl Iterator<Item = &String> + '_ {
-        let comps = self
-            .program_context
-            .as_ref()
-            .primary
-            .components
-            .iter()
-            .map(|(k, _)| self.program_context.as_ref().lookup_name(k));
-        comps
+    pub fn get_comp_cells(
+        &self,
+        cmp_idx: GlobalCellIdx,
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+        // component idx -> global cell idx
+        self.interpreter.env().iter_cmpt_cells(cmp_idx)
+    }
+    pub fn get_components(
+        &self,
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+        //this gets the names AND idx, now how to get the lines T.T
+        self.interpreter.env().iter_compts()
     }
 
     // Go to next step

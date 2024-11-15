@@ -241,7 +241,6 @@ fn run_server<R: Read, W: Write>(
             }
             // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
-                // Create new frame if empty, SUBJECT TO CHANGE
                 let frames = adapter.get_stack();
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {

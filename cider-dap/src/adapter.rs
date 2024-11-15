@@ -7,6 +7,7 @@ use dap::types::{
 use interp::debugger::commands::ParsedGroupName;
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::{OwnedDebugger, StoppedReason};
+use interp::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -19,9 +20,10 @@ pub struct MyAdapter {
     breakpoints: HashSet<i64>,
     stack_frames: Vec<StackFrame>,
     threads: Vec<Thread>, // This field is a placeholder
-    object_references: HashMap<i64, Vec<String>>,
+    object_references: HashMap<i64, Vec<(String, PortValue)>>,
     source: String,
     ids: NewSourceMap,
+    frames_to_cmpts: HashMap<i64, GlobalCellIdx>, //stores mapping from frame ids to component idx
 }
 
 impl MyAdapter {
@@ -39,6 +41,7 @@ impl MyAdapter {
             object_references: HashMap::new(),
             source: path.to_string(),
             ids: metadata,
+            frames_to_cmpts: HashMap::new(),
         })
     }
     /// function to deal with setting breakpoints and updating debugger accordingly
@@ -117,7 +120,7 @@ impl MyAdapter {
         self.debugger.delete_breakpoints(to_debugger);
     }
 
-    ///Creates a thread using the parameter name.
+    /// Creates a thread using the parameter name.
     pub fn create_thread(&mut self, name: String) -> Thread {
         //how do we attach the thread to the program
         let thread = Thread {
@@ -133,6 +136,7 @@ impl MyAdapter {
         self.threads.clone()
     }
 
+    /// returns all frames in program
     pub fn get_stack(&mut self) -> Vec<StackFrame> {
         if self.stack_frames.is_empty() {
             self.create_stack();
@@ -140,33 +144,37 @@ impl MyAdapter {
         self.stack_frames.clone()
     }
 
-    //Returns a dummy stack frame, set to change.
+    /// creates call stack where each frame is a component
     fn create_stack(&mut self) -> Vec<StackFrame> {
         let components = self.debugger.get_components();
         //turn the names into stack frames, ignore lines for right now
-        let frames = components.map(|comp| {
-            StackFrame {
-                id: self.stack_count.increment(),
-                // Maybe automate the name in the future?
-                name: String::from(comp),
-                source: Some(Source {
-                    name: None,
-                    path: Some(self.source.clone()),
-                    source_reference: None,
+        let frames = components.map(|(idx, comp)| {
+            {
+                let frame = StackFrame {
+                    id: self.stack_count.increment(),
+                    // Maybe automate the name in the future?
+                    name: String::from(comp),
+                    source: Some(Source {
+                        name: None,
+                        path: Some(self.source.clone()),
+                        source_reference: None,
+                        presentation_hint: None,
+                        origin: None,
+                        sources: None,
+                        adapter_data: None,
+                        checksums: None,
+                    }),
+                    line: 1, // need to get this to be line component starts on
+                    column: 0,
+                    end_line: None,
+                    end_column: None,
+                    can_restart: None,
+                    instruction_pointer_reference: None,
+                    module_id: None,
                     presentation_hint: None,
-                    origin: None,
-                    sources: None,
-                    adapter_data: None,
-                    checksums: None,
-                }),
-                line: 1,
-                column: 0,
-                end_line: None,
-                end_column: None,
-                can_restart: None,
-                instruction_pointer_reference: None,
-                module_id: None,
-                presentation_hint: None,
+                };
+                self.frames_to_cmpts.insert(frame.id, idx);
+                frame
             }
         });
 
@@ -209,26 +217,34 @@ impl MyAdapter {
             Some(p) => {
                 let out: Vec<Variable> = p
                     .iter()
-                    .map(|x| Variable {
-                        name: String::from(x),
-                        value: String::from("1"),
-                        type_field: None,
-                        presentation_hint: None,
-                        evaluate_name: None,
-                        variables_reference: 0,
-                        named_variables: None,
-                        indexed_variables: None,
-                        memory_reference: None,
+                    .map(|(nam, val)| {
+                        let valu = match val.as_option() {
+                            None => 0,
+                            Some(assigned_val) => assigned_val.val().as_i64(),
+                        };
+                        Variable {
+                            name: String::from(nam),
+                            value: valu.to_string(),
+                            type_field: None,
+                            presentation_hint: None,
+                            evaluate_name: None,
+                            variables_reference: 0,
+                            named_variables: None,
+                            indexed_variables: None,
+                            memory_reference: None,
+                        }
                     })
                     .collect();
                 out
             }
         }
     }
-    // return cells in calyx context (later should hopefully just return ones w current component)
-    pub fn get_scopes(&mut self, _frame: i64) -> Vec<Scope> {
+    // return cells in calyx context
+    // todo: return only cells in current stack frame (component)
+    pub fn get_scopes(&mut self, frame: i64) -> Vec<Scope> {
         let mut out_vec = vec![];
-        let cell_names = self.debugger.get_cells();
+        let component = self.frames_to_cmpts.get(&frame).unwrap();
+        let cell_names = self.debugger.get_comp_cells(component.clone());
         let mut var_ref_count = 1;
         for (name, ports) in cell_names {
             self.object_references.insert(var_ref_count, ports);
