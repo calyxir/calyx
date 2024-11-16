@@ -329,7 +329,7 @@ fn emit_component<F: io::Write>(
                 if let Some(check) =
                     emit_guard_disjoint_check(dst, asgns, &pool, true)
                 {
-                    writeln!(f, "always_comb begin")?;
+                    writeln!(f, "always_ff @(posedge clk) begin")?;
                     writeln!(f, "  {check}")?;
                     writeln!(f, "end")?;
                 }
@@ -763,16 +763,17 @@ fn emit_guard<F: std::io::Write>(
 //==========================================
 /// Generates code of the form:
 /// ```
-/// string DATA;
+/// `define STRINGIFY(x) `"x`"
+/// string data = `STRINGIFY(`DATA);
 /// int CODE;
 /// initial begin
-///   CODE = $value$plusargs("DATA=%s", DATA);
-///   $display("DATA: %s", DATA);
-///   $readmemh({DATA, "/<mem_name>.dat"}, <mem_name>.mem);
+///   CODE = $value$plusargs("data=%s", data);
+///   $display("data: %s", data);
+///   $readmemh($sformatf("%s/<mem_name>.dat", data), <mem_name>.mem);
 ///   ...
 /// end
 /// final begin
-///   $writememh({DATA, "/<mem_name>.out"}, <mem_name>.mem);
+///   $writememh($sformatf("%s/<mem_name>.out", data), <mem_name>.mem);
 /// end
 /// ```
 fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
@@ -805,14 +806,15 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     }
 
     // Import futil helper library.
-    let data_decl = v::Stmt::new_rawstr("string DATA;".to_string());
+    let stringify_decl = v::Stmt::new_rawstr("`define STRINGIFY(x) `\"x`\"".to_string());
+    let data_decl = v::Stmt::new_rawstr("string data = `STRINGIFY(`DATA);".to_string());
     let code_decl = v::Stmt::new_rawstr("int CODE;".to_string());
 
     let plus_args = v::Sequential::new_blk_assign(
         v::Expr::Ref("CODE".to_string()),
         v::Expr::new_call(
             "$value$plusargs",
-            vec![v::Expr::new_str("DATA=%s"), v::Expr::new_ref("DATA")],
+            vec![v::Expr::new_str("data=%s"), v::Expr::new_ref("data")],
         ),
     );
 
@@ -824,8 +826,8 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$display",
             vec![
-                v::Expr::new_str("DATA (path to meminit files): %s"),
-                v::Expr::new_ref("DATA"),
+                v::Expr::new_str("data (path to meminit files): %s"),
+                v::Expr::new_ref("data"),
             ],
         )));
 
@@ -834,12 +836,19 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
-                v::Expr::Concat(v::ExprConcat {
-                    exprs: vec![
-                        v::Expr::new_str(&format!("/{}.dat", name)),
-                        v::Expr::new_ref("DATA"),
+                // v::Expr::Concat(v::ExprConcat {
+                //     exprs: vec![
+                //         v::Expr::new_str(&format!("/{}.dat", name)),
+                //         v::Expr::new_ref("data"),
+                //     ],
+                // })
+                v::Expr::new_call(
+                    "$sformatf",
+                    vec![
+                        v::Expr::new_str(&format!("%s/{}.dat", name)),
+                        v::Expr::new_ref("data"),
                     ],
-                }),
+                ),
                 v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
@@ -852,18 +861,26 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",
             vec![
-                v::Expr::Concat(v::ExprConcat {
-                    exprs: vec![
-                        v::Expr::new_str(&format!("/{}.out", name)),
-                        v::Expr::new_ref("DATA"),
+                // v::Expr::Concat(v::ExprConcat {
+                //     exprs: vec![
+                //         v::Expr::new_str(&format!("/{}.out", name)),
+                //         v::Expr::new_ref("data"),
+                //     ],
+                // }),
+                v::Expr::new_call(
+                    "$sformatf",
+                    vec![
+                        v::Expr::new_str(&format!("%s/{}.out", name)),
+                        v::Expr::new_ref("data"),
                     ],
-                }),
+                ),
                 v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
     });
 
     vec![
+        stringify_decl,
         data_decl,
         code_decl,
         v::Stmt::new_parallel(v::Parallel::new_process(initial_block)),

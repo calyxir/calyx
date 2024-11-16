@@ -8,11 +8,11 @@ fn verilator_setup(e) {
    e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000");
    e.rule(
         "verilator-compile-standalone-tb",
-        "$verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
+        "$verilator $in tb.sv -DCYCLE_LIMIT=$cycle-limit -DDATA=\"$datadir\" --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
    );
    e.rule(
         "verilator-compile-custom-tb",
-        "$verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
+        "$verilator $in tb.sv memories.sv -DCYCLE_LIMIT=$cycle-limit -DDATA=$datadir --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
    );
    e.rule("cp", "cp $in $out");
 }
