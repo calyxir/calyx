@@ -806,8 +806,10 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     }
 
     // Import futil helper library.
-    let stringify_decl = v::Stmt::new_rawstr("`define STRINGIFY(x) `\"x`\"".to_string());
-    let data_decl = v::Stmt::new_rawstr("string data = `STRINGIFY(`DATA);".to_string());
+    let stringify_decl =
+        v::Stmt::new_rawstr("`define STRINGIFY(x) `\"x`\"".to_string());
+    let data_decl =
+        v::Stmt::new_rawstr("string data = `STRINGIFY(`DATA);".to_string());
     let code_decl = v::Stmt::new_rawstr("int CODE;".to_string());
 
     let plus_args = v::Sequential::new_blk_assign(
