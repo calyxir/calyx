@@ -328,8 +328,7 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
         while len(cell_worklist) > 0:
             current_cell = cell_worklist.pop()
             current_component = cells_to_components[current_cell]
-            print(f"current component: {current_component}")
-            covered_units_in_component = {"main"} # collect all of the units we've covered.
+            covered_units_in_component = set() # collect all of the units we've covered.
             # this is so silly... but catch all active units that are groups in this component.
             units_to_cover = set(filter(lambda unit: not unit.is_cell and unit.component == current_component, timeline_map[i]))
             # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
@@ -374,10 +373,10 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
                     if cell_calling_probe.is_active_at_cycle(i) and cell_active_probe.is_active_at_cycle(i):
                         cell_worklist.append(cell_active_probe.name)
                         # invoker group is the parent of the cell.
-                        i_mapping[cell_active_probe.name] = i_mapping[f"{current_cell}.{cell_invoker}"] + [cell_active_probe.shortname]
+                        cell_component = cells_to_components[cell_active_probe.name]
+                        i_mapping[cell_active_probe.name] = i_mapping[f"{current_cell}.{cell_invoker}"] + [f"{cell_active_probe.shortname} [{cell_component}]"]
                         parents.add(f"{current_cell}.{cell_invoker}")
 
-        
         for elem in i_mapping:
             if elem not in parents:
                 new_timeline_map[i].append(i_mapping[elem])
@@ -400,8 +399,8 @@ def create_output(timeline_map, out_dir):
             for stack in timeline_map[i]:
                 acc = "\t"
                 for stack_elem in stack[0:-1]:
-                    acc += stack_elem + " -> "
-                acc += stack[-1] + ";\n"
+                    acc += f'"{stack_elem}" -> '
+                acc += f'"{stack[-1]}" ;\n'
                 # for stack_elem in stack[0:-1]:
                 #     acc += stack_elem.shortname + " -> "
                 # acc += stack[-1].shortname + ";\n"
@@ -443,7 +442,7 @@ def main(vcd_filename, cells_json_file, out_dir):
     # cycles per group.
     new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.cell_invoke_caller_probe_info, converter.clock_cycles, cells_to_components, main_component)
 
-    # create_output(new_timeline_map, out_dir)
+    create_output(new_timeline_map, out_dir)
 
 
 if __name__ == "__main__":

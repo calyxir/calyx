@@ -84,10 +84,10 @@ echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 ) &> ${LOGS_DIR}/gol-process
 
 # Convert all dot files to pdf
-# TREES_PDF_DIR=${OUT_DIR}-pdf
-# mkdir -p ${TREES_PDF_DIR}
-# for f in $( ls ${OUT_DIR} | grep dot$ ); do
-#     dot -Tpng ${OUT_DIR}/${f} > ${TREES_PDF_DIR}/${f}.png
-# done
+TREES_PDF_DIR=${OUT_DIR}-pdf
+mkdir -p ${TREES_PDF_DIR}
+for f in $( ls ${OUT_DIR} | grep dot$ ); do
+    dot -Tpng ${OUT_DIR}/${f} > ${TREES_PDF_DIR}/${f}.png
+done
 
-# ${FLAMEGRAPH_DIR}/flamegraph.pl --countname="cycles" ${OUT_DIR}/flame.folded > ${OUT_DIR}/flame.svg
+${FLAMEGRAPH_DIR}/flamegraph.pl --countname="cycles" ${OUT_DIR}/flame.folded > ${OUT_DIR}/flame.svg
