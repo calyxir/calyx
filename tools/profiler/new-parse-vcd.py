@@ -390,23 +390,37 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
 
 def create_output(timeline_map, out_dir):
 
-    all_stacks = set()
-
-
-
-    # shutil.rmtree(out_dir)
-    os.mkdir(out_dir)
+    # Include all possible stacks on each iteration, gray out all edges and nodes not used
+    all_stack_strings = set()
+    timeline_stack_strings = {i : set() for i in timeline_map}
     for i in timeline_map:
+        for stack in timeline_map[i]:
+            acc = ""
+            for stack_elem in stack[0:-1]:
+                acc += f'"{stack_elem}" -> '
+            acc += f'"{stack[-1]}"'
+            all_stack_strings.add(acc)
+            timeline_stack_strings[i].add(acc)
+
+    filtered_stack_strings = all_stack_strings.copy()
+    sorted_stack_strings = sorted(list(all_stack_strings))
+    # filter out anything that is a prefix of something else? I feel like there's a smarter way to do this
+    for a in sorted_stack_strings:
+        for b in sorted_stack_strings:
+            if a != b and a in b:
+                filtered_stack_strings.remove(a)
+                break
+
+    os.mkdir(out_dir)
+    for i in timeline_stack_strings:
         fpath = os.path.join(out_dir, f"cycle{i}.dot")
         # really lazy rn but I should actually use a library for this
         with open(fpath, "w") as f:
             f.write("digraph cycle" + str(i) + " {\n")
-            for stack in timeline_map[i]:
-                acc = "\t"
-                for stack_elem in stack[0:-1]:
-                    acc += f'"{stack_elem}" -> '
-                acc += f'"{stack[-1]}" ;\n'
-                f.write(acc)
+            for current_cycle_string in timeline_stack_strings[i]:
+                f.write(f"\t{current_cycle_string} ;\n")
+            for non_active_stack_string in filtered_stack_strings.difference(timeline_stack_strings[i]):
+                f.write(f'\t{non_active_stack_string} [color="darkgray"];\n')
             f.write("}")
 
     # make flame graph folded file
