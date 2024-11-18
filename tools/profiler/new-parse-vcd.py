@@ -84,7 +84,7 @@ class ProfilingInfo:
         return self.get_segment_active_at_cycle(i) != None        
 
     def id(self):
-        return f"{self.name}_{self.component}"
+        return f"{self.name}{DELIMITER}{self.component}"
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components):
@@ -389,6 +389,11 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
     return new_timeline_map
 
 def create_output(timeline_map, out_dir):
+
+    all_stacks = set()
+
+
+
     # shutil.rmtree(out_dir)
     os.mkdir(out_dir)
     for i in timeline_map:
@@ -401,9 +406,6 @@ def create_output(timeline_map, out_dir):
                 for stack_elem in stack[0:-1]:
                     acc += f'"{stack_elem}" -> '
                 acc += f'"{stack[-1]}" ;\n'
-                # for stack_elem in stack[0:-1]:
-                #     acc += stack_elem.shortname + " -> "
-                # acc += stack[-1].shortname + ";\n"
                 f.write(acc)
             f.write("}")
 
@@ -428,8 +430,6 @@ def main(vcd_filename, cells_json_file, out_dir):
     converter = VCDConverter(main_component, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     converter.postprocess()
-
-    print(cells_to_components)
 
     print("Active groups info: " + str(converter.active_elements_info.keys()))
     print()
