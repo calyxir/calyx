@@ -12,12 +12,6 @@ def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
     return name.split('[')[0]
 
-class StackTree:
-    def __init__(self, name, data):
-        self.key = name
-        self.data = data
-        self.children = []
-
 
 class ProfilingInfo:
     def __init__(self, name, callsite=None, component=None, is_cell=False):
@@ -388,31 +382,53 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
 
     return new_timeline_map
 
+def create_tree(timeline_map):
+    # ugliest implementation of a tree
+    node_id_acc = 0
+    tree_dict = {} # node id --> {(node name, [children])}
+    path_dict = {} # stack list string --> list of node ids
+    stack_list = []
+    for sl in timeline_map.values():
+        for s in sl:
+            if s not in stack_list:
+                stack_list.append(s)
+    stack_list.sort(key=len)
+    for stack in stack_list:
+        stack_string = ";".join(stack)
+        if stack_string not in path_dict:
+            id_path_list = []
+            prefix = ""
+            # check if we have any prefixes. start from the longest 
+            for other_stack_string in sorted(path_dict, key=len, reverse=True):
+                if other_stack_string in stack_string:
+                    # prefix found!
+                    prefix = other_stack_string
+                    id_path_list = list(path_dict[other_stack_string])
+                    break
+            # create nodes
+            if prefix != "":
+                new_nodes = stack_string.split(f"{prefix};")[1].split(";")
+            else:
+                new_nodes = stack
+            for elem in new_nodes:
+                tree_dict[node_id_acc] = elem
+                id_path_list.append(node_id_acc)
+                node_id_acc += 1
+            path_dict[stack_string] = id_path_list
+
+    print(tree_dict)
+    print(path_dict)
+
+    return tree_dict, path_dict
+
 def create_output(timeline_map, out_dir):
 
-    # Include all possible stacks on each iteration, gray out all edges and nodes not used
-    all_stack_strings = set()
-    timeline_stack_strings = {i : set() for i in timeline_map}
-    for i in timeline_map:
-        for stack in timeline_map[i]:
-            acc = ""
-            for stack_elem in stack[0:-1]:
-                acc += f'"{stack_elem}" -> '
-            acc += f'"{stack[-1]}"'
-            all_stack_strings.add(acc)
-            timeline_stack_strings[i].add(acc)
-
-    filtered_stack_strings = all_stack_strings.copy()
-    sorted_stack_strings = sorted(list(all_stack_strings))
-    # filter out anything that is a prefix of something else? I feel like there's a smarter way to do this
-    for a in sorted_stack_strings:
-        for b in sorted_stack_strings:
-            if a != b and a in b:
-                filtered_stack_strings.remove(a)
-                break
-
     os.mkdir(out_dir)
-    for i in timeline_stack_strings:
+    for i in timeline_map:
+        used_nodes = set()
+        # figure out what nodes are used and what nodes aren't used
+        
+
         fpath = os.path.join(out_dir, f"cycle{i}.dot")
         # really lazy rn but I should actually use a library for this
         with open(fpath, "w") as f:
@@ -455,6 +471,8 @@ def main(vcd_filename, cells_json_file, out_dir):
     # NOTE: for a more robust implementation, we can even skip the part where we store active
     # cycles per group.
     new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.cell_invoke_caller_probe_info, converter.clock_cycles, cells_to_components, main_component)
+
+    create_tree(new_timeline_map)
 
     create_output(new_timeline_map, out_dir)
 
