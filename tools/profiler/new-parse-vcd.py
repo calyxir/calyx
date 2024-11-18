@@ -385,7 +385,7 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
 def create_tree(timeline_map):
     # ugliest implementation of a tree
     node_id_acc = 0
-    tree_dict = {} # node id --> {(node name, [children])}
+    tree_dict = {} # node id --> node name
     path_dict = {} # stack list string --> list of node ids
     stack_list = []
     for sl in timeline_map.values():
@@ -421,22 +421,60 @@ def create_tree(timeline_map):
 
     return tree_dict, path_dict
 
+def create_path_dot_str_dict(path_dict):
+    path_to_dot_str = {} # stack list string --> stack path representation on dot file.
+
+    for path_id in path_dict:
+        path = path_dict[path_id]
+        path_acc = ""
+        for node_id in path[0:-1]:
+            path_acc += f'{node_id} -> '
+        path_acc += f'{path[-1]}'
+        path_to_dot_str[path_id] = path_acc
+
+    return path_to_dot_str
+
 def create_output(timeline_map, out_dir):
+
+    tree_dict, path_dict = create_tree(timeline_map)
+    path_to_dot_str = create_path_dot_str_dict(path_dict)
 
     os.mkdir(out_dir)
     for i in timeline_map:
+        used_paths = set()
         used_nodes = set()
+        all_paths = set(path_dict.keys())
+        all_nodes = set(tree_dict.keys())
         # figure out what nodes are used and what nodes aren't used
-        
+        for stack in timeline_map[i]:
+            stack_id = ";".join(stack)
+            used_paths.add(stack_id)
+            for node_id in path_dict[stack_id]:
+                used_nodes.add(node_id)
 
         fpath = os.path.join(out_dir, f"cycle{i}.dot")
         # really lazy rn but I should actually use a library for this
         with open(fpath, "w") as f:
             f.write("digraph cycle" + str(i) + " {\n")
-            for current_cycle_string in timeline_stack_strings[i]:
-                f.write(f"\t{current_cycle_string} ;\n")
-            for non_active_stack_string in filtered_stack_strings.difference(timeline_stack_strings[i]):
-                f.write(f'\t{non_active_stack_string} [color="darkgray"];\n')
+            # declare nodes.
+            # used nodes should simply be declared
+            for used_node in used_nodes:
+                f.write(f'\t{used_node} [label={tree_dict[used_node]}];\n')
+            # unused nodes should be declared with gray
+            for unused_node in all_nodes.difference(used_nodes):
+                f.write(f'\t{unused_node} [label={tree_dict[unused_node]},color="darkgray",fontcolor="darkgray"];\n')
+            # write all paths.
+            # unused paths should be written with gray.
+            for unused_path in all_paths.difference(used_paths):
+                if ";" in unused_path: # skip single element.
+                    f.write(f'\t{path_to_dot_str[unused_path]} [color="darkgray"];\n')
+            # used paths should simply be written
+            for used_path in used_paths:
+                f.write(f'\t{path_to_dot_str[used_path]} ;\n')
+            # for current_cycle_string in timeline_stack_strings[i]:
+            #     f.write(f"\t{current_cycle_string} ;\n")
+            # for non_active_stack_string in filtered_stack_strings.difference(timeline_stack_strings[i]):
+            #     f.write(f'\t{non_active_stack_string} [color="darkgray"];\n')
             f.write("}")
 
     # make flame graph folded file
@@ -444,11 +482,11 @@ def create_output(timeline_map, out_dir):
     for i in timeline_map:
         for stack_list in timeline_map[i]:
             # stack_str = ";".join(map(lambda x : x.flame_repr(), stack_list))
-            stack_str = ";".join(stack_list)
-            if stack_str not in stacks:
-                stacks[stack_str] = 1
+            stack_id = ";".join(stack_list)
+            if stack_id not in stacks:
+                stacks[stack_id] = 1
             else:
-                stacks[stack_str] += 1
+                stacks[stack_id] += 1
     
     with open(os.path.join(out_dir, "flame.folded"), "w") as flame_out:
         for stack in stacks:
