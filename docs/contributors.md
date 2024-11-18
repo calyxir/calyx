@@ -15,6 +15,7 @@ Here is a list of all the people who have worked on Calyx:
 - Andrew Butt
 - [Anshuman Mohan](https://www.cs.cornell.edu/~amohan/)
 - [Ayaka Yorihiro](https://ayakayorihiro.github.io/)
+- [Ethan Uppal](https://www.ethanuppal.com)
 
 **Previous Contributors**
 

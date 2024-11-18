@@ -1,30 +1,36 @@
 use crate::{
-    errors::InterpreterResult,
-    flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
-    serialization::PrintCode,
-    serialization::Serializable,
-    values::Value,
+    errors::RuntimeResult,
+    flatten::{
+        flat_ir::base::GlobalPortIdx,
+        structures::{
+            environment::{clock::ClockMap, PortMap},
+            thread::ThreadMap,
+        },
+    },
+    serialization::{PrintCode, Serializable},
 };
+
+use baa::BitVecValue;
 
 pub struct AssignResult {
     pub destination: GlobalPortIdx,
-    pub value: Value,
+    pub value: BitVecValue,
 }
 
 impl AssignResult {
-    pub fn new(destination: GlobalPortIdx, value: Value) -> Self {
+    pub fn new(destination: GlobalPortIdx, value: BitVecValue) -> Self {
         Self { destination, value }
     }
 }
 
-impl From<(GlobalPortIdx, Value)> for AssignResult {
-    fn from(value: (GlobalPortIdx, Value)) -> Self {
+impl From<(GlobalPortIdx, BitVecValue)> for AssignResult {
+    fn from(value: (GlobalPortIdx, BitVecValue)) -> Self {
         Self::new(value.0, value.1)
     }
 }
 
-impl From<(Value, GlobalPortIdx)> for AssignResult {
-    fn from(value: (Value, GlobalPortIdx)) -> Self {
+impl From<(BitVecValue, GlobalPortIdx)> for AssignResult {
+    fn from(value: (BitVecValue, GlobalPortIdx)) -> Self {
         Self::new(value.1, value.0)
     }
 }
@@ -96,7 +102,7 @@ impl std::ops::BitOrAssign for UpdateStatus {
     }
 }
 
-pub type UpdateResult = InterpreterResult<UpdateStatus>;
+pub type UpdateResult = RuntimeResult<UpdateStatus>;
 
 pub trait Primitive {
     fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
@@ -128,10 +134,39 @@ pub trait Primitive {
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         None
     }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive>;
+}
+
+pub trait RaceDetectionPrimitive: Primitive {
+    fn exec_comb_checked(
+        &self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_comb(port_map)
+    }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_cycle(port_map)
+    }
+
+    /// Get a reference to the underlying primitive. Unfortunately cannot add an
+    /// optional default implementation due to size rules
+    fn as_primitive(&self) -> &dyn Primitive;
+
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive>;
 }
 
 /// An empty primitive implementation used for testing. It does not do anything
 /// and has no ports of any kind
+#[derive(Clone, Copy)]
 pub struct DummyPrimitive;
 
 impl DummyPrimitive {
@@ -140,4 +175,8 @@ impl DummyPrimitive {
     }
 }
 
-impl Primitive for DummyPrimitive {}
+impl Primitive for DummyPrimitive {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(*self)
+    }
+}

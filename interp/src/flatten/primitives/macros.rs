@@ -9,7 +9,7 @@ macro_rules! declare_ports {
 
         $(
             #[allow(non_upper_case_globals)]
-            const $port: usize = $offset;
+            const $port: usize = $offset; // this is a usize because it encodes the position of the port!
         )+
     }
 }
@@ -74,7 +74,7 @@ macro_rules! comb_primitive {
 
 
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::InterpreterResult<Option<$crate::values::Value>>  {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::RuntimeResult<Option<baa::BitVecValue>>  {
                     $execute
                 };
 
@@ -102,6 +102,12 @@ macro_rules! comb_primitive {
                 false
             }
 
+            fn clone_boxed(&self) -> Box<dyn $crate::flatten::primitives::Primitive> {
+                Box::new(Self {
+                    base_port: self.base_port,
+                    $($($param: self.$param,)+)?
+                })
+            }
         }
     };
 

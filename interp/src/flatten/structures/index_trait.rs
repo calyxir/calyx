@@ -242,7 +242,8 @@ where
         (size, Some(size))
     }
 }
-
+/// An iterator over a range of indices but without
+///
 /// Because I really played myself by making the [IndexRangeIterator] have a
 /// lifetime attached to it. This one doesn't do that. As with it's sibling, the
 /// range is half open, meaning that the start is inclusive, but the end is

@@ -1,0 +1,73 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    cond_reg = std_reg(1);
+    cond_mem = comb_mem_d1(1, 1, 1);
+    a = comb_mem_d1(32, 1, 1);
+    b = comb_mem_d1(32, 1, 1);
+    add = std_add(32);
+    sub = std_sub(32);
+  }
+  wires {
+    group write_cond {
+        cond_mem.addr0 = 1'd0;
+        cond_mem.write_data = 1'd1;
+        cond_mem.write_en = 1'd1;
+        write_cond[done] = cond_mem.done;
+    }
+
+    group read_cond {
+        cond_mem.addr0 = 1'd0;
+        cond_reg.in = cond_mem.read_data;
+        cond_reg.write_en = 1'd1;
+        read_cond[done] = cond_reg.done;
+    }
+
+    group incr_a {
+        add.left = a.read_data;
+        add.right = 32'd1;
+        a.write_data = add.out;
+        a.write_en = 1'd1;
+        a.addr0 = 1'd0;
+        incr_a[done] = a.done;
+    }
+
+    group decr_b {
+        sub.left = b.read_data;
+        sub.right = 32'd1;
+        b.write_data = sub.out;
+        b.addr0 = 1'd0;
+        b.write_en = 1'd1;
+        decr_b[done] = b.done;
+    }
+
+    group write_b {
+        b.write_data = 32'd10;
+        b.write_en = 1'd1;
+        b.addr0 = 1'd0;
+        write_b[done] = b.done;
+    }
+  }
+
+  control {
+                              // T0
+    par {                     // T1
+
+      seq {
+          read_cond;           // T2_1
+          if cond_reg.out {   // T2_1
+              incr_a;         // T2_2
+          } else {
+              decr_b;         // T2_3
+          }
+      };
+
+      seq {                   // T3
+          write_b;            // T3_1
+          write_cond;         // T3_2
+      }
+    }
+  }
+}

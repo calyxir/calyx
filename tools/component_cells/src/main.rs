@@ -6,6 +6,8 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::{collections::HashSet, io};
 
+/// Tool to obtain list of names and original component names for all non-primitive cells in each component.
+
 #[derive(FromArgs)]
 /// Path for library and path for file to read from
 struct Args {
@@ -25,9 +27,6 @@ struct Args {
 fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(Path::new(path).into())
 }
-
-#[derive(Default)]
-pub struct ComponentCellsBackend;
 
 fn main() -> CalyxResult<()> {
     let p: Args = argh::from_env();
@@ -103,7 +102,7 @@ fn gen_component_info(
 /// Write the collected set of component information to a JSON file.
 fn write_json(
     component_info: HashSet<ComponentInfo>,
-    file: OutputFile,
+    mut file: OutputFile,
 ) -> Result<(), io::Error> {
     let created_vec: Vec<ComponentInfo> = component_info.into_iter().collect();
     serde_json::to_writer_pretty(file.get_write(), &created_vec)?;

@@ -1,4 +1,4 @@
-  # Queues
+# Queues
 
 A queue is a standard data structure that maintains a set of elements in some total order.
 A new element is added to the queue using the `enqueue` operation, which is also known as `push` or `insert` in some contexts.
@@ -8,7 +8,13 @@ We can remove this element from the queue using the `dequeue` operation, which i
 We provision four types of queues in Calyx. The first three follow the same shared interface, while the fourth follows a slightly extended interface.
 The frontend is implemented using the [Calyx builder library][builder], and the source code is heavily commented.
 
-We first describe the shared interface and their associated testing harness and then detail the four types of queues.
+## Installation
+1. Install [flit](https://flit.readthedocs.io/en/latest/#install)
+2. Install the `queues` package:
+```
+    $ cd frontends/queues/
+    $ flit install --symlink
+```
 
 ## Shared Interface
 
@@ -34,7 +40,7 @@ First, we have a Python module that generates randomized sequences of operations
 It accepts as a command line argument the number of operations to generate.
 It also takes a flag, `--no-err`, that generates a special sequence of operations that does not trigger any overflow or underflow errors.
 If this flag is provided, the queue's length must also be provided.
-The Python code is in [`queue_data_gen.py`][queue_data_gen.py].
+The Python code is in [`gen_oracle_data.py`][gen_oracle_data.py].
 
 #### Oracles
 Next, we have a Python module _for each kind of queue_ that reads the `.data` file, simulates the queue in Python, and dumps the expected result out in a Calyx `.expect` file.
@@ -57,7 +63,7 @@ If not, the `main` component will stop after the queue component first raises an
 
 #### Putting It All Together
 
-The testing harness can be executed, for all our queues, by running the shell script [`gen_queue_data_expect.sh`][gen_queue_data_expect.sh].
+The testing harness can be executed, for all our queues, by running the shell script [`gen_test_data.sh`][gen_test_data.sh].
 This generates the `.data` and `.expect` files for each queue.
 
 Then, each queue can be tested using our `runt` setup.
@@ -104,14 +110,14 @@ packets will be divided into three flows according to the intervals: `[0, 133]`,
 
 - At `push`, we check the `boundaries` list to determine which flow to push to.
 Take the boundaries example given earlier, `[133, 266, 400]`.
-If we push the value `89`, it will, under the hood, be pushed into subqueue 0 becuase `0 <= 89 <= 133`,
+If we push the value `89`, it will, under the hood, be pushed into subqueue 0 because `0 <= 89 <= 133`,
 and `305` will be pushed into subqueue 2 since `266 <= 305 <= 400`.
 - The program maintains a `hot` pointer that starts off at 0, meaning the next subqueue to pop from is queue 0.
 At `pop` we first try to pop from `hot`. If this succeeds, great. If it fails,
 we increment `hot` and therefore continue to check all other flows
 in round robin fashion.
 
-The source code is available in [`gen_strict_or_rr.py`][gen_strict_or_rr.py], which takes as arguments `n`, `boundaries`, and handles to the subqueues it must administer. It also takes a boolean parameter `round_robin`, which, if `true`, results in the generation of a round-robin queue.
+The source code is available in [`strict_or_rr.py`][strict_or_rr.py], which takes as arguments `n`, `boundaries`, and handles to the subqueues it must administer. It also takes a boolean parameter `round_robin`, which, if `true`, results in the generation of a round-robin queue.
 
 
 ### Strict Queues
@@ -132,7 +138,7 @@ of priority of the flows. For example, if `n = 3` and the client passes order
 
 - At push, we check the `boundaries` list to determine which flow to push to.
 Take the boundaries example given earlier, `[133, 266, 400]`.
-If we push the value `89`, it will, under the hood, be pushed into subqueue 0 becuase `0 <= 89 <= 133`,
+If we push the value `89`, it will, under the hood, be pushed into subqueue 0 because `0 <= 89 <= 133`,
 and `305` will be pushed into subqueue 2 since `266 <= 305 <= 400`.
 - Pop first tries to pop from `order[0]`. If this succeeds, great. If it fails, it tries `order[1]`, and so on.
 
@@ -151,14 +157,14 @@ We refer interested readers to [this][sivaraman16] research paper for more detai
 Our frontend allows for the creation of PIFO trees of any height, number of children, and with
 the scheduling policy at each internal node being _round-robin_ or _strict_.
 
-See the [source code][pifo_tree.py] for an example where we create a PIFO tree of height 2.
+See the [source code][pifo_tree_test.py] for an example where we create a PIFO tree of height 2.
 Specifically, the example implements the PIFO tree described in §2 of [this][mohan23] research paper.
 
 Internally, our PIFO tree is implemented by leveraging the PIFO frontend.
 The PIFO frontend seeks to orchestrate two queues, which in the simple case will just be two FIFOs.
 However, it is easy to generalize those two queues: instead of being FIFOs, they can be PIFOs or even PIFO trees.
 
-We see a more complex example of a PIFO tree in [`complex_tree.py`] [complex_tree.py]. This tree does round robin between three children, two of which are strict queues and the other is a round robin queue. This tree has a height of 3. The overall structure is `rr(strict(A, B, C), rr(D, E, F), strict(G, H))`.
+We see a more complex example of a PIFO tree in [`complex_tree_test.py`] [complex_tree_test.py]. This tree does round robin between three children, two of which are strict queues and the other is a round robin queue. This tree has a height of 3. The overall structure is `rr(strict(A, B, C), rr(D, E, F), strict(G, H))`.
 
 ## Minimum Binary Heap
 
@@ -189,21 +195,20 @@ It uses a counter `i` and instantiates, in turn, a binary heap that accepts 64-b
 The source code is available in [`stable_binheap.py`][stable_binheap.py].
 
 [builder]: ../builder/calyx-py.md
-[fifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/fifo.py
-[pifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/pifo.py
-[binheap.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/binheap/binheap.py
-[stable_binheap.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/binheap/stable_binheap.py
-[pifo_tree.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/pifo_tree.py
+[fifo.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/queues/fifo.py
+[binheap.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/queues/binheap/binheap.py
+[stable_binheap.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/queues/binheap/stable_binheap.py
+[pifo_tree_test.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/tests/pifo_tree_test.py
 [sivaraman16]: https://dl.acm.org/doi/10.1145/2934872.2934899
 [mohan23]: https://dl.acm.org/doi/10.1145/3622845
-[queue_data_gen.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queue_data_gen.py
-[queues.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queues.py
-[fifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/fifo_oracle.py
-[pifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/pifo_oracle.py
-[pifo_tree_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/pifo_tree_oracle.py
-[binheap_oracle.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/binheap_oracle.py
-[gen_queue_data_expect.sh]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/gen_queue_data_expect.sh
-[queue_call.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/calyx/queue_call.py
-[runt-queues]: https://github.com/calyxir/calyx/blob/a4c2442675d3419be6d2f5cf912aa3f804b3c4ab/runt.toml#L131-L144
-[gen_strict_or_rr.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/strict_and_rr_queues/gen_strict_or_rr.py
-[complex_tree.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/complex_tree.py
+[gen_oracle_data.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/test_data_gen/gen_oracle_data.py
+[queues.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/test_data_gen/queues.py
+[fifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/test_data_gen/fifo_oracle.py
+[pifo_oracle.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/test_data_gen/pifo_oracle.py
+[pifo_tree_oracle.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/test_data_gen/pifo_tree_oracle.py
+[binheap_oracle.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/test_data_gen/binheap_oracle.py
+[gen_test_data.sh]: https://github.com/calyxir/calyx/blob/main/frontends/queues/test_data_gen/gen_test_data.sh
+[queue_call.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/queues/queue_call.py
+[runt-queues]: https://github.com/calyxir/calyx/blob/8221fe35c4a5bd9279547452c16bf29550396a03/runt.toml#L109-L127
+[strict_or_rr.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/queues/strict_or_rr.py
+[complex_tree_test.py]: https://github.com/calyxir/calyx/blob/main/frontends/queues/tests/complex_tree_test.py

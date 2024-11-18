@@ -16,36 +16,56 @@ fn cider_setup(e) {
         "cider-converter.exe",
         "$calyx-base/target/debug/cider-data-converter",
     );
+    e.config_var_or("converter-flags", "cider.converter-flags", "");
+    e.config_var_or("cider-flags", "cider.flags", "");
+
+    let has_data = !e.config_or("sim.data", "").is_empty();
+
+    if has_data {
+        e.var_("data", "--data data.dump");
+
+        // copied from rtl_sim.rhai, we only want to do this when the sim.data
+        // flag is present
+        let data_name = e.config_val("sim.data");
+        let data_path = e.external_path(data_name);
+        e.var_("sim_data", data_path);
+    } else {
+        e.var_("data", "")
+    }
+
     e.rule(
         "run-cider-debug",
-        "$cider-exe -l $calyx-base --data data.dump $in debug || true",
+        "$cider-exe -l $calyx-base $data $cider-flags $in debug || true",
     );
     e.arg("pool", "console");
 
     e.rule(
         "run-cider",
-        "$cider-exe -l $calyx-base --data data.dump $in > $out",
+        "$cider-exe -l $calyx-base $data $cider-flags $in > $out",
     );
 
-    e.rule("dump-to-interp", "$cider-converter --to cider $in > $out");
-    e.rule("interp-to-dump", "$cider-converter --to json $in > $out");
-    e.build_cmd(
-        ["data.dump"],
-        "dump-to-interp",
-        ["$sim_data"],
-        ["$cider-converter"],
-    );
+    e.rule("interp-to-dump", "$cider-converter --to json $converter-flags $in > $out");
+
+    if has_data {
+        e.rule("dump-to-interp", "$cider-converter --to cider $converter-flags $in > $out");
+        e.build_cmd(
+            ["data.dump"],
+            "dump-to-interp",
+            ["$sim_data"],
+            ["$cider-converter"],
+        );
+    }
 }
 
 op(
     "calyx-to-cider",
-    [sim::sim_setup, c::calyx_setup],
+    [c::calyx_setup],
     c::calyx_state,
     cider_state,
     |e, input, output| {
         e.build_cmd(
             [output],
-            "calyx-with-flags",
+            "calyx-cider",
             [input],
             [],
         );
@@ -55,22 +75,23 @@ op(
 
 op(
     "cider",
-    [sim::sim_setup, c::calyx_setup, cider_setup],
+    [c::calyx_setup, cider_setup],
     cider_state,
     sim::dat,
     |e, input, output| {
         let out_file = "interp_out.dump";
+        let dependencies = if e.config_or("sim.data", "").is_empty() { [] } else { ["data.dump"] };
         e.build_cmd(
             [out_file],
             "run-cider",
             [input],
-            ["data.dump"],
+            dependencies,
         );
         e.build_cmd(
             [output],
             "interp-to-dump",
             [out_file],
-            ["$sim_data", "$cider-converter"],
+            ["$cider-converter"],
         );
     },
 );
@@ -78,7 +99,6 @@ op(
 op(
     "debug",
     [
-        sim::sim_setup,
         tb::standalone_setup,
         c::calyx_setup,
         cider_setup,
@@ -86,6 +106,7 @@ op(
     cider_state,
     dbg,
     |e, input, output| {
-        e.build_cmd([output], "run-cider-debug", [input], ["data.dump"]);
+        let dependencies = if e.config_or("sim.data", "").is_empty() { [] } else { ["data.dump"] };
+        e.build_cmd([output], "run-cider-debug", [input], dependencies);
     },
 );

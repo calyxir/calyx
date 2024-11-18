@@ -55,6 +55,10 @@ pub enum FormatInfo {
         int_width: u32,
         frac_width: u32,
     },
+    IEEFloat {
+        signed: bool,
+        width: u32,
+    },
 }
 
 impl FormatInfo {
@@ -62,6 +66,7 @@ impl FormatInfo {
         match self {
             FormatInfo::Bitnum { signed, .. } => *signed,
             FormatInfo::Fixed { signed, .. } => *signed,
+            FormatInfo::IEEFloat { signed, .. } => *signed,
         }
     }
 
@@ -73,6 +78,7 @@ impl FormatInfo {
                 frac_width,
                 ..
             } => *int_width + *frac_width,
+            FormatInfo::IEEFloat { width, .. } => *width,
         }
     }
 }
@@ -142,6 +148,10 @@ impl MemoryDeclaration {
         self.format.width()
     }
 
+    pub fn bytes_per_entry(&self) -> u32 {
+        self.format.width().div_ceil(8)
+    }
+
     pub fn signed(&self) -> bool {
         self.format.signed()
     }
@@ -165,6 +175,17 @@ impl DataHeader {
         self.memories
             .iter()
             .fold(0, |acc, mem| acc + mem.byte_count())
+    }
+
+    pub fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
+        let mut header_str = Vec::new();
+        ciborium::ser::into_writer(&self, &mut header_str)?;
+        Ok(header_str)
+    }
+
+    pub fn deserialize(data: &[u8]) -> Result<Self, SerializationError> {
+        let header: Self = ciborium::from_reader(data)?;
+        Ok(header)
     }
 }
 
@@ -201,8 +222,19 @@ impl DataDump {
         declaration: MemoryDeclaration,
         data: T,
     ) {
-        self.header.memories.push(declaration);
+        let old_len = self.data.len();
         self.data.extend(data);
+        let new_len = self.data.len();
+        let data_segment = new_len - old_len;
+        assert_eq!(
+            declaration.byte_count(),
+            data_segment,
+            "Data segment size does not match the memory declaration {:?}. Expected {} bytes, but got {}",
+            declaration,
+            declaration.byte_count(),
+            data_segment
+        );
+        self.header.memories.push(declaration);
     }
 
     pub fn push_reg<T: IntoIterator<Item = u8>>(
@@ -220,13 +252,11 @@ impl DataDump {
         self.push_memory(declaration, data)
     }
 
-    // TODO Griffin: handle the errors properly
-    pub fn serialize(
+    pub fn serialize<W: std::io::Write>(
         &self,
-        writer: &mut dyn std::io::Write,
+        mut writer: W,
     ) -> Result<(), SerializationError> {
-        let mut header_str = Vec::new();
-        ciborium::ser::into_writer(&self.header, &mut header_str)?;
+        let header_str = self.header.serialize()?;
         writer.write_all(&Self::MAGIC_NUMBER)?;
 
         let len_bytes: u32 = header_str
@@ -240,9 +270,8 @@ impl DataDump {
         Ok(())
     }
 
-    // TODO Griffin: handle the errors properly
-    pub fn deserialize(
-        reader: &mut dyn std::io::Read,
+    pub fn deserialize<R: std::io::Read>(
+        mut reader: R,
     ) -> Result<Self, SerializationError> {
         let mut magic_number = [0u8; 4];
         reader.read_exact(&mut magic_number).map_err(|e| {
@@ -274,7 +303,7 @@ impl DataDump {
                 SerializationError::IoError(e)
             }
         })?;
-        let header: DataHeader = ciborium::from_reader(raw_header.as_slice())?;
+        let header = DataHeader::deserialize(&raw_header)?;
 
         let mut data: Vec<u8> = Vec::with_capacity(header.data_size());
 
@@ -282,7 +311,10 @@ impl DataDump {
         // instead to avoid allowing incorrect/malformed data files
         let amount_read = reader.read_to_end(&mut data)?;
         if amount_read != header.data_size() {
-            return Err(SerializationError::MalformedData);
+            return Err(SerializationError::MalformedData {
+                expected_size: header.data_size(),
+                given_size: amount_read,
+            });
         }
 
         Ok(DataDump { header, data })
@@ -327,9 +359,12 @@ pub enum SerializationError {
     MalformedHeader,
 
     #[error(
-        "Malformed data dump, data section does not match header description"
+        "Malformed data dump, data section does not match header description. Expected {expected_size} bytes, but got {given_size} bytes"
     )]
-    MalformedData,
+    MalformedData {
+        expected_size: usize,
+        given_size: usize,
+    },
 
     #[error("Input is not a valid data dump")]
     InvalidMagicNumber,
@@ -466,7 +501,7 @@ mod tests {
     }
 
     use crate::flatten::{
-        flat_ir::prelude::GlobalPortIdx,
+        flat_ir::{base::GlobalCellIdx, prelude::GlobalPortIdx},
         primitives::stateful::{CombMemD1, SeqMemD1},
         structures::index_trait::IndexRef,
     };
@@ -475,7 +510,7 @@ mod tests {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap(), &mut None);
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
@@ -484,7 +519,7 @@ mod tests {
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap());
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), GlobalCellIdx::new(0), mem.width(), false, mem.size(), dump.get_data(&mem.name).unwrap(), &mut None);
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }

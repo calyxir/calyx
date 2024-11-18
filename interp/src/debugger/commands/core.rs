@@ -6,7 +6,6 @@ use owo_colors::OwoColorize;
 use std::{
     fmt::{Display, Write},
     marker::PhantomData,
-    vec::IntoIter,
 };
 
 use crate::{

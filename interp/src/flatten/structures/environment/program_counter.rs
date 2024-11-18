@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::{collections::hash_map::Entry, num::NonZeroU32};
 
 use ahash::{HashMap, HashMapExt};
 
@@ -8,7 +8,10 @@ use crate::flatten::{
         AssignmentIdx, CombGroupIdx, ControlIdx, ControlMap, ControlNode,
         GlobalCellIdx,
     },
-    structures::index_trait::{impl_index_nonzero, IndexRange, IndexRef},
+    structures::{
+        index_trait::{impl_index_nonzero, IndexRange, IndexRef},
+        thread::ThreadIdx,
+    },
 };
 
 use itertools::{FoldWhile, Itertools};
@@ -57,17 +60,21 @@ impl ControlPoint {
         }
     }
 
-    /// Returns a string showing the path from the root node to input node.
-    /// How to get context?
+    /// Returns a string showing the path from the root node to input node. This
+    /// path is displayed in the minimal metadata path syntax.
     pub fn string_path(&self, ctx: &Context) -> String {
-        // Does it matter if it takes ownership?
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
+        let mut path_vec = path.path;
+
+        // Remove first element since we know it is a root
+        path_vec.remove(0);
+        let mut string_path = String::new();
+        string_path.push('.');
         let control_map = &ctx.primary.control;
-        let mut string_path = String::from("");
         let mut count = -1;
         let mut body = false;
         let mut if_branches: HashMap<ControlIdx, String> = HashMap::new();
-        for search_node in path.path {
+        for search_node in path_vec {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
             let control_idx = search_node.node;
@@ -95,26 +102,21 @@ impl ControlPoint {
                 }
                 _ => {}
             };
-            // At root, at end to process logic above.
-            if string_path == String::from("") {
-                string_path = string_path + ".";
-                continue;
-            }
+
             let control_type = if body {
                 body = false;
                 count = -1;
-                "b"
+                String::from("b")
+            } else if if_branches.contains_key(&control_idx) {
+                let (_, branch) =
+                    if_branches.get_key_value(&control_idx).unwrap();
+                branch.clone()
             } else {
-                if if_branches.contains_key(&control_idx) {
-                    let (_, branch) =
-                        if_branches.get_key_value(&control_idx).unwrap();
-                    branch
-                } else {
-                    count += 1;
-                    &count.to_string()
-                }
+                count += 1;
+                count.to_string()
             };
-            string_path = string_path + "-" + control_type;
+
+            string_path = string_path + "-" + &control_type;
         }
         string_path
     }
@@ -415,12 +417,14 @@ pub struct WithEntry {
     pub group: CombGroupIdx,
     /// Whether or not a body has been executed. Only used by if statements
     pub entered: bool,
+    pub thread: Option<ThreadIdx>,
 }
 
 impl WithEntry {
-    pub fn new(group: CombGroupIdx) -> Self {
+    pub fn new(group: CombGroupIdx, thread: Option<ThreadIdx>) -> Self {
         Self {
             group,
+            thread,
             entered: false,
         }
     }
@@ -432,20 +436,22 @@ impl WithEntry {
 
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct ProgramCounter {
-    vec: Vec<ControlPoint>,
+    vec: Vec<ControlTuple>,
     par_map: HashMap<ControlPoint, ChildCount>,
     continuous_assigns: Vec<ContinuousAssignments>,
     with_map: HashMap<ControlPoint, WithEntry>,
     repeat_map: HashMap<ControlPoint, u64>,
-    just_finished_comps: Vec<GlobalCellIdx>,
+    just_finished_comps: Vec<(GlobalCellIdx, Option<ThreadIdx>)>,
+    thread_memoizer: HashMap<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx>,
 }
 
+pub type ControlTuple = (Option<ThreadIdx>, ControlPoint);
 // we need a few things from the program counter
 
 pub type PcFields = (
-    Vec<ControlPoint>,
+    Vec<ControlTuple>,
     HashMap<ControlPoint, ChildCount>,
     HashMap<ControlPoint, WithEntry>,
     HashMap<ControlPoint, u64>,
@@ -466,22 +472,19 @@ impl ProgramCounter {
             with_map: HashMap::new(),
             repeat_map: HashMap::new(),
             just_finished_comps: Vec::new(),
+            thread_memoizer: HashMap::new(),
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
+    pub fn iter(&self) -> std::slice::Iter<'_, ControlTuple> {
         self.vec.iter()
     }
 
-    pub fn node_slice(&self) -> &[ControlPoint] {
+    pub fn node_slice(&self) -> &[ControlTuple] {
         &self.vec
     }
 
-    pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
-        self.vec.iter_mut()
-    }
-
-    pub fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
+    pub fn vec_mut(&mut self) -> &mut Vec<ControlTuple> {
         &mut self.vec
     }
 
@@ -527,23 +530,36 @@ impl ProgramCounter {
         &self.with_map
     }
 
-    pub fn set_finshed_comp(&mut self, comp: GlobalCellIdx) {
-        self.just_finished_comps.push(comp)
+    pub fn set_finshed_comp(
+        &mut self,
+        comp: GlobalCellIdx,
+        thread: Option<ThreadIdx>,
+    ) {
+        self.just_finished_comps.push((comp, thread))
     }
 
-    pub fn finished_comps(&self) -> &[GlobalCellIdx] {
+    pub fn finished_comps(&self) -> &[(GlobalCellIdx, Option<ThreadIdx>)] {
         &self.just_finished_comps
     }
 
     pub fn clear_finished_comps(&mut self) {
         self.just_finished_comps.clear()
     }
+
+    pub fn lookup_thread(
+        &mut self,
+        comp: GlobalCellIdx,
+        thread: ThreadIdx,
+        control: ControlIdx,
+    ) -> Entry<(GlobalCellIdx, ThreadIdx, ControlIdx), ThreadIdx> {
+        self.thread_memoizer.entry((comp, thread, control))
+    }
 }
 
 impl<'a> IntoIterator for &'a ProgramCounter {
-    type Item = &'a ControlPoint;
+    type Item = &'a ControlTuple;
 
-    type IntoIter = std::slice::Iter<'a, ControlPoint>;
+    type IntoIter = std::slice::Iter<'a, ControlTuple>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

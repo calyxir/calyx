@@ -4,7 +4,7 @@ use std::{
     ops::{self, Index},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexedMap<K, D>
 where
     K: IndexRef,
@@ -143,6 +143,7 @@ where
         Self::new()
     }
 }
+
 #[allow(dead_code)]
 pub struct IndexedMapRangeIterator<'range, 'data, K, D>
 where
@@ -180,7 +181,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct AuxillaryMap<K, D>
+pub struct AuxiliaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -192,7 +193,7 @@ where
 
 // NOTE TO SELF: do not implement IndexMut
 
-impl<K, D> Index<K> for AuxillaryMap<K, D>
+impl<K, D> Index<K> for AuxiliaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -208,7 +209,7 @@ where
     }
 }
 
-impl<K, D> AuxillaryMap<K, D>
+impl<K, D> AuxiliaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -250,9 +251,13 @@ where
             self.data[index.index()] = item;
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (K, &D)> {
+        self.data.iter().enumerate().map(|(k, v)| (K::new(k), v))
+    }
 }
 
-impl<K, D> AuxillaryMap<K, D>
+impl<K, D> AuxiliaryMap<K, D>
 where
     K: IndexRef,
     D: Clone + Default,
@@ -274,7 +279,7 @@ where
     }
 }
 
-impl<K, D> Default for AuxillaryMap<K, D>
+impl<K, D> Default for AuxiliaryMap<K, D>
 where
     K: IndexRef,
     D: Clone + Default,

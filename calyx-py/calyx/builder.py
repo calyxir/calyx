@@ -221,7 +221,9 @@ class ComponentBuilder:
         width = self.infer_width(signal)
         ifs = []
         for branch, controllable in cases.items():
-            std_eq = self.eq(width, f"{signal.name}_eq_{branch}", signed)
+            std_eq = self.eq(
+                width, self.generate_name(f"{signal.name}_eq_{branch}"), signed
+            )
 
             with self.continuous:
                 std_eq.left = signal
@@ -1439,8 +1441,21 @@ class CellBuilder(CellLikeBuilder):
 
     def is_comb(self) -> bool:
         return self._cell.comp.id in (
+            # Numerical Operators
+            "std_lsh",
+            "std_rsh",
+            "std_cat",
             "std_add",
             "std_sub",
+            "std_slice",
+            "std_bit_slice",
+            "std_pad",
+            # Logical Operators
+            "std_not",
+            "std_and",
+            "std_or",
+            "std_xor",
+            # Comparison Operators
             "std_lt",
             "std_le",
             "std_ge",
