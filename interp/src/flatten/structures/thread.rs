@@ -31,11 +31,15 @@ pub struct ThreadMap {
 }
 
 impl ThreadMap {
-    pub fn new(root_clock: ClockIdx) -> Self {
+    pub fn new(root_clock: ClockIdx, continuous_clock: ClockIdx) -> Self {
         let mut map = IndexedMap::new();
         map.push(ThreadInfo {
             parent: None,
             clock_id: root_clock,
+        });
+        map.push(ThreadInfo {
+            parent: None,
+            clock_id: continuous_clock,
         });
         Self { map }
     }
@@ -43,6 +47,11 @@ impl ThreadMap {
     pub fn root_thread() -> ThreadIdx {
         ThreadIdx::from(0)
     }
+
+    pub fn continuous_thread() -> ThreadIdx {
+        ThreadIdx::from(1)
+    }
+
     /// Lookup the clock associated with the given thread id. Returns `None` if
     /// the thread id is invalid.
     pub fn get_clock_id(&self, thread_id: &ThreadIdx) -> Option<ClockIdx> {

@@ -12,6 +12,7 @@ use crate::{
     },
     serialization::PrintCode,
 };
+use ahash::HashSet;
 use baa::{BitVecOps, BitVecValue};
 
 // making these all u32 for now, can give the macro an optional type as the
@@ -435,6 +436,7 @@ pub struct AssignedValue {
     thread: Option<ThreadIdx>,
     clocks: Option<ClockPair>,
     assigned_by_comb: bool,
+    comb_set: Option<HashSet<ClockPair>>,
 }
 
 impl std::fmt::Debug for AssignedValue {
@@ -443,6 +445,8 @@ impl std::fmt::Debug for AssignedValue {
             .field("val", &self.val.to_bit_str())
             .field("winner", &self.winner)
             .field("thread", &self.thread)
+            .field("clocks", &self.clocks)
+            .field("assigned_by_comb", &self.assigned_by_comb)
             .finish()
     }
 }
@@ -463,6 +467,7 @@ impl AssignedValue {
             thread: None,
             clocks: None,
             assigned_by_comb: false,
+            comb_set: None,
         }
     }
 
@@ -504,39 +509,21 @@ impl AssignedValue {
     /// A utility constructor which returns a new implicitly assigned value with
     /// a one bit high value
     pub fn implicit_bit_high() -> Self {
-        Self {
-            val: BitVecValue::tru(),
-            winner: AssignmentWinner::Implicit,
-            thread: None,
-            clocks: None,
-            assigned_by_comb: false,
-        }
+        Self::new(BitVecValue::tru(), AssignmentWinner::Implicit)
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_value(val: BitVecValue) -> Self {
-        Self {
-            val,
-            winner: AssignmentWinner::Cell,
-            thread: None,
-            clocks: None,
-            assigned_by_comb: false,
-        }
+        Self::new(val, AssignmentWinner::Cell)
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Implicit`] as the winner
     #[inline]
     pub fn implicit_value(val: BitVecValue) -> Self {
-        Self {
-            val,
-            winner: AssignmentWinner::Implicit,
-            thread: None,
-            clocks: None,
-            assigned_by_comb: false,
-        }
+        Self::new(val, AssignmentWinner::Implicit)
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with a one bit

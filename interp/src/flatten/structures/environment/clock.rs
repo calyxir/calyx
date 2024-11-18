@@ -14,7 +14,7 @@ use crate::flatten::{
     },
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClockIdx(NonZeroU32);
 impl_index_nonzero!(ClockIdx);
 
@@ -319,7 +319,7 @@ impl ValueWithClock {
 
 /// A struct containing the read and write clocks for a value. This is small
 /// enough to be copied around easily
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub struct ClockPair {
     pub read_clock: ClockIdx,
     pub write_clock: ClockIdx,

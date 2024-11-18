@@ -407,6 +407,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         let mut clocks = IndexedMap::new();
         let root_clock = clocks.push(VectorClock::new());
+        let continuous_clock = clocks.push(VectorClock::new());
 
         let mut env = Self {
             ports: PortMap::with_capacity(aux.port_offset_map.count()),
@@ -419,7 +420,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ),
             pc: ProgramCounter::new_empty(),
             clocks,
-            thread_map: ThreadMap::new(root_clock),
+            thread_map: ThreadMap::new(root_clock, continuous_clock),
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
@@ -438,6 +439,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         let root_thread = ThreadMap::root_thread();
         env.clocks[root_clock].increment(&root_thread);
+        env.clocks[continuous_clock].increment(&ThreadMap::continuous_thread());
 
         // Initialize program counter
         // TODO griffin: Maybe refactor into a separate function
@@ -1495,6 +1497,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             }),
                             *thread,
                             false,
+                            false,
                         ))
                     }
 
@@ -1503,6 +1506,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         i.assignments,
                         None,
                         *thread,
+                        false,
                         false,
                     )),
 
@@ -1516,25 +1520,26 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             })
             .chain(self.env.pc.continuous_assigns().iter().map(|x| {
-                ScheduledAssignments::new(x.comp, x.assigns, None, None, true)
+                ScheduledAssignments::new(
+                    x.comp, x.assigns, None, None, true, false,
+                )
             }))
             .chain(self.env.pc.with_map().iter().map(
                 |(ctrl_pt, with_entry)| {
-                    let assigns =
-                        self.ctx().primary[with_entry.group].assignments;
                     ScheduledAssignments::new(
                         ctrl_pt.comp,
-                        assigns,
+                        self.ctx().primary[with_entry.group].assignments,
                         None,
-                        with_entry.thread,
+                        None,
                         false,
+                        true,
                     )
                 },
             ))
             .collect()
     }
 
-    /// A helper function which inserts indicies for the ref cells and ports
+    /// A helper function which inserts indices for the ref cells and ports
     /// used in the invoke statement
     fn initialize_ref_cells(
         &mut self,
@@ -1704,7 +1709,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(invoke.comb_group.unwrap(), thread),
+                            WithEntry::new(invoke.comb_group.unwrap()),
                         );
                     }
 
@@ -1730,7 +1735,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(i.cond_group().unwrap(), thread),
+                            WithEntry::new(i.cond_group().unwrap()),
                         );
                     }
                 }
@@ -1739,7 +1744,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(w.cond_group().unwrap(), thread),
+                            WithEntry::new(w.cond_group().unwrap()),
                         );
                     }
                 }
@@ -2001,7 +2006,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 if i.comb_group.is_some() && !with_map.contains_key(node) {
                     with_map.insert(
                         node.clone(),
-                        WithEntry::new(i.comb_group.unwrap(), thread),
+                        WithEntry::new(i.comb_group.unwrap()),
                     );
                 }
 
@@ -2278,6 +2283,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 interface_ports,
                 thread,
                 is_cont,
+                from_comb_grp,
             } in assigns_bundle.iter()
             {
                 let ledger = self.env.cells[*active_cell].as_comp().unwrap();
@@ -2465,30 +2471,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             }
 
-            // Run all the primitives
-            let changed: bool = self
-                .env
-                .cells
-                .range()
-                .iter()
-                .filter_map(|x| match &mut self.env.cells[x] {
-                    CellLedger::Primitive { cell_dyn } => {
-                        Some(cell_dyn.exec_comb(&mut self.env.ports))
-                    }
-                    CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                        Some(cell_dyn.exec_comb_checked(
-                            &mut self.env.ports,
-                            &mut self.env.clocks,
-                            &self.env.thread_map,
-                        ))
-                    }
-
-                    CellLedger::Component(_) => None,
-                })
-                .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
-                    has_changed | update
-                })?
-                .as_bool();
+            let changed = self.step_primitives()?;
 
             has_changed |= changed;
 
@@ -2517,60 +2500,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
 
         if self.conf.undef_guard_check {
-            let mut error_v = vec![];
-            for bundle in assigns_bundle.iter() {
-                let ledger =
-                    self.env.cells[bundle.active_cell].as_comp().unwrap();
-                let go = bundle
-                    .interface_ports
-                    .as_ref()
-                    .map(|x| &ledger.index_bases + x.go);
-                let done = bundle
-                    .interface_ports
-                    .as_ref()
-                    .map(|x| &ledger.index_bases + x.done);
-
-                if !done
-                    .and_then(|done| self.env.ports[done].as_bool())
-                    .unwrap_or_default()
-                    && go
-                        .and_then(|go| self.env.ports[go].as_bool())
-                        .unwrap_or(true)
-                {
-                    for assign in bundle.assignments.iter() {
-                        let guard_idx = self.ctx().primary[assign].guard;
-                        if self
-                            .evaluate_guard(guard_idx, bundle.active_cell)
-                            .is_none()
-                        {
-                            let inner_v = self
-                                .ctx()
-                                .primary
-                                .guard_read_map
-                                .get(guard_idx)
-                                .unwrap()
-                                .iter()
-                                .filter_map(|p| {
-                                    let p = self.get_global_port_idx(
-                                        p,
-                                        bundle.active_cell,
-                                    );
-                                    if self.env.ports[p].is_undef() {
-                                        Some(p)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect_vec();
-
-                            error_v.push((bundle.active_cell, assign, inner_v))
-                        }
-                    }
-                }
-            }
-            if !error_v.is_empty() {
-                return Err(RuntimeError::UndefinedGuardError(error_v).into());
-            }
+            self.check_undefined_guards(assigns_bundle)?;
         }
 
         if self.conf.debug_logging {
@@ -2578,6 +2508,95 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
 
         Ok(())
+    }
+
+    /// Check for undefined guards and raise an error if any are found
+    fn check_undefined_guards(
+        &mut self,
+        assigns_bundle: &[ScheduledAssignments],
+    ) -> Result<(), crate::errors::BoxedRuntimeError> {
+        let mut error_v = vec![];
+        for bundle in assigns_bundle.iter() {
+            let ledger = self.env.cells[bundle.active_cell].as_comp().unwrap();
+            let go = bundle
+                .interface_ports
+                .as_ref()
+                .map(|x| &ledger.index_bases + x.go);
+            let done = bundle
+                .interface_ports
+                .as_ref()
+                .map(|x| &ledger.index_bases + x.done);
+
+            if !done
+                .and_then(|done| self.env.ports[done].as_bool())
+                .unwrap_or_default()
+                && go
+                    .and_then(|go| self.env.ports[go].as_bool())
+                    .unwrap_or(true)
+            {
+                for assign in bundle.assignments.iter() {
+                    let guard_idx = self.ctx().primary[assign].guard;
+                    if self
+                        .evaluate_guard(guard_idx, bundle.active_cell)
+                        .is_none()
+                    {
+                        let inner_v = self
+                            .ctx()
+                            .primary
+                            .guard_read_map
+                            .get(guard_idx)
+                            .unwrap()
+                            .iter()
+                            .filter_map(|p| {
+                                let p = self
+                                    .get_global_port_idx(p, bundle.active_cell);
+                                if self.env.ports[p].is_undef() {
+                                    Some(p)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect_vec();
+
+                        error_v.push((bundle.active_cell, assign, inner_v))
+                    }
+                }
+            }
+        }
+        if !error_v.is_empty() {
+            Err(RuntimeError::UndefinedGuardError(error_v).into())
+        } else {
+            Ok(())
+        }
+    }
+
+    fn step_primitives(
+        &mut self,
+    ) -> Result<bool, crate::errors::BoxedRuntimeError> {
+        let changed: bool = self
+            .env
+            .cells
+            .range()
+            .iter()
+            .filter_map(|x| match &mut self.env.cells[x] {
+                CellLedger::Primitive { cell_dyn } => {
+                    Some(cell_dyn.exec_comb(&mut self.env.ports))
+                }
+                CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                    Some(cell_dyn.exec_comb_checked(
+                        &mut self.env.ports,
+                        &mut self.env.clocks,
+                        &self.env.thread_map,
+                    ))
+                }
+
+                CellLedger::Component(_) => None,
+            })
+            .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
+                has_changed | update
+            })?
+            .as_bool();
+        Ok(changed)
     }
 
     fn check_read(

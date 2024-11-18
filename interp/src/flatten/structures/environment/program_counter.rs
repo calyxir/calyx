@@ -356,14 +356,12 @@ pub struct WithEntry {
     pub group: CombGroupIdx,
     /// Whether or not a body has been executed. Only used by if statements
     pub entered: bool,
-    pub thread: Option<ThreadIdx>,
 }
 
 impl WithEntry {
-    pub fn new(group: CombGroupIdx, thread: Option<ThreadIdx>) -> Self {
+    pub fn new(group: CombGroupIdx) -> Self {
         Self {
             group,
-            thread,
             entered: false,
         }
     }

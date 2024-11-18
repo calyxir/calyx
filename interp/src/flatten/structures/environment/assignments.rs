@@ -19,6 +19,7 @@ pub struct ScheduledAssignments {
     pub interface_ports: Option<GroupInterfacePorts>,
     pub thread: Option<ThreadIdx>,
     pub is_cont: bool,
+    pub from_comb_grp: bool,
 }
 
 impl ScheduledAssignments {
@@ -27,14 +28,16 @@ impl ScheduledAssignments {
         assignments: AssignmentRange,
         interface_ports: Option<GroupInterfacePorts>,
         thread: Option<ThreadIdx>,
-        is_comb: bool,
+        is_cont: bool,
+        from_comb_grp: bool,
     ) -> Self {
         Self {
             active_cell,
             assignments,
             interface_ports,
             thread,
-            is_cont: is_comb,
+            is_cont,
+            from_comb_grp,
         }
     }
 }
