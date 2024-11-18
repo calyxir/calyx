@@ -370,6 +370,7 @@ def create_tree(timeline_map):
     path_dict = {} # stack list string --> list of node ids
     path_prefixes_dict = {} # stack list string --> list of node ids
     stack_list = []
+    # collect all of the stacks from the list. (i.e. "flatten" the timeline map values.)
     for sl in timeline_map.values():
         for s in sl:
             if s not in stack_list:
@@ -437,6 +438,7 @@ def create_output(timeline_map, out_dir):
         for stack in stacks:
             flame_out.write(f"{stack} {stacks[stack]}\n")
 
+    # probably wise to not have a billion dot files.
     if len(timeline_map) > TREE_PICTURE_LIMIT:
         print(f"Simulation exceeds {TREE_PICTURE_LIMIT} cycles, skipping trees...")
         return

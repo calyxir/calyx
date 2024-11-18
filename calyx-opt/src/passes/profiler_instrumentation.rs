@@ -148,7 +148,7 @@ impl Visitor for ProfilerInstrumentation {
                             guard.clone(),
                         );
                     group_name_assign_and_cell.push((
-                        parent_group.clone(),
+                        *parent_group,
                         probe_asgn,
                         probe_cell,
                     ));
@@ -178,7 +178,7 @@ impl Visitor for ProfilerInstrumentation {
                             Guard::True,
                         );
                     group_name_assign_and_cell.push((
-                        invoker_group.clone(),
+                        *invoker_group,
                         probe_asgn,
                         probe_cell,
                     ));
