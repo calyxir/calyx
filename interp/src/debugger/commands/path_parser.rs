@@ -40,7 +40,7 @@ impl PathParser {
 
     fn branch(input: Node) -> ParseResult<bool> {
         let b = input.as_str();
-        let result = if b == "f" { false } else { true };
+        let result = b != "f";
         Ok(result)
     }
 
