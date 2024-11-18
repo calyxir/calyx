@@ -8,11 +8,11 @@ import vcdvcd
 
 DELIMITER = "__"
 INVISIBLE = "gray"
+TREE_PICTURE_LIMIT=100
 
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
     return name.split('[')[0]
-
 
 class ProfilingInfo:
     def __init__(self, name, callsite=None, component=None, is_cell=False):
@@ -33,26 +33,10 @@ class ProfilingInfo:
 
     def __repr__ (self):
         if self.is_cell:
-            header = f"[Cell] {self.name}" # FIXME: fix this later
+            header = f"[Cell][{self.callsite}] {self.name}" # FIXME: fix this later
         else:
             header = f"[{self.component}][{self.callsite}] {self.name}"
         return header
-
-    def nice_repr (self):
-        segments_str = ""
-        for segment in self.closed_segments:
-            if (segments_str != ""):
-                segments_str += ", "
-            segments_str += f"[{segment['start']}, {segment['end']})"
-        if self.is_cell:
-            header = f"[Cell] {self.name}\n" # FIXME: fix this later
-        else:
-            header = f"[{self.component}][{self.callsite}] {self.name}\n"
-        return (header +
-        f"\tTotal cycles: {self.total_cycles}\n" +
-        f"\t# of times active: {len(self.closed_segments)}\n" +
-        f"\tSegments: {segments_str}\n"
-        )    
 
     def start_new_segment(self, curr_clock_cycle):
         if self.current_segment is None:
@@ -112,7 +96,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
         for cell in self.cells:
-            # FIXME: check if anything here is different when we go over multicomponent programs
             cell_go = cell + ".go"
             cell_done = cell + ".done"
             if cell_go not in vcd.references_to_ids:
@@ -198,7 +181,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
             if not started: # only start counting when main component is on.
                 continue
-            # checking whether the timestamp has a rising edge (hacky)
+            # checking whether the timestamp has a rising edge
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
             for event in events:
@@ -227,7 +210,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     child_group_component = encoded_info_split[2]
                     group_id = child_group_name + DELIMITER + child_group_component
                     self.call_stack_probe_info[group_id][parent].start_new_segment(clock_cycles)
-                    se_currently_active.add(group_id)
+                    se_currently_active.add((group_id, parent))
                 elif "se_probe_out" in signal_name and value == 0:
                     encoded_info_split = signal_name.split("_se_probe_out")[0].split("__")
                     child_group_name = encoded_info_split[0]
@@ -235,7 +218,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     child_group_component = encoded_info_split[2]
                     group_id = child_group_name + DELIMITER + child_group_component
                     self.call_stack_probe_info[group_id][parent].end_current_segment(clock_cycles)
-                    se_currently_active.remove(group_id)
+                    se_currently_active.remove((group_id, parent))
                 elif "cell_probe_out" in signal_name and value == 1:
                     encoded_info_split = signal_name.split("_cell_probe_out")[0].split("__")
                     cell_name = encoded_info_split[0]
@@ -243,9 +226,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     parent_component = encoded_info_split[2]
                     caller_id = parent + DELIMITER + parent_component
                     self.cell_invoke_caller_probe_info[caller_id][cell_name].start_new_segment(clock_cycles)
-                    ci_currently_active.add(caller_id)
-                    # cell_id = cell_name + DELIMITER + parent_component
-                    # self.cell_invoke_probe_info[cell_id][parent].start_new_segment(clock_cycles)
+                    ci_currently_active.add((caller_id, cell_name))
                 elif "cell_probe_out" in signal_name and value == 0:
                     encoded_info_split = signal_name.split("_cell_probe_out")[0].split("__")
                     cell_name = encoded_info_split[0]
@@ -253,16 +234,13 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     parent_component = encoded_info_split[2]
                     caller_id = parent + DELIMITER + parent_component
                     self.cell_invoke_caller_probe_info[caller_id][cell_name].end_current_segment(clock_cycles)
-                    ci_currently_active.remove(caller_id)
-                    # cell_id = cell_name + DELIMITER + parent_component
-                    # self.cell_invoke_probe_info[cell_id][parent].end_current_segment(clock_cycles)
+                    ci_currently_active.remove((caller_id, cell_name))
         for active in currently_active: # end any group/cell activitations that are still around...
             self.active_elements_info[active].end_current_segment(clock_cycles)
-        # FIXME: pretty sure the next two blocks fail because both stack infos are nested dictionaries lmao
-        for active in se_currently_active: # end any structural enables that are still around...
-            self.call_stack_probe_info[active].end_current_segment(clock_cycles)
-        for active in ci_currently_active:
-            self.cell_invoke_caller_probe_info[active].end_current_segment(clock_cycles)
+        for (group_id, parent) in se_currently_active: # end any structural enables that are still around...
+            self.call_stack_probe_info[group_id][parent].end_current_segment(clock_cycles)
+        for (caller_id, cell_name) in ci_currently_active:
+            self.cell_invoke_caller_probe_info[caller_id][cell_name].end_current_segment(clock_cycles)
 
         self.clock_cycles = clock_cycles
 
@@ -282,7 +260,7 @@ def build_components_to_cells(prefix, curr_component, cells_to_components, compo
 def read_component_cell_names_json(json_file):
     cell_json = json.load(open(json_file))
     # For each component, contains a map from each cell name to its corresponding component
-    # component name --> { cell name --> component name}
+    # component name --> { cell name --> component name }
     cells_to_components = {}
     main_component = ""
     for curr_component_entry in cell_json:
@@ -295,7 +273,6 @@ def read_component_cell_names_json(json_file):
     full_main_component = f"TOP.toplevel.{main_component}"
     components_to_cells = {main_component : [full_main_component]} # come up with a better name for this
     build_components_to_cells(full_main_component, main_component, cells_to_components, components_to_cells)
-    # FIXME: extreme hack. Find a better way to do this...
     full_cell_names_to_components = {}
     for component in components_to_cells:
         for cell in components_to_cells[component]:
@@ -315,16 +292,16 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
     new_timeline_map = {i : [] for i in range(total_cycles)}
     # now, we need to figure out the sets of traces
     for i in timeline_map:
-        parents = set()
+        parents = set() # keeping track of entities that are parents of other entities
         i_mapping = {} # each unique group inv mapping to its stack. the "group" should be the last item on each stack
-        i_mapping[main_component] = ["main"] # [main_component]
+        i_mapping[main_component] = [main_component.split(".")[-1]]
 
         cell_worklist = [main_component] # FIXME: maybe remove the hardcoding?
         while len(cell_worklist) > 0:
             current_cell = cell_worklist.pop()
             current_component = cells_to_components[current_cell]
             covered_units_in_component = set() # collect all of the units we've covered.
-            # this is so silly... but catch all active units that are groups in this component.
+            # catch all active units that are groups in this component.
             units_to_cover = set(filter(lambda unit: not unit.is_cell and unit.component == current_component, timeline_map[i]))
             # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
             for active_unit in units_to_cover:
@@ -372,6 +349,7 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
                         i_mapping[cell_active_probe.name] = i_mapping[f"{current_cell}.{cell_invoker}"] + [f"{cell_active_probe.shortname} [{cell_component}]"]
                         parents.add(f"{current_cell}.{cell_invoker}")
 
+        # Only retain paths that lead to leaf nodes.
         for elem in i_mapping:
             if elem not in parents:
                 new_timeline_map[i].append(i_mapping[elem])
@@ -383,11 +361,14 @@ def create_traces(active_element_probes_info, call_stack_probes_info, cell_calle
 
     return new_timeline_map
 
+"""
+Creates a tree that encapsulates all stacks that occur within the program.
+"""
 def create_tree(timeline_map):
-    # ugliest implementation of a tree
     node_id_acc = 0
     tree_dict = {} # node id --> node name
     path_dict = {} # stack list string --> list of node ids
+    path_prefixes_dict = {} # stack list string --> list of node ids
     stack_list = []
     for sl in timeline_map.values():
         for s in sl:
@@ -395,30 +376,33 @@ def create_tree(timeline_map):
                 stack_list.append(s)
     stack_list.sort(key=len)
     for stack in stack_list:
-        stack_string = ";".join(stack)
-        if stack_string not in path_dict:
-            id_path_list = []
-            prefix = ""
-            # check if we have any prefixes. start from the longest 
-            for other_stack_string in sorted(path_dict, key=len, reverse=True):
-                if other_stack_string in stack_string:
-                    # prefix found!
-                    prefix = other_stack_string
-                    id_path_list = list(path_dict[other_stack_string])
-                    break
-            # create nodes
-            if prefix != "":
-                new_nodes = stack_string.split(f"{prefix};")[1].split(";")
+        stack_len = len(stack)
+        id_path_list = []
+        prefix = ""
+        for i in range(1, stack_len+1):
+            # start from reverse 
+            attempted_prefix = ";".join(stack[0:stack_len-i])
+            if attempted_prefix in path_prefixes_dict:
+                prefix = attempted_prefix
+                id_path_list = list(path_prefixes_dict[prefix])
+                break
+        # create nodes
+        if prefix != "":
+            new_nodes = stack[i:]
+            new_prefix = prefix
+        else:
+            new_nodes = stack
+            new_prefix = ""
+        for elem in new_nodes:
+            if new_prefix == "":
+                new_prefix = elem
             else:
-                new_nodes = stack
-            for elem in new_nodes:
-                tree_dict[node_id_acc] = elem
-                id_path_list.append(node_id_acc)
-                node_id_acc += 1
-            path_dict[stack_string] = id_path_list
-
-    print(tree_dict)
-    print(path_dict)
+                new_prefix += f";{elem}"
+            tree_dict[node_id_acc] = elem
+            id_path_list.append(node_id_acc)
+            path_prefixes_dict[new_prefix] = list(id_path_list)
+            node_id_acc += 1
+        path_dict[new_prefix] = id_path_list
 
     return tree_dict, path_dict
 
@@ -437,11 +421,28 @@ def create_path_dot_str_dict(path_dict):
 
 def create_output(timeline_map, out_dir):
 
+    os.mkdir(out_dir)
+
+    # make flame graph folded file
+    stacks = {} # stack to number of cycles
+    for i in timeline_map:
+        for stack_list in timeline_map[i]:
+            stack_id = ";".join(stack_list)
+            if stack_id not in stacks:
+                stacks[stack_id] = 1
+            else:
+                stacks[stack_id] += 1
+    
+    with open(os.path.join(out_dir, "flame.folded"), "w") as flame_out:
+        for stack in stacks:
+            flame_out.write(f"{stack} {stacks[stack]}\n")
+
+    if len(timeline_map) > TREE_PICTURE_LIMIT:
+        print(f"Simulation exceeds {TREE_PICTURE_LIMIT} cycles, skipping trees...")
+        return
     tree_dict, path_dict = create_tree(timeline_map)
     path_to_dot_str = create_path_dot_str_dict(path_dict)
     all_paths_ordered = sorted(path_dict.keys())
-
-    os.mkdir(out_dir)
     for i in timeline_map:
         used_paths = set()
         used_nodes = set()
@@ -454,16 +455,15 @@ def create_output(timeline_map, out_dir):
                 used_nodes.add(node_id)
 
         fpath = os.path.join(out_dir, f"cycle{i}.dot")
-        # really lazy rn but I should actually use a library for this
         with open(fpath, "w") as f:
             f.write("digraph cycle" + str(i) + " {\n")
             # declare nodes.
             # used nodes should simply be declared
             for used_node in used_nodes:
-                f.write(f'\t{used_node} [label={tree_dict[used_node]}];\n')
+                f.write(f'\t{used_node} [label="{tree_dict[used_node]}"];\n')
             # unused nodes should be declared with gray
             for unused_node in all_nodes.difference(used_nodes):
-                f.write(f'\t{unused_node} [label={tree_dict[unused_node]},color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
+                f.write(f'\t{unused_node} [label="{tree_dict[unused_node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
             # write all paths.
             for path_id in all_paths_ordered:
                 if ";" not in path_id or path_id in used_paths:
@@ -472,40 +472,13 @@ def create_output(timeline_map, out_dir):
                     f.write(f'\t{path_to_dot_str[path_id]} [color="{INVISIBLE}"];\n')
             f.write("}")
 
-    # make flame graph folded file
-    stacks = {} # stack to number of cycles
-    for i in timeline_map:
-        for stack_list in timeline_map[i]:
-            # stack_str = ";".join(map(lambda x : x.flame_repr(), stack_list))
-            stack_id = ";".join(stack_list)
-            if stack_id not in stacks:
-                stacks[stack_id] = 1
-            else:
-                stacks[stack_id] += 1
-    
-    with open(os.path.join(out_dir, "flame.folded"), "w") as flame_out:
-        for stack in stacks:
-            flame_out.write(f"{stack} {stacks[stack]}\n")
-
 def main(vcd_filename, cells_json_file, out_dir):
-    # FIXME: will support multicomponent programs later. There's maybe something wrong here.
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
     converter = VCDConverter(main_component, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     converter.postprocess()
 
-    print("Active groups info: " + str(converter.active_elements_info.keys()))
-    print()
-    print("Call stack info: " + str(converter.call_stack_probe_info))
-    print()
-    print("Cell stack info: " + str(converter.cell_invoke_caller_probe_info))
-    print()
-
-    # NOTE: for a more robust implementation, we can even skip the part where we store active
-    # cycles per group.
     new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.cell_invoke_caller_probe_info, converter.clock_cycles, cells_to_components, main_component)
-
-    create_tree(new_timeline_map)
 
     create_output(new_timeline_map, out_dir)
 
