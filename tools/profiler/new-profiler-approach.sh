@@ -83,8 +83,8 @@ echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-process
 
-# Convert all dot files to pdf
-TREES_PDF_DIR=${OUT_DIR}-pdf
+# Convert all dot files to png
+TREES_PDF_DIR=${OUT_DIR}-png
 mkdir -p ${TREES_PDF_DIR}
 for f in $( ls ${OUT_DIR} | grep dot$ ); do
     dot -Tpng ${OUT_DIR}/${f} > ${TREES_PDF_DIR}/${f}.png

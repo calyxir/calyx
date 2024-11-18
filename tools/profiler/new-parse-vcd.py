@@ -7,6 +7,7 @@ import sys
 import vcdvcd
 
 DELIMITER = "__"
+INVISIBLE = "gray"
 
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
@@ -438,12 +439,12 @@ def create_output(timeline_map, out_dir):
 
     tree_dict, path_dict = create_tree(timeline_map)
     path_to_dot_str = create_path_dot_str_dict(path_dict)
+    all_paths_ordered = sorted(path_dict.keys())
 
     os.mkdir(out_dir)
     for i in timeline_map:
         used_paths = set()
         used_nodes = set()
-        all_paths = set(path_dict.keys())
         all_nodes = set(tree_dict.keys())
         # figure out what nodes are used and what nodes aren't used
         for stack in timeline_map[i]:
@@ -462,19 +463,13 @@ def create_output(timeline_map, out_dir):
                 f.write(f'\t{used_node} [label={tree_dict[used_node]}];\n')
             # unused nodes should be declared with gray
             for unused_node in all_nodes.difference(used_nodes):
-                f.write(f'\t{unused_node} [label={tree_dict[unused_node]},color="darkgray",fontcolor="darkgray"];\n')
+                f.write(f'\t{unused_node} [label={tree_dict[unused_node]},color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
             # write all paths.
-            # unused paths should be written with gray.
-            for unused_path in all_paths.difference(used_paths):
-                if ";" in unused_path: # skip single element.
-                    f.write(f'\t{path_to_dot_str[unused_path]} [color="darkgray"];\n')
-            # used paths should simply be written
-            for used_path in used_paths:
-                f.write(f'\t{path_to_dot_str[used_path]} ;\n')
-            # for current_cycle_string in timeline_stack_strings[i]:
-            #     f.write(f"\t{current_cycle_string} ;\n")
-            # for non_active_stack_string in filtered_stack_strings.difference(timeline_stack_strings[i]):
-            #     f.write(f'\t{non_active_stack_string} [color="darkgray"];\n')
+            for path_id in all_paths_ordered:
+                if ";" not in path_id or path_id in used_paths:
+                    f.write(f'\t{path_to_dot_str[path_id]} ;\n')
+                else:
+                    f.write(f'\t{path_to_dot_str[path_id]} [color="{INVISIBLE}"];\n')
             f.write("}")
 
     # make flame graph folded file
