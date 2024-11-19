@@ -21,13 +21,9 @@ fn profiling_setup(e) {
 
     // rules for postprocessing
 
-    // script to process vcd and attribute active cycles to every group/cell
-    e.var_("parse-vcd-script", "$calyx-base/tools/profiler/parse-vcd.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $tdcc-json $cells summary.csv $out");
-
-    // script to produce trace and visuals
-    e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.py");
-    e.rule("create-visuals", "python3 $create-visuals-script $in $cells timeline.json fsm-timeline.json $out fsm-flame.folded frequency.folded components.folded fsm-components.folded");
+    // script to process vcd and produce folded representation of flame graph
+    e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process.py");
+    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells dot-out $out");
 
     e.config_var("flamegraph-script", "flamegraph.script");
     e.rule("produce-flame-graph", "$flamegraph-script $in > $out");
@@ -72,8 +68,7 @@ fn calyx_to_flamegraph(e, input, output) {
     // vcd --> flamegraph
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
-    e.build_cmd([elems_profiled_json], "parse-vcd", [instrumented_vcd], []);
-    e.build_cmd([flamegraph_folded], "create-visuals", [elems_profiled_json], ["$cells"]);
+    e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cells"]);
     e.build_cmd([output], "produce-flame-graph", [flamegraph_folded], []);
 }
 
