@@ -4,6 +4,7 @@ import calyx.builder as cb
 import queues.queue_call as qc
 import queues.strict_or_rr as strict_or_rr
 import queues.fifo as fifo
+import queues.flow_inference as fi
 
 
 def insert_stats(prog, name, static=False):
@@ -109,11 +110,27 @@ def build(static=False):
     controller = insert_controller(prog, "controller", stats_component)
 
     fifo_queue = fifo.insert_fifo(prog, "fifo")
+
+    flow_infer_red = fi.insert_boundary_flow_inference(
+        prog, "flow_infer_red", [100, 200]
+    )
     pifo_red = strict_or_rr.insert_queue(
-        prog, "pifo_red", [fifo_queue, fifo_queue], [0, 100, 200], 2, [], True
+        prog,
+        "pifo_red",
+        True,
+        [fifo_queue, fifo_queue],
+        flow_infer_red,
+    )
+
+    flow_infer_root = fi.insert_boundary_flow_inference(
+        prog, "flow_infer_root", [200, 400]
     )
     pifo_root = strict_or_rr.insert_queue(
-        prog, "pifo_root", [pifo_red, fifo_queue], [0, 200, 400], 2, [], True
+        prog,
+        "pifo_root",
+        True,
+        [pifo_red, fifo_queue],
+        flow_infer_root,
     )
 
     qc.insert_main(prog, pifo_root, num_cmds, keepgoing=keepgoing)
