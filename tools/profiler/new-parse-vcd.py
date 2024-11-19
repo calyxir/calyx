@@ -381,8 +381,8 @@ def create_tree(timeline_map):
         stack_len = len(stack)
         id_path_list = []
         prefix = ""
+        # obtain the longest prefix of the current stack. Everything after the prefix is a new stack element.
         for i in range(1, stack_len+1):
-            # start from reverse 
             attempted_prefix = ";".join(stack[0:stack_len-i])
             if attempted_prefix in path_prefixes_dict:
                 prefix = attempted_prefix
