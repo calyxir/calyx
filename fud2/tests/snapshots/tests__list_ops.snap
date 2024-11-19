@@ -48,6 +48,11 @@ source: fud2/tests/tests.rs
         "calyx",
     ),
     (
+        "dat_to_jq",
+        "dat",
+        "jq",
+    ),
+    (
         "debug",
         "cider",
         "cider-debug",
@@ -96,6 +101,11 @@ source: fud2/tests/tests.rs
         "primitive-uses",
         "calyx",
         "primitive-uses-json",
+    ),
+    (
+        "profiler",
+        "calyx",
+        "flamegraph",
     ),
     (
         "simulate",

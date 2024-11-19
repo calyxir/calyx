@@ -1,4 +1,4 @@
-# calyx-pass
+# calyx-pass-explorer
 
 `calyx-pass-explorer` is a *pass transformation* explorer for calyx.
 You give it an input file and some options, and you can explore how [passes](https://crates.io/crates/calyx-opt) transform the file over time.
@@ -19,14 +19,17 @@ It's been immensely useful for me, and I hope it is for you too!
 
 Navigate to the `calyx-pass-explorer` directory (e.g., `cd tools/calyx-pass-explorer` from the repository root).
 Check the version with
+
 ```shell
 cargo run -- --version
 ```
 
 Then, run
+
 ```shell
 cargo install --path .
 ```
+
 from the current directory.
 
 ## Usage

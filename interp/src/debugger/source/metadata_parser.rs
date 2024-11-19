@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use pest_consume::{match_nodes, Error, Parser};
 
-use crate::errors::InterpreterResult;
+use crate::errors::CiderResult;
 
 use super::structures::{NamedTag, SourceMap};
 
@@ -87,7 +87,7 @@ impl MetadataParser {
     }
 }
 
-pub fn parse_metadata(input_str: &str) -> InterpreterResult<SourceMap> {
+pub fn parse_metadata(input_str: &str) -> CiderResult<SourceMap> {
     let inputs = MetadataParser::parse(Rule::metadata, input_str)?;
     let input = inputs.single()?;
     Ok(MetadataParser::metadata(input)?)

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use ahash::{HashMap, HashMapExt};
 use calyx_ir::{self as cir, NumAttr, RRC};
 use itertools::Itertools;
@@ -123,7 +125,7 @@ fn translate_guard(
     // I'm just gonna opt for this. It's a onetime cost, so I'm not particularly
     // worried about it
     let mut search_stack = vec![idx];
-    let mut read_ports = vec![];
+    let mut read_ports: HashSet<PortRef> = HashSet::new();
 
     while let Some(idx) = search_stack.pop() {
         match &interp_ctx.guards[idx] {
@@ -140,17 +142,19 @@ fn translate_guard(
                 search_stack.push(*guard_idx);
             }
             Guard::Comp(_port_comp, port_ref, port_ref1) => {
-                read_ports.push(*port_ref);
-                read_ports.push(*port_ref1);
+                read_ports.insert(*port_ref);
+                read_ports.insert(*port_ref1);
             }
             Guard::Port(port_ref) => {
-                read_ports.push(*port_ref);
+                read_ports.insert(*port_ref);
             }
         }
     }
 
     if !read_ports.is_empty() {
-        interp_ctx.guard_read_map.insert_value(idx, read_ports);
+        interp_ctx
+            .guard_read_map
+            .insert_value(idx, read_ports.into_iter().collect());
     }
 
     idx
@@ -161,51 +165,16 @@ fn translate_component(
     ctx: &mut Context,
     component_id_map: &mut ComponentMapper,
 ) -> ComponentIdx {
-    let mut auxillary_component_info = AuxiliaryComponentInfo::new_with_name(
+    let mut auxiliary_component_info = AuxiliaryComponentInfo::new_with_name(
         ctx.secondary.string_table.insert(comp.name),
     );
 
     let layout = compute_local_layout(
         comp,
         ctx,
-        &mut auxillary_component_info,
+        &mut auxiliary_component_info,
         component_id_map,
     );
-
-    // Translate the groups
-    let mut group_map = HashMap::with_capacity(comp.groups.len());
-
-    let group_base = ctx.primary.groups.peek_next_idx();
-
-    for group in comp.groups.iter() {
-        let group_brw = group.borrow();
-        let group_idx = translate_group(&group_brw, ctx, &layout.port_map);
-        let k = ctx.primary.groups.push(group_idx);
-        group_map.insert(group.as_raw(), k);
-    }
-    auxillary_component_info
-        .set_group_range(group_base, ctx.primary.groups.peek_next_idx());
-
-    let comb_group_base = ctx.primary.comb_groups.peek_next_idx();
-    // Translate comb groups
-    let mut comb_group_map = HashMap::with_capacity(comp.comb_groups.len());
-
-    for comb_grp in comp.comb_groups.iter() {
-        let comb_grp_brw = comb_grp.borrow();
-        let comb_grp_idx =
-            translate_comb_group(&comb_grp_brw, ctx, &layout.port_map);
-        let k = ctx.primary.comb_groups.push(comb_grp_idx);
-        comb_group_map.insert(comb_grp.as_raw(), k);
-    }
-    auxillary_component_info.set_comb_group_range(
-        comb_group_base,
-        ctx.primary.comb_groups.peek_next_idx(),
-    );
-
-    let group_mapper = GroupMapper {
-        comb_groups: comb_group_map,
-        groups: group_map,
-    };
 
     // Continuous Assignments
     let cont_assignment_base = ctx.primary.assignments.peek_next_idx();
@@ -220,6 +189,41 @@ fn translate_component(
         ctx.primary.assignments.peek_next_idx(),
     );
 
+    // Translate the groups
+    let mut group_map = HashMap::with_capacity(comp.groups.len());
+
+    let group_base = ctx.primary.groups.peek_next_idx();
+
+    for group in comp.groups.iter() {
+        let group_brw = group.borrow();
+        let group_idx = translate_group(&group_brw, ctx, &layout.port_map);
+        let k = ctx.primary.groups.push(group_idx);
+        group_map.insert(group.as_raw(), k);
+    }
+    auxiliary_component_info
+        .set_group_range(group_base, ctx.primary.groups.peek_next_idx());
+
+    let comb_group_base = ctx.primary.comb_groups.peek_next_idx();
+    // Translate comb groups
+    let mut comb_group_map = HashMap::with_capacity(comp.comb_groups.len());
+
+    for comb_grp in comp.comb_groups.iter() {
+        let comb_grp_brw = comb_grp.borrow();
+        let comb_grp_idx =
+            translate_comb_group(&comb_grp_brw, ctx, &layout.port_map);
+        let k = ctx.primary.comb_groups.push(comb_grp_idx);
+        comb_group_map.insert(comb_grp.as_raw(), k);
+    }
+    auxiliary_component_info.set_comb_group_range(
+        comb_group_base,
+        ctx.primary.comb_groups.peek_next_idx(),
+    );
+
+    let group_mapper = GroupMapper {
+        comb_groups: comb_group_map,
+        groups: group_map,
+    };
+
     let ctrl_ref = comp.control.borrow();
 
     // do some memory slight of hand to pass the owned version rather than a ref
@@ -232,7 +236,7 @@ fn translate_component(
     let ctrl_idx_start = taken_control.peek_next_idx();
 
     let argument_tuple =
-        (group_mapper, layout, taken_ctx, auxillary_component_info);
+        (group_mapper, layout, taken_ctx, auxiliary_component_info);
 
     let control: Option<ControlIdx> =
         if matches!(*ctrl_ref, cir::Control::Empty(_)) {
@@ -250,7 +254,7 @@ fn translate_component(
     let ctrl_idx_end = taken_control.peek_next_idx();
 
     // unwrap all the stuff packed into the argument tuple
-    let (_, layout, mut taken_ctx, auxillary_component_info) = argument_tuple;
+    let (_, layout, mut taken_ctx, auxiliary_component_info) = argument_tuple;
 
     // put stuff back
     taken_ctx.primary.control = taken_control;
@@ -303,7 +307,7 @@ fn translate_component(
     let ctrl_ref = ctx.primary.components.push(comp_core);
     ctx.secondary
         .comp_aux_info
-        .insert(ctrl_ref, auxillary_component_info);
+        .insert(ctrl_ref, auxiliary_component_info);
 
     component_id_map.insert(comp.name, ctrl_ref);
     ctrl_ref
@@ -324,15 +328,13 @@ fn insert_port(
         }
         ContainmentType::Local => {
             let borrow = port.borrow();
-            let is_control = borrow.has_attribute(calyx_ir::NumAttr::Go)
-                || borrow.has_attribute(calyx_ir::NumAttr::Done)
-                || borrow.has_attribute(calyx_ir::BoolAttr::Control)
-                || (borrow.direction == calyx_ir::Direction::Inout);
+            let is_data = borrow.has_attribute(calyx_ir::BoolAttr::Data);
 
             let idx_definition = secondary_ctx.push_local_port(
                 id,
                 port.borrow().width as usize,
-                is_control,
+                is_data,
+                borrow.direction.clone(),
             );
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
@@ -366,6 +368,7 @@ fn insert_cell(
             range,
             comp_id,
             create_cell_prototype(cell, comp_id_map),
+            cell_ref.get_attribute(calyx_ir::BoolAttr::Data).is_some(),
         );
         let cell_offset = aux.cell_offset_map.insert(cell_def);
         layout.cell_map.insert(cell.as_raw(), cell_offset.into());
@@ -387,6 +390,7 @@ fn insert_cell(
             range,
             comp_id,
             create_cell_prototype(cell, comp_id_map),
+            cell_ref.get_attribute(calyx_ir::BoolAttr::Data).is_some(),
         );
         let cell_offset = aux.ref_cell_offset_map.insert(ref_cell_def);
         layout.cell_map.insert(cell.as_raw(), cell_offset.into());
@@ -554,12 +558,12 @@ fn is_primitive(cell_ref: &std::cell::Ref<cir::Cell>) -> bool {
 impl FlattenTree for cir::Guard<cir::Nothing> {
     type Output = Guard;
     type IdxType = GuardIdx;
-    type AuxillaryData = PortMapper;
+    type AuxiliaryData = PortMapper;
 
     fn process_element<'data>(
         &'data self,
         mut handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
-        aux: &Self::AuxillaryData,
+        aux: &Self::AuxiliaryData,
     ) -> Self::Output {
         match self {
             cir::Guard::Or(a, b) => {
@@ -586,12 +590,12 @@ impl FlattenTree for cir::Control {
 
     type IdxType = ControlIdx;
 
-    type AuxillaryData = (GroupMapper, Layout, Context, AuxiliaryComponentInfo);
+    type AuxiliaryData = (GroupMapper, Layout, Context, AuxiliaryComponentInfo);
 
     fn process_element<'data>(
         &'data self,
         mut handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
-        aux: &Self::AuxillaryData,
+        aux: &Self::AuxiliaryData,
     ) -> Self::Output {
         let (group_map, layout, ctx, comp_info) = aux;
         match self {

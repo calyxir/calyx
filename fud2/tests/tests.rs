@@ -10,14 +10,6 @@ use fud_core::{
 };
 use itertools::Itertools;
 
-#[cfg(not(feature = "migrate_to_scripts"))]
-fn test_driver() -> Driver {
-    let mut bld = DriverBuilder::new("fud2");
-    fud2::build_driver(&mut bld);
-    bld.build()
-}
-
-#[cfg(feature = "migrate_to_scripts")]
 fn test_driver() -> Driver {
     let mut bld = DriverBuilder::new("fud2-plugins");
     let config = figment::Figment::new();
@@ -99,6 +91,7 @@ impl InstaTest for Plan {
             .merge(("xilinx.vitis", "/test/xilinx/vitis"))
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
             .merge(("dahlia", "/test/bin/dahlia"))
+            .merge(("jq.expr", "."))
             .merge(("c0", "v1"));
         let run = Run::with_config(driver, self, config);
         let mut buf = vec![];

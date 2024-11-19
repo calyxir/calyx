@@ -213,16 +213,16 @@ paths = [
   "tests/correctness/ref-cells/*.futil",
   "tests/correctness/sync/*.futil",
   "tests/correctness/static-interface/*.futil",
+  "tests/correctness/ieee754-float/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s verilog.data {}.data \
-         -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through verilator \
+     -s sim.data={}.data \
+     -s calyx.exec='./target/debug/calyx' \
+     -s verilog.cycle_limit=500 \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -235,15 +235,14 @@ paths = [
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x tdcc:one-hot-cutoff=500 -d static-promotion' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-x tdcc:one-hot-cutoff=500 -d static-promotion' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -256,15 +255,14 @@ paths = [
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x tdcc:duplicate-cutoff=0 -d static-promotion' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-x tdcc:duplicate-cutoff=0 -d static-promotion' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -273,17 +271,17 @@ name = "correctness static timing"
 paths = [
   "tests/correctness/*.futil",
   "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/skid-buffers/*.futil",
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -291,15 +289,14 @@ timeout = 120
 name = "correctness static timing one-hot encoding"
 paths = ["tests/correctness/static-interface/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x static-fsm-opts:one-hot-cutoff=500' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-x static-fsm-opts:one-hot-cutoff=500' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -308,15 +305,14 @@ timeout = 120
 name = "correctness nested"
 paths = ["tests/correctness/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s verilog.data {}.data \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags ' --nested' \
-         -s verilog.cycle_limit 500 \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s sim.data={}.data \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags=' --nested' \
+     -s verilog.cycle_limit=500 \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -330,14 +326,13 @@ paths = [
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-p all -d group2invoke' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     {} -q
 """
 timeout = 120
 
@@ -350,14 +345,13 @@ paths = [
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     {} -q
 """
 timeout = 120
 
@@ -369,37 +363,34 @@ paths = [
   "tests/correctness/numeric-types/fixed-point/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through dat \
-         --through verilog \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 
 [[tests]]
 name = "correctness test of static islands without static promotion"
 paths = ["tests/correctness/static-islands/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through dat \
-         --through verilog \
-         -s verilog.data {}.data \
-         -s calyx.flags "-d static-promotion" \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+    --through icarus \
+    -s sim.data={}.data \
+    -s calyx.flags="-d static-promotion" \
+    -s jq.expr=".memories" \
+    {} -q
 """
 
 [[tests]]
 name = "[frontend] tcam testing"
 paths = ["tests/correctness/tcam/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-      --through verilog \
-      --through dat \
-      -s verilog.data {}.data \
-      -s jq.expr ".memories" \
-      {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 
 [[tests]]

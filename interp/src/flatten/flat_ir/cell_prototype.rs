@@ -403,6 +403,30 @@ impl CellPrototype {
                         c_type: ConstantType::Primitive,
                     }
                 }
+                "std_float_const" => {
+                    get_params![params;
+                        value: "VALUE",
+                        width: "WIDTH",
+                        rep: "REP"
+                    ];
+
+                    debug_assert_eq!(
+                        rep, 0,
+                        "Only supported floating point representation is IEEE."
+                    );
+                    debug_assert!(
+                        width == 32 || width == 64,
+                        "Only 32 and 64 bit floats are supported."
+                    );
+
+                    // we can treat floating point constants like any other constant since the
+                    // frontend already converts the number to bits for us
+                    Self::Constant {
+                        value,
+                        width: width.try_into().unwrap(),
+                        c_type: ConstantType::Primitive,
+                    }
+                }
                 n @ ("std_add" | "std_sadd") => {
                     get_params![params; width: "WIDTH"];
 

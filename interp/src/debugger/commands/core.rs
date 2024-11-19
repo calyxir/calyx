@@ -299,6 +299,13 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
     }
 }
 
+// Different types of printing commands
+pub enum PrintCommand {
+    Normal,
+    PrintCalyx,
+    PrintNodes,
+}
+
 /// A command that can be sent to the debugger.
 pub enum Command {
     /// Advance the execution by a given number of steps (cycles).
@@ -345,7 +352,7 @@ pub enum Command {
         PrintMode,
     ),
     /// Print the current program counter
-    PrintPC(bool),
+    PrintPC(PrintCommand),
     /// Show command examples
     Explain,
     /// Restart the debugger from the beginning of the execution. Command history, breakpoints, watchpoints, etc. are preserved.

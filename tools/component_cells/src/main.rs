@@ -6,6 +6,8 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::{collections::HashSet, io};
 
+/// Tool to obtain list of names and original component names for all non-primitive cells in each component.
+
 #[derive(FromArgs)]
 /// Path for library and path for file to read from
 struct Args {
@@ -25,9 +27,6 @@ struct Args {
 fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(Path::new(path).into())
 }
-
-#[derive(Default)]
-pub struct ComponentCellsBackend;
 
 fn main() -> CalyxResult<()> {
     let p: Args = argh::from_env();
