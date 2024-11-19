@@ -138,7 +138,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if cell_id not in self.cell_invoke_probe_info:
                     self.cell_invoke_probe_info[cell_id] = {invoker_group: probe_info_obj}
                 else:
-                    self.call_stack_probe_info[cell_id][invoker_group] = probe_info_obj
+                    self.cell_invoke_probe_info[cell_id][invoker_group] = probe_info_obj
                 caller_id = invoker_group + DELIMITER + component
                 if caller_id not in self.cell_invoke_caller_probe_info:
                     self.cell_invoke_caller_probe_info[caller_id] = {cell_name : probe_info_obj}
