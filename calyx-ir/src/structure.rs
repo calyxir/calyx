@@ -850,6 +850,17 @@ impl FSM {
             panic!("Wire `{name}' not found on group `{}'", self.name)
         })
     }
+
+    pub fn extend_state_assignments<I>(&mut self, state: u64, assigns: I)
+    where
+        I: IntoIterator<Item = Assignment<Nothing>>,
+    {
+        let msg = format!("State {state} does not exist in FSM");
+        self.assignments
+            .get_mut(state as usize)
+            .expect(&msg)
+            .extend(assigns);
+    }
 }
 
 impl GetName for Cell {

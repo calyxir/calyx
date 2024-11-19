@@ -397,8 +397,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
         self.validate();
 
         // compute final state and fsm_size, and register initial fsm
-        let last_state = self.last_state();
-        let fsm_size = get_bit_width_from(last_state + 2);
         let fsm = self.builder.add_fsm("fsm");
 
         if dump_fsm {
@@ -408,27 +406,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 fsm.borrow().name()
             ));
         }
-
-        // register group enables that are dependent on fsm state as continuous assignments
-        let continuous_enables = self
-            .enables
-            .into_iter()
-            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .flat_map(|(state, mut assigns_to_enable)| {
-                let state_const =
-                    self.builder.add_constant(state + 1, fsm_size);
-                let state_guard = guard!(fsm["state"] == state_const["out"]);
-                assigns_to_enable.iter_mut().for_each(|assign| {
-                    assign.guard.update(|g| g.and(state_guard.clone()))
-                });
-                assigns_to_enable
-            })
-            .collect_vec();
-
-        self.builder
-            .component
-            .continuous_assignments
-            .extend(continuous_enables);
 
         // map each source state to a list of conditional transitions
         let mut transitions_map: HashMap<u64, Vec<(ir::Guard<Nothing>, u64)>> =
@@ -478,10 +455,15 @@ impl<'b, 'a> Schedule<'b, 'a> {
         assignments.push_back(assign.to_vec());
         transitions.push_back(ir::Transition::Unconditional(0));
 
-        // transitions.push_front();
-
         fsm.borrow_mut().assignments.extend(assignments);
         fsm.borrow_mut().transitions.extend(transitions);
+
+        // register group enables dependent on fsm state as assignments in the
+        // relevant state's assignment section
+        self.enables.into_iter().for_each(|(state, state_enables)| {
+            fsm.borrow_mut()
+                .extend_state_assignments(state + 1, state_enables);
+        });
         fsm
     }
 }
@@ -1050,11 +1032,14 @@ impl Visitor for DynamicFSMAllocation {
         if !s.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
+
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
         let seq_fsm = sch.realize_fsm(self.dump_fsm);
-        let fsm_en = ir::Control::fsm_enable(seq_fsm);
+        let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
+        let state_id = s.attributes.get(STATE_ID).unwrap();
+        fsm_en.get_mut_attributes().insert(STATE_ID, state_id);
 
         Ok(Action::change(fsm_en))
     }
@@ -1069,5 +1054,23 @@ impl Visitor for DynamicFSMAllocation {
         let mut builder = ir::Builder::new(comp, sigs);
         // let par_fsm
         Ok(Action::Continue)
+    }
+
+    fn finish(
+        &mut self,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let control = Rc::clone(&comp.control);
+
+        let mut builder = ir::Builder::new(comp, sigs);
+        let mut sch = Schedule::from(&mut builder);
+
+        // Add assignments for the final states
+        sch.calculate_states(&control.borrow(), self.early_transitions)?;
+        let comp_fsm = sch.realize_fsm(self.dump_fsm);
+
+        Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
     }
 }

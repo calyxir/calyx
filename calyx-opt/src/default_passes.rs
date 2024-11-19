@@ -122,7 +122,6 @@ impl PassManager {
                 StaticFSMOpts,
                 CompileStatic,
                 DeadGroupRemoval,
-                TopDownCompileControl,
                 DynamicFSMAllocation,
             ]
         );
