@@ -370,6 +370,7 @@ impl Printer {
         if !matches!(&*assign.guard, ir::Guard::True) {
             write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
         }
+
         write!(f, "{};", Self::port_to_str(&assign.src.borrow()))
     }
 
@@ -459,7 +460,7 @@ impl Printer {
                     writeln!(f, "{{")?;
                     for assign in assigns {
                         Self::write_assignment(assign, indent_level + 4, f)?;
-                        writeln!(f)?;
+                        writeln!(f, "")?;
                     }
                     write!(f, "{}", " ".repeat(indent_level + 2))?;
                     write!(f, "}} => ")?;
