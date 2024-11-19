@@ -82,15 +82,20 @@ impl Visitor for ProfilerInstrumentation {
                     }
                 }
                 if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
-                    if dst_borrow.name == "go" {
-                        let cell_name = cell_ref.upgrade().borrow().name();
-                        match cell_invoke_map.get_mut(&group.name()) {
-                            Some(vec_ref) => {
-                                vec_ref.push(cell_name);
-                            }
-                            None => {
-                                cell_invoke_map
-                                    .insert(group.name(), vec![cell_name]);
+                    // we only want to add probes for cells that are non-primitive... for now.
+                    if let ir::CellType::Component { name: _ } =
+                        cell_ref.upgrade().borrow().prototype
+                    {
+                        if dst_borrow.name == "go" {
+                            let cell_name = cell_ref.upgrade().borrow().name();
+                            match cell_invoke_map.get_mut(&group.name()) {
+                                Some(vec_ref) => {
+                                    vec_ref.push(cell_name);
+                                }
+                                None => {
+                                    cell_invoke_map
+                                        .insert(group.name(), vec![cell_name]);
+                                }
                             }
                         }
                     }

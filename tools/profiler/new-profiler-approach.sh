@@ -12,7 +12,7 @@ CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
 INPUT_FILE=$1
 SIM_DATA_JSON=$2
 name=$( echo "${INPUT_FILE}" | rev | cut -d/ -f1 | rev | cut -d. -f1 )
-DATA_DIR=${SCRIPT_DIR}/new-data/${name}
+DATA_DIR=${SCRIPT_DIR}/data/${name}
 TMP_DIR=${DATA_DIR}/generated-data
 OUT_CSV=${TMP_DIR}/summary.csv
 
@@ -47,7 +47,7 @@ if [ ! -d ${FLAMEGRAPH_DIR} ]; then
     )
 fi
 
-CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation -p all"
+CALYX_ARGS=" -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p dead-group-removal -p profiler-instrumentation -p all"
 
 # Run component-cells backend to get cell information
 echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"

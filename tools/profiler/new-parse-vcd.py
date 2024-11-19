@@ -8,7 +8,7 @@ import vcdvcd
 
 DELIMITER = "__"
 INVISIBLE = "gray"
-TREE_PICTURE_LIMIT=100
+TREE_PICTURE_LIMIT=300
 
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
@@ -281,6 +281,7 @@ def read_component_cell_names_json(json_file):
     return full_main_component, full_cell_names_to_components
 
 def create_traces(active_element_probes_info, call_stack_probes_info, cell_caller_probes_info, total_cycles, cells_to_components, main_component):
+
     timeline_map = {i : set() for i in range(total_cycles)}
     # first iterate through all of the profiled info
     for unit_name in active_element_probes_info:
@@ -389,7 +390,7 @@ def create_tree(timeline_map):
                 break
         # create nodes
         if prefix != "":
-            new_nodes = stack[i:]
+            new_nodes = stack[stack_len - i:]
             new_prefix = prefix
         else:
             new_nodes = stack
