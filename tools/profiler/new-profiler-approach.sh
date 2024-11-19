@@ -21,6 +21,7 @@ FSM_JSON=${TMP_DIR}/fsm.json
 CELLS_JSON=${TMP_DIR}/cells.json
 GROUPS_JSON=${TMP_DIR}/groups.json
 OUT_DIR=${TMP_DIR}/out
+FLAME_OUT_DIR=${TMP_DIR}/flame-out
 rm -rf ${TREES_OUT_DIR}
 OUT_JSON=${TMP_DIR}/dump.json
 TIMELINE_VIEW_JSON=${TMP_DIR}/timeline.json
@@ -79,7 +80,7 @@ fi
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
     set -o xtrace
-    python3 ${SCRIPT_DIR}/profiler-process.py ${VCD_FILE} ${CELLS_JSON} ${OUT_DIR} ${OUT_DIR}/flame.folded
+    python3 ${SCRIPT_DIR}/profiler-process.py ${VCD_FILE} ${CELLS_JSON} ${OUT_DIR} ${OUT_DIR}/flame.folded ${FLAME_OUT_DIR}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-process
 
@@ -90,4 +91,8 @@ for f in $( ls ${OUT_DIR} | grep dot$ ); do
     dot -Tpng ${OUT_DIR}/${f} > ${TREES_PDF_DIR}/${f}.png
 done
 
-${FLAMEGRAPH_DIR}/flamegraph.pl --countname="cycles" ${OUT_DIR}/flame.folded > ${OUT_DIR}/flame.svg
+for folded in $( ls ${FLAME_OUT_DIR}/*.folded ); do
+    echo "Writing flame graph for ${folded}"
+    base_name=$( echo ${folded} | rev | cut -d. -f2- | rev )
+    ${FLAMEGRAPH_DIR}/flamegraph.pl --countname="cycles" ${folded} > ${base_name}.svg
+done

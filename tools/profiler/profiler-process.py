@@ -1,14 +1,12 @@
-import csv
 import json
 import os
-import re
-import shutil
 import sys
 import vcdvcd
 
 DELIMITER = "__"
 INVISIBLE = "gray"
 TREE_PICTURE_LIMIT=300
+DIVIDED_FLAME_MULTIPLIER=1000
 
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
@@ -421,9 +419,32 @@ def create_path_dot_str_dict(path_dict):
 
     return path_to_dot_str
 
-def create_output(timeline_map, dot_out_dir, flame_out_file):
+# create a tree where we divide cycles via par arms
+# FIXME: rename?
+def tree_helper(timeline_map):
+    stacks = {}
+    for i in timeline_map:
+        num_stacks = len(timeline_map[i])
+        cycle_slice = round(1 / num_stacks, 3)
+        last_cycle_slice = 1 - (cycle_slice * (num_stacks - 1))
+        acc = 0
+        for stack_list in timeline_map[i]:
+            stack_id = ";".join(stack_list)
+            slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
+            if stack_id not in stacks:
+                stacks[stack_id] = slice_to_add * DIVIDED_FLAME_MULTIPLIER
+            else:
+                stacks[stack_id] += slice_to_add * DIVIDED_FLAME_MULTIPLIER
+            acc += 1
+            
+    return stacks
 
-    os.mkdir(dot_out_dir)
+def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
+
+    if not os.path.exists(dot_out_dir):
+        os.mkdir(dot_out_dir)
+    if not os.path.exists(flames_out_dir):
+        os.mkdir(flames_out_dir)
 
     # make flame graph folded file
     stacks = {} # stack to number of cycles
@@ -438,6 +459,11 @@ def create_output(timeline_map, dot_out_dir, flame_out_file):
     with open(flame_out_file, "w") as flame_out:
         for stack in stacks:
             flame_out.write(f"{stack} {stacks[stack]}\n")
+
+    divided_stacks = tree_helper(timeline_map)
+    with open(os.path.join(flames_out_dir, "divided-flame.folded"), "w") as div_flame_out:
+        for stack in divided_stacks:
+            div_flame_out.write(f"{stack} {divided_stacks[stack]}\n")
 
     # probably wise to not have a billion dot files.
     if len(timeline_map) > TREE_PICTURE_LIMIT:
@@ -474,7 +500,7 @@ def create_output(timeline_map, dot_out_dir, flame_out_file):
                     f.write(f'\t{path_to_dot_str[path_id]} [color="{INVISIBLE}"];\n')
             f.write("}")
 
-def main(vcd_filename, cells_json_file, dot_out_dir, flame_out):
+def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
     converter = VCDConverter(main_component, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
@@ -482,22 +508,24 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out):
 
     new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.cell_invoke_caller_probe_info, converter.clock_cycles, cells_to_components, main_component)
 
-    create_output(new_timeline_map, dot_out_dir, flame_out)
+    create_output(new_timeline_map, dot_out_dir, flame_out, flames_out_dir)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 4:
+    if len(sys.argv) > 5:
         vcd_filename = sys.argv[1]
         cells_json = sys.argv[2]
         dot_out_dir = sys.argv[3]
         flame_out = sys.argv[4]
-        main(vcd_filename, cells_json, dot_out_dir, flame_out)
+        flames_out_dir = sys.argv[5] # tmp folder until I figure out how to get multiple outputs from fud2
+        main(vcd_filename, cells_json, dot_out_dir, flame_out, flames_out_dir)
     else:
         args_desc = [
             "VCD_FILE",
             "CELLS_JSON",
             "DOT_FILE_DIR",
-            "FLAME_OUT"
+            "FLAME_OUT",
+            "FLAME_OUT_DIR"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         print("CELLS_JSON: Run the `component_cells` tool")
