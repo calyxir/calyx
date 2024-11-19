@@ -371,6 +371,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             CellLedger::Component(component_ledger) => {
                 Some((idx, self.ctx().lookup_name(component_ledger.comp_id)))
             }
+            CellLedger::RaceDetectionPrimitive { .. } => None, //what this
         })
     }
     pub fn iter_cmpt_cells(

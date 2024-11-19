@@ -526,6 +526,7 @@ name = "cider-dap"
 version = "0.1.0"
 dependencies = [
  "argh",
+ "baa",
  "dap",
  "interp",
  "owo-colors",

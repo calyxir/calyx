@@ -1,4 +1,5 @@
 use crate::error::AdapterResult;
+use baa::BitVecOps;
 use dap::events::{Event, StoppedEventBody};
 use dap::types::{
     self, Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread,
@@ -220,7 +221,9 @@ impl MyAdapter {
                     .map(|(nam, val)| {
                         let valu = match val.as_option() {
                             None => 0,
-                            Some(assigned_val) => assigned_val.val().as_u64(),
+                            Some(assigned_val) => {
+                                assigned_val.val().to_u64().unwrap()
+                            }
                         };
                         Variable {
                             name: String::from(nam),
