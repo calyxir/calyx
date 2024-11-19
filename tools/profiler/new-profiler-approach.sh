@@ -79,7 +79,7 @@ fi
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
     set -o xtrace
-    python3 ${SCRIPT_DIR}/new-parse-vcd.py ${VCD_FILE} ${CELLS_JSON} ${OUT_DIR}
+    python3 ${SCRIPT_DIR}/profiler-process.py ${VCD_FILE} ${CELLS_JSON} ${OUT_DIR}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-process
 
