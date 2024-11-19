@@ -114,11 +114,11 @@ pub trait Primitive {
         Ok(UpdateStatus::Unchanged)
     }
 
-    fn has_comb(&self) -> bool {
+    fn has_comb_path(&self) -> bool {
         true
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         true
     }
 
@@ -137,6 +137,11 @@ pub trait Primitive {
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx>;
+
+    /// Returns `true` if this primitive only has a combinational part
+    fn is_combinational(&self) -> bool {
+        self.has_comb_path() && !self.has_stateful_path()
+    }
 }
 
 pub trait RaceDetectionPrimitive: Primitive {

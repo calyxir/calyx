@@ -2,7 +2,7 @@ use super::{
     super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
-    assignments::{GroupInterfacePorts, ScheduledAssignments},
+    assignments::{AssignType, GroupInterfacePorts, ScheduledAssignments},
     clock::{self, ClockMap, VectorClock},
     program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
@@ -1488,7 +1488,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     ControlNode::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
 
-                        Some(ScheduledAssignments::new(
+                        Some(ScheduledAssignments::new_control(
                             node.comp,
                             group.assignments,
                             Some(GroupInterfacePorts {
@@ -1496,19 +1496,17 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 done: group.done,
                             }),
                             *thread,
-                            false,
-                            false,
                         ))
                     }
 
-                    ControlNode::Invoke(i) => Some(ScheduledAssignments::new(
-                        node.comp,
-                        i.assignments,
-                        None,
-                        *thread,
-                        false,
-                        false,
-                    )),
+                    ControlNode::Invoke(i) => {
+                        Some(ScheduledAssignments::new_control(
+                            node.comp,
+                            i.assignments,
+                            None,
+                            *thread,
+                        ))
+                    }
 
                     ControlNode::Empty(_) => None,
                     // non-leaf nodes
@@ -1520,19 +1518,13 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             })
             .chain(self.env.pc.continuous_assigns().iter().map(|x| {
-                ScheduledAssignments::new(
-                    x.comp, x.assigns, None, None, true, false,
-                )
+                ScheduledAssignments::new_continuous(x.comp, x.assigns)
             }))
             .chain(self.env.pc.with_map().iter().map(
                 |(ctrl_pt, with_entry)| {
-                    ScheduledAssignments::new(
+                    ScheduledAssignments::new_combinational(
                         ctrl_pt.comp,
                         self.ctx().primary[with_entry.group].assignments,
-                        None,
-                        None,
-                        false,
-                        true,
                     )
                 },
             ))
@@ -2282,8 +2274,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 assignments,
                 interface_ports,
                 thread,
-                is_cont,
-                from_comb_grp,
+                assign_type,
             } in assigns_bundle.iter()
             {
                 let ledger = self.env.cells[*active_cell].as_comp().unwrap();
@@ -2311,7 +2302,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     .unwrap_or_else(|| {
                         // if there is no go signal, then we want to run the
                         // continuous assignments but not comb group assignments
-                        if *is_cont {
+                        if assign_type.is_continuous() {
                             true
                         } else {
                             self.env.ports[comp_go]
@@ -2347,9 +2338,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 // needed for mutability reasons
                                 let mut clock_map =
                                     std::mem::take(&mut self.env.clocks);
-                                self.check_read(
-                                    val,
-                                    is_cont,
+                                self.check_assignment_read(
+                                    *assign_type,
                                     thread,
                                     assign,
                                     active_cell,
@@ -2374,13 +2364,27 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             }
 
                             if let Some(v) = val.as_option() {
+                                let mut assigned_value = AssignedValue::new(
+                                    v.val().clone(),
+                                    (assign_idx, *active_cell),
+                                );
+
+                                // if this assignment is in a combinational
+                                // context we want to propagate any clocks which
+                                // are present. Since clocks aren't present
+                                // when not running with `check_data_race`, this
+                                // won't happen when the flag is not set
+                                if val.clocks().is_some()
+                                    && assign_type.is_combinational()
+                                {
+                                    assigned_value = assigned_value
+                                        .with_clocks(val.clocks().unwrap())
+                                        .set_assigned_by_comb();
+                                }
+
                                 let result = self.env.ports.insert_val(
                                     dest,
-                                    AssignedValue::new(
-                                        v.val().clone(),
-                                        (assign_idx, *active_cell),
-                                    )
-                                    .with_thread_optional(thread),
+                                    assigned_value.with_thread_optional(thread),
                                 );
 
                                 let changed = match result {
@@ -2471,7 +2475,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             }
 
-            let changed = self.step_primitives()?;
+            let changed = self.run_primitive_comb_path()?;
 
             has_changed |= changed;
 
@@ -2570,7 +2574,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
     }
 
-    fn step_primitives(
+    fn run_primitive_comb_path(
         &mut self,
     ) -> Result<bool, crate::errors::BoxedRuntimeError> {
         let changed: bool = self
@@ -2580,7 +2584,46 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .iter()
             .filter_map(|x| match &mut self.env.cells[x] {
                 CellLedger::Primitive { cell_dyn } => {
-                    Some(cell_dyn.exec_comb(&mut self.env.ports))
+                    let result = cell_dyn.exec_comb(&mut self.env.ports);
+
+                    if result.is_ok()
+                        && self.conf.check_data_race
+                        && cell_dyn.is_combinational()
+                    {
+                        let mut working_set = HashSet::new();
+                        let signature = cell_dyn.get_ports();
+                        {
+                            for port in signature.iter_first() {
+                                let val = &self.env.ports[port];
+                                if let Some(val) = val.as_option() {
+                                    if val.assigned_by_comb()
+                                        && val.clocks().is_some()
+                                    {
+                                        working_set
+                                            .insert(*val.clocks().unwrap());
+                                        for clk in val.iter_transitive_clocks()
+                                        {
+                                            working_set.insert(clk);
+                                        }
+                                    }
+                                }
+                            }
+
+                            if signature.iter_second().len() == 1 {
+                                let port =
+                                    signature.iter_second().next().unwrap();
+                                let val = &mut self.env.ports[port];
+                                if let Some(val) = val.as_option_mut() {
+                                    for clk in working_set {
+                                        val.add_transitive_clock(clk);
+                                    }
+                                }
+                            } else {
+                                todo!()
+                            }
+                        }
+                    }
+                    Some(result)
                 }
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => {
                     Some(cell_dyn.exec_comb_checked(
@@ -2599,36 +2642,47 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         Ok(changed)
     }
 
-    fn check_read(
+    /// for a given assignment, checks if it interacts with a clocked value and
+    /// if, so whether or not the read is valid
+    fn check_assignment_read(
         &self,
-        val: &PortValue,
-        is_cont: &bool,
+        assign_type: AssignType,
         thread: Option<ThreadIdx>,
         assign: &Assignment,
         active_cell: &GlobalCellIdx,
         clock_map: &mut ClockMap,
     ) -> Result<(), crate::errors::BoxedRuntimeError> {
+        let port = self.get_global_port_idx(&assign.src, *active_cell);
+        let val = &self.env.ports[port];
+
         if let Some(clocks) = val.clocks() {
-            // skip checking clocks for continuous assignments
-            if !is_cont {
+            if !assign_type.is_combinational() {
                 if let Some(thread) = thread {
                     let thread_clock =
                         self.env.thread_map.unwrap_clock_id(thread);
+
+                    let parent_cell = self
+                        .env
+                        .get_parent_cell_from_port(assign.src, *active_cell);
 
                     clocks
                         .check_read((thread, thread_clock), clock_map)
                         .map_err(|e| {
                             // TODO griffin: find a less hacky way to
                             // do this
-                            e.add_cell_info(
-                                self.env
-                                    .get_parent_cell_from_port(
-                                        assign.src,
-                                        *active_cell,
-                                    )
-                                    .unwrap(),
-                            )
+
+                            e.add_cell_info(parent_cell.unwrap())
                         })?;
+
+                    if let Some(sets) = val.transitive_clocks() {
+                        for clock_pair in sets.iter() {
+                            clock_pair
+                                .check_read((thread, thread_clock), clock_map)
+                                .map_err(|e| {
+                                    e.add_cell_info(parent_cell.unwrap())
+                                })?
+                        }
+                    }
                 } else {
                     panic!("cannot determine thread for non-continuous assignment that touches a checked port");
                 }

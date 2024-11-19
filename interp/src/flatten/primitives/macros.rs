@@ -156,7 +156,7 @@ macro_rules! comb_primitive {
                 }
             }
 
-            fn has_stateful(&self) -> bool {
+            fn has_stateful_path(&self) -> bool {
                 false
             }
 

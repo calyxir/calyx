@@ -897,11 +897,11 @@ impl Primitive for SeqMem {
                 .write_exact_unchecked(self.read_data(), self.read_out.clone()))
     }
 
-    fn has_comb(&self) -> bool {
+    fn has_comb_path(&self) -> bool {
         false
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         true
     }
 

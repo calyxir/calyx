@@ -12,7 +12,7 @@ use crate::{
     },
     serialization::PrintCode,
 };
-use ahash::HashSet;
+use ahash::{HashSet, HashSetExt};
 use baa::{BitVecOps, BitVecValue};
 
 // making these all u32 for now, can give the macro an optional type as the
@@ -436,7 +436,7 @@ pub struct AssignedValue {
     thread: Option<ThreadIdx>,
     clocks: Option<ClockPair>,
     assigned_by_comb: bool,
-    comb_set: Option<HashSet<ClockPair>>,
+    transitive_clocks: Option<HashSet<ClockPair>>,
 }
 
 impl std::fmt::Debug for AssignedValue {
@@ -467,8 +467,30 @@ impl AssignedValue {
             thread: None,
             clocks: None,
             assigned_by_comb: false,
-            comb_set: None,
+            transitive_clocks: None,
         }
+    }
+
+    /// Adds a clock to the set of transitive reads associated with this value
+    pub fn add_transitive_clock(&mut self, clock_pair: ClockPair) {
+        let set = if let Some(set) = self.transitive_clocks.as_mut() {
+            set
+        } else {
+            self.transitive_clocks = Some(HashSet::new());
+            self.transitive_clocks.as_mut().unwrap()
+        };
+
+        set.insert(clock_pair);
+    }
+
+    pub fn iter_transitive_clocks(
+        &self,
+    ) -> impl Iterator<Item = ClockPair> + '_ {
+        self.transitive_clocks
+            .as_ref()
+            .map(|set| set.iter().copied())
+            .into_iter()
+            .flatten()
     }
 
     pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
@@ -488,6 +510,11 @@ impl AssignedValue {
 
     pub fn with_comb(mut self, assigned_by_comb: bool) -> Self {
         self.assigned_by_comb = assigned_by_comb;
+        self
+    }
+
+    pub fn set_assigned_by_comb(mut self) -> Self {
+        self.assigned_by_comb = true;
         self
     }
 
@@ -546,6 +573,14 @@ impl AssignedValue {
     pub fn clocks(&self) -> Option<&ClockPair> {
         self.clocks.as_ref()
     }
+
+    pub fn transitive_clocks(&self) -> Option<&HashSet<ClockPair>> {
+        self.transitive_clocks.as_ref()
+    }
+
+    pub fn assigned_by_comb(&self) -> bool {
+        self.assigned_by_comb
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -590,6 +625,14 @@ impl PortValue {
             val.thread = thread;
         }
         self
+    }
+
+    pub fn transitive_clocks(&self) -> Option<&HashSet<ClockPair>> {
+        self.0.as_ref().and_then(|x| x.transitive_clocks())
+    }
+
+    pub fn as_option_mut(&mut self) -> Option<&mut AssignedValue> {
+        self.0.as_mut()
     }
 
     /// If the value is defined, returns the value cast to a boolean. Otherwise

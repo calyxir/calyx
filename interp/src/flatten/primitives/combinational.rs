@@ -40,11 +40,11 @@ impl Primitive for StdConst {
         Ok(UpdateStatus::Unchanged)
     }
 
-    fn has_comb(&self) -> bool {
+    fn has_comb_path(&self) -> bool {
         true
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         false
     }
 
@@ -84,7 +84,7 @@ impl Primitive for StdMux {
         }
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         false
     }
 
