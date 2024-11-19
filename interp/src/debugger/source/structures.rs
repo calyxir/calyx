@@ -1,11 +1,9 @@
+//! This module contains the data structures used by the debugger for source mapping
 use std::{collections::HashMap, fs, path::PathBuf};
 
-// use calyx_frontend::ast::Group;
-
-use crate::errors::InterpreterResult;
+use crate::errors::CiderResult;
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
-
 pub struct NamedTag(u64, String);
 
 impl NamedTag {
@@ -69,9 +67,7 @@ impl SourceMap {
             .or_else(|| self.0.get(&NamedTag(key.0, "".to_string())))
     }
 
-    pub fn from_file(
-        path: &Option<PathBuf>,
-    ) -> InterpreterResult<Option<Self>> {
+    pub fn from_file(path: &Option<PathBuf>) -> CiderResult<Option<Self>> {
         if let Some(path) = path {
             let v = fs::read(path)?;
             let file_contents = std::str::from_utf8(&v)?;
@@ -83,7 +79,7 @@ impl SourceMap {
         }
     }
 
-    pub fn from_string<S>(input: S) -> InterpreterResult<Self>
+    pub fn from_string<S>(input: S) -> CiderResult<Self>
     where
         S: AsRef<str>,
     {

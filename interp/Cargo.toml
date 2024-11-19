@@ -24,16 +24,16 @@ pest_consume.workspace = true
 argh.workspace = true
 owo-colors = "^3.5"
 bitvec = "1.0"
-base64 = "0.13.0"
 serde_json = "1.0"
 rustyline = "=10.0.0"
 fraction = { version = "0.11.0", features = ["with-serde-support"] }
 thiserror = "1.0.26"
-ibig = { version = "0.3.4", features = ["serde"] }
 slog = "2.7.0"
 slog-term = "2.8.0"
 slog-async = "2.7.0"
 ahash = "0.8.3"
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
 
 once_cell = "1.9.0"
 petgraph = "0.6.3"
@@ -43,9 +43,10 @@ calyx-utils = { path = "../calyx-utils", features = ["serialize"] }
 calyx-opt = { path = "../calyx-opt" }
 calyx-frontend = { path = "../calyx-frontend" }
 
-btor2i = { path = "../tools/btor2/btor2i" }
-
 ciborium = "0.2.2"
+baa = { version = "0.14.0", features = ["bigint", "serde1", "fraction1"] }
+fst-writer = "0.2.1"
+bon = "2.3"
 
 [dev-dependencies]
 proptest = "1.0.0"

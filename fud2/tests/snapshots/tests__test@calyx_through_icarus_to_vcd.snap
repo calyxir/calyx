@@ -8,14 +8,15 @@ rule get-rsrc
 
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
 args = 
 rule calyx
-  command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
-  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
-flags = -p none
-rule calyx-with-flags
-  command = $calyx-exe -l $calyx-base $flags $args $in > $out
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
 python = python3
 build json-dat.py: get-rsrc
@@ -34,9 +35,9 @@ build tb.sv: get-rsrc
 
 iverilog = iverilog
 rule icarus-compile-standalone-tb
-  command = $iverilog -g2012 -o $out tb.sv $in
+  command = $iverilog -g2012 -s toplevel -o $out tb.sv $in
 rule icarus-compile-custom-tb
-  command = $iverilog -g2012 -o $out tb.sv memories.sv $in
+  command = $iverilog -g2012 -s toplevel -o $out tb.sv memories.sv $in
 
 build verilog-noverify.sv: calyx _from_stdin_calyx.futil
   backend = verilog

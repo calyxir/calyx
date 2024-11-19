@@ -268,7 +268,6 @@ class Stage:
 
 
 class ComputationGraph:
-
     """Construct the computation graph for a stage"""
 
     def __init__(

@@ -113,10 +113,10 @@ impl Visitor for InferShare {
             DominatorMap::new(&mut comp.control.borrow_mut(), comp.name);
 
         // print the domination map if command line argument says so
-        if let Some(s) = &self.print_dmap {
+        if let Some(s) = &mut self.print_dmap {
             write!(s.get_write(), "{dmap:?}").unwrap();
         }
-        if let Some(s) = &self.print_static_analysis {
+        if let Some(s) = &mut self.print_static_analysis {
             write!(s.get_write(), "{:?}", dmap.static_par_domination).unwrap();
         }
 

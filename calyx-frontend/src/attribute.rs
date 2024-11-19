@@ -69,7 +69,18 @@ pub enum BoolAttr {
     #[strum(serialize = "promoted")]
     /// denotes a static component or control promoted from dynamic
     Promoted,
+    #[strum(serialize = "par")]
+    /// Denotes a group that was generated from a `staticpar` during static
+    /// inlining.
+    ParCtrl,
+    #[strum(serialize = "fast")]
+    /// https://github.com/calyxir/calyx/issues/1828
+    Fast,
+    #[strum(serialize = "protected")]
+    /// Indicate that the cell should not be removed or shared during optimization.
+    Protected,
 }
+
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {
         Attribute::Bool(attr)
@@ -198,8 +209,8 @@ impl FromStr for Attribute {
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 /// Inline storage for boolean attributes.
 pub(super) struct InlineAttributes {
-    /// Boolean attributes stored in a 16-bit number.
-    attrs: u16,
+    /// Boolean attributes stored in a 32-bit number.
+    attrs: u32,
 }
 
 impl InlineAttributes {

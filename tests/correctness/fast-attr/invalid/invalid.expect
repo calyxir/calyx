@@ -1,0 +1,9 @@
+---CODE---
+255
+---STDERR---
+[fud] ERROR: `/home/calyx/target/debug/calyx -l /home/calyx -b verilog --disable-verify -p validate -p compile -p lower -d static-promotion' failed:
+=====STDERR=====
+Error: Malformed Control: `seq` marked `@fast` does not contain alternating static-dynamic control children (see #1828)
+
+=====STDOUT=====
+

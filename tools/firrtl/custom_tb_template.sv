@@ -1,4 +1,4 @@
-module TOP;
+module toplevel;
 
 // Signals for the main module.
 logic go, done, clk, reset;

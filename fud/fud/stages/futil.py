@@ -22,15 +22,18 @@ class CalyxStage(Stage):
         return {}
 
     def known_opts(self):
-        return ["flags", "exec", "file_extensions"]
+        return ["lib_path", "flags", "exec", "file_extensions"]
 
     def _define_steps(self, input, builder, config):
         calyx_exec = config["stages", self.name, "exec"]
+        lib_path = unwrap_or(
+            config.get(("stages", self.name, "lib_path")), config["global", cfg.ROOT]
+        )
         cmd = " ".join(
             [
                 calyx_exec,
                 "-l",
-                config["global", cfg.ROOT],
+                lib_path,
                 self.flags,
                 unwrap_or(config["stages", self.name, "flags"], ""),
             ]

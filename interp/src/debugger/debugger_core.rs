@@ -5,8 +5,11 @@ use super::{
     source::structures::NewSourceMap,
 };
 use crate::{
-    debugger::{source::SourceMap, unwrap_error_message},
-    errors::{InterpreterError, InterpreterResult},
+    configuration::RuntimeConfig,
+    debugger::{
+        commands::PrintCommand, source::SourceMap, unwrap_error_message,
+    },
+    errors::{CiderError, CiderResult},
     flatten::{
         flat_ir::{
             base::{GlobalCellIdx, PortValue},
@@ -52,14 +55,19 @@ impl ProgramStatus {
     }
 }
 
-/// An opaque wrapper type for internal debugging information
+/// An opaque wrapper type for internal debugging information. This can only be
+/// obtained by calling [Debugger::main_loop] and receiving a [DebuggerReturnStatus::Restart] return
+/// value.
 pub struct DebuggerInfo {
     ctx: DebuggingContext,
     input_stream: Input,
 }
-
+/// An enum indicating the non-error return status of the debugger
 pub enum DebuggerReturnStatus {
+    /// Debugger exited with a restart command and should be reinitialized with
+    /// the returned information. Comes from [Command::Restart].
     Restart(Box<DebuggerInfo>),
+    /// Debugger exited normally with an exit command. Comes from [Command::Exit].
     Exit,
 }
 
@@ -81,6 +89,8 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
     is_running: bool,
 }
 
+/// A type alias for the debugger using an Rc of the context. Use this in cases
+/// where the use of lifetimes would be a hindrance.
 pub type OwnedDebugger = Debugger<Rc<Context>>;
 
 impl OwnedDebugger {
@@ -89,26 +99,34 @@ impl OwnedDebugger {
     pub fn from_file(
         file: &FilePath,
         lib_path: &FilePath,
-    ) -> InterpreterResult<(Self, NewSourceMap)> {
+    ) -> CiderResult<(Self, NewSourceMap)> {
         let (ctx, map) = setup_simulation_with_metadata(
             &Some(PathBuf::from(file)),
             lib_path,
             false,
         )?;
 
-        let debugger: Debugger<Rc<Context>> = Self::new(Rc::new(ctx), &None)?;
+        let debugger: Debugger<Rc<Context>> =
+            Self::new(Rc::new(ctx), &None, &None, RuntimeConfig::default())?;
 
         Ok((debugger, map))
     }
 }
 
 impl<C: AsRef<Context> + Clone> Debugger<C> {
+    /// Construct a new debugger instance from the target calyx file
     pub fn new(
         program_context: C,
         data_file: &Option<std::path::PathBuf>,
-    ) -> InterpreterResult<Self> {
-        let mut interpreter =
-            Simulator::build_simulator(program_context.clone(), data_file)?;
+        wave_file: &Option<std::path::PathBuf>,
+        runtime_config: RuntimeConfig,
+    ) -> CiderResult<Self> {
+        let mut interpreter = Simulator::build_simulator(
+            program_context.clone(),
+            data_file,
+            wave_file,
+            runtime_config,
+        )?;
         interpreter.converge()?;
 
         Ok(Self {
@@ -163,7 +181,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     // Go to next step
-    pub fn step(&mut self, n: u32) -> InterpreterResult<ProgramStatus> {
+    pub fn step(&mut self, n: u32) -> CiderResult<ProgramStatus> {
         self.do_step(n)?;
 
         Ok(self.status())
@@ -203,7 +221,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     #[inline]
-    fn do_step(&mut self, n: u32) -> InterpreterResult<()> {
+    fn do_step(&mut self, n: u32) -> CiderResult<()> {
         for _ in 0..n {
             self.interpreter.step()?;
         }
@@ -211,8 +229,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(())
     }
 
-    fn do_continue(&mut self) -> InterpreterResult<()> {
-        dbg!("entered do_continue debugger_core");
+    fn do_continue(&mut self) -> CiderResult<()> {
         self.debugging_context
             .set_current_time(self.interpreter.get_currently_running_groups());
 
@@ -260,10 +277,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     // so on and so forth
 
+    /// The main loop of the debugger. This function is the entry point for the
+    /// debugger. It takes an optional [DebuggerInfo] struct which contains the
+    /// input stream and the debugging context which allows the debugger to
+    /// retain command history and other state after a restart. If not provided,
+    /// a fresh context and input stream will be used instead.
     pub fn main_loop(
         mut self,
         info: Option<DebuggerInfo>,
-    ) -> InterpreterResult<DebuggerReturnStatus> {
+    ) -> CiderResult<DebuggerReturnStatus> {
         let (input_stream, dbg_ctx) = info
             .map(|x| (Some(x.input_stream), Some(x.ctx)))
             .unwrap_or_else(|| (None, None));
@@ -294,9 +316,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     c
                 }
                 Err(e) => match *e {
-                    InterpreterError::InvalidCommand(_)
-                    | InterpreterError::UnknownCommand(_)
-                    | InterpreterError::ParseError(_) => {
+                    CiderError::InvalidCommand(_)
+                    | CiderError::UnknownCommand(_)
+                    | CiderError::ParseError(_) => {
                         println!("Error: {}", e.red().bold());
                         err_count += 1;
                         if err_count == 3 {
@@ -359,6 +381,24 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     }
                 }
 
+                Command::EnableWatch(targets) => {
+                    for target in targets {
+                        let target = target
+                            .parse_to_watch_ids(self.program_context.as_ref());
+                        unwrap_error_message!(target);
+                        self.debugging_context.enable_watchpoint(target)
+                    }
+                }
+
+                Command::DisableWatch(targets) => {
+                    for target in targets {
+                        let target = target
+                            .parse_to_watch_ids(self.program_context.as_ref());
+                        unwrap_error_message!(target);
+                        self.debugging_context.disable_watchpoint(target)
+                    }
+                }
+
                 Command::Watch(
                     group,
                     watch_pos,
@@ -375,10 +415,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::InfoWatch => self
                     .debugging_context
                     .print_watchpoints(self.interpreter.env()),
-                Command::PrintPC(_override_flag) => {
-                    self.interpreter.print_pc();
-                }
 
+                Command::PrintPC(print_mode) => match print_mode {
+                    PrintCommand::Normal | PrintCommand::PrintCalyx => {
+                        self.interpreter.print_pc();
+                    }
+                    PrintCommand::PrintNodes => {
+                        self.interpreter.print_pc_string();
+                    }
+                },
                 Command::Explain => {
                     print!("{}", Command::get_explain_string())
                 }
@@ -401,9 +446,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             let comm = match comm {
                 Ok(c) => c,
                 Err(e) => match *e {
-                    InterpreterError::InvalidCommand(_)
-                    | InterpreterError::UnknownCommand(_)
-                    | InterpreterError::ParseError(_) => {
+                    CiderError::InvalidCommand(_)
+                    | CiderError::UnknownCommand(_)
+                    | CiderError::ParseError(_) => {
                         println!("Error: {}", e.red().bold());
                         continue;
                     }
@@ -499,7 +544,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     fn do_step_over(
         &mut self,
         target: super::commands::ParsedGroupName,
-    ) -> Result<(), crate::errors::BoxedInterpreterError> {
+    ) -> Result<(), crate::errors::BoxedCiderError> {
         let target = match target.lookup_group(self.program_context.as_ref()) {
             Ok(v) => v,
             Err(e) => {

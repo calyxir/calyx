@@ -1,0 +1,64 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+component main() -> () {
+  cells {
+    @external in = seq_mem_d1(32, 10, 4);
+    b = std_bypass_reg(32);
+    i_reg = std_reg(4);
+    add0 = std_add(4);
+    neq0 = std_neq(4);
+    neq1 = std_neq(4);
+    and0 = std_and(1);
+    @external out = seq_mem_d1(32, 10, 4);
+  }
+
+  wires {
+    static<1> group init {
+      i_reg.write_en = 1'b1;
+      i_reg.in = 4'b0;
+    }
+
+    static<1> group incr {
+      i_reg.write_en = 1'b1;
+      i_reg.in = add0.out;
+      add0.left = i_reg.out;
+      add0.right = 4'b1;
+    }
+
+    static<1> group load {
+      in.addr0 = i_reg.out;
+      in.content_en = 1'b1;
+    }
+
+    static<1> group bypass {
+      neq0.left = i_reg.out;
+      neq0.right = 4'd5;
+      neq1.left = i_reg.out;
+      neq1.right = 4'd6;
+      and0.left = neq0.out;
+      and0.right = neq1.out;
+      b.write_en = and0.out;
+      b.in = in.read_data;
+    }
+
+    static<1> group store {
+      out.write_en = 1'b1;
+      out.content_en = 1'b1;
+      out.addr0 = i_reg.out;
+      out.write_data = b.out;
+    }
+  }
+
+  control {
+    init;
+    static repeat 10 {
+      static seq {
+        load;
+        bypass;
+        store;
+        incr;
+      }
+    }
+  }
+}

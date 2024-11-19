@@ -336,8 +336,15 @@ impl<'a> Run<'a> {
         Ok(dir)
     }
 
-    /// Emit `build.ninja` to a temporary directory and then actually execute ninja.
-    pub fn emit_and_run(&self, dir: &Utf8Path) -> EmitResult {
+    /// Emit `build.ninja` to a temporary directory and then actually execute Ninja.
+    ///
+    /// If `print_cmds` is true, Ninja will print commands it is to run instead of executing them.
+    pub fn emit_and_run(
+        &self,
+        dir: &Utf8Path,
+        print_cmds: bool,
+        quiet_mode: bool,
+    ) -> EmitResult {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 
@@ -369,8 +376,16 @@ impl<'a> Run<'a> {
             cmd.arg("--verbose");
         }
 
-        cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
-        let status = cmd.status()?;
+        if print_cmds {
+            cmd.arg("-tcommands");
+        }
+
+        if !quiet_mode {
+            cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
+        } else {
+            cmd.stdout(std::process::Stdio::null());
+        }
+        let status = cmd.status().map_err(ninja_cmd_io_error)?;
 
         // Emit to stdout, only when Ninja succeeded.
         if status.success() {
@@ -383,7 +398,17 @@ impl<'a> Run<'a> {
                 }
             }) {
                 let stdout_files =
-                    std::fs::File::open(self.plan.workdir.join(filename))?;
+                    std::fs::File::open(self.plan.workdir.join(filename))
+                        // The output file we're emitting to stdout should exist. If it doesn't,
+                        // some op didn't produce the output file it claimed to.
+                        .map_err(|e| if let std::io::ErrorKind::NotFound = e.kind() {
+                            std::io::Error::new(
+                                e.kind(),
+                                format!("{}\nHint: Check ops actually generate all of their targets.", e)
+                            )
+                        } else {
+                            e
+                })?;
                 std::io::copy(
                     &mut std::io::BufReader::new(stdout_files),
                     &mut std::io::stdout(),
@@ -662,9 +687,26 @@ impl<W: Write> Emitter<W> {
     }
 }
 
+/// Improve error message of `e` if it is known `e` should be the result of running a `ninja`
+/// command.
+fn ninja_cmd_io_error(e: std::io::Error) -> std::io::Error {
+    match e.kind() {
+        std::io::ErrorKind::NotFound => std::io::Error::new(
+            e.kind(),
+            format!(
+            "Unable to run ninja \"{e}\"\nHint: Is ninja installed correctly?",
+        ),
+        ),
+        _ => e,
+    }
+}
+
 /// Check whether a Ninja executable supports the `--quiet` flag.
 fn ninja_supports_quiet(ninja: &str) -> std::io::Result<bool> {
-    let version_output = Command::new(ninja).arg("--version").output()?;
+    let version_output = Command::new(ninja)
+        .arg("--version")
+        .output()
+        .map_err(ninja_cmd_io_error)?;
     if let Ok(version) = String::from_utf8(version_output.stdout) {
         let parts: Vec<&str> = version.split('.').collect();
         if parts.len() >= 2 {

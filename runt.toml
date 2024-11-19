@@ -37,6 +37,7 @@ paths = [
   "tests/errors/*.futil",
   "tests/errors/papercut/*.futil",
   "tests/errors/parser/*.futil",
+  "tests/errors/float/*.futil",
 ]
 cmd = """
 ./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut -l . -m file
@@ -107,6 +108,80 @@ paths = ["tests/frontend/exp/*.txt"]
 cmd = "python3 calyx-py/calyx/gen_exp.py {}"
 
 [[tests]]
+name = "[frontend] queues correctness"
+paths = [
+  "frontends/queues/tests/*.py",
+  "frontends/queues/tests/round_robin/*.py",
+  "frontends/queues/tests/strict/*.py",
+  "frontends/queues/tests/binheap/*.py",
+  "frontends/queues/tests/binheap/round_robin/*.py",
+  "frontends/queues/tests/binheap/strict/*.py",
+]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20000 --keepgoing |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
+name = "[frontend] queues sdn no-promote correctness"
+paths = ["frontends/queues/tests/sdn.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20000 --keepgoing |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d static-promotion' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+# A stanza for "non-static with promotion" is unnecessary.
+# Such a stanza would have invoked `sdn.py` with no special flags.
+# The catch-all queues stanza captures that case.
+
+[[tests]]
+name = "[frontend] queues sdn static no promote correctness"
+paths = ["frontends/queues/tests/sdn.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20000 --static --keepgoing |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d well-formed -d static-promotion' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
+name = "[frontend] queues sdn static promote correctness"
+paths = ["frontends/queues/tests/sdn.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} 20000 --static --keepgoing |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d well-formed' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
 name = "[calyx-py] builder"
 paths = ["calyx-py/test/*.py"]
 cmd = """
@@ -128,79 +203,6 @@ python3 {} |\
        -q
 """
 
-[[tests]]
-name = "[calyx-py] queues correctness"
-paths = [
-    "calyx-py/test/correctness/queues/*.py",
-    "calyx-py/test/correctness/queues/binheap/*.py",
-    "calyx-py/test/correctness/queues/strict_and_rr_queues/rr_queues/*.py",
-    "calyx-py/test/correctness/queues/strict_and_rr_queues/strict_queues/*.py"
-]
-
-cmd = """
-name=$(basename {} .py) &&
-dir=$(dirname {}) &&
-python3 {} 20000 --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
-"""
-
-[[tests]]
-name = "[calyx-py] sdn no-promote correctness"
-paths = ["calyx-py/test/correctness/queues/sdn.py"]
-cmd = """
-name=$(basename {} .py) &&
-dir=$(dirname {}) &&
-python3 {} 20000 --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d static-promotion' \
-       -s jq.expr ".memories" \
-       -q
-"""
-
-# A stanza for "non-static with promotion" is unnecessary.
-# Such a stanza would have invoked `sdn.py` with no special flags.
-# The catch-all queues stanza captures that case.
-
-[[tests]]
-name = "[calyx-py] sdn static no promote correctness"
-paths = ["calyx-py/test/correctness/queues/sdn.py"]
-cmd = """
-name=$(basename {} .py) &&
-dir=$(dirname {}) &&
-python3 {} 20000 --static --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d well-formed -d static-promotion' \
-       -s jq.expr ".memories" \
-       -q
-"""
-
-[[tests]]
-name = "[calyx-py] sdn static promote correctness"
-paths = ["calyx-py/test/correctness/queues/sdn.py"]
-cmd = """
-name=$(basename {} .py) &&
-dir=$(dirname {}) &&
-python3 {} 20000 --static --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d well-formed' \
-       -s jq.expr ".memories" \
-       -q
-"""
-
 ##### Correctness Tests #####
 ## Tests that ensure that individual control
 ## constructs have correct behavior when compiled.
@@ -211,16 +213,16 @@ paths = [
   "tests/correctness/ref-cells/*.futil",
   "tests/correctness/sync/*.futil",
   "tests/correctness/static-interface/*.futil",
+  "tests/correctness/ieee754-float/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s verilog.data {}.data \
-         -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through verilator \
+     -s sim.data={}.data \
+     -s calyx.exec='./target/debug/calyx' \
+     -s verilog.cycle_limit=500 \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -233,15 +235,14 @@ paths = [
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x tdcc:one-hot-cutoff=500 -d static-promotion' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-x tdcc:one-hot-cutoff=500 -d static-promotion' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -254,15 +255,14 @@ paths = [
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x tdcc:duplicate-cutoff=0 -d static-promotion' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-x tdcc:duplicate-cutoff=0 -d static-promotion' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -271,35 +271,32 @@ name = "correctness static timing"
 paths = [
   "tests/correctness/*.futil",
   "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/skid-buffers/*.futil",
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
 [[tests]]
 name = "correctness static timing one-hot encoding"
-paths = [
-  "tests/correctness/static-interface/*.futil",
-]
+paths = ["tests/correctness/static-interface/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-x static-fsm-opts:one-hot-cutoff=500' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-x static-fsm-opts:one-hot-cutoff=500' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -308,15 +305,14 @@ timeout = 120
 name = "correctness nested"
 paths = ["tests/correctness/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s verilog.data {}.data \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags ' --nested' \
-         -s verilog.cycle_limit 500 \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s sim.data={}.data \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags=' --nested' \
+     -s verilog.cycle_limit=500 \
+     -s jq.expr=".memories" \
+     {} -q
 """
 timeout = 120
 
@@ -326,17 +322,17 @@ timeout = 120
 name = "correctness static control"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-p all -d group2invoke' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     {} -q
 """
 timeout = 120
 
@@ -345,17 +341,17 @@ timeout = 120
 name = "correctness static control, one-hot fsms"
 paths = [
   "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
   "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke -x static-fsm-opts:one-hot-cutoff=500' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     {} -q
 """
 timeout = 120
 
@@ -367,37 +363,34 @@ paths = [
   "tests/correctness/numeric-types/fixed-point/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through dat \
-         --through verilog \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 
 [[tests]]
 name = "correctness test of static islands without static promotion"
 paths = ["tests/correctness/static-islands/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through dat \
-         --through verilog \
-         -s verilog.data {}.data \
-         -s calyx.flags "-d static-promotion" \
-         -s jq.expr ".memories" \
-         {} -q
+fud2 --from calyx --to jq \
+    --through icarus \
+    -s sim.data={}.data \
+    -s calyx.flags="-d static-promotion" \
+    -s jq.expr=".memories" \
+    {} -q
 """
 
 [[tests]]
 name = "[frontend] tcam testing"
 paths = ["tests/correctness/tcam/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-      --through verilog \
-      --through dat \
-      -s verilog.data {}.data \
-      -s jq.expr ".memories" \
-      {} -q
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
 """
 
 [[tests]]
@@ -443,6 +436,32 @@ fud e --from systolic --to jq \
       {}_dynamic.systolic -q
 """
 expect_dir = "tests/correctness/systolic/mmult-expect"
+
+[[tests]]
+name = "[correctness] `@fast` attribute should not change program behavior"
+paths = ["tests/correctness/fast-attr/valid/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through icarus-verilog \
+         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
+         -s verilog.data {}.data \
+         -s jq.expr "." \
+         {} -q
+"""
+
+[[tests]]
+name = "[correctness] `@fast` attribute should reject unoptimizable sequences"
+paths = ["tests/correctness/fast-attr/invalid/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through icarus-verilog \
+         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
+         -s verilog.data {}.data \
+         -s jq.expr "." \
+         {} -q
+"""
 
 [[tests]]
 name = "[frontend] systolic array relu static correctness"
@@ -662,4 +681,12 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   make clean && \
   rm -f results.xml
 
+"""
+
+### Profiler tests
+[[tests]]
+name = "profiler"
+paths = ["tests/profiler/*.futil"]
+cmd = """
+bash tools/profiler/get-profile-counts-info.sh {} {}.data STDOUT -d
 """

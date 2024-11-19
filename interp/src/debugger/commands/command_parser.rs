@@ -1,12 +1,16 @@
-use super::core::{
-    Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+use super::{
+    core::{
+        Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+    },
+    PrintCommand,
 };
+use baa::WidthInt;
 use pest_consume::{match_nodes, Error, Parser};
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use crate::{errors::InterpreterResult, serialization::PrintCode};
+use crate::{errors::CiderResult, serialization::PrintCode};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("commands.pest");
@@ -20,7 +24,12 @@ impl CommandParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
+
     fn code_calyx(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn code_nodes(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
@@ -59,8 +68,9 @@ impl CommandParser {
 
     fn comm_where(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [code_calyx(_)] => Command::PrintPC(true),
-            [] => Command::PrintPC(false),
+            [code_calyx(_)] => Command::PrintPC(PrintCommand::PrintCalyx),
+            [code_nodes(_)] => Command::PrintPC(PrintCommand::PrintNodes),
+            [] => Command::PrintPC(PrintCommand::Normal),
         ))
     }
 
@@ -87,15 +97,15 @@ impl CommandParser {
         ))
     }
 
-    fn pc_ufx(input: Node) -> ParseResult<usize> {
+    fn pc_ufx(input: Node) -> ParseResult<WidthInt> {
         Ok(match_nodes!(input.into_children();
-            [num(n)] => n as usize
+            [num(n)] => n as WidthInt
         ))
     }
 
-    fn pc_sfx(input: Node) -> ParseResult<usize> {
+    fn pc_sfx(input: Node) -> ParseResult<WidthInt> {
         Ok(match_nodes!(input.into_children();
-            [num(n)] => n as usize
+            [num(n)] => n as WidthInt
         ))
     }
 
@@ -203,6 +213,18 @@ impl CommandParser {
         ))
     }
 
+    fn enable_watch(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+                [brk_id(br)..] => Command::EnableWatch(br.collect())
+        ))
+    }
+
+    fn disable_watch(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+                [brk_id(br)..] => Command::DisableWatch(br.collect())
+        ))
+    }
+
     fn explain(_input: Node) -> ParseResult<Command> {
         Ok(Command::Explain)
     }
@@ -261,6 +283,8 @@ impl CommandParser {
             [info_watch(iw), EOI(_)] => iw,
             [delete(del), EOI(_)] => del,
             [delete_watch(del), EOI(_)] => del,
+            [enable_watch(ew), EOI(_)] => ew,
+            [disable_watch(dw), EOI(_)] => dw,
             [enable(e), EOI(_)] => e,
             [disable(dis), EOI(_)] => dis,
             [exit(exit), EOI(_)] => exit,
@@ -271,7 +295,8 @@ impl CommandParser {
     }
 }
 
-pub fn parse_command(input_str: &str) -> InterpreterResult<Command> {
+/// Parse the given string into a debugger command.
+pub fn parse_command(input_str: &str) -> CiderResult<Command> {
     let inputs = CommandParser::parse(Rule::command, input_str)?;
     let input = inputs.single()?;
     Ok(CommandParser::command(input)?)

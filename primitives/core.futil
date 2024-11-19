@@ -8,7 +8,7 @@ extern "core.sv" {
   comb primitive std_bit_slice<"share"=1>[IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
 
 
-  /// Logical operators
+  /// Logical Operators
   comb primitive std_not<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH);
   comb primitive std_and<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_or<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
@@ -24,4 +24,28 @@ extern "core.sv" {
   comb primitive std_le<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
   comb primitive std_rsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_mux<"share"=1>[WIDTH](@data cond: 1, @data tru: WIDTH, @data fal: WIDTH) -> (out: WIDTH);
+
+  // Skid Buffers
+  primitive std_skid_buffer<"share"=1>[WIDTH](
+    @data in: WIDTH,
+    i_valid : 1,
+    i_ready : 1,
+    @clk clk: 1,
+    @reset reset: 1
+  ) -> (
+    @stable out: WIDTH,
+    o_valid : 1,
+    o_ready : 1
+  );
+
+  // Bypass Register
+  primitive std_bypass_reg<"share"=1>[WIDTH](
+    @data in: WIDTH,
+    @go write_en: 1,
+    @clk clk: 1,
+    @reset reset: 1
+  ) -> (
+    @stable out: WIDTH,
+    @done done: 1
+  );
 }

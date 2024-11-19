@@ -123,7 +123,7 @@ jobs:
       working-directory: /home/calyx/interp/tests
       run: |
         # Run the remaining tests
-        runt -x '(numeric types correctness and parsing)|(tcam testing)|(../../tests/correctness/pipelined-mac.futil)' -d -o fail
+        runt -x '(numeric types correctness and parsing)' -d -o fail
 
     - name: Source code tests
       uses: actions-rs/cargo@v1
@@ -161,7 +161,7 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
-    - name: Install calyx-py & MrXL
+    - name: Install calyx-py, MrXL, and queues
       working-directory: /home/calyx
       run: |
         cd calyx-py
@@ -169,6 +169,13 @@ jobs:
         cd -
         cd frontends/mrxl
         FLIT_ROOT_INSTALL=1 flit install --symlink
+        cd -
+        cd frontends/queues
+        FLIT_ROOT_INSTALL=1 flit install --symlink
+
+    - name: Generate queue .data and .expect files
+      working-directory: /home/calyx
+      run: ./frontends/queues/test_data_gen/gen_test_data.sh
 
     - name: Build
       uses: actions-rs/cargo@v1
@@ -191,7 +198,7 @@ jobs:
     - name: Runt tests
       working-directory: /home/calyx
       run: |
-        runt -x 'cocotb' -d -o fail -j 1 --max-futures 5
+        runt -x 'cocotb|profiler' -d -o fail -j 1 --max-futures 5
 
     - name: Run Python Tests
       working-directory: /home/calyx

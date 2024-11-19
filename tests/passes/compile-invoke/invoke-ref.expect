@@ -22,7 +22,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group invoke0 {
       r0.in = f.r_in;
       r0.write_en = f.r_write_en;
-      f.r_out = r0.out;
       f.r_done = r0.done;
       f.go = 1'd1;
       invoke0[done] = f.done;

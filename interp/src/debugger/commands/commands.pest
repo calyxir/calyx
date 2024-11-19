@@ -1,4 +1,4 @@
-WHITESPACE = _{ " " | "\t" | NEWLINE }
+WHITESPACE = _{ " " | "\t" }
 dot        = _{ "." }
 ident_syms = _{ "_" | "-" | "'" }
 num        = @{ ASCII_DIGIT+ }
@@ -14,6 +14,7 @@ pc_s       = { ^"s" }
 pc_ufx     = { ^"u." ~ num }
 pc_sfx     = { ^"s." ~ num }
 code_calyx = { ^"calyx" }
+code_nodes = {^"nodes"}
 
 print_code =  {
     "\\" ~ (pc_ufx | pc_sfx | pc_s | pc_un)
@@ -21,10 +22,10 @@ print_code =  {
 pc_fail    = @{ "\\" ~ ASCII_ALPHANUMERIC* }
 
 print = {
-    (^"print" | ^"p") ~ (print_code)? ~ name+
+    (^"print " | ^"p ") ~ (print_code)? ~ name+
 }
 
-print_state = { ^"print-state" ~ (print_code)? ~ name+ }
+print_state = { ^"print-state " ~ (print_code)? ~ name+ }
 
 print_fail = {
     (^"print-state" | ^"print" | ^"p") ~ (print_code | pc_fail)?
@@ -36,7 +37,7 @@ after  = { ^"after" }
 watch_position = { before | after }
 
 watch = {
-    (^"watch" | ^"w") ~ (watch_position)? ~ group ~ ^"with" ~ (print_state | print)
+    (^"watch " | ^"w ") ~ (watch_position)? ~ group ~ (^"with")? ~ (print_state | print)
 }
 
 step_over = { ^"step-over" ~ group }
@@ -52,25 +53,28 @@ display    = { ^"display" | ^"d" }
 info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
 info_watch = { (^"info" ~ ^"watch") | ^"i" ~ ^"w" }
 
-brk    = { (^"break" | ^"br") ~ group+ }
+brk    = { (^"break " | ^"br ") ~ group+ }
 brk_id = { (group | num) }
 
-delete = { (^"delete" | ^"del") ~ brk_id+ }
+delete = { (^"delete " | ^"del ") ~ brk_id+ }
 
-delete_watch = { (^"delete-watch" | ^"del-watch") ~ brk_id+ }
+delete_watch = { (^"delete-watch " | ^"del-watch " | ^"delw ") ~ brk_id+ }
 
-enable  = { (^"enable") ~ brk_id+ }
-disable = { (^"disable") ~ brk_id+ }
+enable  = { (^"enable " | ^"en ") ~ brk_id+ }
+disable = { (^"disable " | ^"dis ") ~ brk_id+ }
+
+enable_watch  = { (^"enable-watch " | ^"enw ") ~ brk_id+ }
+disable_watch = { (^"disable-watch " | ^"disw ") ~ brk_id+ }
 
 exit = { ^"exit" | ^"quit" }
 
-comm_where = { (^"where" | "pc") ~ (code_calyx)? }
+comm_where = { (^"where" | "pc") ~ (code_calyx | code_nodes)? }
 
 explain = { ^"explain" }
 
 restart = { ^"restart" }
 
 command = {
-    SOI ~ (watch | comm_where | print_state | print | print_fail | delete_watch | delete | brk | enable | disable | step_over | step // commands without input
+    SOI ~ (watch | comm_where | print_state | print | print_fail | delete_watch | delete | brk | enable_watch | disable_watch | enable | disable | step_over | step // commands without input
   | cont | help | info_break | info_watch | display | exit | explain | restart)? ~ EOI
 }

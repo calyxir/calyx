@@ -6,9 +6,9 @@ build-tool = fud2
 rule get-rsrc
   command = $build-tool get-rsrc $out
 
-firrtl-exe = /test/bin/firrtl
+firrtl-exe = /test/bin/firtool
 rule firrtl
-  command = $firrtl-exe -i $in -o $out -X sverilog
+  command = $firrtl-exe $in -o $out --disable-all-randomization
 build primitives-for-firrtl.sv: get-rsrc
 rule add-verilog-primitives
   command = cat primitives-for-firrtl.sv $in > $out
