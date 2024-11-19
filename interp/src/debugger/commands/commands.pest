@@ -14,6 +14,7 @@ pc_s       = { ^"s" }
 pc_ufx     = { ^"u." ~ num }
 pc_sfx     = { ^"s." ~ num }
 code_calyx = { ^"calyx" }
+code_nodes = {^"nodes"}
 
 print_code =  {
     "\\" ~ (pc_ufx | pc_sfx | pc_s | pc_un)
@@ -67,7 +68,7 @@ disable_watch = { (^"disable-watch " | ^"disw ") ~ brk_id+ }
 
 exit = { ^"exit" | ^"quit" }
 
-comm_where = { (^"where" | "pc") ~ (code_calyx)? }
+comm_where = { (^"where" | "pc") ~ (code_calyx | code_nodes)? }
 
 explain = { ^"explain" }
 
