@@ -152,11 +152,13 @@ def parse_pcap(pcap_file):
     global PKTS_PER_SEC
     global BITS_PER_SEC
 
+    # converts numeric address to hexadecimal strings
     def mac_addr(addr):
         return ":".join("%02x" % dpkt.compat.compat_ord(b) for b in addr)
 
     pcap = dpkt.pcap.Reader(pcap_file)
 
+    # first pass over PCAP
     star_ts = None
     end_ts = None
     total_size = 0
@@ -164,6 +166,7 @@ def parse_pcap(pcap_file):
     ADDR2INT = {} if ADDR2INT is None else ADDR2INT
     addr_count, pkt_count = 0, 0
     for i, (ts, buf) in enumerate(pcap):
+        # only process packet indices >= `START` and < `END`
         if i < START:
             continue
         elif i == START:
@@ -171,20 +174,25 @@ def parse_pcap(pcap_file):
         elif END is not None and i >= END:
             break
 
+        # if ADDR2INT JSON isn't supplied (i.e. `make_addr_map = True`), make one
         eth = dpkt.ethernet.Ethernet(buf)
         addr = mac_addr(eth.src)
         if addr not in ADDR2INT:
             if make_addr_map:
+                # `i`th encountered address maps to integer `i`
                 ADDR2INT[addr] = addr_count
                 addr_count += 1
             else:
+                # complain if ADDR2INT JSON is supplied but `addr` isn't a key
                 raise UnknownAddress(
                     f"MAC address {addr} for packet {i} not found in Addr2Int map"
                 )
 
+        # keep track of number of packets and number of bytes processed
         total_size += len(buf)
         pkt_count += 1
         end_ts = ts
+    # set `END` to the last packet if unspecified
     END = START + pkt_count if END is None else END
 
     if start_ts is None:
@@ -192,33 +200,46 @@ def parse_pcap(pcap_file):
     elif START >= END:
         raise InvalidRange(f"Start index {START} >= end index {END}")
 
+    # compute PCAP stats
     total_time = end_ts - start_ts
     PKTS_PER_SEC = float("inf") if total_time == 0 else (END - START) / total_time
     BITS_PER_SEC = float("inf") if total_time == 0 else (total_size * 8) / total_time
 
+    # set `NUM_FLOWS` to the max value in ADDR2INT + 1 if unspecified
     if NUM_FLOWS is None:
         NUM_FLOWS = max(ADDR2INT[addr] for addr in ADDR2INT) + 1
 
+    # set `POP_TICK` so `LINE_RATE` Gbits are processed every second if unspecified
+    # avg_pkt_size := total_size * 8 / (END - START) (in bits)
+    # num_pops_per_sec := (LINE_RATE * 10^9) / avg_pkt_size
+    # Therefore,
+    # POP_TICK := 10^9 / num_pops_per_sec = avg_pkt_size / LINE_RATE (in 1/ns)
     if POP_TICK is None:
         POP_TICK = int((total_size * 8) // (LINE_RATE * (END - START)))
 
     pcap_file.seek(0)
     pcap = dpkt.pcap.Reader(pcap_file)
 
+    # second pass over PCAP
     data = {"commands": [], "arrival_cycles": [], "flows": [], "pkt_ids": []}
     prev_time = 0
     pkts_in_switch = 0
     for i, (ts, buf) in enumerate(pcap):
+        # only process packet indices >= `START` and < `END`
         if i < START:
             continue
         elif i >= END:
             break
 
+        # compute time since first packet's arrival in ns
         time = (ts - start_ts) * 10**9
 
+        # compute number of pops between current and previous packet's arrival
         pop_time = (prev_time % POP_TICK) + prev_time
         num_pops = int((time - pop_time) // POP_TICK) if time > pop_time else 0
+        # keep track of number of unpopped packet's
         pkts_in_switch = 0 if pkts_in_switch < num_pops else pkts_in_switch - num_pops
+        # insert `num_pops` pops
         for _ in range(num_pops):
             data["commands"].append(CMD_POP)
 
@@ -229,6 +250,7 @@ def parse_pcap(pcap_file):
             data["flows"].append(DONTCARE)
             data["pkt_ids"].append(DONTCARE)
 
+        # push current packet
         eth = dpkt.ethernet.Ethernet(buf)
         addr = mac_addr(eth.src)
         flow = ADDR2INT[addr] % NUM_FLOWS
@@ -243,6 +265,7 @@ def parse_pcap(pcap_file):
 
         prev_time = time
 
+    # pop all unpopped packets
     pop_time = (prev_time % POP_TICK) + prev_time
     for _ in range(pkts_in_switch):
         data["commands"].append(CMD_POP)
@@ -292,6 +315,7 @@ if __name__ == "__main__":
     pcap_file = open(opts.PCAP, "rb")
     addr2int_json = None if opts.addr2int is None else open(opts.addr2int)
 
+    # unpack command line arguments
     ADDR2INT = None if addr2int_json is None else json.load(addr2int_json)
     CLOCK_PERIOD = opts.clock_period
     POP_TICK = opts.pop_tick
@@ -299,11 +323,14 @@ if __name__ == "__main__":
     START = opts.start
     END = opts.end
 
+    # construct memories for data file: commands, arrival_cycles, flows, pkt_ids
     data = parse_pcap(pcap_file)
 
+    # construct data file in `data_file`
     data_file = open(opts.Out, "w")
     dump_json(data, data_file)
 
+    # report stats
     stats = {}
     stats["num_cmds"] = len(data["commands"])
     stats["num_flows"] = NUM_FLOWS
