@@ -20,6 +20,8 @@ members = [
     "tools/component_cells",
     "tools/yxi",
     "tools/calyx-writer",
+    "tools/calyx-ffi",
+    "tools/calyx-ffi-macro",
 ]
 exclude = ["site"]
 

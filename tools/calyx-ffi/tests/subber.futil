@@ -1,0 +1,21 @@
+import "primitives/core.futil";
+
+component main(lhs: 64, rhs: 64) -> (result: 64) {
+  cells {
+    subber = std_sub(64);
+    temp = std_reg(64);
+  }
+  wires {
+    group sub {
+      subber.left = lhs;
+      subber.right = rhs;
+      temp.in = subber.out;
+      temp.write_en = 1'b1;
+      sub[done] = temp.done;
+    }
+    result = temp.out;
+  }
+  control {
+    sub;
+  }
+}
