@@ -521,12 +521,6 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
                     f.write(f'\t{edge} ; \n')
                 else:
                     f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
-            # # write all paths.
-            # for path_id in all_paths_ordered:
-            #     if ";" not in path_id or path_id in used_paths:
-            #         f.write(f'\t{path_to_dot_str[path_id]} ;\n')
-            #     else:
-            #         f.write(f'\t{path_to_dot_str[path_id]} [color="{INVISIBLE}"];\n')
             f.write("}")
 
 def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):

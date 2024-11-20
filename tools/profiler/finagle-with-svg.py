@@ -2,7 +2,6 @@ import os
 import sys
 
 # Takes in a flame graph svg that is scaled by 1000 and prints a version with fixed cycles.
-
 def main(svg_in):
     oin = open(svg_in, "r")
 
