@@ -38,6 +38,14 @@ impl AssignType {
     pub fn is_continuous(&self) -> bool {
         matches!(self, Self::Continuous)
     }
+
+    /// Returns `true` if the assign type is [`Control`].
+    ///
+    /// [`Control`]: AssignType::Control
+    #[must_use]
+    pub fn is_control(&self) -> bool {
+        matches!(self, Self::Control)
+    }
 }
 
 /// A group of assignments that is scheduled to be evaluated

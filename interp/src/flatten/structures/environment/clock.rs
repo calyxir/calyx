@@ -356,6 +356,17 @@ impl ClockPair {
         }
     }
 
+    /// A wrapper method which checks the read and adds cell info on an error
+    pub fn check_read_w_cell(
+        &self,
+        (thread, reading_clock): ThreadClockPair,
+        clock_map: &mut ClockMap,
+        cell: GlobalCellIdx,
+    ) -> Result<(), ClockError> {
+        self.check_read((thread, reading_clock), clock_map)
+            .map_err(|e| e.add_cell_info(cell))
+    }
+
     pub fn check_write(
         &self,
         writing_clock: ClockIdx,
@@ -371,6 +382,7 @@ impl ClockPair {
                 .partial_cmp(&clock_map[self.read_clock])
                 .is_none()
         {
+            // dbg!(&clock_map[writing_clock], &clock_map[self.read_clock]);
             Err(ClockError::ReadWriteUnhelpful)
         } else if clock_map[writing_clock]
             .partial_cmp(&clock_map[self.write_clock])

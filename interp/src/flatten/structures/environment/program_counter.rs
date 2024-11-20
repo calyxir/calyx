@@ -1,6 +1,7 @@
 use std::{collections::hash_map::Entry, num::NonZeroU32};
 
 use ahash::{HashMap, HashMapExt};
+use smallvec::SmallVec;
 
 use super::super::context::Context;
 use crate::flatten::{
@@ -371,12 +372,48 @@ impl WithEntry {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ParEntry {
+    child_count: ChildCount,
+    finished_threads: SmallVec<[ThreadIdx; 4]>,
+}
+
+impl ParEntry {
+    pub fn child_count_mut(&mut self) -> &mut ChildCount {
+        &mut self.child_count
+    }
+
+    pub fn child_count(&self) -> u16 {
+        self.child_count
+    }
+    pub fn add_finished_thread(&mut self, thread: ThreadIdx) {
+        self.finished_threads.push(thread);
+    }
+
+    pub fn iter_finished_threads(
+        &self,
+    ) -> impl Iterator<Item = ThreadIdx> + '_ {
+        self.finished_threads.iter().copied()
+    }
+}
+
+impl TryFrom<usize> for ParEntry {
+    type Error = std::num::TryFromIntError;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        Ok(ParEntry {
+            child_count: value.try_into()?,
+            finished_threads: SmallVec::new(),
+        })
+    }
+}
+
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
 #[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlTuple>,
-    par_map: HashMap<ControlPoint, ChildCount>,
+    par_map: HashMap<ControlPoint, ParEntry>,
     continuous_assigns: Vec<ContinuousAssignments>,
     with_map: HashMap<ControlPoint, WithEntry>,
     repeat_map: HashMap<ControlPoint, u64>,
@@ -389,13 +426,13 @@ pub type ControlTuple = (Option<ThreadIdx>, ControlPoint);
 
 pub type PcFields = (
     Vec<ControlTuple>,
-    HashMap<ControlPoint, ChildCount>,
+    HashMap<ControlPoint, ParEntry>,
     HashMap<ControlPoint, WithEntry>,
     HashMap<ControlPoint, u64>,
 );
 
 pub type PcMaps<'a> = (
-    &'a mut HashMap<ControlPoint, ChildCount>,
+    &'a mut HashMap<ControlPoint, ParEntry>,
     &'a mut HashMap<ControlPoint, WithEntry>,
     &'a mut HashMap<ControlPoint, u64>,
 );
@@ -425,11 +462,11 @@ impl ProgramCounter {
         &mut self.vec
     }
 
-    pub fn _par_map_mut(&mut self) -> &mut HashMap<ControlPoint, ChildCount> {
+    pub fn _par_map_mut(&mut self) -> &mut HashMap<ControlPoint, ParEntry> {
         &mut self.par_map
     }
 
-    pub fn _par_map(&self) -> &HashMap<ControlPoint, ChildCount> {
+    pub fn _par_map(&self) -> &HashMap<ControlPoint, ParEntry> {
         &self.par_map
     }
 

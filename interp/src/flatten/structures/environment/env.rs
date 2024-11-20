@@ -9,7 +9,9 @@ use super::{
 };
 use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
-    errors::{BoxedCiderError, CiderResult, ConflictingAssignments},
+    errors::{
+        BoxedCiderError, BoxedRuntimeError, CiderResult, ConflictingAssignments,
+    },
     flatten::{
         flat_ir::{
             base::{
@@ -790,9 +792,20 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let current_nodes = self.pc.iter().filter(|(_thread, point)| {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
-                ControlNode::Enable(_) | ControlNode::Invoke(_) => {
+                n @ (ControlNode::Enable(_) | ControlNode::Invoke(_)) => {
                     let comp_go = self.get_comp_go(point.comp);
-                    self.ports[comp_go].as_bool().unwrap_or_default()
+                    let comp_go_bool =
+                        self.ports[comp_go].as_bool().unwrap_or_default();
+                    if let ControlNode::Enable(e) = n {
+                        let ledger = self.cells[point.comp].unwrap_comp();
+                        let group = &self.ctx().primary[e.group()];
+                        let go = self.ports[&ledger.index_bases + group.go]
+                            .as_bool()
+                            .unwrap_or_default();
+                        comp_go_bool && go
+                    } else {
+                        comp_go_bool
+                    }
                 }
 
                 _ => false,
@@ -1865,29 +1878,50 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             }
             ControlNode::Par(par) => {
                 if par_map.contains_key(node) {
-                    let count = par_map.get_mut(node).unwrap();
-                    *count -= 1;
+                    let par_entry = par_map.get_mut(node).unwrap();
+                    *par_entry.child_count_mut() -= 1;
 
-                    if *count == 0 {
-                        par_map.remove(node);
+                    if self.conf.check_data_race {
+                        par_entry.add_finished_thread(
+                            thread.expect("par nodes should have a thread"),
+                        );
+                    }
+
+                    if par_entry.child_count() == 0 {
+                        let par_entry = par_map.remove(node).unwrap();
                         if self.conf.check_data_race {
-                            let thread =
-                                thread.expect("par nodes should have a thread");
-
-                            let child_clock_idx =
-                                self.env.thread_map.unwrap_clock_id(thread);
-                            let parent =
-                                self.env.thread_map[thread].parent().unwrap();
+                            assert!(par_entry
+                                .iter_finished_threads()
+                                .map(|thread| {
+                                    self.env.thread_map[thread]
+                                        .parent()
+                                        .unwrap()
+                                })
+                                .all_equal());
+                            let parent = self.env.thread_map[thread.unwrap()]
+                                .parent()
+                                .unwrap();
                             let parent_clock =
                                 self.env.thread_map.unwrap_clock_id(parent);
-                            let child_clock = std::mem::take(
-                                &mut self.env.clocks[child_clock_idx],
-                            );
-                            self.env.clocks[parent_clock].sync(&child_clock);
-                            self.env.clocks[child_clock_idx] = child_clock;
-                            assert!(self.env.thread_map[thread]
-                                .parent()
-                                .is_some());
+
+                            for child_thread in
+                                par_entry.iter_finished_threads()
+                            {
+                                let child_clock_idx = self
+                                    .env
+                                    .thread_map
+                                    .unwrap_clock_id(child_thread);
+
+                                let child_clock = std::mem::take(
+                                    &mut self.env.clocks[child_clock_idx],
+                                );
+
+                                self.env.clocks[parent_clock]
+                                    .sync(&child_clock);
+
+                                self.env.clocks[child_clock_idx] = child_clock;
+                            }
+
                             *node_thread = Some(parent);
                             self.env.clocks[parent_clock].increment(&parent);
                         }
@@ -2057,27 +2091,20 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             GlobalPortRef::Ref(r) => self.env.ref_ports[r]
                 .expect("While condition (ref) is undefined"),
         };
+
         if self.conf.check_data_race {
-            if let Some(clocks) = self.env.ports[idx].clocks() {
-                let read_clock =
-                    self.env.thread_map.unwrap_clock_id(thread.unwrap());
-                clocks
-                    .check_read(
-                        (thread.unwrap(), read_clock),
-                        &mut self.env.clocks,
-                    )
-                    .map_err(|e| {
-                        e.add_cell_info(
-                            self.env
-                                .get_parent_cell_from_port(
-                                    w.cond_port(),
-                                    node.comp,
-                                )
-                                .unwrap(),
-                        )
-                    })?;
-            }
+            let mut clock_map = std::mem::take(&mut self.env.clocks);
+
+            self.check_read(
+                thread.unwrap(),
+                w.cond_port(),
+                node.comp,
+                &mut clock_map,
+            )?;
+
+            self.env.clocks = clock_map;
         }
+
         let result = self.env.ports[idx]
             .as_bool()
             .expect("While condition is undefined");
@@ -2121,25 +2148,16 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             };
 
             if self.conf.check_data_race {
-                if let Some(clocks) = self.env.ports[idx].clocks() {
-                    let read_clock =
-                        self.env.thread_map.unwrap_clock_id(thread.unwrap());
-                    clocks
-                        .check_read(
-                            (thread.unwrap(), read_clock),
-                            &mut self.env.clocks,
-                        )
-                        .map_err(|e| {
-                            e.add_cell_info(
-                                self.env
-                                    .get_parent_cell_from_port(
-                                        i.cond_port(),
-                                        node.comp,
-                                    )
-                                    .unwrap(),
-                            )
-                        })?;
-                }
+                let mut clock_map = std::mem::take(&mut self.env.clocks);
+
+                self.check_read(
+                    thread.unwrap(),
+                    i.cond_port(),
+                    node.comp,
+                    &mut clock_map,
+                )?;
+
+                self.env.clocks = clock_map;
             }
 
             let result = self.env.ports[idx]
@@ -2334,15 +2352,16 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 );
                             }
 
-                            if self.conf.check_data_race {
+                            if self.conf.check_data_race
+                                && assign_type.is_control()
+                            {
                                 // needed for mutability reasons
                                 let mut clock_map =
                                     std::mem::take(&mut self.env.clocks);
-                                self.check_assignment_read(
-                                    *assign_type,
-                                    thread,
-                                    assign,
-                                    active_cell,
+                                self.check_read(
+                                    thread.unwrap(),
+                                    assign.src,
+                                    *active_cell,
                                     &mut clock_map,
                                 )?;
                                 self.env.clocks = clock_map;
@@ -2375,11 +2394,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 // when not running with `check_data_race`, this
                                 // won't happen when the flag is not set
                                 if val.clocks().is_some()
-                                    && assign_type.is_combinational()
+                                    && (assign_type.is_combinational()
+                                        || assign_type.is_continuous())
                                 {
                                     assigned_value = assigned_value
                                         .with_clocks(val.clocks().unwrap())
-                                        .set_assigned_by_comb();
+                                        .set_propagate_clocks();
                                 }
 
                                 let result = self.env.ports.insert_val(
@@ -2436,39 +2456,19 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .guard_read_map
                                 .get(assign.guard)
                             {
+                                let mut clock_map =
+                                    std::mem::take(&mut self.env.clocks);
+
                                 for port in read_ports {
-                                    let port_idx = self.get_global_port_idx(
-                                        port,
+                                    self.check_read(
+                                        thread.unwrap(),
+                                        *port,
                                         *active_cell,
-                                    );
-                                    if let Some(clocks) =
-                                        self.env.ports[port_idx].clocks()
-                                    {
-                                        let thread = thread
-                                            .expect("cannot determine thread");
-                                        let thread_clock = self
-                                            .env
-                                            .thread_map
-                                            .unwrap_clock_id(thread);
-                                        clocks
-                                            .check_read(
-                                                (thread, thread_clock),
-                                                &mut self.env.clocks,
-                                            )
-                                            .map_err(|e| {
-                                                // TODO griffin: find a less hacky way to
-                                                // do this
-                                                e.add_cell_info(
-                                                self.env
-                                                    .get_parent_cell_from_port(
-                                                        *port,
-                                                        *active_cell,
-                                                    )
-                                                    .unwrap(),
-                                            )
-                                            })?;
-                                    }
+                                        &mut clock_map,
+                                    )?;
                                 }
+
+                                self.env.clocks = clock_map;
                             }
                         }
                     }
@@ -2503,6 +2503,24 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             }
         }
 
+        for ScheduledAssignments {
+            active_cell,
+            interface_ports,
+            assign_type,
+            ..
+        } in assigns_bundle.iter()
+        {
+            if let Some(interface_ports) = interface_ports {
+                let ledger = self.env.cells[*active_cell].as_comp().unwrap();
+                let go = &ledger.index_bases + interface_ports.go;
+                let done = &ledger.index_bases + interface_ports.done;
+                if self.env.ports[done].as_bool().unwrap_or_default() {
+                    self.env.ports[go] =
+                        PortValue::new_implicit(BitVecValue::zero(1));
+                }
+            }
+        }
+
         if self.conf.undef_guard_check {
             self.check_undefined_guards(assigns_bundle)?;
         }
@@ -2518,7 +2536,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     fn check_undefined_guards(
         &mut self,
         assigns_bundle: &[ScheduledAssignments],
-    ) -> Result<(), crate::errors::BoxedRuntimeError> {
+    ) -> Result<(), BoxedRuntimeError> {
         let mut error_v = vec![];
         for bundle in assigns_bundle.iter() {
             let ledger = self.env.cells[bundle.active_cell].as_comp().unwrap();
@@ -2574,9 +2592,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         }
     }
 
-    fn run_primitive_comb_path(
-        &mut self,
-    ) -> Result<bool, crate::errors::BoxedRuntimeError> {
+    fn run_primitive_comb_path(&mut self) -> Result<bool, BoxedRuntimeError> {
         let changed: bool = self
             .env
             .cells
@@ -2590,37 +2606,30 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         && self.conf.check_data_race
                         && cell_dyn.is_combinational()
                     {
-                        let mut working_set = HashSet::new();
+                        let mut working_set = vec![];
                         let signature = cell_dyn.get_ports();
-                        {
-                            for port in signature.iter_first() {
-                                let val = &self.env.ports[port];
-                                if let Some(val) = val.as_option() {
-                                    if val.assigned_by_comb()
-                                        && val.clocks().is_some()
-                                    {
-                                        working_set
-                                            .insert(*val.clocks().unwrap());
-                                        for clk in val.iter_transitive_clocks()
-                                        {
-                                            working_set.insert(clk);
-                                        }
-                                    }
-                                }
-                            }
 
-                            if signature.iter_second().len() == 1 {
-                                let port =
-                                    signature.iter_second().next().unwrap();
-                                let val = &mut self.env.ports[port];
-                                if let Some(val) = val.as_option_mut() {
-                                    for clk in working_set {
-                                        val.add_transitive_clock(clk);
-                                    }
+                        for port in signature.iter_first() {
+                            let val = &self.env.ports[port];
+                            if let Some(val) = val.as_option() {
+                                if val.propagate_clocks()
+                                    && val.clocks().is_some()
+                                {
+                                    working_set.push(*val.clocks().unwrap());
+                                    working_set
+                                        .extend(val.iter_transitive_clocks());
                                 }
-                            } else {
-                                todo!()
                             }
+                        }
+
+                        if signature.iter_second().len() == 1 {
+                            let port = signature.iter_second().next().unwrap();
+                            let val = &mut self.env.ports[port];
+                            if let Some(val) = val.as_option_mut() {
+                                val.add_transitive_clocks(working_set);
+                            }
+                        } else {
+                            todo!("comb primitive with multiple outputs")
                         }
                     }
                     Some(result)
@@ -2642,52 +2651,44 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         Ok(changed)
     }
 
-    /// for a given assignment, checks if it interacts with a clocked value and
-    /// if, so whether or not the read is valid
-    fn check_assignment_read(
+    fn check_read(
         &self,
-        assign_type: AssignType,
-        thread: Option<ThreadIdx>,
-        assign: &Assignment,
-        active_cell: &GlobalCellIdx,
+        thread: ThreadIdx,
+        port: PortRef,
+        active_cell: GlobalCellIdx,
         clock_map: &mut ClockMap,
-    ) -> Result<(), crate::errors::BoxedRuntimeError> {
-        let port = self.get_global_port_idx(&assign.src, *active_cell);
-        let val = &self.env.ports[port];
+    ) -> Result<(), BoxedRuntimeError> {
+        let global_port = self.get_global_port_idx(&port, active_cell);
+        let val = &self.env.ports[global_port];
+        let thread_clock = self.env.thread_map.unwrap_clock_id(thread);
 
-        if let Some(clocks) = val.clocks() {
-            if !assign_type.is_combinational() {
-                if let Some(thread) = thread {
-                    let thread_clock =
-                        self.env.thread_map.unwrap_clock_id(thread);
-
-                    let parent_cell = self
-                        .env
-                        .get_parent_cell_from_port(assign.src, *active_cell);
-
-                    clocks
-                        .check_read((thread, thread_clock), clock_map)
-                        .map_err(|e| {
-                            // TODO griffin: find a less hacky way to
-                            // do this
-
-                            e.add_cell_info(parent_cell.unwrap())
-                        })?;
-
-                    if let Some(sets) = val.transitive_clocks() {
-                        for clock_pair in sets.iter() {
-                            clock_pair
-                                .check_read((thread, thread_clock), clock_map)
-                                .map_err(|e| {
-                                    e.add_cell_info(parent_cell.unwrap())
-                                })?
-                        }
-                    }
-                } else {
-                    panic!("cannot determine thread for non-continuous assignment that touches a checked port");
-                }
+        if val.clocks().is_some() && val.transitive_clocks().is_some() {
+            // TODO griffin: Sort this out
+            panic!("Value has both direct clock and transitive clock. This shouldn't happen?")
+        } else if let Some(clocks) = val.clocks() {
+            let port_cell = self
+                .env
+                .get_parent_cell_from_port(port, active_cell)
+                .unwrap();
+            clocks.check_read_w_cell(
+                (thread, thread_clock),
+                clock_map,
+                port_cell,
+            )?
+        } else if let Some(transitive_clocks) = val.transitive_clocks() {
+            let port_cell = self
+                .env
+                .get_parent_cell_from_port(port, active_cell)
+                .unwrap();
+            for clock_pair in transitive_clocks {
+                clock_pair.check_read_w_cell(
+                    (thread, thread_clock),
+                    clock_map,
+                    port_cell,
+                )?
             }
-        };
+        }
+
         Ok(())
     }
 

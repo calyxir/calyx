@@ -435,7 +435,7 @@ pub struct AssignedValue {
     winner: AssignmentWinner,
     thread: Option<ThreadIdx>,
     clocks: Option<ClockPair>,
-    assigned_by_comb: bool,
+    propagate_clocks: bool,
     transitive_clocks: Option<HashSet<ClockPair>>,
 }
 
@@ -446,7 +446,7 @@ impl std::fmt::Debug for AssignedValue {
             .field("winner", &self.winner)
             .field("thread", &self.thread)
             .field("clocks", &self.clocks)
-            .field("assigned_by_comb", &self.assigned_by_comb)
+            .field("propagate_clocks", &self.propagate_clocks)
             .finish()
     }
 }
@@ -466,21 +466,25 @@ impl AssignedValue {
             winner: winner.into(),
             thread: None,
             clocks: None,
-            assigned_by_comb: false,
+            propagate_clocks: false,
             transitive_clocks: None,
         }
     }
 
     /// Adds a clock to the set of transitive reads associated with this value
     pub fn add_transitive_clock(&mut self, clock_pair: ClockPair) {
-        let set = if let Some(set) = self.transitive_clocks.as_mut() {
-            set
-        } else {
-            self.transitive_clocks = Some(HashSet::new());
-            self.transitive_clocks.as_mut().unwrap()
-        };
+        self.transitive_clocks
+            .get_or_insert_with(Default::default)
+            .insert(clock_pair);
+    }
 
-        set.insert(clock_pair);
+    pub fn add_transitive_clocks<I: IntoIterator<Item = ClockPair>>(
+        &mut self,
+        clocks: I,
+    ) {
+        self.transitive_clocks
+            .get_or_insert_with(Default::default)
+            .extend(clocks);
     }
 
     pub fn iter_transitive_clocks(
@@ -508,13 +512,8 @@ impl AssignedValue {
         self
     }
 
-    pub fn with_comb(mut self, assigned_by_comb: bool) -> Self {
-        self.assigned_by_comb = assigned_by_comb;
-        self
-    }
-
-    pub fn set_assigned_by_comb(mut self) -> Self {
-        self.assigned_by_comb = true;
+    pub fn set_propagate_clocks(mut self) -> Self {
+        self.propagate_clocks = true;
         self
     }
 
@@ -578,8 +577,8 @@ impl AssignedValue {
         self.transitive_clocks.as_ref()
     }
 
-    pub fn assigned_by_comb(&self) -> bool {
-        self.assigned_by_comb
+    pub fn propagate_clocks(&self) -> bool {
+        self.propagate_clocks
     }
 }
 
