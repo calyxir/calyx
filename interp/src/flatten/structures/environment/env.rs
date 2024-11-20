@@ -49,8 +49,8 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use slog::{info, warn, Logger};
+use std::fmt::Debug;
 use std::fmt::Write;
-use std::{fmt::Debug, ops::Deref};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
