@@ -14,6 +14,7 @@ mod util;
 // this is super bad, might go out of sync with interp::WidthInt
 type WidthInt = u32;
 
+/// Connects this `struct` to a calyx component in the given file.
 #[proc_macro_attribute]
 pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let source_manifest_dir = PathBuf::from(
@@ -32,14 +33,12 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     path.push(given_path);
     let path = path;
 
-    // <sorry>
     let comp = calyx::parse_calyx_file(&args, path.clone());
     if let Err(error) = comp {
         return error;
     }
     let comp = comp.unwrap();
     let comp = comp.get();
-    // </sorry>
 
     let comp_name =
         syn::parse_str::<syn::LitStr>(&format!("\"{}\"", comp.name))
@@ -79,18 +78,21 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
             #port_name: calyx_ffi::value::Value::from(0)
         });
 
-        // idk why input output ports are being flipped??
+        // we need to reverse the port direction
         match port.borrow().direction.reverse() {
             calyx_ir::Direction::Input => {
                 let setter = format_ident!("set_{}", port_name);
+
                 fields.push(quote! {
                     pub #port_name: calyx_ffi::value::Value<#port_width>
                 });
+
                 setters.push(quote! {
                     pub fn #setter(&mut self, value: u64) {
                         self.#port_name = calyx_ffi::value::Value::from(value);
                     }
                 });
+
                 input_names.push(port_name);
             }
             calyx_ir::Direction::Output => {
@@ -101,15 +103,20 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
                 let bitvec_getter = format_ident!("{}_bits", port_name);
 
-                getters.push(quote! {
-                    pub fn #port_name(&self) -> u64 {
-                        (&self.#port_name).try_into().expect("port value wider than 64 bits")
-                    }
+                if port_width <= 64 {
+                    getters.push(quote! {
+                        pub fn #port_name(&self) -> u64 {
+                            (&self.#port_name).try_into().expect("port value wider than 64 bits")
+                        }
+                    })
+                }
 
+                getters.push(quote! {
                     pub const fn #bitvec_getter(&self) -> &calyx_ffi::value::Value<#port_width> {
                         &self.#port_name
                     }
                 });
+
                 output_names.push(port_name);
             }
             calyx_ir::Direction::Inout => {
@@ -233,6 +240,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Extracts tests marked with `#[calyx_ffi_test]` and generates wrapper `#[test]`s and modules.
 #[derive(Default)]
 struct CalyxFFITestModuleVisitor {
     pub wrappers: Vec<syn::ItemFn>,
@@ -247,8 +255,9 @@ impl syn::visit::Visit<'_> for CalyxFFITestModuleVisitor {
             .any(|attr| attr.path().is_ident("calyx_ffi_test"));
         if has_calyx_ffi_test {
             let fn_name = &i.sig.ident;
-            let dut_type = get_ffi_test_dut_type(i)
-                .expect("calyx_ffi_test should enforce this invariant");
+            let dut_type = get_ffi_test_dut_type(i).expect(
+                "calyx_ffi_test should enforce that the type is well-formed",
+            );
 
             self.wrappers.push(syn::parse_quote! {
                 pub(crate) unsafe fn #fn_name(ffi: &mut CalyxFFI) {
