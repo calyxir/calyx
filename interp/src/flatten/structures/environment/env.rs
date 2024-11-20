@@ -2352,6 +2352,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 );
                             }
 
+                            // check the read of the src value
                             if self.conf.check_data_race
                                 && assign_type.is_control()
                             {
@@ -2447,6 +2448,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             }
                         }
 
+                        // check the reads done by all the guards
                         if self.conf.check_data_race {
                             if let Some(read_ports) = self
                                 .env
