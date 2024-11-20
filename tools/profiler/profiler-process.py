@@ -419,9 +419,24 @@ def create_path_dot_str_dict(path_dict):
 
     return path_to_dot_str
 
+def create_path_dot_str_dict_2(path_dict):
+    path_to_edges = {} # stack list string --> [edge string representation]
+    all_edges = set()
+
+    for path_id in path_dict:
+        path = path_dict[path_id]
+        edge_set = []
+        for i in range(len(path)-1):
+            edge = f"{path[i]} -> {path[i+1]}"
+            edge_set.append(edge)
+            all_edges.add(edge)
+        path_to_edges[path_id] = edge_set
+
+    return path_to_edges, list(sorted(all_edges))
+
 # create a tree where we divide cycles via par arms
 # FIXME: rename?
-def tree_helper(timeline_map):
+def div_flame_helper(timeline_map):
     stacks = {}
     for i in timeline_map:
         num_stacks = len(timeline_map[i])
@@ -460,7 +475,7 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
         for stack in stacks:
             flame_out.write(f"{stack} {stacks[stack]}\n")
 
-    divided_stacks = tree_helper(timeline_map)
+    divided_stacks = div_flame_helper(timeline_map)
     with open(os.path.join(flames_out_dir, "divided-flame.folded"), "w") as div_flame_out:
         for stack in divided_stacks:
             div_flame_out.write(f"{stack} {divided_stacks[stack]}\n")
@@ -471,8 +486,11 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
         return
     tree_dict, path_dict = create_tree(timeline_map)
     path_to_dot_str = create_path_dot_str_dict(path_dict)
+    path_to_edges, all_edges = create_path_dot_str_dict_2(path_dict)
+
     all_paths_ordered = sorted(path_dict.keys())
     for i in timeline_map:
+        used_edges = set()
         used_paths = set()
         used_nodes = set()
         all_nodes = set(tree_dict.keys())
@@ -482,6 +500,8 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
             used_paths.add(stack_id)
             for node_id in path_dict[stack_id]:
                 used_nodes.add(node_id)
+            for edge in path_to_edges[stack_id]:
+                used_edges.add(edge)
 
         fpath = os.path.join(dot_out_dir, f"cycle{i}.dot")
         with open(fpath, "w") as f:
@@ -492,12 +512,18 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
                     f.write(f'\t{node} [label="{tree_dict[node]}"];\n')
                 else:
                     f.write(f'\t{node} [label="{tree_dict[node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
-            # write all paths.
-            for path_id in all_paths_ordered:
-                if ";" not in path_id or path_id in used_paths:
-                    f.write(f'\t{path_to_dot_str[path_id]} ;\n')
+            # write all edges.
+            for edge in all_edges:
+                if edge in used_edges:
+                    f.write(f'\t{edge} ; \n')
                 else:
-                    f.write(f'\t{path_to_dot_str[path_id]} [color="{INVISIBLE}"];\n')
+                    f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
+            # # write all paths.
+            # for path_id in all_paths_ordered:
+            #     if ";" not in path_id or path_id in used_paths:
+            #         f.write(f'\t{path_to_dot_str[path_id]} ;\n')
+            #     else:
+            #         f.write(f'\t{path_to_dot_str[path_id]} [color="{INVISIBLE}"];\n')
             f.write("}")
 
 def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
