@@ -9,5 +9,4 @@ mod tests;
 
 pub mod flatten;
 
-// ethan: griffin ok'd this
-pub use baa::{BitVecOps, BitVecValue};
+pub use baa::{BitVecOps, BitVecValue, WidthInt, Word};

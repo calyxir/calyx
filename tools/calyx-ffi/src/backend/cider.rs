@@ -88,22 +88,22 @@ macro_rules! cider_ffi_backend {
         // println!("cider_ffi_backend tick");
         let cider = unsafe { $dut.user_data.assume_init_mut() };
         $(
-            cider.write_port(stringify!($input), &$dut.$input);
+            cider.write_port(stringify!($input), &$dut.$input.inner);
         )*
         cider.step();
         $(
-            $dut.$output = cider.read_port(stringify!($output));
+            $dut.$output.inner = cider.read_port(stringify!($output));
         )*
     };
     (@go $dut:ident; $($input:ident),*; $($output:ident),*) => {
         // println!("cider_ffi_backend go");
         let cider = unsafe { $dut.user_data.assume_init_mut() };
         $(
-            cider.write_port(stringify!($input), &$dut.$input);
+            cider.write_port(stringify!($input), &$dut.$input.inner);
         )*
         cider.go();
         $(
-            $dut.$output = cider.read_port(stringify!($output));
+            $dut.$output.inner = cider.read_port(stringify!($output));
         )*
     };
 }

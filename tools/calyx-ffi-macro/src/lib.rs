@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::{env, path::PathBuf};
 
 use parse::{CalyxFFIMacroArgs, CalyxPortDeclaration};
@@ -8,6 +10,9 @@ use syn::{parse_macro_input, spanned::Spanned};
 mod calyx;
 mod parse;
 mod util;
+
+// this is super bad, might go out of sync with interp::WidthInt
+type WidthInt = u32;
 
 #[proc_macro_attribute]
 pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
@@ -62,16 +67,16 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
         port_names.push(port_name.clone());
 
-        let port_width = port.borrow().width;
+        let port_width = port.borrow().width as WidthInt;
         let width_getter = format_ident!("{}_width", port_name);
         width_getters.push(quote! {
-            pub const fn #width_getter() -> u64 {
-                #port_width
+            pub const fn #width_getter() -> calyx_ffi::value::WidthInt {
+                #port_width as calyx_ffi::value::WidthInt
             }
         });
 
         default_field_inits.push(quote! {
-            #port_name: calyx_ffi::value_from_u64::<#port_width>(0)
+            #port_name: calyx_ffi::value::Value::from(0)
         });
 
         // idk why input output ports are being flipped??
@@ -79,18 +84,18 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
             calyx_ir::Direction::Input => {
                 let setter = format_ident!("set_{}", port_name);
                 fields.push(quote! {
-                    pub #port_name: calyx_ffi::Value<#port_width>
+                    pub #port_name: calyx_ffi::value::Value<#port_width>
                 });
                 setters.push(quote! {
                     pub fn #setter(&mut self, value: u64) {
-                        self.#port_name = calyx_ffi::value_from_u64::<#port_width>(value);
+                        self.#port_name = calyx_ffi::value::Value::from(value);
                     }
                 });
                 input_names.push(port_name);
             }
             calyx_ir::Direction::Output => {
                 fields.push(quote! {
-                    #port_name: calyx_ffi::Value<#port_width>
+                    #port_name: calyx_ffi::value::Value<#port_width>
 
                 });
 
@@ -98,10 +103,10 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
                 getters.push(quote! {
                     pub fn #port_name(&self) -> u64 {
-                        interp::BitVecOps::to_u64(&self.#port_name).expect("port value wider than 64 bits")
+                        (&self.#port_name).try_into().expect("port value wider than 64 bits")
                     }
 
-                    pub const fn #bitvec_getter(&self) -> &calyx_ffi::Value<#port_width> {
+                    pub const fn #bitvec_getter(&self) -> &calyx_ffi::value::Value<#port_width> {
                         &self.#port_name
                     }
                 });
@@ -186,7 +191,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
             let name_bits = format_ident!("{}_bits", &name);
 
             getters.push(quote! {
-                fn #name_bits(&self) -> &calyx_ffi::Value<#width> {
+                fn #name_bits(&self) -> &calyx_ffi::value::Value<#width> {
                     &self.#name
                 }
 
@@ -202,7 +207,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
             let setter = format_ident!("set_{}", name);
 
             setters.push(quote! {
-                fn #name_bits(&mut self) -> &mut calyx_ffi::Value<#width> {
+                fn #name_bits(&mut self) -> &mut calyx_ffi::value::Value<#width> {
                     &mut self.#name
                 }
 

@@ -63,12 +63,12 @@ mod tests {
     #[calyx_ffi_test]
     fn test_add(adder: &mut Adder) {
         println!("testing adder");
-        fuzz_in2out1(adder, &|x, y| x.wrapping_add(y))
+        fuzz_in2out1(adder, &|x, y| x.wrapping_add(y));
     }
 
     #[calyx_ffi_test]
     fn test_sub(subber: &mut Subber) {
         println!("testing subber");
-        fuzz_in2out1(subber, &|x, y| x - y)
+        fuzz_in2out1(subber, &|x, y| x - y);
     }
 }

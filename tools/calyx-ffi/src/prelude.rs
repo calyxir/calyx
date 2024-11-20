@@ -1,5 +1,6 @@
 pub use super::{
-    value_from_u64, CalyxFFI, CalyxFFIComponent, CalyxFFIComponentRef, Value,
+    interface::{CalyxFFI, CalyxFFIComponent, CalyxFFIComponentRef},
+    value::Value,
 };
 pub use calyx_ffi_macro::{calyx_ffi, calyx_ffi_test, calyx_ffi_tests};
 pub use calyx_ir;
@@ -20,12 +21,12 @@ macro_rules! declare_interface {
         calyx_ffi::prelude::paste::paste! {
             pub trait $name: CalyxFFIComponent {
                 $(
-                    fn [<$input _bits>](&mut self) -> &mut calyx_ffi::Value<$input_width>;
+                    fn [<$input _bits>](&mut self) -> &mut calyx_ffi::value::Value<$input_width>;
 
                     fn [<set_ $input>](&mut self, value: u64);
                 )*
                 $(
-                    fn [<$output _bits>](&self) -> &calyx_ffi::Value<$output_width>;
+                    fn [<$output _bits>](&self) -> &calyx_ffi::value::Value<$output_width>;
 
                     fn $output(&self) -> u64;
                 )*
