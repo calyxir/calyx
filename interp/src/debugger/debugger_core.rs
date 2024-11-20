@@ -6,7 +6,9 @@ use super::{
 };
 use crate::{
     configuration::RuntimeConfig,
-    debugger::{source::SourceMap, unwrap_error_message},
+    debugger::{
+        commands::PrintCommand, source::SourceMap, unwrap_error_message,
+    },
     errors::{CiderError, CiderResult},
     flatten::{
         flat_ir::prelude::GroupIdx,
@@ -368,10 +370,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::InfoWatch => self
                     .debugging_context
                     .print_watchpoints(self.interpreter.env()),
-                Command::PrintPC(_override_flag) => {
-                    self.interpreter.print_pc();
-                }
 
+                Command::PrintPC(print_mode) => match print_mode {
+                    PrintCommand::Normal | PrintCommand::PrintCalyx => {
+                        self.interpreter.print_pc();
+                    }
+                    PrintCommand::PrintNodes => {
+                        self.interpreter.print_pc_string();
+                    }
+                },
                 Command::Explain => {
                     print!("{}", Command::get_explain_string())
                 }

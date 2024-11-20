@@ -201,9 +201,7 @@ impl Clone for CellLedger {
             },
             Self::RaceDetectionPrimitive { cell_dyn } => {
                 Self::RaceDetectionPrimitive {
-                    cell_dyn: RaceDetectionPrimitive::clone_boxed(
-                        cell_dyn.deref(),
-                    ),
+                    cell_dyn: cell_dyn.clone_boxed_rd(),
                 }
             }
             Self::Component(component_ledger) => {
@@ -359,6 +357,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
     }
+
+    pub fn pc_iter(&self) -> impl Iterator<Item = &ControlPoint> {
+        self.pc.iter().map(|(_, x)| x)
+    }
+
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
@@ -856,6 +859,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 }
                 _ => unreachable!(),
             }
+        }
+    }
+
+    pub fn print_pc_string(&self) {
+        let ctx = self.ctx.as_ref();
+        for node in self.pc_iter() {
+            println!(
+                "{}: {}",
+                self.get_full_name(node.comp),
+                node.string_path(ctx)
+            );
         }
     }
 
@@ -1460,6 +1474,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     ) -> DataDump {
         self.base.dump_memories(dump_registers, all_mems)
     }
+
+    pub fn print_pc_string(&self) {
+        self.base.print_pc_string()
+    }
 }
 
 impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
@@ -1516,6 +1534,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
     pub fn print_pc(&self) {
         self.env.print_pc()
+    }
+
+    pub fn print_pc_string(&self) {
+        self.env.print_pc_string()
     }
 
     /// Pins the port with the given name to the given value. This may only be
