@@ -2,7 +2,7 @@ pub use super::{
     interface::{CalyxFFI, CalyxFFIComponent, CalyxFFIComponentRef},
     value::Value,
 };
-pub use calyx_ffi_macro::{calyx_ffi, calyx_ffi_test, calyx_ffi_tests};
+pub use calyx_ffi_macro::calyx_ffi;
 pub use calyx_ir;
 pub use interp;
 pub use paste;
