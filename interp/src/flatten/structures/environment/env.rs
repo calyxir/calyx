@@ -2394,12 +2394,16 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 // are present. Since clocks aren't present
                                 // when not running with `check_data_race`, this
                                 // won't happen when the flag is not set
-                                if val.clocks().is_some()
+                                if (val.clocks().is_some()
+                                    || val.transitive_clocks().is_some())
                                     && (assign_type.is_combinational()
                                         || assign_type.is_continuous())
                                 {
                                     assigned_value = assigned_value
-                                        .with_clocks(val.clocks().unwrap())
+                                        .with_clocks_optional(val.clocks())
+                                        .with_transitive_clocks_opt(
+                                            val.transitive_clocks().cloned(),
+                                        )
                                         .set_propagate_clocks();
                                 }
 
@@ -2448,7 +2452,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             }
                         }
 
-                        // check the reads done by all the guards
+                        // check the reads done by the guard
                         if self.conf.check_data_race {
                             if let Some(read_ports) = self
                                 .env
@@ -2508,7 +2512,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         for ScheduledAssignments {
             active_cell,
             interface_ports,
-            assign_type,
             ..
         } in assigns_bundle.iter()
         {
@@ -2615,9 +2618,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             let val = &self.env.ports[port];
                             if let Some(val) = val.as_option() {
                                 if val.propagate_clocks()
-                                    && val.clocks().is_some()
+                                    && (val.clocks().is_some()
+                                        || val.transitive_clocks().is_some())
                                 {
-                                    working_set.push(*val.clocks().unwrap());
+                                    if let Some(clocks) = val.clocks() {
+                                        working_set.push(*clocks);
+                                    }
                                     working_set
                                         .extend(val.iter_transitive_clocks());
                                 }

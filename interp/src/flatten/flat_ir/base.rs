@@ -512,6 +512,22 @@ impl AssignedValue {
         self
     }
 
+    pub fn with_clocks_optional(
+        mut self,
+        clock_pair: Option<ClockPair>,
+    ) -> Self {
+        self.clocks = clock_pair;
+        self
+    }
+
+    pub fn with_transitive_clocks_opt(
+        mut self,
+        clocks: Option<HashSet<ClockPair>>,
+    ) -> Self {
+        self.transitive_clocks = clocks;
+        self
+    }
+
     pub fn set_propagate_clocks(mut self) -> Self {
         self.propagate_clocks = true;
         self
