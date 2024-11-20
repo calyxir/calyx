@@ -2,8 +2,8 @@ use super::{
     super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
-    assignments::{AssignType, GroupInterfacePorts, ScheduledAssignments},
-    clock::{self, ClockMap, VectorClock},
+    assignments::{GroupInterfacePorts, ScheduledAssignments},
+    clock::{ClockMap, VectorClock},
     program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
     traverser::{Path, TraversalError},
 };
