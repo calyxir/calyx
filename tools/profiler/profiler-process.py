@@ -476,7 +476,7 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
             flame_out.write(f"{stack} {stacks[stack]}\n")
 
     divided_stacks = div_flame_helper(timeline_map)
-    with open(os.path.join(flames_out_dir, "divided-flame.folded"), "w") as div_flame_out:
+    with open(os.path.join(flames_out_dir, "scaled-flame.folded"), "w") as div_flame_out:
         for stack in divided_stacks:
             div_flame_out.write(f"{stack} {divided_stacks[stack]}\n")
 
@@ -490,7 +490,7 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
 
     all_paths_ordered = sorted(path_dict.keys())
     for i in timeline_map:
-        used_edges = set()
+        used_edges = {}
         used_paths = set()
         used_nodes = set()
         all_nodes = set(tree_dict.keys())
@@ -501,7 +501,10 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
             for node_id in path_dict[stack_id]:
                 used_nodes.add(node_id)
             for edge in path_to_edges[stack_id]:
-                used_edges.add(edge)
+                if edge not in used_edges:
+                    used_edges[edge] = 1
+                else:
+                    used_edges[edge] += 1
 
         fpath = os.path.join(dot_out_dir, f"cycle{i}.dot")
         with open(fpath, "w") as f:
@@ -514,7 +517,7 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
                     f.write(f'\t{node} [label="{tree_dict[node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
             # write all edges.
             for edge in all_edges:
-                if edge in used_edges:
+                if edge in used_edges.keys():
                     f.write(f'\t{edge} ; \n')
                 else:
                     f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')

@@ -94,5 +94,10 @@ done
 for folded in $( ls ${FLAME_OUT_DIR}/*.folded ); do
     echo "Writing flame graph for ${folded}"
     base_name=$( echo ${folded} | rev | cut -d. -f2- | rev )
-    ${FLAMEGRAPH_DIR}/flamegraph.pl --countname="cycles" ${folded} > ${base_name}.svg
+    if [[ "${base_name}" == *"scaled"* ]]; then
+	${FLAMEGRAPH_DIR}/flamegraph.pl --countname="cycles" ${folded} > ${base_name}-original.svg
+	python3 ${SCRIPT_DIR}/finagle-with-svg.py ${base_name}-original.svg > ${base_name}.svg
+    else
+	${FLAMEGRAPH_DIR}/flamegraph.pl --countname="cycles" ${folded} > ${base_name}.svg
+    fi
 done
