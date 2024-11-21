@@ -354,6 +354,7 @@ dependencies = [
  "calyx-frontend",
  "calyx-ir",
  "calyx-utils",
+ "interp",
  "proc-macro2",
  "quote",
  "syn 2.0.87",

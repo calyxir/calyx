@@ -11,9 +11,6 @@ mod calyx;
 mod parse;
 mod util;
 
-// this is super bad, might go out of sync with interp::WidthInt
-type WidthInt = u32;
-
 /// Connects this `struct` to a calyx component in the given file.
 #[proc_macro_attribute]
 pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
@@ -66,7 +63,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
         port_names.push(port_name.clone());
 
-        let port_width = port.borrow().width as WidthInt;
+        let port_width = port.borrow().width as interp::WidthInt;
         let width_getter = format_ident!("{}_width", port_name);
         width_getters.push(quote! {
             pub const fn #width_getter() -> calyx_ffi::value::WidthInt {

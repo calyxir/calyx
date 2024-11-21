@@ -19,7 +19,7 @@ pub fn parse_calyx_file(
     args: &CalyxFFIMacroArgs,
     file: PathBuf,
 ) -> Result<CalyxComponent, TokenStream> {
-    // there has to be a better way to find lib
+    // TODO(ethan): there has to be a better way to find lib
     let home_dir = env::var("HOME").expect("user home not set");
     let mut lib_path = PathBuf::from(home_dir);
     lib_path.push(".calyx");
