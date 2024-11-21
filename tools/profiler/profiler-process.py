@@ -406,6 +406,41 @@ def create_tree(timeline_map):
 
     return tree_dict, path_dict
 
+# one tree to summarize the entire execution.
+def create_aggregate_tree(timeline_map, out_dir):
+    tree_dict, path_dict = create_tree(timeline_map)
+    # NOTE: probably can create this on the fly, but my brain is better suited for postprocessing.
+    path_to_edges, all_edges = create_edge_dict(path_dict)
+
+    leaf_nodes_dict = {node_id: 0 for node_id in tree_dict} # how many times was this node a leaf?
+    edges_dict = {} # how many times was this edge active?
+
+    for stack_list in timeline_map.values():
+        for stack in stack_list:
+            stack_id = ";".join(stack)
+            # record the leaf node.
+            leaf_node = path_dict[stack_id][-1]
+            leaf_nodes_dict[leaf_node] += 1
+            for edge in path_to_edges[stack_id]:
+                if edge not in edges_dict:
+                    edges_dict[edge] = 1
+                else:
+                    edges_dict[edge] += 1
+    
+    # write the tree
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+    with open(os.path.join(out_dir, "aggregate.dot"), "w") as f:
+        f.write("digraph aggregate {\n")
+        # declare nodes
+        for node in leaf_nodes_dict:
+            f.write(f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})"];\n')
+        # write edges with labels
+        for edge in edges_dict:
+            f.write(f'\t{edge} [label="{edges_dict[edge]}"]; \n')
+        f.write("}")
+
+
 def create_path_dot_str_dict(path_dict):
     path_to_dot_str = {} # stack list string --> stack path representation on dot file.
 
@@ -419,7 +454,7 @@ def create_path_dot_str_dict(path_dict):
 
     return path_to_dot_str
 
-def create_path_dot_str_dict_2(path_dict):
+def create_edge_dict(path_dict):
     path_to_edges = {} # stack list string --> [edge string representation]
     all_edges = set()
 
@@ -436,7 +471,7 @@ def create_path_dot_str_dict_2(path_dict):
 
 # create a tree where we divide cycles via par arms
 # FIXME: rename?
-def div_flame_helper(timeline_map):
+def compute_scaled_flame(timeline_map):
     stacks = {}
     for i in timeline_map:
         num_stacks = len(timeline_map[i])
@@ -454,13 +489,10 @@ def div_flame_helper(timeline_map):
             
     return stacks
 
-def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
-
-    if not os.path.exists(dot_out_dir):
-        os.mkdir(dot_out_dir)
+def create_flame_graoups(timeline_map, flame_out_file, flames_out_dir):
     if not os.path.exists(flames_out_dir):
-        os.mkdir(flames_out_dir)
-
+        os.mkdir(flames_out_dir)    
+    
     # make flame graph folded file
     stacks = {} # stack to number of cycles
     for i in timeline_map:
@@ -475,20 +507,23 @@ def create_output(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
         for stack in stacks:
             flame_out.write(f"{stack} {stacks[stack]}\n")
 
-    divided_stacks = div_flame_helper(timeline_map)
+    scaled_stacks = compute_scaled_flame(timeline_map)
     with open(os.path.join(flames_out_dir, "scaled-flame.folded"), "w") as div_flame_out:
-        for stack in divided_stacks:
-            div_flame_out.write(f"{stack} {divided_stacks[stack]}\n")
+        for stack in scaled_stacks:
+            div_flame_out.write(f"{stack} {scaled_stacks[stack]}\n")
+
+def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
+
+    if not os.path.exists(dot_out_dir):
+        os.mkdir(dot_out_dir)
 
     # probably wise to not have a billion dot files.
     if len(timeline_map) > TREE_PICTURE_LIMIT:
         print(f"Simulation exceeds {TREE_PICTURE_LIMIT} cycles, skipping trees...")
         return
     tree_dict, path_dict = create_tree(timeline_map)
-    path_to_dot_str = create_path_dot_str_dict(path_dict)
-    path_to_edges, all_edges = create_path_dot_str_dict_2(path_dict)
+    path_to_edges, all_edges = create_edge_dict(path_dict)
 
-    all_paths_ordered = sorted(path_dict.keys())
     for i in timeline_map:
         used_edges = {}
         used_paths = set()
@@ -531,7 +566,9 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
 
     new_timeline_map = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.cell_invoke_caller_probe_info, converter.clock_cycles, cells_to_components, main_component)
 
-    create_output(new_timeline_map, dot_out_dir, flame_out, flames_out_dir)
+    # create_output(new_timeline_map, dot_out_dir, flame_out, flames_out_dir)
+    create_aggregate_tree(new_timeline_map, dot_out_dir)
+    create_flame_graoups(new_timeline_map, flame_out, flames_out_dir)
 
 
 if __name__ == "__main__":
