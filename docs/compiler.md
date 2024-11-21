@@ -33,6 +33,7 @@ For example, the alias `all` is an ordered sequence of default passes executed
 when the compiler is run from the command-line.
 
 The command-line provides two options to control the execution of passes:
+
 - `-p, --pass`: Execute this pass or alias. Overrides default alias.
 - `-d, --disable-pass`: Disable this pass or alias. Takes priority over `-p`.
 
@@ -42,6 +43,10 @@ the default execution alias `all`:
 ```bash
 cargo run -- examples/futil/simple.futil -p all -d static-timing
 ```
+
+If you want to work with passes interactively (for instance, you only care about
+a pass far into the `all` sequence, and it is impractical to pass 20 `-p`
+options), you can [visualize them](./dev/calyx-pass-explorer.md) with the `calyx-pass-explorer` tool.
 
 ## Providing Pass Options
 
@@ -53,23 +58,25 @@ tdcc: <description>
 ```
 
 The option allows us to change the behavior of the pass. To provide a pass-specific option, we use the `-x` switch:
+
 ```
 cargo run -- examples/futil/simple.futil -p tdcc -x tdcc:dump-fsm
 ```
 
 Note that we specify the option of `tdcc` by prefixing it with the pass name and a colon.
 
-
 ## Specifying Primitives Library
 
 The compiler implementation uses a standard library of components to compile
 programs.
 The only standard library for the compiler is located in:
+
 ```
 <path to Calyx repository>/primitives
 ```
 
 Specify the location of the library using the `-l` flag:
+
 ```
 cargo run -- -l ./primitives
 ```
