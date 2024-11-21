@@ -26,9 +26,7 @@ pub fn calyx_ffi(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let name = item_struct.ident;
     let given_path = args.src.to_string_lossy().to_string();
 
-    let mut path = source_manifest_dir;
-    path.push(given_path);
-    let path = path;
+    let path = source_manifest_dir.join(given_path);
 
     let comp = calyx::parse_calyx_file(&args, path.clone());
     if let Err(error) = comp {

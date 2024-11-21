@@ -21,8 +21,7 @@ pub fn parse_calyx_file(
 ) -> Result<CalyxComponent, TokenStream> {
     // TODO(ethan): there has to be a better way to find lib
     let home_dir = env::var("HOME").expect("user home not set");
-    let mut lib_path = PathBuf::from(home_dir);
-    lib_path.push(".calyx");
+    let lib_path = PathBuf::from(home_dir).join(".calyx");
     let ws =
         calyx_frontend::Workspace::construct(&Some(file.clone()), &lib_path)
             .map_err(|err| {
