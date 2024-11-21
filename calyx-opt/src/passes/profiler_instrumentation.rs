@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, BoolAttr, Guard, Id, Nothing};
+use calyx_ir::{self as ir, BoolAttr, Guard, Id, Nothing, NumAttr};
 use calyx_utils::CalyxResult;
 
 /// Adds probe wires to each group to detect when a group is active.
@@ -46,8 +46,14 @@ impl Visitor for ProfilerInstrumentation {
             Id,
             Vec<(Id, ir::Guard<Nothing>)>,
         > = HashMap::new();
-        // groups to cells that they invoked?
+        // groups to cells (from non-primitive components) that they invoked
         let mut cell_invoke_map: HashMap<Id, Vec<Id>> = HashMap::new();
+        // groups to primitives that they invoked
+        let mut primitive_invoke_map: HashMap<
+            Id,
+            Vec<(Id, ir::Guard<Nothing>)>,
+        > = HashMap::new();
+        // child_group --> [(parent_group, Guard)]
         let group_names = comp
             .groups
             .iter()
@@ -56,6 +62,7 @@ impl Visitor for ProfilerInstrumentation {
         // iterate and check for structural enables and for cell invokes
         for group_ref in comp.groups.iter() {
             let group = &group_ref.borrow();
+            let mut primitive_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
             for assigment_ref in group.assignments.iter() {
                 let dst_borrow = assigment_ref.dst.borrow();
                 if let ir::PortParent::Group(parent_group_ref) =
@@ -82,25 +89,44 @@ impl Visitor for ProfilerInstrumentation {
                     }
                 }
                 if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
-                    // we only want to add probes for cells that are non-primitive... for now.
-                    if let ir::CellType::Component { name: _ } =
-                        cell_ref.upgrade().borrow().prototype
-                    {
-                        if dst_borrow.name == "go" {
+                    match cell_ref.upgrade().borrow().prototype.clone() {
+                        calyx_ir::CellType::Primitive {
+                            name,
+                            param_binding: _,
+                            is_comb,
+                            latency: _,
+                        } => {
                             let cell_name = cell_ref.upgrade().borrow().name();
-                            match cell_invoke_map.get_mut(&group.name()) {
-                                Some(vec_ref) => {
-                                    vec_ref.push(cell_name);
-                                }
-                                None => {
-                                    cell_invoke_map
-                                        .insert(group.name(), vec![cell_name]);
+                            // don't need to profile for combinational primitives, and if the port isn't a go port.
+                            if !is_comb & dst_borrow.has_attribute(NumAttr::Go)
+                            {
+                                let guard = *(assigment_ref.guard.clone());
+                                primitive_vec.push((cell_name, guard));
+                            }
+                        }
+                        calyx_ir::CellType::Component { name: _ } => {
+                            if dst_borrow.name == "go" {
+                                let cell_name =
+                                    cell_ref.upgrade().borrow().name();
+                                match cell_invoke_map.get_mut(&group.name()) {
+                                    Some(vec_ref) => {
+                                        vec_ref.push(cell_name);
+                                    }
+                                    None => {
+                                        cell_invoke_map.insert(
+                                            group.name(),
+                                            vec![cell_name],
+                                        );
+                                    }
                                 }
                             }
                         }
+                        _ => (),
                     }
                 }
             }
+            primitive_invoke_map
+                .insert(group_ref.borrow().name(), primitive_vec);
         }
         // build probe and assignments for every group + all structural invokes
         let mut builder = ir::Builder::new(comp, sigs);
@@ -126,6 +152,32 @@ impl Visitor for ProfilerInstrumentation {
                     .add_attribute(BoolAttr::Protected, 1);
                 group_name_assign_and_cell
                     .push((group_name, probe_asgn, probe_cell));
+            }
+            // probe and assignments for primitive invocations (this group is activating a primitive)
+            for (group, primitive_invs) in primitive_invoke_map.iter() {
+                for (primitive_cell_name, guard) in primitive_invs.iter() {
+                    let probe_cell_name = format!(
+                        "{}__{}__{}_pi_probe",
+                        primitive_cell_name, group, comp_name
+                    );
+                    let probe_cell = builder.add_primitive(
+                        probe_cell_name,
+                        "std_wire",
+                        &[1],
+                    );
+                    probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
+                    probe_cell
+                        .borrow_mut()
+                        .add_attribute(BoolAttr::Protected, 1);
+                    let probe_asgn: ir::Assignment<Nothing> = builder
+                        .build_assignment(
+                            probe_cell.borrow().get("in"),
+                            one.borrow().get("out"),
+                            guard.clone(),
+                        );
+                    group_name_assign_and_cell
+                        .push((*group, probe_asgn, probe_cell));
+                }
             }
             // probe and assignments for structural enables (this group is structurally enabling a child group)
             for (invoked_group_name, parent_groups) in
