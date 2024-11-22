@@ -6,7 +6,7 @@ import vcdvcd
 DELIMITER = "__"
 INVISIBLE = "gray"
 TREE_PICTURE_LIMIT=300
-DIVIDED_FLAME_MULTIPLIER=1000
+SCALED_FLAME_MULTIPLIER=1000
 
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
@@ -459,18 +459,24 @@ def create_aggregate_tree(timeline_map, out_dir):
     edges_dict = {} # how many times was this edge active?
 
     for stack_list in timeline_map.values():
+        edges_this_cycle = set()
+        leaves_this_cycle = set()
         for stack in stack_list:
             stack_id = ";".join(stack)
             # record the leaf node. ignore all primitives as I think we care more about the group that called the primitive (up to debate)
             leaf_node = path_dict[stack_id][-1]
             if "primitive" in tree_dict[leaf_node]:
                 leaf_node = path_dict[stack_id][-2]
-            leaf_nodes_dict[leaf_node] += 1
+            if leaf_node not in leaves_this_cycle:
+                leaf_nodes_dict[leaf_node] += 1
+                leaves_this_cycle.add(leaf_node)
             for edge in path_to_edges[stack_id]:
-                if edge not in edges_dict:
-                    edges_dict[edge] = 1
-                else:
-                    edges_dict[edge] += 1
+                if edge not in edges_this_cycle:
+                    if edge not in edges_dict:
+                        edges_dict[edge] = 1
+                    else:
+                        edges_dict[edge] += 1
+                    edges_this_cycle.add(edge)
     
     # write the tree
     if not os.path.exists(out_dir):
@@ -528,9 +534,9 @@ def compute_scaled_flame(timeline_map):
             stack_id = ";".join(stack_list)
             slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
             if stack_id not in stacks:
-                stacks[stack_id] = slice_to_add * DIVIDED_FLAME_MULTIPLIER
+                stacks[stack_id] = slice_to_add * SCALED_FLAME_MULTIPLIER
             else:
-                stacks[stack_id] += slice_to_add * DIVIDED_FLAME_MULTIPLIER
+                stacks[stack_id] += slice_to_add * SCALED_FLAME_MULTIPLIER
             acc += 1
             
     return stacks
