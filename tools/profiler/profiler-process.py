@@ -40,10 +40,9 @@ class ProfilingInfo:
         if self.current_segment is None:
             self.current_segment = {"start": curr_clock_cycle, "end": -1, "callsite": self.callsite} # NOTE: see if this backfires
         else:
-            raise Exception("aaaa")
-            # print(f"Error! The group {self.name} is starting a new segment while the current segment is not closed.")
-            # print(f"Current segment: {self.current_segment}")
-            # sys.exit(1)
+            print(f"Error! The group {self.name} is starting a new segment while the current segment is not closed.")
+            print(f"Current segment: {self.current_segment}")
+            sys.exit(1)
 
     def end_current_segment(self, curr_clock_cycle):
         if self.current_segment is not None and self.current_segment["end"] == -1: # ignore cases where done is high forever
@@ -147,7 +146,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 signal_id_dict[sid].append(name)
 
             elif "primitive_probe_out" in name: # primitives
-                print(name)
                 encoded_info = name.split("_primitive_probe_out")[0]
                 probe_info_split = encoded_info.split(DELIMITER)
                 primitive_name = probe_info_split[0]
@@ -156,17 +154,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 component = probe_info_split[2]
                 probe_info_obj = ProfilingInfo(primitive_name, callsite=invoker_group, component=component, is_cell=True, is_primitive=True)
                 invoker_group_id = path_prefix + "." + invoker_group + DELIMITER + component # same name primitives across different components can probably exist?
-                print(f"Adding {primitive_name}")
                 if invoker_group_id not in self.primitive_probe_info:
                     self.primitive_probe_info[invoker_group_id] = {primitive_name: probe_info_obj}
                 else:
                     self.primitive_probe_info[invoker_group_id][primitive_name] = probe_info_obj
-                print(self.primitive_probe_info[invoker_group_id])
                 signal_id_dict[sid].append(name)
-
-        for group in self.primitive_probe_info:
-            for primitive in self.primitive_probe_info[group]:
-                print(f"SDAKJVKLANGAEW {self.primitive_probe_info[group][primitive]}")
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
@@ -192,7 +184,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     # *before* or *after* the clock change on the VCD file (hence why we can't process
     # everything within a stream if we wanted to be precise)
     def postprocess(self):
-        print(self.primitive_probe_info)
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1
         started = False
@@ -449,9 +440,63 @@ def create_tree(timeline_map):
 
     return tree_dict, path_dict
 
+def create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir):
+    stack_list_str_to_used_nodes = {}
+    stack_list_str_to_used_edges = {}
+    stack_list_str_to_cycles = {}
+    all_nodes = set(tree_dict.keys())
+
+    # accumulating counts
+    for i in trace:
+        stack_list_str = str(trace[i])
+        if stack_list_str in stack_list_str_to_cycles:
+            stack_list_str_to_cycles[stack_list_str].append(i)
+            continue
+        stack_list_str_to_cycles[stack_list_str] = [i]
+        used_nodes = set()
+        used_edges = set()
+
+        for stack in trace[i]:
+            stack_id = ";".join(stack)
+            for node_id in path_dict[stack_id]:
+                used_nodes.add(node_id)
+            for edge in path_to_edges[stack_id]:
+                used_edges.add(edge)
+        stack_list_str_to_used_nodes[stack_list_str] = used_nodes
+        stack_list_str_to_used_edges[stack_list_str] = used_edges
+
+    sorted_stack_list_items = sorted(stack_list_str_to_cycles.items(), key=(lambda item : len(item[1])), reverse=True)
+    acc = 0
+    rankings_out = open(os.path.join(dot_out_dir, "rankings.txt"), "w")
+    rankings_out.write("Rank,#Cycles,Cycles-list\n")
+    for (stack_list_str, cycles) in sorted_stack_list_items:
+        if acc == 5:
+            break
+        acc += 1
+        # draw the tree
+        fpath = os.path.join(dot_out_dir, f"rank{acc}.dot")
+        with open(fpath, "w") as f:
+            f.write("digraph rank" + str(acc) + " {\n")
+            # declare nodes.
+            for node in all_nodes:
+                if node in stack_list_str_to_used_nodes[stack_list_str]:
+                    f.write(f'\t{node} [label="{tree_dict[node]}"];\n')
+                else:
+                    f.write(f'\t{node} [label="{tree_dict[node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
+            # write all edges.
+            for edge in all_edges:
+                if edge in stack_list_str_to_used_edges[stack_list_str]:
+                    f.write(f'\t{edge} ; \n')
+                else:
+                    f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
+            f.write("}")
+
+        # should write to a txt file what
+        rankings_out.write(f"{acc},{len(cycles)},{';'.join(str(c) for c in cycles)}\n")
+
+
 # one tree to summarize the entire execution.
-def create_aggregate_tree(timeline_map, out_dir):
-    tree_dict, path_dict = create_tree(timeline_map)
+def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
     # NOTE: probably can create this on the fly, but my brain is better suited for postprocessing.
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
@@ -541,7 +586,7 @@ def compute_scaled_flame(timeline_map):
             
     return stacks
 
-def create_flame_graoups(timeline_map, flame_out_file, flames_out_dir):
+def create_flame_groups(timeline_map, flame_out_file, flames_out_dir):
     if not os.path.exists(flames_out_dir):
         os.mkdir(flames_out_dir)    
     
@@ -618,9 +663,12 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
 
     trace = create_traces(converter.active_elements_info, converter.call_stack_probe_info, converter.cell_invoke_caller_probe_info, converter.primitive_probe_info, converter.clock_cycles, cells_to_components, main_component)
 
-    # create_output(new_timeline_map, dot_out_dir, flame_out, flames_out_dir)
-    create_aggregate_tree(trace, dot_out_dir)
-    create_flame_graoups(trace, flame_out, flames_out_dir)
+    tree_dict, path_dict = create_tree(trace)
+    path_to_edges, all_edges = create_edge_dict(path_dict)
+
+    create_aggregate_tree(trace, dot_out_dir, tree_dict, path_dict)
+    create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir)
+    create_flame_groups(trace, flame_out, flames_out_dir)
 
 
 if __name__ == "__main__":
