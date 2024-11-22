@@ -157,7 +157,7 @@ impl Visitor for ProfilerInstrumentation {
             for (group, primitive_invs) in primitive_invoke_map.iter() {
                 for (primitive_cell_name, guard) in primitive_invs.iter() {
                     let probe_cell_name = format!(
-                        "{}__{}__{}_pi_probe",
+                        "{}__{}__{}_primitive_probe",
                         primitive_cell_name, group, comp_name
                     );
                     let probe_cell = builder.add_primitive(
