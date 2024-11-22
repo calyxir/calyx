@@ -4,7 +4,9 @@ use super::{
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
     clock::{ClockMap, VectorClock},
-    program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
+    program_counter::{
+        ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
+    },
     traverser::{Path, TraversalError},
 };
 use crate::{
@@ -1300,6 +1302,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 }
 
+enum ControlNodeEval {
+    Reprocess,
+    Stop { retain_node: bool },
+}
+
+impl ControlNodeEval {
+    fn stop(retain_node: bool) -> Self {
+        ControlNodeEval::Stop { retain_node }
+    }
+}
+
 /// A wrapper struct for the environment that provides the functions used to
 /// simulate the actual program.
 ///
@@ -1811,7 +1824,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
         let mut removed = vec![];
 
-        for (i, node) in vecs.iter_mut().enumerate() {
+        let mut i = 0;
+
+        while i < vecs.len() {
+            let node = &mut vecs[i];
             let keep_node = self
                 .evaluate_control_node(
                     node,
@@ -1819,8 +1835,16 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     (&mut par_map, &mut with_map, &mut repeat_map),
                 )
                 .map_err(|e| e.prettify_message(&self.env))?;
-            if !keep_node {
-                removed.push(i);
+            match keep_node {
+                ControlNodeEval::Reprocess => {
+                    continue;
+                }
+                ControlNodeEval::Stop { retain_node } => {
+                    if !retain_node {
+                        removed.push(i);
+                    }
+                    i += 1;
+                }
             }
         }
 
@@ -1843,7 +1867,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         node: &mut ControlTuple,
         new_nodes: &mut Vec<ControlTuple>,
         maps: PcMaps,
-    ) -> RuntimeResult<bool> {
+    ) -> RuntimeResult<ControlNodeEval> {
         let (node_thread, node) = node;
         let (par_map, with_map, repeat_map) = maps;
         let comp_go = self.env.get_comp_go(node.comp);
@@ -1862,193 +1886,40 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         {
             // if the go port is low or the done port is high, we skip the
             // node without doing anything
-            return Ok(true);
+            return Ok(ControlNodeEval::stop(true));
         }
 
         // just considering a single node case for the moment
         let retain_bool = match &ctx.primary[node.control_node_idx] {
-            ControlNode::Seq(seq) => {
-                if !seq.is_empty() {
-                    let next = seq.stms()[0];
-                    *node = node.new_retain_comp(next);
-                    true
-                } else {
-                    node.mutate_into_next(self.env.ctx.as_ref())
-                }
-            }
-            ControlNode::Par(par) => {
-                if par_map.contains_key(node) {
-                    let par_entry = par_map.get_mut(node).unwrap();
-                    *par_entry.child_count_mut() -= 1;
-
-                    if self.conf.check_data_race {
-                        par_entry.add_finished_thread(
-                            thread.expect("par nodes should have a thread"),
-                        );
-                    }
-
-                    if par_entry.child_count() == 0 {
-                        let par_entry = par_map.remove(node).unwrap();
-                        if self.conf.check_data_race {
-                            assert!(par_entry
-                                .iter_finished_threads()
-                                .map(|thread| {
-                                    self.env.thread_map[thread]
-                                        .parent()
-                                        .unwrap()
-                                })
-                                .all_equal());
-                            let parent = self.env.thread_map[thread.unwrap()]
-                                .parent()
-                                .unwrap();
-                            let parent_clock =
-                                self.env.thread_map.unwrap_clock_id(parent);
-
-                            for child_thread in
-                                par_entry.iter_finished_threads()
-                            {
-                                let child_clock_idx = self
-                                    .env
-                                    .thread_map
-                                    .unwrap_clock_id(child_thread);
-
-                                let child_clock = std::mem::take(
-                                    &mut self.env.clocks[child_clock_idx],
-                                );
-
-                                self.env.clocks[parent_clock]
-                                    .sync(&child_clock);
-
-                                self.env.clocks[child_clock_idx] = child_clock;
-                            }
-
-                            *node_thread = Some(parent);
-                            self.env.clocks[parent_clock].increment(&parent);
-                        }
-                        node.mutate_into_next(self.env.ctx.as_ref())
-                    } else {
-                        false
-                    }
-                } else {
-                    par_map.insert(
-                        node.clone(),
-                        par.stms().len().try_into().expect(
-                            "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
-                        ),
-                    );
-                    new_nodes.extend(par.stms().iter().map(|x| {
-                        let thread = if self.conf.check_data_race {
-                            let thread =
-                                thread.expect("par nodes should have a thread");
-
-                            let new_thread_idx: ThreadIdx = *(self
-                                .env
-                                .pc
-                                .lookup_thread(node.comp, thread, *x)
-                                .or_insert_with(|| {
-                                    let new_clock_idx =
-                                        self.env.clocks.new_clock();
-
-                                    self.env
-                                        .thread_map
-                                        .spawn(thread, new_clock_idx)
-                                }));
-
-                            let new_clock_idx = self
-                                .env
-                                .thread_map
-                                .unwrap_clock_id(new_thread_idx);
-
-                            self.env.clocks[new_clock_idx] = self.env.clocks
-                                [self.env.thread_map.unwrap_clock_id(thread)]
-                            .clone();
-
-                            self.env.clocks[new_clock_idx]
-                                .increment(&new_thread_idx);
-
-                            Some(new_thread_idx)
-                        } else {
-                            None
-                        };
-
-                        (thread, node.new_retain_comp(*x))
-                    }));
-
-                    if self.conf.check_data_race {
-                        let thread =
-                            thread.expect("par nodes should have a thread");
-                        let clock = self.env.thread_map.unwrap_clock_id(thread);
-                        self.env.clocks[clock].increment(&thread);
-                    }
-
-                    false
-                }
-            }
+            ControlNode::Seq(seq) => self.handle_seq(seq, node),
+            ControlNode::Par(par) => self.handle_par(
+                par_map,
+                node,
+                thread,
+                node_thread,
+                par,
+                new_nodes,
+            ),
             ControlNode::If(i) => self.handle_if(with_map, node, thread, i)?,
             ControlNode::While(w) => {
                 self.handle_while(w, with_map, node, thread)?
             }
             ControlNode::Repeat(rep) => {
-                if let Some(count) = repeat_map.get_mut(node) {
-                    *count -= 1;
-                    if *count == 0 {
-                        repeat_map.remove(node);
-                        node.mutate_into_next(self.env.ctx.as_ref())
-                    } else {
-                        *node = node.new_retain_comp(rep.body);
-                        true
-                    }
-                } else {
-                    repeat_map.insert(node.clone(), rep.num_repeats);
-                    *node = node.new_retain_comp(rep.body);
-                    true
-                }
+                self.handle_repeat(repeat_map, node, rep)
             }
 
             // ===== leaf nodes =====
             ControlNode::Empty(_) => {
                 node.mutate_into_next(self.env.ctx.as_ref())
             }
-            ControlNode::Enable(e) => {
-                let done_local = self.env.ctx.as_ref().primary[e.group()].done;
-                let done_idx =
-                    &self.env.cells[node.comp].as_comp().unwrap().index_bases
-                        + done_local;
 
-                if !self.env.ports[done_idx].as_bool().unwrap_or_default() {
-                    true
-                } else {
-                    // This group has finished running and may be removed
-                    // this is somewhat dubious at the moment since it
-                    // relies on the fact that the group done port will
-                    // still be high since convergence hasn't propagated the
-                    // low done signal yet.
-                    node.mutate_into_next(self.env.ctx.as_ref())
-                }
-            }
-            ControlNode::Invoke(i) => {
-                let done = self.get_global_port_idx(&i.done, node.comp);
-
-                if i.comb_group.is_some() && !with_map.contains_key(node) {
-                    with_map.insert(
-                        node.clone(),
-                        WithEntry::new(i.comb_group.unwrap()),
-                    );
-                }
-
-                if !self.env.ports[done].as_bool().unwrap_or_default() {
-                    true
-                } else {
-                    self.cleanup_ref_cells(node.comp, i);
-
-                    if i.comb_group.is_some() {
-                        with_map.remove(node);
-                    }
-
-                    node.mutate_into_next(self.env.ctx.as_ref())
-                }
-            }
+            ControlNode::Enable(e) => self.handle_enable(e, node),
+            ControlNode::Invoke(i) => self.handle_invoke(i, node, with_map)?,
         };
+
+        if retain_bool && node.should_reprocess(ctx) {
+            return Ok(ControlNodeEval::Reprocess);
+        }
 
         if !retain_bool && ControlPoint::get_next(node, self.env.ctx.as_ref()).is_none() &&
          // either we are not a par node, or we are the last par node
@@ -2068,9 +1939,185 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     .control
                     .unwrap(),
             );
-            Ok(true)
+            Ok(ControlNodeEval::stop(true))
         } else {
-            Ok(retain_bool)
+            Ok(ControlNodeEval::stop(retain_bool))
+        }
+    }
+
+    fn handle_seq(&mut self, seq: &Seq, node: &mut ControlPoint) -> bool {
+        if !seq.is_empty() {
+            let next = seq.stms()[0];
+            *node = node.new_retain_comp(next);
+            true
+        } else {
+            node.mutate_into_next(self.env.ctx.as_ref())
+        }
+    }
+
+    fn handle_repeat(
+        &mut self,
+        repeat_map: &mut HashMap<ControlPoint, u64>,
+        node: &mut ControlPoint,
+        rep: &Repeat,
+    ) -> bool {
+        if let Some(count) = repeat_map.get_mut(node) {
+            *count -= 1;
+            if *count == 0 {
+                repeat_map.remove(node);
+                node.mutate_into_next(self.env.ctx.as_ref())
+            } else {
+                *node = node.new_retain_comp(rep.body);
+                true
+            }
+        } else {
+            repeat_map.insert(node.clone(), rep.num_repeats);
+            *node = node.new_retain_comp(rep.body);
+            true
+        }
+    }
+
+    fn handle_enable(&mut self, e: &Enable, node: &mut ControlPoint) -> bool {
+        let done_local = self.env.ctx.as_ref().primary[e.group()].done;
+        let done_idx =
+            &self.env.cells[node.comp].as_comp().unwrap().index_bases
+                + done_local;
+
+        if !self.env.ports[done_idx].as_bool().unwrap_or_default() {
+            true
+        } else {
+            // This group has finished running and may be removed
+            // this is somewhat dubious at the moment since it
+            // relies on the fact that the group done port will
+            // still be high since convergence hasn't propagated the
+            // low done signal yet.
+            node.mutate_into_next(self.env.ctx.as_ref())
+        }
+    }
+
+    fn handle_invoke(
+        &mut self,
+        i: &Invoke,
+        node: &mut ControlPoint,
+        with_map: &mut HashMap<ControlPoint, WithEntry>,
+    ) -> Result<bool, BoxedRuntimeError> {
+        let done = self.get_global_port_idx(&i.done, node.comp);
+        if i.comb_group.is_some() && !with_map.contains_key(node) {
+            with_map
+                .insert(node.clone(), WithEntry::new(i.comb_group.unwrap()));
+        }
+        Ok(if !self.env.ports[done].as_bool().unwrap_or_default() {
+            true
+        } else {
+            self.cleanup_ref_cells(node.comp, i);
+
+            if i.comb_group.is_some() {
+                with_map.remove(node);
+            }
+
+            node.mutate_into_next(self.env.ctx.as_ref())
+        })
+    }
+
+    fn handle_par(
+        &mut self,
+        par_map: &mut HashMap<ControlPoint, ParEntry>,
+        node: &mut ControlPoint,
+        thread: Option<ThreadIdx>,
+        node_thread: &mut Option<ThreadIdx>,
+        par: &Par,
+        new_nodes: &mut Vec<(Option<ThreadIdx>, ControlPoint)>,
+    ) -> bool {
+        if par_map.contains_key(node) {
+            let par_entry = par_map.get_mut(node).unwrap();
+            *par_entry.child_count_mut() -= 1;
+
+            if self.conf.check_data_race {
+                par_entry.add_finished_thread(
+                    thread.expect("par nodes should have a thread"),
+                );
+            }
+
+            if par_entry.child_count() == 0 {
+                let par_entry = par_map.remove(node).unwrap();
+                if self.conf.check_data_race {
+                    assert!(par_entry
+                        .iter_finished_threads()
+                        .map(|thread| {
+                            self.env.thread_map[thread].parent().unwrap()
+                        })
+                        .all_equal());
+                    let parent =
+                        self.env.thread_map[thread.unwrap()].parent().unwrap();
+                    let parent_clock =
+                        self.env.thread_map.unwrap_clock_id(parent);
+
+                    for child_thread in par_entry.iter_finished_threads() {
+                        let child_clock_idx =
+                            self.env.thread_map.unwrap_clock_id(child_thread);
+
+                        let child_clock = std::mem::take(
+                            &mut self.env.clocks[child_clock_idx],
+                        );
+
+                        self.env.clocks[parent_clock].sync(&child_clock);
+
+                        self.env.clocks[child_clock_idx] = child_clock;
+                    }
+
+                    *node_thread = Some(parent);
+                    self.env.clocks[parent_clock].increment(&parent);
+                }
+                node.mutate_into_next(self.env.ctx.as_ref())
+            } else {
+                false
+            }
+        } else {
+            par_map.insert(
+                node.clone(),
+                par.stms().len().try_into().expect(
+                    "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
+                ),
+            );
+            new_nodes.extend(par.stms().iter().map(|x| {
+                let thread = if self.conf.check_data_race {
+                    let thread =
+                        thread.expect("par nodes should have a thread");
+
+                    let new_thread_idx: ThreadIdx = *(self
+                        .env
+                        .pc
+                        .lookup_thread(node.comp, thread, *x)
+                        .or_insert_with(|| {
+                            let new_clock_idx = self.env.clocks.new_clock();
+
+                            self.env.thread_map.spawn(thread, new_clock_idx)
+                        }));
+
+                    let new_clock_idx =
+                        self.env.thread_map.unwrap_clock_id(new_thread_idx);
+
+                    self.env.clocks[new_clock_idx] = self.env.clocks
+                        [self.env.thread_map.unwrap_clock_id(thread)]
+                    .clone();
+
+                    self.env.clocks[new_clock_idx].increment(&new_thread_idx);
+
+                    Some(new_thread_idx)
+                } else {
+                    None
+                };
+
+                (thread, node.new_retain_comp(*x))
+            }));
+
+            if self.conf.check_data_race {
+                let thread = thread.expect("par nodes should have a thread");
+                let clock = self.env.thread_map.unwrap_clock_id(thread);
+                self.env.clocks[clock].increment(&thread);
+            }
+
+            false
         }
     }
 

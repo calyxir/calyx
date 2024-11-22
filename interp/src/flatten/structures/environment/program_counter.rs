@@ -60,6 +60,19 @@ impl ControlPoint {
             false
         }
     }
+
+    pub(super) fn should_reprocess(&self, ctx: &Context) -> bool {
+        match &ctx.primary.control[self.control_node_idx] {
+            ControlNode::Repeat(_)
+            | ControlNode::Empty(_)
+            | ControlNode::Seq(_)
+            | ControlNode::Par(_) => true,
+            ControlNode::Enable(_)
+            | ControlNode::If(_)
+            | ControlNode::While(_)
+            | ControlNode::Invoke(_) => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
