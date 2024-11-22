@@ -794,20 +794,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let current_nodes = self.pc.iter().filter(|(_thread, point)| {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
-                n @ (ControlNode::Enable(_) | ControlNode::Invoke(_)) => {
+                ControlNode::Enable(_) | ControlNode::Invoke(_) => {
                     let comp_go = self.get_comp_go(point.comp);
-                    let comp_go_bool =
-                        self.ports[comp_go].as_bool().unwrap_or_default();
-                    if let ControlNode::Enable(e) = n {
-                        let ledger = self.cells[point.comp].unwrap_comp();
-                        let group = &self.ctx().primary[e.group()];
-                        let go = self.ports[&ledger.index_bases + group.go]
-                            .as_bool()
-                            .unwrap_or_default();
-                        comp_go_bool && go
-                    } else {
-                        comp_go_bool
-                    }
+                    self.ports[comp_go].as_bool().unwrap_or_default()
                 }
 
                 _ => false,
@@ -820,10 +809,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let node = &ctx.primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(x) => {
+                    let go = &self.cells[point.comp].unwrap_comp().index_bases
+                        + self.ctx().primary[x.group()].go;
                     println!(
-                        "{}::{}",
+                        "{}::{}{}",
                         self.get_full_name(point.comp),
-                        ctx.lookup_name(x.group()).underline()
+                        ctx.lookup_name(x.group()).underline(),
+                        if self.ports[go].as_bool().unwrap_or_default() {
+                            ""
+                        } else {
+                            " [done]"
+                        }
                     );
                 }
                 ControlNode::Invoke(x) => {
