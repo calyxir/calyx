@@ -78,7 +78,11 @@ impl PortMap {
         val: PortValue,
     ) -> UpdateStatus {
         if self[target].is_undef() && val.is_undef()
-            || self[target].as_option() == val.as_option()
+            || self[target]
+                .as_option()
+                .zip(val.as_option())
+                .map(|(a, b)| a.eq_no_transitive_clocks(b))
+                .unwrap_or_default()
         {
             UpdateStatus::Unchanged
         } else {
@@ -101,7 +105,9 @@ impl PortMap {
     ) -> Result<UpdateStatus, ConflictingAssignments> {
         match self[target].as_option() {
             // unchanged
-            Some(t) if *t == val => Ok(UpdateStatus::Unchanged),
+            Some(t) if t.eq_no_transitive_clocks(&val) => {
+                Ok(UpdateStatus::Unchanged)
+            }
             // conflict
             // TODO: Fix to make the error more helpful
             Some(t)
@@ -2395,22 +2401,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 );
                             }
 
-                            // check the read of the src value
-                            if self.conf.check_data_race
-                                && assign_type.is_control()
-                            {
-                                // needed for mutability reasons
-                                let mut clock_map =
-                                    std::mem::take(&mut self.env.clocks);
-                                self.check_read(
-                                    thread.unwrap(),
-                                    assign.src,
-                                    *active_cell,
-                                    &mut clock_map,
-                                )?;
-                                self.env.clocks = clock_map;
-                            }
-
                             let dest = self
                                 .get_global_port_idx(&assign.dst, *active_cell);
 
@@ -2443,11 +2433,15 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                         || assign_type.is_continuous())
                                 {
                                     assigned_value = assigned_value
-                                        .with_clocks_optional(val.clocks())
                                         .with_transitive_clocks_opt(
                                             val.transitive_clocks().cloned(),
                                         )
                                         .set_propagate_clocks();
+                                    // direct clock becomes a transitive clock
+                                    // on assignment
+                                    if let Some(c) = val.clocks() {
+                                        assigned_value.add_transitive_clock(c);
+                                    }
                                 }
 
                                 let result = self.env.ports.insert_val(
@@ -2494,34 +2488,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
                             }
                         }
-
-                        // check the reads done by the guard
-                        if self.conf.check_data_race {
-                            if let Some(read_ports) = self
-                                .env
-                                .ctx
-                                .as_ref()
-                                .primary
-                                .guard_read_map
-                                .get(assign.guard)
-                            {
-                                let mut clock_map =
-                                    std::mem::take(&mut self.env.clocks);
-
-                                for port in read_ports {
-                                    self.check_read(
-                                        thread.unwrap(),
-                                        *port,
-                                        *active_cell,
-                                        &mut clock_map,
-                                    )?;
-                                }
-
-                                self.env.clocks = clock_map;
-                            }
-                        }
                     }
                 }
+            }
+
+            if self.conf.check_data_race {
+                self.propagate_comb_reads(assigns_bundle)?;
             }
 
             let changed = self.run_primitive_comb_path()?;
@@ -2552,6 +2524,29 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             }
         }
 
+        // check reads needs to happen before zeroing the go ports. If this is
+        // not observed then some read checks will be accidentally skipped
+        if self.conf.check_data_race {
+            self.handle_reads(assigns_bundle)?;
+        }
+
+        if self.conf.undef_guard_check {
+            self.check_undefined_guards(assigns_bundle)?;
+        }
+
+        // This should be the last update that occurs during convergence
+        self.zero_done_groups_go(assigns_bundle);
+
+        if self.conf.debug_logging {
+            info!(self.env.logger, "Finished combinational convergence");
+        }
+
+        Ok(())
+    }
+
+    /// For all groups in the given assignments, set the go port to zero if the
+    /// done port is high
+    fn zero_done_groups_go(&mut self, assigns_bundle: &[ScheduledAssignments]) {
         for ScheduledAssignments {
             active_cell,
             interface_ports,
@@ -2568,13 +2563,153 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 }
             }
         }
+    }
 
-        if self.conf.undef_guard_check {
-            self.check_undefined_guards(assigns_bundle)?;
+    /// A final pass meant to be run after convergence which does the following:
+    ///
+    /// 1. For successful assignments, check reads from the source port if applicable
+    /// 2. For non-continuous/combinational contexts, check all reads performed
+    ///     by the guard regardless of whether the assignment fired or not
+    /// 3. For continuous/combinational contexts, update the transitive reads of
+    ///     the value in the destination with the reads done by the guard,
+    ///     regardless of success
+    fn handle_reads(
+        &mut self,
+        assigns_bundle: &[ScheduledAssignments],
+    ) -> Result<(), BoxedRuntimeError> {
+        // needed for mutability reasons
+        let mut clock_map = std::mem::take(&mut self.env.clocks);
+
+        for ScheduledAssignments {
+            active_cell,
+            assignments,
+            interface_ports,
+            thread,
+            assign_type,
+        } in assigns_bundle.iter()
+        {
+            let ledger = self.env.cells[*active_cell].as_comp().unwrap();
+            let go =
+                interface_ports.as_ref().map(|x| &ledger.index_bases + x.go);
+
+            let comp_go = self.env.get_comp_go(*active_cell);
+
+            let thread = self.compute_thread(comp_go, thread, go);
+
+            // check for direct reads
+            if assign_type.is_control()
+                && go
+                    .as_ref()
+                    .map(|g| {
+                        self.env.ports[*g].as_bool().unwrap_or_default()
+                            && self.env.ports[comp_go]
+                                .as_bool()
+                                .unwrap_or_default()
+                    })
+                    .unwrap_or_default()
+            {
+                for assign_idx in assignments.iter() {
+                    let assign = &self.env.ctx.as_ref().primary[assign_idx];
+
+                    // read source
+                    if self
+                        .evaluate_guard(assign.guard, *active_cell)
+                        .unwrap_or_default()
+                    {
+                        self.check_read(
+                            thread.unwrap(),
+                            assign.src,
+                            *active_cell,
+                            &mut clock_map,
+                        )?;
+                    }
+
+                    // guard reads, assignment firing does not matter
+                    if let Some(read_ports) = self
+                        .env
+                        .ctx
+                        .as_ref()
+                        .primary
+                        .guard_read_map
+                        .get(assign.guard)
+                    {
+                        for port in read_ports {
+                            self.check_read(
+                                thread.unwrap(),
+                                *port,
+                                *active_cell,
+                                &mut clock_map,
+                            )?;
+                        }
+                    }
+                }
+            }
         }
+        self.env.clocks = clock_map;
 
-        if self.conf.debug_logging {
-            info!(self.env.logger, "Finished combinational convergence");
+        Ok(())
+    }
+
+    /// For continuous/combinational contexts, update the transitive reads of
+    ///     the value in the destination with the reads done by the guard,
+    ///     regardless of success
+    fn propagate_comb_reads(
+        &mut self,
+        assigns_bundle: &[ScheduledAssignments],
+    ) -> Result<(), BoxedRuntimeError> {
+        for ScheduledAssignments {
+            active_cell,
+            assignments,
+            assign_type,
+            ..
+        } in assigns_bundle.iter()
+        {
+            let comp_go = self.env.get_comp_go(*active_cell);
+
+            if (assign_type.is_combinational()
+                && self.env.ports[comp_go].as_bool().unwrap_or_default())
+                || assign_type.is_continuous()
+            {
+                for assign_idx in assignments.iter() {
+                    let assign = &self.env.ctx.as_ref().primary[assign_idx];
+                    let dest =
+                        self.get_global_port_idx(&assign.dst, *active_cell);
+
+                    if let Some(read_ports) = self
+                        .env
+                        .ctx
+                        .as_ref()
+                        .primary
+                        .guard_read_map
+                        .get(assign.guard)
+                    {
+                        if self.env.ports[dest].is_def() {
+                            let mut set_extension = HashSet::new();
+
+                            for port in read_ports {
+                                let port = self
+                                    .get_global_port_idx(port, *active_cell);
+                                if let Some(clock) =
+                                    self.env.ports[port].clocks()
+                                {
+                                    set_extension.insert(clock);
+                                }
+                                if let Some(clocks) =
+                                    self.env.ports[port].transitive_clocks()
+                                {
+                                    set_extension
+                                        .extend(clocks.iter().copied());
+                                }
+                            }
+
+                            self.env.ports[dest]
+                                .as_option_mut()
+                                .unwrap()
+                                .add_transitive_clocks(set_extension);
+                        }
+                    }
+                }
+            }
         }
 
         Ok(())

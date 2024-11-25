@@ -12,8 +12,8 @@ use crate::{
     },
     serialization::PrintCode,
 };
-use ahash::{HashSet, HashSetExt};
 use baa::{BitVecOps, BitVecValue};
+use std::collections::HashSet;
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
@@ -429,7 +429,7 @@ impl From<(GlobalCellIdx, AssignmentIdx)> for AssignmentWinner {
 
 /// A struct representing a value that has been assigned to a port. It wraps a
 /// concrete value and the "winner" which assigned it.
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct AssignedValue {
     val: BitVecValue,
     winner: AssignmentWinner,
@@ -437,6 +437,16 @@ pub struct AssignedValue {
     clocks: Option<ClockPair>,
     propagate_clocks: bool,
     transitive_clocks: Option<HashSet<ClockPair>>,
+}
+
+impl AssignedValue {
+    pub fn eq_no_transitive_clocks(&self, other: &Self) -> bool {
+        self.val == other.val
+            && self.winner == other.winner
+            && self.thread == other.thread
+            && self.clocks == other.clocks
+            && self.propagate_clocks == other.propagate_clocks
+    }
 }
 
 impl std::fmt::Debug for AssignedValue {
