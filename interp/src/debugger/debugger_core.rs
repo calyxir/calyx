@@ -1,5 +1,8 @@
 use super::{
-    commands::{Command, ParsedBreakPointID, ParsedGroupName, PrintMode},
+    commands::{
+        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedGroupName,
+        PrintMode,
+    },
     debugging_context::context::DebuggingContext,
     io_utils::Input,
     source::structures::NewSourceMap,
@@ -11,11 +14,14 @@ use crate::{
     },
     errors::{CiderError, CiderResult},
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::{
+            base::ComponentIdx,
+            prelude::{ControlIdx, ControlNode, GroupIdx},
+        },
         setup_simulation_with_metadata,
         structures::{
             context::Context,
-            environment::{Path as ParsePath, PathError, Simulator},
+            environment::{Path, PathError, Simulator},
         },
     },
     serialization::PrintCode,
@@ -551,15 +557,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn print_from_path(
         &self,
-        path: &ParsePath,
+        path: &Path,
         code: &Option<PrintCode>,
         mode: PrintMode,
     ) -> Result<(), PathError> {
         let code = code.unwrap_or(PrintCode::Binary);
 
         let name_override = match path {
-            ParsePath::Cell(_) | ParsePath::Port(_) => None,
-            ParsePath::AbstractCell(_) | ParsePath::AbstractPort { .. } => {
+            Path::Cell(_) | Path::Port(_) => None,
+            Path::AbstractCell(_) | Path::AbstractPort { .. } => {
                 Some(path.as_string(self.interpreter.env()))
             }
         };
@@ -633,5 +639,68 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
             _ => unreachable!("improper use of manipulate_breakpoint"),
         }
+    }
+
+    /// Returns the controlidx of the last node in the given path and component idx
+    pub fn path_idx(
+        &self,
+        component: ComponentIdx,
+        path: ParsePath,
+    ) -> ControlIdx {
+        let path_nodes = path.get_path();
+        let env = self.interpreter.env();
+        let ctx = env.ctx();
+
+        let component_map = &ctx.primary.components;
+        let control_map = &ctx.primary.control;
+
+        // Get nodes
+        let component_node = component_map.get(component).unwrap();
+
+        let mut control_id = component_node.control.unwrap();
+
+        let mut control_node = control_map.get(control_id).unwrap();
+        for parse_node in path_nodes {
+            match parse_node {
+                ParseNodes::Body => match control_node {
+                    ControlNode::While(while_struct) => {
+                        control_id = while_struct.body();
+                    }
+                    ControlNode::Repeat(repeat_struct) => {
+                        control_id = repeat_struct.body;
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+                ParseNodes::If(branch) => match control_node {
+                    ControlNode::If(if_struct) => {
+                        control_id = if branch {
+                            if_struct.tbranch()
+                        } else {
+                            if_struct.fbranch()
+                        };
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+                ParseNodes::Offset(child) => match control_node {
+                    ControlNode::Par(par_struct) => {
+                        let children = par_struct.stms();
+                        control_id = children[child as usize];
+                    }
+                    ControlNode::Seq(seq_struct) => {
+                        let children = seq_struct.stms();
+                        control_id = children[child as usize]
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+            }
+            control_node = control_map.get(control_id).unwrap();
+        }
+        control_id
     }
 }

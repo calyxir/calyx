@@ -307,22 +307,27 @@ pub enum ParseNodes {
 }
 pub struct ParsePath {
     nodes: Vec<ParseNodes>,
+    name: String,
 }
 
 impl ParsePath {
-    pub fn new(nodes: Vec<ParseNodes>) -> ParsePath {
-        ParsePath { nodes }
+    pub fn new(nodes: Vec<ParseNodes>, name: String) -> ParsePath {
+        ParsePath { nodes, name }
     }
 
     pub fn get_path(&self) -> Vec<ParseNodes> {
         self.nodes.clone()
     }
 
-    pub fn from_iter<I>(iter: I) -> ParsePath
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn from_iter<I>(iter: I, name: u32) -> ParsePath
     where
         I: IntoIterator<Item = ParseNodes>,
     {
-        ParsePath::new(iter.into_iter().collect())
+        ParsePath::new(iter.into_iter().collect(), name.to_string())
     }
 }
 

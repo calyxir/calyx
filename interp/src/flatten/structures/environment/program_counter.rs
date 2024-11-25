@@ -65,10 +65,12 @@ impl ControlPoint {
     pub fn string_path(&self, ctx: &Context) -> String {
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
         let mut path_vec = path.path;
+        let idx = self.control_node_idx.index();
+        let name = ctx.lookup_comp_by_name(&idx.to_string()).unwrap();
 
         // Remove first element since we know it is a root
         path_vec.remove(0);
-        let mut string_path = String::new();
+        let mut string_path = name.index().to_string();
         string_path.push('.');
         let control_map = &ctx.primary.control;
         let mut count = -1;
