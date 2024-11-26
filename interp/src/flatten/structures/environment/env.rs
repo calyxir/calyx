@@ -3,7 +3,7 @@ use super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::{ClockMap, VectorClock},
+    clock::ClockMap,
     program_counter::{
         ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
     },
@@ -874,7 +874,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
-    fn get_parent_cell_from_port(
+    fn _get_parent_cell_from_port(
         &self,
         port: PortRef,
         comp: GlobalCellIdx,
@@ -2853,25 +2853,22 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             // TODO griffin: Sort this out
             panic!("Value has both direct clock and transitive clock. This shouldn't happen?")
         } else if let Some(clocks) = val.clocks() {
-            let port_cell = self
-                .env
-                .get_parent_cell_from_port(port, active_cell)
-                .unwrap();
+            let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
             clocks.check_read_w_cell(
                 (thread, thread_clock),
                 clock_map,
-                port_cell,
+                info.attached_cell,
+                info.entry_number,
             )?
         } else if let Some(transitive_clocks) = val.transitive_clocks() {
-            let port_cell = self
-                .env
-                .get_parent_cell_from_port(port, active_cell)
-                .unwrap();
             for clock_pair in transitive_clocks {
+                let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
+
                 clock_pair.check_read_w_cell(
                     (thread, thread_clock),
                     clock_map,
-                    port_cell,
+                    info.attached_cell,
+                    info.entry_number,
                 )?
             }
         }

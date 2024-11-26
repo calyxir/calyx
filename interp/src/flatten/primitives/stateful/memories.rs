@@ -175,7 +175,7 @@ impl RaceDetectionPrimitive for StdReg {
             self.internal_state
                 .clocks
                 .check_write(current_clock_idx, clock_map)
-                .map_err(|e| e.add_cell_info(self.global_idx))?;
+                .map_err(|e| e.add_cell_info(self.global_idx, None))?;
         }
 
         self.exec_cycle(port_map)
@@ -679,7 +679,12 @@ impl RaceDetectionPrimitive for CombMem {
                     if port_map[self.write_en()].as_bool().unwrap_or_default() {
                         val.clocks
                             .check_write(thread_clock, clock_map)
-                            .map_err(|e| e.add_cell_info(self.global_idx))?;
+                            .map_err(|e| {
+                                e.add_cell_info(
+                                    self.global_idx,
+                                    Some(addr.try_into().unwrap()),
+                                )
+                            })?;
                     }
                 } else if addr != 0
                     || port_map[self.write_en()].as_bool().unwrap_or_default()
@@ -994,7 +999,12 @@ impl RaceDetectionPrimitive for SeqMem {
                             ),
                             clock_map,
                         )
-                        .map_err(|e| e.add_cell_info(self.global_idx))?;
+                        .map_err(|e| {
+                            e.add_cell_info(
+                                self.global_idx,
+                                Some(addr.try_into().unwrap()),
+                            )
+                        })?;
                 } else if port_map[self.content_enable()]
                     .as_bool()
                     .unwrap_or_default()
@@ -1009,7 +1019,12 @@ impl RaceDetectionPrimitive for SeqMem {
                             ),
                             clock_map,
                         )
-                        .map_err(|e| e.add_cell_info(self.global_idx))?;
+                        .map_err(|e| {
+                            e.add_cell_info(
+                                self.global_idx,
+                                Some(addr.try_into().unwrap()),
+                            )
+                        })?;
                 }
             }
         }

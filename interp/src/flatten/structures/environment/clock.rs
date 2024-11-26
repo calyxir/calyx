@@ -427,9 +427,10 @@ impl ClockPair {
         (thread, reading_clock): ThreadClockPair,
         clock_map: &mut ClockMap,
         cell: GlobalCellIdx,
+        entry_number: Option<u32>,
     ) -> Result<(), ClockError> {
         self.check_read((thread, reading_clock), clock_map)
-            .map_err(|e| e.add_cell_info(cell))
+            .map_err(|e| e.add_cell_info(cell, entry_number))
     }
 
     pub fn check_write(
@@ -471,16 +472,24 @@ pub enum ClockError {
     #[error("Concurrent writes to the same register/memory")]
     WriteWriteUnhelpful,
     #[error("Concurrent read & write to the same register/memory {0:?}")]
-    ReadWrite(GlobalCellIdx),
+    ReadWrite(GlobalCellIdx, Option<u32>),
     #[error("Concurrent writes to the same register/memory {0:?}")]
-    WriteWrite(GlobalCellIdx),
+    WriteWrite(GlobalCellIdx, Option<u32>),
 }
 
 impl ClockError {
-    pub fn add_cell_info(self, cell: GlobalCellIdx) -> Self {
+    pub fn add_cell_info(
+        self,
+        cell: GlobalCellIdx,
+        entry_number: Option<u32>,
+    ) -> Self {
         match self {
-            ClockError::ReadWriteUnhelpful => ClockError::ReadWrite(cell),
-            ClockError::WriteWriteUnhelpful => ClockError::WriteWrite(cell),
+            ClockError::ReadWriteUnhelpful => {
+                ClockError::ReadWrite(cell, entry_number)
+            }
+            ClockError::WriteWriteUnhelpful => {
+                ClockError::WriteWrite(cell, entry_number)
+            }
             _ => self,
         }
     }

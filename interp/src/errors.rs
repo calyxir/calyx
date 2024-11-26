@@ -323,8 +323,20 @@ impl RuntimeError {
             RuntimeError::UndefinedReadAddr(c) => CiderError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
             RuntimeError::ClockError(clk) => {
                 match clk {
-                    ClockError::ReadWrite(c) => CiderError::GenericError(format!("Concurrent read & write to the same register/memory {}", env.get_full_name(c).underline())),
-                    ClockError::WriteWrite(c) => CiderError::GenericError(format!("Concurrent writes to the same register/memory {}", env.get_full_name(c).underline())),
+                    ClockError::ReadWrite(c, num) => {
+                        if let Some(entry_number) = num {
+                            CiderError::GenericError(format!("Concurrent read & write to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
+                        } else {
+                            CiderError::GenericError(format!("Concurrent read & write to the same register {}", env.get_full_name(c).underline()))
+                        }
+                },
+                    ClockError::WriteWrite(c, num) => {
+                        if let Some(entry_number) = num {
+                            CiderError::GenericError(format!("Concurrent writes to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
+                        } else {
+                            CiderError::GenericError(format!("Concurrent writes to the same register {}", env.get_full_name(c).underline()))
+                        }
+                    },
                     c => CiderError::GenericError(format!("Unexpected clock error: {c:?}")),
                 }
             }
