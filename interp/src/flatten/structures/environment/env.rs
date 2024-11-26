@@ -560,6 +560,24 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             self.control_ports.insert(done, 1);
         }
 
+        // ref cells and ports are initialized to None
+        for (ref_cell, def_idx) in comp_aux.ref_cell_offset_map.iter() {
+            let info = &self.ctx.as_ref().secondary[*def_idx];
+
+            for port_idx in info.ports.iter() {
+                let port_actual = self.ref_ports.push(None);
+                debug_assert_eq!(
+                    &self.cells[comp].as_comp().unwrap().index_bases + port_idx,
+                    port_actual
+                );
+            }
+            let cell_actual = self.ref_cells.push(None);
+            debug_assert_eq!(
+                &self.cells[comp].as_comp().unwrap().index_bases + ref_cell,
+                cell_actual
+            )
+        }
+
         for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
             let info = &self.ctx.as_ref().secondary[*def_idx];
             if !info.prototype.is_component() {
@@ -621,23 +639,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     warn!(self.logger, "Initialization was provided for memory {} but no such memory exists in the entrypoint component.", dec.name);
                 }
             }
-        }
-
-        // ref cells and ports are initialized to None
-        for (ref_cell, def_idx) in comp_aux.ref_cell_offset_map.iter() {
-            let info = &self.ctx.as_ref().secondary[*def_idx];
-            for port_idx in info.ports.iter() {
-                let port_actual = self.ref_ports.push(None);
-                debug_assert_eq!(
-                    &self.cells[comp].as_comp().unwrap().index_bases + port_idx,
-                    port_actual
-                )
-            }
-            let cell_actual = self.ref_cells.push(None);
-            debug_assert_eq!(
-                &self.cells[comp].as_comp().unwrap().index_bases + ref_cell,
-                cell_actual
-            )
         }
     }
 
