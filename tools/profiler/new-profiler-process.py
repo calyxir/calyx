@@ -95,7 +95,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # checking whether the timestamp has a rising edge
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
-            # () is a set.
+            # Recording the data organization for every kind of probe so I don't forget. () is a set.
             # groups-active: cell --> (active groups)
             # cell-active: (cells)
             # structural-enable: cell --> { child --> (parents) }
@@ -370,7 +370,6 @@ def create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, 
 
 # one tree to summarize the entire execution.
 def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
-    # NOTE: probably can create this on the fly, but my brain is better suited for postprocessing.
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
     leaf_nodes_dict = {node_id: 0 for node_id in tree_dict} # how many times was this node a leaf?
@@ -539,7 +538,7 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
     print("after postprocessing")
     print(f"End reading VCD: {datetime.now()}")
 
-    include_primitives = False
+    include_primitives = True
 
     print(f"Start creating trace: {datetime.now()}")
     
