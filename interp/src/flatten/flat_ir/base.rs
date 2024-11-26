@@ -538,9 +538,13 @@ impl AssignedValue {
         self
     }
 
-    pub fn set_propagate_clocks(mut self) -> Self {
+    pub fn with_propagate_clocks(mut self) -> Self {
         self.propagate_clocks = true;
         self
+    }
+
+    pub fn set_propagate_clocks(&mut self, propagate_clocks: bool) {
+        self.propagate_clocks = propagate_clocks;
     }
 
     /// Returns true if the two AssignedValues do not have the same winner

@@ -2437,7 +2437,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                         .with_transitive_clocks_opt(
                                             val.transitive_clocks().cloned(),
                                         )
-                                        .set_propagate_clocks();
+                                        .with_propagate_clocks();
                                     // direct clock becomes a transitive clock
                                     // on assignment
                                     if let Some(c) = val.clocks() {
@@ -2707,6 +2707,14 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                                 .as_option_mut()
                                 .unwrap()
                                 .add_transitive_clocks(set_extension);
+
+                            // this is necessary for ports which were implicitly
+                            // assigned zero and is redundant for other ports
+                            // which will already have propagate_clocks set
+                            self.env.ports[dest]
+                                .as_option_mut()
+                                .unwrap()
+                                .set_propagate_clocks(true);
                         }
                     }
                 }
