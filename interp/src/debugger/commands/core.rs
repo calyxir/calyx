@@ -299,6 +299,11 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
     }
 }
 
+/// ParseNodes enum is used to represent what child to traverse with respect to
+/// the current ControlIdx.
+/// Body defines that we should go into the body of a while or repeat.
+/// Offset defines which child to go to.
+/// If defines whether we should go to the true or false branch next
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseNodes {
     Body,
@@ -317,11 +322,10 @@ impl ParsePath {
     pub fn get_path(&self) -> Vec<ParseNodes> {
         self.nodes.clone()
     }
+}
 
-    pub fn from_iter<I>(iter: I) -> ParsePath
-    where
-        I: IntoIterator<Item = ParseNodes>,
-    {
+impl FromIterator<ParseNodes> for ParsePath {
+    fn from_iter<I: IntoIterator<Item = ParseNodes>>(iter: I) -> Self {
         ParsePath::new(iter.into_iter().collect())
     }
 }

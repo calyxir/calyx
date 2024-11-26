@@ -27,7 +27,7 @@ impl PathParser {
         Ok(())
     }
 
-    fn seperator(_input: Node) -> ParseResult<()> {
+    fn separator(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
@@ -46,9 +46,9 @@ impl PathParser {
 
     fn clause(input: Node) -> ParseResult<ParseNodes> {
         Ok(match_nodes!(input.into_children();
-            [seperator(_), num(n)] => ParseNodes::Offset(n),
-            [seperator(_), body(_)] => ParseNodes::Body,
-            [seperator(_), branch(b)] => ParseNodes::If(b)
+            [separator(_), num(n)] => ParseNodes::Offset(n),
+            [separator(_), body(_)] => ParseNodes::Body,
+            [separator(_), branch(b)] => ParseNodes::If(b)
         ))
     }
 
@@ -60,11 +60,12 @@ impl PathParser {
 }
 
 // Parse the path
-pub fn parse_path(input_str: &str) -> Result<ParsePath, Error<Rule>> {
+#[allow(dead_code)]
+pub fn parse_path(input_str: &str) -> Result<ParsePath, Box<Error<Rule>>> {
     let entries = PathParser::parse(Rule::path, input_str)?;
     let entry = entries.single()?;
 
-    PathParser::path(entry)
+    PathParser::path(entry).map_err(Box::new)
 }
 
 #[cfg(test)]
