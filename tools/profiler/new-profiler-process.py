@@ -121,6 +121,13 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # checking whether the timestamp has a rising edge
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
+            # () is a set.
+            # groups-active: cell --> (active groups)
+            # cell-active: (cells)
+            # structural-enable: cell --> { child --> (parents) }
+            # cell-invoke: parent_cell --> { parent --> (cells) } # FIXME: subject to change.
+            # primitive-enable: cell --> { parent --> (primitives) }
+            info_this_cycle = {"group-active" : {}, "cell-active": set(), "structural-enable": {}, "cell-invoke": {}, "primitive-enable": {}}
             for event in events:
                 # check probe and cell signals to update currently active entities.
                 signal_name = event["signal"]
@@ -131,18 +138,50 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
                     cell_active.remove(cell)
+                # process all probes.
                 for probe_label in probe_labels_to_sets:
                     cutoff = f"_{probe_label}"
                     if cutoff in signal_name:
-                        probe_info = signal_name.split(cutoff)[0]
+                        # record cell name instead of component name.
+                        split = signal_name.split(cutoff)[0].split(DELIMITER)[:-1]
+                        cell_name = ".".join(signal_name.split(cutoff)[0].split(".")[:-1])
+                        split.append(cell_name)
+                        probe_info = tuple(split)
                         if value == 1:
                             probe_labels_to_sets[probe_label].add(probe_info)
                         elif value == 0:
                             probe_labels_to_sets[probe_label].remove(probe_info)
-                # add currently active entities to the timeline map
-                self.timeline_map[clock_cycles] = copy.deepcopy(probe_labels_to_sets)
-                # so awkward... add cell_active because it wasn't a probe.
-                self.timeline_map[clock_cycles]["cell_active"] = cell_active.copy()
+                
+                # add all probe information
+                info_this_cycle["cell-active"] = cell_active.copy()
+                for (group, cell_name) in group_active:
+                    if cell_name in info_this_cycle["group-active"]:
+                        info_this_cycle["group-active"][cell_name].add(group)
+                    else:
+                        info_this_cycle["group-active"][cell_name] = {group}
+                for (child_group, parent_group, cell_name) in structural_enable_active:
+                    if cell_name not in info_this_cycle["structural-enable"]:
+                        info_this_cycle["structural-enable"][cell_name] = {child_group: {parent_group}}
+                    elif child_group not in info_this_cycle["structural-enable"][cell_name]:
+                        info_this_cycle["structural-enable"][cell_name][child_group] = {parent_group}
+                    else:
+                        info_this_cycle["structural-enable"][cell_name][child_group].add(parent_group)
+                for (cell_name, parent_group, parent_cell_name) in cell_enable_active:
+                    if parent_cell_name not in info_this_cycle["cell-invoke"]:
+                        info_this_cycle["cell-invoke"][parent_cell_name] = {parent_group : {cell_name}}
+                    elif parent_group not in info_this_cycle["cell-invoke"][parent_cell_name]:
+                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group] = {cell_name}
+                    else:
+                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group].add(cell_name)
+                for (primitive_name, parent_group, cell_name) in primitive_enable:
+                    if cell_name not in info_this_cycle["primitive-enable"]:
+                        info_this_cycle["primitive-enable"][cell_name] = {parent_group: {primitive_name}}
+                    elif parent_group not in info_this_cycle["primitive-enable"][cell_name]:
+                        info_this_cycle["primitive-enable"][cell_name][parent_group] = {primitive_name}
+                    else:
+                        info_this_cycle["primitive-enable"][cell_name][parent_group].add(primitive_name)
+
+                self.timeline_map[clock_cycles] = info_this_cycle
 
         self.clock_cycles = clock_cycles
 
@@ -184,83 +223,65 @@ def read_component_cell_names_json(json_file):
 
 def create_traces(timeline_map, cells_to_components, main_component):
 
-    trace = {i : [] for i in range(timeline_map.keys())}
+    trace = {i : [] for i in timeline_map.keys()}
     # now, we need to figure out the sets of traces
     for i in timeline_map:
         # intermediate processing; see if I can skip this step...
-        
-
-        call_stack_probes_info = timeline_map[i]["se_probe_out"]
-        primitive_probes_info = timeline_map[i]["primitive_probe_out"]
-        cell_caller_probes_info = timeline_map[i][""]
         parents = set() # keeping track of entities that are parents of other entities
         i_mapping = {} # each unique group inv mapping to its stack. the "group" should be the last item on each stack
         i_mapping[main_component] = [main_component.split(".")[-1]]
 
-        cell_worklist = [main_component] # FIXME: maybe remove the hardcoding?
+        cell_worklist = [main_component]
         while len(cell_worklist) > 0:
-            
-
-
             current_cell = cell_worklist.pop()
-            current_component = cells_to_components[current_cell]
+            print(f"\nCURRENT CELL: {current_cell}")
             covered_units_in_component = set() # collect all of the units we've covered.
             # catch all active units that are groups in this component.
-            units_to_cover = set(filter(lambda unit: not unit.is_cell and unit.component == current_component, timeline_map[i]))
+            units_to_cover = timeline_map[i]["group-active"][current_cell] if current_cell in timeline_map[i]["group-active"] else set()
+            structural_enables = timeline_map[i]["structural-enable"][current_cell] if current_cell in timeline_map[i]["structural-enable"] else set()
+            primitive_enables = timeline_map[i]["primitive-enable"][current_cell] if current_cell in timeline_map[i]["primitive-enable"] else set()
+            cell_invokes = timeline_map[i]["cell-invoke"][current_cell] if current_cell in timeline_map[i]["cell-invoke"] else set()
             # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
             for active_unit in units_to_cover:
-                if active_unit.is_cell: # skip cells for now as we're considering only single component programs
-                    continue
-                if active_unit.id() not in call_stack_probes_info: # no maps in call_stack_probes_info
-                    i_mapping[active_unit.name] = i_mapping[current_cell] + [active_unit.shortname]
+                shortname = active_unit.split(".")[-1]
+                if active_unit not in structural_enables:
+                    i_mapping[active_unit] = i_mapping[current_cell] + [shortname]
+                    print(active_unit, i_mapping[active_unit])
                     parents.add(current_cell)
-                    covered_units_in_component.add(active_unit.name)
-                else:
-                    # loop through all parents and see if any of them are active
-                    contains_active_parent = False
-                    for parent, call_probe_info in call_stack_probes_info[active_unit.id()].items():
-                        if call_probe_info.is_active_at_cycle(i):
-                            contains_active_parent = True
-                            break
-                    if not contains_active_parent:
-                        i_mapping[active_unit.name] = i_mapping[current_cell] + [active_unit.shortname]
-                        parents.add(current_cell)
-                        covered_units_in_component.add(active_unit.name)
+                    covered_units_in_component.add(active_unit)
             # get all of the other active units
             while len(covered_units_in_component) < len(units_to_cover):
                 # loop through all other elements to figure out parent child info
                 for active_unit in units_to_cover:
-                    if active_unit.is_cell or active_unit.name in i_mapping:
+                    shortname = active_unit.split(".")[-1]
+                    if active_unit in i_mapping:
                         continue
-                    for parent, call_probe_info in call_stack_probes_info[active_unit.id()].items():
-                        if f"{main_component}.{parent}" in i_mapping: # we can directly build on top of the parent
-                            i_mapping[active_unit.name] = i_mapping[f"{current_cell}.{parent}"] + [active_unit.shortname]
-                            covered_units_in_component.add(active_unit.name)
-                        parents.add(f"{current_cell}.{parent}")
+                    for parent_group in structural_enables[active_unit]:
+                        parent = f"{current_cell}.{parent_group}"
+                        if parent in i_mapping:
+                            i_mapping[active_unit] = i_mapping[parent] + [shortname]
+                            covered_units_in_component.add(active_unit)
+                            parents.add(parent)
             # get primitives.
-            # primitives probe info: parent --> {primitive_name --> info}. So we want to loop through all of the groups.
-            for active_unit in units_to_cover:
-                if active_unit.id() in primitive_probes_info: # this group is calling a primitive.
-                    for primitive in primitive_probes_info[active_unit.id()]:
-                        primitive_info = primitive_probes_info[active_unit.id()][primitive]
-                        i_mapping[primitive_info.name] = i_mapping[active_unit.name] + [f"{primitive_info.shortname} (primitive)"]
-                        parents.add(active_unit.name)
+            for primitive_parent_group in primitive_enables:
+                for primitive_name in primitive_enables[primitive_parent_group]:
+                    primitive_parent = f"{current_cell}.{primitive_parent_group}"
+                    primitive_shortname = primitive_name.split(".")[-1]
+                    i_mapping[primitive_name] = i_mapping[primitive_parent] + [f"{primitive_shortname} (primitive)"]
+                    parents.add(primitive_parent)
             # by this point, we should have covered all groups in the same component...
             # now we need to construct stacks for any cells that are called from a group in the current component.
-            # collect caller ids in cell_caller_probes_info that belong to our component
-            cell_invoker_ids = list(filter(lambda x : x.split(DELIMITER)[1] == current_component, cell_caller_probes_info))
-            for cell_invoker_id in cell_invoker_ids:
-                cell_invoker = cell_invoker_id.split(DELIMITER)[0]
-                # iterate through all of the cells that the group invokes
-                for invoked_cell_name in cell_caller_probes_info[cell_invoker_id]:
-                    cell_calling_probe = cell_caller_probes_info[cell_invoker_id][invoked_cell_name]
-                    cell_active_probe = active_element_probes_info[invoked_cell_name]
-                    if cell_calling_probe.is_active_at_cycle(i) and cell_active_probe.is_active_at_cycle(i):
-                        cell_worklist.append(cell_active_probe.name)
-                        # invoker group is the parent of the cell.
-                        cell_component = cells_to_components[cell_active_probe.name]
-                        i_mapping[cell_active_probe.name] = i_mapping[f"{current_cell}.{cell_invoker}"] + [f"{cell_active_probe.shortname} [{cell_component}]"]
-                        parents.add(f"{current_cell}.{cell_invoker}")
+            for cell_invoker_group in cell_invokes:
+                for invoked_cell in cell_invokes[cell_invoker_group]:
+                    if invoked_cell in timeline_map[i]["cell-active"]:
+                        cell_shortname = invoked_cell.split(".")[-1]
+                        cell_worklist.append(invoked_cell)
+                        cell_component = cells_to_components[invoked_cell]
+                        parent = f"{current_cell}.{cell_invoker_group}"
+                        i_mapping[invoked_cell] = i_mapping[parent] + [f"{cell_shortname} [{cell_component}]"]
+                        parents.add(parent)
+
+        # print(i_mapping)
 
         # Only retain paths that lead to leaf nodes.
         for elem in i_mapping:
@@ -468,7 +489,7 @@ def compute_scaled_flame(timeline_map):
 
 def create_flame_groups(timeline_map, flame_out_file, flames_out_dir):
     if not os.path.exists(flames_out_dir):
-        os.mkdir(flames_out_dir)    
+        os.mkdir(flames_out_dir)
     
     # make flame graph folded file
     stacks = {} # stack to number of cycles
@@ -546,7 +567,9 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
             print(i)
             print(converter.timeline_map[i])
 
-    # trace = create_traces(converter.timeline_map, converter.clock_cycles, cells_to_components, main_component)
+    trace = create_traces(converter.timeline_map, cells_to_components, main_component)
+
+    print(trace)
 
     # tree_dict, path_dict = create_tree(trace)
     # path_to_edges, all_edges = create_edge_dict(path_dict)
