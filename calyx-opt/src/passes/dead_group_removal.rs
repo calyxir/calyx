@@ -34,6 +34,18 @@ impl Visitor for DeadGroupRemoval {
         Ok(Action::Continue)
     }
 
+    fn fsm_enable(
+        &mut self,
+        s: &mut calyx_ir::FSMEnable,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // add all groups that are assigned to / read from, by the parent FSM
+        self.used_groups.extend(s.fsm.borrow().get_called_groups());
+        Ok(Action::Continue)
+    }
+
     fn static_enable(
         &mut self,
         s: &mut ir::StaticEnable,
@@ -115,6 +127,11 @@ impl Visitor for DeadGroupRemoval {
                     self.used_groups.insert(dst.get_parent_name());
                 }
             }
+        }
+
+        // for now, add all groups invoked by each fsm
+        for fsm in comp.get_fsms().iter() {
+            self.used_groups.extend(fsm.borrow().get_called_groups());
         }
 
         // Remove Groups that are not used

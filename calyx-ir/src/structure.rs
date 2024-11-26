@@ -861,6 +861,56 @@ impl FSM {
             .expect(&msg)
             .extend(assigns);
     }
+
+    pub fn get_called_groups(&self) -> Vec<Id> {
+        // groups that are used in the transitions section of this FSM
+        let mut called_groups = self
+            .transitions
+            .iter()
+            .flat_map(|trans| match trans {
+                Transition::Unconditional(_) => vec![],
+                Transition::Conditional(conds) => {
+                    conds.iter().flat_map(|(guard, _)| {
+                        let mut group_names = vec![];
+                        guard.all_ports().iter().for_each(|port| {
+                            if let PortParent::Group(group_wref) =
+                                &port.borrow().parent
+                            {
+                                group_names
+                                    .push(group_wref.upgrade().borrow().name());
+                            }
+                        });
+                        group_names
+                    })
+                }
+                .collect(),
+            })
+            .collect_vec();
+
+        // groups that are used in the assignments section
+
+        called_groups.extend(
+            self.assignments
+                .iter()
+                .flat_map(|assigns| {
+                    let mut groups_accessed = vec![];
+                    for assign in assigns.iter() {
+                        assign.iter_ports().for_each(|port| {
+                            if let PortParent::Group(group_wref) =
+                                &port.borrow().parent
+                            {
+                                groups_accessed
+                                    .push(group_wref.upgrade().borrow().name());
+                            }
+                        });
+                    }
+                    groups_accessed
+                })
+                .collect_vec(),
+        );
+
+        called_groups
+    }
 }
 
 impl GetName for Cell {
