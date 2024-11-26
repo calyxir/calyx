@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime
 import json
 import os
 import sys
@@ -12,33 +13,6 @@ SCALED_FLAME_MULTIPLIER=1000
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
     return name.split('[')[0]
-
-class ProfilingInfo:
-    def __init__(self, probe_info, probe_type):
-        self.name = name
-        self.callsite = callsite # "official" call site. Should only be used for probes?
-        self.component = component
-        self.shortname = self.name.split(".")[-1]
-        self.closed_segments = [] # Segments will be (start_time, end_time)
-        self.current_segment = None
-        self.total_cycles = 0
-        self.is_cell = is_cell
-    
-    def flame_repr(self):
-        if self.is_cell:
-            return self.name
-        else:
-            return self.shortname
-
-    def __repr__ (self):
-        if self.is_cell:
-            header = f"[Cell][{self.callsite}] {self.name}" # FIXME: fix this later
-        else:
-            header = f"[{self.component}][{self.callsite}] {self.name}"
-        return header
-
-    def id(self):
-        return f"{self.name}{DELIMITER}{self.component}"
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components):
@@ -555,14 +529,22 @@ def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_d
             f.write("}")
 
 def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
+    print(f"Start time: {datetime.now()}")
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
+    print(f"Start reading VCD: {datetime.now()}")
     converter = VCDConverter(main_component, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
+    print("before postprocessing")
     converter.postprocess()
+    print("after postprocessing")
+    print(f"End reading VCD: {datetime.now()}")
 
     include_primitives = False
 
+    print(f"Start creating trace: {datetime.now()}")
+    
     trace = create_traces(converter.timeline_map, cells_to_components, main_component, include_primitives)
+    print(f"End creating trace: {datetime.now()}. Moving onto visualizations")
 
     tree_dict, path_dict = create_tree(trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
@@ -570,6 +552,7 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
     create_aggregate_tree(trace, dot_out_dir, tree_dict, path_dict)
     create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir)
     create_flame_groups(trace, flame_out, flames_out_dir)
+    print(f"End time: {datetime.now()}")
 
 
 if __name__ == "__main__":
