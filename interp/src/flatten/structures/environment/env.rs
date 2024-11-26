@@ -415,9 +415,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
 
-        let mut clocks = IndexedMap::new();
-        let root_clock = clocks.push(VectorClock::new());
-        let continuous_clock = clocks.push(VectorClock::new());
+        let mut clocks = ClockMap::new();
+        let root_clock = clocks.new_clock();
+        let continuous_clock = clocks.new_clock();
 
         let mut env = Self {
             ports: PortMap::with_capacity(aux.port_offset_map.count()),
