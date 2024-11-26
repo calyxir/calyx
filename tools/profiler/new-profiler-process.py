@@ -221,7 +221,7 @@ def read_component_cell_names_json(json_file):
 
     return full_main_component, full_cell_names_to_components
 
-def create_traces(timeline_map, cells_to_components, main_component):
+def create_traces(timeline_map, cells_to_components, main_component, include_primitives):
 
     trace = {i : [] for i in timeline_map.keys()}
     # now, we need to figure out the sets of traces
@@ -234,7 +234,6 @@ def create_traces(timeline_map, cells_to_components, main_component):
         cell_worklist = [main_component]
         while len(cell_worklist) > 0:
             current_cell = cell_worklist.pop()
-            print(f"\nCURRENT CELL: {current_cell}")
             covered_units_in_component = set() # collect all of the units we've covered.
             # catch all active units that are groups in this component.
             units_to_cover = timeline_map[i]["group-active"][current_cell] if current_cell in timeline_map[i]["group-active"] else set()
@@ -246,7 +245,6 @@ def create_traces(timeline_map, cells_to_components, main_component):
                 shortname = active_unit.split(".")[-1]
                 if active_unit not in structural_enables:
                     i_mapping[active_unit] = i_mapping[current_cell] + [shortname]
-                    print(active_unit, i_mapping[active_unit])
                     parents.add(current_cell)
                     covered_units_in_component.add(active_unit)
             # get all of the other active units
@@ -262,13 +260,14 @@ def create_traces(timeline_map, cells_to_components, main_component):
                             i_mapping[active_unit] = i_mapping[parent] + [shortname]
                             covered_units_in_component.add(active_unit)
                             parents.add(parent)
-            # get primitives.
-            for primitive_parent_group in primitive_enables:
-                for primitive_name in primitive_enables[primitive_parent_group]:
-                    primitive_parent = f"{current_cell}.{primitive_parent_group}"
-                    primitive_shortname = primitive_name.split(".")[-1]
-                    i_mapping[primitive_name] = i_mapping[primitive_parent] + [f"{primitive_shortname} (primitive)"]
-                    parents.add(primitive_parent)
+            # get primitives if requested.
+            if include_primitives:
+                for primitive_parent_group in primitive_enables:
+                    for primitive_name in primitive_enables[primitive_parent_group]:
+                        primitive_parent = f"{current_cell}.{primitive_parent_group}"
+                        primitive_shortname = primitive_name.split(".")[-1]
+                        i_mapping[primitive_name] = i_mapping[primitive_parent] + [f"{primitive_shortname} (primitive)"]
+                        parents.add(primitive_parent)
             # by this point, we should have covered all groups in the same component...
             # now we need to construct stacks for any cells that are called from a group in the current component.
             for cell_invoker_group in cell_invokes:
@@ -281,17 +280,16 @@ def create_traces(timeline_map, cells_to_components, main_component):
                         i_mapping[invoked_cell] = i_mapping[parent] + [f"{cell_shortname} [{cell_component}]"]
                         parents.add(parent)
 
-        # print(i_mapping)
-
         # Only retain paths that lead to leaf nodes.
         for elem in i_mapping:
             if elem not in parents:
                 trace[i].append(i_mapping[elem])
-        
-    for i in trace:
-        print(i)
-        for stack in trace[i]:
-            print(f"\t{stack}")
+
+    if len(trace) < 100:
+        for i in trace:
+            print(i)
+            for stack in trace[i]:
+                print(f"\t{stack}")
 
     return trace
 
@@ -562,21 +560,16 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     converter.postprocess()
 
-    for i in converter.timeline_map:
-        if i < 5:
-            print(i)
-            print(converter.timeline_map[i])
+    include_primitives = False
 
-    trace = create_traces(converter.timeline_map, cells_to_components, main_component)
+    trace = create_traces(converter.timeline_map, cells_to_components, main_component, include_primitives)
 
-    print(trace)
+    tree_dict, path_dict = create_tree(trace)
+    path_to_edges, all_edges = create_edge_dict(path_dict)
 
-    # tree_dict, path_dict = create_tree(trace)
-    # path_to_edges, all_edges = create_edge_dict(path_dict)
-
-    # create_aggregate_tree(trace, dot_out_dir, tree_dict, path_dict)
-    # create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir)
-    # create_flame_groups(trace, flame_out, flames_out_dir)
+    create_aggregate_tree(trace, dot_out_dir, tree_dict, path_dict)
+    create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir)
+    create_flame_groups(trace, flame_out, flames_out_dir)
 
 
 if __name__ == "__main__":
