@@ -862,16 +862,17 @@ impl FSM {
             .extend(assigns);
     }
 
+    /// Get a list of Group Ids that are used somewhere within the FSM.
+    /// Non-unique (can repeat group names in output list)
     pub fn get_called_groups(&self) -> Vec<Id> {
         // groups that are used in the transitions section of this FSM
         let mut called_groups = self
             .transitions
             .iter()
-            .flat_map(|trans| match trans {
-                Transition::Unconditional(_) => vec![],
-                Transition::Conditional(conds) => {
-                    conds.iter().flat_map(|(guard, _)| {
-                        let mut group_names = vec![];
+            .flat_map(|trans| {
+                let mut group_names = vec![];
+                if let Transition::Conditional(conds) = trans {
+                    for (guard, _) in conds.iter() {
                         guard.all_ports().iter().for_each(|port| {
                             if let PortParent::Group(group_wref) =
                                 &port.borrow().parent
@@ -880,15 +881,13 @@ impl FSM {
                                     .push(group_wref.upgrade().borrow().name());
                             }
                         });
-                        group_names
-                    })
+                    }
                 }
-                .collect(),
+                group_names
             })
             .collect_vec();
 
         // groups that are used in the assignments section
-
         called_groups.extend(
             self.assignments
                 .iter()

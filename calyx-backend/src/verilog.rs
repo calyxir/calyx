@@ -5,6 +5,7 @@
 
 use crate::traits::Backend;
 use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
+use calyx_opt::passes::math_utilities::get_bit_width_from;
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
@@ -295,6 +296,12 @@ fn emit_component<F: io::Write>(
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
+    // Emit FSMs
+    for fsm in comp.fsms.iter() {
+        writeln!(f, "always_comb begin")?;
+        writeln!(f, "end")?;
+    }
+
     // Flatten all the guard expressions.
     let mut pool = ir::GuardPool::new();
     let grouped_asgns: Vec<_> = map
@@ -442,6 +449,44 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
         }
         None => None,
     }
+}
+
+/// Generates an inlined register representing the FSM, along with an always
+/// block to transition the FSM and drive assignments that read from the FSM
+/// register
+fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
+    let reg_width = get_bit_width_from(fsm.borrow().assignments.len() as u64);
+
+    // generate inlined register
+    for wire in vec!["out", "in"].drain(..) {
+        writeln!(
+            f,
+            "logic [{}:0] {}_{};",
+            reg_width - 1,
+            fsm.borrow().name(),
+            wire
+        )?;
+    }
+
+    writeln!(f, "always_ff @(posedge clk) begin")?;
+    writeln!(f, "  if (reset) begin")?;
+    writeln!(f, "    ")?;
+    writeln!(f, "  end else begin")?;
+    writeln!(f, "    ")?;
+    writeln!(f, "  end")?;
+    writeln!(f, "end")?;
+
+    //     always_ff @(posedge clk) begin
+    //     if (reset) begin
+    //        out <= 0;
+    //        done <= 0;
+    //     end else if (write_en) begin
+    //       out <= in;
+    //       done <= 1'd1;
+    //     end else done <= 1'd0;
+    //   end
+
+    io::Result::Ok(())
 }
 
 /// Generates an always block that checks of the guards are disjoint when the
