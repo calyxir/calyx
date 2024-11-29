@@ -3,7 +3,7 @@
 See the [docs][docs] for more details.
 
 ## Installation
-To use the queues:
+To use our queues:
 1. Install [flit][flit]
 2. Install the `queues` package:
 ```
