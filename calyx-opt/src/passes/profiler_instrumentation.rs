@@ -91,7 +91,7 @@ impl Visitor for ProfilerInstrumentation {
                 if let ir::PortParent::Cell(cell_ref) = &dst_borrow.parent {
                     match cell_ref.upgrade().borrow().prototype.clone() {
                         calyx_ir::CellType::Primitive {
-                            name,
+                            name: _,
                             param_binding: _,
                             is_comb,
                             latency: _,
@@ -100,7 +100,12 @@ impl Visitor for ProfilerInstrumentation {
                             // don't need to profile for combinational primitives, and if the port isn't a go port.
                             if !is_comb & dst_borrow.has_attribute(NumAttr::Go)
                             {
-                                let guard = *(assigment_ref.guard.clone());
+                                let guard = Guard::and(
+                                    *(assigment_ref.guard.clone()),
+                                    Guard::port(ir::rrc(
+                                        assigment_ref.src.borrow().clone(),
+                                    )),
+                                );
                                 primitive_vec.push((cell_name, guard));
                             }
                         }
