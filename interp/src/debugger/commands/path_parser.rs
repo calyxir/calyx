@@ -60,11 +60,12 @@ impl PathParser {
 }
 
 // Parse the path
-pub fn parse_path(input_str: &str) -> Result<ParsePath, Error<Rule>> {
+#[allow(dead_code)]
+pub fn parse_path(input_str: &str) -> Result<ParsePath, Box<Error<Rule>>> {
     let entries = PathParser::parse(Rule::path, input_str)?;
     let entry = entries.single()?;
 
-    PathParser::path(entry)
+    PathParser::path(entry).map_err(Box::new)
 }
 
 #[cfg(test)]

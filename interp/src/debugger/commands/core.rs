@@ -298,7 +298,11 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
         PrintTuple(val.0, val.1, val.2)
     }
 }
-
+/// ParseNodes enum is used to represent what child to traverse with respect to
+/// the current ControlIdx.
+/// Body defines that we should go into the body of a while or repeat.
+/// Offset defines which child to go to.
+/// If defines whether we should go to the true or false branch next
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseNodes {
     Body,
