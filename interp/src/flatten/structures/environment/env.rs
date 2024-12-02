@@ -1790,34 +1790,29 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn step(&mut self) -> CiderResult<()> {
         self.converge()?;
 
-        let out: Result<(), BoxedCiderError> = {
-            let mut result = Ok(());
-            for cell in self.env.cells.values_mut() {
-                match cell {
-                    CellLedger::Primitive { cell_dyn } => {
-                        let res = cell_dyn.exec_cycle(&mut self.env.ports);
-                        if res.is_err() {
-                            result = Err(res.unwrap_err());
-                            break;
-                        }
-                    }
+        let out: Result<(), BoxedRuntimeError> = self
+            .env
+            .cells
+            .values_mut()
+            .filter_map(|cell| match cell {
+                CellLedger::Primitive { cell_dyn } => {
+                    Some(cell_dyn.exec_cycle(&mut self.env.ports).map(|x| ()))
+                }
 
-                    CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                        let res = cell_dyn.exec_cycle_checked(
+                CellLedger::RaceDetectionPrimitive { cell_dyn } => Some(
+                    cell_dyn
+                        .exec_cycle_checked(
                             &mut self.env.ports,
                             &mut self.env.clocks,
                             &self.env.thread_map,
-                        );
-                        if res.is_err() {
-                            result = Err(res.unwrap_err());
-                            break;
-                        }
-                    }
-                    CellLedger::Component(_) => {}
-                }
-            }
-            result.map_err(|e| e.prettify_message(&self.env).into())
-        };
+                        )
+                        .map(|x| ()),
+                ),
+                CellLedger::Component(_) => None,
+            })
+            .collect();
+
+        out.map_err(|e| e.prettify_message(&self.env).into())?;
 
         self.env.pc.clear_finished_comps();
 
