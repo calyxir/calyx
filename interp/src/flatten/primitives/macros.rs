@@ -25,7 +25,7 @@ macro_rules! ports {
 ///
 /// ## NOTE: These must be given in ascending order. And the base port of the struct must be named `base_port`
 ///
-/// ```
+/// ```ignore
 /// // Example
 /// // declare COND, TRU, FAL as input ports
 /// // declare OUT as output port
