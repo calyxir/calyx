@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use std::{
     cmp,
     fmt::Write,
-    sync::{RwLock, RwLockWriteGuard},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -122,12 +122,10 @@ impl GlobalPositionTable {
     }
 
     /// Return an immutable reference to the global position table
-    pub fn as_ref() -> &'static PositionTable {
-        &*Box::leak(Box::new(
-            GPOS_TABLE
-                .read()
-                .expect("failed to get read lock for global position table"),
-        ))
+    pub fn as_ref() -> RwLockReadGuard<'static, PositionTable> {
+        GPOS_TABLE
+            .read()
+            .expect("failed to get read lock for global position table")
     }
 }
 
@@ -159,7 +157,7 @@ impl GPosIdx {
     /// 1. lines associated with this span
     /// 2. start position of the first line in span
     /// 3. line number of the span
-    fn get_lines(&self) -> (Vec<&str>, usize, usize) {
+    fn get_lines(&self) -> (Vec<String>, usize, usize) {
         let table = GlobalPositionTable::as_ref();
         let pos_d = table.get_pos(self.0);
         let file = &table.get_file_data(pos_d.file).source;
@@ -188,16 +186,20 @@ impl GPosIdx {
             pos = next_pos + 1;
             linum += 1;
         }
-        (buf, out_idx, out_line)
+        (
+            buf.into_iter().map(|str| str.to_owned()).collect(),
+            out_idx,
+            out_line,
+        )
     }
 
     /// returns:
     /// 1. the name of the file the span is in
     /// 2. the (inclusive) range of lines within the span
-    pub fn get_line_num(&self) -> (&String, (usize, usize)) {
+    pub fn get_line_num(&self) -> (String, (usize, usize)) {
         let table = GlobalPositionTable::as_ref();
         let pos_data = table.get_pos(self.0);
-        let file_name = &table.get_file_data(pos_data.file).name;
+        let file_name = table.get_file_data(pos_data.file).name.clone();
         let (buf, _, line_num) = self.get_lines();
         //reformat to return the range (inclusive)
         let rng = (line_num, line_num + buf.len() - 1);
@@ -212,7 +214,7 @@ impl GPosIdx {
         let (lines, pos, linum) = self.get_lines();
         let mut buf = String::new();
 
-        let l = lines[0];
+        let l = lines[0].as_str();
         let linum_text = format!("{} ", linum);
         let linum_space: String = " ".repeat(linum_text.len());
         let mark: String = "^".repeat(cmp::min(
@@ -245,17 +247,17 @@ impl GPosIdx {
         buf
     }
 
-    pub fn get_location(&self) -> (&str, usize, usize) {
+    pub fn get_location(&self) -> (String, usize, usize) {
         let table = GlobalPositionTable::as_ref();
         let pos_d = table.get_pos(self.0);
-        let name = &table.get_file_data(pos_d.file).name;
+        let name = table.get_file_data(pos_d.file).name.clone();
         (name, pos_d.start, pos_d.end)
     }
 
     /// Visualizes the span without any message or marking
     pub fn show(&self) -> String {
         let (lines, _, linum) = self.get_lines();
-        let l = lines[0];
+        let l = lines[0].as_str();
         let linum_text = format!("{} ", linum);
         format!("{}|{}\n", linum_text, l)
     }
