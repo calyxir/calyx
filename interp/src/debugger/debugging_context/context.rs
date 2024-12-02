@@ -648,10 +648,8 @@ impl DebuggingContext {
                 let watchpoint_indicies =
                     self.watchpoints.get_by_group(x).unwrap();
                 match watchpoint_indicies {
-                    WatchPointIndices::Before(x) => return x.iter(),
-                    WatchPointIndices::Both { before, .. } => {
-                        return before.iter()
-                    }
+                    WatchPointIndices::Before(x) => x.iter(),
+                    WatchPointIndices::Both { before, .. } => before.iter(),
                     // this is stupid but works
                     _ => [].iter(),
                 }
@@ -665,10 +663,8 @@ impl DebuggingContext {
                 let watchpoint_indicies =
                     self.watchpoints.get_by_group(x).unwrap();
                 match watchpoint_indicies {
-                    WatchPointIndices::After(x) => return x.iter(),
-                    WatchPointIndices::Both { after, .. } => {
-                        return after.iter()
-                    }
+                    WatchPointIndices::After(x) => x.iter(),
+                    WatchPointIndices::Both { after, .. } => after.iter(),
                     // this is stupid but works
                     _ => [].iter(),
                 }

@@ -152,15 +152,12 @@ where
     data: &'data IndexedMap<K, D>,
 }
 
-impl<'range, 'data, K, D> ExactSizeIterator
-    for IndexedMapRangeIterator<'range, 'data, K, D>
-where
-    K: IndexRef + PartialOrd,
+impl<K, D> ExactSizeIterator for IndexedMapRangeIterator<'_, '_, K, D> where
+    K: IndexRef + PartialOrd
 {
 }
 
-impl<'range, 'data, K, D> Iterator
-    for IndexedMapRangeIterator<'range, 'data, K, D>
+impl<'data, K, D> Iterator for IndexedMapRangeIterator<'_, 'data, K, D>
 where
     K: IndexRef + PartialOrd,
 {

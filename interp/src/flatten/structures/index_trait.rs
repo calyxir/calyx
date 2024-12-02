@@ -239,7 +239,7 @@ where
     current: I,
 }
 
-impl<'a, I> ExactSizeIterator for IndexRangeIterator<'a, I> where
+impl<I> ExactSizeIterator for IndexRangeIterator<'_, I> where
     I: IndexRef + PartialOrd
 {
 }
@@ -256,7 +256,7 @@ where
     }
 }
 
-impl<'a, I> Iterator for IndexRangeIterator<'a, I>
+impl<I> Iterator for IndexRangeIterator<'_, I>
 where
     I: IndexRef + PartialOrd,
 {
