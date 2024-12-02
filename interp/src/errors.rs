@@ -225,7 +225,7 @@ pub enum RuntimeError {
     OverflowError,
 
     #[error(transparent)]
-    ConflictingAssignments(ConflictingAssignments),
+    ConflictingAssignments(Box<ConflictingAssignments>),
 }
 
 // this is silly but needed to make the program print something sensible when returning
@@ -299,7 +299,8 @@ impl RuntimeError {
         }
 
         match self {
-            RuntimeError::ConflictingAssignments(ConflictingAssignments { target, a1, a2 }) => {
+            RuntimeError::ConflictingAssignments(boxed_err) => {
+                let ConflictingAssignments { target, a1, a2 } = *boxed_err;
                 let (a1_str, a1_source) = assign_to_string(&a1, env);
                 let (a2_str, a2_source) = assign_to_string(&a2, env);
 

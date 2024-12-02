@@ -102,7 +102,7 @@ impl PortMap {
         &mut self,
         target: GlobalPortIdx,
         val: AssignedValue,
-    ) -> Result<UpdateStatus, ConflictingAssignments> {
+    ) -> Result<UpdateStatus, Box<ConflictingAssignments>> {
         match self[target].as_option() {
             // unchanged
             Some(t) if t.eq_no_transitive_clocks(&val) => {
@@ -120,7 +120,8 @@ impl PortMap {
                     target,
                     a1: t.clone(),
                     a2: val,
-                })
+                }
+                .into())
             }
             // changed
             Some(_) | None => {
