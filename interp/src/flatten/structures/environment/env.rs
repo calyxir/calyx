@@ -53,8 +53,8 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use slog::{info, warn, Logger};
-use std::fmt::Debug;
 use std::fmt::Write;
+use std::{convert::Into, fmt::Debug};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -1796,7 +1796,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .values_mut()
             .filter_map(|cell| match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle(&mut self.env.ports).map(|x| ()))
+                    Some(cell_dyn.exec_cycle(&mut self.env.ports).map(|_| ()))
                 }
 
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => Some(
@@ -1806,13 +1806,15 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                             &mut self.env.clocks,
                             &self.env.thread_map,
                         )
-                        .map(|x| ()),
+                        .map(|_| ()),
                 ),
                 CellLedger::Component(_) => None,
             })
             .collect();
 
-        out.map_err(|e| e.prettify_message(&self.env).into())?;
+        out.map_err(|e| {
+            Into::<BoxedCiderError>::into(e.prettify_message(&self.env))
+        })?;
 
         self.env.pc.clear_finished_comps();
 
@@ -1857,7 +1859,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
 
-        out
+        Ok(())
     }
 
     fn evaluate_control_node(
@@ -2783,9 +2785,8 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         let changed: bool = self
             .env
             .cells
-            .range()
-            .iter()
-            .filter_map(|x| match &mut self.env.cells[x] {
+            .values_mut()
+            .filter_map(|x| match x {
                 CellLedger::Primitive { cell_dyn } => {
                     let result = cell_dyn.exec_comb(&mut self.env.ports);
 
