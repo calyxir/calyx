@@ -117,14 +117,14 @@ impl GlobalPositionTable {
     /// You may not call this function after any call to [`Self::as_ref`].
     pub fn as_mut() -> RwLockWriteGuard<'static, PositionTable> {
         GPOS_TABLE
-            .write()
+            .try_write()
             .expect("failed to get write lock for global position table")
     }
 
     /// Return an immutable reference to the global position table
     pub fn as_ref() -> RwLockReadGuard<'static, PositionTable> {
         GPOS_TABLE
-            .read()
+            .try_read()
             .expect("failed to get read lock for global position table")
     }
 }
