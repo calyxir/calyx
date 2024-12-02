@@ -36,10 +36,6 @@ impl Primitive for StdConst {
         })
     }
 
-    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> UpdateResult {
-        Ok(UpdateStatus::Unchanged)
-    }
-
     fn has_comb_path(&self) -> bool {
         true
     }

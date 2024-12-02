@@ -1,11 +1,14 @@
-use crate::flatten::{
-    flat_ir::prelude::*,
-    primitives::{
-        declare_ports, ports,
-        prim_trait::*,
-        utils::{floored_division, int_sqrt, ShiftBuffer},
+use crate::{
+    errors::RuntimeResult,
+    flatten::{
+        flat_ir::prelude::*,
+        primitives::{
+            declare_ports, ports,
+            prim_trait::*,
+            utils::{floored_division, int_sqrt, ShiftBuffer},
+        },
+        structures::{environment::PortMap, index_trait::SplitIndexRange},
     },
-    structures::{environment::PortMap, index_trait::SplitIndexRange},
 };
 use baa::{BitVecOps, BitVecValue, WidthInt};
 use num_traits::Euclid;
@@ -50,7 +53,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         Ok(out_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -90,7 +93,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val_general(
+        port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -99,10 +102,9 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             }),
         )?;
 
-        Ok(
-            port_map.write_exact_unchecked(out, self.current_output.clone())
-                | done_signal,
-        )
+        port_map.write_exact_unchecked(out, self.current_output.clone());
+
+        Ok(())
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -152,7 +154,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Ok(quot_changed | rem_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -220,13 +222,11 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.set_done(done, self.done_is_high)?;
-        let quot_changed = port_map
-            .write_exact_unchecked(out_quot, self.output_quotient.clone());
-        let rem_changed = port_map
-            .write_exact_unchecked(out_rem, self.output_remainder.clone());
+        port_map.set_done(done, self.done_is_high)?;
+        port_map.write_exact_unchecked(out_quot, self.output_quotient.clone());
+        port_map.write_exact_unchecked(out_rem, self.output_remainder.clone());
 
-        Ok(quot_changed | rem_changed | done_signal)
+        Ok(())
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -271,7 +271,7 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
         Ok(out_changed | done_changed)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             reset: Self::RESET,
             go: Self::GO,
@@ -309,11 +309,10 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.set_done(done, self.done_is_high)?;
-        let out_changed =
-            port_map.write_exact_unchecked(out, self.output.clone());
+        port_map.set_done(done, self.done_is_high)?;
+        port_map.write_exact_unchecked(out, self.output.clone());
 
-        Ok(out_changed | done_signal)
+        Ok(())
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -369,7 +368,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         Ok(out_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -418,7 +417,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val_general(
+        port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -426,11 +425,9 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
                 BitVecValue::fals()
             }),
         )?;
+        port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        Ok(
-            port_map.write_exact_unchecked(out, self.current_output.clone())
-                | done_signal,
-        )
+        Ok(())
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
@@ -492,7 +489,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Ok(quot_changed | rem_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -562,13 +559,11 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.set_done(done, self.done_is_high)?;
-        let quot_changed = port_map
-            .write_exact_unchecked(out_quot, self.output_quotient.clone());
-        let rem_changed = port_map
-            .write_exact_unchecked(out_rem, self.output_remainder.clone());
+        port_map.set_done(done, self.done_is_high)?;
+        port_map.write_exact_unchecked(out_quot, self.output_quotient.clone());
+        port_map.write_exact_unchecked(out_rem, self.output_remainder.clone());
 
-        Ok(quot_changed | rem_changed | done_signal)
+        Ok(())
     }
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {

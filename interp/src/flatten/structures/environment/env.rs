@@ -1796,18 +1796,16 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .values_mut()
             .filter_map(|cell| match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle(&mut self.env.ports).map(|_| ()))
+                    Some(cell_dyn.exec_cycle(&mut self.env.ports))
                 }
 
-                CellLedger::RaceDetectionPrimitive { cell_dyn } => Some(
-                    cell_dyn
-                        .exec_cycle_checked(
-                            &mut self.env.ports,
-                            &mut self.env.clocks,
-                            &self.env.thread_map,
-                        )
-                        .map(|_| ()),
-                ),
+                CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                    Some(cell_dyn.exec_cycle_checked(
+                        &mut self.env.ports,
+                        &mut self.env.clocks,
+                        &self.env.thread_map,
+                    ))
+                }
                 CellLedger::Component(_) => None,
             })
             .collect();
