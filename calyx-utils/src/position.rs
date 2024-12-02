@@ -1,7 +1,12 @@
 //! Definitions for tracking source position information of Calyx programs
 
 use itertools::Itertools;
-use std::{cmp, fmt::Write, mem, sync};
+use lazy_static::lazy_static;
+use std::{
+    cmp,
+    fmt::Write,
+    sync::{RwLock, RwLockWriteGuard},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 /// Handle to a position in a [PositionTable]
@@ -99,28 +104,30 @@ impl PositionTable {
 /// The global position table
 pub struct GlobalPositionTable;
 
-impl GlobalPositionTable {
-    /// Return reference to a global [PositionTable]
-    pub fn as_mut() -> &'static mut PositionTable {
-        static mut SINGLETON: mem::MaybeUninit<PositionTable> =
-            mem::MaybeUninit::uninit();
-        static ONCE: sync::Once = sync::Once::new();
+lazy_static! {
+    static ref GPOS_TABLE: RwLock<PositionTable> =
+        RwLock::new(PositionTable::default());
+}
 
-        // SAFETY:
-        // - writing to the singleton is OK because we only do it one time
-        // - the ONCE guarantees that SINGLETON is init'ed before assume_init_ref
-        unsafe {
-            ONCE.call_once(|| {
-                SINGLETON.write(PositionTable::new());
-                assert!(PositionTable::UNKNOWN == GPosIdx::UNKNOWN.0)
-            });
-            SINGLETON.assume_init_mut()
-        }
+impl GlobalPositionTable {
+    /// Return reference to a global [PositionTable].
+    ///
+    /// # Safety
+    ///
+    /// You may not call this function after any call to [`Self::as_ref`].
+    pub fn as_mut() -> RwLockWriteGuard<'static, PositionTable> {
+        GPOS_TABLE
+            .write()
+            .expect("failed to get write lock for global position table")
     }
 
     /// Return an immutable reference to the global position table
     pub fn as_ref() -> &'static PositionTable {
-        Self::as_mut()
+        &*Box::leak(Box::new(
+            GPOS_TABLE
+                .read()
+                .expect("failed to get read lock for global position table"),
+        ))
     }
 }
 
