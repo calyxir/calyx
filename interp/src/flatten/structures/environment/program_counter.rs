@@ -73,6 +73,67 @@ impl ControlPoint {
             | ControlNode::Invoke(_) => false,
         }
     }
+
+    /// Returns a string showing the path from the root node to input node. This
+    /// path is displayed in the minimal metadata path syntax.
+    pub fn string_path(&self, ctx: &Context) -> String {
+        let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
+        let mut path_vec = path.path;
+
+        // Remove first element since we know it is a root
+        path_vec.remove(0);
+        let mut string_path = String::new();
+        string_path.push('.');
+        let control_map = &ctx.primary.control;
+        let mut count = -1;
+        let mut body = false;
+        let mut if_branches: HashMap<ControlIdx, String> = HashMap::new();
+        for search_node in path_vec {
+            // The control_idx should exist in the map, so we shouldn't worry about it
+            // exploding. First SearchNode is root, hence "."
+            let control_idx = search_node.node;
+            let control_node = control_map.get(control_idx).unwrap();
+            match control_node {
+                // These are terminal nodes
+                // ControlNode::Empty(_) => "empty",
+                // ControlNode::Invoke(_) => "invoke",
+                // ControlNode::Enable(_) => "enable",
+
+                // These have unbounded children
+                // ControlNode::Seq(_) => "seq",
+                // ControlNode::Par(_) => "par",
+
+                // Special cases
+                ControlNode::If(if_node) => {
+                    if_branches.insert(if_node.tbranch(), String::from("t"));
+                    if_branches.insert(if_node.tbranch(), String::from("f"));
+                }
+                ControlNode::While(_) => {
+                    body = true;
+                }
+                ControlNode::Repeat(_) => {
+                    body = true;
+                }
+                _ => {}
+            };
+
+            let control_type = if body {
+                body = false;
+                count = -1;
+                String::from("b")
+            } else if if_branches.contains_key(&control_idx) {
+                let (_, branch) =
+                    if_branches.get_key_value(&control_idx).unwrap();
+                branch.clone()
+            } else {
+                count += 1;
+                count.to_string()
+            };
+
+            string_path = string_path + "-" + &control_type;
+        }
+        string_path
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -423,7 +484,7 @@ impl TryFrom<usize> for ParEntry {
 
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlTuple>,
     par_map: HashMap<ControlPoint, ParEntry>,

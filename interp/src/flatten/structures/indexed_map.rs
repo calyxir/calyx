@@ -4,7 +4,7 @@ use std::{
     ops::{self, Index},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexedMap<K, D>
 where
     K: IndexRef,
@@ -147,6 +147,7 @@ where
         Self::new()
     }
 }
+
 #[allow(dead_code)]
 pub struct IndexedMapRangeIterator<'range, 'data, K, D>
 where

@@ -142,6 +142,8 @@ pub trait Primitive {
     fn is_combinational(&self) -> bool {
         self.has_comb_path() && !self.has_stateful_path()
     }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive>;
 }
 
 pub trait RaceDetectionPrimitive: Primitive {
@@ -166,4 +168,6 @@ pub trait RaceDetectionPrimitive: Primitive {
     /// Get a reference to the underlying primitive. Unfortunately cannot add an
     /// optional default implementation due to size rules
     fn as_primitive(&self) -> &dyn Primitive;
+
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive>;
 }

@@ -38,6 +38,7 @@ pub(crate) fn int_sqrt(i: &BigUint) -> BigUint {
 }
 
 /// A shift buffer of a fixed size
+#[derive(Clone)]
 pub struct ShiftBuffer<T, const N: usize> {
     buffer: VecDeque<Option<T>>,
 }

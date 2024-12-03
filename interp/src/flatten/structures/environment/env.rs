@@ -167,6 +167,7 @@ pub(crate) type RefPortMap =
     IndexedMap<GlobalRefPortIdx, Option<GlobalPortIdx>>;
 pub(crate) type AssignmentRange = IndexRange<AssignmentIdx>;
 
+#[derive(Clone)]
 pub(crate) struct ComponentLedger {
     pub(crate) index_bases: BaseIndices,
     pub(crate) comp_id: ComponentIdx,
@@ -201,6 +202,24 @@ pub(crate) enum CellLedger {
         cell_dyn: Box<dyn RaceDetectionPrimitive>,
     },
     Component(ComponentLedger),
+}
+
+impl Clone for CellLedger {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Primitive { cell_dyn } => Self::Primitive {
+                cell_dyn: cell_dyn.clone_boxed(),
+            },
+            Self::RaceDetectionPrimitive { cell_dyn } => {
+                Self::RaceDetectionPrimitive {
+                    cell_dyn: cell_dyn.clone_boxed_rd(),
+                }
+            }
+            Self::Component(component_ledger) => {
+                Self::Component(component_ledger.clone())
+            }
+        }
+    }
 }
 
 impl From<ComponentLedger> for CellLedger {
@@ -313,7 +332,7 @@ impl PinnedPorts {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
     ports: PortMap,
@@ -349,6 +368,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn ctx(&self) -> &Context {
         self.ctx.as_ref()
     }
+
+    pub fn pc_iter(&self) -> impl Iterator<Item = &ControlPoint> {
+        self.pc.iter().map(|(_, x)| x)
+    }
+
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
@@ -859,6 +883,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
+    pub fn print_pc_string(&self) {
+        let ctx = self.ctx.as_ref();
+        for node in self.pc_iter() {
+            println!(
+                "{}: {}",
+                self.get_full_name(node.comp),
+                node.string_path(ctx)
+            );
+        }
+    }
+
     fn get_name_from_cell_and_parent(
         &self,
         parent: GlobalCellIdx,
@@ -1317,24 +1352,44 @@ impl ControlNodeEval {
     }
 }
 
+/// The core functionality of a simulator. Clonable.
+#[derive(Clone)]
+pub struct BaseSimulator<C: AsRef<Context> + Clone> {
+    env: Environment<C>,
+    conf: RuntimeConfig,
+}
+
 /// A wrapper struct for the environment that provides the functions used to
 /// simulate the actual program.
 ///
 /// This is just to keep the simulation logic under a different namespace than
 /// the environment to avoid confusion
 pub struct Simulator<C: AsRef<Context> + Clone> {
-    env: Environment<C>,
+    base: BaseSimulator<C>,
     wave: Option<WaveWriter>,
-    conf: RuntimeConfig,
 }
 
 impl<C: AsRef<Context> + Clone> Simulator<C> {
-    pub fn new(
-        env: Environment<C>,
+    pub fn build_simulator(
+        ctx: C,
+        data_file: &Option<std::path::PathBuf>,
         wave_file: &Option<std::path::PathBuf>,
-        conf: RuntimeConfig,
-    ) -> Self {
-        // open the wave form file and declare all signals
+        runtime_config: RuntimeConfig,
+    ) -> Result<Self, BoxedCiderError> {
+        let data_dump = data_file
+            .as_ref()
+            .map(|path| {
+                let mut file = std::fs::File::open(path)?;
+                DataDump::deserialize(&mut file)
+            })
+            // flip to a result of an option
+            .map_or(Ok(None), |res| res.map(Some))?;
+        let env = Environment::new(
+            ctx,
+            data_dump,
+            runtime_config.check_data_race,
+            runtime_config.get_logging_config(),
+        );
         let wave =
             wave_file.as_ref().map(|p| match WaveWriter::open(p, &env) {
                 Ok(w) => w,
@@ -1342,9 +1397,124 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     todo!("deal more gracefully with error: {err:?}")
                 }
             });
-        let mut output = Self { env, wave, conf };
-        output.set_root_go_high();
-        output
+        Ok(Self {
+            base: BaseSimulator::new(env, runtime_config),
+            wave,
+        })
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.base.is_done()
+    }
+
+    pub fn step(&mut self) -> CiderResult<()> {
+        self.base.step()
+    }
+
+    pub fn converge(&mut self) -> CiderResult<()> {
+        self.base.converge()
+    }
+
+    pub fn get_currently_running_groups(
+        &self,
+    ) -> impl Iterator<Item = GroupIdx> + '_ {
+        self.base.get_currently_running_groups()
+    }
+
+    pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
+        self.base.is_group_running(group_idx)
+    }
+
+    pub fn print_pc(&self) {
+        self.base.print_pc();
+    }
+
+    pub fn format_cell_state(
+        &self,
+        cell_idx: GlobalCellIdx,
+        print_code: PrintCode,
+        name: Option<&str>,
+    ) -> Option<String> {
+        self.base.format_cell_state(cell_idx, print_code, name)
+    }
+
+    pub fn format_cell_ports(
+        &self,
+        cell_idx: GlobalCellIdx,
+        print_code: PrintCode,
+        name: Option<&str>,
+    ) -> String {
+        self.base.format_cell_ports(cell_idx, print_code, name)
+    }
+
+    pub fn format_port_value(
+        &self,
+        port_idx: GlobalPortIdx,
+        print_code: PrintCode,
+    ) -> String {
+        self.base.format_port_value(port_idx, print_code)
+    }
+
+    pub fn traverse_name_vec(
+        &self,
+        name: &[String],
+    ) -> Result<Path, TraversalError> {
+        self.base.traverse_name_vec(name)
+    }
+
+    pub fn get_full_name<N>(&self, nameable: N) -> String
+    where
+        N: GetFullName<C>,
+    {
+        self.base.get_full_name(nameable)
+    }
+
+    pub(crate) fn env(&self) -> &Environment<C> {
+        self.base.env()
+    }
+
+    /// Evaluate the entire program
+    pub fn run_program(&mut self) -> CiderResult<()> {
+        if self.base.conf.debug_logging {
+            info!(self.base.env().logger, "Starting program execution");
+        }
+
+        match self.base.run_program_inner(self.wave.as_mut()) {
+            Ok(_) => {
+                if self.base.conf.debug_logging {
+                    info!(self.base.env().logger, "Finished program execution");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                if self.base.conf.debug_logging {
+                    slog::error!(
+                        self.base.env().logger,
+                        "Program execution failed with error: {}",
+                        e.red()
+                    );
+                }
+                Err(e)
+            }
+        }
+    }
+
+    pub fn dump_memories(
+        &self,
+        dump_registers: bool,
+        all_mems: bool,
+    ) -> DataDump {
+        self.base.dump_memories(dump_registers, all_mems)
+    }
+
+    pub fn print_pc_string(&self) {
+        self.base.print_pc_string()
+    }
+}
+
+impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
+    pub fn new(env: Environment<C>, conf: RuntimeConfig) -> Self {
+        Self { env, conf }
     }
 
     pub(crate) fn env(&self) -> &Environment<C> {
@@ -1362,33 +1532,6 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     pub fn _unpack_env(self) -> Environment<C> {
         self.env
-    }
-
-    pub fn build_simulator(
-        ctx: C,
-        data_file: &Option<std::path::PathBuf>,
-        wave_file: &Option<std::path::PathBuf>,
-        runtime_config: RuntimeConfig,
-    ) -> Result<Self, BoxedCiderError> {
-        let data_dump = data_file
-            .as_ref()
-            .map(|path| {
-                let mut file = std::fs::File::open(path)?;
-                DataDump::deserialize(&mut file)
-            })
-            // flip to a result of an option
-            .map_or(Ok(None), |res| res.map(Some))?;
-
-        Ok(Simulator::new(
-            Environment::new(
-                ctx,
-                data_dump,
-                runtime_config.check_data_race,
-                runtime_config.get_logging_config(),
-            ),
-            wave_file,
-            runtime_config,
-        ))
     }
 
     pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
@@ -1425,6 +1568,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         self.env.print_pc()
     }
 
+    pub fn print_pc_string(&self) {
+        self.env.print_pc_string()
+    }
+
     /// Pins the port with the given name to the given value. This may only be
     /// used for input ports on the entrypoint component (excluding the go port)
     /// and will panic if used otherwise. Intended for external use.
@@ -1450,7 +1597,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 }
 
 // =========================== simulation functions ===========================
-impl<C: AsRef<Context> + Clone> Simulator<C> {
+impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     #[inline]
     fn lookup_global_port_id(&self, port: GlobalPortRef) -> GlobalPortIdx {
         match port {
@@ -2259,43 +2406,20 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             .unwrap_or_default()
     }
 
-    /// Evaluate the entire program
-    pub fn run_program(&mut self) -> CiderResult<()> {
-        if self.conf.debug_logging {
-            info!(self.env.logger, "Starting program execution");
-        }
-
-        match self.run_program_inner() {
-            Ok(_) => {
-                if self.conf.debug_logging {
-                    info!(self.env.logger, "Finished program execution");
-                }
-                Ok(())
-            }
-            Err(e) => {
-                if self.conf.debug_logging {
-                    slog::error!(
-                        self.env.logger,
-                        "Program execution failed with error: {}",
-                        e.red()
-                    );
-                }
-                Err(e)
-            }
-        }
-    }
-
-    fn run_program_inner(&mut self) -> Result<(), BoxedCiderError> {
+    pub fn run_program_inner(
+        &mut self,
+        mut wave: Option<&mut WaveWriter>,
+    ) -> Result<(), BoxedCiderError> {
         let mut time = 0;
         while !self.is_done() {
-            if let Some(wave) = self.wave.as_mut() {
+            if let Some(wave) = wave.as_mut() {
                 wave.write_values(time, &self.env.ports)?;
             }
             // self.print_pc();
             self.step()?;
             time += 1;
         }
-        if let Some(wave) = self.wave.as_mut() {
+        if let Some(wave) = wave {
             wave.write_values(time, &self.env.ports)?;
         }
         Ok(())

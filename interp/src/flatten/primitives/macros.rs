@@ -164,6 +164,12 @@ macro_rules! comb_primitive {
                 self.get_signature()
             }
 
+            fn clone_boxed(&self) -> Box<dyn $crate::flatten::primitives::Primitive> {
+                Box::new(Self {
+                    base_port: self.base_port,
+                    $($($param: self.$param,)+)?
+                })
+            }
         }
     };
 

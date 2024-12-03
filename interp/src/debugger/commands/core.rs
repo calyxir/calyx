@@ -298,6 +298,44 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
     }
 }
 
+/// ParseNodes enum is used to represent what child to traverse with respect to
+/// the current ControlIdx.
+/// Body defines that we should go into the body of a while or repeat.
+/// Offset defines which child to go to.
+/// If defines whether we should go to the true or false branch next
+#[derive(Debug, PartialEq, Clone)]
+pub enum ParseNodes {
+    Body,
+    Offset(u32),
+    If(bool),
+}
+pub struct ParsePath {
+    nodes: Vec<ParseNodes>,
+}
+
+impl ParsePath {
+    pub fn new(nodes: Vec<ParseNodes>) -> ParsePath {
+        ParsePath { nodes }
+    }
+
+    pub fn get_path(&self) -> Vec<ParseNodes> {
+        self.nodes.clone()
+    }
+}
+
+impl FromIterator<ParseNodes> for ParsePath {
+    fn from_iter<I: IntoIterator<Item = ParseNodes>>(iter: I) -> Self {
+        ParsePath::new(iter.into_iter().collect())
+    }
+}
+
+// Different types of printing commands
+pub enum PrintCommand {
+    Normal,
+    PrintCalyx,
+    PrintNodes,
+}
+
 /// A command that can be sent to the debugger.
 pub enum Command {
     /// Advance the execution by a given number of steps (cycles).
@@ -344,7 +382,7 @@ pub enum Command {
         PrintMode,
     ),
     /// Print the current program counter
-    PrintPC(bool),
+    PrintPC(PrintCommand),
     /// Show command examples
     Explain,
     /// Restart the debugger from the beginning of the execution. Command history, breakpoints, watchpoints, etc. are preserved.

@@ -14,6 +14,7 @@ use baa::{BitVecOps, BitVecValue};
 
 use super::prim_trait::UpdateResult;
 
+#[derive(Clone)]
 pub struct StdConst {
     value: BitVecValue,
     out: GlobalPortIdx,
@@ -47,8 +48,13 @@ impl Primitive for StdConst {
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
         SplitIndexRange::new(self.out, self.out, (self.out.index() + 1).into())
     }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
 }
 
+#[derive(Clone)]
 pub struct StdMux {
     base_port: GlobalPortIdx,
 }
@@ -86,6 +92,10 @@ impl Primitive for StdMux {
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
         self.get_signature()
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
     }
 }
 
@@ -282,6 +292,7 @@ comb_primitive!(StdUnsynSmod[WIDTH](left [0], right [1]) -> (out [2]) {
     Ok(Some(BitVecValue::from_big_int(&res, WIDTH)))
 });
 
+#[derive(Clone)]
 pub struct StdUndef(GlobalPortIdx);
 
 impl StdUndef {
@@ -298,5 +309,9 @@ impl Primitive for StdUndef {
 
     fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
         SplitIndexRange::new(self.0, self.0, (self.0.index() + 1).into())
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
     }
 }

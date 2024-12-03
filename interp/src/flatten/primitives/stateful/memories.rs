@@ -27,6 +27,7 @@ use crate::{
 
 use baa::{BitVecOps, BitVecValue, WidthInt};
 
+#[derive(Clone)]
 pub struct StdReg {
     base_port: GlobalPortIdx,
     internal_state: ValueWithClock,
@@ -57,6 +58,10 @@ impl StdReg {
 }
 
 impl Primitive for StdReg {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             input: Self::IN,
@@ -145,6 +150,10 @@ impl Primitive for StdReg {
 }
 
 impl RaceDetectionPrimitive for StdReg {
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive> {
+        Box::new(self.clone())
+    }
+
     fn as_primitive(&self) -> &dyn Primitive {
         self
     }
@@ -182,6 +191,7 @@ impl RaceDetectionPrimitive for StdReg {
     }
 }
 
+#[derive(Clone)]
 pub struct MemDx<const SEQ: bool> {
     shape: Shape,
 }
@@ -395,6 +405,7 @@ impl<const SEQ: bool> MemDx<SEQ> {
     }
 }
 
+#[derive(Clone)]
 pub struct CombMem {
     base_port: GlobalPortIdx,
     internal_state: Vec<ValueWithClock>,
@@ -521,6 +532,10 @@ impl CombMem {
 }
 
 impl Primitive for CombMem {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         let addr: Option<usize> = self
             .addresser
@@ -630,6 +645,10 @@ impl Primitive for CombMem {
 }
 
 impl RaceDetectionPrimitive for CombMem {
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive> {
+        Box::new(self.clone())
+    }
+
     fn as_primitive(&self) -> &dyn Primitive {
         self
     }
@@ -700,6 +719,7 @@ impl RaceDetectionPrimitive for CombMem {
     }
 }
 
+#[derive(Clone)]
 pub struct SeqMem {
     base_port: GlobalPortIdx,
     internal_state: Vec<ValueWithClock>,
@@ -845,6 +865,10 @@ impl SeqMem {
 }
 
 impl Primitive for SeqMem {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         let done_signal = port_map.insert_val_general(
             self.done(),
@@ -955,6 +979,10 @@ impl Primitive for SeqMem {
 }
 
 impl RaceDetectionPrimitive for SeqMem {
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive> {
+        Box::new(self.clone())
+    }
+
     fn as_primitive(&self) -> &dyn Primitive {
         self
     }
