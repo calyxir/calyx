@@ -9,7 +9,7 @@ use crate::{
     debugger::{
         commands::PrintCommand, source::SourceMap, unwrap_error_message,
     },
-    errors::{CiderError, CiderResult},
+    errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
         flat_ir::{
             base::{GlobalCellIdx, PortValue},
@@ -86,7 +86,6 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
     program_context: C,
     debugging_context: DebuggingContext,
     _source_map: Option<SourceMap>,
-    is_running: bool,
 }
 
 /// A type alias for the debugger using an Rc of the context. Use this in cases
@@ -134,7 +133,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             program_context,
             debugging_context: DebuggingContext::new(),
             _source_map: None,
-            is_running: false,
         })
     }
 
@@ -201,8 +199,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
 
-    pub fn cont(&mut self) -> Result<StoppedReason, &'static str> {
-        let _ = self.do_continue(); //need to error handle
+    pub fn cont(&mut self) -> Result<StoppedReason, BoxedCiderError> {
+        self.do_continue()?; //need to error handle
         let bps = self
             .debugging_context
             .hit_breakpoints()
@@ -213,7 +211,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         } else if !bps.is_empty() {
             Ok(StoppedReason::Breakpoint(bps))
         } else {
-            Ok(StoppedReason::PauseReq)
+            unreachable!()
         }
     }
 

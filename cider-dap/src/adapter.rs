@@ -1,6 +1,6 @@
 use crate::error::AdapterResult;
 use baa::BitVecOps;
-use dap::events::{Event, ExitedEventBody, OutputEventBody, StoppedEventBody};
+use dap::events::{Event, OutputEventBody, StoppedEventBody};
 use dap::types::{
     self, Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread,
     Variable,
@@ -9,10 +9,8 @@ use interp::debugger::commands::ParsedGroupName;
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::{OwnedDebugger, StoppedReason};
 use interp::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
-use slog::log;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::process::ExitCode;
 
 pub struct MyAdapter {
     #[allow(dead_code)]
@@ -279,7 +277,7 @@ impl MyAdapter {
             // honestly not sure if this is right behavior, still unsure what an output event IS lol.
             Err(e) => Event::Output(OutputEventBody {
                 category: Some(types::OutputEventCategory::Stderr),
-                output: String::from(e),
+                output: e.to_string(),
                 group: Some(types::OutputEventGroup::Start),
                 variables_reference: None,
                 source: None,
