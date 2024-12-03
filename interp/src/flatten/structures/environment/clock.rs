@@ -33,7 +33,7 @@ pub struct ClockPairInfo {
     pub entry_number: Option<u32>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ClockMap {
     clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
     reverse_map: HashMap<ClockPair, ClockPairInfo>,
