@@ -11,8 +11,6 @@ component main() -> (out: 32) {
     adder2 = std_add(32);
   }
   wires {
-
-
     group init {
      first_reg.in = 32'd10;
      first_reg.write_en = 1'd1;
@@ -37,16 +35,6 @@ component main() -> (out: 32) {
       incr_second_reg[done] = second_reg.done;
     }
 
-    group trigger_mult {
-      mult.go = 1'd1;
-      trigger_mult[done] = mult.done;
-
-      // these two assignments trick the papercut pass. I could just not run it
-      // but this is funnier
-      mult.left = 1'd0 ? first_reg.out;
-      mult.right = 1'd0 ? second_reg.out;
-    }
-
     mult.left = first_reg.out;
     mult.right = second_reg.out;
   }
@@ -56,7 +44,6 @@ component main() -> (out: 32) {
       par {
         incr_first_reg;
         incr_second_reg;
-        trigger_mult;
       }
     }
   }
