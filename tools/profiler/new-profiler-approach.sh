@@ -55,7 +55,7 @@ echo "[${SCRIPT_NAME}] Obtaining cell information from component-cells backend"
 (
     cd ${CALYX_DIR}
     set -o xtrace
-    cargo run --manifest-path tools/component_cells/Cargo.toml ${INPUT_FILE} -o ${CELLS_JSON}
+    time cargo run --manifest-path tools/component_cells/Cargo.toml ${INPUT_FILE} -o ${CELLS_JSON}
 ) &> ${LOGS_DIR}/gol-cells
 
 if [ ! -f ${CELLS_JSON} ]; then
@@ -67,7 +67,7 @@ fi
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
     set -o xtrace
-    fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args="${CALYX_ARGS}" -s sim.data=${SIM_DATA_JSON}
+    time fud2 ${INPUT_FILE} -o ${VCD_FILE} --through verilator -s calyx.args="${CALYX_ARGS}" -s sim.data=${SIM_DATA_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
 
