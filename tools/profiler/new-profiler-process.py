@@ -14,6 +14,67 @@ def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
     return name.split('[')[0]
 
+def create_cycle_trace(info_this_cycle, cells_to_components, main_component, include_primitives):
+    stacks_this_cycle = []
+    parents = set() # keeping track of entities that are parents of other entities
+    i_mapping = {} # each unique group inv mapping to its stack. the "group" should be the last item on each stack
+    i_mapping[main_component] = [main_component.split(".")[-1]]
+    cell_worklist = [main_component]
+    while len(cell_worklist) > 0:
+        current_cell = cell_worklist.pop()
+        covered_units_in_component = set() # collect all of the units we've covered.
+        # catch all active units that are groups in this component.
+        units_to_cover = info_this_cycle["group-active"][current_cell] if current_cell in info_this_cycle["group-active"] else set()
+        structural_enables = info_this_cycle["structural-enable"][current_cell] if current_cell in info_this_cycle["structural-enable"] else set()
+        primitive_enables = info_this_cycle["primitive-enable"][current_cell] if current_cell in info_this_cycle["primitive-enable"] else set()
+        cell_invokes = info_this_cycle["cell-invoke"][current_cell] if current_cell in info_this_cycle["cell-invoke"] else set()
+        # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
+        for active_unit in units_to_cover:
+            shortname = active_unit.split(".")[-1]
+            if active_unit not in structural_enables:
+                i_mapping[active_unit] = i_mapping[current_cell] + [shortname]
+                parents.add(current_cell)
+                covered_units_in_component.add(active_unit)
+        # get all of the other active units
+        while len(covered_units_in_component) < len(units_to_cover):
+            # loop through all other elements to figure out parent child info
+            for active_unit in units_to_cover:
+                shortname = active_unit.split(".")[-1]
+                if active_unit in i_mapping:
+                    continue
+                for parent_group in structural_enables[active_unit]:
+                    parent = f"{current_cell}.{parent_group}"
+                    if parent in i_mapping:
+                        i_mapping[active_unit] = i_mapping[parent] + [shortname]
+                        covered_units_in_component.add(active_unit)
+                        parents.add(parent)
+        # get primitives if requested.
+        if include_primitives:
+            for primitive_parent_group in primitive_enables:
+                for primitive_name in primitive_enables[primitive_parent_group]:
+                    primitive_parent = f"{current_cell}.{primitive_parent_group}"
+                    primitive_shortname = primitive_name.split(".")[-1]
+                    i_mapping[primitive_name] = i_mapping[primitive_parent] + [f"{primitive_shortname} (primitive)"]
+                    parents.add(primitive_parent)
+        # by this point, we should have covered all groups in the same component...
+        # now we need to construct stacks for any cells that are called from a group in the current component.
+        for cell_invoker_group in cell_invokes:
+            for invoked_cell in cell_invokes[cell_invoker_group]:
+                if invoked_cell in info_this_cycle["cell-active"]:
+                    cell_shortname = invoked_cell.split(".")[-1]
+                    cell_worklist.append(invoked_cell)
+                    cell_component = cells_to_components[invoked_cell]
+                    parent = f"{current_cell}.{cell_invoker_group}"
+                    i_mapping[invoked_cell] = i_mapping[parent] + [f"{cell_shortname} [{cell_component}]"]
+                    parents.add(parent)
+    # Only retain paths that lead to leaf nodes.
+    for elem in i_mapping:
+        if elem not in parents:
+            stacks_this_cycle.append(i_mapping[elem])
+
+    return stacks_this_cycle
+
+
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components):
         super().__init__()
@@ -61,12 +122,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_names = self.signal_id_to_names[identifier_code]
         int_value = int(value, 2)
 
-        if time not in self.timestamps_to_events:
-            self.timestamps_to_events[time] = []
-
         for signal_name in signal_names:
+            if signal_name == f"{self.main_component}.clk" and int_value == 0: # ignore falling edges
+                continue
             event = {"signal": signal_name, "value": int_value}
-            self.timestamps_to_events[time].append(event)
+            if time not in self.timestamps_to_events:
+                self.timestamps_to_events[time] = [event]
+            else:
+                self.timestamps_to_events[time].append(event)
     
     # Postprocess data mapping timestamps to events (signal changes)
     # We have to postprocess instead of processing signals in a stream because
@@ -85,7 +148,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         probe_labels_to_sets = {"group_probe_out": group_active, "se_probe_out": structural_enable_active, "cell_probe_out": cell_enable_active, "primitive_probe_out" : primitive_enable}
 
-        self.timeline_map = {} # cycle --> {"cell-active": set(), "group-active": set(), "structural-enable": set(), "cell-enable": set(), "primitive-enable": set()}
+        self.trace = {} # cycle --> set of stacks
         
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
@@ -126,36 +189,36 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         elif value == 0:
                             probe_labels_to_sets[probe_label].remove(probe_info)
                 
-                # add all probe information
-                info_this_cycle["cell-active"] = cell_active.copy()
-                for (group, cell_name) in group_active:
-                    if cell_name in info_this_cycle["group-active"]:
-                        info_this_cycle["group-active"][cell_name].add(group)
-                    else:
-                        info_this_cycle["group-active"][cell_name] = {group}
-                for (child_group, parent_group, cell_name) in structural_enable_active:
-                    if cell_name not in info_this_cycle["structural-enable"]:
-                        info_this_cycle["structural-enable"][cell_name] = {child_group: {parent_group}}
-                    elif child_group not in info_this_cycle["structural-enable"][cell_name]:
-                        info_this_cycle["structural-enable"][cell_name][child_group] = {parent_group}
-                    else:
-                        info_this_cycle["structural-enable"][cell_name][child_group].add(parent_group)
-                for (cell_name, parent_group, parent_cell_name) in cell_enable_active:
-                    if parent_cell_name not in info_this_cycle["cell-invoke"]:
-                        info_this_cycle["cell-invoke"][parent_cell_name] = {parent_group : {cell_name}}
-                    elif parent_group not in info_this_cycle["cell-invoke"][parent_cell_name]:
-                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group] = {cell_name}
-                    else:
-                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group].add(cell_name)
-                for (primitive_name, parent_group, cell_name) in primitive_enable:
-                    if cell_name not in info_this_cycle["primitive-enable"]:
-                        info_this_cycle["primitive-enable"][cell_name] = {parent_group: {primitive_name}}
-                    elif parent_group not in info_this_cycle["primitive-enable"][cell_name]:
-                        info_this_cycle["primitive-enable"][cell_name][parent_group] = {primitive_name}
-                    else:
-                        info_this_cycle["primitive-enable"][cell_name][parent_group].add(primitive_name)
-
-                self.timeline_map[clock_cycles] = info_this_cycle
+            # add all probe information
+            info_this_cycle["cell-active"] = cell_active.copy()
+            for (group, cell_name) in group_active:
+                if cell_name in info_this_cycle["group-active"]:
+                    info_this_cycle["group-active"][cell_name].add(group)
+                else:
+                    info_this_cycle["group-active"][cell_name] = {group}
+            for (child_group, parent_group, cell_name) in structural_enable_active:
+                if cell_name not in info_this_cycle["structural-enable"]:
+                    info_this_cycle["structural-enable"][cell_name] = {child_group: {parent_group}}
+                elif child_group not in info_this_cycle["structural-enable"][cell_name]:
+                    info_this_cycle["structural-enable"][cell_name][child_group] = {parent_group}
+                else:
+                    info_this_cycle["structural-enable"][cell_name][child_group].add(parent_group)
+            for (cell_name, parent_group, parent_cell_name) in cell_enable_active:
+                if parent_cell_name not in info_this_cycle["cell-invoke"]:
+                    info_this_cycle["cell-invoke"][parent_cell_name] = {parent_group : {cell_name}}
+                elif parent_group not in info_this_cycle["cell-invoke"][parent_cell_name]:
+                    info_this_cycle["cell-invoke"][parent_cell_name][parent_group] = {cell_name}
+                else:
+                    info_this_cycle["cell-invoke"][parent_cell_name][parent_group].add(cell_name)
+            for (primitive_name, parent_group, cell_name) in primitive_enable:
+                if cell_name not in info_this_cycle["primitive-enable"]:
+                    info_this_cycle["primitive-enable"][cell_name] = {parent_group: {primitive_name}}
+                elif parent_group not in info_this_cycle["primitive-enable"][cell_name]:
+                    info_this_cycle["primitive-enable"][cell_name][parent_group] = {primitive_name}
+                else:
+                    info_this_cycle["primitive-enable"][cell_name][parent_group].add(primitive_name)
+            # compute stacks here!!!
+            self.trace[clock_cycles] = create_cycle_trace(info_this_cycle, self.cells_to_components, self.main_component, True)
 
         self.clock_cycles = clock_cycles
 
@@ -538,19 +601,25 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
     print("after postprocessing")
     print(f"End reading VCD: {datetime.now()}")
 
+    if len(converter.trace) < 100:
+        for i in converter.trace:
+            print(i)
+            for stack in converter.trace[i]:
+                print(f"\t{stack}")
+
     include_primitives = True
 
-    print(f"Start creating trace: {datetime.now()}")
+    # print(f"Start creating trace: {datetime.now()}")
     
-    trace = create_traces(converter.timeline_map, cells_to_components, main_component, include_primitives)
-    print(f"End creating trace: {datetime.now()}. Moving onto visualizations")
+    # trace = create_traces(converter.timeline_map, cells_to_components, main_component, include_primitives)
+    # print(f"End creating trace: {datetime.now()}. Moving onto visualizations")
 
-    tree_dict, path_dict = create_tree(trace)
+    tree_dict, path_dict = create_tree(converter.trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
-    create_aggregate_tree(trace, dot_out_dir, tree_dict, path_dict)
-    create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir)
-    create_flame_groups(trace, flame_out, flames_out_dir)
+    create_aggregate_tree(converter.trace, dot_out_dir, tree_dict, path_dict)
+    create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir)
+    create_flame_groups(converter.trace, flame_out, flames_out_dir)
     print(f"End time: {datetime.now()}")
 
 
