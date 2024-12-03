@@ -1461,7 +1461,6 @@ dependencies = [
  "fraction",
  "fst-writer",
  "itertools 0.11.0",
- "lazy_static",
  "num-bigint",
  "num-traits",
  "once_cell",
