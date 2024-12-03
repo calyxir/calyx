@@ -166,6 +166,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
         self.interpreter.env().iter_cells()
     }
+    /// Get cell names and port values for the component specified by cmp_idx
     pub fn get_comp_cells(
         &self,
         cmp_idx: GlobalCellIdx,
@@ -173,6 +174,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         // component idx -> global cell idx
         self.interpreter.env().iter_cmpt_cells(cmp_idx)
     }
+    /// Get all components in the environment
     pub fn get_components(
         &self,
     ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
@@ -199,8 +201,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
 
-    pub fn cont(&mut self) -> StoppedReason {
-        self.is_running = true;
+    pub fn cont(&mut self) -> Result<StoppedReason, &'static str> {
         let _ = self.do_continue(); //need to error handle
         let bps = self
             .debugging_context
@@ -208,16 +209,12 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             .map(|x| self.grp_idx_to_name(x))
             .collect_vec();
         if self.interpreter.is_done() {
-            StoppedReason::Done
+            Ok(StoppedReason::Done)
         } else if !bps.is_empty() {
-            StoppedReason::Breakpoint(bps)
+            Ok(StoppedReason::Breakpoint(bps))
         } else {
-            StoppedReason::PauseReq
+            Ok(StoppedReason::PauseReq)
         }
-    }
-
-    pub fn pause(&mut self) {
-        self.is_running = false;
     }
 
     #[inline]
@@ -236,7 +233,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         let mut breakpoints: Vec<GroupIdx> = vec![];
 
         while breakpoints.is_empty() && !self.interpreter.is_done() {
-            dbg!("stepped");
             self.interpreter.step()?;
             // TODO griffin: figure out how to skip this convergence
             self.interpreter.converge()?;
@@ -259,6 +255,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
             breakpoints.extend(self.debugging_context.hit_breakpoints());
         }
+
         if !self.interpreter.is_done() {
             for group in breakpoints {
                 println!(

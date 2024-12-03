@@ -362,7 +362,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.pc.iter().map(|(_, x)| x)
     }
 
-    // iterate component instances for DAP
+    /// Method that returns an iterator over all component instances in the debugger
+    /// Used for Cider-DAP extension
     pub fn iter_compts(
         &self,
     ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
@@ -374,6 +375,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             CellLedger::RaceDetectionPrimitive { .. } => None, //what this
         })
     }
+    /// Method that returns an iterator over all cells in component cpt
+    /// Used for Cider-DAP extension
     pub fn iter_cmpt_cells(
         &self,
         cpt: GlobalCellIdx,
@@ -420,19 +423,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     })
                     .collect_vec();
                 info
-                // figure out how to unwrap this so i can get the things i need
-                // let comp_ledger = self.cells[cell].as_comp().unwrap();
-                // let comp_info =
-                //     self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
-                // let port_ids = comp_info.signature().into_iter().map(|x| {
-                //     &self.ctx().secondary.local_port_defs
-                //         [comp_info.port_offset_map[x]]
-                //         .name
-                // });
-                // let port_names = port_ids
-                //     .map(|x| String::from(x.lookup_name(self.ctx())))
-                //     .collect_vec();
-                // port_names
             }
             Some(parent_cell) => {
                 let ports = self.get_ports_from_cell(parent_cell);

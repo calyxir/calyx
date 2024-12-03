@@ -1,6 +1,6 @@
 use crate::error::AdapterResult;
 use baa::BitVecOps;
-use dap::events::{Event, StoppedEventBody};
+use dap::events::{Event, ExitedEventBody, OutputEventBody, StoppedEventBody};
 use dap::types::{
     self, Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread,
     Variable,
@@ -9,8 +9,10 @@ use interp::debugger::commands::ParsedGroupName;
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::{OwnedDebugger, StoppedReason};
 use interp::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
+use slog::log;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 pub struct MyAdapter {
     #[allow(dead_code)]
@@ -137,7 +139,7 @@ impl MyAdapter {
         self.threads.clone()
     }
 
-    /// returns all frames in program
+    /// returns all frames (components) in program
     pub fn get_stack(&mut self) -> Vec<StackFrame> {
         if self.stack_frames.is_empty() {
             self.create_stack();
@@ -145,43 +147,38 @@ impl MyAdapter {
         self.stack_frames.clone()
     }
 
-    /// creates call stack where each frame is a component
-    fn create_stack(&mut self) -> Vec<StackFrame> {
+    /// creates call stack where each frame is a component. Adds frames to current
+    /// call stack
+    fn create_stack(&mut self) {
         let components = self.debugger.get_components();
         //turn the names into stack frames, ignore lines for right now
-        let frames = components.map(|(idx, comp)| {
-            {
-                let frame = StackFrame {
-                    id: self.stack_count.increment(),
-                    // Maybe automate the name in the future?
-                    name: String::from(comp),
-                    source: Some(Source {
-                        name: None,
-                        path: Some(self.source.clone()),
-                        source_reference: None,
-                        presentation_hint: None,
-                        origin: None,
-                        sources: None,
-                        adapter_data: None,
-                        checksums: None,
-                    }),
-                    line: 1, // need to get this to be line component starts on
-                    column: 0,
-                    end_line: None,
-                    end_column: None,
-                    can_restart: None,
-                    instruction_pointer_reference: None,
-                    module_id: None,
+        for (idx, comp) in components {
+            let frame = StackFrame {
+                id: self.stack_count.increment(),
+                // Maybe automate the name in the future?
+                name: String::from(comp),
+                source: Some(Source {
+                    name: None,
+                    path: Some(self.source.clone()),
+                    source_reference: None,
                     presentation_hint: None,
-                };
-                self.frames_to_cmpts.insert(frame.id, idx);
-                frame
-            }
-        });
-
-        self.stack_frames.extend(frames);
-        // Return all stack frames
-        self.stack_frames.clone()
+                    origin: None,
+                    sources: None,
+                    adapter_data: None,
+                    checksums: None,
+                }),
+                line: 1, // need to get this to be line component starts on
+                column: 0,
+                end_line: None,
+                end_column: None,
+                can_restart: None,
+                instruction_pointer_reference: None,
+                module_id: None,
+                presentation_hint: None,
+            };
+            self.frames_to_cmpts.insert(frame.id, idx);
+            self.stack_frames.push(frame);
+        }
     }
 
     pub fn next_line(&mut self, _thread: i64) -> bool {
@@ -219,12 +216,10 @@ impl MyAdapter {
                 let out: Vec<Variable> = p
                     .iter()
                     .map(|(nam, val)| {
-                        let valu = match val.as_option() {
-                            None => 0,
-                            Some(assigned_val) => {
-                                assigned_val.val().to_u64().unwrap()
-                            }
-                        };
+                        let valu = val
+                            .as_option()
+                            .map(|x| x.val().to_u64().unwrap())
+                            .unwrap_or_default();
                         Variable {
                             name: String::from(nam),
                             value: valu.to_string(),
@@ -246,8 +241,8 @@ impl MyAdapter {
     // todo: return only cells in current stack frame (component)
     pub fn get_scopes(&mut self, frame: i64) -> Vec<Scope> {
         let mut out_vec = vec![];
-        let component = self.frames_to_cmpts.get(&frame).unwrap();
-        let cell_names = self.debugger.get_comp_cells(*component);
+        let component = self.frames_to_cmpts[&frame];
+        let cell_names = self.debugger.get_comp_cells(component);
         let mut var_ref_count = 1;
         for (name, ports) in cell_names {
             self.object_references.insert(var_ref_count, ports);
@@ -273,7 +268,7 @@ impl MyAdapter {
     }
 
     pub fn on_pause(&mut self) {
-        self.debugger.pause();
+        //self.debugger.pause();
         self.object_references.clear();
     }
 
@@ -281,33 +276,46 @@ impl MyAdapter {
         dbg!("continue - adapter");
         let result = self.debugger.cont();
         match result {
-            StoppedReason::Done => Event::Terminated(None),
-            StoppedReason::Breakpoint(names) => {
-                let bp_lines: Vec<i64> = names
-                    .into_iter()
-                    .map(|x| self.ids.lookup(&x).unwrap().start_line as i64)
-                    .collect();
-                dbg!(&bp_lines);
-                //in map add adjusting stack frame lines
-                Event::Stopped(StoppedEventBody {
-                    reason: types::StoppedEventReason::Breakpoint,
-                    description: Some(String::from("hit breakpoint")),
+            // honestly not sure if this is right behavior, still unsure what an output event IS lol.
+            Err(e) => Event::Output(OutputEventBody {
+                category: Some(types::OutputEventCategory::Stderr),
+                output: String::from(e),
+                group: Some(types::OutputEventGroup::Start),
+                variables_reference: None,
+                source: None,
+                line: None,
+                column: None,
+                data: None,
+            }),
+            Ok(reason) => match reason {
+                StoppedReason::Done => Event::Terminated(None),
+                StoppedReason::Breakpoint(names) => {
+                    let bp_lines: Vec<i64> = names
+                        .into_iter()
+                        .map(|x| self.ids.lookup(&x).unwrap().start_line as i64)
+                        .collect();
+                    dbg!(&bp_lines);
+                    //in map add adjusting stack frame lines
+                    Event::Stopped(StoppedEventBody {
+                        reason: types::StoppedEventReason::Breakpoint,
+                        description: Some(String::from("hit breakpoint")),
+                        thread_id: Some(thread_id),
+                        preserve_focus_hint: None,
+                        all_threads_stopped: Some(true),
+                        text: None,
+                        hit_breakpoint_ids: Some(bp_lines),
+                    })
+                }
+                StoppedReason::PauseReq => Event::Stopped(StoppedEventBody {
+                    reason: types::StoppedEventReason::Pause,
+                    description: Some(String::from("Paused")),
                     thread_id: Some(thread_id),
                     preserve_focus_hint: None,
                     all_threads_stopped: Some(true),
                     text: None,
-                    hit_breakpoint_ids: Some(bp_lines),
-                })
-            }
-            StoppedReason::PauseReq => Event::Stopped(StoppedEventBody {
-                reason: types::StoppedEventReason::Pause,
-                description: Some(String::from("Paused")),
-                thread_id: Some(thread_id),
-                preserve_focus_hint: None,
-                all_threads_stopped: Some(true),
-                text: None,
-                hit_breakpoint_ids: None,
-            }),
+                    hit_breakpoint_ids: None,
+                }),
+            },
         }
     }
 }
