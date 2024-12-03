@@ -121,6 +121,10 @@ where
         self.data.iter_mut()
     }
 
+    pub fn values(&self) -> impl Iterator<Item = &D> {
+        self.data.iter()
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
         // TODO (griffin): Make this an actual struct instead
         self.data.iter().enumerate().map(|(i, _)| K::new(i))

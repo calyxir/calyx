@@ -1791,6 +1791,50 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn step(&mut self) -> CiderResult<()> {
         self.converge()?;
 
+        if self.conf.check_data_race {
+            let mut clock_map = std::mem::take(&mut self.env.clocks);
+            for cell in self.env.cells.values() {
+                if !matches!(&cell, CellLedger::Component(_)) {
+                    let dyn_prim = match cell {
+                        CellLedger::Primitive { cell_dyn } => &**cell_dyn,
+                        CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                            cell_dyn.as_primitive()
+                        }
+                        CellLedger::Component(_) => {
+                            unreachable!()
+                        }
+                    };
+
+                    if !dyn_prim.is_combinational() {
+                        let sig = dyn_prim.get_ports();
+                        for port in sig.iter_first() {
+                            if let Some(val) = self.env.ports[port].as_option()
+                            {
+                                if val.propagate_clocks()
+                                    && (val.transitive_clocks().is_some())
+                                {
+                                    // For non-combinational cells with
+                                    // transitive reads, we will check them at
+                                    // the cycle boundary and attribute the read
+                                    // to the continuous thread
+                                    self.check_read(
+                                        ThreadMap::continuous_thread(),
+                                        port,
+                                        &mut clock_map,
+                                    )
+                                    .map_err(|e| {
+                                        e.prettify_message(&self.env)
+                                    })?
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            self.env.clocks = clock_map;
+        }
+
         let out: Result<(), BoxedRuntimeError> = self
             .env
             .cells
@@ -1811,9 +1855,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             })
             .collect();
 
-        out.map_err(|e| {
-            Into::<BoxedCiderError>::into(e.prettify_message(&self.env))
-        })?;
+        out.map_err(|e| e.prettify_message(&self.env))?;
 
         self.env.pc.clear_finished_comps();
 
@@ -2141,7 +2183,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         if self.conf.check_data_race {
             let mut clock_map = std::mem::take(&mut self.env.clocks);
 
-            self.check_read(
+            self.check_read_relative(
                 thread.unwrap(),
                 w.cond_port(),
                 node.comp,
@@ -2196,12 +2238,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
             if self.conf.check_data_race {
                 let mut clock_map = std::mem::take(&mut self.env.clocks);
 
-                self.check_read(
-                    thread.unwrap(),
-                    i.cond_port(),
-                    node.comp,
-                    &mut clock_map,
-                )?;
+                self.check_read(thread.unwrap(), idx, &mut clock_map)?;
 
                 self.env.clocks = clock_map;
             }
@@ -2613,7 +2650,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         .evaluate_guard(assign.guard, *active_cell)
                         .unwrap_or_default()
                     {
-                        self.check_read(
+                        self.check_read_relative(
                             thread.unwrap(),
                             assign.src,
                             *active_cell,
@@ -2631,7 +2668,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                         .get(assign.guard)
                     {
                         for port in read_ports {
-                            self.check_read(
+                            self.check_read_relative(
                                 thread.unwrap(),
                                 *port,
                                 *active_cell,
@@ -2841,7 +2878,9 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         Ok(changed)
     }
 
-    fn check_read(
+    /// A wrapper function for [check_read] which takes in a [PortRef] and the
+    /// active component cell and calls [check_read] with the appropriate [GlobalPortIdx]
+    fn check_read_relative(
         &self,
         thread: ThreadIdx,
         port: PortRef,
@@ -2849,6 +2888,15 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         clock_map: &mut ClockMap,
     ) -> Result<(), BoxedRuntimeError> {
         let global_port = self.get_global_port_idx(&port, active_cell);
+        self.check_read(thread, global_port, clock_map)
+    }
+
+    fn check_read(
+        &self,
+        thread: ThreadIdx,
+        global_port: GlobalPortIdx,
+        clock_map: &mut ClockMap,
+    ) -> Result<(), BoxedRuntimeError> {
         let val = &self.env.ports[global_port];
         let thread_clock = self.env.thread_map.unwrap_clock_id(thread);
 
