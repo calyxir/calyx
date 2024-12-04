@@ -429,6 +429,7 @@ version = "0.7.1"
 dependencies = [
  "atty",
  "itertools 0.11.0",
+ "lazy_static",
  "petgraph",
  "serde",
  "serde_json",
