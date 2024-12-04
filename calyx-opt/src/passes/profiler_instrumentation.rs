@@ -140,7 +140,6 @@ impl Visitor for ProfilerInstrumentation {
         let mut group_name_assign_and_cell = Vec::with_capacity(acc);
         {
             // probe and assignments for group (this group is currently active)
-            // FIXME: probably best to remove the code clone by extracting this out into a different function?
             for group_name in group_names.into_iter() {
                 // store group and component name (differentiate between groups of the same name under different components)
                 let name = format!(
@@ -214,7 +213,6 @@ impl Visitor for ProfilerInstrumentation {
                     probe_cell
                         .borrow_mut()
                         .add_attribute(BoolAttr::Protected, 1);
-                    // FIXME: the assignment needs to take on the guard of the assignment and not the child group being done
                     let probe_asgn: ir::Assignment<Nothing> = builder
                         .build_assignment(
                             probe_cell.borrow().get("in"),
@@ -248,7 +246,7 @@ impl Visitor for ProfilerInstrumentation {
                     probe_cell
                         .borrow_mut()
                         .add_attribute(BoolAttr::Protected, 1);
-                    // FIXME: for correctness we'd probably want to get the go guard of the cell, but it doesn't *really* matter for the first pass
+                    // NOTE: this probe is active for the duration of the whole group. Hence, it may be active even when the cell itself is inactive.
                     let probe_asgn: ir::Assignment<Nothing> = builder
                         .build_assignment(
                             probe_cell.borrow().get("in"),
