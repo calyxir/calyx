@@ -7,6 +7,7 @@ pub mod source;
 
 pub use debugger_core::{
     Debugger, DebuggerInfo, DebuggerReturnStatus, OwnedDebugger, ProgramStatus,
+    StoppedReason,
 };
 
 pub(crate) use macros::unwrap_error_message;
