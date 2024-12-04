@@ -1,4 +1,5 @@
 use super::json_data::*;
+use fraction::{BigDecimal, BigFraction};
 use interp::serialization::*;
 use itertools::Itertools;
 use num_bigint::{BigInt, BigUint, ToBigInt};
@@ -266,6 +267,21 @@ fn parse_bytes_fixed(
     BigRational::new(int.clone(), BigInt::from(1) << frac_width)
 }
 
+fn big_rational_to_big_decimal(rat: BigRational) -> BigDecimal {
+    let is_neg = rat.is_negative();
+    let (numerator, denominator) = rat.into_raw();
+    let (_, numerator) = numerator.into_parts();
+    let (_, denominator) = denominator.into_parts();
+    let frac = if is_neg {
+        BigFraction::new_neg(numerator, denominator)
+    } else {
+        BigFraction::new(numerator, denominator)
+    };
+
+    let dec = BigDecimal::from_fraction(frac);
+    dec.set_precision(64)
+}
+
 fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
     let width = declaration.width();
 
@@ -285,9 +301,10 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
                 } => {
                     let int =
                         parse_bytes_fixed(chunk, int_width, frac_width, signed);
-                    let float = int.to_f64().unwrap();
+                    let decimal = big_rational_to_big_decimal(int);
 
-                    Number::from_f64(float).unwrap()
+
+                    Number::from_str(&decimal.to_string()).unwrap()
                 }
                 interp::serialization::FormatInfo::IEEFloat {
                     width,
