@@ -148,10 +148,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         probe_labels_to_sets = {"group_probe_out": group_active, "se_probe_out": structural_enable_active, "cell_probe_out": cell_enable_active, "primitive_probe_out" : primitive_enable}
 
-        self.trace = {} # cycle --> set of stacks
+        self.trace = {} # cycle number --> set of stacks
         
-        clock_cycle_tracker = 0
-
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
             started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
@@ -160,9 +158,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # checking whether the timestamp has a rising edge
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
-            # if clock_cycles == clock_cycle_tracker + 1000:
-            #     print(f"hit cycle {clock_cycles}")
-            #     clock_cycle_tracker += 1000
             # Recording the data organization for every kind of probe so I don't forget. () is a set.
             # groups-active: cell --> (active groups)
             # cell-active: (cells)
@@ -221,7 +216,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     info_this_cycle["primitive-enable"][cell_name][parent_group] = {primitive_name}
                 else:
                     info_this_cycle["primitive-enable"][cell_name][parent_group].add(primitive_name)
-            # compute stacks here!!!
             self.trace[clock_cycles] = create_cycle_trace(info_this_cycle, self.cells_to_components, self.main_component, True) # True to track primitives
 
         self.clock_cycles = clock_cycles
@@ -528,9 +522,9 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
     print(f"Start reading VCD: {datetime.now()}")
     converter = VCDConverter(main_component, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
-    print("before postprocessing")
+    print(f"Start Postprocessing VCD: {datetime.now()}")
     converter.postprocess()
-    print("after postprocessing")
+    print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
 
     if len(converter.trace) < 100:
