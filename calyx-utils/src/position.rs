@@ -1,7 +1,12 @@
 //! Definitions for tracking source position information of Calyx programs
 
 use itertools::Itertools;
-use std::{cmp, fmt::Write, mem, sync};
+use lazy_static::lazy_static;
+use std::{
+    cmp,
+    fmt::Write,
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 /// Handle to a position in a [PositionTable]
@@ -99,28 +104,28 @@ impl PositionTable {
 /// The global position table
 pub struct GlobalPositionTable;
 
-impl GlobalPositionTable {
-    /// Return reference to a global [PositionTable]
-    pub fn as_mut() -> &'static mut PositionTable {
-        static mut SINGLETON: mem::MaybeUninit<PositionTable> =
-            mem::MaybeUninit::uninit();
-        static ONCE: sync::Once = sync::Once::new();
+lazy_static! {
+    static ref GPOS_TABLE: RwLock<PositionTable> =
+        RwLock::new(PositionTable::default());
+}
 
-        // SAFETY:
-        // - writing to the singleton is OK because we only do it one time
-        // - the ONCE guarantees that SINGLETON is init'ed before assume_init_ref
-        unsafe {
-            ONCE.call_once(|| {
-                SINGLETON.write(PositionTable::new());
-                assert!(PositionTable::UNKNOWN == GPosIdx::UNKNOWN.0)
-            });
-            SINGLETON.assume_init_mut()
-        }
+impl GlobalPositionTable {
+    /// Return reference to a global [PositionTable].
+    ///
+    /// # Safety
+    ///
+    /// You may not call this function after any call to [`Self::as_ref`].
+    pub fn as_mut() -> RwLockWriteGuard<'static, PositionTable> {
+        GPOS_TABLE
+            .try_write()
+            .expect("failed to get write lock for global position table")
     }
 
     /// Return an immutable reference to the global position table
-    pub fn as_ref() -> &'static PositionTable {
-        Self::as_mut()
+    pub fn as_ref() -> RwLockReadGuard<'static, PositionTable> {
+        GPOS_TABLE
+            .try_read()
+            .expect("failed to get read lock for global position table")
     }
 }
 
@@ -152,7 +157,7 @@ impl GPosIdx {
     /// 1. lines associated with this span
     /// 2. start position of the first line in span
     /// 3. line number of the span
-    fn get_lines(&self) -> (Vec<&str>, usize, usize) {
+    fn get_lines(&self) -> (Vec<String>, usize, usize) {
         let table = GlobalPositionTable::as_ref();
         let pos_d = table.get_pos(self.0);
         let file = &table.get_file_data(pos_d.file).source;
@@ -181,16 +186,20 @@ impl GPosIdx {
             pos = next_pos + 1;
             linum += 1;
         }
-        (buf, out_idx, out_line)
+        (
+            buf.into_iter().map(|str| str.to_owned()).collect(),
+            out_idx,
+            out_line,
+        )
     }
 
     /// returns:
     /// 1. the name of the file the span is in
     /// 2. the (inclusive) range of lines within the span
-    pub fn get_line_num(&self) -> (&String, (usize, usize)) {
+    pub fn get_line_num(&self) -> (String, (usize, usize)) {
         let table = GlobalPositionTable::as_ref();
         let pos_data = table.get_pos(self.0);
-        let file_name = &table.get_file_data(pos_data.file).name;
+        let file_name = table.get_file_data(pos_data.file).name.clone();
         let (buf, _, line_num) = self.get_lines();
         //reformat to return the range (inclusive)
         let rng = (line_num, line_num + buf.len() - 1);
@@ -205,7 +214,7 @@ impl GPosIdx {
         let (lines, pos, linum) = self.get_lines();
         let mut buf = String::new();
 
-        let l = lines[0];
+        let l = lines[0].as_str();
         let linum_text = format!("{} ", linum);
         let linum_space: String = " ".repeat(linum_text.len());
         let mark: String = "^".repeat(cmp::min(
@@ -238,17 +247,17 @@ impl GPosIdx {
         buf
     }
 
-    pub fn get_location(&self) -> (&str, usize, usize) {
+    pub fn get_location(&self) -> (String, usize, usize) {
         let table = GlobalPositionTable::as_ref();
         let pos_d = table.get_pos(self.0);
-        let name = &table.get_file_data(pos_d.file).name;
+        let name = table.get_file_data(pos_d.file).name.clone();
         (name, pos_d.start, pos_d.end)
     }
 
     /// Visualizes the span without any message or marking
     pub fn show(&self) -> String {
         let (lines, _, linum) = self.get_lines();
-        let l = lines[0];
+        let l = lines[0].as_str();
         let linum_text = format!("{} ", linum);
         format!("{}|{}\n", linum_text, l)
     }

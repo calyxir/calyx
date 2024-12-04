@@ -60,10 +60,13 @@ impl CalyxParser {
         let file = GlobalPositionTable::as_mut()
             .add_file(path.to_string_lossy().to_string(), string_content);
         let user_data = UserData { file };
-        let content = GlobalPositionTable::as_ref().get_source(file);
+        let gpos_ref = GlobalPositionTable::as_ref();
+        let content = gpos_ref.get_source(file).to_owned();
+        drop(gpos_ref);
+
         // Parse the file
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, content, user_data)
+            CalyxParser::parse_with_userdata(Rule::file, &content, user_data)
                 .map_err(|e| e.with_path(&path.to_string_lossy()))
                 .map_err(|e| {
                     calyx_utils::Error::parse_error(e.variant.message())
@@ -96,10 +99,13 @@ impl CalyxParser {
         let file =
             GlobalPositionTable::as_mut().add_file("<stdin>".to_string(), buf);
         let user_data = UserData { file };
-        let contents = GlobalPositionTable::as_ref().get_source(file);
+        let gpos_ref = GlobalPositionTable::as_ref();
+        let content = gpos_ref.get_source(file).to_owned();
+        drop(gpos_ref);
+
         // Parse the input
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, contents, user_data)
+            CalyxParser::parse_with_userdata(Rule::file, &content, user_data)
                 .map_err(|e| {
                 calyx_utils::Error::parse_error(e.variant.message())
                     .with_pos(&Self::error_span(&e, file))
