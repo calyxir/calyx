@@ -70,7 +70,7 @@ fn calyx_to_flamegraph(e, input, output) {
     let elems_profiled_json = "elems-profiled.json";
     let flamegraph_folded = "flamegraph.folded";
     e.build_cmd([flamegraph_folded], "parse-vcd", [instrumented_vcd], ["$cells"]);
-    e.build_cmd([output], "produce-flame-graph", [flamegraph_folded], []);
+    e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
 op(
