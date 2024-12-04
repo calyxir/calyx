@@ -74,7 +74,7 @@ where
     handle: &'a mut VecHandle<'outer, In, Idx, Out>,
 }
 
-impl<'a, 'outer, In, Idx, Out> SingleHandle<'a, 'outer, In, Idx, Out>
+impl<'outer, In, Idx, Out> SingleHandle<'_, 'outer, In, Idx, Out>
 where
     Idx: IndexRef,
 {
