@@ -1,6 +1,7 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit plan: profiler"
+snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
@@ -24,12 +25,9 @@ passes = all
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
-parse-vcd-script = $calyx-base/tools/profiler/parse-vcd.py
+parse-vcd-script = $calyx-base/tools/profiler/profiler-process.py
 rule parse-vcd
-  command = python3 $parse-vcd-script $in $tdcc-json $cells summary.csv $out
-create-visuals-script = $calyx-base/tools/profiler/create-visuals.py
-rule create-visuals
-  command = python3 $create-visuals-script $in $cells timeline.json fsm-timeline.json $out fsm-flame.folded frequency.folded components.folded fsm-components.folded
+  command = python3 $parse-vcd-script $in $cells profiler-out $out
 
 verilator = verilator
 cycle-limit = 500000000
@@ -63,8 +61,7 @@ build instrumented.exe: cp verilator-out/Vtoplevel
 build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
   bin = instrumented.exe
   args = +NOTRACE=0 +OUT=instrumented.vcd
-build elems-profiled.json: parse-vcd instrumented.vcd
-build flamegraph.folded: create-visuals elems-profiled.json | $cells
+build flamegraph.folded: parse-vcd instrumented.vcd | $cells
 build /output.ext: produce-flame-graph flamegraph.folded
 
 default /output.ext

@@ -26,8 +26,8 @@ fn profiling_setup(e) {
     e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells profiler-out $out");
 
     e.config_var("flamegraph-script", "flamegraph.script");
-    e.var_("flamegraph-utility-script", "$calyx-base/tools/profiler/create-visuals.sh");
-    e.rule("produce-flame-graph", "bash $flamegraph-utility-script $flamegraph-script profiler-out $in $out");
+    e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
+    e.rule("create-visuals", "bash $create-visuals-script $flamegraph-script profiler-out $in $out");
 
     // Standalone Verilog testbench. copied from testbench
     e.rsrc("tb.sv");
