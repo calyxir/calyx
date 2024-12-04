@@ -75,3 +75,5 @@ frontends/queues/tests/**/*.expect
 
 # emacs
 *~
+
+!docs/dev/assets/*.png

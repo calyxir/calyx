@@ -290,8 +290,13 @@ fn translate_component(
         .collect_vec();
 
     // Will need to rethink this at some point
-    if go_ports.len() != 1 || done_ports.len() != 1 {
-        todo!("handle multiple go and done ports");
+    if go_ports.len() > 1 || done_ports.len() > 1 {
+        todo!(
+            "handle multiple go and done ports. On component: {}",
+            comp.name
+        );
+    } else if comp.is_comb {
+        todo!("handle comb components. On component: {}", comp.name);
     }
     let go_port = &go_ports[0];
     let done_port = &done_ports[0];

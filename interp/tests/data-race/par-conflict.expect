@@ -1,4 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: Concurrent read & write to the same register/memory [4mmain.cond_reg[0m
+Error: Concurrent read & write to the same register [4mmain.cond_reg[0m

@@ -225,7 +225,7 @@ pub enum RuntimeError {
     OverflowError,
 
     #[error(transparent)]
-    ConflictingAssignments(ConflictingAssignments),
+    ConflictingAssignments(Box<ConflictingAssignments>),
 }
 
 // this is silly but needed to make the program print something sensible when returning
@@ -299,7 +299,8 @@ impl RuntimeError {
         }
 
         match self {
-            RuntimeError::ConflictingAssignments(ConflictingAssignments { target, a1, a2 }) => {
+            RuntimeError::ConflictingAssignments(boxed_err) => {
+                let ConflictingAssignments { target, a1, a2 } = *boxed_err;
                 let (a1_str, a1_source) = assign_to_string(&a1, env);
                 let (a2_str, a2_source) = assign_to_string(&a2, env);
 
@@ -323,8 +324,20 @@ impl RuntimeError {
             RuntimeError::UndefinedReadAddr(c) => CiderError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
             RuntimeError::ClockError(clk) => {
                 match clk {
-                    ClockError::ReadWrite(c) => CiderError::GenericError(format!("Concurrent read & write to the same register/memory {}", env.get_full_name(c).underline())),
-                    ClockError::WriteWrite(c) => CiderError::GenericError(format!("Concurrent writes to the same register/memory {}", env.get_full_name(c).underline())),
+                    ClockError::ReadWrite(c, num) => {
+                        if let Some(entry_number) = num {
+                            CiderError::GenericError(format!("Concurrent read & write to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
+                        } else {
+                            CiderError::GenericError(format!("Concurrent read & write to the same register {}", env.get_full_name(c).underline()))
+                        }
+                },
+                    ClockError::WriteWrite(c, num) => {
+                        if let Some(entry_number) = num {
+                            CiderError::GenericError(format!("Concurrent writes to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
+                        } else {
+                            CiderError::GenericError(format!("Concurrent writes to the same register {}", env.get_full_name(c).underline()))
+                        }
+                    },
                     c => CiderError::GenericError(format!("Unexpected clock error: {c:?}")),
                 }
             }
