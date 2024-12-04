@@ -5,7 +5,7 @@ import os
 import sys
 import vcdvcd
 
-DELIMITER = "__"
+DELIMITER = "___"
 INVISIBLE = "gray"
 TREE_PICTURE_LIMIT=300
 SCALED_FLAME_MULTIPLIER=1000
@@ -516,7 +516,7 @@ def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_d
                     f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
             f.write("}")
 
-def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
+def main(vcd_filename, cells_json_file, out_dir, flame_out):
     print(f"Start time: {datetime.now()}")
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
     print(f"Start reading VCD: {datetime.now()}")
@@ -536,20 +536,18 @@ def main(vcd_filename, cells_json_file, dot_out_dir, flame_out, flames_out_dir):
     tree_dict, path_dict = create_tree(converter.trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
-    create_aggregate_tree(converter.trace, dot_out_dir, tree_dict, path_dict)
-    create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir)
-    create_flame_groups(converter.trace, flame_out, flames_out_dir)
+    create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
+    create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
+    create_flame_groups(converter.trace, flame_out, out_dir)
     print(f"End time: {datetime.now()}")
 
-
 if __name__ == "__main__":
-    if len(sys.argv) > 5:
+    if len(sys.argv) > 4:
         vcd_filename = sys.argv[1]
         cells_json = sys.argv[2]
-        dot_out_dir = sys.argv[3]
+        out_dir = sys.argv[3]
         flame_out = sys.argv[4]
-        flames_out_dir = sys.argv[5] # tmp folder until I figure out how to get multiple outputs from fud2
-        main(vcd_filename, cells_json, dot_out_dir, flame_out, flames_out_dir)
+        main(vcd_filename, cells_json, out_dir, flame_out)
     else:
         args_desc = [
             "VCD_FILE",

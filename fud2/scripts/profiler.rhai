@@ -23,11 +23,11 @@ fn profiling_setup(e) {
 
     // script to process vcd and produce folded representation of flame graph
     e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells dot-out $out flame-out");
+    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells profiler-out $out");
 
     e.config_var("flamegraph-script", "flamegraph.script");
-    e.var_("flamegraph-utility-script", "$calyx-base/tools/profiler/convert-all-flames.sh");
-    e.rule("produce-flame-graph", "bash $flamegraph-utility-script $flamegraph-script flame-out $in $out");
+    e.var_("flamegraph-utility-script", "$calyx-base/tools/profiler/create-visuals.sh");
+    e.rule("produce-flame-graph", "bash $flamegraph-utility-script $flamegraph-script profiler-out $in $out");
 
     // Standalone Verilog testbench. copied from testbench
     e.rsrc("tb.sv");

@@ -40,6 +40,7 @@ impl Visitor for ProfilerInstrumentation {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let delimiter = "___";
         let mut acc = 0;
         let comp_name = comp.name;
         let mut structural_enable_map: HashMap<
@@ -142,7 +143,10 @@ impl Visitor for ProfilerInstrumentation {
             // FIXME: probably best to remove the code clone by extracting this out into a different function?
             for group_name in group_names.into_iter() {
                 // store group and component name (differentiate between groups of the same name under different components)
-                let name = format!("{}__{}_group_probe", group_name, comp_name);
+                let name = format!(
+                    "{}{}{}_group_probe",
+                    group_name, delimiter, comp_name
+                );
                 let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
                 let probe_asgn: ir::Assignment<Nothing> = builder
                     .build_assignment(
@@ -162,8 +166,12 @@ impl Visitor for ProfilerInstrumentation {
             for (group, primitive_invs) in primitive_invoke_map.iter() {
                 for (primitive_cell_name, guard) in primitive_invs.iter() {
                     let probe_cell_name = format!(
-                        "{}__{}__{}_primitive_probe",
-                        primitive_cell_name, group, comp_name
+                        "{}{}{}{}{}_primitive_probe",
+                        primitive_cell_name,
+                        delimiter,
+                        group,
+                        delimiter,
+                        comp_name
                     );
                     let probe_cell = builder.add_primitive(
                         probe_cell_name,
@@ -190,8 +198,12 @@ impl Visitor for ProfilerInstrumentation {
             {
                 for (parent_group, guard) in parent_groups.iter() {
                     let probe_cell_name = format!(
-                        "{}__{}__{}_se_probe",
-                        invoked_group_name, parent_group, comp_name
+                        "{}{}{}{}{}_se_probe",
+                        invoked_group_name,
+                        delimiter,
+                        parent_group,
+                        delimiter,
+                        comp_name
                     );
                     let probe_cell = builder.add_primitive(
                         probe_cell_name,
@@ -220,8 +232,12 @@ impl Visitor for ProfilerInstrumentation {
             for (invoker_group, invoked_cells) in cell_invoke_map.iter() {
                 for invoked_cell in invoked_cells {
                     let probe_cell_name = format!(
-                        "{}__{}__{}_cell_probe",
-                        invoked_cell, invoker_group, comp_name
+                        "{}{}{}{}{}_cell_probe",
+                        invoked_cell,
+                        delimiter,
+                        invoker_group,
+                        delimiter,
+                        comp_name
                     );
                     let probe_cell = builder.add_primitive(
                         probe_cell_name,

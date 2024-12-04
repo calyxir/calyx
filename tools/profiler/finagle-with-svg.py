@@ -13,7 +13,7 @@ def main(svg_in):
                 if line_split[i] == "cycles,":
                     target_idx = i-1
             new_number = int(line_split[target_idx].split("(")[1].replace(",", "")) / 1000
-            print(" ".join(line_split[0:target_idx]) + " (" + str(new_number) + " " + " ".join(line_split[target_idx+1:]))
+            print(" ".join(line_split[0:target_idx]) + " (" + "{:,}".format(new_number) + " " + " ".join(line_split[target_idx+1:]))
         else:
             print(line.strip())
 
