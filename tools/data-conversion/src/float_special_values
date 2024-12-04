@@ -8,46 +8,6 @@ pub struct IntermediateRepresentation {
 }
 
 impl IntermediateRepresentation {
-    // Function to create a NaN
-    pub fn create_nan(bit_width: usize) -> Self {
-        let exponent = (1 << (bit_width - 1)) - 1; // Max exponent for NaN
-        let mantissa = BigUint::from(1u64); // Set least significant bit of mantissa
-        IntermediateRepresentation {
-            sign: false, // NaN is typically unsigned
-            mantissa,
-            exponent: exponent as i64,
-        }
-    }
-
-    // Function to create infinity (positive or negative)
-    pub fn create_infinity(sign: bool, bit_width: usize) -> Self {
-        let exponent = (1 << (bit_width - 1)) - 1; // Max exponent for infinity
-        let mantissa = BigUint::zero(); // Mantissa should be zero for infinity
-        IntermediateRepresentation {
-            sign,
-            mantissa,
-            exponent: exponent as i64,
-        }
-    }
-
-    // Function to create a denormalized number
-    pub fn create_denormalized(mantissa: BigUint) -> Self {
-        IntermediateRepresentation {
-            sign: false,  // Denormalized numbers are typically positive
-            mantissa,
-            exponent: 0,  // Exponent is zero for denormalized numbers
-        }
-    }
-
-    // Function to create zero (positive or negative)
-    pub fn create_zero(sign: bool) -> Self {
-        IntermediateRepresentation {
-            sign,
-            mantissa: BigUint::zero(),
-            exponent: 0,
-        }
-    }
-
     // Function to check if the value is NaN
     pub fn is_nan(&self, bit_width: usize) -> bool {
         let max_exponent_value = (1 << (bit_width - 1)) - 1; // Max exponent for NaN
