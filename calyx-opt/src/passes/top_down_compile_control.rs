@@ -1461,7 +1461,7 @@ impl Visitor for TopDownCompileControl {
 
     /// If requested, emit FSM json after all components are processed
     fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
-        if let Some(json_out_file) = &self.dump_fsm_json {
+        if let Some(json_out_file) = &mut self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
                 &self.fsm_groups,

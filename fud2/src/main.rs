@@ -4,15 +4,11 @@ use fud_core::{cli::CliStart, DriverBuilder};
 fn main() -> anyhow::Result<()> {
     let mut bld = DriverBuilder::new("fud2");
 
-    #[cfg(not(feature = "migrate_to_scripts"))]
-    fud2::build_driver(&mut bld);
-
     // In debug mode, get resources from the source directory.
     #[cfg(debug_assertions)]
     {
         bld.rsrc_dir(manifest_dir_macros::directory_path!("rsrc"));
 
-        #[cfg(feature = "migrate_to_scripts")]
         bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
     }
 
@@ -27,7 +23,6 @@ fn main() -> anyhow::Result<()> {
                 .collect()
         });
 
-        #[cfg(feature = "migrate_to_scripts")]
         bld.script_files({
             const DIR: include_dir::Dir =
                 include_dir::include_dir!("$CARGO_MANIFEST_DIR/scripts");
@@ -40,10 +35,7 @@ fn main() -> anyhow::Result<()> {
     // Get config values from cli.
     let config = Fud2CliExt::config_from_cli(&bld.name)?;
 
-    #[cfg(feature = "migrate_to_scripts")]
-    {
-        bld = bld.load_plugins(&config)?;
-    }
+    bld = bld.load_plugins(&config)?;
 
     let driver = bld.build();
     Fud2CliExt::cli(&driver, &config)

@@ -22,7 +22,7 @@ use baa::{BitVecOps, BitVecValue};
 pub struct ComponentIdx(u32);
 impl_index!(ComponentIdx);
 
-/// An index for auxillary definition information for cells. This is used to
+/// An index for auxiliary definition information for cells. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_cell_defs
@@ -30,7 +30,7 @@ impl_index!(ComponentIdx);
 pub struct CellDefinitionIdx(u32);
 impl_index!(CellDefinitionIdx);
 
-/// An index for auxillary definition information for ports. This is used to
+/// An index for auxiliary definition information for ports. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::local_port_defs
@@ -38,7 +38,7 @@ impl_index!(CellDefinitionIdx);
 pub struct PortDefinitionIdx(u32);
 impl_index!(PortDefinitionIdx);
 
-/// An index for auxillary definition information for ref cells. This is used to
+/// An index for auxiliary definition information for ref cells. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_cell_defs
@@ -46,7 +46,7 @@ impl_index!(PortDefinitionIdx);
 pub struct RefCellDefinitionIdx(u32);
 impl_index!(RefCellDefinitionIdx);
 
-/// An index for auxillary definition information for ref ports. This is used to
+/// An index for auxiliary definition information for ref ports. This is used to
 /// index into the [`SecondaryContext`][]
 ///
 /// [`SecondaryContext`]: crate::flatten::structures::context::SecondaryContext::ref_port_defs
@@ -118,7 +118,7 @@ impl_index!(LocalRefCellOffset);
 /// Enum used in assignments to encapsulate the different types of port
 /// references these are always relative to a component's base-point and must be
 /// converted to global references when used.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum PortRef {
     /// A port belonging to a non-ref cell/group in the current component or the
     /// component itself
@@ -400,13 +400,13 @@ pub enum AssignmentWinner {
     /// source
     Implicit,
     /// The assignment that produced this value.
-    Assign(AssignmentIdx),
+    Assign(AssignmentIdx, GlobalCellIdx),
 }
 
 impl AssignmentWinner {
     #[must_use]
     pub fn as_assign(&self) -> Option<&AssignmentIdx> {
-        if let Self::Assign(v) = self {
+        if let Self::Assign(v, _c) = self {
             Some(v)
         } else {
             None
@@ -414,9 +414,15 @@ impl AssignmentWinner {
     }
 }
 
-impl From<AssignmentIdx> for AssignmentWinner {
-    fn from(v: AssignmentIdx) -> Self {
-        Self::Assign(v)
+impl From<(AssignmentIdx, GlobalCellIdx)> for AssignmentWinner {
+    fn from((v, c): (AssignmentIdx, GlobalCellIdx)) -> Self {
+        Self::Assign(v, c)
+    }
+}
+
+impl From<(GlobalCellIdx, AssignmentIdx)> for AssignmentWinner {
+    fn from((c, v): (GlobalCellIdx, AssignmentIdx)) -> Self {
+        Self::Assign(v, c)
     }
 }
 
@@ -552,7 +558,7 @@ pub struct PortValue(Option<AssignedValue>);
 
 impl std::fmt::Display for PortValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{}", self.format_value(PrintCode::Unsigned))
     }
 }
 
@@ -724,6 +730,8 @@ where
     pub parent: ComponentIdx,
     /// The prototype of the cell
     pub prototype: CellPrototype,
+    /// Whether the cell is marked with `@data`
+    pub is_data: bool,
 }
 
 impl<C> CellDefinitionInfo<C>
@@ -736,12 +744,14 @@ where
         ports: IndexRange<C>,
         parent: ComponentIdx,
         prototype: CellPrototype,
+        is_data: bool,
     ) -> Self {
         Self {
             name,
             ports,
             parent,
             prototype,
+            is_data,
         }
     }
 }

@@ -20,8 +20,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Install Rust stable
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-            toolchain: stable
       - name: Build calyx dev
         run: cargo build
       - name: Check calyx build
@@ -123,7 +121,7 @@ jobs:
       working-directory: /home/calyx/interp/tests
       run: |
         # Run the remaining tests
-        runt -x '(numeric types correctness and parsing)|(tcam testing)|(../../tests/correctness/pipelined-mac.futil)' -d -o fail
+        runt -x '(numeric types correctness and parsing)' -d -o fail
 
     - name: Source code tests
       uses: actions-rs/cargo@v1

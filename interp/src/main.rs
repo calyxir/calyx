@@ -6,11 +6,10 @@ use calyx_utils::OutputFile;
 use interp::{
     configuration,
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
-    errors::InterpreterResult,
+    errors::CiderResult,
     flatten::structures::environment::Simulator,
 };
 
-use slog::warn;
 use std::{
     io::stdout,
     path::{Path, PathBuf},
@@ -51,14 +50,11 @@ pub struct Opts {
     /// rather than erroring
     allow_invalid_memory_access: bool,
 
-    #[argh(switch, long = "allow-par-conflicts")]
-    /// enables "sloppy" par simulation which allows parallel overlap when values agree
-    allow_par_conflicts: bool,
     #[argh(switch, long = "error-on-overflow")]
     /// upgrades [over | under]flow warnings to errors
     error_on_overflow: bool,
     /// silence warnings
-    #[argh(switch, short = 'q', long = "--quiet")]
+    #[argh(switch, short = 'q', long = "quiet")]
     quiet: bool,
 
     /// dump registers as single entry memories
@@ -67,6 +63,14 @@ pub struct Opts {
     /// dumps all memories rather than just external ones
     #[argh(switch, long = "all-memories")]
     dump_all_memories: bool,
+
+    /// enables debug logging
+    #[argh(switch, long = "debug-logging")]
+    debug_logging: bool,
+
+    /// enable undefined guard check
+    #[argh(switch, long = "undef-guard-check")]
+    undef_guard_check: bool,
 
     /// optional wave file output path
     #[argh(option, long = "wave-file")]
@@ -98,25 +102,22 @@ struct CommandInterpret {}
 struct CommandDebug {}
 
 /// Interpret a group from a Calyx program
-fn main() -> InterpreterResult<()> {
+fn main() -> CiderResult<()> {
     let opts: Opts = argh::from_env();
 
-    let config = configuration::ConfigBuilder::new()
-        .quiet(opts.quiet)
-        .allow_invalid_memory_access(opts.allow_invalid_memory_access)
-        .error_on_overflow(opts.error_on_overflow)
-        .allow_par_conflicts(opts.allow_par_conflicts)
+    let config = configuration::Config::builder()
         .dump_registers(opts.dump_registers)
         .dump_all_memories(opts.dump_all_memories)
         .build();
 
-    interp::logging::initialize_logger(config.quiet);
-
-    let log = interp::logging::root();
-
-    if config.allow_par_conflicts {
-        warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
-    }
+    let runtime_config = configuration::RuntimeConfig::builder()
+        .check_data_race(opts.check_data_race)
+        .debug_logging(opts.debug_logging)
+        .quiet(opts.quiet)
+        .allow_invalid_memory_access(opts.allow_invalid_memory_access)
+        .error_on_overflow(opts.error_on_overflow)
+        .undef_guard_check(opts.undef_guard_check)
+        .build();
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
     let i_ctx = interp::flatten::setup_simulation(
@@ -131,7 +132,7 @@ fn main() -> InterpreterResult<()> {
                 &i_ctx,
                 &opts.data_file,
                 &opts.wave_file,
-                opts.check_data_race,
+                runtime_config,
             )?;
 
             sim.run_program()?;
@@ -149,7 +150,7 @@ fn main() -> InterpreterResult<()> {
                     &i_ctx,
                     &opts.data_file,
                     &opts.wave_file,
-                    opts.check_data_race,
+                    runtime_config,
                 )?;
 
                 let result = debugger.main_loop(info)?;

@@ -10,6 +10,7 @@ use crate::flatten::{
 use baa::{BitVecOps, BitVecValue, WidthInt};
 use num_traits::Euclid;
 
+#[derive(Clone)]
 pub struct StdMultPipe<const DEPTH: usize> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -32,13 +33,17 @@ impl<const DEPTH: usize> StdMultPipe<DEPTH> {
 }
 
 impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
         let out_changed =
             port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -90,7 +95,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -106,6 +111,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
     }
 }
 
+#[derive(Clone)]
 pub struct StdDivPipe<const DEPTH: usize, const SIGNED: bool> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -132,6 +138,10 @@ impl<const DEPTH: usize, const SIGNED: bool> StdDivPipe<DEPTH, SIGNED> {
 impl<const DEPTH: usize, const SIGNED: bool> Primitive
     for StdDivPipe<DEPTH, SIGNED>
 {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
                out_quot: Self::OUT_QUOTIENT,
@@ -253,6 +263,10 @@ impl<const IS_FIXED_POINT: bool> Sqrt<IS_FIXED_POINT> {
 }
 
 impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
@@ -309,6 +323,7 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
     }
 }
 
+#[derive(Clone)]
 pub struct FxpMultPipe<const DEPTH: usize> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -339,13 +354,17 @@ impl<const DEPTH: usize> FxpMultPipe<DEPTH> {
 }
 
 impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
         let out_changed =
             port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -406,7 +425,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -422,6 +441,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
     }
 }
 
+#[derive(Clone)]
 pub struct FxpDivPipe<const DEPTH: usize, const SIGNED: bool> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -460,6 +480,10 @@ impl<const DEPTH: usize, const SIGNED: bool> FxpDivPipe<DEPTH, SIGNED> {
 impl<const DEPTH: usize, const SIGNED: bool> Primitive
     for FxpDivPipe<DEPTH, SIGNED>
 {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
                out_quot: Self::OUT_QUOTIENT,
