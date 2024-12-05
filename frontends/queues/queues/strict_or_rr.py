@@ -1,7 +1,9 @@
 # pylint: disable=import-error
 import calyx.builder as cb
 import calyx.py_ast as ast
+from calyx.utils import bits_needed
 import queues.fifo as fifo
+import queues.flow_inference as fi
 
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
@@ -27,22 +29,23 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
 def insert_queue(
     prog,
     name,
+    is_round_robin,
     subqueues,
-    boundaries,
-    numflows,
-    order,
-    round_robin,
+    flow_infer,
+    order=None,
     queue_len_factor=QUEUE_LEN_FACTOR,
 ):
     """
-    Inserts the component `pifo` into the program. If round_robin is true, it
-    inserts a round robin queue, otherwise it inserts a strict queue. `numflows`
-    is the number of flows, which must be an integer greater than 0. Boundaries
-    must be of length `numflows` + 1, where the first boundary is the smallest
-    number a value can take (eg. 0). `order` is used for strict queues to determine
-    the order of priority of the subqueues. `order` must be a list of length
-    `numflows`.
+    Inserts the component `pifo` into the program, operating over n flows (where n is `len(subqueues)`).
+    If `is_round_robin` is true, it inserts a round robin queue, otherwise it inserts a strict queue.
+    `flow_infer` is the component used for flow inference; it must be invoked with an input `value`
+    and reference register `flow` of size floor(log_2(n)).
+    `order` is used for strict queues to determine the priority of the subqueues.
+    `order` must be a permutation of {0, ..., n - 1}.
     """
+    numflows = len(subqueues)
+
+    assert is_round_robin or sorted(order) == list(range(numflows))
 
     pifo: cb.ComponentBuilder = prog.component(name)
     cmd = pifo.input("cmd", 1)  # the size in bits is 1
@@ -52,6 +55,10 @@ def insert_queue(
     subqueue_cells = [
         pifo.cell(f"queue_{i}", queue_i) for i, queue_i in enumerate(subqueues)
     ]
+
+    flow = pifo.reg(bits_needed(numflows - 1), "flow")
+    flow_infer = pifo.cell("flow_infer", flow_infer)
+    infer_flow = cb.invoke(flow_infer, in_value=value, ref_flow=flow)
 
     # If the user wants to pop, we will write the popped value to `ans`.
     ans = pifo.reg(32, "ans", is_ref=True)
@@ -88,45 +95,21 @@ def insert_queue(
     )
 
     # We create a list of invoke-statement handles.
-    # Each invoke is guarded by a pair of inequality checks on the value register,
-    # and each pair of guards is unique to the subqueue it is associated with.
+    # Each invoke is uniquely guarded by an equality check on the flow register.
     # This means we can eventually execute all of these invokes in parallel.
-    invoke_subqueues_value_guard_seq = [
-        cb.if_with(
-            pifo.le_use(value, boundaries[b + 1]),  # value <= boundaries[b+1]
-            (
-                invoke_subqueue(subqueue_cells[b], cmd, value, ans, err)
-                # In the special case when b = 0,
-                # we don't need to check the lower bound and we can just `invoke`.
-                if b == 0 and round_robin
-                else (
-                    invoke_subqueue(
-                        subqueue_cells[order.index(b)], cmd, value, ans, err
-                    )
-                    if b == 0 and not round_robin
-                    else (
-                        cb.if_with(
-                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                            invoke_subqueue(
-                                subqueue_cells[order.index(b)], cmd, value, ans, err
-                            ),
-                        )
-                        if not round_robin
-                        # Otherwise, we need to check the lower bound and `invoke`
-                        # only if the value is in the interval.
-                        else cb.if_with(
-                            pifo.gt_use(value, boundaries[b]),  # value > boundaries[b]
-                            invoke_subqueue(subqueue_cells[b], cmd, value, ans, err),
-                        )
-                    )
+    invoke_subqueues_flow_guard = pifo.case(
+        flow.out,
+        {
+            n: (
+                invoke_subqueue(subqueue_cells[n], cmd, value, ans, err)
+                if is_round_robin
+                else invoke_subqueue(
+                    subqueue_cells[order.index(n)], cmd, value, ans, err
                 )
-            ),
-        )
-        for b in range(numflows)
-    ]
-    invoke_subqueues_value_guard = cb.par(
-        *invoke_subqueues_value_guard_seq
-    )  # Execute in parallel.
+            )
+            for n in range(numflows)
+        },
+    )
 
     incr_hot_wraparound = cb.if_with(
         # If hot = numflows - 1, we need to wrap around to 0. Otherwise, we increment.
@@ -159,7 +142,7 @@ def insert_queue(
             len_decr,
             (
                 pifo.reg_store(hot, og_hot.out)
-                if not round_robin
+                if not is_round_robin
                 else ast.Empty
                 # If we are not generating a round-robin PIFO,
                 # we are generating a strict PIFO.
@@ -173,8 +156,10 @@ def insert_queue(
         raise_err,  # The queue is full: overflow.
         [  # The queue is not full. Proceed.
             lower_err,
+            # flow := flow of incoming packet
+            infer_flow,
             # We'll push to the subqueue that the value belongs to.
-            invoke_subqueues_value_guard,
+            invoke_subqueues_flow_guard,
             # If all went well, we'll increment the length of the queue.
             cb.if_with(err_is_low, len_incr),
         ],
@@ -185,39 +170,6 @@ def insert_queue(
     pifo.control += pifo.case(
         cmd,
         {0: pop_logic, 1: push_logic},
-    )
-
-    return pifo
-
-
-def generate(prog, numflows, roundrobin):
-    """Top-level function to build the program."""
-
-    if numflows == 2:
-        boundaries = [0, 200, 400]
-        order = [1, 0]
-    elif numflows == 3:
-        boundaries = [0, 133, 266, 400]
-        order = [1, 2, 0]
-    elif numflows == 4:
-        boundaries = [0, 100, 200, 300, 400]
-        order = [3, 0, 2, 1]
-    elif numflows == 5:
-        boundaries = [0, 80, 160, 240, 320, 400]
-        order = [0, 1, 2, 3, 4]
-    elif numflows == 6:
-        boundaries = [0, 66, 100, 200, 220, 300, 400]
-        order = [3, 1, 5, 2, 4, 0]
-    elif numflows == 7:
-        boundaries = [0, 50, 100, 150, 200, 250, 300, 400]
-        order = [0, 1, 2, 3, 4, 5, 6]
-    else:
-        raise ValueError("Unsupported number of flows")
-
-    fifo_queue = fifo.insert_fifo(prog, "fifo", QUEUE_LEN_FACTOR)
-    subqueues = [fifo_queue] * numflows
-    pifo = insert_queue(
-        prog, "pifo", subqueues, boundaries, numflows, order, roundrobin
     )
 
     return pifo
