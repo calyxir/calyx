@@ -642,6 +642,18 @@ impl PortValue {
         self.0.as_ref()
     }
 
+    /// Returns a mutable reference to the underlying [`AssignedValue`] if it is
+    /// defined. Otherwise returns `None`.
+    pub fn as_option_mut(&mut self) -> Option<&mut AssignedValue> {
+        self.0.as_mut()
+    }
+
+    /// Returns the underlying [`AssignedValue`] if it is defined. Otherwise
+    /// returns `None`.
+    pub fn into_option(self) -> Option<AssignedValue> {
+        self.0
+    }
+
     pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
         if let Some(val) = self.0.as_mut() {
             val.thread = Some(thread);
@@ -658,10 +670,6 @@ impl PortValue {
 
     pub fn transitive_clocks(&self) -> Option<&HashSet<ClockPair>> {
         self.0.as_ref().and_then(|x| x.transitive_clocks())
-    }
-
-    pub fn as_option_mut(&mut self) -> Option<&mut AssignedValue> {
-        self.0.as_mut()
     }
 
     /// If the value is defined, returns the value cast to a boolean. Otherwise
