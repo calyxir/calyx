@@ -516,6 +516,10 @@ def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_d
                     f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
             f.write("}")
 
+def dump_trace(trace, out_dir):
+    with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
+        json.dump(trace, json_out, indent = 2)
+
 def main(vcd_filename, cells_json_file, out_dir, flame_out):
     print(f"Start time: {datetime.now()}")
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
@@ -539,6 +543,7 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out):
     create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     create_flame_groups(converter.trace, flame_out, out_dir)
+    dump_trace(converter.trace, out_dir)
     print(f"End time: {datetime.now()}")
 
 if __name__ == "__main__":
@@ -547,15 +552,21 @@ if __name__ == "__main__":
         cells_json = sys.argv[2]
         out_dir = sys.argv[3]
         flame_out = sys.argv[4]
-        main(vcd_filename, cells_json, out_dir, flame_out)
+        if len(sys.argv) == 5:
+            cells_for_timeline = sys.argv[5]
+        else:
+            cells_for_timeline = ""
+        main(vcd_filename, cells_json, out_dir, flame_out, cells_for_timeline)
     else:
         args_desc = [
             "VCD_FILE",
             "CELLS_JSON",
             "DOT_FILE_DIR",
             "FLAME_OUT",
-            "FLAME_OUT_DIR"
+            "FLAME_OUT_DIR",
+            "[CELLS_FOR_TIMELINE]"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         print("CELLS_JSON: Run the `component_cells` tool")
+        print("CELLS_FOR_TIMELINE is an optional ")
         sys.exit(-1)
