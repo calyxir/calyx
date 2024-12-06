@@ -8,7 +8,7 @@ Profilers can help you analyze performance information to find places you can op
 
 In order to run the profiler, you need:
 - [fud2][]
-- The Python `vcdvcd` library
+- The Python [`vcdvcd` library](https://github.com/cirosantilli/vcdvcd). Most likely you can download it by running `python -m pip install --user vcdvcd`.
 - A clone of Brendan Gregg's Flamegraph repository: [https://github.com/brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph)
 
 Then, you need to edit your fud2 configuration file to specify the location of `flamegraph.pl` within the `Flamegraph` repository:

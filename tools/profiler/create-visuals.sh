@@ -21,7 +21,7 @@ for folded in $( ls ${DATA_DIR}/*.folded ); do
     base_name=$( echo "${folded}" | rev | cut -d. -f2- | rev )
     if [[ "${base_name}" == *"scaled"* ]]; then
 	${FLAME_GRAPH_SCRIPT} --countname="cycles" ${folded} > ${base_name}-original.svg
-	python3 ${SCRIPT_DIR}/finagle-with-svg.py ${base_name}-original.svg > ${base_name}.svg
+	python3 ${SCRIPT_DIR}/adjust-scaled-flame-svg.py ${base_name}-original.svg > ${base_name}.svg
     else
         ${FLAME_GRAPH_SCRIPT} --countname="cycles" ${folded} > ${base_name}.svg
     fi
