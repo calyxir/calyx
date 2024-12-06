@@ -329,7 +329,7 @@ def create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, 
 
     sorted_stack_list_items = sorted(stack_list_str_to_cycles.items(), key=(lambda item : len(item[1])), reverse=True)
     acc = 0
-    rankings_out = open(os.path.join(dot_out_dir, "rankings.txt"), "w")
+    rankings_out = open(os.path.join(dot_out_dir, "rankings.csv"), "w")
     rankings_out.write("Rank,#Cycles,Cycles-list\n")
     for (stack_list_str, cycles) in sorted_stack_list_items:
         if acc == 5:
@@ -561,9 +561,8 @@ if __name__ == "__main__":
         args_desc = [
             "VCD_FILE",
             "CELLS_JSON",
-            "DOT_FILE_DIR",
-            "FLAME_OUT",
-            "FLAME_OUT_DIR",
+            "OUT_DIR",
+            "FLATTENED_FLAME_OUT",
             "[CELLS_FOR_TIMELINE]"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
