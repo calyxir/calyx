@@ -10,6 +10,17 @@ INVISIBLE = "gray"
 TREE_PICTURE_LIMIT=300
 SCALED_FLAME_MULTIPLIER=1000
 
+class Node:
+    def __init__(self, name, type, cell_component=""):
+        self.shortname = name
+        self.type = type # group, (non-primitive) cell, primitive
+
+    def stack_name(self):
+        if self.type == "cell":
+            return f"{self.shortname} [{self.type}]"
+        elif self.type == "primitive":
+            return f"{self.shortname} (primitive)"
+
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
     return name.split('[')[0]
@@ -33,6 +44,7 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
             shortname = active_unit.split(".")[-1]
             if active_unit not in structural_enables:
                 i_mapping[active_unit] = i_mapping[current_cell] + [shortname]
+                # i_mapping[active_unit] = i_mapping[current_cell] + [Node(shortname, "group")]
                 parents.add(current_cell)
                 covered_units_in_component.add(active_unit)
         # get all of the other active units
@@ -46,6 +58,7 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                     parent = f"{current_cell}.{parent_group}"
                     if parent in i_mapping:
                         i_mapping[active_unit] = i_mapping[parent] + [shortname]
+                        # i_mapping[active_unit] = i_mapping[parent] + [Node(shortname, "group")]
                         covered_units_in_component.add(active_unit)
                         parents.add(parent)
         # get primitives if requested.
@@ -55,6 +68,7 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                     primitive_parent = f"{current_cell}.{primitive_parent_group}"
                     primitive_shortname = primitive_name.split(".")[-1]
                     i_mapping[primitive_name] = i_mapping[primitive_parent] + [f"{primitive_shortname} (primitive)"]
+                    # i_mapping[primitive_name] = i_mapping[primitive_parent] + [Node(primitive_shortname, "primitive")]
                     parents.add(primitive_parent)
         # by this point, we should have covered all groups in the same component...
         # now we need to construct stacks for any cells that are called from a group in the current component.
@@ -66,6 +80,7 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                     cell_component = cells_to_components[invoked_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[invoked_cell] = i_mapping[parent] + [f"{cell_shortname} [{cell_component}]"]
+                    # i_mapping[invoked_cell] = i_mapping[parent] [Node(cell_shortname, "cell", cell_component=cell_component)]
                     parents.add(parent)
     # Only retain paths that lead to leaf nodes.
     for elem in i_mapping:
@@ -73,7 +88,6 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
             stacks_this_cycle.append(i_mapping[elem])
 
     return stacks_this_cycle
-
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components):
@@ -520,7 +534,39 @@ def dump_trace(trace, out_dir):
     with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
         json.dump(trace, json_out, indent = 2)
 
-def main(vcd_filename, cells_json_file, out_dir, flame_out):
+def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
+    # cells_for_timeline should be a txt file with each line being a cell to display timeline info for.
+    cells_to_curr_active = {}
+    cells_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
+    with open(cells_for_timeline, "r") as ct_file:
+        for line in ct_file:
+            cell_to_track = line.strip()
+            cells_to_curr_active[cell_to_track] = -1
+            cells_to_closed_segments[cell_to_track] = []
+    # do the most naive thing for now. improve later?
+    # FIXME: probably more principled to sort the 
+    currently_active = set()
+    for i in trace:
+        active_this_cycle = set()
+        for stack in trace[i]:
+            stack_acc = main_component
+            for stack_elem in stack:
+                if " [" in stack_elem: # cell
+                    stack_acc += "." + stack_elem.split(" [")[0]
+                if stack_acc in cells_to_curr_active: # this is a cell we care about!
+                    active_this_cycle.add(stack_acc)
+        for nonactive in currently_active.difference(active_this_cycle): # cell that was previously active but no longer is
+            start_cycle = cells_to_curr_active[nonactive]
+            cells_to_closed_segments[nonactive].append({"start": start_cycle, "end": i})
+            cells_to_curr_active[nonactive] = -1
+        for newly_active in active_this_cycle.difference(currently_active):
+            cells_to_curr_active[newly_active] = i
+        currently_active = active_this_cycle # retain the current one for next cycle.
+    # write to file
+    # with open(os.path.join(out_dir, "timeline-dump.json")) as out_file:
+    #     json.
+
+def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     print(f"Start time: {datetime.now()}")
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
     print(f"Start reading VCD: {datetime.now()}")
@@ -544,6 +590,9 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out):
     create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     create_flame_groups(converter.trace, flame_out, out_dir)
     dump_trace(converter.trace, out_dir)
+    print(f"Cells for timeline: {cells_for_timeline}")
+    if cells_for_timeline != "":
+        compute_timeline(converter.trace, cells_for_timeline, main_component, out_dir)
     print(f"End time: {datetime.now()}")
 
 if __name__ == "__main__":
@@ -552,7 +601,7 @@ if __name__ == "__main__":
         cells_json = sys.argv[2]
         out_dir = sys.argv[3]
         flame_out = sys.argv[4]
-        if len(sys.argv) == 5:
+        if len(sys.argv) > 5:
             cells_for_timeline = sys.argv[5]
         else:
             cells_for_timeline = ""
