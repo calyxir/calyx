@@ -13,7 +13,7 @@ localparam RESET_CYCLES = 3;
 
 // Cycle counter. Make this signed to catch errors with cycle simulation
 // counts.
-logic signed [63:0] cycle_count;
+logic signed [63:0] cycle_count = 64'd0;
 
 always_ff @(posedge clk) begin
   cycle_count <= cycle_count + 1;
@@ -35,15 +35,15 @@ string OUT;
 // Disable VCD tracing
 int NOTRACE;
 // Maximum number of cycles to simulate
-longint CYCLE_LIMIT;
+longint cycle_limit = `CYCLE_LIMIT;
 // Dummy variable to track value returned by $value$plusargs
 int CODE;
 
 initial begin
   CODE = $value$plusargs("OUT=%s", OUT);
-  CODE = $value$plusargs("CYCLE_LIMIT=%d", CYCLE_LIMIT);
-  if (CYCLE_LIMIT != 0) begin
-    $display("cycle limit set to %d", CYCLE_LIMIT);
+  CODE = $value$plusargs("cycle_limit=%d", cycle_limit);
+  if (cycle_limit != 0) begin
+    $display("cycle limit set to %d", cycle_limit);
   end
   CODE = $value$plusargs("NOTRACE=%d", NOTRACE);
   if (NOTRACE == 0) begin
@@ -55,10 +55,7 @@ initial begin
   end
 
   // Initial values
-  go = 0;
   clk = 0;
-  reset = 1;
-  cycle_count = 0;
 
   forever begin
     #10 clk = ~clk;
@@ -67,8 +64,8 @@ initial begin
       // cycle.
       $display("Simulated %d cycles", cycle_count - RESET_CYCLES - 1);
       $finish;
-    end else if (cycle_count != 0 && cycle_count == CYCLE_LIMIT + RESET_CYCLES) begin
-      $display("reached limit of %d cycles", CYCLE_LIMIT);
+    end else if (cycle_count != 0 && cycle_count == cycle_limit + RESET_CYCLES) begin
+      $display("reached limit of %d cycles", cycle_limit);
       $finish;
     end
   end
