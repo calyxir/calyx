@@ -1,0 +1,24 @@
+[package]
+name = "calyx-ffi-macro"
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+readme.workspace = true
+description.workspace = true
+categories.workspace = true
+homepage.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.86"
+quote = "1.0.36"
+syn = { version = "2.0.69", features = ["full", "visit"] }
+calyx-utils.workspace = true
+calyx-frontend.workspace = true
+calyx-ir.workspace = true
+# bigint = "4.4.3"
