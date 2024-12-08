@@ -8,8 +8,8 @@ import vcdvcd
 DELIMITER = "___"
 INVISIBLE = "gray"
 TREE_PICTURE_LIMIT=300
-SCALED_FLAME_MULTIPLIER=1000
-
+SCALED_FLAME_MULTIPLIER=1000 # multiplier so scaled flame graph will not round up.
+ts_multiplier = 100 # #ms on perfetto UI that resembles a single cycle
 class Node:
     def __init__(self, name, type, cell_component=""):
         self.shortname = name
@@ -562,9 +562,23 @@ def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
         for newly_active in active_this_cycle.difference(currently_active):
             cells_to_curr_active[newly_active] = i
         currently_active = active_this_cycle # retain the current one for next cycle.
+    for cell in currently_active: # need to close
+        start_cycle = cells_to_curr_active[cell]
+        cells_to_closed_segments[cell].append({"start": start_cycle, "end": len(trace) + 1})
+    events = []
+    for cell in cells_to_closed_segments:
+        for closed_segment in cells_to_closed_segments[cell]:
+            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : 1, "tid": 1, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
+            events.append(start_event)
+            end_event = start_event.copy()
+            end_event["ph"] = "E"
+            end_event["ts"] = closed_segment["end"] * ts_multiplier
+            events.append(end_event)
+
     # write to file
-    # with open(os.path.join(out_dir, "timeline-dump.json")) as out_file:
-    #     json.
+    out_path = os.path.join(out_dir, "timeline-dump.json")
+    with open(out_path, "w", encoding="utf-8") as out_file:
+        out_file.write(json.dumps({"traceEvents" : events}, indent=4))
 
 def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     print(f"Start time: {datetime.now()}")
