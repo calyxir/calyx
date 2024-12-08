@@ -1,0 +1,65 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component identity(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    r = std_reg(32);
+    @control @generated @protected save___identity_group_probe = std_wire(1);
+    @control @generated @protected r___save___identity_primitive_probe = std_wire(1);
+  }
+  wires {
+    group save {
+      r.in = in;
+      r.write_en = 1'd1;
+      save[done] = r.done;
+      save___identity_group_probe.in = 1'd1;
+      r___save___identity_primitive_probe.in = 1'd1;
+    }
+    out = r.out;
+  }
+  control {
+    save;
+  }
+}
+component middle(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    id = identity();
+    current_value = std_reg(32);
+    @control @generated @protected run_id___middle_group_probe = std_wire(1);
+    @control @generated @protected id___run_id___middle_cell_probe = std_wire(1);
+    @control @generated @protected use_id___middle_group_probe = std_wire(1);
+    @control @generated @protected current_value___use_id___middle_primitive_probe = std_wire(1);
+  }
+  wires {
+    group run_id {
+      id.in = 32'd10;
+      id.go = 1'd1;
+      run_id[done] = id.done;
+      run_id___middle_group_probe.in = 1'd1;
+      id___run_id___middle_cell_probe.in = 1'd1;
+    }
+    group use_id {
+      current_value.in = id.out;
+      current_value.write_en = 1'd1;
+      use_id[done] = current_value.done;
+      use_id___middle_group_probe.in = 1'd1;
+      current_value___use_id___middle_primitive_probe.in = 1'd1;
+    }
+  }
+  control {
+    seq {
+      run_id;
+      use_id;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    mid = middle();
+  }
+  wires {}
+  control {
+    seq {
+      invoke mid()();
+    }
+  }
+}

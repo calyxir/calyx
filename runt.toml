@@ -682,11 +682,3 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   rm -f results.xml
 
 """
-
-### Profiler tests
-[[tests]]
-name = "profiler"
-paths = ["tests/profiler/*.futil"]
-cmd = """
-bash tools/profiler/get-profile-counts-info.sh {} {}.data STDOUT -d
-"""
