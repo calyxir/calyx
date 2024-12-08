@@ -7,6 +7,7 @@ import vcdvcd
 
 DELIMITER = "___"
 INVISIBLE = "gray"
+ACTIVE_PRIMITIVE_COLOR="lemonchiffon"
 TREE_PICTURE_LIMIT=300
 SCALED_FLAME_MULTIPLIER=1000 # multiplier so scaled flame graph will not round up.
 ts_multiplier = 100 # #ms on perfetto UI that resembles a single cycle
