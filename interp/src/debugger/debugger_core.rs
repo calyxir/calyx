@@ -9,9 +9,12 @@ use crate::{
     debugger::{
         commands::PrintCommand, source::SourceMap, unwrap_error_message,
     },
-    errors::{CiderError, CiderResult},
+    errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::{
+            base::{GlobalCellIdx, PortValue},
+            prelude::GroupIdx,
+        },
         setup_simulation_with_metadata,
         structures::{
             context::Context,
@@ -66,6 +69,12 @@ pub enum DebuggerReturnStatus {
     Restart(Box<DebuggerInfo>),
     /// Debugger exited normally with an exit command. Comes from [Command::Exit].
     Exit,
+}
+
+pub enum StoppedReason {
+    Done,
+    Breakpoint(Vec<(String, String)>), //adapter then looks up line
+    PauseReq,
 }
 
 /// The interactive Calyx debugger. The debugger itself is run with the
@@ -132,29 +141,43 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             status: self
                 .interpreter
                 .get_currently_running_groups()
-                .map(|x| {
-                    let group_name =
-                        self.program_context.as_ref().lookup_name(x).clone();
-                    let parent_comp = self
-                        .program_context
-                        .as_ref()
-                        .get_component_from_group(x);
-                    let parent_name = self
-                        .program_context
-                        .as_ref()
-                        .lookup_name(parent_comp)
-                        .clone();
-                    (parent_name, group_name)
-                })
+                .map(|x| self.grp_idx_to_name(x))
                 .collect(),
             done: self.interpreter.is_done(),
         }
     }
 
-    pub fn get_cells(
+    fn grp_idx_to_name(&self, x: GroupIdx) -> (String, String) {
+        let group_name = self.program_context.as_ref().lookup_name(x).clone();
+        let parent_comp =
+            self.program_context.as_ref().get_component_from_group(x);
+        let parent_name = self
+            .program_context
+            .as_ref()
+            .lookup_name(parent_comp)
+            .clone();
+        (parent_name, group_name)
+    }
+
+    pub fn get_all_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
         self.interpreter.env().iter_cells()
+    }
+    /// Get cell names and port values for the component specified by cmp_idx
+    pub fn get_comp_cells(
+        &self,
+        cmp_idx: GlobalCellIdx,
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+        // component idx -> global cell idx
+        self.interpreter.env().iter_cmpt_cells(cmp_idx)
+    }
+    /// Get all components in the environment
+    pub fn get_components(
+        &self,
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+        //this gets the names AND idx, now how to get the lines T.T
+        self.interpreter.env().iter_compts()
     }
 
     // Go to next step
@@ -175,6 +198,23 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             .collect_vec();
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
+
+    pub fn cont(&mut self) -> Result<StoppedReason, BoxedCiderError> {
+        self.do_continue()?; //need to error handle
+        let bps = self
+            .debugging_context
+            .hit_breakpoints()
+            .map(|x| self.grp_idx_to_name(x))
+            .collect_vec();
+        if self.interpreter.is_done() {
+            Ok(StoppedReason::Done)
+        } else if !bps.is_empty() {
+            Ok(StoppedReason::Breakpoint(bps))
+        } else {
+            unreachable!()
+        }
+    }
+
     #[inline]
     fn do_step(&mut self, n: u32) -> CiderResult<()> {
         for _ in 0..n {
