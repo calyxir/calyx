@@ -1,4 +1,3 @@
-import copy
 from datetime import datetime
 import json
 import os
@@ -567,14 +566,19 @@ def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
         start_cycle = cells_to_curr_active[cell]
         cells_to_closed_segments[cell].append({"start": start_cycle, "end": len(trace) + 1})
     events = []
+    # add main on process + thread 1 so we get the full picture.
+    events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0})
+    events.append({"name": main_component, "cat": "main", "ph": "E", "pid": 1, "tid": 1, "ts": len(trace) * ts_multiplier})
+    pt_id = 2
     for cell in cells_to_closed_segments:
         for closed_segment in cells_to_closed_segments[cell]:
-            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : 1, "tid": 1, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
+            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : pt_id, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
             events.append(start_event)
             end_event = start_event.copy()
             end_event["ph"] = "E"
             end_event["ts"] = closed_segment["end"] * ts_multiplier
             events.append(end_event)
+            pt_id += 1
 
     # write to file
     out_path = os.path.join(out_dir, "timeline-dump.json")
