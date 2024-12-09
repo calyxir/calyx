@@ -1915,7 +1915,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         PortValue::new_implicit(BitVecValue::tru())
                             .with_thread_optional(
                                 if self.conf.check_data_race {
-                                    assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. in {} ({:?})", node.comp.get_full_name(&self.env), &node.comp);
+                                    assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. In {}", node.comp.get_full_name(&self.env));
                                     thread
                                 } else {
                                     None
