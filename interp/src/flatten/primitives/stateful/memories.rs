@@ -719,6 +719,37 @@ impl RaceDetectionPrimitive for CombMem {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+enum MemOut {
+    /// Points to a valid address in the memory
+    Valid(usize),
+    /// Output is zero, but not a memory address
+    Zero,
+    /// Output is undefined
+    Undef,
+}
+
+impl MemOut {
+    fn is_def(&self) -> bool {
+        match self {
+            MemOut::Valid(_) | MemOut::Zero => true,
+            MemOut::Undef => false,
+        }
+    }
+
+    fn get_value(&self, data: &[ValueWithClock]) -> PortValue {
+        match self {
+            MemOut::Valid(addr) => {
+                PortValue::new_cell(data[*addr].value.clone())
+            }
+            MemOut::Zero => {
+                PortValue::new_cell(BitVecValue::zero(data[0].value.width()))
+            }
+            MemOut::Undef => PortValue::new_undef(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SeqMem {
     base_port: GlobalPortIdx,
@@ -727,10 +758,10 @@ pub struct SeqMem {
     // TODO griffin: This bool is unused in the actual struct and should either
     // be removed or
     _allow_invalid_access: bool,
-    width: u32,
     addresser: MemDx<true>,
     done_is_high: bool,
-    read_out: PortValue,
+    // memory index which is currently latched
+    read_out: MemOut,
 }
 
 impl SeqMem {
@@ -755,10 +786,9 @@ impl SeqMem {
             base_port: base,
             internal_state,
             _allow_invalid_access: allow_invalid,
-            width,
             addresser: MemDx::new(shape),
             done_is_high: false,
-            read_out: PortValue::new_undef(),
+            read_out: MemOut::Undef,
             global_idx,
         }
     }
@@ -804,10 +834,9 @@ impl SeqMem {
             base_port,
             internal_state,
             _allow_invalid_access: allow_invalid,
-            width,
             addresser: MemDx::new(size),
             done_is_high: false,
-            read_out: PortValue::new_undef(),
+            read_out: MemOut::Undef,
             global_idx,
         }
     }
@@ -884,7 +913,10 @@ impl Primitive for SeqMem {
         {
             port_map.insert_val_general(
                 self.read_data(),
-                self.read_out.as_option().unwrap().clone(),
+                self.read_out
+                    .get_value(&self.internal_state)
+                    .into_option()
+                    .unwrap(),
             )?
         } else {
             UpdateStatus::Unchanged
@@ -908,10 +940,10 @@ impl Primitive for SeqMem {
 
         if reset {
             self.done_is_high = false;
-            self.read_out = PortValue::new_cell(BitVecValue::zero(self.width));
+            self.read_out = MemOut::Zero;
         } else if content_en && write_en {
             self.done_is_high = true;
-            self.read_out = PortValue::new_undef();
+            self.read_out = MemOut::Undef;
             let addr_actual =
                 addr.ok_or(RuntimeError::UndefinedWriteAddr(self.global_idx))?;
             let write_data = port_map[self.write_data()]
@@ -922,9 +954,7 @@ impl Primitive for SeqMem {
             self.done_is_high = true;
             let addr_actual =
                 addr.ok_or(RuntimeError::UndefinedReadAddr(self.global_idx))?;
-            self.read_out = PortValue::new_cell(
-                self.internal_state[addr_actual].value.clone(),
-            );
+            self.read_out = MemOut::Valid(addr_actual);
         } else {
             self.done_is_high = false;
         }
@@ -937,7 +967,10 @@ impl Primitive for SeqMem {
                 BitVecValue::fals()
             }),
         )?;
-        port_map.write_exact_unchecked(self.read_data(), self.read_out.clone());
+        port_map.write_exact_unchecked(
+            self.read_data(),
+            self.read_out.get_value(&self.internal_state),
+        );
         Ok(())
     }
 
