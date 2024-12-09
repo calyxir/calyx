@@ -1,4 +1,4 @@
-# Calyx Profiler
+# The Calyx Profiler
 
 *Note: The profiler is still in development. If you have any suggestions, thoughts, or feedback, please let us know!*
 
