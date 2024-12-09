@@ -402,7 +402,7 @@ impl SearchPath {
             .components
             .iter()
             .fold_while(ControlIdx::new(0), |current_root, (_, comp_info)| {
-                if let Some(index) = comp_info.control {
+                if let Some(index) = comp_info.control() {
                     if index >= current_root && index < target {
                         FoldWhile::Continue(index)
                     } else {

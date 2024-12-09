@@ -9,7 +9,10 @@ use crate::{
     flatten::{
         flat_ir::{
             cell_prototype::{CellPrototype, ConstantType},
-            component::{AuxiliaryComponentInfo, ComponentCore},
+            component::{
+                AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
+                PrimaryComponentInfo,
+            },
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
                 Assignment, AssignmentIdx, CellRef, CombGroup, CombGroupIdx,
@@ -289,27 +292,38 @@ fn translate_component(
         .find_all_with_attr(NumAttr::Done)
         .collect_vec();
 
-    // Will need to rethink this at some point
-    if go_ports.len() > 1 || done_ports.len() > 1 {
-        todo!(
-            "handle multiple go and done ports. On component: {}",
+    let comp_info: PrimaryComponentInfo = if comp.is_comb {
+        assert!(
+            go_ports.is_empty() && done_ports.is_empty(),
+            "malformed comb component: {}",
             comp.name
         );
-    } else if comp.is_comb {
-        todo!("handle comb components. On component: {}", comp.name);
-    }
-    let go_port = &go_ports[0];
-    let done_port = &done_ports[0];
 
-    let comp_core = ComponentCore {
-        control,
-        continuous_assignments,
-        is_comb: comp.is_comb,
-        go: *layout.port_map[&go_port.as_raw()].unwrap_local(),
-        done: *layout.port_map[&done_port.as_raw()].unwrap_local(),
+        PrimaryComponentInfo::Comb(CombComponentCore {
+            continuous_assignments,
+        })
+    } else {
+        let go_port = &go_ports[0];
+        let done_port = &done_ports[0];
+
+        // Will need to rethink this at some point
+        if go_ports.len() > 1 || done_ports.len() > 1 {
+            todo!(
+                "handle multiple go and done ports. On component: {}",
+                comp.name
+            );
+        }
+
+        let comp_core = ComponentCore {
+            control,
+            continuous_assignments,
+            go: *layout.port_map[&go_port.as_raw()].unwrap_local(),
+            done: *layout.port_map[&done_port.as_raw()].unwrap_local(),
+        };
+        comp_core.into()
     };
 
-    let ctrl_ref = ctx.primary.components.push(comp_core);
+    let ctrl_ref = ctx.primary.components.push(comp_info);
     ctx.secondary
         .comp_aux_info
         .insert(ctrl_ref, auxiliary_component_info);
