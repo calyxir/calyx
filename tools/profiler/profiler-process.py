@@ -9,7 +9,7 @@ INVISIBLE = "gray"
 ACTIVE_PRIMITIVE_COLOR="lemonchiffon"
 TREE_PICTURE_LIMIT=300
 SCALED_FLAME_MULTIPLIER=1000 # multiplier so scaled flame graph will not round up.
-ts_multiplier = 100 # #ms on perfetto UI that resembles a single cycle
+ts_multiplier = 1 # #ms on perfetto UI that resembles a single cycle
 class Node:
     def __init__(self, name, type, cell_component=""):
         self.shortname = name
@@ -578,7 +578,7 @@ def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
             end_event["ph"] = "E"
             end_event["ts"] = closed_segment["end"] * ts_multiplier
             events.append(end_event)
-            pt_id += 1
+        pt_id += 1
 
     # write to file
     out_path = os.path.join(out_dir, "timeline-dump.json")
