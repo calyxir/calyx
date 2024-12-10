@@ -2,7 +2,7 @@ use crate::Printer;
 
 use super::{NumAttr, Port, RRC};
 use calyx_utils::Error;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
@@ -11,9 +11,9 @@ use std::{cmp::Ordering, hash::Hash, rc::Rc};
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Nothing;
 
-impl ToString for Nothing {
-    fn to_string(&self) -> String {
-        "".to_string()
+impl std::fmt::Display for Nothing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")
     }
 }
 
@@ -62,12 +62,12 @@ pub struct StaticTiming {
     interval: (u64, u64),
 }
 
-impl ToString for StaticTiming {
-    fn to_string(&self) -> String {
+impl Display for StaticTiming {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.interval.0 + 1 == self.interval.1 {
-            format!("%{}", self.interval.0)
+            write!(f, "%{}", self.interval.0)
         } else {
-            format!("%[{}:{}]", self.interval.0, self.interval.1)
+            write!(f, "%[{}:{}]", self.interval.0, self.interval.1)
         }
     }
 }
