@@ -11,7 +11,7 @@ use std::{cmp::Ordering, hash::Hash, rc::Rc};
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Nothing;
 
-impl std::fmt::Display for Nothing {
+impl Display for Nothing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "")
     }
