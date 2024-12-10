@@ -1,4 +1,5 @@
 from datetime import datetime
+import csv
 import json
 import os
 import sys
@@ -159,6 +160,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         structural_enable_active = set()
         cell_enable_active = set()
         primitive_enable = set()
+        self.cell_to_active_cycles = {} # cell --> [{"start": X, "end": Y, "length": Y - X}].
 
         probe_labels_to_sets = {"group_probe_out": group_active, "se_probe_out": structural_enable_active, "cell_probe_out": cell_enable_active, "primitive_probe_out" : primitive_enable}
 
@@ -186,9 +188,16 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if signal_name.endswith(".go") and value == 1: # cells have .go and .done
                     cell = signal_name.split(".go")[0]
                     cell_active.add(cell)
+                    if cell not in self.cell_to_active_cycles:
+                        self.cell_to_active_cycles[cell] = [{"start": clock_cycles}]
+                    else:
+                        self.cell_to_active_cycles[cell].append({"start": clock_cycles})
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
                     cell_active.remove(cell)
+                    current_segment = self.cell_to_active_cycles[cell][-1]
+                    current_segment["end"] = clock_cycles # janky?
+                    current_segment["length"] = clock_cycles - current_segment["start"]
                 # process all probes.
                 for probe_label in probe_labels_to_sets:
                     cutoff = f"_{probe_label}"
@@ -233,6 +242,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             self.trace[clock_cycles] = create_cycle_trace(info_this_cycle, self.cells_to_components, self.main_component, True) # True to track primitives
 
         self.clock_cycles = clock_cycles
+        # close any active cells (unlikely)
+        for still_active_cell in cell_active:
+            still_active_segment = self.cell_to_active_cycles[still_active_cell][-1]
+            still_active_segment["end"] = clock_cycles
+            still_active_segment["length"] = clock_cycles - still_active_segment["start"]
 
 # Generates a list of all of the components to potential cell names
 # `prefix` is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
@@ -544,7 +558,6 @@ def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
             cells_to_curr_active[cell_to_track] = -1
             cells_to_closed_segments[cell_to_track] = []
     # do the most naive thing for now. improve later?
-    # FIXME: probably more principled to sort the 
     currently_active = set()
     for i in trace:
         active_this_cycle = set()
@@ -564,7 +577,7 @@ def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
         currently_active = active_this_cycle # retain the current one for next cycle.
     for cell in currently_active: # need to close
         start_cycle = cells_to_curr_active[cell]
-        cells_to_closed_segments[cell].append({"start": start_cycle, "end": len(trace) + 1})
+        cells_to_closed_segments[cell].append({"start": start_cycle, "end": len(trace)})
     events = []
     # add main on process + thread 1 so we get the full picture.
     events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0})
@@ -584,6 +597,27 @@ def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
     out_path = os.path.join(out_dir, "timeline-dump.json")
     with open(out_path, "w", encoding="utf-8") as out_file:
         out_file.write(json.dumps({"traceEvents" : events}, indent=4))
+
+def write_cell_stats(cell_to_active_cycles, out_dir):
+    # cell-name,total-cycles,times-active,avg
+    stats = []
+    for cell in cell_to_active_cycles:
+        total_cycles = 0
+        times_active = len(cell_to_active_cycles[cell])
+        for elem in cell_to_active_cycles[cell]:
+            total_cycles += elem["length"]
+        avg_cycles = round(total_cycles / times_active, 2)
+        stats.append({"cell-name" : cell, "total-cycles": total_cycles, "times-active": times_active, "avg" : avg_cycles})
+    stats.sort(key=lambda e : e["total-cycles"], reverse=True)
+    # with open('Names.csv', 'w') as csvfile:
+    # writer = csv.DictWriter(csvfile, fieldnames=field_names)
+    # writer.writeheader()
+    # writer.writerows(cars)
+    fieldnames = ["cell-name", "total-cycles", "times-active", "avg"]
+    with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
+        writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(stats)
 
 def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     print(f"Start time: {datetime.now()}")
@@ -608,11 +642,12 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     create_flame_groups(converter.trace, flame_out, out_dir)
-    dump_trace(converter.trace, out_dir)
+    # dump_trace(converter.trace, out_dir)
     print(f"Cells for timeline: {cells_for_timeline}")
     if cells_for_timeline != "":
         compute_timeline(converter.trace, cells_for_timeline, main_component, out_dir)
     print(f"End time: {datetime.now()}")
+    write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
 if __name__ == "__main__":
     if len(sys.argv) > 4:
