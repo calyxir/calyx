@@ -282,12 +282,12 @@ impl CellShare {
 ///  - use [ScheduleConflicts] to find groups/invokes that run in parallel with each other
 ///  - for each tuple combination of cells that return true on cell_filter(), c1 and c2
 ///  - first determine if their live ranges overlap. If so, then insert a conflict between
-///  c1 and c2
+///    c1 and c2
 ///  - if c1 and c2 don't have overlapping live ranges, check if c1 and c2 are ever
-///  live at within the same par block, and they are live at different children
-///  of the par block. If the parent par is not static, then add a conflict.
-///  If the parent par is static, then we can use the static_par_timing analysis
-///  to check whether the cells' liveness actually overlaps.
+///    live at within the same par block, and they are live at different children
+///    of the par block. If the parent par is not static, then add a conflict.
+///    If the parent par is static, then we can use the static_par_timing analysis
+///    to check whether the cells' liveness actually overlaps.
 ///  - perform graph coloring using `self.ordering` to define the order of the greedy coloring
 ///  - use coloring to rewrite group assignments, continuous assignments, and conditional ports.
 impl Visitor for CellShare {

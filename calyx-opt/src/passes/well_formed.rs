@@ -541,13 +541,13 @@ impl Visitor for WellFormed {
                         {
                             Err(Error::malformed_structure(format!(
                                 "Static Timing Guard has improper interval: `{}`",
-                                static_timing.to_string()
+                                static_timing
                             ))
                             .with_pos(&assign.attributes))
                         } else if static_timing.get_interval().1 > group_latency {
                             Err(Error::malformed_structure(format!(
                                 "Static Timing Guard has interval `{}`, which is out of bounds since its static group has latency {}",
-                                static_timing.to_string(),
+                                static_timing,
                                 group_latency
                             ))
                             .with_pos(&assign.attributes))

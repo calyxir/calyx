@@ -1,2 +1,4 @@
+# This file is used by github actions for the CI checks.
+
 [toolchain]
 channel = "1.82.0"

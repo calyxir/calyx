@@ -5,7 +5,7 @@ use petgraph::{
     visit::EdgeRef,
     Direction::{Incoming, Outgoing},
 };
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 use std::{collections::HashMap, rc::Rc};
 
 type Node = RRC<ir::Port>;
@@ -271,8 +271,8 @@ impl GraphAnalysis {
     }
 }
 
-impl ToString for GraphAnalysis {
-    fn to_string(&self) -> String {
+impl Display for GraphAnalysis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut out = String::new();
         for idx in self.graph.node_indices() {
             let src_port = self.graph[idx].borrow();
@@ -293,6 +293,6 @@ impl ToString for GraphAnalysis {
             )
             .expect("Failed to write to ScheduleConflicts string");
         }
-        out
+        out.fmt(f)
     }
 }

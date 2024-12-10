@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     io::{self, BufWriter},
     path::PathBuf,
     str::FromStr,
@@ -48,14 +49,16 @@ impl FromStr for OutputFile {
     }
 }
 
-impl ToString for OutputFile {
-    fn to_string(&self) -> String {
-        match self {
-            OutputFile::Stdout => "-".to_string(),
-            OutputFile::Stderr => "<err>".to_string(),
-            OutputFile::Null => "<null>".to_string(),
-            OutputFile::File { path, .. } => path.to_str().unwrap().to_string(),
-        }
+impl Display for OutputFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            OutputFile::Stdout => "-",
+            OutputFile::Stderr => "<err>",
+            OutputFile::Null => "<null>",
+            OutputFile::File { path, .. } => path.to_str().unwrap(),
+        };
+
+        string.fmt(f)
     }
 }
 
