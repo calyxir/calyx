@@ -23,7 +23,7 @@ jobs:
       - name: mdbook
         run: mdbook build
       - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt, clippy
       - name: Build source documentation
