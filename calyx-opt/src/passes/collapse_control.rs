@@ -36,7 +36,6 @@ use calyx_ir::{self as ir, GetAttributes, LibrarySignatures};
 /// 3. Collapses nested `static seq` in the same way as 1
 /// 4. Collapses nested `static par` in the same way as 2
 /// 5. Collapses `static repeat`:
-/// Collapse
 /// ```
 /// static repeat 0 { ** body ** }
 /// ```
