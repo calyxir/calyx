@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dap = { git = "https://github.com/sztomi/dap-rs", tag = "v0.3.1-alpha1" }
+dap = { git = "https://github.com/sztomi/dap-rs", tag = "v0.4.1-alpha1" }
 thiserror = "1.*"
 serde_json = "1.0"
 serde.workspace= true
@@ -15,6 +15,7 @@ argh = "0.1"
 slog = "2.7.0"
 slog-term = "2.8.0"
 slog-async = "2.7.0"
+baa = "0.14"
 
 interp = { path = "../interp" }
 
