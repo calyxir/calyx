@@ -64,7 +64,7 @@ impl BarrierMap {
     }
 
     fn insert_shared_wire(&mut self, builder: &mut ir::Builder, idx: &u64) {
-        if self.0.get(idx).is_none() {
+        if !self.0.contains_key(idx) {
             structure!(builder;
                 let s = prim std_wire(1);
             );

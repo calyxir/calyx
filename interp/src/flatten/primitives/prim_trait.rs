@@ -4,6 +4,7 @@ use crate::{
         flat_ir::base::GlobalPortIdx,
         structures::{
             environment::{clock::ClockMap, PortMap},
+            index_trait::SplitIndexRange,
             thread::ThreadMap,
         },
     },
@@ -109,15 +110,15 @@ pub trait Primitive {
         Ok(UpdateStatus::Unchanged)
     }
 
-    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> UpdateResult {
-        Ok(UpdateStatus::Unchanged)
+    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> RuntimeResult<()> {
+        Ok(())
     }
 
-    fn has_comb(&self) -> bool {
+    fn has_comb_path(&self) -> bool {
         true
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         true
     }
 
@@ -133,6 +134,13 @@ pub trait Primitive {
 
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         None
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx>;
+
+    /// Returns `true` if this primitive only has a combinational part
+    fn is_combinational(&self) -> bool {
+        self.has_comb_path() && !self.has_stateful_path()
     }
 
     fn clone_boxed(&self) -> Box<dyn Primitive>;
@@ -153,7 +161,7 @@ pub trait RaceDetectionPrimitive: Primitive {
         port_map: &mut PortMap,
         _clock_map: &mut ClockMap,
         _thread_map: &ThreadMap,
-    ) -> UpdateResult {
+    ) -> RuntimeResult<()> {
         self.exec_cycle(port_map)
     }
 
@@ -162,21 +170,4 @@ pub trait RaceDetectionPrimitive: Primitive {
     fn as_primitive(&self) -> &dyn Primitive;
 
     fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive>;
-}
-
-/// An empty primitive implementation used for testing. It does not do anything
-/// and has no ports of any kind
-#[derive(Clone, Copy)]
-pub struct DummyPrimitive;
-
-impl DummyPrimitive {
-    pub fn new_dyn() -> Box<dyn Primitive> {
-        Box::new(Self)
-    }
-}
-
-impl Primitive for DummyPrimitive {
-    fn clone_boxed(&self) -> Box<dyn Primitive> {
-        Box::new(*self)
-    }
 }

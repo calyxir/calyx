@@ -3,18 +3,18 @@ use std::{
     collections::HashMap,
     hash::Hash,
     num::NonZeroU32,
+    ops::{Index, IndexMut},
 };
 
 use crate::flatten::{
     flat_ir::base::GlobalCellIdx,
     structures::{
-        index_trait::{impl_index_nonzero, IndexRef},
-        indexed_map::IndexedMap,
+        index_trait::impl_index_nonzero, indexed_map::IndexedMap,
         thread::ThreadIdx,
     },
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClockIdx(NonZeroU32);
 impl_index_nonzero!(ClockIdx);
 
@@ -22,18 +22,74 @@ use baa::BitVecValue;
 use itertools::Itertools;
 use thiserror::Error;
 
-pub type ClockMap = IndexedMap<ClockIdx, VectorClock<ThreadIdx>>;
 pub type ThreadClockPair = (ThreadIdx, ClockIdx);
 
+#[derive(Debug, Clone)]
+pub struct ClockPairInfo {
+    /// The cell that this clock pair was generated for
+    pub attached_cell: GlobalCellIdx,
+    /// An optional entry number within the given cell. This is used for
+    /// memories but not for registers
+    pub entry_number: Option<u32>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ClockMap {
+    clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
+    reverse_map: HashMap<ClockPair, ClockPairInfo>,
+}
+
 impl ClockMap {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// pushes a new clock into the map and returns its index
     pub fn new_clock(&mut self) -> ClockIdx {
-        self.push(VectorClock::new())
+        self.clocks.push(VectorClock::new())
+    }
+
+    pub fn new_clock_pair(&mut self) -> ClockPair {
+        let read = self.new_clock();
+        let write = self.new_clock();
+        ClockPair::new(read, write)
+    }
+
+    pub fn insert_reverse_entry(
+        &mut self,
+        pair: ClockPair,
+        cell: GlobalCellIdx,
+        entry_number: Option<u32>,
+    ) {
+        self.reverse_map.insert(
+            pair,
+            ClockPairInfo {
+                attached_cell: cell,
+                entry_number,
+            },
+        );
+    }
+
+    pub fn lookup_cell(&self, pair: ClockPair) -> Option<&ClockPairInfo> {
+        self.reverse_map.get(&pair)
     }
 
     /// Returns a new clock that is the clone of the given clock
     pub fn fork_clock(&mut self, parent: ClockIdx) -> ClockIdx {
-        self.push(self[parent].clone())
+        self.clocks.push(self.clocks[parent].clone())
+    }
+}
+
+impl Index<ClockIdx> for ClockMap {
+    type Output = VectorClock<ThreadIdx>;
+    fn index(&self, index: ClockIdx) -> &Self::Output {
+        &self.clocks[index]
+    }
+}
+
+impl IndexMut<ClockIdx> for ClockMap {
+    fn index_mut(&mut self, index: ClockIdx) -> &mut Self::Output {
+        &mut self.clocks[index]
     }
 }
 
@@ -86,11 +142,18 @@ impl Counter for u128 {
 
 /// If the clock map is provided, use it to create a new clock. Otherwise,
 /// return the 0th clock idx.
-pub fn new_clock(clock_map: &mut Option<&mut ClockMap>) -> ClockIdx {
-    clock_map
-        .as_mut()
-        .map(|c| c.new_clock())
-        .unwrap_or(ClockIdx::new(0))
+pub fn new_clock_pair(
+    clock_map: &mut Option<&mut ClockMap>,
+    cell: GlobalCellIdx,
+    entry_number: Option<u32>,
+) -> ClockPair {
+    if let Some(map) = clock_map {
+        let pair = map.new_clock_pair();
+        map.insert_reverse_entry(pair, cell, entry_number);
+        pair
+    } else {
+        ClockPair::zero()
+    }
 }
 
 /// A simple vector clock implementation.
@@ -294,38 +357,40 @@ pub struct ValueWithClock {
 }
 
 impl ValueWithClock {
-    pub fn zero(
-        width: u32,
-        reading_clock: ClockIdx,
-        writing_clock: ClockIdx,
-    ) -> Self {
+    pub fn zero(width: u32, clocks: ClockPair) -> Self {
         Self {
             value: BitVecValue::zero(width),
-            clocks: ClockPair::new(reading_clock, writing_clock),
+            clocks,
         }
     }
 
-    pub fn new(
-        value: BitVecValue,
-        write_clock: ClockIdx,
-        read_clock: ClockIdx,
-    ) -> Self {
+    pub fn new(value: BitVecValue, clock_pair: ClockPair) -> Self {
         Self {
             value,
-            clocks: ClockPair::new(read_clock, write_clock),
+            clocks: clock_pair,
         }
     }
 }
 
 /// A struct containing the read and write clocks for a value. This is small
 /// enough to be copied around easily
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub struct ClockPair {
     pub read_clock: ClockIdx,
     pub write_clock: ClockIdx,
 }
 
 impl ClockPair {
+    /// Returns a new clock pair where both indices point to the zero clock.
+    /// This should only be used as a placeholder entry for when clocks are not
+    /// actually being tracked.
+    pub fn zero() -> Self {
+        Self {
+            read_clock: ClockIdx::from(0),
+            write_clock: ClockIdx::from(0),
+        }
+    }
+
     pub fn new(read_clock: ClockIdx, write_clock: ClockIdx) -> Self {
         Self {
             read_clock,
@@ -356,6 +421,18 @@ impl ClockPair {
         }
     }
 
+    /// A wrapper method which checks the read and adds cell info on an error
+    pub fn check_read_w_cell(
+        &self,
+        (thread, reading_clock): ThreadClockPair,
+        clock_map: &mut ClockMap,
+        cell: GlobalCellIdx,
+        entry_number: Option<u32>,
+    ) -> Result<(), ClockError> {
+        self.check_read((thread, reading_clock), clock_map)
+            .map_err(|e| e.add_cell_info(cell, entry_number))
+    }
+
     pub fn check_write(
         &self,
         writing_clock: ClockIdx,
@@ -371,6 +448,7 @@ impl ClockPair {
                 .partial_cmp(&clock_map[self.read_clock])
                 .is_none()
         {
+            // dbg!(&clock_map[writing_clock], &clock_map[self.read_clock]);
             Err(ClockError::ReadWriteUnhelpful)
         } else if clock_map[writing_clock]
             .partial_cmp(&clock_map[self.write_clock])
@@ -394,16 +472,24 @@ pub enum ClockError {
     #[error("Concurrent writes to the same register/memory")]
     WriteWriteUnhelpful,
     #[error("Concurrent read & write to the same register/memory {0:?}")]
-    ReadWrite(GlobalCellIdx),
+    ReadWrite(GlobalCellIdx, Option<u32>),
     #[error("Concurrent writes to the same register/memory {0:?}")]
-    WriteWrite(GlobalCellIdx),
+    WriteWrite(GlobalCellIdx, Option<u32>),
 }
 
 impl ClockError {
-    pub fn add_cell_info(self, cell: GlobalCellIdx) -> Self {
+    pub fn add_cell_info(
+        self,
+        cell: GlobalCellIdx,
+        entry_number: Option<u32>,
+    ) -> Self {
         match self {
-            ClockError::ReadWriteUnhelpful => ClockError::ReadWrite(cell),
-            ClockError::WriteWriteUnhelpful => ClockError::WriteWrite(cell),
+            ClockError::ReadWriteUnhelpful => {
+                ClockError::ReadWrite(cell, entry_number)
+            }
+            ClockError::WriteWriteUnhelpful => {
+                ClockError::WriteWrite(cell, entry_number)
+            }
             _ => self,
         }
     }

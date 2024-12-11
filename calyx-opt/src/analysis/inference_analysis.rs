@@ -535,10 +535,11 @@ impl InferenceAnalysis {
 
     /// "Fixes Up" the component. In particular:
     /// 1. Removes @promotable annotations for any groups that write to any
-    /// `updated_components`.
+    ///    `updated_components`.
     /// 2. Try to re-infer groups' latencies.
     /// 3. Removes all @promotable annotation from the control program.
     /// 4. Re-infers the @promotable annotations for any groups or control.
+    ///
     /// Note that this only fixes up the component's ``internals''.
     /// It does *not* fix the component's signature.
     pub fn fixup_timing(&self, comp: &mut ir::Component) {

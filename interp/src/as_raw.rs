@@ -17,12 +17,12 @@ impl<T> AsRaw<T> for *const T {
     }
 }
 
-impl<'a, T> AsRaw<T> for &Ref<'a, T> {
+impl<T> AsRaw<T> for &Ref<'_, T> {
     fn as_raw(&self) -> *const T {
         self as &T as *const T
     }
 }
-impl<'a, T> AsRaw<T> for Ref<'a, T> {
+impl<T> AsRaw<T> for Ref<'_, T> {
     fn as_raw(&self) -> *const T {
         self as &T as *const T
     }

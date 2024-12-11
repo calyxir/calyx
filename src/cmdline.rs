@@ -200,7 +200,7 @@ impl Opts {
         {
             return Err(Error::misc(format!(
                 "--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project",
-                opts.backend.to_string()
+                opts.backend
             )));
         }
 

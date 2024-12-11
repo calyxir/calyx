@@ -16,7 +16,6 @@ path = "src/main.rs"
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
-lazy_static.workspace = true
 itertools.workspace = true
 pest.workspace = true
 pest_derive.workspace = true

@@ -13,6 +13,7 @@ use crate::{
     serialization::PrintCode,
 };
 use baa::{BitVecOps, BitVecValue};
+use std::collections::HashSet;
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
@@ -428,12 +429,24 @@ impl From<(GlobalCellIdx, AssignmentIdx)> for AssignmentWinner {
 
 /// A struct representing a value that has been assigned to a port. It wraps a
 /// concrete value and the "winner" which assigned it.
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct AssignedValue {
     val: BitVecValue,
     winner: AssignmentWinner,
     thread: Option<ThreadIdx>,
     clocks: Option<ClockPair>,
+    propagate_clocks: bool,
+    transitive_clocks: Option<HashSet<ClockPair>>,
+}
+
+impl AssignedValue {
+    pub fn eq_no_transitive_clocks(&self, other: &Self) -> bool {
+        self.val == other.val
+            && self.winner == other.winner
+            && self.thread == other.thread
+            && self.clocks == other.clocks
+            && self.propagate_clocks == other.propagate_clocks
+    }
 }
 
 impl std::fmt::Debug for AssignedValue {
@@ -442,6 +455,8 @@ impl std::fmt::Debug for AssignedValue {
             .field("val", &self.val.to_bit_str())
             .field("winner", &self.winner)
             .field("thread", &self.thread)
+            .field("clocks", &self.clocks)
+            .field("propagate_clocks", &self.propagate_clocks)
             .finish()
     }
 }
@@ -461,7 +476,35 @@ impl AssignedValue {
             winner: winner.into(),
             thread: None,
             clocks: None,
+            propagate_clocks: false,
+            transitive_clocks: None,
         }
+    }
+
+    /// Adds a clock to the set of transitive reads associated with this value
+    pub fn add_transitive_clock(&mut self, clock_pair: ClockPair) {
+        self.transitive_clocks
+            .get_or_insert_with(Default::default)
+            .insert(clock_pair);
+    }
+
+    pub fn add_transitive_clocks<I: IntoIterator<Item = ClockPair>>(
+        &mut self,
+        clocks: I,
+    ) {
+        self.transitive_clocks
+            .get_or_insert_with(Default::default)
+            .extend(clocks);
+    }
+
+    pub fn iter_transitive_clocks(
+        &self,
+    ) -> impl Iterator<Item = ClockPair> + '_ {
+        self.transitive_clocks
+            .as_ref()
+            .map(|set| set.iter().copied())
+            .into_iter()
+            .flatten()
     }
 
     pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
@@ -477,6 +520,31 @@ impl AssignedValue {
     pub fn with_clocks(mut self, clock_pair: ClockPair) -> Self {
         self.clocks = Some(clock_pair);
         self
+    }
+
+    pub fn with_clocks_optional(
+        mut self,
+        clock_pair: Option<ClockPair>,
+    ) -> Self {
+        self.clocks = clock_pair;
+        self
+    }
+
+    pub fn with_transitive_clocks_opt(
+        mut self,
+        clocks: Option<HashSet<ClockPair>>,
+    ) -> Self {
+        self.transitive_clocks = clocks;
+        self
+    }
+
+    pub fn with_propagate_clocks(mut self) -> Self {
+        self.propagate_clocks = true;
+        self
+    }
+
+    pub fn set_propagate_clocks(&mut self, propagate_clocks: bool) {
+        self.propagate_clocks = propagate_clocks;
     }
 
     /// Returns true if the two AssignedValues do not have the same winner
@@ -497,36 +565,21 @@ impl AssignedValue {
     /// A utility constructor which returns a new implicitly assigned value with
     /// a one bit high value
     pub fn implicit_bit_high() -> Self {
-        Self {
-            val: BitVecValue::tru(),
-            winner: AssignmentWinner::Implicit,
-            thread: None,
-            clocks: None,
-        }
+        Self::new(BitVecValue::tru(), AssignmentWinner::Implicit)
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_value(val: BitVecValue) -> Self {
-        Self {
-            val,
-            winner: AssignmentWinner::Cell,
-            thread: None,
-            clocks: None,
-        }
+        Self::new(val, AssignmentWinner::Cell)
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
     /// value and a [`AssignmentWinner::Implicit`] as the winner
     #[inline]
     pub fn implicit_value(val: BitVecValue) -> Self {
-        Self {
-            val,
-            winner: AssignmentWinner::Implicit,
-            thread: None,
-            clocks: None,
-        }
+        Self::new(val, AssignmentWinner::Implicit)
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
@@ -548,6 +601,14 @@ impl AssignedValue {
 
     pub fn clocks(&self) -> Option<&ClockPair> {
         self.clocks.as_ref()
+    }
+
+    pub fn transitive_clocks(&self) -> Option<&HashSet<ClockPair>> {
+        self.transitive_clocks.as_ref()
+    }
+
+    pub fn propagate_clocks(&self) -> bool {
+        self.propagate_clocks
     }
 }
 
@@ -581,6 +642,18 @@ impl PortValue {
         self.0.as_ref()
     }
 
+    /// Returns a mutable reference to the underlying [`AssignedValue`] if it is
+    /// defined. Otherwise returns `None`.
+    pub fn as_option_mut(&mut self) -> Option<&mut AssignedValue> {
+        self.0.as_mut()
+    }
+
+    /// Returns the underlying [`AssignedValue`] if it is defined. Otherwise
+    /// returns `None`.
+    pub fn into_option(self) -> Option<AssignedValue> {
+        self.0
+    }
+
     pub fn with_thread(mut self, thread: ThreadIdx) -> Self {
         if let Some(val) = self.0.as_mut() {
             val.thread = Some(thread);
@@ -593,6 +666,10 @@ impl PortValue {
             val.thread = thread;
         }
         self
+    }
+
+    pub fn transitive_clocks(&self) -> Option<&HashSet<ClockPair>> {
+        self.0.as_ref().and_then(|x| x.transitive_clocks())
     }
 
     /// If the value is defined, returns the value cast to a boolean. Otherwise

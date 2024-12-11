@@ -3,13 +3,17 @@ use super::{
         context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
     },
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::{ClockMap, VectorClock},
-    program_counter::{ControlTuple, PcMaps, ProgramCounter, WithEntry},
+    clock::ClockMap,
+    program_counter::{
+        ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
+    },
     traverser::{Path, TraversalError},
 };
 use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
-    errors::{BoxedCiderError, CiderResult, ConflictingAssignments},
+    errors::{
+        BoxedCiderError, BoxedRuntimeError, CiderResult, ConflictingAssignments,
+    },
     flatten::{
         flat_ir::{
             base::{
@@ -49,8 +53,8 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use slog::{info, warn, Logger};
-use std::fmt::Debug;
 use std::fmt::Write;
+use std::{convert::Into, fmt::Debug};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -74,7 +78,11 @@ impl PortMap {
         val: PortValue,
     ) -> UpdateStatus {
         if self[target].is_undef() && val.is_undef()
-            || self[target].as_option() == val.as_option()
+            || self[target]
+                .as_option()
+                .zip(val.as_option())
+                .map(|(a, b)| a.eq_no_transitive_clocks(b))
+                .unwrap_or_default()
         {
             UpdateStatus::Unchanged
         } else {
@@ -94,10 +102,12 @@ impl PortMap {
         &mut self,
         target: GlobalPortIdx,
         val: AssignedValue,
-    ) -> Result<UpdateStatus, ConflictingAssignments> {
+    ) -> Result<UpdateStatus, Box<ConflictingAssignments>> {
         match self[target].as_option() {
             // unchanged
-            Some(t) if *t == val => Ok(UpdateStatus::Unchanged),
+            Some(t) if t.eq_no_transitive_clocks(&val) => {
+                Ok(UpdateStatus::Unchanged)
+            }
             // conflict
             // TODO: Fix to make the error more helpful
             Some(t)
@@ -110,7 +120,8 @@ impl PortMap {
                     target,
                     a1: t.clone(),
                     a2: val,
-                })
+                }
+                .into())
             }
             // changed
             Some(_) | None => {
@@ -448,8 +459,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let root = ctx.as_ref().entry_point;
         let aux = &ctx.as_ref().secondary[root];
 
-        let mut clocks = IndexedMap::new();
-        let root_clock = clocks.push(VectorClock::new());
+        let mut clocks = ClockMap::new();
+        let root_clock = clocks.new_clock();
+        let continuous_clock = clocks.new_clock();
 
         let mut env = Self {
             ports: PortMap::with_capacity(aux.port_offset_map.count()),
@@ -462,7 +474,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ),
             pc: ProgramCounter::new_empty(),
             clocks,
-            thread_map: ThreadMap::new(root_clock),
+            thread_map: ThreadMap::new(root_clock, continuous_clock),
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
@@ -481,25 +493,28 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         let root_thread = ThreadMap::root_thread();
         env.clocks[root_clock].increment(&root_thread);
+        env.clocks[continuous_clock].increment(&ThreadMap::continuous_thread());
 
         // Initialize program counter
         // TODO griffin: Maybe refactor into a separate function
         for (idx, ledger) in env.cells.iter() {
             if let CellLedger::Component(comp) = ledger {
-                if let Some(ctrl) =
-                    &env.ctx.as_ref().primary[comp.comp_id].control
-                {
-                    env.pc.vec_mut().push((
-                        if comp.comp_id == root {
-                            Some(root_thread)
-                        } else {
-                            None
-                        },
-                        ControlPoint {
-                            comp: idx,
-                            control_node_idx: *ctrl,
-                        },
-                    ))
+                let comp_info = &env.ctx.as_ref().primary[comp.comp_id];
+                if !comp_info.is_comb() {
+                    if let Some(ctrl) = comp_info.as_standard().unwrap().control
+                    {
+                        env.pc.vec_mut().push((
+                            if comp.comp_id == root {
+                                Some(root_thread)
+                            } else {
+                                None
+                            },
+                            ControlPoint {
+                                comp: idx,
+                                control_node_idx: ctrl,
+                            },
+                        ))
+                    }
                 }
             }
         }
@@ -540,7 +555,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         // Insert the component's continuous assignments into the program counter, if non-empty
         let cont_assigns =
-            self.ctx.as_ref().primary[*comp_id].continuous_assignments;
+            self.ctx.as_ref().primary[*comp_id].continuous_assignments();
         if !cont_assigns.is_empty() {
             self.pc.push_continuous_assigns(comp, cont_assigns);
         }
@@ -589,6 +604,24 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             }
             self.control_ports.insert(go, 1);
             self.control_ports.insert(done, 1);
+        }
+
+        // ref cells and ports are initialized to None
+        for (ref_cell, def_idx) in comp_aux.ref_cell_offset_map.iter() {
+            let info = &self.ctx.as_ref().secondary[*def_idx];
+
+            for port_idx in info.ports.iter() {
+                let port_actual = self.ref_ports.push(None);
+                debug_assert_eq!(
+                    &self.cells[comp].as_comp().unwrap().index_bases + port_idx,
+                    port_actual
+                );
+            }
+            let cell_actual = self.ref_cells.push(None);
+            debug_assert_eq!(
+                &self.cells[comp].as_comp().unwrap().index_bases + ref_cell,
+                cell_actual
+            )
         }
 
         for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
@@ -653,44 +686,42 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 }
             }
         }
-
-        // ref cells and ports are initialized to None
-        for (ref_cell, def_idx) in comp_aux.ref_cell_offset_map.iter() {
-            let info = &self.ctx.as_ref().secondary[*def_idx];
-            for port_idx in info.ports.iter() {
-                let port_actual = self.ref_ports.push(None);
-                debug_assert_eq!(
-                    &self.cells[comp].as_comp().unwrap().index_bases + port_idx,
-                    port_actual
-                )
-            }
-            let cell_actual = self.ref_cells.push(None);
-            debug_assert_eq!(
-                &self.cells[comp].as_comp().unwrap().index_bases + ref_cell,
-                cell_actual
-            )
-        }
     }
 
-    pub fn get_comp_go(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+    pub fn get_comp_go(&self, comp: GlobalCellIdx) -> Option<GlobalPortIdx> {
         let ledger = self.cells[comp]
             .as_comp()
             .expect("Called get_comp_go with a non-component cell.");
 
-        &ledger.index_bases + self.ctx.as_ref().primary[ledger.comp_id].go
+        let go_port = self.ctx.as_ref().primary[ledger.comp_id]
+            .as_standard()
+            .map(|x| x.go);
+
+        go_port.map(|go| &ledger.index_bases + go)
     }
 
-    pub fn get_comp_done(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+    pub fn unwrap_comp_go(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+        self.get_comp_go(comp).unwrap()
+    }
+
+    pub fn get_comp_done(&self, comp: GlobalCellIdx) -> Option<GlobalPortIdx> {
         let ledger = self.cells[comp]
             .as_comp()
             .expect("Called get_comp_done with a non-component cell.");
 
-        &ledger.index_bases + self.ctx.as_ref().primary[ledger.comp_id].done
+        let done_port = self.ctx.as_ref().primary[ledger.comp_id]
+            .as_standard()
+            .map(|x| x.done);
+        done_port.map(|done| &ledger.index_bases + done)
+    }
+
+    pub fn unwrap_comp_done(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+        self.get_comp_done(comp).unwrap()
     }
 
     #[inline]
     pub fn get_root_done(&self) -> GlobalPortIdx {
-        self.get_comp_done(Self::get_root())
+        self.get_comp_done(Self::get_root()).unwrap()
     }
 
     #[inline]
@@ -709,7 +740,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(x) => {
-                    let comp_go = self.get_comp_go(point.comp);
+                    let comp_go = self.get_comp_go(point.comp).unwrap();
                     if self.ports[comp_go].as_bool().unwrap_or_default() {
                         Some(x.group())
                     } else {
@@ -832,7 +863,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(_) | ControlNode::Invoke(_) => {
-                    let comp_go = self.get_comp_go(point.comp);
+                    let comp_go = self.unwrap_comp_go(point.comp);
                     self.ports[comp_go].as_bool().unwrap_or_default()
                 }
 
@@ -846,10 +877,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let node = &ctx.primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(x) => {
+                    let go = &self.cells[point.comp].unwrap_comp().index_bases
+                        + self.ctx().primary[x.group()].go;
                     println!(
-                        "{}::{}",
+                        "{}::{}{}",
                         self.get_full_name(point.comp),
-                        ctx.lookup_name(x.group()).underline()
+                        ctx.lookup_name(x.group()).underline(),
+                        if self.ports[go].as_bool().unwrap_or_default() {
+                            ""
+                        } else {
+                            " [done]"
+                        }
                     );
                 }
                 ControlNode::Invoke(x) => {
@@ -908,7 +946,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
-    fn get_parent_cell_from_port(
+    fn _get_parent_cell_from_port(
         &self,
         port: PortRef,
         comp: GlobalCellIdx,
@@ -1282,7 +1320,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
         let port = self.get_root_input_port(port);
 
-        let go = self.get_comp_go(Self::get_root());
+        let go = self.unwrap_comp_go(Self::get_root());
         assert!(port != go, "Cannot pin the go port");
 
         self.pinned_ports.insert(port, val);
@@ -1336,6 +1374,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let comp = &self.ctx.as_ref().secondary[comp_idx];
         let idx = comp.ref_port_offset_map[port];
         self.ctx.as_ref().secondary[idx]
+    }
+}
+
+enum ControlNodeEval {
+    Reprocess,
+    Stop { retain_node: bool },
+}
+
+impl ControlNodeEval {
+    fn stop(retain_node: bool) -> Self {
+        ControlNodeEval::Stop { retain_node }
     }
 }
 
@@ -1635,7 +1684,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     fn set_root_go_high(&mut self) {
         let ledger = self.get_root_component();
         let go = &ledger.index_bases
-            + self.env.ctx.as_ref().primary[ledger.comp_id].go;
+            + self.env.ctx.as_ref().primary[ledger.comp_id]
+                .unwrap_standard()
+                .go;
         self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
     }
 
@@ -1652,7 +1703,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     ControlNode::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
 
-                        Some(ScheduledAssignments::new(
+                        Some(ScheduledAssignments::new_control(
                             node.comp,
                             group.assignments,
                             Some(GroupInterfacePorts {
@@ -1660,17 +1711,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 done: group.done,
                             }),
                             *thread,
-                            false,
                         ))
                     }
 
-                    ControlNode::Invoke(i) => Some(ScheduledAssignments::new(
-                        node.comp,
-                        i.assignments,
-                        None,
-                        *thread,
-                        false,
-                    )),
+                    ControlNode::Invoke(i) => {
+                        Some(ScheduledAssignments::new_control(
+                            node.comp,
+                            i.assignments,
+                            None,
+                            *thread,
+                        ))
+                    }
 
                     ControlNode::Empty(_) => None,
                     // non-leaf nodes
@@ -1682,25 +1733,20 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 }
             })
             .chain(self.env.pc.continuous_assigns().iter().map(|x| {
-                ScheduledAssignments::new(x.comp, x.assigns, None, None, true)
+                ScheduledAssignments::new_continuous(x.comp, x.assigns)
             }))
             .chain(self.env.pc.with_map().iter().map(
                 |(ctrl_pt, with_entry)| {
-                    let assigns =
-                        self.ctx().primary[with_entry.group].assignments;
-                    ScheduledAssignments::new(
+                    ScheduledAssignments::new_combinational(
                         ctrl_pt.comp,
-                        assigns,
-                        None,
-                        with_entry.thread,
-                        false,
+                        self.ctx().primary[with_entry.group].assignments,
                     )
                 },
             ))
             .collect()
     }
 
-    /// A helper function which inserts indicies for the ref cells and ports
+    /// A helper function which inserts indices for the ref cells and ports
     /// used in the invoke statement
     fn initialize_ref_cells(
         &mut self,
@@ -1820,7 +1866,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
 
         for (comp, id) in self.env.pc.finished_comps() {
-            let done_port = self.env.get_comp_done(*comp);
+            let done_port = self.env.unwrap_comp_done(*comp);
             let v = PortValue::new_implicit(BitVecValue::tru());
             self.env.ports[done_port] = if self.conf.check_data_race {
                 v.with_thread(id.expect("finished comps should have a thread"))
@@ -1829,8 +1875,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             }
         }
 
-        let (vecs, par_map, mut with_map, repeat_map) =
+        let (mut vecs, par_map, mut with_map, repeat_map) =
             self.env.pc.take_fields();
+
+        // For thread propagation during race detection we need to iterate in
+        // containment order. This probably isn't necessary for normal execution
+        // and could be guarded by the `check_data_race` flag. Will leave it for
+        // the moment though and see if we need to change it down the line. In
+        // expectation, the program counter should almost always be already
+        // sorted as the only thing which causes nodes to be added or removed
+        // are par nodes
+        vecs.sort_by_key(|x| x.1.comp);
 
         // for mutability reasons, this should be a cheap clone, either an RC in
         // the owned case or a simple reference clone
@@ -1838,8 +1893,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         let ctx_ref = ctx.as_ref();
 
         for (thread, node) in vecs.iter() {
-            let comp_done = self.env.get_comp_done(node.comp);
-            let comp_go = self.env.get_comp_go(node.comp);
+            let comp_done = self.env.unwrap_comp_done(node.comp);
+            let comp_go = self.env.unwrap_comp_go(node.comp);
             let thread = thread.or_else(|| {
                 self.env.ports[comp_go].as_option().and_then(|t| t.thread())
             });
@@ -1870,7 +1925,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(invoke.comb_group.unwrap(), thread),
+                            WithEntry::new(invoke.comb_group.unwrap()),
                         );
                     }
 
@@ -1879,7 +1934,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         PortValue::new_implicit(BitVecValue::tru())
                             .with_thread_optional(
                                 if self.conf.check_data_race {
-                                    assert!(thread.is_some());
+                                    assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. In {}", node.comp.get_full_name(&self.env));
                                     thread
                                 } else {
                                     None
@@ -1896,7 +1951,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(i.cond_group().unwrap(), thread),
+                            WithEntry::new(i.cond_group().unwrap()),
                         );
                     }
                 }
@@ -1905,7 +1960,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     {
                         with_map.insert(
                             node.clone(),
-                            WithEntry::new(w.cond_group().unwrap(), thread),
+                            WithEntry::new(w.cond_group().unwrap()),
                         );
                     }
                 }
@@ -1930,34 +1985,71 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     pub fn step(&mut self) -> CiderResult<()> {
         self.converge()?;
 
-        let out: Result<(), BoxedCiderError> = {
-            let mut result = Ok(());
-            for cell in self.env.cells.values_mut() {
-                match cell {
-                    CellLedger::Primitive { cell_dyn } => {
-                        let res = cell_dyn.exec_cycle(&mut self.env.ports);
-                        if res.is_err() {
-                            result = Err(res.unwrap_err());
-                            break;
+        if self.conf.check_data_race {
+            let mut clock_map = std::mem::take(&mut self.env.clocks);
+            for cell in self.env.cells.values() {
+                if !matches!(&cell, CellLedger::Component(_)) {
+                    let dyn_prim = match cell {
+                        CellLedger::Primitive { cell_dyn } => &**cell_dyn,
+                        CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                            cell_dyn.as_primitive()
                         }
-                    }
+                        CellLedger::Component(_) => {
+                            unreachable!()
+                        }
+                    };
 
-                    CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                        let res = cell_dyn.exec_cycle_checked(
-                            &mut self.env.ports,
-                            &mut self.env.clocks,
-                            &self.env.thread_map,
-                        );
-                        if res.is_err() {
-                            result = Err(res.unwrap_err());
-                            break;
+                    if !dyn_prim.is_combinational() {
+                        let sig = dyn_prim.get_ports();
+                        for port in sig.iter_first() {
+                            if let Some(val) = self.env.ports[port].as_option()
+                            {
+                                if val.propagate_clocks()
+                                    && (val.transitive_clocks().is_some())
+                                {
+                                    // For non-combinational cells with
+                                    // transitive reads, we will check them at
+                                    // the cycle boundary and attribute the read
+                                    // to the continuous thread
+                                    self.check_read(
+                                        ThreadMap::continuous_thread(),
+                                        port,
+                                        &mut clock_map,
+                                    )
+                                    .map_err(|e| {
+                                        e.prettify_message(&self.env)
+                                    })?
+                                }
+                            }
                         }
                     }
-                    CellLedger::Component(_) => {}
                 }
             }
-            result.map_err(|e| e.prettify_message(&self.env).into())
-        };
+
+            self.env.clocks = clock_map;
+        }
+
+        let out: Result<(), BoxedRuntimeError> = self
+            .env
+            .cells
+            .values_mut()
+            .filter_map(|cell| match cell {
+                CellLedger::Primitive { cell_dyn } => {
+                    Some(cell_dyn.exec_cycle(&mut self.env.ports))
+                }
+
+                CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                    Some(cell_dyn.exec_cycle_checked(
+                        &mut self.env.ports,
+                        &mut self.env.clocks,
+                        &self.env.thread_map,
+                    ))
+                }
+                CellLedger::Component(_) => None,
+            })
+            .collect();
+
+        out.map_err(|e| e.prettify_message(&self.env))?;
 
         self.env.pc.clear_finished_comps();
 
@@ -1967,7 +2059,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         let mut removed = vec![];
 
-        for (i, node) in vecs.iter_mut().enumerate() {
+        let mut i = 0;
+
+        while i < vecs.len() {
+            let node = &mut vecs[i];
             let keep_node = self
                 .evaluate_control_node(
                     node,
@@ -1975,8 +2070,16 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     (&mut par_map, &mut with_map, &mut repeat_map),
                 )
                 .map_err(|e| e.prettify_message(&self.env))?;
-            if !keep_node {
-                removed.push(i);
+            match keep_node {
+                ControlNodeEval::Reprocess => {
+                    continue;
+                }
+                ControlNodeEval::Stop { retain_node } => {
+                    if !retain_node {
+                        removed.push(i);
+                    }
+                    i += 1;
+                }
             }
         }
 
@@ -1991,7 +2094,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
 
-        out
+        Ok(())
     }
 
     fn evaluate_control_node(
@@ -1999,11 +2102,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         node: &mut ControlTuple,
         new_nodes: &mut Vec<ControlTuple>,
         maps: PcMaps,
-    ) -> RuntimeResult<bool> {
+    ) -> RuntimeResult<ControlNodeEval> {
         let (node_thread, node) = node;
         let (par_map, with_map, repeat_map) = maps;
-        let comp_go = self.env.get_comp_go(node.comp);
-        let comp_done = self.env.get_comp_done(node.comp);
+        let comp_go = self.env.unwrap_comp_go(node.comp);
+        let comp_done = self.env.unwrap_comp_done(node.comp);
 
         let thread = node_thread.or_else(|| {
             self.env.ports[comp_go].as_option().and_then(|x| x.thread())
@@ -2018,172 +2121,40 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         {
             // if the go port is low or the done port is high, we skip the
             // node without doing anything
-            return Ok(true);
+            return Ok(ControlNodeEval::stop(true));
         }
 
         // just considering a single node case for the moment
         let retain_bool = match &ctx.primary[node.control_node_idx] {
-            ControlNode::Seq(seq) => {
-                if !seq.is_empty() {
-                    let next = seq.stms()[0];
-                    *node = node.new_retain_comp(next);
-                    true
-                } else {
-                    node.mutate_into_next(self.env.ctx.as_ref())
-                }
-            }
-            ControlNode::Par(par) => {
-                if par_map.contains_key(node) {
-                    let count = par_map.get_mut(node).unwrap();
-                    *count -= 1;
-
-                    if *count == 0 {
-                        par_map.remove(node);
-                        if self.conf.check_data_race {
-                            let thread =
-                                thread.expect("par nodes should have a thread");
-
-                            let child_clock_idx =
-                                self.env.thread_map.unwrap_clock_id(thread);
-                            let parent =
-                                self.env.thread_map[thread].parent().unwrap();
-                            let parent_clock =
-                                self.env.thread_map.unwrap_clock_id(parent);
-                            let child_clock = std::mem::take(
-                                &mut self.env.clocks[child_clock_idx],
-                            );
-                            self.env.clocks[parent_clock].sync(&child_clock);
-                            self.env.clocks[child_clock_idx] = child_clock;
-                            assert!(self.env.thread_map[thread]
-                                .parent()
-                                .is_some());
-                            *node_thread = Some(parent);
-                            self.env.clocks[parent_clock].increment(&parent);
-                        }
-                        node.mutate_into_next(self.env.ctx.as_ref())
-                    } else {
-                        false
-                    }
-                } else {
-                    par_map.insert(
-                        node.clone(),
-                        par.stms().len().try_into().expect(
-                            "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
-                        ),
-                    );
-                    new_nodes.extend(par.stms().iter().map(|x| {
-                        let thread = if self.conf.check_data_race {
-                            let thread =
-                                thread.expect("par nodes should have a thread");
-
-                            let new_thread_idx: ThreadIdx = *(self
-                                .env
-                                .pc
-                                .lookup_thread(node.comp, thread, *x)
-                                .or_insert_with(|| {
-                                    let new_clock_idx =
-                                        self.env.clocks.new_clock();
-
-                                    self.env
-                                        .thread_map
-                                        .spawn(thread, new_clock_idx)
-                                }));
-
-                            let new_clock_idx = self
-                                .env
-                                .thread_map
-                                .unwrap_clock_id(new_thread_idx);
-
-                            self.env.clocks[new_clock_idx] = self.env.clocks
-                                [self.env.thread_map.unwrap_clock_id(thread)]
-                            .clone();
-
-                            self.env.clocks[new_clock_idx]
-                                .increment(&new_thread_idx);
-
-                            Some(new_thread_idx)
-                        } else {
-                            None
-                        };
-
-                        (thread, node.new_retain_comp(*x))
-                    }));
-
-                    if self.conf.check_data_race {
-                        let thread =
-                            thread.expect("par nodes should have a thread");
-                        let clock = self.env.thread_map.unwrap_clock_id(thread);
-                        self.env.clocks[clock].increment(&thread);
-                    }
-
-                    false
-                }
-            }
+            ControlNode::Seq(seq) => self.handle_seq(seq, node),
+            ControlNode::Par(par) => self.handle_par(
+                par_map,
+                node,
+                thread,
+                node_thread,
+                par,
+                new_nodes,
+            ),
             ControlNode::If(i) => self.handle_if(with_map, node, thread, i)?,
             ControlNode::While(w) => {
                 self.handle_while(w, with_map, node, thread)?
             }
             ControlNode::Repeat(rep) => {
-                if let Some(count) = repeat_map.get_mut(node) {
-                    *count -= 1;
-                    if *count == 0 {
-                        repeat_map.remove(node);
-                        node.mutate_into_next(self.env.ctx.as_ref())
-                    } else {
-                        *node = node.new_retain_comp(rep.body);
-                        true
-                    }
-                } else {
-                    repeat_map.insert(node.clone(), rep.num_repeats);
-                    *node = node.new_retain_comp(rep.body);
-                    true
-                }
+                self.handle_repeat(repeat_map, node, rep)
             }
 
             // ===== leaf nodes =====
             ControlNode::Empty(_) => {
                 node.mutate_into_next(self.env.ctx.as_ref())
             }
-            ControlNode::Enable(e) => {
-                let done_local = self.env.ctx.as_ref().primary[e.group()].done;
-                let done_idx =
-                    &self.env.cells[node.comp].as_comp().unwrap().index_bases
-                        + done_local;
 
-                if !self.env.ports[done_idx].as_bool().unwrap_or_default() {
-                    true
-                } else {
-                    // This group has finished running and may be removed
-                    // this is somewhat dubious at the moment since it
-                    // relies on the fact that the group done port will
-                    // still be high since convergence hasn't propagated the
-                    // low done signal yet.
-                    node.mutate_into_next(self.env.ctx.as_ref())
-                }
-            }
-            ControlNode::Invoke(i) => {
-                let done = self.get_global_port_idx(&i.done, node.comp);
-
-                if i.comb_group.is_some() && !with_map.contains_key(node) {
-                    with_map.insert(
-                        node.clone(),
-                        WithEntry::new(i.comb_group.unwrap(), thread),
-                    );
-                }
-
-                if !self.env.ports[done].as_bool().unwrap_or_default() {
-                    true
-                } else {
-                    self.cleanup_ref_cells(node.comp, i);
-
-                    if i.comb_group.is_some() {
-                        with_map.remove(node);
-                    }
-
-                    node.mutate_into_next(self.env.ctx.as_ref())
-                }
-            }
+            ControlNode::Enable(e) => self.handle_enable(e, node),
+            ControlNode::Invoke(i) => self.handle_invoke(i, node, with_map)?,
         };
+
+        if retain_bool && node.should_reprocess(ctx) {
+            return Ok(ControlNodeEval::Reprocess);
+        }
 
         if !retain_bool && ControlPoint::get_next(node, self.env.ctx.as_ref()).is_none() &&
          // either we are not a par node, or we are the last par node
@@ -2200,12 +2171,189 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             let comp_ledger = self.env.cells[node.comp].unwrap_comp();
             *node = node.new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
+                    .unwrap_standard()
                     .control
                     .unwrap(),
             );
-            Ok(true)
+            Ok(ControlNodeEval::stop(true))
         } else {
-            Ok(retain_bool)
+            Ok(ControlNodeEval::stop(retain_bool))
+        }
+    }
+
+    fn handle_seq(&mut self, seq: &Seq, node: &mut ControlPoint) -> bool {
+        if !seq.is_empty() {
+            let next = seq.stms()[0];
+            *node = node.new_retain_comp(next);
+            true
+        } else {
+            node.mutate_into_next(self.env.ctx.as_ref())
+        }
+    }
+
+    fn handle_repeat(
+        &mut self,
+        repeat_map: &mut HashMap<ControlPoint, u64>,
+        node: &mut ControlPoint,
+        rep: &Repeat,
+    ) -> bool {
+        if let Some(count) = repeat_map.get_mut(node) {
+            *count -= 1;
+            if *count == 0 {
+                repeat_map.remove(node);
+                node.mutate_into_next(self.env.ctx.as_ref())
+            } else {
+                *node = node.new_retain_comp(rep.body);
+                true
+            }
+        } else {
+            repeat_map.insert(node.clone(), rep.num_repeats);
+            *node = node.new_retain_comp(rep.body);
+            true
+        }
+    }
+
+    fn handle_enable(&mut self, e: &Enable, node: &mut ControlPoint) -> bool {
+        let done_local = self.env.ctx.as_ref().primary[e.group()].done;
+        let done_idx =
+            &self.env.cells[node.comp].as_comp().unwrap().index_bases
+                + done_local;
+
+        if !self.env.ports[done_idx].as_bool().unwrap_or_default() {
+            true
+        } else {
+            // This group has finished running and may be removed
+            // this is somewhat dubious at the moment since it
+            // relies on the fact that the group done port will
+            // still be high since convergence hasn't propagated the
+            // low done signal yet.
+            node.mutate_into_next(self.env.ctx.as_ref())
+        }
+    }
+
+    fn handle_invoke(
+        &mut self,
+        i: &Invoke,
+        node: &mut ControlPoint,
+        with_map: &mut HashMap<ControlPoint, WithEntry>,
+    ) -> Result<bool, BoxedRuntimeError> {
+        let done = self.get_global_port_idx(&i.done, node.comp);
+        if i.comb_group.is_some() && !with_map.contains_key(node) {
+            with_map
+                .insert(node.clone(), WithEntry::new(i.comb_group.unwrap()));
+        }
+        Ok(if !self.env.ports[done].as_bool().unwrap_or_default() {
+            true
+        } else {
+            self.cleanup_ref_cells(node.comp, i);
+
+            if i.comb_group.is_some() {
+                with_map.remove(node);
+            }
+
+            node.mutate_into_next(self.env.ctx.as_ref())
+        })
+    }
+
+    fn handle_par(
+        &mut self,
+        par_map: &mut HashMap<ControlPoint, ParEntry>,
+        node: &mut ControlPoint,
+        thread: Option<ThreadIdx>,
+        node_thread: &mut Option<ThreadIdx>,
+        par: &Par,
+        new_nodes: &mut Vec<(Option<ThreadIdx>, ControlPoint)>,
+    ) -> bool {
+        if par_map.contains_key(node) {
+            let par_entry = par_map.get_mut(node).unwrap();
+            *par_entry.child_count_mut() -= 1;
+
+            if self.conf.check_data_race {
+                par_entry.add_finished_thread(
+                    thread.expect("par nodes should have a thread"),
+                );
+            }
+
+            if par_entry.child_count() == 0 {
+                let par_entry = par_map.remove(node).unwrap();
+                if self.conf.check_data_race {
+                    assert!(par_entry
+                        .iter_finished_threads()
+                        .map(|thread| {
+                            self.env.thread_map[thread].parent().unwrap()
+                        })
+                        .all_equal());
+                    let parent =
+                        self.env.thread_map[thread.unwrap()].parent().unwrap();
+                    let parent_clock =
+                        self.env.thread_map.unwrap_clock_id(parent);
+
+                    for child_thread in par_entry.iter_finished_threads() {
+                        let child_clock_idx =
+                            self.env.thread_map.unwrap_clock_id(child_thread);
+
+                        let child_clock = std::mem::take(
+                            &mut self.env.clocks[child_clock_idx],
+                        );
+
+                        self.env.clocks[parent_clock].sync(&child_clock);
+
+                        self.env.clocks[child_clock_idx] = child_clock;
+                    }
+
+                    *node_thread = Some(parent);
+                    self.env.clocks[parent_clock].increment(&parent);
+                }
+                node.mutate_into_next(self.env.ctx.as_ref())
+            } else {
+                false
+            }
+        } else {
+            par_map.insert(
+                node.clone(),
+                par.stms().len().try_into().expect(
+                    "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
+                ),
+            );
+            new_nodes.extend(par.stms().iter().map(|x| {
+                let thread = if self.conf.check_data_race {
+                    let thread =
+                        thread.expect("par nodes should have a thread");
+
+                    let new_thread_idx: ThreadIdx = *(self
+                        .env
+                        .pc
+                        .lookup_thread(node.comp, thread, *x)
+                        .or_insert_with(|| {
+                            let new_clock_idx = self.env.clocks.new_clock();
+
+                            self.env.thread_map.spawn(thread, new_clock_idx)
+                        }));
+
+                    let new_clock_idx =
+                        self.env.thread_map.unwrap_clock_id(new_thread_idx);
+
+                    self.env.clocks[new_clock_idx] = self.env.clocks
+                        [self.env.thread_map.unwrap_clock_id(thread)]
+                    .clone();
+
+                    self.env.clocks[new_clock_idx].increment(&new_thread_idx);
+
+                    Some(new_thread_idx)
+                } else {
+                    None
+                };
+
+                (thread, node.new_retain_comp(*x))
+            }));
+
+            if self.conf.check_data_race {
+                let thread = thread.expect("par nodes should have a thread");
+                let clock = self.env.thread_map.unwrap_clock_id(thread);
+                self.env.clocks[clock].increment(&thread);
+            }
+
+            false
         }
     }
 
@@ -2226,27 +2374,20 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             GlobalPortRef::Ref(r) => self.env.ref_ports[r]
                 .expect("While condition (ref) is undefined"),
         };
+
         if self.conf.check_data_race {
-            if let Some(clocks) = self.env.ports[idx].clocks() {
-                let read_clock =
-                    self.env.thread_map.unwrap_clock_id(thread.unwrap());
-                clocks
-                    .check_read(
-                        (thread.unwrap(), read_clock),
-                        &mut self.env.clocks,
-                    )
-                    .map_err(|e| {
-                        e.add_cell_info(
-                            self.env
-                                .get_parent_cell_from_port(
-                                    w.cond_port(),
-                                    node.comp,
-                                )
-                                .unwrap(),
-                        )
-                    })?;
-            }
+            let mut clock_map = std::mem::take(&mut self.env.clocks);
+
+            self.check_read_relative(
+                thread.unwrap(),
+                w.cond_port(),
+                node.comp,
+                &mut clock_map,
+            )?;
+
+            self.env.clocks = clock_map;
         }
+
         let result = self.env.ports[idx]
             .as_bool()
             .expect("While condition is undefined");
@@ -2290,25 +2431,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             };
 
             if self.conf.check_data_race {
-                if let Some(clocks) = self.env.ports[idx].clocks() {
-                    let read_clock =
-                        self.env.thread_map.unwrap_clock_id(thread.unwrap());
-                    clocks
-                        .check_read(
-                            (thread.unwrap(), read_clock),
-                            &mut self.env.clocks,
-                        )
-                        .map_err(|e| {
-                            e.add_cell_info(
-                                self.env
-                                    .get_parent_cell_from_port(
-                                        i.cond_port(),
-                                        node.comp,
-                                    )
-                                    .unwrap(),
-                            )
-                        })?;
-                }
+                let mut clock_map = std::mem::take(&mut self.env.clocks);
+
+                self.check_read(thread.unwrap(), idx, &mut clock_map)?;
+
+                self.env.clocks = clock_map;
             }
 
             let result = self.env.ports[idx]
@@ -2420,7 +2547,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 assignments,
                 interface_ports,
                 thread,
-                is_cont,
+                assign_type,
             } in assigns_bundle.iter()
             {
                 let ledger = self.env.cells[*active_cell].as_comp().unwrap();
@@ -2441,17 +2568,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     // signal of the component must also be high
                     .map(|g| {
                         self.env.ports[*g].as_bool().unwrap_or_default()
-                            && self.env.ports[comp_go]
+                            && self.env.ports[comp_go.unwrap()]
                                 .as_bool()
                                 .unwrap_or_default()
                     })
                     .unwrap_or_else(|| {
                         // if there is no go signal, then we want to run the
                         // continuous assignments but not comb group assignments
-                        if *is_cont {
+                        if assign_type.is_continuous() {
                             true
                         } else {
-                            self.env.ports[comp_go]
+                            self.env.ports[comp_go.unwrap()]
                                 .as_bool()
                                 .unwrap_or_default()
                         }
@@ -2472,53 +2599,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             let val = &self.env.ports[port];
 
                             if self.conf.debug_logging {
-                                info!(
-                                    self.env.logger,
-                                    "Assignment fired in {}: {}\n     wrote {}",
-                                    self.env.get_full_name(active_cell),
-                                    self.ctx()
-                                        .printer()
-                                        .print_assignment(
-                                            ledger.comp_id,
-                                            assign_idx
-                                        )
-                                        .yellow(),
-                                    val.bold()
+                                self.log_assignment(
+                                    active_cell,
+                                    ledger,
+                                    assign_idx,
+                                    val,
                                 );
-                            }
-
-                            if self.conf.check_data_race {
-                                if let Some(clocks) = val.clocks() {
-                                    // skip checking clocks for continuous assignments
-                                    if !is_cont {
-                                        if let Some(thread) = thread {
-                                            let thread_clock = self
-                                                .env
-                                                .thread_map
-                                                .unwrap_clock_id(thread);
-
-                                            clocks
-                                                .check_read(
-                                                    (thread, thread_clock),
-                                                    &mut self.env.clocks,
-                                                )
-                                                .map_err(|e| {
-                                                    // TODO griffin: find a less hacky way to
-                                                    // do this
-                                                    e.add_cell_info(
-                                                self.env
-                                                    .get_parent_cell_from_port(
-                                                        assign.src,
-                                                        *active_cell,
-                                                    )
-                                                    .unwrap(),
-                                            )
-                                                })?;
-                                        } else {
-                                            panic!("cannot determine thread for non-continuous assignment that touches a checked port");
-                                        }
-                                    }
-                                }
                             }
 
                             let dest = self
@@ -2537,13 +2623,36 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             }
 
                             if let Some(v) = val.as_option() {
+                                let mut assigned_value = AssignedValue::new(
+                                    v.val().clone(),
+                                    (assign_idx, *active_cell),
+                                );
+
+                                // if this assignment is in a combinational
+                                // context we want to propagate any clocks which
+                                // are present. Since clocks aren't present
+                                // when not running with `check_data_race`, this
+                                // won't happen when the flag is not set
+                                if (val.clocks().is_some()
+                                    || val.transitive_clocks().is_some())
+                                    && (assign_type.is_combinational()
+                                        || assign_type.is_continuous())
+                                {
+                                    assigned_value = assigned_value
+                                        .with_transitive_clocks_opt(
+                                            val.transitive_clocks().cloned(),
+                                        )
+                                        .with_propagate_clocks();
+                                    // direct clock becomes a transitive clock
+                                    // on assignment
+                                    if let Some(c) = val.clocks() {
+                                        assigned_value.add_transitive_clock(c);
+                                    }
+                                }
+
                                 let result = self.env.ports.insert_val(
                                     dest,
-                                    AssignedValue::new(
-                                        v.val().clone(),
-                                        (assign_idx, *active_cell),
-                                    )
-                                    .with_thread_optional(thread),
+                                    assigned_value.with_thread_optional(thread),
                                 );
 
                                 let changed = match result {
@@ -2585,79 +2694,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
                             }
                         }
-
-                        if self.conf.check_data_race {
-                            if let Some(read_ports) = self
-                                .env
-                                .ctx
-                                .as_ref()
-                                .primary
-                                .guard_read_map
-                                .get(assign.guard)
-                            {
-                                for port in read_ports {
-                                    let port_idx = self.get_global_port_idx(
-                                        port,
-                                        *active_cell,
-                                    );
-                                    if let Some(clocks) =
-                                        self.env.ports[port_idx].clocks()
-                                    {
-                                        let thread = thread
-                                            .expect("cannot determine thread");
-                                        let thread_clock = self
-                                            .env
-                                            .thread_map
-                                            .unwrap_clock_id(thread);
-                                        clocks
-                                            .check_read(
-                                                (thread, thread_clock),
-                                                &mut self.env.clocks,
-                                            )
-                                            .map_err(|e| {
-                                                // TODO griffin: find a less hacky way to
-                                                // do this
-                                                e.add_cell_info(
-                                                self.env
-                                                    .get_parent_cell_from_port(
-                                                        *port,
-                                                        *active_cell,
-                                                    )
-                                                    .unwrap(),
-                                            )
-                                            })?;
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
 
-            // Run all the primitives
-            let changed: bool = self
-                .env
-                .cells
-                .range()
-                .iter()
-                .filter_map(|x| match &mut self.env.cells[x] {
-                    CellLedger::Primitive { cell_dyn } => {
-                        Some(cell_dyn.exec_comb(&mut self.env.ports))
-                    }
-                    CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                        Some(cell_dyn.exec_comb_checked(
-                            &mut self.env.ports,
-                            &mut self.env.clocks,
-                            &self.env.thread_map,
-                        ))
-                    }
+            if self.conf.check_data_race {
+                self.propagate_comb_reads(assigns_bundle)?;
+            }
 
-                    CellLedger::Component(_) => None,
-                })
-                .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
-                    has_changed | update
-                })?
-                .as_bool();
+            let changed = self.run_primitive_comb_path()?;
 
             has_changed |= changed;
 
@@ -2685,68 +2730,394 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             }
         }
 
-        if self.conf.undef_guard_check {
-            let mut error_v = vec![];
-            for bundle in assigns_bundle.iter() {
-                let ledger =
-                    self.env.cells[bundle.active_cell].as_comp().unwrap();
-                let go = bundle
-                    .interface_ports
-                    .as_ref()
-                    .map(|x| &ledger.index_bases + x.go);
-                let done = bundle
-                    .interface_ports
-                    .as_ref()
-                    .map(|x| &ledger.index_bases + x.done);
-
-                if !done
-                    .and_then(|done| self.env.ports[done].as_bool())
-                    .unwrap_or_default()
-                    && go
-                        .and_then(|go| self.env.ports[go].as_bool())
-                        .unwrap_or(true)
-                {
-                    for assign in bundle.assignments.iter() {
-                        let guard_idx = self.ctx().primary[assign].guard;
-                        if self
-                            .evaluate_guard(guard_idx, bundle.active_cell)
-                            .is_none()
-                        {
-                            let inner_v = self
-                                .ctx()
-                                .primary
-                                .guard_read_map
-                                .get(guard_idx)
-                                .unwrap()
-                                .iter()
-                                .filter_map(|p| {
-                                    let p = self.get_global_port_idx(
-                                        p,
-                                        bundle.active_cell,
-                                    );
-                                    if self.env.ports[p].is_undef() {
-                                        Some(p)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect_vec();
-
-                            error_v.push((bundle.active_cell, assign, inner_v))
-                        }
-                    }
-                }
-            }
-            if !error_v.is_empty() {
-                return Err(RuntimeError::UndefinedGuardError(error_v).into());
-            }
+        // check reads needs to happen before zeroing the go ports. If this is
+        // not observed then some read checks will be accidentally skipped
+        if self.conf.check_data_race {
+            self.handle_reads(assigns_bundle)?;
         }
+
+        if self.conf.undef_guard_check {
+            self.check_undefined_guards(assigns_bundle)?;
+        }
+
+        // This should be the last update that occurs during convergence
+        self.zero_done_groups_go(assigns_bundle);
 
         if self.conf.debug_logging {
             info!(self.env.logger, "Finished combinational convergence");
         }
 
         Ok(())
+    }
+
+    /// For all groups in the given assignments, set the go port to zero if the
+    /// done port is high
+    fn zero_done_groups_go(&mut self, assigns_bundle: &[ScheduledAssignments]) {
+        for ScheduledAssignments {
+            active_cell,
+            interface_ports,
+            ..
+        } in assigns_bundle.iter()
+        {
+            if let Some(interface_ports) = interface_ports {
+                let ledger = self.env.cells[*active_cell].as_comp().unwrap();
+                let go = &ledger.index_bases + interface_ports.go;
+                let done = &ledger.index_bases + interface_ports.done;
+                if self.env.ports[done].as_bool().unwrap_or_default() {
+                    self.env.ports[go] =
+                        PortValue::new_implicit(BitVecValue::zero(1));
+                }
+            }
+        }
+    }
+
+    /// A final pass meant to be run after convergence which does the following:
+    ///
+    /// 1. For successful assignments, check reads from the source port if applicable
+    /// 2. For non-continuous/combinational contexts, check all reads performed
+    ///     by the guard regardless of whether the assignment fired or not
+    /// 3. For continuous/combinational contexts, update the transitive reads of
+    ///     the value in the destination with the reads done by the guard,
+    ///     regardless of success
+    fn handle_reads(
+        &mut self,
+        assigns_bundle: &[ScheduledAssignments],
+    ) -> Result<(), BoxedRuntimeError> {
+        // needed for mutability reasons
+        let mut clock_map = std::mem::take(&mut self.env.clocks);
+
+        for ScheduledAssignments {
+            active_cell,
+            assignments,
+            interface_ports,
+            thread,
+            assign_type,
+        } in assigns_bundle.iter()
+        {
+            let ledger = self.env.cells[*active_cell].as_comp().unwrap();
+            let go =
+                interface_ports.as_ref().map(|x| &ledger.index_bases + x.go);
+
+            let comp_go = self.env.get_comp_go(*active_cell);
+
+            let thread = self.compute_thread(comp_go, thread, go);
+
+            // check for direct reads
+            if assign_type.is_control()
+                && go
+                    .as_ref()
+                    .map(|g| {
+                        self.env.ports[*g].as_bool().unwrap_or_default()
+                            && self.env.ports[comp_go.unwrap()]
+                                .as_bool()
+                                .unwrap_or_default()
+                    })
+                    .unwrap_or_default()
+            {
+                for assign_idx in assignments.iter() {
+                    let assign = &self.env.ctx.as_ref().primary[assign_idx];
+
+                    // read source
+                    if self
+                        .evaluate_guard(assign.guard, *active_cell)
+                        .unwrap_or_default()
+                    {
+                        self.check_read_relative(
+                            thread.unwrap(),
+                            assign.src,
+                            *active_cell,
+                            &mut clock_map,
+                        )?;
+                    }
+
+                    // guard reads, assignment firing does not matter
+                    if let Some(read_ports) = self
+                        .env
+                        .ctx
+                        .as_ref()
+                        .primary
+                        .guard_read_map
+                        .get(assign.guard)
+                    {
+                        for port in read_ports {
+                            self.check_read_relative(
+                                thread.unwrap(),
+                                *port,
+                                *active_cell,
+                                &mut clock_map,
+                            )?;
+                        }
+                    }
+                }
+            }
+        }
+        self.env.clocks = clock_map;
+
+        Ok(())
+    }
+
+    /// For continuous/combinational contexts, update the transitive reads of
+    ///     the value in the destination with the reads done by the guard,
+    ///     regardless of success
+    fn propagate_comb_reads(
+        &mut self,
+        assigns_bundle: &[ScheduledAssignments],
+    ) -> Result<(), BoxedRuntimeError> {
+        for ScheduledAssignments {
+            active_cell,
+            assignments,
+            assign_type,
+            ..
+        } in assigns_bundle.iter()
+        {
+            let comp_go = self.env.get_comp_go(*active_cell);
+
+            if (assign_type.is_combinational()
+                && comp_go
+                    .and_then(|comp_go| self.env.ports[comp_go].as_bool())
+                    .unwrap_or_default())
+                || assign_type.is_continuous()
+            {
+                for assign_idx in assignments.iter() {
+                    let assign = &self.env.ctx.as_ref().primary[assign_idx];
+                    let dest =
+                        self.get_global_port_idx(&assign.dst, *active_cell);
+
+                    if let Some(read_ports) = self
+                        .env
+                        .ctx
+                        .as_ref()
+                        .primary
+                        .guard_read_map
+                        .get(assign.guard)
+                    {
+                        if self.env.ports[dest].is_def() {
+                            let mut set_extension = HashSet::new();
+
+                            for port in read_ports {
+                                let port = self
+                                    .get_global_port_idx(port, *active_cell);
+                                if let Some(clock) =
+                                    self.env.ports[port].clocks()
+                                {
+                                    set_extension.insert(clock);
+                                }
+                                if let Some(clocks) =
+                                    self.env.ports[port].transitive_clocks()
+                                {
+                                    set_extension
+                                        .extend(clocks.iter().copied());
+                                }
+                            }
+
+                            self.env.ports[dest]
+                                .as_option_mut()
+                                .unwrap()
+                                .add_transitive_clocks(set_extension);
+
+                            // this is necessary for ports which were implicitly
+                            // assigned zero and is redundant for other ports
+                            // which will already have propagate_clocks set
+                            self.env.ports[dest]
+                                .as_option_mut()
+                                .unwrap()
+                                .set_propagate_clocks(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check for undefined guards and raise an error if any are found
+    fn check_undefined_guards(
+        &mut self,
+        assigns_bundle: &[ScheduledAssignments],
+    ) -> Result<(), BoxedRuntimeError> {
+        let mut error_v = vec![];
+        for bundle in assigns_bundle.iter() {
+            let ledger = self.env.cells[bundle.active_cell].as_comp().unwrap();
+            let go = bundle
+                .interface_ports
+                .as_ref()
+                .map(|x| &ledger.index_bases + x.go);
+            let done = bundle
+                .interface_ports
+                .as_ref()
+                .map(|x| &ledger.index_bases + x.done);
+
+            if !done
+                .and_then(|done| self.env.ports[done].as_bool())
+                .unwrap_or_default()
+                && go
+                    .and_then(|go| self.env.ports[go].as_bool())
+                    .unwrap_or(true)
+            {
+                for assign in bundle.assignments.iter() {
+                    let guard_idx = self.ctx().primary[assign].guard;
+                    if self
+                        .evaluate_guard(guard_idx, bundle.active_cell)
+                        .is_none()
+                    {
+                        let inner_v = self
+                            .ctx()
+                            .primary
+                            .guard_read_map
+                            .get(guard_idx)
+                            .unwrap()
+                            .iter()
+                            .filter_map(|p| {
+                                let p = self
+                                    .get_global_port_idx(p, bundle.active_cell);
+                                if self.env.ports[p].is_undef() {
+                                    Some(p)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect_vec();
+
+                        error_v.push((bundle.active_cell, assign, inner_v))
+                    }
+                }
+            }
+        }
+        if !error_v.is_empty() {
+            Err(RuntimeError::UndefinedGuardError(error_v).into())
+        } else {
+            Ok(())
+        }
+    }
+
+    fn run_primitive_comb_path(&mut self) -> Result<bool, BoxedRuntimeError> {
+        let changed: bool = self
+            .env
+            .cells
+            .values_mut()
+            .filter_map(|x| match x {
+                CellLedger::Primitive { cell_dyn } => {
+                    let result = cell_dyn.exec_comb(&mut self.env.ports);
+
+                    if result.is_ok()
+                        && self.conf.check_data_race
+                        && cell_dyn.is_combinational()
+                    {
+                        let mut working_set = vec![];
+                        let signature = cell_dyn.get_ports();
+
+                        for port in signature.iter_first() {
+                            let val = &self.env.ports[port];
+                            if let Some(val) = val.as_option() {
+                                if val.propagate_clocks()
+                                    && (val.clocks().is_some()
+                                        || val.transitive_clocks().is_some())
+                                {
+                                    if let Some(clocks) = val.clocks() {
+                                        working_set.push(*clocks);
+                                    }
+                                    working_set
+                                        .extend(val.iter_transitive_clocks());
+                                }
+                            }
+                        }
+
+                        if signature.iter_second().len() == 1 {
+                            let port = signature.iter_second().next().unwrap();
+                            let val = &mut self.env.ports[port];
+                            if let Some(val) = val.as_option_mut() {
+                                val.add_transitive_clocks(working_set);
+                            }
+                        } else {
+                            todo!("comb primitive with multiple outputs")
+                        }
+                    }
+                    Some(result)
+                }
+                CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                    Some(cell_dyn.exec_comb_checked(
+                        &mut self.env.ports,
+                        &mut self.env.clocks,
+                        &self.env.thread_map,
+                    ))
+                }
+
+                CellLedger::Component(_) => None,
+            })
+            .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
+                has_changed | update
+            })?
+            .as_bool();
+        Ok(changed)
+    }
+
+    /// A wrapper function for [check_read] which takes in a [PortRef] and the
+    /// active component cell and calls [check_read] with the appropriate [GlobalPortIdx]
+    fn check_read_relative(
+        &self,
+        thread: ThreadIdx,
+        port: PortRef,
+        active_cell: GlobalCellIdx,
+        clock_map: &mut ClockMap,
+    ) -> Result<(), BoxedRuntimeError> {
+        let global_port = self.get_global_port_idx(&port, active_cell);
+        self.check_read(thread, global_port, clock_map)
+    }
+
+    fn check_read(
+        &self,
+        thread: ThreadIdx,
+        global_port: GlobalPortIdx,
+        clock_map: &mut ClockMap,
+    ) -> Result<(), BoxedRuntimeError> {
+        let val = &self.env.ports[global_port];
+        let thread_clock = self.env.thread_map.unwrap_clock_id(thread);
+
+        if val.clocks().is_some() && val.transitive_clocks().is_some() {
+            // TODO griffin: Sort this out
+            panic!("Value has both direct clock and transitive clock. This shouldn't happen?")
+        } else if let Some(clocks) = val.clocks() {
+            let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
+            clocks.check_read_w_cell(
+                (thread, thread_clock),
+                clock_map,
+                info.attached_cell,
+                info.entry_number,
+            )?
+        } else if let Some(transitive_clocks) = val.transitive_clocks() {
+            for clock_pair in transitive_clocks {
+                let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
+
+                clock_pair.check_read_w_cell(
+                    (thread, thread_clock),
+                    clock_map,
+                    info.attached_cell,
+                    info.entry_number,
+                )?
+            }
+        }
+
+        Ok(())
+    }
+
+    fn log_assignment(
+        &self,
+        active_cell: &GlobalCellIdx,
+        ledger: &ComponentLedger,
+        assign_idx: AssignmentIdx,
+        val: &PortValue,
+    ) {
+        info!(
+            self.env.logger,
+            "Assignment fired in {}: {}\n     wrote {}",
+            self.env.get_full_name(active_cell),
+            self.ctx()
+                .printer()
+                .print_assignment(ledger.comp_id, assign_idx)
+                .yellow(),
+            val.bold()
+        );
     }
 
     /// Attempts to compute the thread id for the given group/component.
@@ -2757,7 +3128,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     /// none of these succeed then `None` is returned.
     fn compute_thread(
         &self,
-        comp_go: GlobalPortIdx,
+        comp_go: Option<GlobalPortIdx>,
         thread: &Option<ThreadIdx>,
         go: Option<GlobalPortIdx>,
     ) -> Option<ThreadIdx> {
@@ -2769,7 +3140,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     return Some(go_thread);
                 }
             }
-            self.env.ports[comp_go].as_option().and_then(|x| x.thread())
+            comp_go.and_then(|comp_go| {
+                self.env.ports[comp_go].as_option().and_then(|x| x.thread())
+            })
         })
     }
 

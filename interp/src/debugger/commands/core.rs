@@ -1,7 +1,6 @@
 //! This module contains the core data structures and commands used by the debugger
 
 use itertools::{self, Itertools};
-use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
 use std::{
     fmt::{Display, Write},
@@ -299,6 +298,37 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
     }
 }
 
+/// ParseNodes enum is used to represent what child to traverse with respect to
+/// the current ControlIdx.
+/// Body defines that we should go into the body of a while or repeat.
+/// Offset defines which child to go to.
+/// If defines whether we should go to the true or false branch next
+#[derive(Debug, PartialEq, Clone)]
+pub enum ParseNodes {
+    Body,
+    Offset(u32),
+    If(bool),
+}
+pub struct ParsePath {
+    nodes: Vec<ParseNodes>,
+}
+
+impl ParsePath {
+    pub fn new(nodes: Vec<ParseNodes>) -> ParsePath {
+        ParsePath { nodes }
+    }
+
+    pub fn get_path(&self) -> Vec<ParseNodes> {
+        self.nodes.clone()
+    }
+}
+
+impl FromIterator<ParseNodes> for ParsePath {
+    fn from_iter<I: IntoIterator<Item = ParseNodes>>(iter: I) -> Self {
+        ParsePath::new(iter.into_iter().collect())
+    }
+}
+
 // Different types of printing commands
 pub enum PrintCommand {
     Normal,
@@ -372,7 +402,7 @@ impl Command {
             invocation: names,
             description: message,
             ..
-        } in COMMAND_INFO.iter()
+        } in get_command_info().iter()
         {
             writeln!(out, "    {: <30}{}", names.join(", "), message.green())
                 .unwrap();
@@ -388,7 +418,9 @@ impl Command {
             invocation,
             description,
             usage_example,
-        } in COMMAND_INFO.iter().filter(|x| !x.usage_example.is_empty())
+        } in get_command_info()
+            .iter()
+            .filter(|x| !x.usage_example.is_empty())
         {
             writeln!(out).unwrap();
             writeln!(out, "{}", invocation.join(", ")).unwrap();
@@ -407,11 +439,16 @@ impl Command {
 
 // I wouldn't recommend looking at this
 
-lazy_static! {
-    /// A (lazy) static list of [CommandInfo] objects used for the help and
-    /// explain messages
-    static ref COMMAND_INFO: Vec<CommandInfo> = {
-        vec![
+use std::sync::OnceLock;
+/// A (lazy) static list of [CommandInfo] objects used for the help and
+/// explain messages. Access via [get_command_info]
+static COMMAND_INFO: OnceLock<Box<[CommandInfo]>> = OnceLock::new();
+
+/// Returns the list of [CommandInfo] objects used for the help and explain
+/// messages
+fn get_command_info() -> &'static [CommandInfo] {
+    COMMAND_INFO.get_or_init(|| {
+         [
             // step
             CIBuilder::new().invocation("step")
                 .invocation("s")
@@ -491,7 +528,6 @@ lazy_static! {
                 .description("Disable target watchpoint")
                 .usage("> disable-watch 4")
                 .usage("> disable-watch do_mult").build(),
-
             // explain
             CIBuilder::new().invocation("explain")
                 .description("Show examples of commands which take arguments").build(),
@@ -501,15 +537,15 @@ lazy_static! {
             CIBuilder::new().invocation("exit")
                 .invocation("quit")
                 .description("Exit the debugger").build(),
-        ]
-    };
+        ].into()
+    })
 }
 
 #[derive(Clone, Debug)]
 struct CommandInfo {
-    invocation: Vec<CommandName>,
+    invocation: Box<[CommandName]>,
     description: Description,
-    usage_example: Vec<UsageExample>,
+    usage_example: Box<[UsageExample]>,
 }
 
 // type shenanigans
@@ -596,9 +632,9 @@ where
 impl CommandInfoBuilder<Present, Present> {
     fn build(self) -> CommandInfo {
         CommandInfo {
-            invocation: self.invocation,
+            invocation: self.invocation.into(),
             description: self.description.unwrap(),
-            usage_example: self.usage_example,
+            usage_example: self.usage_example.into(),
         }
     }
 }
