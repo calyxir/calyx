@@ -10,6 +10,7 @@ use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
 use std::io;
+use std::iter::zip;
 use std::{collections::HashMap, rc::Rc};
 use std::{fs::File, time::Instant};
 use vast::v17::ast as v;
@@ -298,8 +299,7 @@ fn emit_component<F: io::Write>(
 
     // Emit FSMs
     for fsm in comp.fsms.iter() {
-        writeln!(f, "always_comb begin")?;
-        writeln!(f, "end")?;
+        emit_fsm(fsm, f)?;
     }
 
     // Flatten all the guard expressions.
@@ -457,35 +457,73 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
     let reg_width = get_bit_width_from(fsm.borrow().assignments.len() as u64);
 
-    // generate inlined register
-    for wire in vec!["out", "in"].drain(..) {
-        writeln!(
-            f,
-            "logic [{}:0] {}_{};",
-            reg_width - 1,
-            fsm.borrow().name(),
-            wire
-        )?;
-    }
+    // generate fsm logic variables
+    let (state_reg, state_next): (String, String) = vec!["out", "in"]
+        .drain(..)
+        .map(|wire| format!("{}_{}", fsm.borrow().name(), wire))
+        .collect_tuple()
+        .unwrap();
 
+    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_reg)?;
+    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_next)?;
+
+    // generate inlined register
     writeln!(f, "always_ff @(posedge clk) begin")?;
     writeln!(f, "  if (reset) begin")?;
-    writeln!(f, "    ")?;
+    writeln!(f, "    {} <= {}'d0", state_reg, reg_width)?;
     writeln!(f, "  end else begin")?;
-    writeln!(f, "    ")?;
+    writeln!(f, "    {} <= {}", state_reg, state_next)?;
     writeln!(f, "  end")?;
     writeln!(f, "end")?;
 
-    //     always_ff @(posedge clk) begin
-    //     if (reset) begin
-    //        out <= 0;
-    //        done <= 0;
-    //     end else if (write_en) begin
-    //       out <= in;
-    //       done <= 1'd1;
-    //     end else done <= 1'd0;
-    //   end
+    // emit fsm
+    writeln!(f, "always @(*) begin")?;
+    writeln!(f, "    case ({}) begin", state_reg)?;
 
+    for (case, (assigns, trans)) in fsm
+        .borrow()
+        .assignments
+        .iter()
+        .zip(fsm.borrow().transitions.iter())
+        .enumerate()
+    {
+        writeln!(f, "{}{}: begin", " ".repeat(8), case)?;
+
+        // dump assignments to enable in this state: TODO
+
+        // write transitions
+        match trans {
+            ir::Transition::Unconditional(ns) => {
+                writeln!(f, "{}{} = {};", " ".repeat(12), state_next, ns)?;
+            }
+            ir::Transition::Conditional(conds) => {
+                for (i, (g, ns)) in conds.iter().enumerate() {
+                    let header = if i == 0 {
+                        format!(
+                            "{}if ({})",
+                            " ".repeat(12),
+                            unflattened_guard(g)
+                        )
+                    } else if i == conds.len() - 1 {
+                        format!("{}else", " ".repeat(12))
+                    } else {
+                        format!(
+                            "{}else if ({})",
+                            " ".repeat(12),
+                            unflattened_guard(g)
+                        )
+                    };
+
+                    writeln!(f, "{} {} = {};", header, state_next, ns)?;
+                }
+            }
+        }
+
+        writeln!(f, "{}end", " ".repeat(8))?;
+    }
+
+    writeln!(f, "    endcase")?;
+    writeln!(f, "end")?;
     io::Result::Ok(())
 }
 
@@ -779,6 +817,42 @@ impl<'a> std::fmt::Display for VerilogPortRef<'a> {
             ir::PortParent::StaticGroup(_) => unreachable!(),
         }
     }
+}
+
+fn unflattened_guard(guard: &ir::Guard<Nothing>) -> String {
+    match guard {
+        Guard::Or(left, right) | Guard::And(left, right) => {
+            format!(
+                "({}) | ({})",
+                unflattened_guard(left),
+                unflattened_guard(right)
+            )
+        }
+        Guard::CompOp(comp, left, right) => {
+            let op = match comp {
+                ir::PortComp::Eq => "==",
+                ir::PortComp::Neq => "!=",
+                ir::PortComp::Gt => ">",
+                ir::PortComp::Lt => "<",
+                ir::PortComp::Geq => ">=",
+                ir::PortComp::Leq => "<=",
+            };
+            format!("{} {} {}", VerilogPortRef(left), op, VerilogPortRef(right))
+        }
+        Guard::Not(inner) => format!("~({})", unflattened_guard(inner)),
+
+        Guard::Port(port) => format!("{}", VerilogPortRef(port)),
+        Guard::True => format!("1'd1"),
+        Guard::Info(_) => format!("1'd1"),
+    }
+}
+
+fn emit_unflattened_guard<F: std::io::Write>(
+    guard: &ir::Guard<Nothing>,
+    f: &mut F,
+) -> io::Result<()> {
+    write!(f, "{}", unflattened_guard(guard))?;
+    io::Result::Ok(())
 }
 
 fn emit_guard<F: std::io::Write>(
