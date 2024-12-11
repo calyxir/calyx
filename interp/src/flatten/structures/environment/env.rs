@@ -373,13 +373,45 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.pc.iter().map(|(_, x)| x)
     }
 
+    /// Method that returns an iterator over all component instances in the debugger
+    /// Used for Cider-DAP extension
+    pub fn iter_compts(
+        &self,
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+        self.cells.iter().filter_map(|(idx, ledge)| match ledge {
+            CellLedger::Primitive { .. } => None,
+            CellLedger::Component(component_ledger) => {
+                Some((idx, self.ctx().lookup_name(component_ledger.comp_id)))
+            }
+            CellLedger::RaceDetectionPrimitive { .. } => None, //what this
+        })
+    }
+    /// Method that returns an iterator over all cells in component cpt
+    /// Used for Cider-DAP extension
+    pub fn iter_cmpt_cells(
+        &self,
+        cpt: GlobalCellIdx,
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+        // take globalcellid, look up in env to get compt ledger and get base indices
+        // w cmpt id, go to context look at ctx.secondary[cmptidx] to get aux info, want cell offset map just keys
+        // add local and globel offset, lookup full name and port info
+        let ledger = self.cells[cpt].as_comp().unwrap();
+        let cells_keys = self.ctx().secondary.comp_aux_info[ledger.comp_id]
+            .cell_offset_map
+            .keys();
+        cells_keys.map(|x| {
+            let idx = &ledger.index_bases + x;
+            (idx.get_full_name(self), self.ports_helper(idx))
+        })
+    }
+
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
         let env = self;
         let cell_names = self.cells.iter().map(|(idx, _ledger)| {
-            (idx.get_full_name(env), self.get_ports_for_cell(idx))
+            (idx.get_full_name(env), self.ports_helper(idx))
         });
 
         cell_names
@@ -388,45 +420,32 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     //not sure if beneficial to change this to be impl iterator as well
-    fn get_ports_for_cell(&self, cell: GlobalCellIdx) -> Vec<String> {
+    fn ports_helper(&self, cell: GlobalCellIdx) -> Vec<(String, PortValue)> {
         let parent = self.get_parent_cell_from_cell(cell);
         match parent {
             None => {
-                let comp_ledger = self.cells[cell].as_comp().unwrap();
-                let comp_info =
-                    self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
-                let port_ids = comp_info.signature().into_iter().map(|x| {
-                    &self.ctx().secondary.local_port_defs
-                        [comp_info.port_offset_map[x]]
-                        .name
-                });
-                let port_names = port_ids
-                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                let ports = self.get_ports_from_cell(cell);
+                let info = ports
+                    .map(|(name, id)| {
+                        (
+                            (name.lookup_name(self.ctx())).clone(),
+                            self.ports[id].clone(),
+                        )
+                    })
                     .collect_vec();
-                port_names
+                info
             }
             Some(parent_cell) => {
-                let parent_comp_ledger = self.cells[parent_cell].unwrap_comp();
-                let comp_info = self
-                    .ctx()
-                    .secondary
-                    .comp_aux_info
-                    .get(parent_comp_ledger.comp_id);
-                let local_offset = cell - &parent_comp_ledger.index_bases;
-
-                let port_ids = self.ctx().secondary.local_cell_defs
-                    [comp_info.cell_offset_map[local_offset]]
-                    .ports
-                    .into_iter()
-                    .map(|x| {
-                        &self.ctx().secondary.local_port_defs
-                            [comp_info.port_offset_map[x]]
-                            .name
-                    });
-                let names = port_ids
-                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                let ports = self.get_ports_from_cell(parent_cell);
+                let info = ports
+                    .map(|(name, id)| {
+                        (
+                            (name.lookup_name(self.ctx())).clone(),
+                            self.ports[id].clone(),
+                        )
+                    })
                     .collect_vec();
-                names
+                info
             }
         }
     }
@@ -480,20 +499,22 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         // TODO griffin: Maybe refactor into a separate function
         for (idx, ledger) in env.cells.iter() {
             if let CellLedger::Component(comp) = ledger {
-                if let Some(ctrl) =
-                    &env.ctx.as_ref().primary[comp.comp_id].control
-                {
-                    env.pc.vec_mut().push((
-                        if comp.comp_id == root {
-                            Some(root_thread)
-                        } else {
-                            None
-                        },
-                        ControlPoint {
-                            comp: idx,
-                            control_node_idx: *ctrl,
-                        },
-                    ))
+                let comp_info = &env.ctx.as_ref().primary[comp.comp_id];
+                if !comp_info.is_comb() {
+                    if let Some(ctrl) = comp_info.as_standard().unwrap().control
+                    {
+                        env.pc.vec_mut().push((
+                            if comp.comp_id == root {
+                                Some(root_thread)
+                            } else {
+                                None
+                            },
+                            ControlPoint {
+                                comp: idx,
+                                control_node_idx: ctrl,
+                            },
+                        ))
+                    }
                 }
             }
         }
@@ -534,7 +555,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         // Insert the component's continuous assignments into the program counter, if non-empty
         let cont_assigns =
-            self.ctx.as_ref().primary[*comp_id].continuous_assignments;
+            self.ctx.as_ref().primary[*comp_id].continuous_assignments();
         if !cont_assigns.is_empty() {
             self.pc.push_continuous_assigns(comp, cont_assigns);
         }
@@ -667,25 +688,40 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
-    pub fn get_comp_go(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+    pub fn get_comp_go(&self, comp: GlobalCellIdx) -> Option<GlobalPortIdx> {
         let ledger = self.cells[comp]
             .as_comp()
             .expect("Called get_comp_go with a non-component cell.");
 
-        &ledger.index_bases + self.ctx.as_ref().primary[ledger.comp_id].go
+        let go_port = self.ctx.as_ref().primary[ledger.comp_id]
+            .as_standard()
+            .map(|x| x.go);
+
+        go_port.map(|go| &ledger.index_bases + go)
     }
 
-    pub fn get_comp_done(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+    pub fn unwrap_comp_go(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+        self.get_comp_go(comp).unwrap()
+    }
+
+    pub fn get_comp_done(&self, comp: GlobalCellIdx) -> Option<GlobalPortIdx> {
         let ledger = self.cells[comp]
             .as_comp()
             .expect("Called get_comp_done with a non-component cell.");
 
-        &ledger.index_bases + self.ctx.as_ref().primary[ledger.comp_id].done
+        let done_port = self.ctx.as_ref().primary[ledger.comp_id]
+            .as_standard()
+            .map(|x| x.done);
+        done_port.map(|done| &ledger.index_bases + done)
+    }
+
+    pub fn unwrap_comp_done(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
+        self.get_comp_done(comp).unwrap()
     }
 
     #[inline]
     pub fn get_root_done(&self) -> GlobalPortIdx {
-        self.get_comp_done(Self::get_root())
+        self.get_comp_done(Self::get_root()).unwrap()
     }
 
     #[inline]
@@ -704,7 +740,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(x) => {
-                    let comp_go = self.get_comp_go(point.comp);
+                    let comp_go = self.get_comp_go(point.comp).unwrap();
                     if self.ports[comp_go].as_bool().unwrap_or_default() {
                         Some(x.group())
                     } else {
@@ -827,7 +863,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let node = &self.ctx.as_ref().primary[point.control_node_idx];
             match node {
                 ControlNode::Enable(_) | ControlNode::Invoke(_) => {
-                    let comp_go = self.get_comp_go(point.comp);
+                    let comp_go = self.unwrap_comp_go(point.comp);
                     self.ports[comp_go].as_bool().unwrap_or_default()
                 }
 
@@ -1284,7 +1320,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
         let port = self.get_root_input_port(port);
 
-        let go = self.get_comp_go(Self::get_root());
+        let go = self.unwrap_comp_go(Self::get_root());
         assert!(port != go, "Cannot pin the go port");
 
         self.pinned_ports.insert(port, val);
@@ -1648,7 +1684,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     fn set_root_go_high(&mut self) {
         let ledger = self.get_root_component();
         let go = &ledger.index_bases
-            + self.env.ctx.as_ref().primary[ledger.comp_id].go;
+            + self.env.ctx.as_ref().primary[ledger.comp_id]
+                .unwrap_standard()
+                .go;
         self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
     }
 
@@ -1828,7 +1866,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
 
         for (comp, id) in self.env.pc.finished_comps() {
-            let done_port = self.env.get_comp_done(*comp);
+            let done_port = self.env.unwrap_comp_done(*comp);
             let v = PortValue::new_implicit(BitVecValue::tru());
             self.env.ports[done_port] = if self.conf.check_data_race {
                 v.with_thread(id.expect("finished comps should have a thread"))
@@ -1837,8 +1875,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             }
         }
 
-        let (vecs, par_map, mut with_map, repeat_map) =
+        let (mut vecs, par_map, mut with_map, repeat_map) =
             self.env.pc.take_fields();
+
+        // For thread propagation during race detection we need to iterate in
+        // containment order. This probably isn't necessary for normal execution
+        // and could be guarded by the `check_data_race` flag. Will leave it for
+        // the moment though and see if we need to change it down the line. In
+        // expectation, the program counter should almost always be already
+        // sorted as the only thing which causes nodes to be added or removed
+        // are par nodes
+        vecs.sort_by_key(|x| x.1.comp);
 
         // for mutability reasons, this should be a cheap clone, either an RC in
         // the owned case or a simple reference clone
@@ -1846,8 +1893,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         let ctx_ref = ctx.as_ref();
 
         for (thread, node) in vecs.iter() {
-            let comp_done = self.env.get_comp_done(node.comp);
-            let comp_go = self.env.get_comp_go(node.comp);
+            let comp_done = self.env.unwrap_comp_done(node.comp);
+            let comp_go = self.env.unwrap_comp_go(node.comp);
             let thread = thread.or_else(|| {
                 self.env.ports[comp_go].as_option().and_then(|t| t.thread())
             });
@@ -1887,7 +1934,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         PortValue::new_implicit(BitVecValue::tru())
                             .with_thread_optional(
                                 if self.conf.check_data_race {
-                                    assert!(thread.is_some());
+                                    assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. In {}", node.comp.get_full_name(&self.env));
                                     thread
                                 } else {
                                     None
@@ -2058,8 +2105,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     ) -> RuntimeResult<ControlNodeEval> {
         let (node_thread, node) = node;
         let (par_map, with_map, repeat_map) = maps;
-        let comp_go = self.env.get_comp_go(node.comp);
-        let comp_done = self.env.get_comp_done(node.comp);
+        let comp_go = self.env.unwrap_comp_go(node.comp);
+        let comp_done = self.env.unwrap_comp_done(node.comp);
 
         let thread = node_thread.or_else(|| {
             self.env.ports[comp_go].as_option().and_then(|x| x.thread())
@@ -2124,6 +2171,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             let comp_ledger = self.env.cells[node.comp].unwrap_comp();
             *node = node.new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
+                    .unwrap_standard()
                     .control
                     .unwrap(),
             );
@@ -2520,7 +2568,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     // signal of the component must also be high
                     .map(|g| {
                         self.env.ports[*g].as_bool().unwrap_or_default()
-                            && self.env.ports[comp_go]
+                            && self.env.ports[comp_go.unwrap()]
                                 .as_bool()
                                 .unwrap_or_default()
                     })
@@ -2530,7 +2578,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         if assign_type.is_continuous() {
                             true
                         } else {
-                            self.env.ports[comp_go]
+                            self.env.ports[comp_go.unwrap()]
                                 .as_bool()
                                 .unwrap_or_default()
                         }
@@ -2760,7 +2808,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     .as_ref()
                     .map(|g| {
                         self.env.ports[*g].as_bool().unwrap_or_default()
-                            && self.env.ports[comp_go]
+                            && self.env.ports[comp_go.unwrap()]
                                 .as_bool()
                                 .unwrap_or_default()
                     })
@@ -2825,7 +2873,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             let comp_go = self.env.get_comp_go(*active_cell);
 
             if (assign_type.is_combinational()
-                && self.env.ports[comp_go].as_bool().unwrap_or_default())
+                && comp_go
+                    .and_then(|comp_go| self.env.ports[comp_go].as_bool())
+                    .unwrap_or_default())
                 || assign_type.is_continuous()
             {
                 for assign_idx in assignments.iter() {
@@ -3078,7 +3128,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     /// none of these succeed then `None` is returned.
     fn compute_thread(
         &self,
-        comp_go: GlobalPortIdx,
+        comp_go: Option<GlobalPortIdx>,
         thread: &Option<ThreadIdx>,
         go: Option<GlobalPortIdx>,
     ) -> Option<ThreadIdx> {
@@ -3090,7 +3140,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     return Some(go_thread);
                 }
             }
-            self.env.ports[comp_go].as_option().and_then(|x| x.thread())
+            comp_go.and_then(|comp_go| {
+                self.env.ports[comp_go].as_option().and_then(|x| x.thread())
+            })
         })
     }
 

@@ -5,8 +5,8 @@ use calyx_ir::Direction;
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
     component::{
-        AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentCore,
-        ComponentMap,
+        AssignmentDefinitionLocation, AuxiliaryComponentInfo, ComponentMap,
+        PrimaryComponentInfo,
     },
     identifier::IdMap,
     prelude::{
@@ -53,7 +53,7 @@ pub struct InterpretationContext {
 }
 
 impl Index<ComponentIdx> for InterpretationContext {
-    type Output = ComponentCore;
+    type Output = PrimaryComponentInfo;
 
     fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.components[index]
