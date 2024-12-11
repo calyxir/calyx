@@ -237,7 +237,7 @@ def parse_pcap(pcap_file):
         # compute number of pops between current and previous packet's arrival
         pop_time = (prev_time % POP_TICK) + prev_time
         num_pops = int((time - pop_time) // POP_TICK) if time > pop_time else 0
-        # keep track of number of unpopped packet's
+        # keep track of number of unpopped packets
         pkts_in_switch = 0 if pkts_in_switch < num_pops else pkts_in_switch - num_pops
         # insert `num_pops` pops
         for _ in range(num_pops):
