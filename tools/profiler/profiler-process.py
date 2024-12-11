@@ -165,7 +165,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         probe_labels_to_sets = {"group_probe_out": group_active, "se_probe_out": structural_enable_active, "cell_probe_out": cell_enable_active, "primitive_probe_out" : primitive_enable}
 
         self.trace = {} # cycle number --> set of stacks
-        
+
+        main_done = False # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
             started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
@@ -178,7 +179,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # groups-active: cell --> (active groups)
             # cell-active: (cells)
             # structural-enable: cell --> { child --> (parents) }
-            # cell-invoke: parent_cell --> { parent --> (cells) } # FIXME: subject to change.
+            # cell-invoke: parent_cell --> { parent --> (cells) }
             # primitive-enable: cell --> { parent --> (primitives) }
             info_this_cycle = {"group-active" : {}, "cell-active": set(), "structural-enable": {}, "cell-invoke": {}, "primitive-enable": {}}
             for event in events:
@@ -194,6 +195,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         self.cell_to_active_cycles[cell].append({"start": clock_cycles})
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
+                    if cell == self.main_component: # if main is done, we shouldn't compute a "trace" for this cycle. set flag to True.
+                        main_done = True
                     cell_active.remove(cell)
                     current_segment = self.cell_to_active_cycles[cell][-1]
                     current_segment["end"] = clock_cycles # janky?
@@ -211,42 +214,38 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             probe_labels_to_sets[probe_label].add(probe_info)
                         elif value == 0:
                             probe_labels_to_sets[probe_label].remove(probe_info)
-            # add all probe information
-            info_this_cycle["cell-active"] = cell_active.copy()
-            for (group, cell_name) in group_active:
-                if cell_name in info_this_cycle["group-active"]:
-                    info_this_cycle["group-active"][cell_name].add(group)
-                else:
-                    info_this_cycle["group-active"][cell_name] = {group}
-            for (child_group, parent_group, cell_name) in structural_enable_active:
-                if cell_name not in info_this_cycle["structural-enable"]:
-                    info_this_cycle["structural-enable"][cell_name] = {child_group: {parent_group}}
-                elif child_group not in info_this_cycle["structural-enable"][cell_name]:
-                    info_this_cycle["structural-enable"][cell_name][child_group] = {parent_group}
-                else:
-                    info_this_cycle["structural-enable"][cell_name][child_group].add(parent_group)
-            for (cell_name, parent_group, parent_cell_name) in cell_enable_active:
-                if parent_cell_name not in info_this_cycle["cell-invoke"]:
-                    info_this_cycle["cell-invoke"][parent_cell_name] = {parent_group : {cell_name}}
-                elif parent_group not in info_this_cycle["cell-invoke"][parent_cell_name]:
-                    info_this_cycle["cell-invoke"][parent_cell_name][parent_group] = {cell_name}
-                else:
-                    info_this_cycle["cell-invoke"][parent_cell_name][parent_group].add(cell_name)
-            for (primitive_name, parent_group, cell_name) in primitive_enable:
-                if cell_name not in info_this_cycle["primitive-enable"]:
-                    info_this_cycle["primitive-enable"][cell_name] = {parent_group: {primitive_name}}
-                elif parent_group not in info_this_cycle["primitive-enable"][cell_name]:
-                    info_this_cycle["primitive-enable"][cell_name][parent_group] = {primitive_name}
-                else:
-                    info_this_cycle["primitive-enable"][cell_name][parent_group].add(primitive_name)
-            self.trace[clock_cycles] = create_cycle_trace(info_this_cycle, self.cells_to_components, self.main_component, True) # True to track primitives
+            if not main_done:
+                # add all probe information
+                info_this_cycle["cell-active"] = cell_active.copy()
+                for (group, cell_name) in group_active:
+                    if cell_name in info_this_cycle["group-active"]:
+                        info_this_cycle["group-active"][cell_name].add(group)
+                    else:
+                        info_this_cycle["group-active"][cell_name] = {group}
+                for (child_group, parent_group, cell_name) in structural_enable_active:
+                    if cell_name not in info_this_cycle["structural-enable"]:
+                        info_this_cycle["structural-enable"][cell_name] = {child_group: {parent_group}}
+                    elif child_group not in info_this_cycle["structural-enable"][cell_name]:
+                        info_this_cycle["structural-enable"][cell_name][child_group] = {parent_group}
+                    else:
+                        info_this_cycle["structural-enable"][cell_name][child_group].add(parent_group)
+                for (cell_name, parent_group, parent_cell_name) in cell_enable_active:
+                    if parent_cell_name not in info_this_cycle["cell-invoke"]:
+                        info_this_cycle["cell-invoke"][parent_cell_name] = {parent_group : {cell_name}}
+                    elif parent_group not in info_this_cycle["cell-invoke"][parent_cell_name]:
+                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group] = {cell_name}
+                    else:
+                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group].add(cell_name)
+                for (primitive_name, parent_group, cell_name) in primitive_enable:
+                    if cell_name not in info_this_cycle["primitive-enable"]:
+                        info_this_cycle["primitive-enable"][cell_name] = {parent_group: {primitive_name}}
+                    elif parent_group not in info_this_cycle["primitive-enable"][cell_name]:
+                        info_this_cycle["primitive-enable"][cell_name][parent_group] = {primitive_name}
+                    else:
+                        info_this_cycle["primitive-enable"][cell_name][parent_group].add(primitive_name)
+                self.trace[clock_cycles] = create_cycle_trace(info_this_cycle, self.cells_to_components, self.main_component, True) # True to track primitives
 
-        self.clock_cycles = clock_cycles
-        # close any active cells (unlikely)
-        for still_active_cell in cell_active:
-            still_active_segment = self.cell_to_active_cycles[still_active_cell][-1]
-            still_active_segment["end"] = clock_cycles
-            still_active_segment["length"] = clock_cycles - still_active_segment["start"]
+        self.clock_cycles = clock_cycles # last rising edge does not count as a full cycle (probably)
 
 # Generates a list of all of the components to potential cell names
 # `prefix` is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
@@ -457,14 +456,14 @@ def create_edge_dict(path_dict):
     return path_to_edges, list(sorted(all_edges))
 
 # create a tree where we divide cycles via par arms
-def compute_scaled_flame(timeline_map):
+def compute_scaled_flame(trace):
     stacks = {}
-    for i in timeline_map:
-        num_stacks = len(timeline_map[i])
+    for i in trace:
+        num_stacks = len(trace[i])
         cycle_slice = round(1 / num_stacks, 3)
         last_cycle_slice = 1 - (cycle_slice * (num_stacks - 1))
         acc = 0
-        for stack_list in timeline_map[i]:
+        for stack_list in trace[i]:
             stack_id = ";".join(stack_list)
             slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
             if stack_id not in stacks:
@@ -475,14 +474,14 @@ def compute_scaled_flame(timeline_map):
             
     return stacks
 
-def create_flame_groups(timeline_map, flame_out_file, flames_out_dir):
+def create_flame_groups(trace, flame_out_file, flames_out_dir):
     if not os.path.exists(flames_out_dir):
         os.mkdir(flames_out_dir)
     
     # make flame graph folded file
     stacks = {} # stack to number of cycles
-    for i in timeline_map:
-        for stack_list in timeline_map[i]:
+    for i in trace:
+        for stack_list in trace[i]:
             stack_id = ";".join(stack_list)
             if stack_id not in stacks:
                 stacks[stack_id] = 1
@@ -493,7 +492,7 @@ def create_flame_groups(timeline_map, flame_out_file, flames_out_dir):
         for stack in stacks:
             flame_out.write(f"{stack} {stacks[stack]}\n")
 
-    scaled_stacks = compute_scaled_flame(timeline_map)
+    scaled_stacks = compute_scaled_flame(trace)
     with open(os.path.join(flames_out_dir, "scaled-flame.folded"), "w") as div_flame_out:
         for stack in scaled_stacks:
             div_flame_out.write(f"{stack} {scaled_stacks[stack]}\n")
@@ -609,10 +608,6 @@ def write_cell_stats(cell_to_active_cycles, out_dir):
         avg_cycles = round(total_cycles / times_active, 2)
         stats.append({"cell-name" : cell, "total-cycles": total_cycles, "times-active": times_active, "avg" : avg_cycles})
     stats.sort(key=lambda e : e["total-cycles"], reverse=True)
-    # with open('Names.csv', 'w') as csvfile:
-    # writer = csv.DictWriter(csvfile, fieldnames=field_names)
-    # writer.writeheader()
-    # writer.writerows(cars)
     fieldnames = ["cell-name", "total-cycles", "times-active", "avg"]
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
