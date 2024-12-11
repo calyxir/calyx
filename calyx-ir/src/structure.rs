@@ -865,6 +865,13 @@ impl FSM {
     /// Get a list of Group Ids that are used somewhere within the FSM.
     /// Non-unique (can repeat group names in output list)
     pub fn get_called_groups(&self) -> Vec<Id> {
+        // factored function to update a vec with the group names of ports
+        let push_group_name = |group_names: &mut Vec<Id>, port: &RRC<Port>| {
+            if let PortParent::Group(group_wref) = &port.borrow().parent {
+                group_names.push(group_wref.upgrade().borrow().name());
+            }
+        };
+
         // groups that are used in the transitions section of this FSM
         let mut called_groups = self
             .transitions
@@ -874,12 +881,7 @@ impl FSM {
                 if let Transition::Conditional(conds) = trans {
                     for (guard, _) in conds.iter() {
                         guard.all_ports().iter().for_each(|port| {
-                            if let PortParent::Group(group_wref) =
-                                &port.borrow().parent
-                            {
-                                group_names
-                                    .push(group_wref.upgrade().borrow().name());
-                            }
+                            push_group_name(&mut group_names, port)
                         });
                     }
                 }
@@ -888,25 +890,15 @@ impl FSM {
             .collect_vec();
 
         // groups that are used in the assignments section
-        called_groups.extend(
-            self.assignments
-                .iter()
-                .flat_map(|assigns| {
-                    let mut groups_accessed = vec![];
-                    for assign in assigns.iter() {
-                        assign.iter_ports().for_each(|port| {
-                            if let PortParent::Group(group_wref) =
-                                &port.borrow().parent
-                            {
-                                groups_accessed
-                                    .push(group_wref.upgrade().borrow().name());
-                            }
-                        });
-                    }
-                    groups_accessed
-                })
-                .collect_vec(),
-        );
+        called_groups.extend(self.assignments.iter().flat_map(|assigns| {
+            let mut group_names = vec![];
+            for assign in assigns.iter() {
+                assign.iter_ports().for_each(|port| {
+                    push_group_name(&mut group_names, &port);
+                });
+            }
+            group_names
+        }));
 
         called_groups
     }
