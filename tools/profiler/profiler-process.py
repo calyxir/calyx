@@ -394,15 +394,9 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
     for stack_list in timeline_map.values():
         edges_this_cycle = set()
         leaves_this_cycle = set()
+        stacks_this_cycle = set(map(lambda stack : ";".join(stack), stack_list))
         for stack in stack_list:
             stack_id = ";".join(stack)
-            # record the leaf node. ignore all primitives as I think we care more about the group that called the primitive (up to debate)
-            leaf_node = path_dict[stack_id][-1]
-            if "primitive" in tree_dict[leaf_node]:
-                leaf_node = path_dict[stack_id][-2]
-            if leaf_node not in leaves_this_cycle:
-                leaf_nodes_dict[leaf_node] += 1
-                leaves_this_cycle.add(leaf_node)
             for edge in path_to_edges[stack_id]:
                 if edge not in edges_this_cycle:
                     if edge not in edges_dict:
@@ -410,6 +404,22 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
                     else:
                         edges_dict[edge] += 1
                     edges_this_cycle.add(edge)
+            # record the leaf node. ignore all primitives as I think we care more about the group that called the primitive (up to debate)
+            leaf_node = path_dict[stack_id][-1]
+            if "primitive" in tree_dict[leaf_node]:
+                leaf_node = path_dict[stack_id][-2]
+                leaf_id = ";".join(stack[:-1])
+                # if the current stack (minus primitive) is a prefix of another stack, then we shouldn't count it in as a leaf node.
+                contained = False
+                for other_stack in stacks_this_cycle:
+                    if other_stack != stack_id and leaf_id in other_stack:
+                        contained = True
+                        break
+                if contained: # this is not actually a leaf node, so we should move onto the next leaf node.
+                    continue
+            if leaf_node not in leaves_this_cycle:
+                leaf_nodes_dict[leaf_node] += 1
+                leaves_this_cycle.add(leaf_node)
     
     # write the tree
     if not os.path.exists(out_dir):
@@ -625,11 +635,14 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
 
-    if len(converter.trace) < 100:
-        for i in converter.trace:
-            print(i)
-            for stack in converter.trace[i]:
-                print(f"\t{stack}")
+    # if len(converter.trace) < 100:
+    limit = 100
+    for i in converter.trace:
+        if i == limit:
+            break
+        print(i)
+        for stack in converter.trace[i]:
+            print(f"\t{stack}")
 
     tree_dict, path_dict = create_tree(converter.trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
