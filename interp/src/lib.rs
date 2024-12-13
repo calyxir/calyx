@@ -8,3 +8,5 @@ pub mod serialization;
 mod tests;
 
 pub mod flatten;
+
+pub use baa::{BitVecOps, BitVecValue, WidthInt, Word};
