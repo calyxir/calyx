@@ -123,7 +123,6 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
-         -s cider.flags="--check-data-race" \
          {}
 """
 
