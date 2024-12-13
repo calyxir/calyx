@@ -328,6 +328,11 @@ impl DriverBuilder {
         }
     }
 
+    /// Define a new fud2 state named `name`. Filesnames without an assigned
+    /// state will be assigned this state if their extension is contained in
+    /// `extensions`. If two states share an extension, the inferred assignment
+    /// is undefined. (Assuming this is the behavior; Jeremy said he doesn't
+    /// remember)
     pub fn state(&mut self, name: &str, extensions: &[&str]) -> StateRef {
         self.states.push(State {
             name: name.to_string(),

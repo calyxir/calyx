@@ -66,12 +66,16 @@ tools/profiler/inst-check-tmp
 
 temp/
 
+tools/tb/**/*.so
+tools/tb/**/*.dylib
+
+# for running a venv
+.venv
+
 # large queue .data and .expect files ignore
 frontends/queues/tests/**/*.data
 frontends/queues/tests/**/*.expect
 
-# for running a venv
-.venv
 
 # emacs
 *~
