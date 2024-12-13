@@ -3,7 +3,7 @@
 use argh::FromArgs;
 
 use calyx_utils::OutputFile;
-use interp::{
+use cider::{
     configuration,
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
     errors::CiderResult,
@@ -120,7 +120,7 @@ fn main() -> CiderResult<()> {
         .build();
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
-    let i_ctx = interp::flatten::setup_simulation(
+    let i_ctx = cider::flatten::setup_simulation(
         &opts.file,
         &opts.lib_path,
         opts.skip_verification,

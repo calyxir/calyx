@@ -1,5 +1,5 @@
 use super::json_data::*;
-use interp::serialization::*;
+use cider::serialization::*;
 use itertools::Itertools;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_rational::BigRational;
@@ -162,11 +162,11 @@ fn float_to_rational(float: f64) -> BigRational {
 
 fn unroll_float(
     val: f64,
-    format: &interp::serialization::FormatInfo,
+    format: &cider::serialization::FormatInfo,
     round_float: bool,
 ) -> Vec<u8> {
     match *format {
-        interp::serialization::FormatInfo::Fixed {
+        cider::serialization::FormatInfo::Fixed {
             signed,
             int_width,
             frac_width,
@@ -225,7 +225,7 @@ fn unroll_float(
                     .take((frac_width + int_width).div_ceil(8) as usize)
                     .collect::<Vec<_>>()
             }
-        interp::serialization::FormatInfo::IEEFloat { width, .. } => {
+        cider::serialization::FormatInfo::IEEFloat { width, .. } => {
             match width {
                 32 => Vec::from((val as f32).to_le_bytes().as_slice()),
                 64 => Vec::from(val.to_le_bytes().as_slice()),
@@ -272,13 +272,13 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
     let chunk_stream =
         data.chunks_exact(width.div_ceil(8) as usize).map(|chunk| {
             match declaration.format {
-                interp::serialization::FormatInfo::Bitnum {
+                cider::serialization::FormatInfo::Bitnum {
                     signed, ..
                 } => {
                     let int = parse_bytes(chunk, width, signed);
                     Number::from_str(&int.to_str_radix(10)).unwrap()
                 }
-                interp::serialization::FormatInfo::Fixed {
+                cider::serialization::FormatInfo::Fixed {
                     signed,
                     int_width,
                     frac_width,
@@ -289,7 +289,7 @@ fn format_data(declaration: &MemoryDeclaration, data: &[u8]) -> ParseVec {
 
                     Number::from_f64(float).unwrap()
                 }
-                interp::serialization::FormatInfo::IEEFloat {
+                cider::serialization::FormatInfo::IEEFloat {
                     width,
                     ..
                 } => {
@@ -411,7 +411,7 @@ mod tests {
         let int_width = 16;
         let frac_width = 16;
 
-        let format = interp::serialization::FormatInfo::Fixed {
+        let format = cider::serialization::FormatInfo::Fixed {
             signed,
             int_width,
             frac_width,
