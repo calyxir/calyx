@@ -1,0 +1,4 @@
+---CODE---
+1
+---STDERR---
+Error: Concurrent read & write to the same memory [4mmain.cond_mem[0m in slot 0

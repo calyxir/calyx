@@ -419,7 +419,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
                     );
                 } else {
                     param_binding.iter().for_each(|(name, value)| {
-                    if *value > (std::i32::MAX as u64) {
+                    if *value > (i32::MAX as u64) {
                         panic!(
                             "Parameter value {} for `{}` cannot be represented using 32 bits",
                             value,

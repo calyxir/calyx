@@ -335,7 +335,7 @@ module std_fp_div_pipe #(
         running <= running;
     end
 
-    always_comb begin
+    always @* begin
       if (acc >= {1'b0, right}) begin
         acc_next = acc - right;
         {acc_next, quotient_next} = {acc_next[WIDTH-1:0], quotient, 1'b1};
@@ -1180,7 +1180,7 @@ module std_bit_slice #(
    input wire logic [IN_WIDTH-1:0] in,
    output logic [OUT_WIDTH-1:0] out
 );
-    assign out = in[END_IDX:START_IDX];
+  assign out = in[END_IDX:START_IDX];
 
   `ifdef VERILATOR
     always_comb begin
@@ -1194,6 +1194,74 @@ module std_bit_slice #(
     end
   `endif
 
+endmodule
+
+module std_skid_buffer #(
+    parameter WIDTH = 32
+)(
+    input wire logic [WIDTH-1:0] in,
+    input wire logic i_valid,
+    input wire logic i_ready,
+    input wire logic clk,
+    input wire logic reset,
+    output logic [WIDTH-1:0] out,
+    output logic o_valid,
+    output logic o_ready
+);
+  logic [WIDTH-1:0] val;
+  logic bypass_rg;
+  always @(posedge clk) begin
+    // Reset  
+    if (reset) begin      
+      // Internal Registers
+      val <= '0;     
+      bypass_rg <= 1'b1;
+    end   
+    // Out of reset
+    else begin      
+      // Bypass state      
+      if (bypass_rg) begin         
+        if (!i_ready && i_valid) begin
+          val <= in;          // Data skid happened, store to buffer
+          bypass_rg <= 1'b0;  // To skid mode  
+        end 
+      end 
+      // Skid state
+      else begin         
+        if (i_ready) begin
+          bypass_rg <= 1'b1;  // Back to bypass mode           
+        end
+      end
+    end
+  end
+
+  assign o_ready = bypass_rg;
+  assign out = bypass_rg ? in : val;
+  assign o_valid = bypass_rg ? i_valid : 1'b1;
+endmodule
+
+module std_bypass_reg #(
+    parameter WIDTH = 32
+)(
+    input wire logic [WIDTH-1:0] in,
+    input wire logic write_en,
+    input wire logic clk,
+    input wire logic reset,
+    output logic [WIDTH-1:0] out,
+    output logic done
+);
+  logic [WIDTH-1:0] val;
+  assign out = write_en ? in : val;
+
+  always_ff @(posedge clk) begin
+    if (reset) begin
+      val <= 0;
+      done <= 0;
+    end else if (write_en) begin
+      val <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
 endmodule
 
 module undef #(

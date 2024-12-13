@@ -8,7 +8,7 @@ use baa::{BitVecOps, BitVecValue, WidthInt};
 
 /// An enum wrapping over a tuple representing the shape of a multi-dimensional
 /// array
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Shape {
     D1(usize),
     D2(usize, usize),
@@ -29,6 +29,17 @@ impl Shape {
             Shape::D2(d0, d1) => d0 * d1,
             Shape::D3(d0, d1, d2) => d0 * d1 * d2,
             Shape::D4(d0, d1, d2, d3) => d0 * d1 * d2 * d3,
+        }
+    }
+
+    pub fn as_string(&self) -> String {
+        match self {
+            Shape::D1(d0) => format!("({})", d0),
+            Shape::D2(d0, d1) => format!("({}, {})", d0, d1),
+            Shape::D3(d0, d1, d2) => format!("({}, {}, {})", d0, d1, d2),
+            Shape::D4(d0, d1, d2, d3) => {
+                format!("({}, {}, {}, {})", d0, d1, d2, d3)
+            }
         }
     }
 }

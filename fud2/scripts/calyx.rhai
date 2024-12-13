@@ -6,14 +6,16 @@ export let calyx_setup = calyx_setup;
 fn calyx_setup(e) {
    e.config_var("calyx-base", "calyx.base");
    e.config_var_or("calyx-exe", "calyx.exe", "$calyx-base/target/debug/calyx");
+   e.config_var_or("calyx-lib-path", "calyx.lib_path", "$calyx-base");
    e.config_var_or("args", "calyx.args", "");
-   e.rule("calyx", "$calyx-exe -l $calyx-base -b $backend $args $in > $out");
-   e.rule("calyx-pass", "$calyx-exe -l $calyx-base -p $pass $args $in > $out");
 
-   e.config_var_or("flags", "calyx.flags", "-p none");
+   e.rule("calyx", "$calyx-exe -l $calyx-lib-path -b $backend $args $in > $out");
+   e.rule("calyx-pass", "$calyx-exe -l $calyx-lib-path -p $pass $args $in > $out");
+
+   e.config_var_or("cider-calyx-passes", "cider.calyx-passes", "-p none");
    e.rule(
-       "calyx-with-flags",
-       "$calyx-exe -l $calyx-base $flags $args $in > $out",
+       "calyx-cider",
+       "$calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out",
    );
 }
 

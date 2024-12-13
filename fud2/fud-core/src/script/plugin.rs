@@ -495,10 +495,16 @@ impl ScriptRunner {
         static_files: impl Iterator<Item = (&'static str, &'static [u8])>,
     ) -> &mut Self {
         for (name, data) in static_files {
-            let ast = self
-                .engine
-                .compile(String::from_utf8(data.to_vec()).unwrap())
-                .unwrap();
+            let file = String::from_utf8(data.to_vec()).unwrap();
+            let compile_res = self.engine.compile(file);
+
+            let ast = match compile_res {
+                Ok(ast) => ast,
+                Err(e) => {
+                    let msg = format!("Failed to parse `{name}': {e}",);
+                    panic!("{msg}");
+                }
+            };
             let functions =
                 self.resolver.as_mut().unwrap().register_data(name, ast);
             self.rhai_functions = self.rhai_functions.merge(&functions);

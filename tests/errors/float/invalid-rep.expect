@@ -1,0 +1,7 @@
+---CODE---
+1
+---STDERR---
+Error: tests/errors/float/invalid-rep.futil
+3 |        f = std_float_const(1, 32, 0.5);
+  |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Parse error
+Unknown representation: 1. Support representations: 0 (IEEE754)

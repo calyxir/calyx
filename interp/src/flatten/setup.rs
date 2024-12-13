@@ -3,9 +3,7 @@ use calyx_ir as ir;
 use calyx_opt::pass_manager::PassManager;
 use std::path::{Path, PathBuf};
 
-use crate::{
-    debugger::source::structures::NewSourceMap, errors::InterpreterResult,
-};
+use crate::{debugger::source::structures::NewSourceMap, errors::CiderResult};
 
 use super::structures::context::Context;
 
@@ -15,7 +13,7 @@ fn do_setup(
     lib_path: &Path,
     skip_verification: bool,
     gen_metadata: bool,
-) -> InterpreterResult<(Context, InterpreterResult<NewSourceMap>)> {
+) -> CiderResult<(Context, CiderResult<NewSourceMap>)> {
     // Construct IR
     let ws = frontend::Workspace::construct(file, lib_path)?;
     let mut ctx = ir::from_ast::ast_to_ir(ws)?;
@@ -39,10 +37,10 @@ fn do_setup(
                 crate::debugger::source::new_parser::parse_metadata(metadata)
             })
             .unwrap_or_else(|| {
-                Err(crate::errors::InterpreterError::MissingMetaData.into())
+                Err(crate::errors::CiderError::MissingMetaData.into())
             })
     } else {
-        Err(crate::errors::InterpreterError::MissingMetaData.into())
+        Err(crate::errors::CiderError::MissingMetaData.into())
     };
 
     // general setup
@@ -56,7 +54,7 @@ pub fn setup_simulation(
     file: &Option<PathBuf>,
     lib_path: &Path,
     skip_verification: bool,
-) -> InterpreterResult<Context> {
+) -> CiderResult<Context> {
     let (ctx, _) = do_setup(file, lib_path, skip_verification, false)?;
     Ok(ctx)
 }
@@ -70,7 +68,7 @@ pub fn setup_simulation_with_metadata(
     file: &Option<PathBuf>,
     lib_path: &Path,
     skip_verification: bool,
-) -> InterpreterResult<(Context, NewSourceMap)> {
+) -> CiderResult<(Context, NewSourceMap)> {
     let (ctx, mapping) = do_setup(file, lib_path, skip_verification, true)?;
     Ok((ctx, mapping?))
 }

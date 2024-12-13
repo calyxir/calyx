@@ -4,7 +4,7 @@ use std::{
     ops::{self, Index},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexedMap<K, D>
 where
     K: IndexRef,
@@ -121,6 +121,10 @@ where
         self.data.iter_mut()
     }
 
+    pub fn values(&self) -> impl Iterator<Item = &D> {
+        self.data.iter()
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
         // TODO (griffin): Make this an actual struct instead
         self.data.iter().enumerate().map(|(i, _)| K::new(i))
@@ -143,6 +147,7 @@ where
         Self::new()
     }
 }
+
 #[allow(dead_code)]
 pub struct IndexedMapRangeIterator<'range, 'data, K, D>
 where
@@ -152,15 +157,12 @@ where
     data: &'data IndexedMap<K, D>,
 }
 
-impl<'range, 'data, K, D> ExactSizeIterator
-    for IndexedMapRangeIterator<'range, 'data, K, D>
-where
-    K: IndexRef + PartialOrd,
+impl<K, D> ExactSizeIterator for IndexedMapRangeIterator<'_, '_, K, D> where
+    K: IndexRef + PartialOrd
 {
 }
 
-impl<'range, 'data, K, D> Iterator
-    for IndexedMapRangeIterator<'range, 'data, K, D>
+impl<'data, K, D> Iterator for IndexedMapRangeIterator<'_, 'data, K, D>
 where
     K: IndexRef + PartialOrd,
 {

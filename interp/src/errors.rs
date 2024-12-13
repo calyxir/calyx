@@ -1,69 +1,67 @@
-use crate::flatten::{
-    flat_ir::{
-        base::{AssignmentWinner, ComponentIdx, GlobalCellIdx, GlobalPortIdx},
-        prelude::AssignedValue,
+use crate::{
+    flatten::{
+        flat_ir::{
+            base::{
+                AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx,
+                GlobalPortIdx,
+            },
+            prelude::AssignedValue,
+        },
+        structures::environment::{clock::ClockError, Environment},
     },
-    structures::environment::Environment,
+    serialization::Shape,
 };
-use baa::{BitVecOps, BitVecValue};
-use calyx_ir::Id;
+use baa::BitVecOps;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
+use owo_colors::OwoColorize;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
-/// A type alias for a result with an [BoxedInterpreterError] as the error type
-pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
+use std::fmt::Write;
+
+/// A type alias for a result with an [BoxedCiderError] as the error type
+pub type CiderResult<T> = Result<T, BoxedCiderError>;
 
 /// A wrapper type for [InterpreterError]. This exists to allow a smaller return
 /// size for results since the error type is large.
-pub struct BoxedInterpreterError(Box<InterpreterError>);
+pub struct BoxedCiderError(Box<CiderError>);
 
-impl BoxedInterpreterError {
+impl BoxedCiderError {
     /// Get a mutable reference to the inner error
-    pub fn inner_mut(&mut self) -> &mut InterpreterError {
+    pub fn inner_mut(&mut self) -> &mut CiderError {
         &mut self.0
-    }
-
-    pub fn prettify_message<
-        C: AsRef<crate::flatten::structures::context::Context> + Clone,
-    >(
-        mut self,
-        env: &Environment<C>,
-    ) -> Self {
-        self.0 = Box::new(self.0.prettify_message(env));
-        self
     }
 }
 
-impl std::fmt::Display for BoxedInterpreterError {
+impl std::fmt::Display for BoxedCiderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&*self.0, f)
     }
 }
 
-impl std::fmt::Debug for BoxedInterpreterError {
+impl std::fmt::Debug for BoxedCiderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&self, f)
     }
 }
 
-impl std::error::Error for BoxedInterpreterError {
+impl std::error::Error for BoxedCiderError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         self.0.source()
     }
 }
 
-impl std::ops::Deref for BoxedInterpreterError {
-    type Target = InterpreterError;
+impl std::ops::Deref for BoxedCiderError {
+    type Target = CiderError;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T> From<T> for BoxedInterpreterError
+impl<T> From<T> for BoxedCiderError
 where
-    T: Into<InterpreterError>,
+    T: Into<CiderError>,
 {
     fn from(e: T) -> Self {
         Self(Box::new(T::into(e)))
@@ -73,7 +71,7 @@ where
 /// An enum representing the different types of errors that can occur during
 /// simulation and debugging
 #[derive(Error)]
-pub enum InterpreterError {
+pub enum CiderError {
     /// The given debugger command is invalid/malformed
     #[error("invalid command - {0}")]
     InvalidCommand(String),
@@ -121,31 +119,6 @@ pub enum InterpreterError {
     #[error("no main component")]
     MissingMainComponent,
 
-    #[error(
-        "conflicting assigns
-        1. {a1}
-        2. {a2}
-    "
-    )]
-    FlatConflictingAssignments {
-        target: GlobalPortIdx,
-        a1: AssignedValue,
-        a2: AssignedValue,
-    },
-
-    /// A currently defunct error type for cross branch conflicts
-    #[error(
-        "par assignments not disjoint: {parent_id}.{port_id}
-    1. {v1:?}
-    2. {v2:?}"
-    )]
-    ParOverlap {
-        port_id: Id,
-        parent_id: Id,
-        v1: BitVecValue,
-        v2: BitVecValue,
-    },
-
     #[error("{mem_dim} Memory given initialization data with invalid dimension.
     When flattened, expected {expected} entries, but the memory was supplied with {given} entries instead.
     Please ensure that the dimensions of your input memories match their initialization data in the supplied data file")]
@@ -155,28 +128,64 @@ pub enum InterpreterError {
         given: usize,
     },
 
-    #[error("invalid memory access to memory {}. Given index ({}) but memory has dimension ({})", name, access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), dims.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
-    InvalidMemoryAccess {
-        access: Vec<u64>,
-        dims: Vec<u64>,
-        name: Id,
-    },
-
-    // TODO (Griffin): Make this error message better please
-    #[error("Computation has under/overflowed its bounds")]
-    OverflowError,
-
     /// A wrapper for IO errors
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
-    /// The error for attempting to write `undef` values to a register or
-    /// memory. Contains the name of the register or memory as a string
-    //TODO Griffin: Make this more descriptive
-    #[error(
-        "Attempted to write an undefined value to register or memory named \"{0:?}\""
-    )]
-    UndefinedWrite(GlobalCellIdx),
+    /// A wrapper for serialization errors
+    #[error(transparent)]
+    SerializationError(#[from] crate::serialization::SerializationError),
+
+    /// A nonspecific error, used for arbitrary messages
+    #[error("{0}")]
+    GenericError(String),
+}
+
+pub type RuntimeResult<T> = Result<T, BoxedRuntimeError>;
+
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct BoxedRuntimeError(#[from] Box<RuntimeError>);
+
+impl<Inner: Into<RuntimeError>> From<Inner> for BoxedRuntimeError {
+    fn from(value: Inner) -> Self {
+        Self(Box::new(value.into()))
+    }
+}
+
+impl BoxedRuntimeError {
+    pub fn prettify_message<
+        C: AsRef<crate::flatten::structures::context::Context> + Clone,
+    >(
+        self,
+        env: &Environment<C>,
+    ) -> CiderError {
+        self.0.prettify_message(env)
+    }
+}
+
+#[derive(Error, Debug)]
+#[error(
+    "conflicting assigns
+        1. {a1}
+        2. {a2}
+    "
+)]
+pub struct ConflictingAssignments {
+    pub target: GlobalPortIdx,
+    pub a1: AssignedValue,
+    pub a2: AssignedValue,
+}
+
+#[derive(Error, Debug)]
+pub enum RuntimeError {
+    #[error(transparent)]
+    ClockError(#[from] ClockError),
+
+    #[error("Some guards are undefined: {0:?}")]
+    UndefinedGuardError(
+        Vec<(GlobalCellIdx, AssignmentIdx, Vec<GlobalPortIdx>)>,
+    ),
 
     /// The error for attempting to write to an undefined memory address. This
     /// is distinct from writing to an out of bounds address.
@@ -193,48 +202,65 @@ pub enum InterpreterError {
     )]
     UndefinedReadAddr(GlobalCellIdx),
 
-    /// A wrapper for serialization errors
-    #[error(transparent)]
-    SerializationError(#[from] crate::serialization::SerializationError),
+    #[error("Attempted to undefine a defined port \"{0:?}\"")]
+    UndefiningDefinedPort(GlobalPortIdx),
 
-    /// A nonspecific error, used for arbitrary messages
-    #[error("{0}")]
-    GenericError(String),
+    /// The error for attempting to write `undef` values to a register or
+    /// memory. Contains the name of the register or memory as a string
+    //TODO Griffin: Make this more descriptive
+    #[error(
+        "Attempted to write an undefined value to register or memory named \"{0:?}\""
+    )]
+    UndefinedWrite(GlobalCellIdx),
+
+    #[error("invalid memory access to memory. Given index ({}) but memory has dimension ", access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
+    InvalidMemoryAccess {
+        access: Vec<u64>,
+        dims: Shape,
+        idx: GlobalCellIdx,
+    },
+
+    // TODO (Griffin): Make this error message better please
+    #[error("Computation has under/overflowed its bounds")]
+    OverflowError,
+
+    #[error(transparent)]
+    ConflictingAssignments(Box<ConflictingAssignments>),
 }
 
 // this is silly but needed to make the program print something sensible when returning
 // a result from `main`
-impl std::fmt::Debug for InterpreterError {
+impl std::fmt::Debug for CiderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&self, f)
     }
 }
 
-impl From<CalyxError> for InterpreterError {
+impl From<CalyxError> for CiderError {
     fn from(e: CalyxError) -> Self {
         Self::CompilerError(Box::new(e))
     }
 }
 
-impl From<CalyxMultiError> for InterpreterError {
+impl From<CalyxMultiError> for CiderError {
     fn from(e: CalyxMultiError) -> Self {
         Self::CompilerMultiError(Box::new(e))
     }
 }
 
-impl From<std::str::Utf8Error> for InterpreterError {
+impl From<std::str::Utf8Error> for CiderError {
     fn from(err: std::str::Utf8Error) -> Self {
         CalyxError::invalid_file(err.to_string()).into()
     }
 }
 
-impl InterpreterError {
+impl RuntimeError {
     pub fn prettify_message<
         C: AsRef<crate::flatten::structures::context::Context> + Clone,
     >(
         self,
         env: &Environment<C>,
-    ) -> Self {
+    ) -> CiderError {
         fn assign_to_string<C: AsRef<crate::flatten::structures::context::Context> + Clone>(
             assign: &AssignedValue,
             env: &Environment<C>,
@@ -245,7 +271,7 @@ impl InterpreterError {
             match assign.winner() {
                 AssignmentWinner::Cell => ("Cell".to_string(), None),
                 AssignmentWinner::Implicit => ("Implicit".to_string(), None),
-                AssignmentWinner::Assign(idx) => {
+                AssignmentWinner::Assign(idx, _) => {
                     let (comp, loc) =
                         env.ctx().find_assignment_definition(*idx);
 
@@ -273,7 +299,8 @@ impl InterpreterError {
         }
 
         match self {
-            InterpreterError::FlatConflictingAssignments { target, a1, a2 } => {
+            RuntimeError::ConflictingAssignments(boxed_err) => {
+                let ConflictingAssignments { target, a1, a2 } = *boxed_err;
                 let (a1_str, a1_source) = assign_to_string(&a1, env);
                 let (a2_str, a2_source) = assign_to_string(&a2, env);
 
@@ -288,14 +315,50 @@ impl InterpreterError {
 
                 let target = env.get_full_name(target);
 
-                InterpreterError::GenericError(
+                CiderError::GenericError(
                     format!("conflicting assignments to port \"{target}\":\n 1. assigned {a1_v} by {a1_str}{a1_source}\n 2. assigned {a2_v} by {a2_str}{a2_source}")
                 )
             }
-            InterpreterError::UndefinedWrite(c) => InterpreterError::GenericError(format!("Attempted to write an undefined value to register or memory named \"{}\"", env.get_full_name(c))),
-            InterpreterError::UndefinedWriteAddr(c) => InterpreterError::GenericError(format!("Attempted to write to an undefined memory address in memory named \"{}\"", env.get_full_name(c))),
-            InterpreterError::UndefinedReadAddr(c) => InterpreterError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
-            e => e,
+            RuntimeError::UndefinedWrite(c) => CiderError::GenericError(format!("Attempted to write an undefined value to register or memory named \"{}\"", env.get_full_name(c))),
+            RuntimeError::UndefinedWriteAddr(c) => CiderError::GenericError(format!("Attempted to write to an undefined memory address in memory named \"{}\"", env.get_full_name(c))),
+            RuntimeError::UndefinedReadAddr(c) => CiderError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
+            RuntimeError::ClockError(clk) => {
+                match clk {
+                    ClockError::ReadWrite(c, num) => {
+                        if let Some(entry_number) = num {
+                            CiderError::GenericError(format!("Concurrent read & write to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
+                        } else {
+                            CiderError::GenericError(format!("Concurrent read & write to the same register {}", env.get_full_name(c).underline()))
+                        }
+                },
+                    ClockError::WriteWrite(c, num) => {
+                        if let Some(entry_number) = num {
+                            CiderError::GenericError(format!("Concurrent writes to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
+                        } else {
+                            CiderError::GenericError(format!("Concurrent writes to the same register {}", env.get_full_name(c).underline()))
+                        }
+                    },
+                    c => CiderError::GenericError(format!("Unexpected clock error: {c:?}")),
+                }
+            }
+            RuntimeError::UndefiningDefinedPort(p) => CiderError::GenericError(format!("Attempted to undefine a defined port \"{}\"", env.get_full_name(p))),
+            RuntimeError::UndefinedGuardError(v) => {
+                let mut message = String::from("Some guards contained undefined values after convergence:\n");
+                for (cell, assign, ports) in v {
+                    writeln!(message, "({}) in assignment {}", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign).bold()).unwrap();
+                    for port in ports {
+                        writeln!(message, "    {} is undefined", env.get_full_name(port).yellow()).unwrap();
+                    }
+                    writeln!(message).unwrap()
+                }
+
+                CiderError::GenericError(message)
+            }
+            RuntimeError::InvalidMemoryAccess { access, dims, idx } => {
+                CiderError::GenericError(format!("Invalid memory access to memory named \"{}\". Given index ({}) but memory has dimension {}", env.get_full_name(idx), access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), dims.as_string()))
+            },
+            RuntimeError::OverflowError => todo!(),
+
         }
     }
 }

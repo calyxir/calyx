@@ -19,7 +19,7 @@ component main() -> () {
       cond[done] = lt_reg.done;
     }
 
-    group incr<"static"=1> {
+    group incr {
       i.write_en = 1'b1;
       i.write_data = add.out;
       i.addr0 = 1'd0;

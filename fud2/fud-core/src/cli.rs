@@ -1,3 +1,4 @@
+pub use crate::cli_ext::{CliExt, FakeCli, FromArgFn, RedactArgFn};
 use crate::config;
 use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
@@ -6,7 +7,7 @@ use argh::FromArgs;
 use camino::Utf8PathBuf;
 use figment::providers::Serialized;
 use itertools::Itertools;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::fs;
 use std::str::FromStr;
 
@@ -120,9 +121,9 @@ pub struct RegisterCommand {
 }
 
 /// supported subcommands
-#[derive(FromArgs, PartialEq, Debug)]
+#[derive(FromArgs)]
 #[argh(subcommand)]
-pub enum Subcommand {
+pub enum Subcommand<T: CliExt> {
     /// edit the configuration file
     EditConfig(EditConfig),
 
@@ -134,13 +135,16 @@ pub enum Subcommand {
 
     /// register a plugin
     Register(RegisterCommand),
+
+    #[argh(dynamic)]
+    Extended(FakeCli<T>),
 }
 
 #[derive(FromArgs)]
 /// A generic compiler driver.
-struct FakeArgs {
+pub struct FudArgs<T: CliExt> {
     #[argh(subcommand)]
-    pub sub: Option<Subcommand>,
+    pub sub: Option<Subcommand<T>>,
 
     /// the input file
     #[argh(positional)]
@@ -186,6 +190,10 @@ struct FakeArgs {
     #[argh(switch, short = 'v')]
     verbose: Option<bool>,
 
+    /// quiet mode
+    #[argh(switch, short = 'q')]
+    quiet: bool,
+
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
@@ -223,9 +231,9 @@ fn get_states_with_errors(
     Ok(states)
 }
 
-fn from_states(
+fn from_states<T: CliExt>(
     driver: &Driver,
-    args: &FakeArgs,
+    args: &FudArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
@@ -237,7 +245,10 @@ fn from_states(
     )
 }
 
-fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
+fn to_state<T: CliExt>(
+    driver: &Driver,
+    args: &FudArgs<T>,
+) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
         &args.to,
@@ -248,7 +259,10 @@ fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
     )
 }
 
-fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
+fn get_request<T: CliExt>(
+    driver: &Driver,
+    args: &FudArgs<T>,
+) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
     let workdir = args.dir.clone().unwrap_or_else(|| match args.mode {
         Mode::Generate | Mode::Run => {
@@ -363,9 +377,41 @@ fn register_plugin(
     Ok(())
 }
 
-/// Given the name of a Driver, returns a config based on that name and CLI arguments.
-pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
-    let args: FakeArgs = argh::from_env();
+pub trait CliStart<T: CliExt> {
+    /// Given the name of a Driver, returns a config based on that name and CLI arguments.
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment>;
+
+    /// Given a driver and config, start the CLI.
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()>;
+}
+
+/// Default CLI that provides an interface to core actions.
+pub struct DefaultCli;
+
+impl CliStart<()> for DefaultCli {
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+        config_from_cli_ext::<()>(name)
+    }
+
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
+        cli_ext::<()>(driver, config)
+    }
+}
+
+impl<T: CliExt> CliStart<T> for T {
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+        config_from_cli_ext::<T>(name)
+    }
+
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
+        cli_ext::<T>(driver, config)
+    }
+}
+
+fn config_from_cli_ext<T: CliExt>(
+    name: &str,
+) -> anyhow::Result<figment::Figment> {
+    let args: FudArgs<T> = argh::from_env();
     let mut config = config::load_config(name);
 
     // Use `--set` arguments to override configuration values.
@@ -382,9 +428,11 @@ pub fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
     Ok(config)
 }
 
-pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
-    let args: FakeArgs = argh::from_env();
-
+fn cli_ext<T: CliExt>(
+    driver: &Driver,
+    config: &figment::Figment,
+) -> anyhow::Result<()> {
+    let args: FudArgs<T> = argh::from_env();
     // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
@@ -406,6 +454,9 @@ pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
         }
         Some(Subcommand::Register(cmd)) => {
             return register_plugin(driver, cmd);
+        }
+        Some(Subcommand::Extended(cmd)) => {
+            return cmd.0.run(driver);
         }
         None => {}
     }
@@ -432,8 +483,8 @@ pub fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir, false)?,
-        Mode::Cmds => run.emit_and_run(&workdir, true)?,
+        Mode::Run => run.emit_and_run(&workdir, false, args.quiet)?,
+        Mode::Cmds => run.emit_and_run(&workdir, true, false)?,
     }
 
     Ok(())

@@ -1,12 +1,70 @@
+// taken from https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html
+macro_rules! replace_expr {
+    ($_t:tt $sub:expr) => {
+        $sub
+    };
+}
+
+macro_rules! count_tts {
+    ($($tts:tt)*) => {0usize $(+ $crate::flatten::primitives::macros::replace_expr!($tts 1usize))*};
+}
+// -- https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html
+
+pub(crate) use count_tts;
+pub(crate) use replace_expr;
+
 macro_rules! ports {
     ($base:expr; $( $port:ident : $offset:expr ),+ ) => {
         $(let $port: $crate::flatten::flat_ir::prelude::GlobalPortIdx = ($crate::flatten::structures::index_trait::IndexRef::index($base) + $offset).into();)+
     }
 }
 
+/// Declare a list of ports for the primitive with their offsets given relative
+/// to the cell's base port.A vertical bar is used to separate the input and
+/// output ports
+///
+/// ## NOTE: These must be given in ascending order. And the base port of the struct must be named `base_port`
+///
+/// ```ignore
+/// // Example
+/// // declare COND, TRU, FAL as input ports
+/// // declare OUT as output port
+/// declare_ports![ COND: 0, TRU: 1, FAL:2 | OUT: 3];
+/// ```
 macro_rules! declare_ports {
-    ($( $port:ident : $offset:expr ),+  $(,)? ) => {
+    ($( $input_port:ident : $input_offset:literal ),+ $(,)? |  $( $output_port:ident : $output_offset:literal ),+ $(,)? ) => {
 
+        $(
+            #[allow(non_upper_case_globals)]
+            const $input_port: usize = $input_offset; // this is a usize because it encodes the position of the port!
+        )+
+
+        $(
+            #[allow(non_upper_case_globals)]
+            const $output_port: usize = $output_offset; // this is a usize because it encodes the position of the port!
+        )+
+
+        // determine the offset of the first and last output ports
+        const SPLIT_IDX: usize = [$($output_offset),+][0];
+        const END_IDX: usize = ([$($output_offset),+][$crate::flatten::primitives::macros::count_tts!($($output_offset)+) - 1]) + 1;
+
+        #[inline]
+        pub fn get_signature(&self) -> $crate::flatten::structures::index_trait::SplitIndexRange<$crate::flatten::flat_ir::prelude::GlobalPortIdx> {
+            use $crate::flatten::structures::index_trait::IndexRef;
+
+            $crate::flatten::structures::index_trait::SplitIndexRange::new(self.base_port,
+                $crate::flatten::flat_ir::prelude::GlobalPortIdx::new(self.base_port.index() + Self::SPLIT_IDX),
+                $crate::flatten::flat_ir::prelude::GlobalPortIdx::new(self.base_port.index() + Self::END_IDX),
+            )
+        }
+    }
+}
+
+/// Declare a list of ports for the primitive with their offsets given relative
+/// to the cell's base port. Unlike `declare_ports` this does not generate a
+/// `get_signature` function or distinguish between input and output ports.
+macro_rules! declare_ports_no_signature {
+    ($( $port:ident : $offset:literal ),+  $(,)? ) => {
         $(
             #[allow(non_upper_case_globals)]
             const $port: usize = $offset; // this is a usize because it encodes the position of the port!
@@ -27,6 +85,7 @@ macro_rules! make_getters {
 }
 
 pub(crate) use declare_ports;
+pub(crate) use declare_ports_no_signature;
 pub(crate) use make_getters;
 
 pub(crate) use ports;
@@ -46,8 +105,7 @@ macro_rules! comb_primitive {
 
         impl $name {
 
-            $crate::flatten::primitives::macros::declare_ports![$($port: $port_idx),+];
-            $crate::flatten::primitives::macros::declare_ports![$out_port: $out_port_idx,];
+            $crate::flatten::primitives::macros::declare_ports![$($port: $port_idx),+ | $out_port: $out_port_idx];
 
             #[allow(non_snake_case)]
             pub fn new(
@@ -74,7 +132,7 @@ macro_rules! comb_primitive {
 
 
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::InterpreterResult<Option<baa::BitVecValue>>  {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::RuntimeResult<Option<baa::BitVecValue>>  {
                     $execute
                 };
 
@@ -98,10 +156,20 @@ macro_rules! comb_primitive {
                 }
             }
 
-            fn has_stateful(&self) -> bool {
+            fn has_stateful_path(&self) -> bool {
                 false
             }
 
+            fn get_ports(&self) -> $crate::flatten::structures::index_trait::SplitIndexRange<$crate::flatten::flat_ir::prelude::GlobalPortIdx> {
+                self.get_signature()
+            }
+
+            fn clone_boxed(&self) -> Box<dyn $crate::flatten::primitives::Primitive> {
+                Box::new(Self {
+                    base_port: self.base_port,
+                    $($($param: self.$param,)+)?
+                })
+            }
         }
     };
 

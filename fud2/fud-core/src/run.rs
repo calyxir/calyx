@@ -339,7 +339,12 @@ impl<'a> Run<'a> {
     /// Emit `build.ninja` to a temporary directory and then actually execute Ninja.
     ///
     /// If `print_cmds` is true, Ninja will print commands it is to run instead of executing them.
-    pub fn emit_and_run(&self, dir: &Utf8Path, print_cmds: bool) -> EmitResult {
+    pub fn emit_and_run(
+        &self,
+        dir: &Utf8Path,
+        print_cmds: bool,
+        quiet_mode: bool,
+    ) -> EmitResult {
         // Emit the Ninja file.
         let dir = self.emit_to_dir(dir)?;
 
@@ -375,7 +380,11 @@ impl<'a> Run<'a> {
             cmd.arg("-tcommands");
         }
 
-        cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
+        if !quiet_mode {
+            cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
+        } else {
+            cmd.stdout(std::process::Stdio::null());
+        }
         let status = cmd.status().map_err(ninja_cmd_io_error)?;
 
         // Emit to stdout, only when Ninja succeeded.

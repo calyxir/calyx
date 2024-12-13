@@ -16,7 +16,6 @@ path = "src/main.rs"
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
-lazy_static.workspace = true
 itertools.workspace = true
 pest.workspace = true
 pest_derive.workspace = true
@@ -43,11 +42,10 @@ calyx-utils = { path = "../calyx-utils", features = ["serialize"] }
 calyx-opt = { path = "../calyx-opt" }
 calyx-frontend = { path = "../calyx-frontend" }
 
-btor2i = { path = "../tools/btor2/btor2i" }
-
 ciborium = "0.2.2"
-baa = { version = "0.6.0", features = ["bigint", "serde1", "fraction1"] }
-fst-writer = "0.2.0"
+baa = { version = "0.14.0", features = ["bigint", "serde1", "fraction1"] }
+fst-writer = "0.2.1"
+bon = "2.3"
 
 [dev-dependencies]
 proptest = "1.0.0"

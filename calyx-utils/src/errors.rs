@@ -179,7 +179,7 @@ impl Error {
             post_msg: None,
         }
     }
-    pub fn location(&self) -> (&str, usize, usize) {
+    pub fn location(&self) -> (String, usize, usize) {
         self.pos.get_location()
     }
     pub fn message(&self) -> String {

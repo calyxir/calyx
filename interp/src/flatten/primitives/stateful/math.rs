@@ -1,15 +1,19 @@
-use crate::flatten::{
-    flat_ir::prelude::*,
-    primitives::{
-        declare_ports, ports,
-        prim_trait::*,
-        utils::{floored_division, int_sqrt, ShiftBuffer},
+use crate::{
+    errors::RuntimeResult,
+    flatten::{
+        flat_ir::prelude::*,
+        primitives::{
+            declare_ports, ports,
+            prim_trait::*,
+            utils::{floored_division, int_sqrt, ShiftBuffer},
+        },
+        structures::{environment::PortMap, index_trait::SplitIndexRange},
     },
-    structures::environment::PortMap,
 };
 use baa::{BitVecOps, BitVecValue, WidthInt};
 use num_traits::Euclid;
 
+#[derive(Clone)]
 pub struct StdMultPipe<const DEPTH: usize> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -19,7 +23,7 @@ pub struct StdMultPipe<const DEPTH: usize> {
 }
 
 impl<const DEPTH: usize> StdMultPipe<DEPTH> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT: 5, DONE: 6];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT: 5, DONE: 6];
     pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         Self {
             base_port,
@@ -32,13 +36,17 @@ impl<const DEPTH: usize> StdMultPipe<DEPTH> {
 }
 
 impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
         let out_changed =
             port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -50,7 +58,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
         Ok(out_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -90,7 +98,7 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val(
+        port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -99,13 +107,17 @@ impl<const DEPTH: usize> Primitive for StdMultPipe<DEPTH> {
             }),
         )?;
 
-        Ok(
-            port_map.write_exact_unchecked(out, self.current_output.clone())
-                | done_signal,
-        )
+        port_map.write_exact_unchecked(out, self.current_output.clone());
+
+        Ok(())
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
     }
 }
 
+#[derive(Clone)]
 pub struct StdDivPipe<const DEPTH: usize, const SIGNED: bool> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -116,7 +128,7 @@ pub struct StdDivPipe<const DEPTH: usize, const SIGNED: bool> {
 }
 
 impl<const DEPTH: usize, const SIGNED: bool> StdDivPipe<DEPTH, SIGNED> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT_QUOTIENT: 5, OUT_REMAINDER: 6, DONE: 7];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT_QUOTIENT: 5, OUT_REMAINDER: 6, DONE: 7];
     pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         Self {
             base_port,
@@ -132,6 +144,10 @@ impl<const DEPTH: usize, const SIGNED: bool> StdDivPipe<DEPTH, SIGNED> {
 impl<const DEPTH: usize, const SIGNED: bool> Primitive
     for StdDivPipe<DEPTH, SIGNED>
 {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
                out_quot: Self::OUT_QUOTIENT,
@@ -148,7 +164,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Ok(quot_changed | rem_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -216,13 +232,15 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.set_done(done, self.done_is_high)?;
-        let quot_changed = port_map
-            .write_exact_unchecked(out_quot, self.output_quotient.clone());
-        let rem_changed = port_map
-            .write_exact_unchecked(out_rem, self.output_remainder.clone());
+        port_map.set_done(done, self.done_is_high)?;
+        port_map.write_exact_unchecked(out_quot, self.output_quotient.clone());
+        port_map.write_exact_unchecked(out_rem, self.output_remainder.clone());
 
-        Ok(quot_changed | rem_changed | done_signal)
+        Ok(())
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
     }
 }
 
@@ -236,7 +254,7 @@ pub struct Sqrt<const IS_FIXED_POINT: bool> {
 }
 
 impl<const IS_FIXED_POINT: bool> Sqrt<IS_FIXED_POINT> {
-    declare_ports!(_CLK: 0, RESET: 1, GO: 2, IN: 3, OUT: 4, DONE: 5);
+    declare_ports!(_CLK: 0, RESET: 1, GO: 2, IN: 3, | OUT: 4, DONE: 5);
     pub fn new(
         base_port: GlobalPortIdx,
         width: u32,
@@ -253,6 +271,10 @@ impl<const IS_FIXED_POINT: bool> Sqrt<IS_FIXED_POINT> {
 }
 
 impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
@@ -263,7 +285,7 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
         Ok(out_changed | done_changed)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             reset: Self::RESET,
             go: Self::GO,
@@ -301,14 +323,18 @@ impl<const IS_FIXED_POINT: bool> Primitive for Sqrt<IS_FIXED_POINT> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.set_done(done, self.done_is_high)?;
-        let out_changed =
-            port_map.write_exact_unchecked(out, self.output.clone());
+        port_map.set_done(done, self.done_is_high)?;
+        port_map.write_exact_unchecked(out, self.output.clone());
 
-        Ok(out_changed | done_signal)
+        Ok(())
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
     }
 }
 
+#[derive(Clone)]
 pub struct FxpMultPipe<const DEPTH: usize> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -319,7 +345,7 @@ pub struct FxpMultPipe<const DEPTH: usize> {
 }
 
 impl<const DEPTH: usize> FxpMultPipe<DEPTH> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT: 5, DONE: 6];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT: 5, DONE: 6];
     pub fn new(
         base_port: GlobalPortIdx,
         int_width: u32,
@@ -339,13 +365,17 @@ impl<const DEPTH: usize> FxpMultPipe<DEPTH> {
 }
 
 impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; out: Self::OUT, done: Self::DONE];
 
         let out_changed =
             port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        let done_signal = port_map.insert_val(
+        let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -357,7 +387,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
         Ok(out_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -406,7 +436,7 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.insert_val(
+        port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
                 BitVecValue::tru()
@@ -414,14 +444,17 @@ impl<const DEPTH: usize> Primitive for FxpMultPipe<DEPTH> {
                 BitVecValue::fals()
             }),
         )?;
+        port_map.write_exact_unchecked(out, self.current_output.clone());
 
-        Ok(
-            port_map.write_exact_unchecked(out, self.current_output.clone())
-                | done_signal,
-        )
+        Ok(())
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
     }
 }
 
+#[derive(Clone)]
 pub struct FxpDivPipe<const DEPTH: usize, const SIGNED: bool> {
     base_port: GlobalPortIdx,
     pipeline: ShiftBuffer<(PortValue, PortValue), DEPTH>,
@@ -433,7 +466,7 @@ pub struct FxpDivPipe<const DEPTH: usize, const SIGNED: bool> {
 }
 
 impl<const DEPTH: usize, const SIGNED: bool> FxpDivPipe<DEPTH, SIGNED> {
-    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, OUT_REMAINDER: 5, OUT_QUOTIENT: 6, DONE: 7];
+    declare_ports![_CLK: 0, RESET: 1, GO: 2, LEFT: 3, RIGHT: 4, | OUT_REMAINDER: 5, OUT_QUOTIENT: 6, DONE: 7];
     pub fn new(
         base_port: GlobalPortIdx,
         int_width: u32,
@@ -460,6 +493,10 @@ impl<const DEPTH: usize, const SIGNED: bool> FxpDivPipe<DEPTH, SIGNED> {
 impl<const DEPTH: usize, const SIGNED: bool> Primitive
     for FxpDivPipe<DEPTH, SIGNED>
 {
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
+    }
+
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
                out_quot: Self::OUT_QUOTIENT,
@@ -476,7 +513,7 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
         Ok(quot_changed | rem_changed | done_signal)
     }
 
-    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> RuntimeResult<()> {
         ports![&self.base_port;
             left: Self::LEFT,
             right: Self::RIGHT,
@@ -546,12 +583,14 @@ impl<const DEPTH: usize, const SIGNED: bool> Primitive
             self.done_is_high = false;
         }
 
-        let done_signal = port_map.set_done(done, self.done_is_high)?;
-        let quot_changed = port_map
-            .write_exact_unchecked(out_quot, self.output_quotient.clone());
-        let rem_changed = port_map
-            .write_exact_unchecked(out_rem, self.output_remainder.clone());
+        port_map.set_done(done, self.done_is_high)?;
+        port_map.write_exact_unchecked(out_quot, self.output_quotient.clone());
+        port_map.write_exact_unchecked(out_rem, self.output_remainder.clone());
 
-        Ok(quot_changed | rem_changed | done_signal)
+        Ok(())
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
     }
 }

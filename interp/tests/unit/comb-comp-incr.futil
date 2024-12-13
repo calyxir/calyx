@@ -1,0 +1,71 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+
+comb component incr(in: 32) -> (out: 32) {
+  cells {
+    add = std_add(32);
+  }
+  wires {
+    add.left = in;
+    add.right = 32'd1;
+    out = add.out;
+  }
+}
+
+component copy() -> () {
+  cells {
+    ref source = std_reg(32);
+    ref dest = std_reg(32);
+  }
+  wires {
+    group copy {
+      dest.in = source.out;
+      dest.write_en = 1'd1;
+      copy[done] = dest.done;
+    }
+  }
+  control {
+    seq {
+      copy;
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    inc = incr(32);
+    r = std_reg(32);
+    r_t0 = std_reg(32);
+    r_t1 = std_reg(32);
+    r_t2 = std_reg(32);
+    copy = copy();
+  }
+
+  wires {
+    group init {
+      r.in = 32'd10;
+      r.write_en = 1'd1;
+      init[done] = r.done;
+    }
+    group incr {
+      inc.in = r.out;
+      r.in = inc.out;
+      r.write_en = 1'd1;
+      incr[done] = r.done;
+    }
+  }
+
+  control {
+    seq {
+      init;
+      invoke copy[source=r, dest=r_t0]()();
+      incr;
+      invoke copy[source=r, dest=r_t1]()();
+      incr;
+      incr;
+      invoke copy[source=r, dest=r_t2]()();
+      incr;
+    }
+  }
+}

@@ -7,13 +7,35 @@ use crate::flatten::structures::{
 
 use super::{control::structures::ControlIdx, prelude::*};
 
+/// Stores the definitions created under a component.
+///
+/// # Note
+/// In most cases, this is different that what is directly defined by the
+/// component as this also includes ports/cells defined by sub-components. The
+/// exceptions are the groups and comb groups which only includes those defined
+/// directly by the component.
+///
+/// For cases where only the direct definitions are needed use the offset maps
+/// in the auxiliary component info.
 #[derive(Debug, Clone)]
 pub struct DefinitionRanges {
+    /// The entire range of cells defined by this component and any
+    /// sub-component instances it contains
     cells: IndexRange<CellDefinitionIdx>,
+    /// The entire range of ports defined by this component and any
+    /// sub-component instances it contains
     ports: IndexRange<PortDefinitionIdx>,
+    /// The entire range of ref-cells defined by this component and any
+    /// sub-component instances it contains
     ref_cells: IndexRange<RefCellDefinitionIdx>,
+    /// The entire range of ref-ports defined by this component and any
+    /// sub-component instances it contains
     ref_ports: IndexRange<RefPortDefinitionIdx>,
+    /// The entire range of groups defined by this component. Does not include
+    /// sub-component instances.
     groups: IndexRange<GroupIdx>,
+    /// The entire range of comb-groups defined by this component. Does not
+    /// include sub-component instances.
     comb_groups: IndexRange<CombGroupIdx>,
 }
 
@@ -57,19 +79,117 @@ impl Default for DefinitionRanges {
 }
 
 /// A structure which contains the basic information about a component
-/// definition needed during simulation.
+/// definition needed during simulation. This is for standard (non-combinational)
+/// components
 #[derive(Debug)]
 pub struct ComponentCore {
     /// The control program for this component.
     pub control: Option<ControlIdx>,
     /// The set of assignments that are always active.
     pub continuous_assignments: IndexRange<AssignmentIdx>,
-    /// True iff component is combinational
-    pub is_comb: bool,
     /// The go port for this component
     pub go: LocalPortOffset,
     /// The done port for this component
     pub done: LocalPortOffset,
+}
+
+#[derive(Debug)]
+pub struct CombComponentCore {
+    /// The set of assignments that are always active.
+    pub continuous_assignments: IndexRange<AssignmentIdx>,
+}
+
+impl CombComponentCore {
+    pub fn contains_assignment(
+        &self,
+        assign: AssignmentIdx,
+    ) -> Option<AssignmentDefinitionLocation> {
+        self.continuous_assignments
+            .contains(assign)
+            .then_some(AssignmentDefinitionLocation::ContinuousAssignment)
+    }
+}
+
+#[derive(Debug)]
+pub enum PrimaryComponentInfo {
+    Comb(CombComponentCore),
+    Standard(ComponentCore),
+}
+
+impl PrimaryComponentInfo {
+    pub fn contains_assignment(
+        &self,
+        ctx: &Context,
+        assign: AssignmentIdx,
+    ) -> Option<AssignmentDefinitionLocation> {
+        match self {
+            PrimaryComponentInfo::Comb(info) => {
+                info.contains_assignment(assign)
+            }
+            PrimaryComponentInfo::Standard(info) => {
+                info.contains_assignment(ctx, assign)
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn as_standard(&self) -> Option<&ComponentCore> {
+        if let Self::Standard(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn unwrap_standard(&self) -> &ComponentCore {
+        match self {
+            PrimaryComponentInfo::Standard(v) => v,
+            _ => panic!("Expected a standard component"),
+        }
+    }
+
+    #[must_use]
+    pub fn as_comb(&self) -> Option<&CombComponentCore> {
+        if let Self::Comb(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if the primary component info is [`Comb`].
+    ///
+    /// [`Comb`]: PrimaryComponentInfo::Comb
+    #[must_use]
+    pub fn is_comb(&self) -> bool {
+        matches!(self, Self::Comb(..))
+    }
+
+    pub fn continuous_assignments(&self) -> IndexRange<AssignmentIdx> {
+        match self {
+            PrimaryComponentInfo::Comb(info) => info.continuous_assignments,
+            PrimaryComponentInfo::Standard(info) => info.continuous_assignments,
+        }
+    }
+
+    pub fn control(&self) -> Option<ControlIdx> {
+        match self {
+            PrimaryComponentInfo::Comb(_) => None,
+            PrimaryComponentInfo::Standard(info) => info.control,
+        }
+    }
+}
+
+impl From<ComponentCore> for PrimaryComponentInfo {
+    fn from(v: ComponentCore) -> Self {
+        Self::Standard(v)
+    }
+}
+
+impl From<CombComponentCore> for PrimaryComponentInfo {
+    fn from(v: CombComponentCore) -> Self {
+        Self::Comb(v)
+    }
 }
 
 pub enum AssignmentDefinitionLocation {
@@ -176,19 +296,20 @@ impl ComponentCore {
 pub struct AuxiliaryComponentInfo {
     /// Name of the component.
     pub name: Identifier,
-    /// The input/output signature of this component. This could probably be
-    /// rolled into a single range, or specialized construct but this is
-    /// probably fine for now.
+    /// The input ports of this component
     pub signature_in: SignatureRange,
+    /// The output ports of this component
     pub signature_out: SignatureRange,
-
     /// the definitions created by this component
     pub definitions: DefinitionRanges,
-
+    /// A map from local port offsets to their definition indices.
     pub port_offset_map: SparseMap<LocalPortOffset, PortDefinitionIdx>,
+    /// A map from ref port offsets to their definition indices
     pub ref_port_offset_map:
         SparseMap<LocalRefPortOffset, RefPortDefinitionIdx>,
+    /// A map from local cell offsets to their definition indices
     pub cell_offset_map: SparseMap<LocalCellOffset, CellDefinitionIdx>,
+    /// A map from ref cell offsets to their definition indices
     pub ref_cell_offset_map:
         SparseMap<LocalRefCellOffset, RefCellDefinitionIdx>,
 }
@@ -366,4 +487,4 @@ impl IdxSkipSizes {
     }
 }
 
-pub type ComponentMap = IndexedMap<ComponentIdx, ComponentCore>;
+pub type ComponentMap = IndexedMap<ComponentIdx, PrimaryComponentInfo>;

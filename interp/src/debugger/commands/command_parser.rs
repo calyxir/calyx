@@ -1,5 +1,8 @@
-use super::core::{
-    Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+use super::{
+    core::{
+        Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+    },
+    PrintCommand,
 };
 use baa::WidthInt;
 use pest_consume::{match_nodes, Error, Parser};
@@ -7,7 +10,7 @@ use pest_consume::{match_nodes, Error, Parser};
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use crate::{errors::InterpreterResult, serialization::PrintCode};
+use crate::{errors::CiderResult, serialization::PrintCode};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("commands.pest");
@@ -21,7 +24,12 @@ impl CommandParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
+
     fn code_calyx(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn code_nodes(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
@@ -60,8 +68,9 @@ impl CommandParser {
 
     fn comm_where(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [code_calyx(_)] => Command::PrintPC(true),
-            [] => Command::PrintPC(false),
+            [code_calyx(_)] => Command::PrintPC(PrintCommand::PrintCalyx),
+            [code_nodes(_)] => Command::PrintPC(PrintCommand::PrintNodes),
+            [] => Command::PrintPC(PrintCommand::Normal),
         ))
     }
 
@@ -287,7 +296,7 @@ impl CommandParser {
 }
 
 /// Parse the given string into a debugger command.
-pub fn parse_command(input_str: &str) -> InterpreterResult<Command> {
+pub fn parse_command(input_str: &str) -> CiderResult<Command> {
     let inputs = CommandParser::parse(Rule::command, input_str)?;
     let input = inputs.single()?;
     Ok(CommandParser::command(input)?)

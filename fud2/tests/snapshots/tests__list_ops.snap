@@ -54,6 +54,11 @@ assertion_line: 251
         "calyx",
     ),
     (
+        "dat_to_jq",
+        "dat",
+        "jq",
+    ),
+    (
         "debug",
         "cider",
         "cider-debug",
@@ -102,6 +107,11 @@ assertion_line: 251
         "primitive-uses",
         "calyx",
         "primitive-uses-json",
+    ),
+    (
+        "profiler",
+        "calyx",
+        "flamegraph",
     ),
     (
         "simulate",

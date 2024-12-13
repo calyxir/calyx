@@ -4,13 +4,17 @@ use crate::flatten::{
         all_defined, comb_primitive, declare_ports, ports,
         prim_trait::UpdateStatus, utils::floored_division, Primitive,
     },
-    structures::environment::PortMap,
+    structures::{
+        environment::PortMap,
+        index_trait::{IndexRef, SplitIndexRange},
+    },
 };
 
 use baa::{BitVecOps, BitVecValue};
 
 use super::prim_trait::UpdateResult;
 
+#[derive(Clone)]
 pub struct StdConst {
     value: BitVecValue,
     out: GlobalPortIdx,
@@ -25,6 +29,7 @@ impl StdConst {
 impl Primitive for StdConst {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         Ok(if port_map[self.out].is_undef() {
+            // A constant cannot meaningfully be said to belong to a given thread
             port_map[self.out] = PortValue::new_cell(self.value.clone());
             UpdateStatus::Changed
         } else {
@@ -32,39 +37,44 @@ impl Primitive for StdConst {
         })
     }
 
-    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> UpdateResult {
-        Ok(UpdateStatus::Unchanged)
-    }
-
-    fn has_comb(&self) -> bool {
+    fn has_comb_path(&self) -> bool {
         true
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         false
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        SplitIndexRange::new(self.out, self.out, (self.out.index() + 1).into())
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
     }
 }
 
+#[derive(Clone)]
 pub struct StdMux {
-    base: GlobalPortIdx,
+    base_port: GlobalPortIdx,
 }
 
 impl StdMux {
-    declare_ports![ COND: 0, TRU: 1, FAL:2, OUT: 3];
+    declare_ports![ COND: 0, TRU: 1 | FAL:2, OUT: 3 ];
     pub fn new(base: GlobalPortIdx) -> Self {
-        Self { base }
+        Self { base_port: base }
     }
 }
 
 impl Primitive for StdMux {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
-        ports![&self.base; cond: Self::COND, tru: Self::TRU, fal: Self::FAL, out: Self::OUT];
+        ports![&self.base_port; cond: Self::COND, tru: Self::TRU, fal: Self::FAL, out: Self::OUT];
 
         let winning_idx =
             port_map[cond].as_bool().map(|c| if c { tru } else { fal });
 
         if winning_idx.is_some() && port_map[winning_idx.unwrap()].is_def() {
-            Ok(port_map.insert_val(
+            Ok(port_map.insert_val_general(
                 out,
                 AssignedValue::cell_value(
                     port_map[winning_idx.unwrap()].val().unwrap().clone(),
@@ -76,8 +86,16 @@ impl Primitive for StdMux {
         }
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         false
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        self.get_signature()
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
     }
 }
 
@@ -274,6 +292,7 @@ comb_primitive!(StdUnsynSmod[WIDTH](left [0], right [1]) -> (out [2]) {
     Ok(Some(BitVecValue::from_big_int(&res, WIDTH)))
 });
 
+#[derive(Clone)]
 pub struct StdUndef(GlobalPortIdx);
 
 impl StdUndef {
@@ -286,5 +305,13 @@ impl Primitive for StdUndef {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         port_map.write_undef(self.0)?;
         Ok(UpdateStatus::Unchanged)
+    }
+
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx> {
+        SplitIndexRange::new(self.0, self.0, (self.0.index() + 1).into())
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive> {
+        Box::new(self.clone())
     }
 }

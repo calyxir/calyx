@@ -6,7 +6,7 @@ use super::ast::{
 };
 use super::Attributes;
 use crate::{Attribute, Direction, PortDef, Primitive, Width};
-use calyx_utils::{self, CalyxResult, Id, PosString};
+use calyx_utils::{self, float, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
@@ -60,10 +60,13 @@ impl CalyxParser {
         let file = GlobalPositionTable::as_mut()
             .add_file(path.to_string_lossy().to_string(), string_content);
         let user_data = UserData { file };
-        let content = GlobalPositionTable::as_ref().get_source(file);
+        let gpos_ref = GlobalPositionTable::as_ref();
+        let content = gpos_ref.get_source(file).to_owned();
+        drop(gpos_ref);
+
         // Parse the file
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, content, user_data)
+            CalyxParser::parse_with_userdata(Rule::file, &content, user_data)
                 .map_err(|e| e.with_path(&path.to_string_lossy()))
                 .map_err(|e| {
                     calyx_utils::Error::parse_error(e.variant.message())
@@ -96,10 +99,13 @@ impl CalyxParser {
         let file =
             GlobalPositionTable::as_mut().add_file("<stdin>".to_string(), buf);
         let user_data = UserData { file };
-        let contents = GlobalPositionTable::as_ref().get_source(file);
+        let gpos_ref = GlobalPositionTable::as_ref();
+        let content = gpos_ref.get_source(file).to_owned();
+        drop(gpos_ref);
+
         // Parse the input
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, contents, user_data)
+            CalyxParser::parse_with_userdata(Rule::file, &content, user_data)
                 .map_err(|e| {
                 calyx_utils::Error::parse_error(e.variant.message())
                     .with_pos(&Self::error_span(&e, file))
@@ -293,6 +299,13 @@ impl CalyxParser {
     fn binary(input: Node) -> ParseResult<u64> {
         u64::from_str_radix(input.as_str(), 2)
             .map_err(|_| input.error("Expected binary number"))
+    }
+
+    // Floats are parsed as strings and converted within the float_const rule.
+    // This is so that we can check and see if the number can be represented
+    // exactly with the given bitwidth.
+    fn float(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_string())
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
@@ -541,10 +554,56 @@ impl CalyxParser {
     }
 
     // ================ Cells =====================
+    fn float_const(input: Node) -> ParseResult<ast::Cell> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.clone().into_children();
+            [
+                at_attributes(attrs),
+                identifier(id),
+                bitwidth(rep),
+                bitwidth(width),
+                float(val)
+            ] => {
+                let v = match float::parse(rep, width, val) {
+                    Ok(v) => v,
+                    Err(e) => return Err(input.error(format!("{e:?}")))
+                };
+                ast::Cell::from(
+                    id,
+                    Id::from("std_float_const"),
+                    vec![rep, width, v],
+                    attrs.add_span(span),
+                    false
+                )
+            },
+            [
+                at_attributes(attrs),
+                reference(_),
+                identifier(id),
+                bitwidth(rep),
+                bitwidth(width),
+                float(val)
+            ] => {
+                let v = match float::parse(rep, width, val) {
+                    Ok(v) => v,
+                    Err(e) => return Err(input.error(format!("{e:?}")))
+                };
+                ast::Cell::from(
+                    id,
+                    Id::from("std_float_const"),
+                    vec![rep, width, v],
+                    attrs.add_span(span),
+                    true
+                )},
+        ))
+    }
+
     fn cell_without_semi(input: Node) -> ParseResult<ast::Cell> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
+            [float_const(fl)] => fl,
             [at_attributes(attrs), reference(_), identifier(id), identifier(prim), args(args)] =>
             ast::Cell::from(id, prim, args, attrs.add_span(span),true),
             [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>

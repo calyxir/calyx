@@ -38,6 +38,7 @@ pub(crate) fn int_sqrt(i: &BigUint) -> BigUint {
 }
 
 /// A shift buffer of a fixed size
+#[derive(Clone)]
 pub struct ShiftBuffer<T, const N: usize> {
     buffer: VecDeque<Option<T>>,
 }
@@ -86,3 +87,28 @@ macro_rules! get_params {
 }
 
 pub(crate) use get_params;
+
+use crate::flatten::{flat_ir::base::PortValue, structures::thread::ThreadIdx};
+
+pub fn infer_thread_id<'a, I: Iterator<Item = &'a PortValue>>(
+    iter: I,
+) -> Option<ThreadIdx> {
+    let mut result = None;
+    for val in iter {
+        // We have seen a thread id before
+        if let Some(res) = result {
+            if let Some(thread) = val.as_option().and_then(|x| x.thread()) {
+                // If there are multiple thread ids, we return None
+                if res != thread {
+                    return None;
+                }
+            }
+        }
+        // Have not seen a thread id yet, can just take the possible empty id
+        // from value
+        else {
+            result = val.as_option().and_then(|x| x.thread());
+        }
+    }
+    result
+}

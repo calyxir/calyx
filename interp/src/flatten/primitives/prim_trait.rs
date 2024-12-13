@@ -1,8 +1,14 @@
 use crate::{
-    errors::InterpreterResult,
-    flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
-    serialization::PrintCode,
-    serialization::Serializable,
+    errors::RuntimeResult,
+    flatten::{
+        flat_ir::base::GlobalPortIdx,
+        structures::{
+            environment::{clock::ClockMap, PortMap},
+            index_trait::SplitIndexRange,
+            thread::ThreadMap,
+        },
+    },
+    serialization::{PrintCode, Serializable},
 };
 
 use baa::BitVecValue;
@@ -97,22 +103,22 @@ impl std::ops::BitOrAssign for UpdateStatus {
     }
 }
 
-pub type UpdateResult = InterpreterResult<UpdateStatus>;
+pub type UpdateResult = RuntimeResult<UpdateStatus>;
 
 pub trait Primitive {
     fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
         Ok(UpdateStatus::Unchanged)
     }
 
-    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> UpdateResult {
-        Ok(UpdateStatus::Unchanged)
+    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> RuntimeResult<()> {
+        Ok(())
     }
 
-    fn has_comb(&self) -> bool {
+    fn has_comb_path(&self) -> bool {
         true
     }
 
-    fn has_stateful(&self) -> bool {
+    fn has_stateful_path(&self) -> bool {
         true
     }
 
@@ -129,16 +135,39 @@ pub trait Primitive {
     fn dump_memory_state(&self) -> Option<Vec<u8>> {
         None
     }
-}
 
-/// An empty primitive implementation used for testing. It does not do anything
-/// and has no ports of any kind
-pub struct DummyPrimitive;
+    fn get_ports(&self) -> SplitIndexRange<GlobalPortIdx>;
 
-impl DummyPrimitive {
-    pub fn new_dyn() -> Box<dyn Primitive> {
-        Box::new(Self)
+    /// Returns `true` if this primitive only has a combinational part
+    fn is_combinational(&self) -> bool {
+        self.has_comb_path() && !self.has_stateful_path()
     }
+
+    fn clone_boxed(&self) -> Box<dyn Primitive>;
 }
 
-impl Primitive for DummyPrimitive {}
+pub trait RaceDetectionPrimitive: Primitive {
+    fn exec_comb_checked(
+        &self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> UpdateResult {
+        self.exec_comb(port_map)
+    }
+
+    fn exec_cycle_checked(
+        &mut self,
+        port_map: &mut PortMap,
+        _clock_map: &mut ClockMap,
+        _thread_map: &ThreadMap,
+    ) -> RuntimeResult<()> {
+        self.exec_cycle(port_map)
+    }
+
+    /// Get a reference to the underlying primitive. Unfortunately cannot add an
+    /// optional default implementation due to size rules
+    fn as_primitive(&self) -> &dyn Primitive;
+
+    fn clone_boxed_rd(&self) -> Box<dyn RaceDetectionPrimitive>;
+}
