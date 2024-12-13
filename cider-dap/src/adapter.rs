@@ -1,14 +1,14 @@
 use crate::error::AdapterResult;
 use baa::BitVecOps;
+use cider::debugger::commands::ParsedGroupName;
+use cider::debugger::source::structures::NewSourceMap;
+use cider::debugger::{OwnedDebugger, StoppedReason};
+use cider::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
 use dap::events::{Event, OutputEventBody, StoppedEventBody};
 use dap::types::{
     self, Breakpoint, Scope, Source, SourceBreakpoint, StackFrame, Thread,
     Variable,
 };
-use interp::debugger::commands::ParsedGroupName;
-use interp::debugger::source::structures::NewSourceMap;
-use interp::debugger::{OwnedDebugger, StoppedReason};
-use interp::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 

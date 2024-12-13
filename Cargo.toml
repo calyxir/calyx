@@ -8,7 +8,7 @@ members = [
     "calyx-stdlib",
     "calyx-backend",
     "calyx-lsp",
-    "interp",
+    "cider",
     "web/rust",
     "tools/data_gen",
     "cider-dap",

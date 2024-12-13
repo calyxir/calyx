@@ -8,7 +8,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-interp = { path = "../../interp" }
+cider = { path = "../../cider" }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 itertools = { workspace = true }

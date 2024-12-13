@@ -523,13 +523,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "cider"
+version = "0.1.1"
+dependencies = [
+ "ahash 0.8.10",
+ "argh",
+ "baa",
+ "bitvec",
+ "bon",
+ "calyx-frontend",
+ "calyx-ir",
+ "calyx-opt",
+ "calyx-utils",
+ "ciborium",
+ "fraction",
+ "fst-writer",
+ "itertools 0.11.0",
+ "num-bigint",
+ "num-traits",
+ "once_cell",
+ "owo-colors",
+ "pest",
+ "pest_consume",
+ "pest_derive",
+ "petgraph",
+ "proptest",
+ "rustyline",
+ "serde",
+ "serde_json",
+ "serde_with 1.14.0",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
 name = "cider-dap"
 version = "0.1.0"
 dependencies = [
  "argh",
  "baa",
+ "cider",
  "dap",
- "interp",
  "owo-colors",
  "serde",
  "serde_json",
@@ -544,7 +581,7 @@ name = "cider-data-converter"
 version = "0.1.0"
 dependencies = [
  "argh",
- "interp",
+ "cider",
  "itertools 0.11.0",
  "nom 7.1.3",
  "num-bigint",
@@ -1445,43 +1482,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "interp"
-version = "0.1.1"
-dependencies = [
- "ahash 0.8.10",
- "argh",
- "baa",
- "bitvec",
- "bon",
- "calyx-frontend",
- "calyx-ir",
- "calyx-opt",
- "calyx-utils",
- "ciborium",
- "fraction",
- "fst-writer",
- "itertools 0.11.0",
- "num-bigint",
- "num-traits",
- "once_cell",
- "owo-colors",
- "pest",
- "pest_consume",
- "pest_derive",
- "petgraph",
- "proptest",
- "rustyline",
- "serde",
- "serde_json",
- "serde_with 1.14.0",
- "slog",
- "slog-async",
- "slog-term",
- "smallvec",
- "thiserror",
 ]
 
 [[package]]

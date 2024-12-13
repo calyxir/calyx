@@ -111,14 +111,14 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all --all-features --manifest-path /home/calyx/interp/Cargo.toml
+        args: --all --all-features --manifest-path /home/calyx/cider/Cargo.toml
 
     - name: Set location of cider binary
       run: |
         fud c stages.interpreter.exec /home/calyx/target/debug/cider
 
     - name: Runt tests
-      working-directory: /home/calyx/interp/tests
+      working-directory: /home/calyx/cider/tests
       run: |
         # Run the remaining tests
         runt -x '(numeric types correctness and parsing)' -d -o fail
@@ -127,13 +127,13 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path /home/calyx/interp/Cargo.toml
+        args: --manifest-path /home/calyx/cider/Cargo.toml
 
     - name: Source code doc tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path /home/calyx/interp/Cargo.toml --doc
+        args: --manifest-path /home/calyx/cider/Cargo.toml --doc
 
   compiler:
     name: Test Compiler
