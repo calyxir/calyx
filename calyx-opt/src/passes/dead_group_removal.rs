@@ -12,6 +12,19 @@ pub struct DeadGroupRemoval {
     used_comb_groups: HashSet<ir::Id>,
 }
 
+impl DeadGroupRemoval {
+    /// A function that in-place updates a Vec with the name of the parent
+    /// of a port, if that port parent is a Group
+    fn push_group_names(
+        group_names: &mut Vec<ir::Id>,
+        port: &ir::RRC<ir::Port>,
+    ) {
+        if let ir::PortParent::Group(group_wref) = &port.borrow().parent {
+            group_names.push(group_wref.upgrade().borrow().name());
+        }
+    }
+}
+
 impl Named for DeadGroupRemoval {
     fn name() -> &'static str {
         "dead-group-removal"
@@ -42,7 +55,11 @@ impl Visitor for DeadGroupRemoval {
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
         // add all groups that are assigned to / read from, by the parent FSM
-        self.used_groups.extend(s.fsm.borrow().get_called_groups());
+        self.used_groups.extend(
+            s.fsm
+                .borrow()
+                .get_called_port_parents(DeadGroupRemoval::push_group_names),
+        );
         Ok(Action::Continue)
     }
 
@@ -131,7 +148,11 @@ impl Visitor for DeadGroupRemoval {
 
         // for now, add all groups invoked by each fsm
         for fsm in comp.get_fsms().iter() {
-            self.used_groups.extend(fsm.borrow().get_called_groups());
+            self.used_groups.extend(
+                fsm.borrow().get_called_port_parents(
+                    DeadGroupRemoval::push_group_names,
+                ),
+            );
         }
 
         // Remove Groups that are not used

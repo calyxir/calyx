@@ -862,45 +862,36 @@ impl FSM {
             .extend(assigns);
     }
 
-    /// Get a list of Group Ids that are used somewhere within the FSM.
-    /// Non-unique (can repeat group names in output list)
-    pub fn get_called_groups(&self) -> Vec<Id> {
-        // factored function to update a vec with the group names of ports
-        let push_group_name = |group_names: &mut Vec<Id>, port: &RRC<Port>| {
-            if let PortParent::Group(group_wref) = &port.borrow().parent {
-                group_names.push(group_wref.upgrade().borrow().name());
-            }
-        };
-
-        // groups that are used in the transitions section of this FSM
-        let mut called_groups = self
-            .transitions
+    /// Returns a list of names of the groups, cells, or other port parents used
+    /// by the FSM. Requires as an argument a function that can
+    /// in-place update a Vec with the name of kinds of port parents you care about.
+    pub fn get_called_port_parents<F>(&self, push_parent_name: F) -> Vec<Id>
+    where
+        F: Fn(&mut Vec<Id>, &RRC<Port>),
+    {
+        self.transitions
             .iter()
-            .flat_map(|trans| {
-                let mut group_names = vec![];
-                if let Transition::Conditional(conds) = trans {
+            .zip(self.assignments.iter())
+            .flat_map(|(state_transitions, state_assignments)| {
+                let mut parent_names = vec![];
+
+                // if transitions uses the specified kind of port parent, add its Id
+                if let Transition::Conditional(conds) = state_transitions {
                     for (guard, _) in conds.iter() {
                         guard.all_ports().iter().for_each(|port| {
-                            push_group_name(&mut group_names, port)
+                            push_parent_name(&mut parent_names, port)
                         });
                     }
                 }
-                group_names
+                // if assignments uses the specified kind of port parent, add its Id
+                for assign in state_assignments.iter() {
+                    assign.iter_ports().for_each(|port| {
+                        push_parent_name(&mut parent_names, &port);
+                    });
+                }
+                parent_names
             })
-            .collect_vec();
-
-        // groups that are used in the assignments section
-        called_groups.extend(self.assignments.iter().flat_map(|assigns| {
-            let mut group_names = vec![];
-            for assign in assigns.iter() {
-                assign.iter_ports().for_each(|port| {
-                    push_group_name(&mut group_names, &port);
-                });
-            }
-            group_names
-        }));
-
-        called_groups
+            .collect()
     }
 }
 

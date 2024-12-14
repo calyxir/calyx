@@ -10,7 +10,6 @@ use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
 use std::io;
-use std::iter::zip;
 use std::{collections::HashMap, rc::Rc};
 use std::{fs::File, time::Instant};
 use vast::v17::ast as v;
@@ -455,30 +454,24 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// block to transition the FSM and drive assignments that read from the FSM
 /// register
 fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
-    let reg_width = get_bit_width_from(fsm.borrow().assignments.len() as u64);
-
     // generate fsm logic variables
-    let (state_reg, state_next): (String, String) = vec!["out", "in"]
+    let (state_reg, state_next) = vec!["out", "in"]
         .drain(..)
         .map(|wire| format!("{}_{}", fsm.borrow().name(), wire))
         .collect_tuple()
         .unwrap();
 
-    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_reg)?;
-    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_next)?;
+    // emit inlined register
+    emit_fsm_inlined_reg(
+        &state_reg,
+        &state_next,
+        get_bit_width_from(fsm.borrow().assignments.len() as u64),
+        f,
+    )?;
 
-    // generate inlined register
-    writeln!(f, "always_ff @(posedge clk) begin")?;
-    writeln!(f, "  if (reset) begin")?;
-    writeln!(f, "    {} <= {}'d0", state_reg, reg_width)?;
-    writeln!(f, "  end else begin")?;
-    writeln!(f, "    {} <= {}", state_reg, state_next)?;
-    writeln!(f, "  end")?;
-    writeln!(f, "end")?;
-
-    // emit fsm
+    // emit fsm in case statement form
     writeln!(f, "always @(*) begin")?;
-    writeln!(f, "    case ({}) begin", state_reg)?;
+    writeln!(f, "  case ({}) begin", state_reg)?;
 
     for (case, (assigns, trans)) in fsm
         .borrow()
@@ -487,43 +480,103 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
         .zip(fsm.borrow().transitions.iter())
         .enumerate()
     {
-        writeln!(f, "{}{}: begin", " ".repeat(8), case)?;
+        writeln!(f, "{}{}: begin", " ".repeat(4), case)?;
 
-        // dump assignments to enable in this state: TODO
+        // dump assignments to enable in this state
+        emit_fsm_assignments(assigns, f)?;
 
         // write transitions
-        match trans {
-            ir::Transition::Unconditional(ns) => {
-                writeln!(f, "{}{} = {};", " ".repeat(12), state_next, ns)?;
-            }
-            ir::Transition::Conditional(conds) => {
-                for (i, (g, ns)) in conds.iter().enumerate() {
-                    let header = if i == 0 {
-                        format!(
-                            "{}if ({})",
-                            " ".repeat(12),
-                            unflattened_guard(g)
-                        )
-                    } else if i == conds.len() - 1 {
-                        format!("{}else", " ".repeat(12))
-                    } else {
-                        format!(
-                            "{}else if ({})",
-                            " ".repeat(12),
-                            unflattened_guard(g)
-                        )
-                    };
+        emit_fsm_transition(trans, &state_next, f)?;
 
-                    writeln!(f, "{} {} = {};", header, state_next, ns)?;
-                }
-            }
-        }
-
-        writeln!(f, "{}end", " ".repeat(8))?;
+        writeln!(f, "{}end", " ".repeat(4))?;
     }
 
-    writeln!(f, "    endcase")?;
+    writeln!(f, "  endcase")?;
     writeln!(f, "end")?;
+    io::Result::Ok(())
+}
+
+fn emit_fsm_assignments<F: io::Write>(
+    assignments: &Vec<ir::Assignment<Nothing>>,
+    f: &mut F,
+) -> io::Result<()> {
+    // dump assignments to enable in this state
+    for assign in assignments.into_iter() {
+        let dst_ref = &assign.dst;
+        let guard_unmet_value = if is_data_port(dst_ref) {
+            format!("'x")
+        } else {
+            format!("{}'d0", dst_ref.borrow().width)
+        };
+        let destination = if assign.guard.is_true() {
+            format!("{}", VerilogPortRef(&assign.src))
+        } else {
+            format!(
+                "{} ? {} : {}",
+                unflattened_guard(&assign.guard),
+                VerilogPortRef(&assign.src),
+                guard_unmet_value
+            )
+        };
+        writeln!(
+            f,
+            "{}{} = {};",
+            " ".repeat(6),
+            VerilogPortRef(dst_ref),
+            destination
+        )?;
+    }
+    io::Result::Ok(())
+}
+
+fn emit_fsm_inlined_reg<F: io::Write>(
+    state_reg_logic_var: &String,
+    state_next_logic_var: &String,
+    reg_width: u64,
+    f: &mut F,
+) -> io::Result<()> {
+    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_reg_logic_var)?;
+    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_next_logic_var)?;
+
+    // generate inlined register
+    writeln!(f, "always_ff @(posedge clk) begin")?;
+    writeln!(f, "  if (reset) begin")?;
+    writeln!(f, "    {} <= {}'d0", state_reg_logic_var, reg_width)?;
+    writeln!(f, "  end else begin")?;
+    writeln!(f, "    {} <= {}", state_reg_logic_var, state_next_logic_var)?;
+    writeln!(f, "  end")?;
+    writeln!(f, "end")?;
+
+    io::Result::Ok(())
+}
+
+fn emit_fsm_transition<F: io::Write>(
+    trans: &ir::Transition,
+    state_next_logic_var: &String,
+    f: &mut F,
+) -> io::Result<()> {
+    match trans {
+        ir::Transition::Unconditional(ns) => {
+            writeln!(f, "{}{} = {};", " ".repeat(6), state_next_logic_var, ns)?;
+        }
+        ir::Transition::Conditional(conds) => {
+            for (i, (g, ns)) in conds.iter().enumerate() {
+                let header = if i == 0 {
+                    format!("{}if ({})", " ".repeat(6), unflattened_guard(g))
+                } else if i == conds.len() - 1 {
+                    format!("{}else", " ".repeat(6))
+                } else {
+                    format!(
+                        "{}else if ({})",
+                        " ".repeat(6),
+                        unflattened_guard(g)
+                    )
+                };
+
+                writeln!(f, "{} {} = {};", header, state_next_logic_var, ns)?;
+            }
+        }
+    }
     io::Result::Ok(())
 }
 
@@ -845,14 +898,6 @@ fn unflattened_guard(guard: &ir::Guard<Nothing>) -> String {
         Guard::True => format!("1'd1"),
         Guard::Info(_) => format!("1'd1"),
     }
-}
-
-fn emit_unflattened_guard<F: std::io::Write>(
-    guard: &ir::Guard<Nothing>,
-    f: &mut F,
-) -> io::Result<()> {
-    write!(f, "{}", unflattened_guard(guard))?;
-    io::Result::Ok(())
 }
 
 fn emit_guard<F: std::io::Write>(
