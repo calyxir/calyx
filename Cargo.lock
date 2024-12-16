@@ -271,6 +271,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "boxcar"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f839cdf7e2d3198ac6ca003fd8ebc61715755f41c1cad15ff13df67531e00ed"
+
+[[package]]
 name = "bumpalo"
 version = "3.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -428,8 +434,8 @@ name = "calyx-utils"
 version = "0.7.1"
 dependencies = [
  "atty",
+ "boxcar",
  "itertools 0.11.0",
- "lazy_static",
  "petgraph",
  "serde",
  "serde_json",

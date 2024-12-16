@@ -57,16 +57,17 @@ impl CalyxParser {
         })?;
         // Add a new file to the position table
         let string_content = std::str::from_utf8(content)?.to_string();
-        let file = GlobalPositionTable::as_mut()
-            .add_file(path.to_string_lossy().to_string(), string_content);
+        let file = GlobalPositionTable::add_file(
+            path.to_string_lossy().to_string(),
+            string_content,
+        );
         let user_data = UserData { file };
-        let gpos_ref = GlobalPositionTable::as_ref();
-        let content = gpos_ref.get_source(file).to_owned();
-        drop(gpos_ref);
+
+        let content = GlobalPositionTable::get_source(file);
 
         // Parse the file
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, &content, user_data)
+            CalyxParser::parse_with_userdata(Rule::file, content, user_data)
                 .map_err(|e| e.with_path(&path.to_string_lossy()))
                 .map_err(|e| {
                     calyx_utils::Error::parse_error(e.variant.message())
@@ -96,12 +97,9 @@ impl CalyxParser {
             ))
         })?;
         // Save the input string to the position table
-        let file =
-            GlobalPositionTable::as_mut().add_file("<stdin>".to_string(), buf);
+        let file = GlobalPositionTable::add_file("<stdin>".to_string(), buf);
         let user_data = UserData { file };
-        let gpos_ref = GlobalPositionTable::as_ref();
-        let content = gpos_ref.get_source(file).to_owned();
-        drop(gpos_ref);
+        let content = GlobalPositionTable::get_source(file);
 
         // Parse the input
         let inputs =
@@ -124,11 +122,7 @@ impl CalyxParser {
     fn get_span(node: &Node) -> GPosIdx {
         let ud = node.user_data();
         let sp = node.as_span();
-        let pos = GlobalPositionTable::as_mut().add_pos(
-            ud.file,
-            sp.start(),
-            sp.end(),
-        );
+        let pos = GlobalPositionTable::add_pos(ud.file, sp.start(), sp.end());
         GPosIdx(pos)
     }
 
@@ -137,7 +131,7 @@ impl CalyxParser {
             pest::error::InputLocation::Pos(off) => (off, off + 1),
             pest::error::InputLocation::Span((start, end)) => (start, end),
         };
-        let pos = GlobalPositionTable::as_mut().add_pos(file, start, end);
+        let pos = GlobalPositionTable::add_pos(file, start, end);
         GPosIdx(pos)
     }
 
