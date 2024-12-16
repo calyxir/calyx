@@ -103,11 +103,11 @@ impl CalyxParser {
 
         // Parse the input
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, &content, user_data)
+            CalyxParser::parse_with_userdata(Rule::file, content, user_data)
                 .map_err(|e| {
-                calyx_utils::Error::parse_error(e.variant.message())
-                    .with_pos(&Self::error_span(&e, file))
-            })?;
+                    calyx_utils::Error::parse_error(e.variant.message())
+                        .with_pos(&Self::error_span(&e, file))
+                })?;
         let input = inputs.single().map_err(|e| {
             calyx_utils::Error::parse_error(e.variant.message())
                 .with_pos(&Self::error_span(&e, file))
