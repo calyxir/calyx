@@ -92,8 +92,6 @@ jobs:
       packages: read
     container: ghcr.io/calyxir/calyx:${{ needs.hash.outputs.hash }}
     steps:
-    - name: Install Rust stable
-      uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: Copy fud configuration
       run: |
         mkdir -p $HOME/.config
@@ -109,8 +107,10 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
-
-
+    - name: Install Rust stable
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        components: rustc, cargo
 
     - name: Build
       uses: actions-rs/cargo@v1
