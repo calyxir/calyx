@@ -98,7 +98,7 @@ jobs:
         cp -r /root/.config/* $HOME/.config
 
     - name: Checkout commit that triggered run
-      working-directory: /home/calyx
+      # working-directory: /home/calyx
       run: |
         git init
         git remote add origin https://github.com/${{ github.repository }}.git
