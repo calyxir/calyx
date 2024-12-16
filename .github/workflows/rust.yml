@@ -107,6 +107,9 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
+    - name: Install Rust stable
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -158,6 +161,9 @@ jobs:
         git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
+
+    - name: Install Rust stable
+      uses: actions-rust-lang/setup-rust-toolchain@v1
 
     - name: Install calyx-py, MrXL, and queues
       working-directory: /home/calyx
@@ -225,6 +231,9 @@ jobs:
         git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
+
+    - name: Install Rust stable
+      uses: actions-rust-lang/setup-rust-toolchain@v1
 
     - name: Build
       uses: actions-rs/cargo@v1
