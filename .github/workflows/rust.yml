@@ -122,10 +122,6 @@ jobs:
       run: |
         cargo build --all --all-features
 
-    - name: Set location of cider binary
-      run: |
-        fud c stages.interpreter.exec /home/calyx/target/debug/cider
-
     - name: Runt tests
       working-directory: /home/calyx/cider/tests
       run: |
