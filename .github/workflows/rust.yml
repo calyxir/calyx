@@ -107,8 +107,12 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
-    - name: Checkout
+    - name: Checkout toolchain
       uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          rust-toolchain
+        sparse-checkout-cone-mode: false
     - name: Install Rust stable
       uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: Build
@@ -158,6 +162,13 @@ jobs:
         git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
+
+    - name: Checkout toolchain
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          rust-toolchain
+        sparse-checkout-cone-mode: false
 
     - name: Install Rust stable
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -228,6 +239,13 @@ jobs:
         git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
+
+    - name: Checkout toolchain
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          rust-toolchain
+        sparse-checkout-cone-mode: false
 
     - name: Install Rust stable
       uses: actions-rust-lang/setup-rust-toolchain@v1
