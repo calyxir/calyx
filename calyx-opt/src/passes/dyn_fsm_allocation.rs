@@ -427,10 +427,16 @@ impl<'b, 'a> Schedule<'b, 'a> {
             .drain()
             .sorted_by(|(s1, _), (s2, _)| s1.cmp(s2))
             .map(|(state, mut cond_dsts)| {
-                let assigns = match self.fsm_enables.get(&(state - 1)) {
+                let mut assigns = match self.fsm_enables.get(&(state - 1)) {
                     None => vec![],
                     Some(assigns) => assigns.clone(),
                 };
+                let signal_off = self.builder.add_constant(0, 1);
+                let true_guard = ir::Guard::True;
+                let not_done = build_assignments!(self.builder;
+                    fsm["done"] = true_guard ? signal_off["out"];
+                );
+                assigns.extend(not_done);
                 // self-loop if all other guards are not met;
                 // should be at the end of the conditional destinations vec!
                 cond_dsts.push((ir::Guard::True, state));
@@ -441,7 +447,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // insert transition condition from 0 to 1
         let true_guard = ir::Guard::True;
-        assignments.push_front(vec![]);
+        let signal_off = self.builder.add_constant(0, 1);
+        let not_done = build_assignments!(self.builder;
+            fsm["done"] = true_guard ? signal_off["out"];
+        );
+        assignments.push_front(not_done.to_vec());
         transitions.push_front(ir::Transition::Conditional(vec![
             (guard!(fsm["start"]), 1),
             (true_guard.clone(), 0),
