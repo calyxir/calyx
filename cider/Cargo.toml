@@ -3,8 +3,7 @@ name = "cider"
 version = "0.1.1"
 authors = ["The Calyx authors"]
 edition = "2021"
-rust-version = "1.73"
-
+rust-version.workspace = true
 
 [[bin]]
 name = "cider"

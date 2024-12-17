@@ -34,7 +34,7 @@ categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
 version = "0.7.1"
-rust-version = "1.67"
+rust-version = "1.80"
 
 [workspace.dependencies]
 itertools = "0.11"
