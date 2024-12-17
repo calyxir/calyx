@@ -880,9 +880,16 @@ impl<'a> std::fmt::Display for VerilogPortRef<'a> {
 
 fn unflattened_guard(guard: &ir::Guard<Nothing>) -> String {
     match guard {
-        Guard::Or(left, right) | Guard::And(left, right) => {
+        Guard::Or(left, right) => {
             format!(
                 "({}) | ({})",
+                unflattened_guard(left),
+                unflattened_guard(right)
+            )
+        }
+        Guard::And(left, right) => {
+            format!(
+                "({}) & ({})",
                 unflattened_guard(left),
                 unflattened_guard(right)
             )
