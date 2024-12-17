@@ -10,6 +10,7 @@ use calyx_frontend::{Attribute, BoolAttr};
 use calyx_utils::{CalyxResult, Error, GetName};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -892,6 +893,24 @@ impl FSM {
                 parent_names
             })
             .collect()
+    }
+
+    pub fn merge_assignments(&self) -> Vec<Vec<(usize, Assignment<Nothing>)>> {
+        let mut gathered_assigns: HashMap<
+            Id,
+            Vec<(usize, Assignment<Nothing>)>,
+        > = HashMap::new();
+        for (case, assigns_at_state) in self.assignments.iter().enumerate() {
+            for assign in assigns_at_state.iter() {
+                gathered_assigns
+                    .entry(assign.dst.borrow().name)
+                    .and_modify(|gathered| {
+                        gathered.push((case, assign.clone()));
+                    })
+                    .or_insert(vec![(case, assign.clone())]);
+            }
+        }
+        gathered_assigns.drain().map(|(_, v)| v).collect()
     }
 }
 

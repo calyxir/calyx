@@ -454,6 +454,8 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// block to transition the FSM and drive assignments that read from the FSM
 /// register
 fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
+    let reg_bitwidth =
+        get_bit_width_from(fsm.borrow().assignments.len() as u64);
     // generate fsm logic variables
     let (state_reg, state_next) = vec!["out", "in"]
         .drain(..)
@@ -462,10 +464,13 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
         .unwrap();
 
     // emit inlined register
-    emit_fsm_inlined_reg(
+    emit_fsm_inlined_reg(&state_reg, &state_next, reg_bitwidth, f)?;
+
+    // dump assignments to enable in this state
+    emit_fsm_dependent_assignments(
+        &fsm.borrow().assignments,
         &state_reg,
-        &state_next,
-        get_bit_width_from(fsm.borrow().assignments.len() as u64),
+        reg_bitwidth,
         f,
     )?;
 
@@ -473,17 +478,8 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
     writeln!(f, "always @(*) begin")?;
     writeln!(f, "  case ({})", state_reg)?;
 
-    for (case, (assigns, trans)) in fsm
-        .borrow()
-        .assignments
-        .iter()
-        .zip(fsm.borrow().transitions.iter())
-        .enumerate()
-    {
+    for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
         writeln!(f, "{}{}: begin", " ".repeat(4), case)?;
-
-        // dump assignments to enable in this state
-        emit_fsm_assignments(assigns, f)?;
 
         // write transitions
         emit_fsm_transition(trans, &state_next, f)?;
@@ -526,6 +522,51 @@ fn emit_fsm_assignments<F: io::Write>(
             VerilogPortRef(dst_ref),
             destination
         )?;
+    }
+    io::Result::Ok(())
+}
+
+fn emit_fsm_dependent_assignments<F: io::Write>(
+    assignments: &Vec<Vec<ir::Assignment<Nothing>>>,
+    fsm_out: &String,
+    reg_bitwidth: u64,
+    f: &mut F,
+) -> io::Result<()> {
+    for (case, assigns) in assignments.iter().enumerate() {
+        for assign in assigns.iter() {
+            let dst_ref = &assign.dst;
+            let case_guard =
+                format!("{} == {}'d{}", fsm_out, reg_bitwidth, case);
+
+            // string representing the new guard on the assignment
+            let case_guarded_assign_guard = if assign.guard.is_true() {
+                case_guard
+            } else {
+                format!(
+                    "(({}) & ({}))",
+                    case_guard,
+                    unflattened_guard(&assign.guard)
+                )
+            };
+
+            // value for the wire to take if either fsm is not in relevant state
+            // or if the assignment's original condition is not met
+            let guard_unmet_value = if is_data_port(dst_ref) {
+                format!("'x")
+            } else {
+                format!("{}'d0", dst_ref.borrow().width)
+            };
+
+            // emit assignment dependent on both case and the assignment's original guard
+            writeln!(
+                f,
+                "assign {} = {} ? {} : {};",
+                VerilogPortRef(dst_ref),
+                case_guarded_assign_guard,
+                VerilogPortRef(&assign.src),
+                guard_unmet_value
+            )?;
+        }
     }
     io::Result::Ok(())
 }
