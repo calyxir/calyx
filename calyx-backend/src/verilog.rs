@@ -8,9 +8,13 @@ use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use serde_json::{Map, Value};
+use std::fs::File;
 use std::io;
+use std::io::Write;
+use std::process::Command;
 use std::{collections::HashMap, rc::Rc};
-use std::{fs::File, time::Instant};
+use std::{fs::OpenOptions, time::Instant};
 use vast::v17::ast as v;
 
 /// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
@@ -90,6 +94,85 @@ fn validate_control(ctrl: &ir::Control) -> CalyxResult<()> {
     }
 }
 
+type DetectHandler = Box<dyn Fn(&ir::Context) -> bool>;
+type LibraryHandler =
+    Box<dyn Fn(&mut MortyConfig, &mut Vec<String>) -> CalyxResult<()>>;
+
+// Store the function handlers for the libraries we want to include, such as "HardFloat"
+struct LibraryConfig {
+    // Detect if a specific library is needed
+    detect_handler: DetectHandler,
+    // Function to modify MortyConfig to tweak its fields
+    library_handler: LibraryHandler,
+}
+
+impl LibraryConfig {
+    fn default() -> Self {
+        LibraryConfig {
+            detect_handler: Box::new(|_ctx| false),
+            library_handler: Box::new(|_config, _imported_files| Ok(())),
+        }
+    }
+}
+
+/// Represents the json configuration for Morty, which requires three fields: "include_dirs", "defines", and "files". See https://github.com/pulp-platform/morty for usage.
+struct MortyConfig {
+    include_dirs: Vec<String>,
+    defines: HashMap<String, String>,
+    files: Vec<String>,
+}
+
+impl MortyConfig {
+    fn default() -> Self {
+        MortyConfig {
+            defines: HashMap::new(),
+            include_dirs: Vec::new(),
+            files: Vec::new(),
+        }
+    }
+
+    // Convert a Morty configuration into json format
+    fn to_json(&self) -> Value {
+        let mut json_map = Map::new();
+        // Convert `defines` from string to json Value type
+        let defines_json: Map<String, Value> = self
+            .defines
+            .iter()
+            .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+            .collect();
+
+        json_map.insert("defines".to_string(), Value::Object(defines_json));
+        json_map.insert(
+            "include_dirs".to_string(),
+            Value::Array(
+                self.include_dirs
+                    .iter()
+                    .map(|d| Value::String(d.clone()))
+                    .collect(),
+            ),
+        );
+        json_map.insert(
+            "files".to_string(),
+            Value::Array(
+                self.files
+                    .iter()
+                    .map(|f| Value::String(f.clone()))
+                    .collect(),
+            ),
+        );
+        Value::Object(json_map)
+    }
+}
+
+// Collect all paths of the imported library files
+fn collect_imported_files(ctx: &ir::Context) -> Vec<String> {
+    ctx.lib
+        .extern_paths()
+        .into_iter()
+        .map(|pb| pb.to_string_lossy().into_owned())
+        .collect()
+}
+
 impl Backend for VerilogBackend {
     fn name(&self) -> &'static str {
         "verilog"
@@ -110,23 +193,88 @@ impl Backend for VerilogBackend {
         ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
-        let fw = &mut file.get_write();
-        for extern_path in &ctx.lib.extern_paths() {
-            // The extern file is guaranteed to exist by the frontend.
-            let mut ext = File::open(extern_path).unwrap();
-            io::copy(&mut ext, fw).map_err(|err| {
-                let std::io::Error { .. } = err;
-                Error::write_error(format!(
-                    "File not found: {}",
-                    file.as_path_string()
-                ))
-            })?;
-            // Add a newline after appending a library file
-            writeln!(fw)?;
+        // Declare all library configurations here
+        let libraries = vec![LibraryConfig::default()];
+
+        let mut all_imported_files: Vec<String> = collect_imported_files(ctx);
+
+        let mut morty_config = MortyConfig::default();
+        // Check if any special library is needed and perform some pre-processing by invoking their corresponding handlers
+        let mut library_needed = false;
+        for lib in &libraries {
+            if (lib.detect_handler)(ctx) {
+                (lib.library_handler)(
+                    &mut morty_config,
+                    &mut all_imported_files,
+                )?;
+                library_needed = true;
+            }
         }
+
+        let fw = &mut file.get_write();
+        // If we needed a special library (like HardFloat), run Morty to pickle the files
+        if library_needed {
+            let final_data = Value::Array(vec![morty_config.to_json()]);
+
+            let mut morty = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open("target/tmp/morty.json")?;
+
+            writeln!(morty, "{}", serde_json::to_string_pretty(&final_data)?)?;
+            morty.flush()?;
+
+            // Invoke Morty
+            let cmd = Command::new("morty")
+                .arg("-f")
+                .arg("target/tmp/morty.json")
+                .output()
+                .expect("failed to execute command");
+
+            if cmd.status.success() {
+                // Post-process morty output
+                let stdout = String::from_utf8_lossy(&cmd.stdout);
+                let lines = stdout.lines();
+                let mut skip_next_line = false;
+
+                for line in lines {
+                    if skip_next_line {
+                        skip_next_line = false;
+                        continue;
+                    }
+                    // Morty picked files contain comments like `// Compiled by morty` followed by specific timestamp information, making test cases tricky to compare. So we just remove this line and the following newline.
+                    if line.trim_start().starts_with("// Compiled by morty") {
+                        skip_next_line = true;
+                        continue;
+                    }
+
+                    println!("{}", line);
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&cmd.stderr);
+                eprint!("Error: {}", stderr);
+            }
+        } else {
+            // No special library detected, use original code of directly copying extern files.
+            // If we don't do so, Morty will eliminate the body inside `ifndef-`endif. Also discussed in here: https://github.com/pulp-platform/morty/issues/49
+            for extern_path in &ctx.lib.extern_paths() {
+                let mut ext = File::open(extern_path).unwrap();
+                io::copy(&mut ext, fw).map_err(|err| {
+                    let std::io::Error { .. } = err;
+                    Error::write_error(format!(
+                        "File not found: {}",
+                        file.as_path_string()
+                    ))
+                })?;
+                writeln!(fw)?;
+            }
+        }
+        // Write inline primitives
         for (prim, _) in ctx.lib.prim_inlines() {
             emit_prim_inline(prim, fw)?;
         }
+
         Ok(())
     }
 
