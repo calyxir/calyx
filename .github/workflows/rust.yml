@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Rust stable
+      - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Build calyx dev
         run: cargo build
@@ -107,13 +107,13 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
-    - name: Checkout toolchain
+    - name: Checkout toolchain configuration
       uses: actions/checkout@v4
       with:
         sparse-checkout: |
           rust-toolchain.toml
         sparse-checkout-cone-mode: false
-    - name: Install Rust stable
+    - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: Build
       uses: actions-rs/cargo@v1
@@ -163,14 +163,14 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
-    - name: Checkout toolchain
+    - name: Checkout toolchain configuration
       uses: actions/checkout@v4
       with:
         sparse-checkout: |
           rust-toolchain.toml
         sparse-checkout-cone-mode: false
 
-    - name: Install Rust stable
+    - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
 
     - name: Install calyx-py, MrXL, and queues
@@ -240,14 +240,14 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
-    - name: Checkout toolchain
+    - name: Checkout toolchain configuration
       uses: actions/checkout@v4
       with:
         sparse-checkout: |
           rust-toolchain.toml
         sparse-checkout-cone-mode: false
 
-    - name: Install Rust stable
+    - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
 
     - name: Build
