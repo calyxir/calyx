@@ -33,11 +33,6 @@ struct PosData {
 }
 
 /// Source position information for a Calyx program.
-///
-/// Note: This is rather large because of [`boxcar::Vec`] so it may be worth
-/// putting those behind a [`Box`] in the future. Granted the PositionTable is
-/// only ever constructed once statically so the extra indirection probably
-/// doesn't actually buy us anything.
 struct PositionTable {
     /// The source files of the program
     files: boxcar::Vec<File>,
