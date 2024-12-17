@@ -18,7 +18,7 @@ paths = ["multi-comp/*.futil"]
 cmd = """
 fud2 --from calyx --to dat \
          --through cider \
-         -s cider.flags="--dump-registers" \
+         -s cider.flags="--dump-registers --check-data-race" \
          {}
 """
 timeout = 10
@@ -39,7 +39,7 @@ paths = ["complex/*.futil"]
 cmd = """
 fud2 --from calyx --to dat \
          --through cider \
-         -s cider.flags="--dump-registers" \
+         -s cider.flags="--dump-registers --check-data-race" \
          {}
 """
 timeout = 10
@@ -83,7 +83,7 @@ expect_dir = "control"
 name = "invoke"
 paths = ["control/invoke/*.futil"]
 cmd = """
-fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off"
+fud2 {} --from calyx --to dat --through cider -s sim.data={}.data -s calyx.args="--log off" -s cider.flags="--check-data-race"
 """
 timeout = 10
 
@@ -93,7 +93,8 @@ paths = ["control/invoke/*.futil"]
 cmd = """
 fud2 {} --from calyx --to dat --through cider \
  -s cider.calyx-passes=" -p compile-invoke" \
- -s sim.data={}.data -s calyx.args="--log off"
+ -s sim.data={}.data -s calyx.args="--log off" \
+ -s cider.flags="--check-data-race"
 """
 
 [[tests]]
@@ -165,6 +166,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
+         -s cider.flags="--check-data-race" \
          {}
 """
 
@@ -177,6 +179,7 @@ fud2 --from calyx --to dat \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
          -s cider.calyx-passes=" -p compile-invoke" \
+         -s cider.flags="--check-data-race" \
          {}
 """
 
@@ -204,6 +207,7 @@ fud2 --from calyx --to dat \
       --through cider \
       -s calyx.args="--log off" \
       -s sim.data={}.data \
+      -s cider.flags="--check-data-race" \
       {}
 """
 
@@ -215,6 +219,7 @@ fud2 --from calyx --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
+         -s cider.flags="--check-data-race" \
          {}
 """
 
@@ -226,6 +231,7 @@ fud2 --from dahlia --to dat \
          --through cider \
          -s sim.data={}.data \
          -s calyx.args="--log off" \
+         -s cider.flags="--check-data-race" \
          {}
 """
 timeout = 180
