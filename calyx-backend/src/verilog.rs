@@ -471,7 +471,7 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
 
     // emit fsm in case statement form
     writeln!(f, "always @(*) begin")?;
-    writeln!(f, "  case ({}) begin", state_reg)?;
+    writeln!(f, "  case ({})", state_reg)?;
 
     for (case, (assigns, trans)) in fsm
         .borrow()
@@ -490,6 +490,7 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
 
         writeln!(f, "{}end", " ".repeat(4))?;
     }
+    writeln!(f, "{}default: {} = 'x;", " ".repeat(4), state_next)?;
 
     writeln!(f, "  endcase")?;
     writeln!(f, "end")?;
@@ -541,9 +542,14 @@ fn emit_fsm_inlined_reg<F: io::Write>(
     // generate inlined register
     writeln!(f, "always_ff @(posedge clk) begin")?;
     writeln!(f, "  if (reset) begin")?;
-    writeln!(f, "    {} <= {}'d0", state_reg_logic_var, reg_width)?;
-    writeln!(f, "  end else begin")?;
-    writeln!(f, "    {} <= {}", state_reg_logic_var, state_next_logic_var)?;
+    writeln!(f, "    {} <= {}'d0;", state_reg_logic_var, reg_width)?;
+    writeln!(f, "  end")?;
+    writeln!(f, "  else begin")?;
+    writeln!(
+        f,
+        "    {} <= {};",
+        state_reg_logic_var, state_next_logic_var
+    )?;
     writeln!(f, "  end")?;
     writeln!(f, "end")?;
 
