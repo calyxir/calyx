@@ -468,7 +468,7 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
 
     // dump assignments to enable in this state
     emit_fsm_dependent_assignments(
-        &fsm.borrow().assignments,
+        fsm.borrow().merge_assignments(),
         &state_reg,
         reg_bitwidth,
         f,
@@ -527,14 +527,15 @@ fn emit_fsm_assignments<F: io::Write>(
 }
 
 fn emit_fsm_dependent_assignments<F: io::Write>(
-    assignments: &Vec<Vec<ir::Assignment<Nothing>>>,
+    assignments: Vec<Vec<(usize, ir::Assignment<Nothing>)>>,
     fsm_out: &String,
     reg_bitwidth: u64,
     f: &mut F,
 ) -> io::Result<()> {
-    for (case, assigns) in assignments.iter().enumerate() {
-        for assign in assigns.iter() {
-            let dst_ref = &assign.dst;
+    for collection in assignments.iter() {
+        let dst_ref = &collection.first().unwrap().1.dst;
+        writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
+        for (i, (case, assign)) in collection.iter().enumerate() {
             let case_guard =
                 format!("{} == {}'d{}", fsm_out, reg_bitwidth, case);
 
@@ -557,15 +558,16 @@ fn emit_fsm_dependent_assignments<F: io::Write>(
                 format!("{}'d0", dst_ref.borrow().width)
             };
 
-            // emit assignment dependent on both case and the assignment's original guard
             writeln!(
                 f,
-                "assign {} = {} ? {} : {};",
-                VerilogPortRef(dst_ref),
+                " {} ? {} :",
                 case_guarded_assign_guard,
-                VerilogPortRef(&assign.src),
-                guard_unmet_value
+                VerilogPortRef(&assign.src)
             )?;
+
+            if i + 1 == collection.len() {
+                writeln!(f, " {guard_unmet_value};")?;
+            }
         }
     }
     io::Result::Ok(())
