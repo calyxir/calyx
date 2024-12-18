@@ -467,12 +467,7 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
     emit_fsm_inlined_reg(&state_reg, &state_next, reg_bitwidth, f)?;
 
     // dump assignments to enable in this state
-    emit_fsm_dependent_assignments(
-        fsm.borrow().merge_assignments(),
-        &state_reg,
-        reg_bitwidth,
-        f,
-    )?;
+    emit_fsm_dependent_assignments(fsm, &state_reg, reg_bitwidth, f)?;
 
     // emit fsm in case statement form
     writeln!(f, "always @(*) begin")?;
@@ -493,46 +488,13 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
     io::Result::Ok(())
 }
 
-fn emit_fsm_assignments<F: io::Write>(
-    assignments: &Vec<ir::Assignment<Nothing>>,
-    f: &mut F,
-) -> io::Result<()> {
-    // dump assignments to enable in this state
-    for assign in assignments.into_iter() {
-        let dst_ref = &assign.dst;
-        let guard_unmet_value = if is_data_port(dst_ref) {
-            format!("'x")
-        } else {
-            format!("{}'d0", dst_ref.borrow().width)
-        };
-        let destination = if assign.guard.is_true() {
-            format!("{}", VerilogPortRef(&assign.src))
-        } else {
-            format!(
-                "{} ? {} : {}",
-                unflattened_guard(&assign.guard),
-                VerilogPortRef(&assign.src),
-                guard_unmet_value
-            )
-        };
-        writeln!(
-            f,
-            "{}{} = {};",
-            " ".repeat(6),
-            VerilogPortRef(dst_ref),
-            destination
-        )?;
-    }
-    io::Result::Ok(())
-}
-
 fn emit_fsm_dependent_assignments<F: io::Write>(
-    assignments: Vec<Vec<(usize, ir::Assignment<Nothing>)>>,
+    fsm: &RRC<ir::FSM>,
     fsm_out: &String,
     reg_bitwidth: u64,
     f: &mut F,
 ) -> io::Result<()> {
-    for collection in assignments.iter() {
+    for collection in fsm.borrow().merge_assignments().iter() {
         let dst_ref = &collection.first().unwrap().1.dst;
         writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
         for (i, (case, assign)) in collection.iter().enumerate() {
