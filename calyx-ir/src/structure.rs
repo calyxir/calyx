@@ -897,13 +897,25 @@ impl FSM {
 
     pub fn merge_assignments(&self) -> Vec<Vec<(usize, Assignment<Nothing>)>> {
         let mut gathered_assigns: HashMap<
-            Id,
+            String,
             Vec<(usize, Assignment<Nothing>)>,
         > = HashMap::new();
         for (case, assigns_at_state) in self.assignments.iter().enumerate() {
             for assign in assigns_at_state.iter() {
+                let port = assign.dst.borrow();
+                let dest = match &port.parent {
+                    PortParent::Cell(cell) => {
+                        format!(
+                            "{}_{}",
+                            cell.upgrade().borrow().name,
+                            port.name
+                        )
+                    }
+                    _ => unreachable!(),
+                };
+
                 gathered_assigns
-                    .entry(assign.dst.borrow().name)
+                    .entry(dest)
                     .and_modify(|gathered| {
                         gathered.push((case, assign.clone()));
                     })
