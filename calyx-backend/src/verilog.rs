@@ -469,6 +469,7 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
     // dump assignments to enable in this state
     emit_fsm_dependent_assignments(fsm, &state_reg, reg_bitwidth, f)?;
 
+
     // emit fsm in case statement form
     writeln!(f, "always @(*) begin")?;
     writeln!(f, "  case ({})", state_reg)?;
