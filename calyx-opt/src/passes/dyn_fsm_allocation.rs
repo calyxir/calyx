@@ -1,4 +1,3 @@
-use super::math_utilities::get_bit_width_from;
 use crate::passes;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
@@ -751,43 +750,6 @@ impl Schedule<'_, '_> {
         Ok(())
     }
 
-    /// Creates a Schedule that represents `if`, mainly relying on `calc_if_recur()`.
-    fn calculate_states_if(
-        &mut self,
-        if_stmt: &ir::If,
-        early_transitions: bool,
-    ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
-        // We create an empty first state in case the control program starts with
-        // a branch (if, while).
-        // If the program doesn't branch, then the initial state is merged into
-        // the first group.
-        let prev =
-            self.calc_if_recur(if_stmt, vec![first_state], early_transitions)?;
-        self.add_nxt_transition(prev);
-        Ok(())
-    }
-
-    /// Creates a Schedule that represents `while`, mainly relying on `calc_while_recur()`.
-    fn calculate_states_while(
-        &mut self,
-        while_stmt: &ir::While,
-        early_transitions: bool,
-    ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
-        // We create an empty first state in case the control program starts with
-        // a branch (if, while).
-        // If the program doesn't branch, then the initial state is merged into
-        // the first group.
-        let prev = self.calc_while_recur(
-            while_stmt,
-            vec![first_state],
-            early_transitions,
-        )?;
-        self.add_nxt_transition(prev);
-        Ok(())
-    }
-
     /// Given predecessors prev, creates a new "next" state and transitions from
     /// each state in prev to the next state.
     /// In other words, it just adds an "end" state to [Schedule] and the
@@ -924,8 +886,6 @@ impl Schedule<'_, '_> {
 pub struct DynamicFSMAllocation {
     /// Print out the FSM representation to STDOUT
     dump_fsm: bool,
-    /// Output a JSON FSM representation to file if specified
-    dump_fsm_json: Option<OutputFile>,
     /// Enable early transitions
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
@@ -941,7 +901,6 @@ impl ConstructVisitor for DynamicFSMAllocation {
 
         Ok(DynamicFSMAllocation {
             dump_fsm: opts[&"dump-fsm"].bool(),
-            dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
             fsm_groups: HashSet::new(),
         })
