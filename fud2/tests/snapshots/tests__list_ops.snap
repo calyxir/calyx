@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+assertion_line: 251
 ---
 [
     (
@@ -36,6 +37,11 @@ source: fud2/tests/tests.rs
         "calyx-to-yxi",
         "calyx",
         "yxi",
+    ),
+    (
+        "calyx_py-to-calyx",
+        "calyx_py",
+        "calyx",
     ),
     (
         "cider",
