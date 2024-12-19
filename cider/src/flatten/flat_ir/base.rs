@@ -565,7 +565,7 @@ impl AssignedValue {
     /// A utility constructor which returns a new implicitly assigned value with
     /// a one bit high value
     pub fn implicit_bit_high() -> Self {
-        Self::new(BitVecValue::tru(), AssignmentWinner::Implicit)
+        Self::new(BitVecValue::new_true(), AssignmentWinner::Implicit)
     }
 
     /// A utility constructor which returns an [`AssignedValue`] with the given
@@ -586,13 +586,13 @@ impl AssignedValue {
     /// high value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_high() -> Self {
-        Self::cell_value(BitVecValue::tru())
+        Self::cell_value(BitVecValue::new_true())
     }
     /// A utility constructor which returns an [`AssignedValue`] with a one bit
     /// low value and a [`AssignmentWinner::Cell`] as the winner
     #[inline]
     pub fn cell_b_low() -> Self {
-        Self::cell_value(BitVecValue::fals())
+        Self::cell_value(BitVecValue::new_false())
     }
 
     pub fn thread(&self) -> Option<ThreadIdx> {

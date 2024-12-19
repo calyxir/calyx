@@ -151,9 +151,9 @@ impl PortMap {
         self.insert_val(
             target,
             AssignedValue::cell_value(if done_bool {
-                BitVecValue::tru()
+                BitVecValue::new_true()
             } else {
-                BitVecValue::fals()
+                BitVecValue::new_false()
             }),
         )
         .map_err(|e| RuntimeError::ConflictingAssignments(e).into())
@@ -1687,7 +1687,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             + self.env.ctx.as_ref().primary[ledger.comp_id]
                 .unwrap_standard()
                 .go;
-        self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
+        self.env.ports[go] = PortValue::new_implicit(BitVecValue::new_true());
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -1867,7 +1867,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.unwrap_comp_done(*comp);
-            let v = PortValue::new_implicit(BitVecValue::tru());
+            let v = PortValue::new_implicit(BitVecValue::new_true());
             self.env.ports[done_port] = if self.conf.check_data_race {
                 v.with_thread(id.expect("finished comps should have a thread"))
             } else {
@@ -1902,7 +1902,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             // if the done is not high & defined, we need to set it to low
             if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
                 self.env.ports[comp_done] =
-                    PortValue::new_implicit(BitVecValue::fals());
+                    PortValue::new_implicit(BitVecValue::new_false());
             }
 
             match &ctx_ref.primary[node.control_node_idx] {
@@ -1917,7 +1917,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     // set go high
                     let go_idx = index_bases + go_local;
                     self.env.ports[go_idx] =
-                        PortValue::new_implicit(BitVecValue::tru());
+                        PortValue::new_implicit(BitVecValue::new_true());
                 }
                 ControlNode::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
@@ -1931,7 +1931,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
                     self.env.ports[go] =
-                        PortValue::new_implicit(BitVecValue::tru())
+                        PortValue::new_implicit(BitVecValue::new_true())
                             .with_thread_optional(
                                 if self.conf.check_data_race {
                                     assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. In {}", node.comp.get_full_name(&self.env));

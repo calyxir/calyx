@@ -76,7 +76,7 @@ impl Primitive for StdReg {
                 BitVecValue::zero(self.internal_state.value.width());
             port_map.insert_val_general(
                 done,
-                AssignedValue::cell_value(BitVecValue::fals()),
+                AssignedValue::cell_value(BitVecValue::new_false()),
             )?
         } else if port_map[write_en].as_bool().unwrap_or_default() {
             self.internal_state.value = port_map[input]
@@ -89,13 +89,13 @@ impl Primitive for StdReg {
 
             port_map.insert_val_general(
                 done,
-                AssignedValue::cell_value(BitVecValue::tru()),
+                AssignedValue::cell_value(BitVecValue::new_true()),
             )?
         } else {
             self.done_is_high = false;
             port_map.insert_val_general(
                 done,
-                AssignedValue::cell_value(BitVecValue::fals()),
+                AssignedValue::cell_value(BitVecValue::new_false()),
             )?
         };
 
@@ -120,9 +120,9 @@ impl Primitive for StdReg {
         let done_signal = port_map.insert_val_general(
             done,
             AssignedValue::cell_value(if self.done_is_high {
-                BitVecValue::tru()
+                BitVecValue::new_true()
             } else {
-                BitVecValue::fals()
+                BitVecValue::new_false()
             }),
         )?;
 
@@ -566,9 +566,9 @@ impl Primitive for CombMem {
         let done_signal = port_map.insert_val_general(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
-                BitVecValue::tru()
+                BitVecValue::new_true()
             } else {
-                BitVecValue::fals()
+                BitVecValue::new_false()
             }),
         )?;
         Ok(done_signal | read)
@@ -902,9 +902,9 @@ impl Primitive for SeqMem {
         let done_signal = port_map.insert_val_general(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
-                BitVecValue::tru()
+                BitVecValue::new_true()
             } else {
-                BitVecValue::fals()
+                BitVecValue::new_false()
             }),
         )?;
 
@@ -962,9 +962,9 @@ impl Primitive for SeqMem {
         port_map.insert_val_general(
             self.done(),
             AssignedValue::cell_value(if self.done_is_high {
-                BitVecValue::tru()
+                BitVecValue::new_true()
             } else {
-                BitVecValue::fals()
+                BitVecValue::new_false()
             }),
         )?;
         port_map.write_exact_unchecked(
