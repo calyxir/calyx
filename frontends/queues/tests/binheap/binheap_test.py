@@ -1,6 +1,6 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from queues import binheap
+import queues.binheap.binheap as bh
 
 
 def insert_main(prog):
@@ -31,7 +31,7 @@ def insert_main(prog):
 
     queue_size_factor = 4
 
-    heap = binheap.insert_binheap(prog, "heap", queue_size_factor, 64, 32)
+    heap = bh.insert_binheap(prog, "heap", queue_size_factor, 64, 32)
     heap = comp.cell("heap", heap)
 
     out = comp.seq_mem_d1("out", 32, 15, queue_size_factor, is_external=True)
@@ -89,13 +89,8 @@ def insert_main(prog):
     ]
 
 
-def build():
-    """Top-level function to build the program."""
-
+if __name__ == "__main__":
+    """Invoke the top-level function to build the program."""
     prog = cb.Builder()
     insert_main(prog)
-    return prog.program
-
-
-if __name__ == "__main__":
-    build().emit()
+    prog.program.emit()
