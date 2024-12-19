@@ -5,7 +5,8 @@ use crate::traversal::{
 use calyx_ir::{
     self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer, RRC,
 };
-use calyx_ir::{build_assignments, guard, Id};
+
+use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
@@ -14,6 +15,7 @@ use petgraph::graph::DiGraph;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Write;
+use std::mem;
 use std::rc::Rc;
 
 const STATE_ID: ir::Attribute =
@@ -290,7 +292,6 @@ struct Schedule<'b, 'a: 'b> {
 /// Information to serialize for profiling purposes
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 enum ProfilingInfo {
-    Fsm(FSMInfo),
     SingleEnable(SingleEnableInfo),
 }
 
@@ -302,18 +303,6 @@ struct SingleEnableInfo {
     pub component: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub group: Id,
-}
-
-/// Information to be serialized for a single FSM
-#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
-struct FSMInfo {
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    pub component: Id,
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    pub group: Id,
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    pub fsm: Id,
-    pub states: Vec<FSMStateInfo>,
 }
 
 /// Mapping of FSM state ids to corresponding group names
@@ -1006,14 +995,108 @@ impl Visitor for DynamicFSMAllocation {
 
     fn finish_par(
         &mut self,
-        _s: &mut calyx_ir::Par,
+        s: &mut calyx_ir::Par,
         comp: &mut calyx_ir::Component,
         sigs: &LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        // let par_fsm
-        Ok(Action::Continue)
+
+        // Compilation FSM
+        let mut assigns_to_enable = vec![];
+
+        structure!(builder;
+            let signal_on = constant(1, 1);
+            let signal_off = constant(0, 1);
+        );
+
+        // Registers to save the done signal from each child.
+        let mut done_regs: Vec<RRC<ir::Cell>> =
+            Vec::with_capacity(s.stmts.len());
+
+        // replace every thread with a single-element sequential schedule
+        let threads = s
+            .stmts
+            .drain(..)
+            .map(|s| ir::Control::seq(vec![s]))
+            .collect_vec();
+
+        s.stmts.extend(threads);
+
+        // For each child, build an FSM to run the thread
+        for con in &s.stmts {
+            // regardless of the type of thread (seq / enable / etc.),
+            // instantiate an FSM; we might want to change this in the future
+            // to enable no transition latency between par-thread-go and
+            // when the thread actually begins working (the common case might
+            // simply be a group, which would mean a 1-cycle group takes 3 cycles now)
+            let mut sch = Schedule::from(&mut builder);
+            sch.calculate_states(&con, self.early_transitions)?;
+            let fsm = sch.realize_fsm(self.dump_fsm);
+
+            // Build circuitry to enable and disable this fsm.
+            structure!(builder;
+                let pd = prim std_reg(1);
+            );
+
+            let fsm_go = !(guard!(pd["out"] | fsm["done"]));
+            let fsm_done = guard!(fsm["done"]);
+
+            // save the go / done assignments for fsm representing the par thread
+            let par_thread_assigns: [ir::Assignment<Nothing>; 3] = build_assignments!(builder;
+                fsm["start"] = fsm_go ? signal_on["out"];
+                pd["in"] = fsm_done ? signal_on["out"];
+                pd["write_en"] = fsm_done ? signal_on["out"];
+            );
+
+            assigns_to_enable.extend(par_thread_assigns);
+            done_regs.push(pd)
+        }
+
+        // Done condition for par block's FSM
+        let true_guard = ir::Guard::True;
+        let par_fsm = builder.add_fsm("par");
+        let transition_to_done: ir::Guard<Nothing> = done_regs
+            .clone()
+            .into_iter()
+            .map(|r| guard!(r["out"]))
+            .fold(true_guard.clone(), ir::Guard::and);
+
+        // generate transition conditions for each state of the par's FSM
+        let par_fsm_trans = vec![
+            // conditional transition to 1 on par_fsm_start
+            ir::Transition::Conditional(vec![
+                (guard!(par_fsm["start"]), 1),
+                (true_guard.clone(), 0),
+            ]),
+            // conditional transition to DONE based on completion of all done regs
+            ir::Transition::Conditional(vec![
+                (transition_to_done, 2),
+                (true_guard.clone(), 1),
+            ]),
+            ir::Transition::Unconditional(0),
+        ];
+
+        // generate assignments to occur at each state of par's FSM
+        let par_fsm_assigns = vec![
+            vec![],
+            assigns_to_enable,
+            build_assignments!(builder;
+                par_fsm["done"] = true_guard ? signal_on["out"];
+            )
+            .to_vec(),
+        ];
+
+        // place all of these into the FSM
+        par_fsm.borrow_mut().assignments.extend(par_fsm_assigns);
+        par_fsm.borrow_mut().transitions.extend(par_fsm_trans);
+
+        // put the state id of the par schedule onto the par fsm
+        let mut en = ir::Control::fsm_enable(par_fsm);
+        let state_id = s.attributes.get(STATE_ID).unwrap();
+        en.get_mut_attributes().insert(STATE_ID, state_id);
+
+        Ok(Action::change(en))
     }
 
     fn finish(
