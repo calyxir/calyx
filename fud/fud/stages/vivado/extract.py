@@ -80,6 +80,7 @@ def place_and_route_extract(
         if util_file.exists():
             impl_parser = rpt.RPTParser(util_file)
             slice_logic = impl_parser.get_table(re.compile(r"1\. CLB Logic"), 2)
+            bram_table = impl_parser.get_table(re.compile(r"3\. BLOCKRAM"), 2)
             dsp_table = impl_parser.get_table(re.compile(r"4\. ARITHMETIC"), 2)
 
             clb_lut = to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"])
@@ -96,6 +97,9 @@ def place_and_route_extract(
                         find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]
                     ),
                     "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
+                    "brams": to_int(
+                        find_row(bram_table, "Site Type", "Block RAM Tile")["Used"]
+                    ),
                     "registers": rtl_component_extract(synth_file, "Registers"),
                     "muxes": rtl_component_extract(synth_file, "Muxes"),
                     "clb_registers": clb_reg,
