@@ -89,18 +89,21 @@ async def run_kernel_test(toplevel, data_path: str):
 
     # Finish when ap_done is high or 100 us of simulation have passed.
     timeout = 5000
-    #Base addresses for memories
-    await tb.control_manager.write(0x0010, encode([0x0],4))
-    await tb.control_manager.write(0x0014, encode([0x0],4))
-    await tb.control_manager.write(0x0018, encode([0x0],4))
-    await tb.control_manager.write(0x001C, encode([0x0],4))
-    await tb.control_manager.write(0x0020, encode([0x0],4))
-    await tb.control_manager.write(0x0024, encode([0x0],4))
+    # Base addresses for memories
+    # The od verilog wrapper seemed to be ok with base addresses of 0x0000
+    # for every memory, so trying that here.
+    # Xilinx spec has the first argument offset at 0x0010
+    # Note this differs from the old verilog testrunner because we assume no
+    # timeout argument with the new calyx wrapper.
+    register_offset = 0x0010
+    for mem in data_map.keys():
+        await tb.control_manager.write(register_offset, encode([0x0],4))
+        register_offset += 4
+        await tb.control_manager.write(register_offset, encode([0x0],4))
+        register_offset += 4
     #Assert ap_start by writing 1 to 0x0000
     await tb.control_manager.write(0x0000, encode([0x1],1))
     await with_timeout(RisingEdge(toplevel.done), timeout, "us")
-
-
 
     
     # Get data from ram

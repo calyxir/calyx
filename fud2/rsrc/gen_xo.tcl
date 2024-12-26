@@ -46,4 +46,4 @@ ipx::save_core [ipx::current_core]
 close_project -delete
 
 # Package the project as an .xo file.
-package_xo -xo_path ${xoname} -kernel_name wrapper -ip_directory ${path_to_packaged} -kernel_xml ./kernel.xml
+package_xo -xo_path ${xoname} -kernel_name Toplevel -ip_directory ${path_to_packaged} -kernel_xml ./kernel.xml
