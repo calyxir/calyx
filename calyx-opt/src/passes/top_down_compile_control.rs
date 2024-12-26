@@ -711,6 +711,8 @@ impl Schedule<'_, '_> {
         preds: Vec<PredEdge>,
         // True if early_transitions are allowed
         early_transitions: bool,
+        // True if the `@fast` attribute has successfully been applied to the parent of this control
+        has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
@@ -746,7 +748,7 @@ impl Schedule<'_, '_> {
             // NOTE: We explicilty do not add `not_done` to the guard.
             // See explanation in [ir::TopDownCompileControl] to understand
             // why.
-            if early_transitions {
+            if early_transitions || has_fast_guarantee {
                 for (st, g) in &prev_states {
                     let early_go = build_assignments!(self.builder;
                         group["go"] = g ? signal_on["out"];
@@ -793,9 +795,13 @@ impl Schedule<'_, '_> {
         early_transitions: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         let mut prev = preds;
-        for stmt in &seq.stmts {
-            prev =
-                self.calculate_states_recur(stmt, prev, early_transitions)?;
+        for (i, stmt) in seq.stmts.iter().enumerate() {
+            prev = self.calculate_states_recur(
+                stmt,
+                prev,
+                early_transitions,
+                i > 0 && seq.get_attributes().has(BoolAttr::Fast),
+            )?;
         }
         Ok(prev)
     }
@@ -828,6 +834,7 @@ impl Schedule<'_, '_> {
             &if_stmt.tbranch,
             tru_transitions,
             early_transitions,
+            false,
         )?;
         // Previous states transitioning into false branch need the conditional
         // to be false.
@@ -845,6 +852,7 @@ impl Schedule<'_, '_> {
                 &if_stmt.fbranch,
                 fal_transitions,
                 early_transitions,
+                false,
             )?
         };
 
@@ -887,6 +895,7 @@ impl Schedule<'_, '_> {
             &while_stmt.body,
             transitions,
             early_transitions,
+            false,
         )?;
 
         // Step 3: The final out edges from the while come from:
@@ -991,6 +1000,7 @@ impl Schedule<'_, '_> {
             con,
             vec![first_state],
             early_transitions,
+            false,
         )?;
         self.add_nxt_transition(prev);
         Ok(())
@@ -1205,23 +1215,17 @@ impl Named for TopDownCompileControl {
 }
 
 /// Helper function to emit profiling information when the control consists of a single group.
-fn emit_single_enable(
+fn extract_single_enable(
     con: &mut ir::Control,
     component: Id,
-    json_out_file: &OutputFile,
-) {
+) -> Option<SingleEnableInfo> {
     if let ir::Control::Enable(enable) = con {
-        let mut profiling_info_set: HashSet<ProfilingInfo> = HashSet::new();
-        profiling_info_set.insert(ProfilingInfo::SingleEnable(
-            SingleEnableInfo {
-                component,
-                group: enable.group.borrow().name(),
-            },
-        ));
-        let _ = serde_json::to_writer_pretty(
-            json_out_file.get_write(),
-            &profiling_info_set,
-        );
+        return Some(SingleEnableInfo {
+            component,
+            group: enable.group.borrow().name(),
+        });
+    } else {
+        None
     }
 }
 
@@ -1234,8 +1238,11 @@ impl Visitor for TopDownCompileControl {
     ) -> VisResult {
         let mut con = comp.control.borrow_mut();
         if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
-            if let Some(json_out_file) = &self.dump_fsm_json {
-                emit_single_enable(&mut con, comp.name, json_out_file);
+            if let Some(enable_info) =
+                extract_single_enable(&mut con, comp.name)
+            {
+                self.fsm_groups
+                    .insert(ProfilingInfo::SingleEnable(enable_info));
             }
             return Ok(Action::Stop);
         }
@@ -1449,12 +1456,17 @@ impl Visitor for TopDownCompileControl {
         let comp_group =
             sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
 
-        if let Some(json_out_file) = &self.dump_fsm_json {
+        Ok(Action::change(ir::Control::enable(comp_group)))
+    }
+
+    /// If requested, emit FSM json after all components are processed
+    fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
+        if let Some(json_out_file) = &mut self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
                 &self.fsm_groups,
             );
         }
-        Ok(Action::change(ir::Control::enable(comp_group)))
+        Ok(Action::Continue)
     }
 }

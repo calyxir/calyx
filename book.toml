@@ -6,3 +6,5 @@ src = "docs"
 title = "Calyx Documentation"
 [output.html]
 mathjax-support = true
+[preprocessor.callouts] # https://github.com/ToolmanP/rs-mdbook-callouts
+

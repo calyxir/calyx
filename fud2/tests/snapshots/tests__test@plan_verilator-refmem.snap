@@ -33,14 +33,14 @@ rule dummy
 verilator = verilator
 cycle-limit = 500000000
 rule verilator-compile-standalone-tb
-  command = $verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+  command = $verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
 rule verilator-compile-custom-tb
-  command = $verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+  command = $verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
 rule cp
   command = cp $in $out
 
-build verilator-out/VTOP: verilator-compile-custom-tb /input.ext | tb.sv memories.sv
+build verilator-out/Vtoplevel: verilator-compile-custom-tb /input.ext | tb.sv memories.sv
   out-dir = verilator-out
-build /output.ext: cp verilator-out/VTOP
+build /output.ext: cp verilator-out/Vtoplevel
 
 default /output.ext

@@ -1,0 +1,28 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: s5 -> s6"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+rule t3_rule_1
+  command = echo Char
+build _t3_rule_1.fake: t3_rule_1 $i0
+  i0 = _from_stdin_s5
+  o0 = _to_stdout_s6
+
+rule t3_rule_2
+  command = echo Ray
+build _t3_rule_2.fake: t3_rule_2 _t3_rule_1.fake
+  i0 = _from_stdin_s5
+  o0 = _to_stdout_s6
+
+rule t3_rule_3
+  command = echo Saura
+build _t3_rule_3.fake $o0: t3_rule_3 _t3_rule_2.fake
+  i0 = _from_stdin_s5
+  o0 = _to_stdout_s6
+
+
+default _to_stdout_s6

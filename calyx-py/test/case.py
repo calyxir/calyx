@@ -1,6 +1,7 @@
 from calyx.builder import Builder, invoke
 
-#Creates a component the has a case statement.
+
+# Creates a component the has a case statement.
 def add_case(prog):
     # Inputs/Outputs
     my_comp = prog.component("my_comp")
@@ -25,4 +26,3 @@ def build():
 
 if __name__ == "__main__":
     build().emit()
-

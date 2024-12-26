@@ -8,11 +8,11 @@ fn verilator_setup(e) {
    e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000");
    e.rule(
         "verilator-compile-standalone-tb",
-        "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+        "$verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
    );
    e.rule(
         "verilator-compile-custom-tb",
-        "$verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+        "$verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir",
    );
    e.rule("cp", "cp $in $out");
 }
@@ -20,7 +20,7 @@ fn verilator_setup(e) {
 export const verilator_build = verilator_build;
 fn verilator_build(e, input, output, standalone_tb) {
    let out_dir = "verilator-out";
-   let sim_bin = `${out_dir}/VTOP`;
+   let sim_bin = `${out_dir}/Vtoplevel`;
    if standalone_tb {
       e.build_cmd(
         [sim_bin],

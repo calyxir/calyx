@@ -1,0 +1,5 @@
+---CODE---
+1
+---STDERR---
+Error: Attempted to write an undefined value to register or memory named "main.reg0"
+Error: Input is not a valid data dump

@@ -1,0 +1,7 @@
+---CODE---
+1
+---STDERR---
+Error: tests/errors/float/invalid-width.futil
+3 |        f = std_float_const(0, 16, 0.5);
+  |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Parse error
+Unsupported floating point width: 16. Supported values: 32, 64

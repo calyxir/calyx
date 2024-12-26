@@ -1,6 +1,7 @@
 import "calyx" as c;
 
 export const yxi = state("yxi", ["yxi"]);
+
 export let yxi_setup = yxi_setup;
 fn yxi_setup(e) {
    e.config_var_or("yxi", "yxi", "$calyx-base/target/debug/yxi");

@@ -8,16 +8,16 @@ members = [
     "calyx-stdlib",
     "calyx-backend",
     "calyx-lsp",
-    "interp",
+    "cider",
     "web/rust",
     "tools/data_gen",
     "cider-dap",
     "fud2",
     "fud2/fud-core",
     "tools/data-conversion",
-    "tools/btor2/btor2i",
-    "tools/cider-data-converter",
     "tools/calyx-pass-explorer",
+    "tools/cider-data-converter",
+    "tools/component_cells",
     "tools/yxi",
     "tools/calyx-writer",
 ]
@@ -34,7 +34,7 @@ categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
 version = "0.7.1"
-rust-version = "1.67"
+rust-version = "1.80"
 
 [workspace.dependencies]
 itertools = "0.11"
@@ -58,6 +58,7 @@ calyx-ir = { path = "calyx-ir", version = "0.7.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
 calyx-opt = { path = "calyx-opt", version = "0.7.1" }
 calyx-backend = { path = "calyx-backend", version = "0.7.1" }
+baa = { version = "0.16.0", features = ["bigint", "serde1", "fraction1"] }
 
 [workspace.dependencies.petgraph]
 version = "0.6"

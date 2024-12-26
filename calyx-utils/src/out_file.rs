@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     io::{self, BufWriter},
     path::PathBuf,
     str::FromStr,
@@ -14,16 +15,24 @@ pub enum OutputFile {
     Null,
     Stdout,
     Stderr,
-    File(PathBuf),
+    File {
+        path: PathBuf,
+        // Has the writer been initialized?
+        init: bool,
+    },
 }
 
 impl OutputFile {
+    pub fn file(path: PathBuf) -> Self {
+        OutputFile::File { path, init: false }
+    }
+
     pub fn as_path_string(&self) -> String {
         match self {
             OutputFile::Null => "<null>".to_string(),
             OutputFile::Stdout => "<stdout>".to_string(),
             OutputFile::Stderr => "<stderr>".to_string(),
-            OutputFile::File(path) => path.to_string_lossy().to_string(),
+            OutputFile::File { path, .. } => path.to_string_lossy().to_string(),
         }
     }
 }
@@ -35,19 +44,21 @@ impl FromStr for OutputFile {
             "-" | "<out>" => Ok(OutputFile::Stdout),
             "<err>" => Ok(OutputFile::Stderr),
             "<null>" => Ok(OutputFile::Null),
-            _ => Ok(OutputFile::File(PathBuf::from(s))),
+            _ => Ok(OutputFile::file(PathBuf::from(s))),
         }
     }
 }
 
-impl ToString for OutputFile {
-    fn to_string(&self) -> String {
-        match self {
-            OutputFile::Stdout => "-".to_string(),
-            OutputFile::Stderr => "<err>".to_string(),
-            OutputFile::Null => "<null>".to_string(),
-            OutputFile::File(p) => p.to_str().unwrap().to_string(),
-        }
+impl Display for OutputFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            OutputFile::Stdout => "-",
+            OutputFile::Stderr => "<err>",
+            OutputFile::Null => "<null>",
+            OutputFile::File { path, .. } => path.to_str().unwrap(),
+        };
+
+        string.fmt(f)
     }
 }
 
@@ -56,16 +67,32 @@ impl OutputFile {
         match self {
             OutputFile::Stdout => atty::is(atty::Stream::Stdout),
             OutputFile::Stderr => atty::is(atty::Stream::Stderr),
-            OutputFile::Null | OutputFile::File(_) => false,
+            OutputFile::Null | OutputFile::File { .. } => false,
         }
     }
 
-    pub fn get_write(&self) -> Box<dyn io::Write> {
+    pub fn get_write(&mut self) -> Box<dyn io::Write> {
         match self {
             OutputFile::Stdout => Box::new(BufWriter::new(std::io::stdout())),
             OutputFile::Stderr => Box::new(BufWriter::new(std::io::stderr())),
-            OutputFile::File(path) => {
-                Box::new(BufWriter::new(std::fs::File::create(path).unwrap()))
+            OutputFile::File { path, init } => {
+                // If the file does not exist, create it. Otherwise, open it for appending.
+                let buf = if *init {
+                    assert!(
+                        path.exists(),
+                        "writer initialized but file does not exist"
+                    );
+                    BufWriter::new(
+                        std::fs::OpenOptions::new()
+                            .append(true)
+                            .open(path)
+                            .unwrap(),
+                    )
+                } else {
+                    *init = true;
+                    BufWriter::new(std::fs::File::create(path).unwrap())
+                };
+                Box::new(buf)
             }
             OutputFile::Null => Box::new(io::sink()),
         }

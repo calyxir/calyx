@@ -1,0 +1,56 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+component main() -> () {
+  cells {
+    @external(1) out_mem = seq_mem_d1(32, 1, 1);
+    r1 = std_reg(32);
+    add1 = std_add(32);
+    r2 = std_reg(32);
+    add2 = std_add(32);
+  }
+  wires {
+    static<1> group incr_r1 {
+      r1.write_en = 1'd1;
+      r1.in = add1.out;
+      add1.left = 32'd1;
+      add1.right = r1.out;
+    }
+    static<1> group incr_r2 {
+      r2.write_en = 1'd1;
+      r2.in = add1.out;
+      add2.left = 32'd1;
+      add2.right = r2.out;
+    }
+    static<1> group write_res {
+      add1.left = r1.out;
+      add1.right = r2.out;
+      out_mem.write_en = 1'd1;
+      out_mem.write_data = add1.out;
+      out_mem.addr0 = 1'd0;
+      out_mem.content_en = 1'd1;
+    }
+  }
+  control {
+    static seq {
+      static par {
+        static repeat 5 {static seq {
+          incr_r1;incr_r1;incr_r1;incr_r1;incr_r1;
+          incr_r1;incr_r1;incr_r1;incr_r1;incr_r1;
+        }}
+        static seq {
+          incr_r2;
+          incr_r2;
+          incr_r2;
+          incr_r2;
+          static repeat 22 {
+            static seq { incr_r2; incr_r2;}
+          }
+          incr_r2;
+          incr_r2;
+        }
+      }
+      write_res;
+    }
+  }
+}

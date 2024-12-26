@@ -136,7 +136,7 @@ impl FromStr for CompileMode {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend(self, context: ir::Context) -> CalyxResult<()> {
+    pub fn run_backend(mut self, context: ir::Context) -> CalyxResult<()> {
         match self.backend {
             BackendOpt::Mlir => {
                 let backend = MlirBackend;
@@ -200,7 +200,7 @@ impl Opts {
         {
             return Err(Error::misc(format!(
                 "--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project",
-                opts.backend.to_string()
+                opts.backend
             )));
         }
 

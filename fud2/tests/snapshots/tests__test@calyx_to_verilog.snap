@@ -1,0 +1,24 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: calyx -> verilog"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+
+build _to_stdout_verilog.sv: calyx _from_stdin_calyx.futil
+  backend = verilog
+
+default _to_stdout_verilog.sv

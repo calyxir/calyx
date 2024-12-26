@@ -1,0 +1,17 @@
+---
+source: fud2/tests/tests.rs
+description: "emit request: state0 state1 -> state2"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+rule t1_rule_1
+  command = echo owo
+build _t1_rule_1.fake $o0: t1_rule_1 $i0 $i1
+  i0 = _from_stdin_state0
+  i1 = _from_stdin_state1
+  o0 = _to_stdout_state2
+
+
+default _to_stdout_state2

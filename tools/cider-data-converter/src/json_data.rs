@@ -1,17 +1,19 @@
-use std::{collections::HashMap, num::ParseFloatError, str::FromStr};
-
-use interp::serialization::Dimensions;
+use cider::serialization::Dimensions;
 use num_bigint::{BigInt, ParseBigIntError};
-use serde::{self, Deserialize, Serialize};
+use serde::{self, Deserialize, Serialize, Serializer};
 use serde_json::Number;
+use std::collections::BTreeMap;
+use std::{collections::HashMap, num::ParseFloatError, str::FromStr};
 use thiserror::Error;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum NumericType {
     Bitnum,
     #[serde(alias = "fixed_point")]
     Fixed,
+    #[serde(alias = "ieee754_float")]
+    IEEE754Float,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -46,6 +48,10 @@ impl FormatInfo {
             || self.width.is_some() && self.int_width.is_some()
     }
 
+    pub fn is_floating_point(&self) -> bool {
+        self.numeric_type == NumericType::IEEE754Float
+    }
+
     pub fn int_width(&self) -> Option<u32> {
         if self.int_width.is_some() {
             self.int_width
@@ -66,9 +72,9 @@ impl FormatInfo {
         }
     }
 
-    pub fn as_data_dump_format(&self) -> interp::serialization::FormatInfo {
+    pub fn as_data_dump_format(&self) -> cider::serialization::FormatInfo {
         match &self.numeric_type {
-            NumericType::Bitnum => interp::serialization::FormatInfo::Bitnum {
+            NumericType::Bitnum => cider::serialization::FormatInfo::Bitnum {
                 signed: self.is_signed,
                 width: self.width.unwrap(),
             },
@@ -93,10 +99,16 @@ impl FormatInfo {
                     )
                 };
 
-                interp::serialization::FormatInfo::Fixed {
+                cider::serialization::FormatInfo::Fixed {
                     signed: self.is_signed,
                     int_width,
                     frac_width,
+                }
+            }
+            NumericType::IEEE754Float => {
+                cider::serialization::FormatInfo::IEEFloat {
+                    signed: self.is_signed,
+                    width: self.width.unwrap(),
                 }
             }
         }
@@ -227,7 +239,7 @@ impl ParseVec {
     }
 
     pub fn parse(&self, format: &FormatInfo) -> Result<DataVec, ParseError> {
-        if format.is_fixedpt() {
+        if format.is_fixedpt() || format.is_floating_point() {
             match self {
                 ParseVec::D1(v) => {
                     let parsed: Vec<_> = v
@@ -525,8 +537,23 @@ pub struct JsonData(pub HashMap<String, JsonDataEntry>);
 #[serde(untagged)]
 /// A structure meant to mimic the old style of data dump printing.
 pub enum JsonPrintDump {
+    #[serde(serialize_with = "ordered_map")]
     Normal(HashMap<String, ParseVec>),
+    #[serde(serialize_with = "ordered_map")]
     Quoted(HashMap<String, PrintVec>),
+}
+
+/// For use with serde's [serialize_with] attribute
+/// see: https://stackoverflow.com/questions/42723065/how-to-sort-hashmap-keys-when-serializing-with-serde
+fn ordered_map<S, K: Ord + Serialize, V: Serialize>(
+    value: &HashMap<K, V>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let ordered: BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
 }
 
 impl JsonPrintDump {

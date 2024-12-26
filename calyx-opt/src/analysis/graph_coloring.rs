@@ -3,6 +3,7 @@ use itertools::Itertools;
 use petgraph::algo;
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::Display,
     hash::Hash,
 };
 
@@ -169,6 +170,17 @@ where
             .collect()
     }
 
+    // Reverses a coloring by mapping color C -> vec of nodes colored C.
+    pub fn reverse_coloring(coloring: &HashMap<T, T>) -> HashMap<T, Vec<T>> {
+        let mut rev_coloring: HashMap<T, Vec<T>> = HashMap::new();
+        for (node, color) in coloring {
+            rev_coloring
+                .entry(color.clone())
+                .or_default()
+                .push(node.clone());
+        }
+        rev_coloring
+    }
     pub fn welsh_powell_coloring(&self) -> HashMap<T, T> {
         let mut coloring: HashMap<T, T> = HashMap::new();
 
@@ -205,8 +217,8 @@ where
     }
 }
 
-impl<T: Eq + Hash + ToString + Clone + Ord> ToString for GraphColoring<T> {
-    fn to_string(&self) -> String {
-        self.graph.to_string()
+impl<T: Eq + Hash + ToString + Clone + Ord> Display for GraphColoring<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.graph.to_string().fmt(f)
     }
 }

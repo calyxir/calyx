@@ -1,0 +1,28 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    @external mem = comb_mem_d1(32, 20, 32);
+    val = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+   add.right = 32'b1;
+   add.left = val.out;
+   val.write_en = 1'b1;
+   val.in = add.out;
+
+   group store {
+     mem.addr0 = val.out;
+     mem.write_data = val.out;
+     mem.write_en = 1'b1;
+     store[done] = mem.done;
+   }
+  }
+  control {
+    repeat 19 {
+      store;
+    }
+  }
+}

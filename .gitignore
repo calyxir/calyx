@@ -39,6 +39,8 @@ __pycache__
 !.vscode/launch.json
 !.vscode/tasks.json
 
+.idea/
+
 # cocotb artifacts
 tests/xilinx/cocotb/**/hdl
 sim_build/
@@ -55,11 +57,23 @@ results.xml
 # btor2i ignore
 tools/btor2/btor2i/build/
 
-# vcd-parsing tmp files ignore
-tools/profiler/tmp/
-tools/profiler/logs
+# profiling ignore
+tools/profiler/data
+tools/profiler/meta-logs
+tools/profiler/fg-tmp
+tools/profiler/handmade-flame-graphs/*/*.svg
+tools/profiler/inst-check-tmp
 
 temp/
 
+# large queue .data and .expect files ignore
+frontends/queues/tests/**/*.data
+frontends/queues/tests/**/*.expect
+
 # for running a venv
 .venv
+
+# emacs
+*~
+
+!docs/dev/assets/*.png

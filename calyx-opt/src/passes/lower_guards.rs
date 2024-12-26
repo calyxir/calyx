@@ -145,12 +145,11 @@ impl Visitor for LowerGuards {
             .component
             .get_groups_mut()
             .drain()
-            .map(|group| {
+            .inspect(|group| {
                 let assigns =
                     group.borrow_mut().assignments.drain(..).collect();
                 let new_assigns = lower_assigns(assigns, &mut builder);
                 group.borrow_mut().assignments = new_assigns;
-                group
             })
             .into();
         builder.component.set_groups(groups);
@@ -174,12 +173,11 @@ impl Visitor for LowerGuards {
             .component
             .comb_groups
             .drain()
-            .map(|group| {
+            .inspect(|group| {
                 let assigns =
                     group.borrow_mut().assignments.drain(..).collect();
                 let new_assigns = lower_assigns(assigns, &mut builder);
                 group.borrow_mut().assignments = new_assigns;
-                group
             })
             .into();
         builder.component.comb_groups = comb_groups;

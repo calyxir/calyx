@@ -1,0 +1,4 @@
+---CODE---
+1
+---STDERR---
+Error: Concurrent read & write to the same register [4mmain.first_reg[0m

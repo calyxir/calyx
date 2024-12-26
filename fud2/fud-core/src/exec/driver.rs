@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{config, run, script, utils};
+use crate::{run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::PrimaryMap;
 use rand::distributions::{Alphanumeric, DistString};
@@ -439,14 +439,13 @@ impl DriverBuilder {
     }
 
     /// Load any plugin scripts specified in the configuration file.
-    pub fn load_plugins(mut self) -> Self {
+    pub fn load_plugins(
+        mut self,
+        config_data: &figment::Figment,
+    ) -> anyhow::Result<Self> {
         // pull out things from self that we need
         let plugin_dir = self.scripts_dir.take();
         let plugin_files = self.script_files.take();
-
-        // TODO: Let's try to avoid loading/parsing the configuration file here and
-        // somehow reusing it from wherever we do that elsewhere.
-        let config = config::load_config(&self.name);
 
         let mut runner = script::ScriptRunner::new(self);
 
@@ -459,7 +458,7 @@ impl DriverBuilder {
                     .filter_map(|dir_entry| dir_entry.map(|p| p.path()).ok())
                     // filter out paths that don't have `.rhai` extension
                     .filter(|p| p.extension() == Some(OsStr::new("rhai"))),
-            );
+            )?;
         }
 
         // add static plugins (where string is included in binary)
@@ -469,12 +468,12 @@ impl DriverBuilder {
 
         // add user plugins defined in config
         if let Ok(plugins) =
-            config.extract_inner::<Vec<std::path::PathBuf>>("plugins")
+            config_data.extract_inner::<Vec<std::path::PathBuf>>("plugins")
         {
-            runner.add_files(plugins.into_iter());
+            runner.add_files(plugins.into_iter())?;
         }
 
-        runner.run()
+        Ok(runner.run())
     }
 
     pub fn build(self) -> Driver {

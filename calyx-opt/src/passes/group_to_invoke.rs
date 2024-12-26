@@ -13,9 +13,9 @@ use std::rc::Rc;
 ///
 /// For a group to meet the requirements of this pass, it must
 /// 1. Only write to one non-combinational component (all other writes must be
-/// to combinational primitives)
+///    to combinational primitives)
 /// 2. That component is *not* a ref cell, nor does it have the external attribute,
-/// nor is it This Component
+///    nor is it This Component
 /// 3. Assign component.go = 1'd1
 /// 4. Assign group[done] = component.done
 pub struct GroupToInvoke {

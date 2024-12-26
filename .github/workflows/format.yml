@@ -13,10 +13,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     - name: Install stable
-      uses: actions-rs/toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-          toolchain: 1.76.0
-          override: true
           components: rustfmt, clippy
     - name: Check formatting
       uses: actions-rs/cargo@v1
@@ -44,13 +42,23 @@ jobs:
       - name: Fud Formatting check
         uses: psf/black@stable
         with:
-          options: "--line-length 88"
+          options: "--line-length 88 --check"
           src: 'fud'
+      - name: Calyx-Py Formatting check
+        uses: psf/black@stable
+        with:
+          options: "--line-length 88 --check"
+          src: 'calyx-py'
       - name: Systolic Array Formatting check
         uses: psf/black@stable
         with:
-          options: "--line-length 88"
+          options: "--line-length 88 --check"
           src: 'frontends/systolic-lang'
+      - name: Queues Formatting check
+        uses: psf/black@stable
+        with:
+          options: "--line-length 88 --check"
+          src: 'frontends/queues'
       - name: Fud Linting check
         uses: TrueBrain/actions-flake8@master
         with:

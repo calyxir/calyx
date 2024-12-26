@@ -1,10 +1,14 @@
+pub use crate::cli_ext::{CliExt, FakeCli, FromArgFn, RedactArgFn};
 use crate::config;
 use crate::exec::{plan, Driver, Request, StateRef};
 use crate::run::Run;
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use argh::FromArgs;
 use camino::Utf8PathBuf;
-use std::fmt::Display;
+use figment::providers::Serialized;
+use itertools::Itertools;
+use std::fmt::{Debug, Display};
+use std::fs;
 use std::str::FromStr;
 
 enum Mode {
@@ -13,6 +17,7 @@ enum Mode {
     ShowDot,
     Generate,
     Run,
+    Cmds,
 }
 
 impl FromStr for Mode {
@@ -25,6 +30,7 @@ impl FromStr for Mode {
             "gen" => Ok(Mode::Generate),
             "run" => Ok(Mode::Run),
             "dot" => Ok(Mode::ShowDot),
+            "cmds" => Ok(Mode::Cmds),
             _ => Err("unknown mode".to_string()),
         }
     }
@@ -38,6 +44,7 @@ impl Display for Mode {
             Mode::Generate => write!(f, "gen"),
             Mode::Run => write!(f, "run"),
             Mode::ShowDot => write!(f, "dot"),
+            Mode::Cmds => write!(f, "cmds"),
         }
     }
 }
@@ -104,10 +111,19 @@ pub struct GetResource {
 #[argh(subcommand, name = "list")]
 pub struct ListCommand {}
 
-/// supported subcommands
+/// register a plugin
 #[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "register")]
+pub struct RegisterCommand {
+    /// the filename of the plugin to register
+    #[argh(positional)]
+    filename: Utf8PathBuf,
+}
+
+/// supported subcommands
+#[derive(FromArgs)]
 #[argh(subcommand)]
-pub enum Subcommand {
+pub enum Subcommand<T: CliExt> {
     /// edit the configuration file
     EditConfig(EditConfig),
 
@@ -116,13 +132,19 @@ pub enum Subcommand {
 
     /// list the available states and ops
     List(ListCommand),
+
+    /// register a plugin
+    Register(RegisterCommand),
+
+    #[argh(dynamic)]
+    Extended(FakeCli<T>),
 }
 
 #[derive(FromArgs)]
 /// A generic compiler driver.
-struct FakeArgs {
+pub struct FudArgs<T: CliExt> {
     #[argh(subcommand)]
-    pub sub: Option<Subcommand>,
+    pub sub: Option<Subcommand<T>>,
 
     /// the input file
     #[argh(positional)]
@@ -168,6 +190,10 @@ struct FakeArgs {
     #[argh(switch, short = 'v')]
     verbose: Option<bool>,
 
+    /// quiet mode
+    #[argh(switch, short = 'q')]
+    quiet: bool,
+
     /// log level for debugging fud internal
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
@@ -205,9 +231,9 @@ fn get_states_with_errors(
     Ok(states)
 }
 
-fn from_states(
+fn from_states<T: CliExt>(
     driver: &Driver,
-    args: &FakeArgs,
+    args: &FudArgs<T>,
 ) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
@@ -219,7 +245,10 @@ fn from_states(
     )
 }
 
-fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
+fn to_state<T: CliExt>(
+    driver: &Driver,
+    args: &FudArgs<T>,
+) -> anyhow::Result<Vec<StateRef>> {
     get_states_with_errors(
         driver,
         &args.to,
@@ -230,7 +259,10 @@ fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Vec<StateRef>> {
     )
 }
 
-fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
+fn get_request<T: CliExt>(
+    driver: &Driver,
+    args: &FudArgs<T>,
+) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
     let workdir = args.dir.clone().unwrap_or_else(|| match args.mode {
         Mode::Generate | Mode::Run => {
@@ -314,9 +346,93 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     bail!("unknown resource file {}", cmd.filename);
 }
 
-pub fn cli(driver: &Driver) -> anyhow::Result<()> {
-    let args: FakeArgs = argh::from_env();
+fn register_plugin(
+    driver: &Driver,
+    cmd: RegisterCommand,
+) -> anyhow::Result<()> {
+    let full_path = cmd
+        .filename
+        .canonicalize_utf8()
+        .with_context(|| format!("Can not find `{}`", cmd.filename))?;
 
+    println!("Registering {}", full_path);
+
+    let config_path = config::config_path(&driver.name);
+    let contents = fs::read_to_string(&config_path)?;
+
+    let mut toml_doc = contents.parse::<toml_edit::DocumentMut>()?;
+
+    let config = config::load_config(&driver.name)
+        .adjoin(Serialized::default("plugins", [full_path.to_string()]));
+
+    toml_doc["plugins"] = toml_edit::value(
+        config
+            .extract_inner::<Vec<String>>("plugins")?
+            .into_iter()
+            .dedup()
+            .collect::<toml_edit::Array>(),
+    );
+
+    fs::write(&config_path, toml_doc.to_string())?;
+    Ok(())
+}
+
+pub trait CliStart<T: CliExt> {
+    /// Given the name of a Driver, returns a config based on that name and CLI arguments.
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment>;
+
+    /// Given a driver and config, start the CLI.
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()>;
+}
+
+/// Default CLI that provides an interface to core actions.
+pub struct DefaultCli;
+
+impl CliStart<()> for DefaultCli {
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+        config_from_cli_ext::<()>(name)
+    }
+
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
+        cli_ext::<()>(driver, config)
+    }
+}
+
+impl<T: CliExt> CliStart<T> for T {
+    fn config_from_cli(name: &str) -> anyhow::Result<figment::Figment> {
+        config_from_cli_ext::<T>(name)
+    }
+
+    fn cli(driver: &Driver, config: &figment::Figment) -> anyhow::Result<()> {
+        cli_ext::<T>(driver, config)
+    }
+}
+
+fn config_from_cli_ext<T: CliExt>(
+    name: &str,
+) -> anyhow::Result<figment::Figment> {
+    let args: FudArgs<T> = argh::from_env();
+    let mut config = config::load_config(name);
+
+    // Use `--set` arguments to override configuration values.
+    for set in args.set {
+        let mut parts = set.splitn(2, '=');
+        let key = parts.next().unwrap();
+        let value = parts
+            .next()
+            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
+        let dict = figment::util::nest(key, value.into());
+        config = config.merge(figment::providers::Serialized::defaults(dict));
+    }
+
+    Ok(config)
+}
+
+fn cli_ext<T: CliExt>(
+    driver: &Driver,
+    config: &figment::Figment,
+) -> anyhow::Result<()> {
+    let args: FudArgs<T> = argh::from_env();
     // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
@@ -336,6 +452,12 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
             driver.print_info();
             return Ok(());
         }
+        Some(Subcommand::Register(cmd)) => {
+            return register_plugin(driver, cmd);
+        }
+        Some(Subcommand::Extended(cmd)) => {
+            return cmd.0.run(driver);
+        }
         None => {}
     }
 
@@ -345,7 +467,7 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let plan = driver.plan(req).ok_or(anyhow!("could not find path"))?;
 
     // Configure.
-    let mut run = Run::new(driver, plan);
+    let mut run = Run::new(driver, plan, config.clone());
 
     // Override some global config options.
     if let Some(keep) = args.keep {
@@ -355,26 +477,14 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
         run.global_config.verbose = verbose;
     }
 
-    // Use `--set` arguments to override configuration values.
-    for set in args.set {
-        let mut parts = set.splitn(2, '=');
-        let key = parts.next().unwrap();
-        let value = parts
-            .next()
-            .ok_or(anyhow!("--set arguments must be in key=value form"))?;
-        let dict = figment::util::nest(key, value.into());
-        run.config_data = run
-            .config_data
-            .merge(figment::providers::Serialized::defaults(dict));
-    }
-
     // Execute.
     match args.mode {
         Mode::ShowPlan => run.show(),
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
         Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
-        Mode::Run => run.emit_and_run(&workdir)?,
+        Mode::Run => run.emit_and_run(&workdir, false, args.quiet)?,
+        Mode::Cmds => run.emit_and_run(&workdir, true, false)?,
     }
 
     Ok(())
