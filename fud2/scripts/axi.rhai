@@ -65,8 +65,8 @@ fn axi_wrapped_op(e, input, output) {
    let axi_wrapper = "axi_wrapper.futil";
    e.build_cmd([axi_wrapper], "gen-axi", [tmp_yxi], []);
 
-   let no_imports_calyx = `no_imports_${refified_calyx}`;
-   e.build_cmd([no_imports_calyx], "remove-imports", [refified_calyx], []);
+   let no_imports_calyx = `no_imports_${file_name}`;
+   e.build_cmd([no_imports_calyx], "remove-imports", [input], []);
 
    e.build_cmd([output], "combine", [axi_wrapper, no_imports_calyx], []);
 }
