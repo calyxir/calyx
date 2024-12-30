@@ -16,8 +16,6 @@ If you would like to use `fud2` as is, and already have Calyx installed, you can
 If you would like to work on development of `fud2` and/or keep up with the latest changes when you `git pull`, you can build it along with everything else in this monorepo with `cargo build`.
 You might then want to do something like ``ln -s `pwd`/target/debug/fud2 ~/.local/bin`` for easy access to the `fud2` binary.
 
-
-
 fud2 depends on [Ninja][].
 Install it using your OS package manager or by downloading a binary.
 
