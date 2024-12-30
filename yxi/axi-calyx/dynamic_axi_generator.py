@@ -1,3 +1,7 @@
+# Implements an AXI controller which dynamically reads and writes data
+# in and out of the computational kernel as needed. Compare with the
+# read-compute-write implementation in the original `axi_generator`.
+
 from calyx.builder import (
     Builder,
     add_comp_ports,
