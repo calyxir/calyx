@@ -27,7 +27,7 @@ fn wrapper_setup(e) {
     let generator_path = if dynamic == "true" {
         "$calyx-base/yxi/axi-calyx/dynamic_axi_generator.py"
     } else {
-        "$calyx-base/yxi/axi-calyx/axi-generator.py"
+        "$calyx-base/yxi/axi-calyx/axi_generator.py"
     };
     e.config_var_or("axi-generator", "axi.generator", generator_path);
     e.config_var_or("python", "python", "python3");
@@ -37,6 +37,8 @@ fn wrapper_setup(e) {
     // Define a simple `combine` rule that just concatenates any numer of files.
     e.rule("combine", "cat $in > $out");
 
+    // Removes imports and `external` primitive blocks added by passes by removing
+    // everything up until the first line containing `component main`
     e.rule(
         "remove-imports",
         "sed '/^import/d' $in > $out",

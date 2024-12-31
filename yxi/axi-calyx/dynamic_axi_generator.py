@@ -1,11 +1,8 @@
-from calyx.builder import (
-    Builder,
-    add_comp_ports,
-    invoke,
-    par,
-    while_,
-    if_
-)
+# Implements an AXI controller which dynamically reads and writes data
+# in and out of the computational kernel as needed. Compare with the
+# read-compute-write implementation in the original `axi_generator`.
+
+from calyx.builder import Builder, add_comp_ports, invoke, par, while_, if_
 from axi_controller_generator import add_control_subordinate
 from typing import Literal
 from math import log2, ceil
@@ -21,11 +18,12 @@ GENERATE_FOR_XILINX = True
 width_key = "data_width"
 size_key = "total_size"
 name_key = "name"
-#This returns an array based on dimensions of memory
+# This returns an array based on dimensions of memory
 address_width_key = "idx_sizes"
 type_key = "memory_type"
 
-#TODO (nathanielnrn): Should we make these comb groups? 
+
+# TODO (nathanielnrn): Should we make these comb groups?
 def add_address_translator(prog, mem):
     address_width = mem[address_width_key][0]
     data_width = mem[width_key]
@@ -36,13 +34,14 @@ def add_address_translator(prog, mem):
     translator_output = [("axi_address", 64)]
     add_comp_ports(address_translator, translator_inputs, translator_output)
 
-    #Cells
-    #XRT expects 64 bit address.
-    address_mult = address_translator.const_mult(64, width_in_bytes(data_width), f"mul_{name}")
+    # Cells
+    # XRT expects 64 bit address.
+    address_mult = address_translator.const_mult(
+        64, width_in_bytes(data_width), f"mul_{name}"
+    )
     pad_input_addr = address_translator.pad(address_width, 64, f"pad_input_addr")
 
-
-    #Assignment
+    # Assignment
     with address_translator.continuous:
         pad_input_addr.in_ = address_translator.this()["calyx_mem_addr"]
         address_mult.in_ = pad_input_addr.out
@@ -113,12 +112,14 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         xhandshake_occurred.write_en = (~xhandshake_occurred.out) @ 1
 
         # Drive output signals for transfer
-        m_to_s_address_channel.this()[f"{x}ADDR"] = m_to_s_address_channel.this()["axi_address"]
+        m_to_s_address_channel.this()[f"{x}ADDR"] = m_to_s_address_channel.this()[
+            "axi_address"
+        ]
         # This is taken from mem size, we assume the databus width is the size
         # of our memory cell and that width is a power of 2
         # TODO(nathanielnrn): convert to binary instead of decimal
         m_to_s_address_channel.this()[f"{x}SIZE"] = width_xsize(mem[width_key])
-        #Dynamic accesses only need  asingle transfer per transcation
+        # Dynamic accesses only need  asingle transfer per transcation
         m_to_s_address_channel.this()[f"{x}LEN"] = 0
         m_to_s_address_channel.this()[f"{x}BURST"] = 1  # Must be INCR for XRT
         # Required by spec, we hardcode to privileged, non-secure, data access
@@ -130,11 +131,9 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         bt_reg.write_en = 1
         do_x_transfer.done = bt_reg.out
 
-
     # ARLEN must be between 0-255, make sure to subtract 1 from yxi
     # size when assigning to ARLEN
     # assert mem[size_key] < 256, "Memory size must be less than 256"
-
 
     m_to_s_address_channel.control += [
         par(
@@ -227,7 +226,7 @@ def add_read_channel(prog, mem):
     # Control
     invoke_n_RLAST = invoke(n_RLAST, in_in=1)
     # invoke_bt_reg = invoke(bt_reg, in_in=0)
-    
+
     # Could arguably get rid of this while loop for the dynamic verison, but this
     # matches nicely with non dynamic version and conforms to spec,
     # and will be easier to extend to variable length dynamic transfers in the future
@@ -245,11 +244,7 @@ def add_write_channel(prog, mem):
     name = mem[name_key]
     # Inputs/Outputs
     write_channel = prog.component(f"m_write_channel_{name}")
-    channel_inputs = [
-        ("ARESETn", 1),
-        ("WREADY", 1),
-        ("write_data", data_width)
-    ]
+    channel_inputs = [("ARESETn", 1), ("WREADY", 1), ("write_data", data_width)]
     # TODO(nathanielnrn): We currently assume WDATA is the same width as the
     # memory. This limits throughput many AXI data busses are much wider
     # i.e., 512 bits.
@@ -294,7 +289,7 @@ def add_write_channel(prog, mem):
         write_channel.this()["WLAST"] = 1
 
         # done after handshake
-        #TODO(nathanielnrn): Perhaps we can combine between handshake_occurred and bt_reg
+        # TODO(nathanielnrn): Perhaps we can combine between handshake_occurred and bt_reg
         bt_reg.in_ = (wvalid.out & WREADY) @ 1
         bt_reg.in_ = ~(wvalid.out & WREADY) @ 0
         bt_reg.write_en = 1
@@ -350,6 +345,7 @@ def add_bresp_channel(prog, mem):
     # Control
     bresp_channel.control += [invoke(bt_reg, in_in=0), block_transfer]
 
+
 def add_read_controller(prog, mem):
     add_arread_channel(prog, mem)
     add_read_channel(prog, mem)
@@ -377,17 +373,20 @@ def add_read_controller(prog, mem):
         (f"ARBURST", 2),
         (f"ARPROT", 3),
         (f"RREADY", 1),
-        #sent out to axi_dyn_mem
+        # sent out to axi_dyn_mem
         (f"read_data", data_width),
     ]
 
     add_comp_ports(read_controller, read_controller_inputs, read_controller_outputs)
 
-    #Cells
-    simple_ar_channel = read_controller.cell(f"ar_channel_{name}", prog.get_component(f"m_ar_channel_{name}"))
-    simple_read_channel = read_controller.cell(f"read_channel_{name}", prog.get_component(f"m_read_channel_{name}"))
+    # Cells
+    simple_ar_channel = read_controller.cell(
+        f"ar_channel_{name}", prog.get_component(f"m_ar_channel_{name}")
+    )
+    simple_read_channel = read_controller.cell(
+        f"read_channel_{name}", prog.get_component(f"m_read_channel_{name}")
+    )
     # No groups necesarry
-
 
     # Control
     #   Invokes
@@ -422,6 +421,7 @@ def add_read_controller(prog, mem):
         simple_read_invoke,
     ]
 
+
 def add_write_controller(prog, mem):
     add_awwrite_channel(prog, mem)
     add_write_channel(prog, mem)
@@ -455,12 +455,17 @@ def add_write_controller(prog, mem):
 
     add_comp_ports(write_controller, write_controller_inputs, write_controller_outputs)
 
-    #Cells
-    simple_aw_channel = write_controller.cell(f"aw_channel_{name}", prog.get_component(f"m_aw_channel_{name}"))
-    simple_write_channel = write_controller.cell(f"write_channel_{name}", prog.get_component(f"m_write_channel_{name}"))
-    simple_bresp_channel = write_controller.cell(f"bresp_channel_{name}", prog.get_component(f"m_bresp_channel_{name}"))
+    # Cells
+    simple_aw_channel = write_controller.cell(
+        f"aw_channel_{name}", prog.get_component(f"m_aw_channel_{name}")
+    )
+    simple_write_channel = write_controller.cell(
+        f"write_channel_{name}", prog.get_component(f"m_write_channel_{name}")
+    )
+    simple_bresp_channel = write_controller.cell(
+        f"bresp_channel_{name}", prog.get_component(f"m_bresp_channel_{name}")
+    )
     # No groups necesarry
-
 
     # Control
     #   Invokes
@@ -498,6 +503,7 @@ def add_write_controller(prog, mem):
         simple_bresp_invoke,
     ]
 
+
 def add_axi_dyn_mem(prog, mem):
     address_width = mem[address_width_key][0]
     data_width = mem[width_key]
@@ -506,7 +512,7 @@ def add_axi_dyn_mem(prog, mem):
     prog.import_("primitives/memories/dyn.futil")
     axi_dyn_mem = prog.component(f"axi_dyn_mem_{name}")
     # Inputs/Outputs
-    dyn_mem_inputs =[
+    dyn_mem_inputs = [
         ("addr0", address_width, [("write_together", 1), "data"]),
         ("content_en", 1, [("write_together", 1), ("go", 1)]),
         ("write_en", 1, [("write_together", 2)]),
@@ -606,13 +612,12 @@ def add_axi_dyn_mem(prog, mem):
             out_WDATA=this_component["WDATA"],
             out_BREADY=this_component["BREADY"],
     )
-    
+
     axi_dyn_mem.control += [
         latch_write_en,
         if_(write_en_reg.out, write_controller_invoke, read_controller_invoke)
     ]
 
-    
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
 def add_wrapper_comp(prog, mems):
@@ -746,7 +751,10 @@ def add_wrapper_comp(prog, mems):
 
         # TODO: Don't think these need to be marked external, but we
         # we need to raise them at some point form original calyx program
-        axi_mem = wrapper_comp.cell(f"axi_dyn_mem_{mem_name}", prog.get_component(f"axi_dyn_mem_{mem_name}"))
+        axi_mem = wrapper_comp.cell(
+            f"axi_dyn_mem_{mem_name}", prog.get_component(f"axi_dyn_mem_{mem_name}")
+        )
+
         # Wires
 
         with wrapper_comp.continuous:
@@ -759,7 +767,9 @@ def add_wrapper_comp(prog, mems):
             # Connect wrapper ports with axi_dyn_mem ports
 
             # Read controller portion inputs
-            axi_mem["ARESETn"] = wrapper_comp.this()[f"{mem_name}_ARESETn"] #note that both styles work
+            axi_mem["ARESETn"] = wrapper_comp.this()[
+                f"{mem_name}_ARESETn"
+            ]  # note that both styles work
             # wrapper_comp.this()[f"{mem_name}_ARESETn"] = axi_mem["ARESETn"] #note that both styles work
             axi_mem.ARREADY = wrapper_comp.this()[f"{mem_name}_ARREADY"]
             axi_mem.RVALID = wrapper_comp.this()[f"{mem_name}_RVALID"]
@@ -876,7 +886,9 @@ def check_mems_wellformed(mems):
             mem[width_key]
         ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
         assert mem[size_key] > 0, "Memory size must be greater than 0"
-        assert mem[type_key] == "Dynamic", "Only dynamic memories are currently supported for dynamic axi"
+        assert (
+            mem[type_key] == "Dynamic"
+        ), "Only dynamic memories are currently supported for dynamic axi"
 
 
 if __name__ == "__main__":
