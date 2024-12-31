@@ -675,6 +675,8 @@ def add_wrapper_comp(prog, mems):
     ]
 
     add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
+    # Naming the clock signal `ap_clk` ensures Xilinx tool compatability
+    wrapper_comp.input("ap_clk", 1, ["clk"])
     
     if GENERATE_FOR_XILINX:
         control_subordinate = wrapper_comp.cell(f"control_subordinate", prog.get_component("control_subordinate"))
