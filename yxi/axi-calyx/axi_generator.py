@@ -6,6 +6,7 @@ from calyx.builder import (
     Builder,
     add_comp_ports,
     invoke,
+    while_with,
     par,
     while_,
 )

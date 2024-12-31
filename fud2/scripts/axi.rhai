@@ -21,13 +21,13 @@ op(
 export let wrapper_setup = wrapper_setup;
 fn wrapper_setup(e) {
     // Define a `gen-axi` rule that invokes our Python code generator program.
-    // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
+    // For now point to standalone axi_generator.py. Can maybe turn this into a rsrc file?
     let dynamic =
         e.config_constrained_or("dynamic", ["true", "false"], "false");
     let generator_path = if dynamic == "true" {
         "$calyx-base/yxi/axi-calyx/dynamic_axi_generator.py"
     } else {
-        "$calyx-base/yxi/axi-calyx/axi-generator.py"
+        "$calyx-base/yxi/axi-calyx/axi_generator.py"
     };
     e.config_var_or("axi-generator", "axi.generator", generator_path);
     e.config_var_or("python", "python", "python3");
