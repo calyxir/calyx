@@ -31,13 +31,10 @@ set_property sdx_kernel true [ipx::current_core]
 set_property sdx_kernel_type rtl [ipx::current_core]
 
 # Declare bus interfaces.
-# NOTE: In the old version of our AXI wrapper `clk` was named `ap_clk`
-# TODO: Before merging change this back and update Calyx-AXI-wrapper to use ap_clk
-# (or do something else that doesnt break the old verilog-wrapper)
-ipx::associate_bus_interfaces -busif s_axi_control -clock clk [ipx::current_core]
+ipx::associate_bus_interfaces -busif s_axi_control -clock ap_clk [ipx::current_core]
 lvarpop argv
 foreach busname $argv {
-    ipx::associate_bus_interfaces -busif $busname -clock clk [ipx::current_core]
+    ipx::associate_bus_interfaces -busif $busname -clock ap_clk [ipx::current_core]
 }
 
 # Close & save the temporary project.
