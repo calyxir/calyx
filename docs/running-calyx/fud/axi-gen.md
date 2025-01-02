@@ -75,7 +75,7 @@ allow this.
 [pynq]: https://github.com/Xilinx/PYNQ
 [xclbin]: https://xilinx.github.io/XRT/2021.2/html/formats.html#xclbin
 [xilinx_tools]: https://github.com/calyxir/calyx/blob/master/docs/fud/xilinx.md
-[kernel_xml]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
+[kernel_xml]: https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/RTL-Kernel-XML-File
 [external]: https://docs.calyxir.org/lang/attributes.html?highlight=external#external
 [issues]: https://github.com/calyxir/calyx/issues
 [signals]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Signal-Descriptions?lang=en
@@ -83,4 +83,4 @@ allow this.
 [access_protection]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Transaction-Attributes/Access-permissions?lang=en
 [toplevel]: https://docs.calyxir.org/lang/attributes.html?highlight=toplevel#toplevel
 [xilinx_how]: https://docs.calyxir.org/running-calyx/fud/xilinx.html?highlight=synthesis#how-it-works
-[kernel_requirements]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
+[kernel_requirements]: https://docs.amd.com/r/en-US/ug1701-vitis-accelerated-embedded/RTL-Kernel-Interface-Requirements
