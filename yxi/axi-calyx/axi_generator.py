@@ -507,8 +507,6 @@ def add_main_comp(prog, mems):
         ]
 
         add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
-        # Naming the clock signal `ap_clk` ensures Xilinx tool compatability
-        wrapper_comp.input("ap_clk", 1, ["clk"])
 
         # Cells
         # Read stuff
