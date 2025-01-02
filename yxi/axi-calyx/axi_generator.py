@@ -1,3 +1,7 @@
+# The *original* axi generator which implement a read-compute-write sequence
+# to get data in and out of the computational kernel.
+# A `dynamic_axi_generator` also exists
+
 from calyx.builder import (
     Builder,
     add_comp_ports,
