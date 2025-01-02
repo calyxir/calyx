@@ -561,15 +561,32 @@ def dump_trace(trace, out_dir):
     with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
         json.dump(trace, json_out, indent = 2)
 
-def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
+# def compute_all_timeline(trace, cells_for_timeline, main_component, out_dir):
+#     cell_to_stackframe_info = {main_component : (2, 1)} # (stack_number, parent_stack_number)
+#     stack_number_acc = 3 # To guarantee that we get unique stack numbers when we need a new one
+#     currently_active = set()
+#     cell_to_stackframe_info["MAIN"] = (1, None)
+#     cell_to_stackframe_info["TOP.toplevel"] = (2, 1)
+
+#     for i in trace:
+#         active_this_cycle = set()
+#     return
+
+def compute_timeline(trace, cells_for_timeline, cells_to_components, main_component, out_dir):
     # cells_for_timeline should be a txt file with each line being a cell to display timeline info for.
     cells_to_curr_active = {}
     cells_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
-    with open(cells_for_timeline, "r") as ct_file:
-        for line in ct_file:
-            cell_to_track = line.strip()
-            cells_to_curr_active[cell_to_track] = -1
-            cells_to_closed_segments[cell_to_track] = []
+    if cells_for_timeline != "":
+        with open(cells_for_timeline, "r") as ct_file:
+            for line in ct_file:
+                cell_to_track = line.strip()
+                cells_to_curr_active[cell_to_track] = -1
+                cells_to_closed_segments[cell_to_track] = []
+    else: # get all cells lol
+        for cell in sorted(cells_to_components.keys(), key=(lambda x : x.count("."))):
+            if cell != main_component:
+                cells_to_curr_active[cell] = -1
+                cells_to_closed_segments[cell] = []
     # do the most naive thing for now. improve later?
     currently_active = set()
     for i in trace:
@@ -598,7 +615,7 @@ def compute_timeline(trace, cells_for_timeline, main_component, out_dir):
     pt_id = 2
     for cell in cells_to_closed_segments:
         for closed_segment in cells_to_closed_segments[cell]:
-            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : pt_id, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
+            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : 1, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
             events.append(start_event)
             end_event = start_event.copy()
             end_event["ph"] = "E"
@@ -639,14 +656,11 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
 
-    # if len(converter.trace) < 100:
-    limit = 100
-    for i in converter.trace:
-        if i == limit:
-            break
-        print(i)
-        for stack in converter.trace[i]:
-            print(f"\t{stack}")
+    if len(converter.trace) < 100:
+        for i in converter.trace:
+            print(i)
+            for stack in converter.trace[i]:
+                print(f"\t{stack}")
 
     tree_dict, path_dict = create_tree(converter.trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
@@ -656,8 +670,8 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     create_flame_groups(converter.trace, flame_out, out_dir)
     # dump_trace(converter.trace, out_dir)
     print(f"Cells for timeline: {cells_for_timeline}")
-    if cells_for_timeline != "":
-        compute_timeline(converter.trace, cells_for_timeline, main_component, out_dir)
+    # if cells_for_timeline != "":
+    compute_timeline(converter.trace, cells_for_timeline, cells_to_components, main_component, out_dir)
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
