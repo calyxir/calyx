@@ -9105,6 +9105,7 @@ assign invoke1_done_in = read_controller_Sum0_done;
 // COMPONENT END: axi_dyn_mem_Sum0
 endmodule
 module wrapper(
+  input logic ap_clk,
   input logic A0_ARESETn,
   input logic A0_ARREADY,
   input logic A0_RVALID,
@@ -9199,7 +9200,6 @@ module wrapper(
   output logic Sum0_WID,
   output logic Sum0_BID,
   input logic go,
-  input logic clk,
   input logic reset,
   output logic done
 );
@@ -9507,7 +9507,7 @@ assign axi_dyn_mem_A0_write_en =
   _guard1 ? main_compute_A0_write_en :
   1'd0;
 assign axi_dyn_mem_A0_RDATA = A0_RDATA;
-assign axi_dyn_mem_A0_clk = clk;
+assign axi_dyn_mem_A0_clk = ap_clk;
 assign axi_dyn_mem_A0_addr0 =
   _guard2 ? main_compute_A0_addr0 :
   3'd0;
@@ -9527,7 +9527,7 @@ assign axi_dyn_mem_Sum0_write_en =
   _guard4 ? main_compute_Sum0_write_en :
   1'd0;
 assign axi_dyn_mem_Sum0_RDATA = Sum0_RDATA;
-assign axi_dyn_mem_Sum0_clk = clk;
+assign axi_dyn_mem_Sum0_clk = ap_clk;
 assign axi_dyn_mem_Sum0_addr0 =
   _guard5 ? main_compute_Sum0_addr0 :
   3'd0;
@@ -9613,7 +9613,7 @@ assign main_compute_B0_read_data =
 assign main_compute_Sum0_done =
   _guard11 ? axi_dyn_mem_Sum0_done :
   1'd0;
-assign main_compute_clk = clk;
+assign main_compute_clk = ap_clk;
 assign main_compute_B0_done =
   _guard12 ? axi_dyn_mem_B0_done :
   1'd0;
@@ -9631,7 +9631,7 @@ assign axi_dyn_mem_B0_write_en =
   _guard15 ? main_compute_B0_write_en :
   1'd0;
 assign axi_dyn_mem_B0_RDATA = B0_RDATA;
-assign axi_dyn_mem_B0_clk = clk;
+assign axi_dyn_mem_B0_clk = ap_clk;
 assign axi_dyn_mem_B0_addr0 =
   _guard16 ? main_compute_B0_addr0 :
   3'd0;

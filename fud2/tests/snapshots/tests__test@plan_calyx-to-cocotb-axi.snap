@@ -26,7 +26,7 @@ rule make-cocotb
 rule copy
   command = cp $in $out
 rule cleanup-cocotb
-  command = sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out
+  command = sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p;}' $in > $out
 
 build Makefile: copy $cocotb-makefile-dir/Makefile
 build axi_test.py: copy $cocotb-makefile-dir/axi_test.py
