@@ -7,7 +7,9 @@ import vcdvcd
 
 DELIMITER = "___"
 INVISIBLE = "gray"
-ACTIVE_PRIMITIVE_COLOR="lemonchiffon"
+ACTIVE_CELL_COLOR="pink"
+ACTIVE_GROUP_COLOR="mediumspringgreen"
+ACTIVE_PRIMITIVE_COLOR="orange"# "lemonchiffon"
 TREE_PICTURE_LIMIT=300
 SCALED_FLAME_MULTIPLIER=1000 # multiplier so scaled flame graph will not round up.
 ts_multiplier = 1 # #ms on perfetto UI that resembles a single cycle
@@ -429,9 +431,11 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
         # declare nodes
         for node in leaf_nodes_dict:
             if "primitive" in tree_dict[node]:
-                f.write(f'\t{node} [label="{tree_dict[node]}"];\n')
+                f.write(f'\t{node} [label="{tree_dict[node]}", style=filled, color="{ACTIVE_PRIMITIVE_COLOR}"];\n')
+            elif "[" in tree_dict[node] or "main" == tree_dict[node]:
+                f.write(f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})", style=filled, color="{ACTIVE_CELL_COLOR}"];\n')
             else:
-                f.write(f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})"];\n')
+                f.write(f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})", style=filled, color="{ACTIVE_GROUP_COLOR}"];\n')
         # write edges with labels
         for edge in edges_dict:
             f.write(f'\t{edge} [label="{edges_dict[edge]}"]; \n')
