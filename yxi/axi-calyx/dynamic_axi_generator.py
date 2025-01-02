@@ -639,6 +639,8 @@ def add_wrapper_comp(prog, mems):
     main_compute = wrapper_comp.comp_instance(
         "main_compute", "main", check_undeclared=False
     )
+    # Naming the clock signal `ap_clk` ensures Xilinx tool compatability
+    wrapper_comp.input("ap_clk", 1, ["clk"])
 
     # Generate XRT Control Ports for AXI Lite Control Subordinate,
     # must be prefixed with `s_axi_control`

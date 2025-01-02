@@ -40,12 +40,9 @@ class KernelTB:
             # i.e m0_axi_RDATA.
             # These prefixes have to match verilog code. See kernel.xml <args>
             # and ports assigned within that for guidance.
-            # In general, the index of `m<idx>_axi` just
-            # increments by 1 in fud axi generation
-            #print(f"mem is: {mem}")
             rams[mem] = AxiRam(
                 AxiBus.from_prefix(self.toplevel, f"{mem}"),
-                self.toplevel.clk,
+                self.toplevel.ap_clk,
                 reset = self.toplevel.reset,
                 # self.toplevel.ap_rst_n,
                 size=size,
@@ -64,7 +61,7 @@ class KernelTB:
     async def init_toplevel(self):
         await Timer(50, "ns")
         self.toplevel.reset.value = 1
-        await ClockCycles(self.toplevel.clk, 5)
+        await ClockCycles(self.toplevel.ap_clk, 5)
         self.toplevel.reset.value = 0
         self.toplevel.go.value = 1
 
@@ -82,10 +79,10 @@ async def run_kernel_test(toplevel, data_path: str):
 
     
     # set up clock of 2ns period, simulator default timestep is 1ps
-    cocotb.start_soon(Clock(toplevel.clk, 2, units="ns").start())
+    cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
     await tb.init_toplevel()
     await Timer(100, "ns")
-    await FallingEdge(toplevel.clk)
+    await FallingEdge(toplevel.ap_clk)
 
     # Finish when ap_done is high or 100 us of simulation have passed.
     timeout = 5000
