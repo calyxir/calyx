@@ -34,7 +34,7 @@ component m_arread_channel(
   // 2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
   // are doing I believe), should match width of data bus (to shell?, so 32 wide? This
   // is 3'b010)
-  // see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
+  // see https://docs.amd.com/r/en-US/ug1701-vitis-accelerated-embedded/RTL-Kernel-Interface-Requirements
   // for restrictions
   ARSIZE: 3,
   // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.

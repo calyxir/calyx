@@ -11,7 +11,7 @@ pub struct XilinxXmlBackend;
 /// The root element of the `kernel.xml` file that describes an `.xo` package for the
 /// Xilinx toolchain, as documented [in the Vitis user guide][ug].
 ///
-/// [ug]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
+/// [ug]: https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/RTL-Kernel-XML-File
 #[derive(Serialize)]
 #[serde(rename = "root")]
 struct Root<'a> {
