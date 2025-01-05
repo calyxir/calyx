@@ -562,15 +562,16 @@ fud exec -s calyx.exec './target/debug/calyx' \
 name = "correctness HardFloat floating point"
 paths = ["tests/correctness/hardfloat/*.futil"]
 cmd = """
-cd primitives/float && ./get_hardfloat.sh > /dev/null 2>&1 && cd ../../ &&
+if [ ! -d "primitives/float/HardFloat-1" ]; then
+  bash primitives/float/get_hardfloat.sh > /dev/null 2>&1
+fi &&
 fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s verilog.data {}.data \
          -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
-         {} -q &&
-rm -rf primitives/float/HardFloat-1/
+         {} -q
 """
 expect_dir = "tests/correctness/hardfloat/"
 timeout = 30
