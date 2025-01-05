@@ -557,6 +557,23 @@ fud exec -s calyx.exec './target/debug/calyx' \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
+## Tests HardFloat library
+[[tests]]
+name = "correctness HardFloat floating point"
+paths = ["tests/correctness/hardfloat/*.futil"]
+cmd = """
+cd primitives/float && ./get_hardfloat.sh > /dev/null 2>&1 && cd ../../ &&
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s verilog.data {}.data \
+         -s calyx.exec './target/debug/calyx' \
+         -s verilog.cycle_limit 500 \
+         {} -q
+"""
+expect_dir = "tests/correctness/hardfloat/"
+timeout = 20
+
 ##### Examples #####
 
 [[tests]]
