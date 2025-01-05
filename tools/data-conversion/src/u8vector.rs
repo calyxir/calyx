@@ -2,17 +2,14 @@ use crate::ir::IntermediateRepresentation;
 use num_bigint::{BigInt, BigUint};
 use num_traits::One;
 
-pub fn binary_to_u8_vec(
-    binary_string: &str,
-    is_negative: bool,
-) -> Result<Vec<u8>, String> {
+pub fn binary_to_u8_vec(binary_string: &str) -> Result<Vec<u8>, String> {
     // Determine the necessary length to pad to the nearest multiple of 8 bits
     let total_length = ((binary_string.len() + 7) / 8) * 8;
 
-    // Determine the padding character based on the sign
-    let padding_char = if is_negative { '1' } else { '0' };
+    // Get the most significant bit; default to '0' if the string is empty
+    let padding_char = binary_string.chars().next().unwrap_or('0');
 
-    // Pad the binary string
+    // Pad the binary string with the most significant bit
     let current_len = binary_string.len();
     let padded_binary_string = if current_len >= total_length {
         binary_string.to_string()
@@ -140,7 +137,7 @@ pub fn u8_to_ir_float(
                 let bit = (vec[byte_index] >> (7 - bit_index)) & 1; // Get the i-th bit
 
                 // Shift the mantissa left and add the new bit
-                mantissa <<= 1; 
+                mantissa <<= 1;
                 if bit == 1 {
                     // If bit is 1, add 1 to the mantissa
                     mantissa |= BigUint::one()
