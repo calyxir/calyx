@@ -404,9 +404,7 @@ impl Backend for VerilogBackend {
                 true, // By default, propagate defines from first files to the following files
                 false, // By default, keep the time units
             )
-            .map_err(|err| {
-                Error::write_error(format!("{}", err.to_string()))
-            })?;
+            .map_err(|err| Error::write_error(format!("{}", err)))?;
         }
         // Rewind to the start of the temporary file so that we can read the content
         temp_writer.seek(SeekFrom::Start(0)).map_err(|_| {
