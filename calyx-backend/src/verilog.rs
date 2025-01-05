@@ -9,6 +9,7 @@ use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
 use morty::{FileBundle, LibraryBundle};
+use std::env;
 use std::io;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::{collections::HashMap, collections::HashSet, path::PathBuf, rc::Rc};
@@ -146,6 +147,78 @@ trait LibraryHandlerTrait {
         }
 
         Ok(library_files)
+    }
+}
+
+struct HardFloatHandler;
+impl LibraryHandlerTrait for HardFloatHandler {
+    fn add_incs(&self) -> CalyxResult<Vec<PathBuf>> {
+        let current_dir = env::current_dir()
+            .map_err(|e| Error::invalid_file(e.to_string()))?;
+
+        let source_path =
+            current_dir.join("primitives/float/HardFloat-1/source/");
+        let riscv_path = source_path.join("RISCV/");
+
+        let mut inc_paths = Vec::new();
+
+        if source_path.exists()
+            && std::fs::metadata(&source_path)
+                .map(|m| m.is_dir())
+                .unwrap_or(false)
+        {
+            inc_paths.push(source_path);
+        } else {
+            return Err(Error::invalid_file(
+                "Invalid path for HardFloat source directory",
+            ));
+        }
+
+        if riscv_path.exists()
+            && std::fs::metadata(&riscv_path)
+                .map(|m| m.is_dir())
+                .unwrap_or(false)
+        {
+            inc_paths.push(riscv_path);
+        } else {
+            return Err(Error::invalid_file(
+                "Invalid path for HardFloat RISC-V directory",
+            ));
+        }
+
+        Ok(inc_paths)
+    }
+    fn add_library_dirs(&self) -> CalyxResult<Vec<PathBuf>> {
+        let current_dir = env::current_dir()
+            .map_err(|e| Error::invalid_file(e.to_string()))?;
+
+        let source_path =
+            current_dir.join("primitives/float/HardFloat-1/source/");
+
+        let mut inc_paths = Vec::new();
+
+        if source_path.exists()
+            && std::fs::metadata(&source_path)
+                .map(|m| m.is_dir())
+                .unwrap_or(false)
+        {
+            inc_paths.push(source_path);
+        } else {
+            return Err(Error::invalid_file(
+                "Invalid path for HardFloat source directory",
+            ));
+        }
+
+        Ok(inc_paths)
+    }
+    fn add_defs(&self) -> CalyxResult<HashMap<String, Option<String>>> {
+        Ok(HashMap::new())
+    }
+    fn add_stdin_incdirs(&self) -> CalyxResult<Vec<PathBuf>> {
+        self.add_incs()
+    }
+    fn add_export_incdirs(&self) -> CalyxResult<HashMap<String, Vec<String>>> {
+        Ok(HashMap::new())
     }
 }
 
@@ -303,7 +376,8 @@ impl Backend for VerilogBackend {
         })?;
 
         if check_library_needed(ctx) {
-            let handlers: Vec<Box<dyn LibraryHandlerTrait>> = Vec::new();
+            let handlers: Vec<Box<dyn LibraryHandlerTrait>> =
+                vec![Box::new(HardFloatHandler)];
             // Special libraries (like HardFloat) are needed, run Morty to pickle the files
             let library_bundle =
                 build_library_bundle(ctx, &temp_file, &handlers)?;
