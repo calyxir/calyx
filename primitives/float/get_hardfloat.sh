@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HARDFLOAT_DIR="."
+HARDFLOAT_DIR="$PWD"
 
 HARDFLOAT_URL="http://www.jhauser.us/arithmetic/HardFloat-1.zip"
 

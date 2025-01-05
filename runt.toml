@@ -569,10 +569,11 @@ fud exec --from calyx --to jq \
          -s verilog.data {}.data \
          -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
-         {} -q
+         {} -q &&
+rm -rf primitives/float/HardFloat-1/
 """
 expect_dir = "tests/correctness/hardfloat/"
-timeout = 20
+timeout = 30
 
 ##### Examples #####
 
