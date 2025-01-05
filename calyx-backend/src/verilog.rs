@@ -8,9 +8,12 @@ use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use morty::{FileBundle, LibraryBundle};
 use std::io;
-use std::{collections::HashMap, rc::Rc};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::{collections::HashMap, collections::HashSet, path::PathBuf, rc::Rc};
 use std::{fs::File, time::Instant};
+use tempfile::NamedTempFile;
 use vast::v17::ast as v;
 
 /// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
@@ -90,6 +93,145 @@ fn validate_control(ctrl: &ir::Control) -> CalyxResult<()> {
     }
 }
 
+/// Each external library has its own specific handler to build all information that Morty needs to do pickling. We can implement each command line argument (see https://github.com/pulp-platform/morty/blob/master/src/main.rs for available arguments) as a trait's method.
+trait LibraryHandlerTrait {
+    /// Add search path(s) for SystemVerilog includes to build a LibraryBundle
+    fn add_incs(&self) -> CalyxResult<Vec<PathBuf>>;
+    /// Directory(s) to search for SystemVerilog modules
+    fn add_library_dirs(&self) -> CalyxResult<Vec<PathBuf>>;
+    /// Define preprocesor macro(s)
+    fn add_defs(&self) -> CalyxResult<HashMap<String, Option<String>>>;
+    /// Add search path(s) for SystemVerilog includes to build a FileBundle
+    fn add_stdin_incdirs(&self) -> CalyxResult<Vec<PathBuf>>;
+    /// Add export include directories
+    fn add_export_incdirs(&self) -> CalyxResult<HashMap<String, Vec<String>>>;
+    /// Create a map from module name to file path
+    fn map_module_names_to_file_paths(
+        &self,
+    ) -> CalyxResult<HashMap<String, PathBuf>> {
+        // a hashmap from 'module name' to 'path' for all libraries.
+        let mut library_files = HashMap::new();
+        // a list of paths for all library files
+        let mut library_paths: Vec<PathBuf> = Vec::new();
+
+        // we first accumulate all library files from the 'library_dir' and 'library_file' options into
+        // a vector of paths, and then construct the library hashmap.
+        let library_dirs: Vec<PathBuf> = self.add_library_dirs()?;
+        for dir in library_dirs {
+            let entries = std::fs::read_dir(&dir).map_err(|e| {
+                Error::invalid_file(format!(
+                    "Error accessing library directory `{:?}`: {}",
+                    dir, e
+                ))
+            })?;
+
+            for entry in entries {
+                let entry = entry.map_err(|e| {
+                    Error::invalid_file(format!(
+                        "Error reading entry in directory `{:?}`: {}",
+                        dir, e
+                    ))
+                })?;
+                library_paths.push(entry.path());
+            }
+        }
+
+        for p in &library_paths {
+            // Must have the library extension (.v or .sv).
+            if morty::has_libext(p) {
+                if let Some(m) = morty::lib_module(p) {
+                    library_files.insert(m, p.to_owned());
+                }
+            }
+        }
+
+        Ok(library_files)
+    }
+}
+
+/// Check if any special library is needed
+fn check_library_needed(ctx: &ir::Context) -> bool {
+    ctx.lib
+        .extern_paths()
+        .iter()
+        .any(|path| path.to_string_lossy().contains("float"))
+}
+
+/// Collect all included files specified by the Calyx source file
+fn collect_included_files(ctx: &ir::Context) -> Vec<String> {
+    ctx.lib
+        .extern_paths()
+        .into_iter()
+        .map(|pb| pb.to_string_lossy().into_owned())
+        .collect()
+}
+
+/// Build the library bundle for all libraries needed for pickling
+fn build_library_bundle(
+    ctx: &ir::Context,
+    calyx_emitted_file: &NamedTempFile,
+    handlers: &Vec<Box<dyn LibraryHandlerTrait>>,
+) -> CalyxResult<LibraryBundle> {
+    let mut included_files = collect_included_files(ctx);
+    included_files
+        .push(calyx_emitted_file.path().to_string_lossy().to_string()); // `calyx_emitted_file` is used as part of the source files
+    let mut include_dirs = Vec::new();
+    let mut defines = HashMap::new();
+    let mut files = HashMap::new();
+    for handler in handlers {
+        include_dirs.extend(handler.add_incs()?);
+        defines.extend(handler.add_defs()?);
+        files.extend(handler.map_module_names_to_file_paths()?);
+    }
+    let main_module = String::from(ctx.entrypoint.id.as_str());
+    files.insert(main_module, calyx_emitted_file.path().to_path_buf());
+
+    let include_dirs: Vec<String> = include_dirs
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect();
+    Ok(LibraryBundle {
+        include_dirs,
+        defines,
+        files,
+    })
+}
+
+/// Build a list of `FileBundle`s needed for building the syntax tree
+fn derive_file_list(
+    ctx: &ir::Context,
+    file: &NamedTempFile,
+    handlers: &Vec<Box<dyn LibraryHandlerTrait>>,
+) -> CalyxResult<Vec<FileBundle>> {
+    let mut file_bundles = Vec::new();
+    for handler in handlers {
+        let stdin_incdirs = handler.add_stdin_incdirs()?;
+        let include_dirs: Vec<String> = stdin_incdirs
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+        let export_incdirs = handler.add_export_incdirs()?;
+        let defines = handler.add_defs()?;
+        let mut files = handler.map_module_names_to_file_paths()?;
+
+        let main_module = String::from(ctx.entrypoint.id.as_str());
+        files.insert(main_module, file.path().to_path_buf());
+
+        let mut included_files = collect_included_files(ctx);
+        for lib_file in files.values() {
+            included_files.push(String::from(lib_file.to_str().unwrap()));
+        }
+
+        file_bundles.push(FileBundle {
+            include_dirs,
+            export_incdirs,
+            defines,
+            files: included_files,
+        });
+    }
+    Ok(file_bundles)
+}
+
 impl Backend for VerilogBackend {
     fn name(&self) -> &'static str {
         "verilog"
@@ -103,35 +245,42 @@ impl Backend for VerilogBackend {
         Ok(())
     }
 
-    /// Generate a "fat" library by copy-pasting all of the extern files.
-    /// A possible alternative in the future is to use SystemVerilog `include`
-    /// statement.
+    /// If no special libraries are needed, generate a "fat" library by copy-pasting all of the extern files.
     fn link_externs(
         ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
-        let fw = &mut file.get_write();
-        for extern_path in &ctx.lib.extern_paths() {
-            // The extern file is guaranteed to exist by the frontend.
-            let mut ext = File::open(extern_path).unwrap();
-            io::copy(&mut ext, fw).map_err(|err| {
-                let std::io::Error { .. } = err;
-                Error::write_error(format!(
-                    "File not found: {}",
-                    file.as_path_string()
-                ))
-            })?;
-            // Add a newline after appending a library file
-            writeln!(fw)?;
+        // If we need special libraries (like HardFloat), run Morty to pickle the files in the `emit` stage. We postpone linking extern special libraries because Morty needs all emitted information to do pickle. We could soley use Morty, but currently it eliminates the body inside `ifndef-endif`. Also discussed in here: https://github.com/pulp-platform/morty/issues/49
+        if !check_library_needed(ctx) {
+            let fw = &mut file.get_write();
+            for extern_path in &ctx.lib.extern_paths() {
+                let mut ext = File::open(extern_path).unwrap();
+                io::copy(&mut ext, fw).map_err(|err| {
+                    let std::io::Error { .. } = err;
+                    Error::write_error(format!(
+                        "File not found: {}",
+                        file.as_path_string()
+                    ))
+                })?;
+                writeln!(fw)?;
+            }
         }
-        for (prim, _) in ctx.lib.prim_inlines() {
-            emit_prim_inline(prim, fw)?;
-        }
+
         Ok(())
     }
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let out = &mut file.get_write();
+        // Create a temporary file as an intermediate storage to emit inline primtives and components to. This temporary file will be used as one of the source SystemVerilog file for Morty to do pickle.
+        let temp_file = tempfile::NamedTempFile::new().map_err(|_| {
+            Error::write_error("Failed to create a temporary file".to_string())
+        })?;
+        let mut temp_writer = temp_file.as_file();
+
+        // Write inline primitives
+        for (prim, _) in ctx.lib.prim_inlines() {
+            emit_prim_inline(prim, &mut temp_writer)?;
+        }
+
         let comps = ctx.components.iter().try_for_each(|comp| {
             // Time the generation of the component.
             let time = Instant::now();
@@ -140,7 +289,7 @@ impl Backend for VerilogBackend {
                 ctx.bc.synthesis_mode,
                 ctx.bc.enable_verification,
                 ctx.bc.flat_assign,
-                out,
+                &mut temp_writer,
             );
             log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
             out
@@ -151,7 +300,62 @@ impl Backend for VerilogBackend {
                 "File not found: {}",
                 file.as_path_string()
             ))
-        })
+        })?;
+
+        if check_library_needed(ctx) {
+            let handlers: Vec<Box<dyn LibraryHandlerTrait>> = Vec::new();
+            // Special libraries (like HardFloat) are needed, run Morty to pickle the files
+            let library_bundle =
+                build_library_bundle(ctx, &temp_file, &handlers)?;
+
+            let file_list = derive_file_list(ctx, &temp_file, &handlers)?;
+            let syntax_trees = morty::build_syntax_tree(
+                &file_list, false, // By default, don't strip comments
+                false, // By default, don't ignore unparseable
+                true, // By default, propagate defines from first files to the following files
+                false, // By default, don't force sequential
+            )
+            .unwrap();
+            let top_module = ctx.entrypoint.to_string();
+            let _pickled = morty::do_pickle(
+                None::<&String>, // By default, don't need to prepend a name to all global names
+                None::<&String>, // By default, don't need to append a name to all global names
+                HashSet::new(), // By default, don't specify module, interface, package that should not be renamed; instead, let morty to dictate the behavior
+                HashSet::new(), // By default, don't specify module, interface, package that shouldn't be included in the pickled file list; instead, we let morty to dictate the behavior
+                library_bundle,
+                syntax_trees,
+                Box::new(temp_file.reopen()?) as Box<dyn Write>,
+                Some(&top_module),
+                true, // By default, keep defines to prevent removal of `define` statements
+                true, // By default, propagate defines from first files to the following files
+                false, // By default, keep the time units
+            )
+            .map_err(|err| {
+                Error::write_error(format!("{}", err.to_string()))
+            })?;
+        }
+        // Rewind to the start of the temporary file so that we can read the content
+        temp_writer.seek(SeekFrom::Start(0)).map_err(|_| {
+            Error::write_error(
+                "Failed to rewind the temporary file".to_string(),
+            )
+        })?;
+        // Read from the temporary file and write to the user-specified output `file`
+        let mut temp_content = String::new();
+        temp_writer.read_to_string(&mut temp_content).map_err(|_| {
+            Error::write_error("Failed to read from temporary file".to_string())
+        })?;
+
+        let mut final_writer = file.get_write();
+        final_writer
+            .write_all(temp_content.as_bytes())
+            .map_err(|err| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Write failed: {}", err),
+                )
+            })?;
+        Ok(())
     }
 }
 
