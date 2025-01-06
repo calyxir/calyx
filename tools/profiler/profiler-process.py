@@ -9,10 +9,10 @@ DELIMITER = "___"
 INVISIBLE = "gray"
 ACTIVE_CELL_COLOR="pink"
 ACTIVE_GROUP_COLOR="mediumspringgreen"
-ACTIVE_PRIMITIVE_COLOR="orange"# "lemonchiffon"
+ACTIVE_PRIMITIVE_COLOR="orange"
 TREE_PICTURE_LIMIT=300
 SCALED_FLAME_MULTIPLIER=1000 # multiplier so scaled flame graph will not round up.
-ts_multiplier = 1 # #ms on perfetto UI that resembles a single cycle
+ts_multiplier = 1 #ms on perfetto UI that resembles a single cycle
 
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
@@ -187,7 +187,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         main_done = True
                     cell_active.remove(cell)
                     current_segment = self.cell_to_active_cycles[cell][-1]
-                    current_segment["end"] = clock_cycles # janky?
+                    current_segment["end"] = clock_cycles
                     current_segment["length"] = clock_cycles - current_segment["start"]
                 # process all probes.
                 for probe_label in probe_labels_to_sets:
@@ -654,9 +654,7 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     create_flame_groups(converter.trace, flame_out, out_dir)
-    # dump_trace(converter.trace, out_dir)
-    print(f"Cells for timeline: {cells_for_timeline}")
-    # if cells_for_timeline != "":
+    print(f"Cells for timeline file (will produce a timeline for all cells if empty): {cells_for_timeline}")
     compute_timeline(converter.trace, cells_for_timeline, cells_to_components, main_component, out_dir)
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
