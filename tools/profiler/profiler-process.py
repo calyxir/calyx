@@ -547,17 +547,6 @@ def dump_trace(trace, out_dir):
     with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
         json.dump(trace, json_out, indent = 2)
 
-# def compute_all_timeline(trace, cells_for_timeline, main_component, out_dir):
-#     cell_to_stackframe_info = {main_component : (2, 1)} # (stack_number, parent_stack_number)
-#     stack_number_acc = 3 # To guarantee that we get unique stack numbers when we need a new one
-#     currently_active = set()
-#     cell_to_stackframe_info["MAIN"] = (1, None)
-#     cell_to_stackframe_info["TOP.toplevel"] = (2, 1)
-
-#     for i in trace:
-#         active_this_cycle = set()
-#     return
-
 def compute_timeline(trace, cells_for_timeline, cells_to_components, main_component, out_dir):
     # cells_for_timeline should be a txt file with each line being a cell to display timeline info for.
     cells_to_curr_active = {}
