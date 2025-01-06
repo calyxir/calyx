@@ -1,5 +1,8 @@
 use smallvec::{smallvec, SmallVec};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 // TODO(griffin): Replace with cranelift_entity if this ends up being the same
 pub trait IndexRef: Copy + Eq {
     fn index(&self) -> usize;
@@ -8,6 +11,7 @@ pub trait IndexRef: Copy + Eq {
 
 /// A half open range of indices. The start is inclusive, the end is exclusive.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct IndexRange<I>
 where
     I: IndexRef + PartialOrd,

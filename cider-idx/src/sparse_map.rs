@@ -3,7 +3,11 @@ use std::{hash::Hash, ops::Index};
 use super::index_trait::{IndexRange, IndexRef};
 use ahash::{HashMap, HashMapExt};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SparseMap<K, D>
 where
     K: IndexRef + Hash + PartialOrd,
@@ -118,10 +122,11 @@ where
     }
 }
 
-/// An analogue to [AuxiliaryMap](super::indexed_map::AuxiliaryMap) for sparse
+/// An analogue to [SecondaryMap](super::maps::SecondaryMap) for sparse
 /// maps. This is used to store extra information that is only applicable to a
 /// subset of the indices in a primary map.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecondarySparseMap<K, D>
 where
     K: IndexRef + Hash,

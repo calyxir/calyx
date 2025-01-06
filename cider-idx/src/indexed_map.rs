@@ -4,7 +4,11 @@ use std::{
     ops::{self, Index},
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct IndexedMap<K, D>
 where
     K: IndexRef,
@@ -182,6 +186,7 @@ where
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecondaryMap<K, D>
 where
     K: IndexRef,
