@@ -1,3 +1,4 @@
+use cider_idx::{iter::SplitIndexRange, maps::IndexedMap, IndexRef};
 use itertools::Itertools;
 
 use crate::{
@@ -18,7 +19,6 @@ use crate::{
                 clock::{new_clock_pair, ClockMap, ValueWithClock},
                 PortMap,
             },
-            index_trait::{IndexRef, SplitIndexRange},
             thread::{ThreadIdx, ThreadMap},
         },
     },
@@ -309,10 +309,7 @@ impl<const SEQ: bool> MemDx<SEQ> {
 
     fn compute_address(
         &self,
-        port_map: &crate::flatten::structures::indexed_map::IndexedMap<
-            GlobalPortIdx,
-            PortValue,
-        >,
+        port_map: &IndexedMap<GlobalPortIdx, PortValue>,
         addr0: GlobalPortIdx,
         addr1: GlobalPortIdx,
         addr2: GlobalPortIdx,

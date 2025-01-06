@@ -1,7 +1,6 @@
 use ahash::{HashMap, HashMapExt};
+use cider_idx::{impl_index, IndexRef};
 use std::hash::Hash;
-
-use crate::flatten::structures::index_trait::{impl_index, IndexRef};
 
 /// An index type corresponding to a string.
 ///

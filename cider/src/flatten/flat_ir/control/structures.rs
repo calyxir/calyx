@@ -1,12 +1,7 @@
+use cider_idx::{impl_index, iter::IndexRange, maps::IndexedMap};
 use smallvec::SmallVec;
 
-use crate::flatten::{
-    flat_ir::prelude::*,
-    structures::{
-        index_trait::{impl_index, IndexRange},
-        indexed_map::IndexedMap,
-    },
-};
+use crate::flatten::flat_ir::prelude::*;
 
 /// An index representing a control statement
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd)]

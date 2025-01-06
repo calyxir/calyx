@@ -1,0 +1,11 @@
+[package]
+name = "cider-idx"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+version = "0.1.0"
+
+[dependencies]
+ahash = "0.8.3"
+smallvec = { workspace = true, features = ["union", "const_generics"] }
