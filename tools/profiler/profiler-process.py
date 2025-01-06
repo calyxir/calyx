@@ -13,16 +13,6 @@ ACTIVE_PRIMITIVE_COLOR="orange"# "lemonchiffon"
 TREE_PICTURE_LIMIT=300
 SCALED_FLAME_MULTIPLIER=1000 # multiplier so scaled flame graph will not round up.
 ts_multiplier = 1 # #ms on perfetto UI that resembles a single cycle
-class Node:
-    def __init__(self, name, type, cell_component=""):
-        self.shortname = name
-        self.type = type # group, (non-primitive) cell, primitive
-
-    def stack_name(self):
-        if self.type == "cell":
-            return f"{self.shortname} [{self.type}]"
-        elif self.type == "primitive":
-            return f"{self.shortname} (primitive)"
 
 def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
@@ -47,7 +37,6 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
             shortname = active_unit.split(".")[-1]
             if active_unit not in structural_enables:
                 i_mapping[active_unit] = i_mapping[current_cell] + [shortname]
-                # i_mapping[active_unit] = i_mapping[current_cell] + [Node(shortname, "group")]
                 parents.add(current_cell)
                 covered_units_in_component.add(active_unit)
         # get all of the other active units
@@ -61,7 +50,6 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                     parent = f"{current_cell}.{parent_group}"
                     if parent in i_mapping:
                         i_mapping[active_unit] = i_mapping[parent] + [shortname]
-                        # i_mapping[active_unit] = i_mapping[parent] + [Node(shortname, "group")]
                         covered_units_in_component.add(active_unit)
                         parents.add(parent)
         # get primitives if requested.
@@ -71,7 +59,6 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                     primitive_parent = f"{current_cell}.{primitive_parent_group}"
                     primitive_shortname = primitive_name.split(".")[-1]
                     i_mapping[primitive_name] = i_mapping[primitive_parent] + [f"{primitive_shortname} (primitive)"]
-                    # i_mapping[primitive_name] = i_mapping[primitive_parent] + [Node(primitive_shortname, "primitive")]
                     parents.add(primitive_parent)
         # by this point, we should have covered all groups in the same component...
         # now we need to construct stacks for any cells that are called from a group in the current component.
@@ -83,7 +70,6 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                     cell_component = cells_to_components[invoked_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[invoked_cell] = i_mapping[parent] + [f"{cell_shortname} [{cell_component}]"]
-                    # i_mapping[invoked_cell] = i_mapping[parent] [Node(cell_shortname, "cell", cell_component=cell_component)]
                     parents.add(parent)
     # Only retain paths that lead to leaf nodes.
     for elem in i_mapping:
