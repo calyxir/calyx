@@ -13,6 +13,8 @@ use crate::ids::{FileId, LineNum, PositionId};
 pub struct MetadataTable {
     /// map file ids to the file path, note that this does not contain file content
     file_map: IndexedMap<FileId, PathBuf>,
+    /// maps position ids to their source locations. Positions must be handed
+    /// out in order
     position_map: IndexedMap<PositionId, SourceLocation>,
 }
 
