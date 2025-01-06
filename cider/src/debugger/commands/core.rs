@@ -439,16 +439,11 @@ impl Command {
 
 // I wouldn't recommend looking at this
 
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 /// A (lazy) static list of [CommandInfo] objects used for the help and
 /// explain messages. Access via [get_command_info]
-static COMMAND_INFO: OnceLock<Box<[CommandInfo]>> = OnceLock::new();
-
-/// Returns the list of [CommandInfo] objects used for the help and explain
-/// messages
-fn get_command_info() -> &'static [CommandInfo] {
-    COMMAND_INFO.get_or_init(|| {
-         [
+static COMMAND_INFO: LazyLock<Box<[CommandInfo]>> = LazyLock::new(|| {
+    [
             // step
             CIBuilder::new().invocation("step")
                 .invocation("s")
@@ -538,7 +533,13 @@ fn get_command_info() -> &'static [CommandInfo] {
                 .invocation("quit")
                 .description("Exit the debugger").build(),
         ].into()
-    })
+});
+
+/// Returns the list of [CommandInfo] objects used for the help and explain
+/// messages
+#[inline]
+fn get_command_info() -> &'static [CommandInfo] {
+    &COMMAND_INFO
 }
 
 #[derive(Clone, Debug)]
