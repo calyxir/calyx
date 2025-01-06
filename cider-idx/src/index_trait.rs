@@ -32,7 +32,7 @@ where
     I: IndexRef + PartialOrd,
 {
     pub fn new(start: I, end: I) -> Self {
-        debug_assert!(start <= end, "start must be less than or equal to end");
+        assert!(start <= end, "start must be less than or equal to end");
         Self { start, end }
     }
 
