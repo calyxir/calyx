@@ -10,6 +10,7 @@ impl_index!(FileId);
 pub struct PositionId(u32);
 impl_index!(PositionId);
 
+/// A newtype wrapping a line number
 #[derive(Debug, Clone)]
 pub struct LineNum(u32);
 
