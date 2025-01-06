@@ -396,6 +396,9 @@ dependencies = [
 [[package]]
 name = "calyx-metadata"
 version = "0.1.0"
+dependencies = [
+ "cider-idx",
+]
 
 [[package]]
 name = "calyx-opt"

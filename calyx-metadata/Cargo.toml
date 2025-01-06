@@ -3,6 +3,8 @@ name = "calyx-metadata"
 authors.workspace = true
 license-file.workspace = true
 rust-version.workspace = true
+edition.workspace = true
 version = "0.1.0"
 
 [dependencies]
+cider-idx = { path = "../cider-idx" }
