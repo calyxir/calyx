@@ -392,8 +392,8 @@ impl Backend for VerilogBackend {
             .unwrap();
             let top_module = ctx.entrypoint.to_string();
             let _pickled = morty::do_pickle(
-                None::<&String>, // By default, don't need to prepend a name to all global names
-                None::<&String>, // By default, don't need to append a name to all global names
+                None, // By default, don't need to prepend a name to all global names
+                None, // By default, don't need to append a name to all global names
                 HashSet::new(), // By default, don't specify module, interface, package that should not be renamed; instead, let morty to dictate the behavior
                 HashSet::new(), // By default, don't specify module, interface, package that shouldn't be included in the pickled file list; instead, we let morty to dictate the behavior
                 library_bundle,
