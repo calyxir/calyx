@@ -9,8 +9,9 @@ use calyx_opt::passes::math_utilities::get_bit_width_from;
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use std::collections::{HashMap, HashSet};
 use std::io;
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 use std::{fs::File, time::Instant};
 use vast::v17::ast as v;
 
@@ -454,61 +455,50 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// block to transition the FSM and drive assignments that read from the FSM
 /// register
 fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
-    let reg_bitwidth =
-        get_bit_width_from(fsm.borrow().assignments.len() as u64);
-    // generate fsm logic variables
-    let (state_reg, state_next) = vec!["out", "in"]
-        .drain(..)
-        .map(|wire| format!("{}_{}", fsm.borrow().name(), wire))
-        .collect_tuple()
-        .unwrap();
-
-    // emit inlined register
-    emit_fsm_inlined_reg(&state_reg, &state_next, reg_bitwidth, f)?;
-
-    // dump assignments to enable in this state
-    emit_fsm_dependent_assignments(fsm, &state_reg, reg_bitwidth, f)?;
-
-    // emit fsm in case statement form
-    writeln!(f, "always @(*) begin")?;
-    writeln!(f, "  case ({})", state_reg)?;
-
-    for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
-        writeln!(f, "{}{}: begin", " ".repeat(4), case)?;
-
-        // write transitions
-        emit_fsm_transition(trans, &state_next, f)?;
-
-        writeln!(f, "{}end", " ".repeat(4))?;
-    }
-    writeln!(f, "{}default: {} = 'x;", " ".repeat(4), state_next)?;
-
-    writeln!(f, "  endcase")?;
-    writeln!(f, "end")?;
+    // Emit FSM module definition
     emit_fsm_module(fsm, f)?;
+
+    // Initialize wires representing FSM internal state
+    let num_states = fsm.borrow().assignments.len();
+    let fsm_state_wires = (0..num_states)
+        .into_iter()
+        .map(|st| format!("{}_s{st}_out", fsm.borrow().name()))
+        .collect_vec();
+
+    for state_wire in fsm_state_wires.iter() {
+        writeln!(f, "logic {state_wire};")?;
+    }
+
+    // Instantiate an FSM module from the definition above
+    let fsm_name = fsm.borrow().name();
+    writeln!(f, "{fsm_name}_def {fsm_name} (")?;
+    for (case, st_wire) in fsm_state_wires.into_iter().enumerate() {
+        writeln!(f, "  .s{case}_out({st_wire}),")?;
+    }
+    writeln!(f, "  .*")?;
+    writeln!(f, ");")?;
+
+    // Dump all assignments dependent on FSM state
+    emit_fsm_assignments(fsm, f)?;
+
     io::Result::Ok(())
 }
 
-fn emit_fsm_dependent_assignments<F: io::Write>(
+fn emit_fsm_assignments<F: io::Write>(
     fsm: &RRC<ir::FSM>,
-    fsm_out: &String,
-    reg_bitwidth: u64,
     f: &mut F,
 ) -> io::Result<()> {
     for collection in fsm.borrow().merge_assignments().iter() {
         let dst_ref = &collection.first().unwrap().1.dst;
         writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
         for (i, (case, assign)) in collection.iter().enumerate() {
-            let case_guard =
-                format!("{} == {}'d{}", fsm_out, reg_bitwidth, case);
-
             // string representing the new guard on the assignment
+            let case_guard = format!("s{case}_out");
             let case_guarded_assign_guard = if assign.guard.is_true() {
                 case_guard
             } else {
                 format!(
-                    "(({}) & ({}))",
-                    case_guard,
+                    "({case_guard} & ({}))",
                     unflattened_guard(&assign.guard)
                 )
             };
@@ -545,14 +535,17 @@ fn emit_fsm_module<F: io::Write>(
 
     // Write module header. Inputs include ports checked during transitions, and
     // outputs include one one-bit wire for every state
-    writeln!(f, "module {} (", fsm.borrow().name())?;
+    writeln!(f, "module {}_def (", fsm.borrow().name())?;
     writeln!(f, "  input logic clk,")?;
     writeln!(f, "  input logic reset,")?;
     for transition in fsm.borrow().transitions.iter() {
         if let ir::Transition::Conditional(guards) = transition {
+            let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
             for (guard, _) in guards.iter() {
                 for port in guard.all_ports().iter() {
-                    writeln!(f, "  input logic {},", VerilogPortRef(port))?;
+                    if used_port_names.insert(port.borrow().canonical()) {
+                        writeln!(f, "  input logic {},", VerilogPortRef(port))?;
+                    }
                 }
             }
         }
@@ -620,32 +613,6 @@ fn emit_fsm_module<F: io::Write>(
     io::Result::Ok(())
 }
 
-fn emit_fsm_inlined_reg<F: io::Write>(
-    state_reg_logic_var: &String,
-    state_next_logic_var: &String,
-    reg_width: u64,
-    f: &mut F,
-) -> io::Result<()> {
-    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_reg_logic_var)?;
-    writeln!(f, "logic [{}:0] {};", reg_width - 1, state_next_logic_var)?;
-
-    // generate inlined register
-    writeln!(f, "always_ff @(posedge clk) begin")?;
-    writeln!(f, "  if (reset) begin")?;
-    writeln!(f, "    {} <= {}'d0;", state_reg_logic_var, reg_width)?;
-    writeln!(f, "  end")?;
-    writeln!(f, "  else begin")?;
-    writeln!(
-        f,
-        "    {} <= {};",
-        state_reg_logic_var, state_next_logic_var
-    )?;
-    writeln!(f, "  end")?;
-    writeln!(f, "end")?;
-
-    io::Result::Ok(())
-}
-
 fn emit_fsm_transtions<F: io::Write>(
     trans: &ir::Transition,
     f: &mut F,
@@ -666,36 +633,6 @@ fn emit_fsm_transtions<F: io::Write>(
                 writeln!(f, "{}{header} begin", " ".repeat(10))?;
                 writeln!(f, "{}state_reg <= s{ns};", " ".repeat(12))?;
                 writeln!(f, "{}end", " ".repeat(10))?;
-            }
-        }
-    }
-    io::Result::Ok(())
-}
-
-fn emit_fsm_transition<F: io::Write>(
-    trans: &ir::Transition,
-    state_next_logic_var: &String,
-    f: &mut F,
-) -> io::Result<()> {
-    match trans {
-        ir::Transition::Unconditional(ns) => {
-            writeln!(f, "{}{} = {};", " ".repeat(6), state_next_logic_var, ns)?;
-        }
-        ir::Transition::Conditional(conds) => {
-            for (i, (g, ns)) in conds.iter().enumerate() {
-                let header = if i == 0 {
-                    format!("{}if ({})", " ".repeat(6), unflattened_guard(g))
-                } else if i == conds.len() - 1 {
-                    format!("{}else", " ".repeat(6))
-                } else {
-                    format!(
-                        "{}else if ({})",
-                        " ".repeat(6),
-                        unflattened_guard(g)
-                    )
-                };
-
-                writeln!(f, "{} {} = {};", header, state_next_logic_var, ns)?;
             }
         }
     }

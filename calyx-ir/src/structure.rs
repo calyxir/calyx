@@ -895,6 +895,9 @@ impl FSM {
             .collect()
     }
 
+    /// Each element of the resulting Vec is a collection of assignments writing
+    /// to the same destination port, where the `usize` value represents the
+    /// FSM state at which the assignment should take place.
     pub fn merge_assignments(&self) -> Vec<Vec<(usize, Assignment<Nothing>)>> {
         let mut assigns_by_port: HashMap<
             Canonical,
