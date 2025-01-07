@@ -1015,6 +1015,7 @@ impl Visitor for DynamicFSMAllocation {
             Vec::with_capacity(s.stmts.len());
 
         // replace every thread with a single-element sequential schedule
+        // in order to instantiate a 3-state FSM for the thread
         let threads = s
             .stmts
             .drain(..)
@@ -1064,12 +1065,12 @@ impl Visitor for DynamicFSMAllocation {
 
         // generate transition conditions for each state of the par's FSM
         let par_fsm_trans = vec![
-            // conditional transition to 1 on par_fsm_start
+            // conditional transition from IDLE to COMPUTE on par_fsm_start
             ir::Transition::Conditional(vec![
                 (guard!(par_fsm["start"]), 1),
                 (true_guard.clone(), 0),
             ]),
-            // conditional transition to DONE based on completion of all done regs
+            // conditional transition from COMPUTE to DONE based on completion of all done regs
             ir::Transition::Conditional(vec![
                 (transition_to_done, 2),
                 (true_guard.clone(), 1),
