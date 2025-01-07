@@ -232,6 +232,10 @@ fn emit_component<F: io::Write>(
     flat_assign: bool,
     f: &mut F,
 ) -> io::Result<()> {
+    for fsm in comp.fsms.iter() {
+        emit_fsm_module(fsm, comp.name, f)?;
+    }
+
     writeln!(f, "module {}(", comp.name)?;
 
     let sig = comp.signature.borrow();
@@ -299,7 +303,7 @@ fn emit_component<F: io::Write>(
 
     // Emit FSMs
     for fsm in comp.fsms.iter() {
-        emit_fsm(fsm, f)?;
+        emit_fsm(fsm, comp.name, f)?;
     }
 
     // Flatten all the guard expressions.
@@ -454,10 +458,11 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// Generates an inlined register representing the FSM, along with an always
 /// block to transition the FSM and drive assignments that read from the FSM
 /// register
-fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
-    // Emit FSM module definition
-    emit_fsm_module(fsm, f)?;
-
+fn emit_fsm<F: io::Write>(
+    fsm: &RRC<ir::FSM>,
+    comp_name: ir::Id,
+    f: &mut F,
+) -> io::Result<()> {
     // Initialize wires representing FSM internal state
     let num_states = fsm.borrow().assignments.len();
     let fsm_state_wires = (0..num_states)
@@ -471,7 +476,7 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
 
     // Instantiate an FSM module from the definition above
     let fsm_name = fsm.borrow().name();
-    writeln!(f, "{fsm_name}_def {fsm_name} (")?;
+    writeln!(f, "{fsm_name}_{comp_name}_def {fsm_name} (")?;
     for (case, st_wire) in fsm_state_wires.into_iter().enumerate() {
         writeln!(f, "  .s{case}_out({st_wire}),")?;
     }
@@ -493,7 +498,7 @@ fn emit_fsm_assignments<F: io::Write>(
         writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
         for (i, (case, assign)) in collection.iter().enumerate() {
             // string representing the new guard on the assignment
-            let case_guard = format!("s{case}_out");
+            let case_guard = format!("{}_s{case}_out", fsm.borrow().name());
             let case_guarded_assign_guard = if assign.guard.is_true() {
                 case_guard
             } else {
@@ -528,6 +533,7 @@ fn emit_fsm_assignments<F: io::Write>(
 
 fn emit_fsm_module<F: io::Write>(
     fsm: &RRC<ir::FSM>,
+    comp_name: ir::Id,
     f: &mut F,
 ) -> io::Result<()> {
     let num_states = fsm.borrow().assignments.len();
@@ -535,12 +541,12 @@ fn emit_fsm_module<F: io::Write>(
 
     // Write module header. Inputs include ports checked during transitions, and
     // outputs include one one-bit wire for every state
-    writeln!(f, "module {}_def (", fsm.borrow().name())?;
+    writeln!(f, "module {}_{comp_name}_def (", fsm.borrow().name())?;
     writeln!(f, "  input logic clk,")?;
     writeln!(f, "  input logic reset,")?;
+    let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
     for transition in fsm.borrow().transitions.iter() {
         if let ir::Transition::Conditional(guards) = transition {
-            let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
             for (guard, _) in guards.iter() {
                 for port in guard.all_ports().iter() {
                     if used_port_names.insert(port.borrow().canonical()) {
