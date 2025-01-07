@@ -469,7 +469,6 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
     // dump assignments to enable in this state
     emit_fsm_dependent_assignments(fsm, &state_reg, reg_bitwidth, f)?;
 
-
     // emit fsm in case statement form
     writeln!(f, "always @(*) begin")?;
     writeln!(f, "  case ({})", state_reg)?;
@@ -486,6 +485,7 @@ fn emit_fsm<F: io::Write>(fsm: &RRC<ir::FSM>, f: &mut F) -> io::Result<()> {
 
     writeln!(f, "  endcase")?;
     writeln!(f, "end")?;
+    emit_fsm_module(fsm, f)?;
     io::Result::Ok(())
 }
 
@@ -536,6 +536,90 @@ fn emit_fsm_dependent_assignments<F: io::Write>(
     io::Result::Ok(())
 }
 
+fn emit_fsm_module<F: io::Write>(
+    fsm: &RRC<ir::FSM>,
+    f: &mut F,
+) -> io::Result<()> {
+    let num_states = fsm.borrow().assignments.len();
+    let reg_bitwidth = get_bit_width_from(num_states as u64);
+
+    // Write module header. Inputs include ports checked during transitions, and
+    // outputs include one one-bit wire for every state
+    writeln!(f, "module {} (", fsm.borrow().name())?;
+    writeln!(f, "  input logic clk,")?;
+    writeln!(f, "  input logic reset,")?;
+    for transition in fsm.borrow().transitions.iter() {
+        if let ir::Transition::Conditional(guards) = transition {
+            for (guard, _) in guards.iter() {
+                for port in guard.all_ports().iter() {
+                    writeln!(f, "  input logic {},", VerilogPortRef(port))?;
+                }
+            }
+        }
+    }
+    for state in (0..num_states).into_iter() {
+        writeln!(
+            f,
+            "  output logic s{}_out{}",
+            state,
+            if state < num_states - 1 { "," } else { "" }
+        )?;
+    }
+    writeln!(f, ");")?;
+
+    // Write symbolic state variables and give them binary implementations
+    for state in (0..num_states).into_iter() {
+        writeln!(f, "  parameter s{state} = {reg_bitwidth}'d{state};")?;
+    }
+
+    // State register logic variable
+    writeln!(f, "  reg [{}:0] state_reg;", reg_bitwidth - 1)?;
+
+    // Generate sequential block representing the FSM
+    writeln!(f, "  always_ff @(posedge clk) begin")?;
+    writeln!(f, "    if (reset) begin")?;
+    writeln!(f, "      state_reg <= s0;")?;
+
+    // At reset, make all exposed state wires low
+    for state in (0..num_states).into_iter() {
+        writeln!(f, "      s{state}_out <= 1'b0;")?;
+    }
+    writeln!(f, "    end")?;
+
+    // Begin emitting the FSM's transitions and updates
+    writeln!(f, "    else begin")?;
+    writeln!(f, "      case ( state_reg )")?;
+
+    // At each state, write the updates to the state and the outward-facing
+    // wires to make high / low
+    for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
+        writeln!(f, "        s{case}: begin")?;
+
+        // Outward-facing wires
+        for st in (0..num_states).into_iter() {
+            writeln!(
+                f,
+                "{}s{st}_out <= 1'b{};",
+                " ".repeat(10),
+                if st == case { 1 } else { 0 }
+            )?;
+        }
+
+        // Updates to state
+        emit_fsm_transtions(trans, f)?;
+
+        writeln!(f, "        end")?;
+    }
+
+    // Wrap up the module
+    writeln!(f, "      endcase")?;
+    writeln!(f, "    end")?;
+    writeln!(f, "  end")?;
+    writeln!(f, "endmodule")?;
+
+    io::Result::Ok(())
+}
+
 fn emit_fsm_inlined_reg<F: io::Write>(
     state_reg_logic_var: &String,
     state_next_logic_var: &String,
@@ -559,6 +643,32 @@ fn emit_fsm_inlined_reg<F: io::Write>(
     writeln!(f, "  end")?;
     writeln!(f, "end")?;
 
+    io::Result::Ok(())
+}
+
+fn emit_fsm_transtions<F: io::Write>(
+    trans: &ir::Transition,
+    f: &mut F,
+) -> io::Result<()> {
+    match trans {
+        ir::Transition::Unconditional(ns) => {
+            writeln!(f, "{}state_reg <= s{ns};", " ".repeat(10))?;
+        }
+        ir::Transition::Conditional(conds) => {
+            for (i, (g, ns)) in conds.iter().enumerate() {
+                let header = if i == 0 {
+                    format!("if ({})", unflattened_guard(g))
+                } else if i == conds.len() - 1 {
+                    "else".to_string()
+                } else {
+                    format!("else if ({})", unflattened_guard(g))
+                };
+                writeln!(f, "{}{header} begin", " ".repeat(10))?;
+                writeln!(f, "{}state_reg <= s{ns};", " ".repeat(12))?;
+                writeln!(f, "{}end", " ".repeat(10))?;
+            }
+        }
+    }
     io::Result::Ok(())
 }
 

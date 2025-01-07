@@ -15,7 +15,6 @@ use petgraph::graph::DiGraph;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Write;
-use std::mem;
 use std::rc::Rc;
 
 const STATE_ID: ir::Attribute =
