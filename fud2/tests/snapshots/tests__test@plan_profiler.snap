@@ -20,7 +20,6 @@ rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
 cells = cells.json
-tdcc-json = fsm.json
 passes = all
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
@@ -54,7 +53,7 @@ cycle-limit = 500000000
 build $cells: component-cells /input.ext
 build instrumented.sv: calyx /input.ext
   backend = verilog
-  args = -p profiler -x tdcc:dump-fsm-json=fsm.json
+  args = -p profiler
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel
