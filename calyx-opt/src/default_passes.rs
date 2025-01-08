@@ -156,7 +156,7 @@ impl PassManager {
             ["validate", "pre-opt", "compile", "post-opt", "lower",]
         );
 
-        // profiler flow
+        // profiler flow for pass explorer access
         register_alias!(
             pm,
             "profiler",
