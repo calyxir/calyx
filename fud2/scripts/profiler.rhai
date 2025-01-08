@@ -9,10 +9,9 @@ export const flamegraph = state("flamegraph", ["svg"]);
 
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
-    e.var_("tdcc-json", "fsm.json"); // might not be necessary if we get rid of fsms?
 
     // series of passes after instrumentation?
-    e.config_var_or("passes", "profiler.compilation-passes", "all"); // set passes="no-opt" to run without optimizations
+    e.config_var_or("passes", "profiler.compilation-passes", "-p all"); // set passes="-p no-opt" to run without optimizations
 
     // rules for preprocessing
 
@@ -40,7 +39,7 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", " -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation -p $passes -x tdcc:dump-fsm-json=fsm.json");
+    e.arg("args", "-p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
