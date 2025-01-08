@@ -156,8 +156,10 @@ impl LibraryHandlerTrait for HardFloatHandler {
         let current_dir = env::current_dir()
             .map_err(|e| Error::invalid_file(e.to_string()))?;
 
+        // To include `HardFloat_consts.vi` file
         let source_path =
             current_dir.join("primitives/float/HardFloat-1/source/");
+        // Randomly pick the RISCV directory as the specialization subdirectory to include `HardFloat_specialize.vi`
         let riscv_path = source_path.join("RISCV/");
 
         let mut inc_paths = Vec::new();
@@ -343,7 +345,7 @@ impl Backend for VerilogBackend {
     }
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        // Create a temporary file as an intermediate storage to emit inline primtives and components to. This temporary file will be used as one of the source SystemVerilog file for Morty to do pickle.
+        // Create a temporary file as an intermediate storage to emit inline primtives and components to. This temporary file will be used as one of the source SystemVerilog file for Morty to do pickle. It is necessary because the user-specified output `file` might be `stdout`, which cannot be part of the source files for Morty to build the syntax tree.
         let temp_file = tempfile::NamedTempFile::new().map_err(|_| {
             Error::write_error("Failed to create a temporary file".to_string())
         })?;
