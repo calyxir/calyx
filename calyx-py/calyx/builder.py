@@ -4,6 +4,9 @@ import threading
 from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
+import inspect
+import os
+
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
@@ -22,6 +25,69 @@ class WidthInferenceError(Exception):
 class MalformedGroupError(Exception):
     """Raised when a group is malformed."""
 
+@dataclass
+class SourceLoc:
+    line: int
+    file_id: int
+
+def frame_to_source_loc(frame: inspect.FrameInfo) -> SourceLoc:
+    """builds a SourceLoc object from a Python frame"""
+    return SourceLoc(frame.lineno, os.path.basename(frame.filename))
+
+def determine_source_loc() -> Optional[SourceLoc]:
+    """Inspects the call stack to determine the first call site outside the calyx-py library."""
+    stacktrace = inspect.stack()
+
+    # inspect top frame to determine the path to the calyx-py library
+    top = stacktrace[0]
+    assert top.function == "determine_source_loc"
+    library_path = os.path.dirname(top.filename)
+    assert os.path.join(library_path, "py_ast.py") == top.filename
+
+    # find first stack frame that is not part of the library
+    user = None
+    for frame in stacktrace:
+        # skip frames that do not have a real filename
+        if frame.filename == "<string>":
+            continue
+        if not frame.filename.startswith(library_path):
+            user = frame
+            break
+    if user is None:
+        return None
+
+    # build source locator from frame
+    return frame_to_source_loc(user)
+
+class FileTable:
+    def __init__(self):
+        self.counter = 0
+        self.table: Dict[str, int] = {}
+    
+    def add_file(self, filename):
+        if filename not in self.table:
+            self.table[filename] = self.counter
+        self.counter += 1
+
+    def get_fileid(self, filename):
+        return self.table[filename]
+
+    def add_to_metadata(self, metadata):
+        # TODO
+        return
+
+class PosTable:
+    def __init__(self, file_table):
+        self.counter : int = 0
+        self.file_table : FileTable = file_table
+        self.table: Dict[(int, int), int] = {}
+
+    def add_entry(self, filename, line_num):
+        file_id = self.file_table.get_fileid(filename)
+        if (file_id, line_num) not in self.table:
+            self.table[(file_id, line_num)] = self.counter
+            self.counter += 1
+        return self.table[(file_id, line_num)]
 
 class Builder:
     """The entry-point builder for top-level Calyx programs."""
@@ -34,6 +100,9 @@ class Builder:
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
+        # Not really sure what I'm doing but attempt at preserving metadata through the builder?
+        self.file_table: FileTable = FileTable()
+        self.position_table: PosTable = PosTable()
 
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""

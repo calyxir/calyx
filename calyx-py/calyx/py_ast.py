@@ -2,9 +2,6 @@ from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass, field
 from typing import List, Any, Tuple, Optional
 from calyx.utils import block
-import inspect
-import os
-
 
 @dataclass
 class Emittable:
@@ -29,6 +26,7 @@ class Program(Emittable):
     imports: List[Import]
     components: List[Component]
     meta: dict[Any, str] = field(default_factory=dict)
+    # file_table: dict[]
 
     def doc(self) -> str:
         out = "\n".join([i.doc() for i in self.imports])
@@ -463,50 +461,12 @@ class Gte(GuardExpr):
         return f"({self.left.doc()} >= {self.right.doc()})"
 
 
-@dataclass
-class SourceLoc:
-    line: int
-    file: str
-
-
-def frame_to_source_loc(frame: inspect.FrameInfo) -> SourceLoc:
-    """builds a SourceLoc object from a Python frame"""
-    return SourceLoc(frame.lineno, os.path.basename(frame.filename))
-
-
-def determine_source_loc() -> Optional[SourceLoc]:
-    """Inspects the call stack to determine the first call site outside the calyx-py library."""
-    stacktrace = inspect.stack()
-
-    # inspect top frame to determine the path to the calyx-py library
-    top = stacktrace[0]
-    assert top.function == "determine_source_loc"
-    library_path = os.path.dirname(top.filename)
-    assert os.path.join(library_path, "py_ast.py") == top.filename
-
-    # find first stack frame that is not part of the library
-    user = None
-    for frame in stacktrace:
-        # skip frames that do not have a real filename
-        if frame.filename == "<string>":
-            continue
-        if not frame.filename.startswith(library_path):
-            user = frame
-            break
-    if user is None:
-        return None
-
-    # build source locator from frame
-    return frame_to_source_loc(user)
-
-
 def with_pos_attribute(source: str, loc: Optional[SourceLoc]) -> str:
     """adds the @pos attribute of loc is not None"""
     if loc is None:
         return source
     else:
         return f"@pos({loc.line}) {source}"
-
 
 # Control
 @dataclass
