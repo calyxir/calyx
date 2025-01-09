@@ -1,6 +1,6 @@
 from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass, field
-from typing import List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional
 from calyx.utils import block
 
 @dataclass
@@ -11,6 +11,48 @@ class Emittable:
     def emit(self):
         print(self.doc())
 
+
+class FileTable:
+    def __init__(self):
+        self.counter = 0
+        self.table: Dict[str, int] = {}
+    
+    def get_fileid(self, filename):
+        if filename not in self.table:
+            self.table[filename] = self.counter
+            self.counter += 1
+        return self.table[filename]
+    
+    def __len__(self):
+        return len(self.table)
+    
+    def emit_metadata(self):
+        out = ""
+        for (filename, fileid) in self.table.items():
+                out += f"file-{fileid}: {filename}\n"
+        return out
+
+class PosTable:
+    def __init__(self, file_table):
+        self.counter : int = 0
+        self.file_table : FileTable = file_table
+        self.table: Dict[(int, int), int] = {} # (fileid, linenum) -> positionId
+
+    def add_entry(self, filename, line_num):
+        file_id = self.file_table.get_fileid(filename)
+        if (file_id, line_num) not in self.table:
+            self.table[(file_id, line_num)] = self.counter
+            self.counter += 1
+        return self.table[(file_id, line_num)]
+    
+    def __len__(self):
+        return len(self.table)
+    
+    def emit_metadata(self):
+        out = ""
+        for ((fileid, linenum), position_id) in self.table.items():
+            out += f"pos-{position_id}: ({fileid}, {linenum})\n"
+        return out
 
 # Program
 @dataclass
@@ -25,19 +67,22 @@ class Import(Emittable):
 class Program(Emittable):
     imports: List[Import]
     components: List[Component]
+    file_table: FileTable
+    position_table: PosTable
     meta: dict[Any, str] = field(default_factory=dict)
-    file_table: dict[str, int] = field(default_factory=dict)
-    position_table: dict[(int, int), int] = field(default_factory=dict)
 
     def doc(self) -> str:
         out = "\n".join([i.doc() for i in self.imports])
         if len(self.imports) > 0:
             out += "\n"
         out += "\n".join([c.doc() for c in self.components])
-        if len(self.meta) > 0:
+        if len(self.meta) > 0 or len(self.file_table) > 0:
             out += "\nmetadata #{\n"
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
+            # first pass for emitting some file/source location metadata
+            out += self.file_table.emit_metadata()
+            out += self.position_table.emit_metadata()
             out += "}#"
         return out
 
@@ -177,6 +222,13 @@ class CompAttribute(Attribute):
     def doc(self) -> str:
         return f'"{self.name}"={self.value}'
 
+@dataclass
+class GroupAttribute(Attribute):
+    name: str
+    value: int # FIXME: might want to change?
+
+    def doc(self) -> str:
+        return f'"{self.name}"={self.value}'
 
 @dataclass
 class PortAttribute(Attribute):
@@ -316,15 +368,21 @@ class Connect(Structure):
 class Group(Structure):
     id: CompVar
     connections: list[Connect]
+    attributes: list[GroupAttribute] = field(default_factory=list)
     # XXX: This is a static group now. Remove this and add a new StaticGroup class.
     static_delay: Optional[int] = None
 
     def doc(self) -> str:
-        static_delay_attr = (
-            "" if self.static_delay is None else f'<"promotable"={self.static_delay}>'
+        # hack - add static delay on the fly. Might be problematic if the group was ever going to be written multiple times?
+        if self.static_delay is not None:
+            self.attributes += GroupAttribute("promotable", self.static_delay)
+        attribute_annotation = (
+            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            if len(self.attributes) > 0
+            else ""
         )
         return block(
-            f"group {self.id.doc()}{static_delay_attr}",
+            f"group {self.id.doc()}{attribute_annotation}",
             [c.doc() for c in self.connections],
         )
 
@@ -473,7 +531,7 @@ class Enable(Control):
     # loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
 
     def doc(self) -> str:
-        return with_pos_attribute(f"{self.stmt};", self.loc)
+        return f"{self.stmt};"
 
 
 @dataclass
@@ -541,7 +599,7 @@ class Invoke(Control):
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 
-        return with_pos_attribute(inv, self.loc)
+        return inv
 
     def with_attr(self, key: str, value: int) -> Invoke:
         self.attributes.append((key, value))

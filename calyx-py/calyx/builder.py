@@ -25,16 +25,11 @@ class WidthInferenceError(Exception):
 class MalformedGroupError(Exception):
     """Raised when a group is malformed."""
 
-@dataclass
-class SourceLoc:
-    line: int
-    file_id: int
+def frame_to_source_loc(position_table: ast.PosTable, frame: inspect.FrameInfo) -> int:
+    """add metadata info from a Python frame"""
+    return position_table.add_entry(os.path.basename(frame.filename), frame.lineno)
 
-def frame_to_source_loc(frame: inspect.FrameInfo) -> SourceLoc:
-    """builds a SourceLoc object from a Python frame"""
-    return SourceLoc(frame.lineno, os.path.basename(frame.filename))
-
-def determine_source_loc() -> Optional[SourceLoc]:
+def determine_source_loc(position_table : ast.PosTable) -> Optional[int]:
     """Inspects the call stack to determine the first call site outside the calyx-py library."""
     stacktrace = inspect.stack()
 
@@ -42,7 +37,7 @@ def determine_source_loc() -> Optional[SourceLoc]:
     top = stacktrace[0]
     assert top.function == "determine_source_loc"
     library_path = os.path.dirname(top.filename)
-    assert os.path.join(library_path, "py_ast.py") == top.filename
+    assert os.path.join(library_path, "builder.py") == top.filename
 
     # find first stack frame that is not part of the library
     user = None
@@ -56,53 +51,28 @@ def determine_source_loc() -> Optional[SourceLoc]:
     if user is None:
         return None
 
-    # build source locator from frame
-    return frame_to_source_loc(user)
-
-class FileTable:
-    def __init__(self):
-        self.counter = 0
-        self.table: Dict[str, int] = {}
+    return frame_to_source_loc(position_table, user)
     
-    def add_file(self, filename):
-        if filename not in self.table:
-            self.table[filename] = self.counter
-        self.counter += 1
-
-    def get_fileid(self, filename):
-        return self.table[filename]
-
-    def add_to_metadata(self, metadata):
-        # TODO
-        return
-
-class PosTable:
-    def __init__(self, file_table):
-        self.counter : int = 0
-        self.file_table : FileTable = file_table
-        self.table: Dict[(int, int), int] = {}
-
-    def add_entry(self, filename, line_num):
-        file_id = self.file_table.get_fileid(filename)
-        if (file_id, line_num) not in self.table:
-            self.table[(file_id, line_num)] = self.counter
-            self.counter += 1
-        return self.table[(file_id, line_num)]
 
 class Builder:
     """The entry-point builder for top-level Calyx programs."""
 
     def __init__(self):
+        filetable = ast.FileTable()
         self.program = ast.Program(
             imports=[],
             components=[],
+            file_table=filetable,
+            position_table=ast.PosTable(filetable)
         )
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
         # Not really sure what I'm doing but attempt at preserving metadata through the builder?
-        self.file_table: FileTable = FileTable()
-        self.position_table: PosTable = PosTable()
+        # self.file_table: FileTable = FileTable()
+        # self.position_table: PosTable = PosTable(self.file_table)
+        # self.program.file_table = ast.FileTable()
+        # self.program.position_table = ast.PosTable(self.program.file_table)
 
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
@@ -347,6 +317,9 @@ class ComponentBuilder:
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError("Combinational components do not have groups.")
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
+        position_id = determine_source_loc(self.prog.program.position_table)
+        if position_id is not None:
+            group.attributes.append(ast.GroupAttribute("pos", position_id))
         assert group not in self.component.wires, f"group '{name}' already exists"
 
         self.component.wires.append(group)
