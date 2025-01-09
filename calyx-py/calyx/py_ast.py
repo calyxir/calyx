@@ -26,7 +26,8 @@ class Program(Emittable):
     imports: List[Import]
     components: List[Component]
     meta: dict[Any, str] = field(default_factory=dict)
-    # file_table: dict[]
+    file_table: dict[str, int] = field(default_factory=dict)
+    position_table: dict[(int, int), int] = field(default_factory=dict)
 
     def doc(self) -> str:
         out = "\n".join([i.doc() for i in self.imports])
@@ -460,14 +461,6 @@ class Gte(GuardExpr):
     def doc(self) -> str:
         return f"({self.left.doc()} >= {self.right.doc()})"
 
-
-def with_pos_attribute(source: str, loc: Optional[SourceLoc]) -> str:
-    """adds the @pos attribute of loc is not None"""
-    if loc is None:
-        return source
-    else:
-        return f"@pos({loc.line}) {source}"
-
 # Control
 @dataclass
 class Control(Emittable):
@@ -477,7 +470,7 @@ class Control(Emittable):
 @dataclass
 class Enable(Control):
     stmt: str
-    loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
+    # loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
 
     def doc(self) -> str:
         return with_pos_attribute(f"{self.stmt};", self.loc)
@@ -523,7 +516,7 @@ class Invoke(Control):
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
     attributes: List[Tuple[str, int]] = field(default_factory=list)
-    loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
+    # loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"

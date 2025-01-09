@@ -1145,7 +1145,6 @@ class CellAndGroup:
     cell: CellBuilder
     group: GroupBuilder
 
-
 def as_control(obj):
     """Convert a Python object into a control statement.
 
@@ -1327,7 +1326,7 @@ class ControlBuilder:
     """Wraps control statements for convenient construction."""
 
     def __init__(self, stmt=None):
-        self.stmt = as_control(stmt)
+        self.stmt = as_control(stmt)        
 
     def __add__(self, other):
         """Build sequential composition."""
