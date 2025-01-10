@@ -205,7 +205,7 @@ impl PassManager {
 
         // Validate that names of passes in incl and excl sets are known
         passes.iter().chain(excl_set.iter().chain(insertions.iter().flat_map(|(pass1, pass2)| vec![pass1, pass2]))).try_for_each(|pass| {
-            if !self.passes.contains_key(pass) {
+            if !self.passes.contains_key(pass) && !self.aliases.contains_key(pass) {
                 Err(Error::misc(format!(
                     "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
                 )))
@@ -258,8 +258,23 @@ impl PassManager {
         dump_ir: bool,
     ) -> PassResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl, insn)?;
+        
 
-        for name in passes {
+        // Expand all aliases in the list of passes.
+        let all_passes: Vec<String> = passes
+            .into_iter()
+            .flat_map(|pass| {
+                if self.aliases.contains_key(&pass) {
+                    self.aliases[&pass].clone()
+                } else if self.passes.contains_key(&pass) {
+                    vec![pass]
+                } else {
+                    panic!("No pass or alias named: {}", pass)
+                }
+            })
+            .collect();
+
+        for name in all_passes {
             // Pass is known to exist because create_plan validates the
             // names of passes.
             let pass = &self.passes[&name];
