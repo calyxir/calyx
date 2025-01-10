@@ -1,4 +1,5 @@
 # a super simple script to show ADL level profiling proof of concept/experimentation
+import json
 import sys
 
 class Component:
@@ -29,6 +30,16 @@ class Component:
         for group in self.groups:
             s += f"\t\t{group}: {self.groups[group]}\n"
         return s
+
+    def gen_dict_for_json(self):
+        d = {"component" : self.name, "filename": self.position[0], "linenum": self.position[1], "cells": [], "groups": []}
+        for c in self.cells:
+            cell_dict = {"cell": c, "filename": self.cells[c][0], "linenum": self.cells[c][1]}
+            d["cells"].append(cell_dict)
+        for g in self.groups:
+            group_dict = {"group": g, "filename": self.groups[g][0], "linenum": self.groups[g][1]}
+            d["groups"].append(group_dict)
+        return d
 
 def parse(calyx_file):
     # a really hacky parser.
@@ -80,21 +91,28 @@ def parse(calyx_file):
 
     return components, position_map
 
-def main(calyx_file):
+def main(calyx_file, out_file):
     components, position_map = parse(calyx_file)
+    maps = []
     for component_name in components:
         component = components[component_name]
         component.rewrite(position_map)
+        maps.append(component.gen_dict_for_json())
         print(component)
         print()
 
+    with open(out_file, "w", encoding="utf-8") as out:
+        out.write(json.dumps(maps, indent=4))
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 2:
         calyx_file = sys.argv[1]
-        main(calyx_file)
+        out_file = sys.argv[2]
+        main(calyx_file, out_file)
     else:
         args_desc = [
-            "CALYX_FILE"
+            "CALYX_FILE",
+            "OUT_JSON"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         sys.exit(-1)
