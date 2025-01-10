@@ -620,7 +620,29 @@ def write_cell_stats(cell_to_active_cycles, out_dir):
         writer.writeheader()
         writer.writerows(stats)
 
-def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
+def read_adl_mapping_file(adl_mapping_file):
+    component_mappings = {} # component --> (filename, linenum)
+    cell_mappings = {} # component --> {cell --> (filename, linenum)}
+    group_mappings = {} # component --> {group --> (filename, linenum)}
+    with open(adl_mapping_file, "r") as json_file:
+        json_data = json.load(json_file)
+    for component_dict in json_data:
+        component_name = component_dict["component"]
+        component_mappings[component_name] = (component_dict["filename"], int(component_dict["linenum"]))
+        cell_mappings[component_name] = {}
+        for cell_dict in component_dict["cells"]:
+            cell_mappings[component_name][cell_dict["name"]] = (cell_dict["filename"], int(cell_dict["linenum"]))
+        # probably worth removing code clone at some point
+        group_mappings[component_name] = {}
+        for group_dict in component_dict["groups"]:
+            group_mappings[component_name][group_dict["name"]] = (group_dict["filename"], int(group_dict["linenum"]))
+    return component_mappings, cell_mappings, group_mappings
+
+def convert_trace(trace, adl_mapping_file):
+    component_map, cell_map, group_map = read_adl_mapping_file(adl_mapping_file)
+
+
+def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out, cells_for_timeline):
     print(f"Start time: {datetime.now()}")
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
     print(f"Start reading VCD: {datetime.now()}")
@@ -648,17 +670,22 @@ def main(vcd_filename, cells_json_file, out_dir, flame_out, cells_for_timeline):
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
+    if adl_mapping_file is not "NA":
+        # do adl mapping stuff...
+        convert_trace(converter.trace, adl_mapping_file)
+
 if __name__ == "__main__":
-    if len(sys.argv) > 4:
+    if len(sys.argv) > 5:
         vcd_filename = sys.argv[1]
         cells_json = sys.argv[2]
-        out_dir = sys.argv[3]
-        flame_out = sys.argv[4]
-        if len(sys.argv) > 5:
-            cells_for_timeline = sys.argv[5]
+        adl_mapping_file = sys.argv[3]
+        out_dir = sys.argv[4]
+        flame_out = sys.argv[5]
+        if len(sys.argv) > 6:
+            cells_for_timeline = sys.argv[6]
         else:
             cells_for_timeline = ""
-        main(vcd_filename, cells_json, out_dir, flame_out, cells_for_timeline)
+        main(vcd_filename, cells_json, adl_mapping_file, out_dir, flame_out, cells_for_timeline)
     else:
         args_desc = [
             "VCD_FILE",

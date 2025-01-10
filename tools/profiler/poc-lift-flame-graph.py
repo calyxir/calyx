@@ -34,10 +34,10 @@ class Component:
     def gen_dict_for_json(self):
         d = {"component" : self.name, "filename": self.position[0], "linenum": self.position[1], "cells": [], "groups": []}
         for c in self.cells:
-            cell_dict = {"cell": c, "filename": self.cells[c][0], "linenum": self.cells[c][1]}
+            cell_dict = {"name": c, "filename": self.cells[c][0], "linenum": self.cells[c][1]}
             d["cells"].append(cell_dict)
         for g in self.groups:
-            group_dict = {"group": g, "filename": self.groups[g][0], "linenum": self.groups[g][1]}
+            group_dict = {"name": g, "filename": self.groups[g][0], "linenum": self.groups[g][1]}
             d["groups"].append(group_dict)
         return d
 
