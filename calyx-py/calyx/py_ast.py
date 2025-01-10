@@ -223,6 +223,14 @@ class CompAttribute(Attribute):
         return f'"{self.name}"={self.value}'
 
 @dataclass
+class CellAttribute(Attribute):
+    name: str
+    value: Optional[int] = None
+
+    def doc(self) -> str:
+        return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
+
+@dataclass
 class GroupAttribute(Attribute):
     name: str
     value: int # FIXME: might want to change?
@@ -339,14 +347,23 @@ class Cell(Structure):
     comp: CompInst
     is_external: bool = False
     is_ref: bool = False
+    attributes: list[CellAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
+        # NOTE: adding external on the fly (instead of having the user add it to attributes)
+        # so that we can easily do this check
         assert not (
             self.is_ref and self.is_external
         ), "Cell cannot be both a ref and external"
-        external = "@external " if self.is_external else ""
+        if self.is_external:
+            self.attributes.append(CellAttribute("external"))
+        attribute_annotation = (
+            f"{' '.join([f'{a.doc()}' for a in self.attributes])} "
+            if len(self.attributes) > 0
+            else ""
+        )
         ref = "ref " if self.is_ref else ""
-        return f"{external}{ref}{self.id.doc()} = {self.comp.doc()};"
+        return f"{attribute_annotation}{ref}{self.id.doc()} = {self.comp.doc()};"
 
 
 @dataclass
@@ -375,7 +392,7 @@ class Group(Structure):
     def doc(self) -> str:
         # hack - add static delay on the fly. Might be problematic if the group was ever going to be written multiple times?
         if self.static_delay is not None:
-            self.attributes += GroupAttribute("promotable", self.static_delay)
+            self.attributes.append(GroupAttribute("promotable", self.static_delay))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
             if len(self.attributes) > 0

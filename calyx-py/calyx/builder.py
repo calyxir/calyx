@@ -137,6 +137,11 @@ class ComponentBuilder:
             )
         )
 
+        if not is_comb:
+            position_id = determine_source_loc(self.prog.program.position_table)
+            if position_id is not None:
+                self.component.attributes.append(ast.CompAttribute("pos", position_id))
+
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
@@ -368,6 +373,9 @@ class ComponentBuilder:
 
         cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
         assert cell not in self.component.cells, f"cell '{name}' already exists"
+        position_id = determine_source_loc(self.prog.program.position_table)
+        if position_id is not None:
+            cell.attributes.append(ast.CellAttribute("pos", position_id))
 
         self.component.cells.append(cell)
         builder = CellBuilder(cell)
