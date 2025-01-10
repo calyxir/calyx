@@ -117,20 +117,7 @@ impl PassManager {
             ))
             .into());
         }
-        // Expand any aliases used in defining this alias.
-        let all_passes = passes
-            .into_iter()
-            .flat_map(|pass| {
-                if self.aliases.contains_key(&pass) {
-                    self.aliases[&pass].clone()
-                } else if self.passes.contains_key(&pass) {
-                    vec![pass]
-                } else {
-                    panic!("No pass or alias named: {}", pass)
-                }
-            })
-            .collect();
-        self.aliases.insert(name, all_passes);
+        self.aliases.insert(name, passes);
         Ok(())
     }
 

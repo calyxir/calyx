@@ -77,7 +77,7 @@ pub struct Opts {
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,
 
-    /// run this pass during execution
+    /// run a pass or passes during execution. Passes are separated by a semicolon i.e "a;b". Accept alias. Default is "all"
     #[argh(option, short = 'p')]
     pub pass: Vec<String>,
 
@@ -89,7 +89,7 @@ pub struct Opts {
     #[argh(option, short = 'x', long = "extra-opt")]
     pub extra_opts: Vec<String>,
 
-    /// establish a relative ordering of passes
+    /// establish a relative ordering of passes. "a:b" will insert pass `b` after pass `a`
     #[argh(option, short = 'i', long = "insert")]
     pub insertions: Vec<String>,
 
@@ -208,6 +208,11 @@ impl Opts {
         // in manually.
         if opts.pass.is_empty() {
             opts.pass = vec!["all".into()];
+        }
+        else {
+            opts.pass = opts.pass.iter()
+                .flat_map(|s| s.split(';').map(String::from))
+                .collect();
         }
 
         Ok(opts)
