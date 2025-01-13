@@ -288,10 +288,11 @@ impl PassManager {
                     let start = Instant::now();
                     pass(ctx)?;
                     if dump_ir {
+                        eprint!("\nAfter pass: {}\n", name);
                         ir::Printer::write_context(
                             ctx,
                             true,
-                            &mut std::io::stdout(),
+                            &mut std::io::stderr(),
                         )?;
                     }
                     let elapsed = start.elapsed();
