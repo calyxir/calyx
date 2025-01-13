@@ -250,6 +250,11 @@ impl PartialEq for Attributes {
                 .attrs
                 .iter()
                 .all(|(k, v)| other.hinfo.attrs.get(k) == Some(v))
+            && self
+                .hinfo
+                .set_attrs
+                .iter()
+                .all(|(k, v)| other.hinfo.set_attrs.get(k) == Some(v))
     }
 }
 
@@ -265,7 +270,7 @@ impl serde::Serialize for HeapAttrInfo {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VecSet<D, const ALLOC: usize = 4>
 where
     D: Eq + std::hash::Hash + Clone,
