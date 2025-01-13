@@ -651,7 +651,6 @@ def read_adl_mapping_file(adl_mapping_file):
 def convert_trace(trace, adl_mapping_file):
     component_map, cell_map, group_map = read_adl_mapping_file(adl_mapping_file)
     adl_trace = {i : [] for i in trace}
-    print(component_map)
 
     # trace should probably be more principled than this... lol
     for i in trace:
