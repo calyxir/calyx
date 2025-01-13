@@ -6,9 +6,8 @@ use super::ast::{
 };
 use super::Attributes;
 use crate::{
-    attribute::{SetAttr, SetAttribute},
-    attributes::ParseAttributeWrapper,
-    Attribute, Direction, PortDef, Primitive, Width,
+    attribute::SetAttribute, attributes::ParseAttributeWrapper, Attribute,
+    Direction, PortDef, Primitive, Width,
 };
 use calyx_utils::{self, float, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
