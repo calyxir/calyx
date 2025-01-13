@@ -87,28 +87,34 @@ impl<'a> MetadataFileReader<'a> {
         }
     }
 
-    fn read_file_into_memory(&self, file: FileId) {
+    fn read_file_into_memory(
+        &self,
+        file: FileId,
+    ) -> Result<(), std::io::Error> {
         let path = self.metadata.lookup_file_path(file);
-        let mut reader = std::fs::File::open(path).unwrap();
+        let mut reader = std::fs::File::open(path)?;
         let mut content = String::new();
-        reader.read_to_string(&mut content).unwrap();
+        reader.read_to_string(&mut content)?;
         self.reader_map
             .borrow_mut()
             .insert(file, content.into_boxed_str());
+        Ok(())
     }
 
     /// Looks up the given source position. If the file used by this position
     /// has not been read yet this will cause the contents of the file to be
-    /// read into memory. Will panic if the file does not exist or does not have
-    /// the line number indicated by the position
+    /// read into memory. Returns None if either the file or line does not exist
     ///
     /// TODO griffin: make this able to return [str] instead of [String]. Maybe
     /// also don't buffer file contents into memory? This allocation probably
     /// isn't a big deal though
-    pub fn lookup_source(&self, pos: &SourceLocation) -> String {
+    pub fn lookup_source(&self, pos: &SourceLocation) -> Option<String> {
         let contains_key = self.reader_map.borrow().contains_key(&pos.file);
         if !contains_key {
-            self.read_file_into_memory(pos.file);
+            let result = self.read_file_into_memory(pos.file);
+            if result.is_err() {
+                return None;
+            };
         }
 
         let content = &self.reader_map.borrow()[&pos.file];
@@ -118,6 +124,11 @@ impl<'a> MetadataFileReader<'a> {
             .nth(pos.line.as_usize())
             .expect("file does not have the given line number");
 
-        line.to_string()
+        Some(line.to_string())
+    }
+
+    /// Panicking version of [`MetadataFileReader::lookup_source`]
+    pub fn unwrap_source(&self, pos: &SourceLocation) -> String {
+        self.lookup_source(pos).unwrap()
     }
 }
