@@ -152,7 +152,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         probe_labels_to_sets = {"group_probe_out": group_active, "se_probe_out": structural_enable_active, "cell_probe_out": cell_enable_active, "primitive_probe_out" : primitive_enable}
 
-        self.trace = {} # cycle number --> set of stacks
+        self.trace = {} # cycle number --> list of stacks
 
         main_done = False # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
@@ -474,7 +474,7 @@ def compute_scaled_flame(trace):
             
     return stacks
 
-def create_flame_groups(trace, flame_out_file, flames_out_dir):
+def create_flame_groups(trace, flame_out_file, flames_out_dir, scaled_flame_out_file=None):
     if not os.path.exists(flames_out_dir):
         os.mkdir(flames_out_dir)
     
@@ -493,7 +493,9 @@ def create_flame_groups(trace, flame_out_file, flames_out_dir):
             flame_out.write(f"{stack} {stacks[stack]}\n")
 
     scaled_stacks = compute_scaled_flame(trace)
-    with open(os.path.join(flames_out_dir, "scaled-flame.folded"), "w") as div_flame_out:
+    if scaled_flame_out_file is None:
+        scaled_flame_out_file = os.path.join(flames_out_dir, "scaled-flame.folded")
+    with open(scaled_flame_out_file, "w") as div_flame_out:
         for stack in scaled_stacks:
             div_flame_out.write(f"{stack} {scaled_stacks[stack]}\n")
 
@@ -620,6 +622,14 @@ def write_cell_stats(cell_to_active_cycles, out_dir):
         writer.writeheader()
         writer.writerows(stats)
 
+class SourceLoc:
+    def __init__(self, filename, linenum):
+        self.filename = filename
+        self.linenum = linenum
+
+    def __repr__(self):
+        return f"{self.filename}: {self.linenum}"
+
 def read_adl_mapping_file(adl_mapping_file):
     component_mappings = {} # component --> (filename, linenum)
     cell_mappings = {} # component --> {cell --> (filename, linenum)}
@@ -628,19 +638,54 @@ def read_adl_mapping_file(adl_mapping_file):
         json_data = json.load(json_file)
     for component_dict in json_data:
         component_name = component_dict["component"]
-        component_mappings[component_name] = (component_dict["filename"], int(component_dict["linenum"]))
+        component_mappings[component_name] = SourceLoc(component_dict["filename"], int(component_dict["linenum"]))
         cell_mappings[component_name] = {}
         for cell_dict in component_dict["cells"]:
-            cell_mappings[component_name][cell_dict["name"]] = (cell_dict["filename"], int(cell_dict["linenum"]))
+            cell_mappings[component_name][cell_dict["name"]] = SourceLoc(cell_dict["filename"], int(cell_dict["linenum"]))
         # probably worth removing code clone at some point
         group_mappings[component_name] = {}
         for group_dict in component_dict["groups"]:
-            group_mappings[component_name][group_dict["name"]] = (group_dict["filename"], int(group_dict["linenum"]))
+            group_mappings[component_name][group_dict["name"]] = SourceLoc(group_dict["filename"], int(group_dict["linenum"]))
     return component_mappings, cell_mappings, group_mappings
 
 def convert_trace(trace, adl_mapping_file):
     component_map, cell_map, group_map = read_adl_mapping_file(adl_mapping_file)
+    adl_trace = {i : [] for i in trace}
+    print(component_map)
 
+    # trace should probably be more principled than this... lol
+    for i in trace:
+        for stack in trace[i]:
+            adl_stack = []
+            curr_component = None
+            for stack_elem in stack:
+                # going to start by assuming "main" is the entrypoint.
+                if stack_elem == "main":
+                    curr_component = stack_elem
+                    sourceloc = component_map[stack_elem]
+                    new_stack_elem = f"main {{{sourceloc}}}"
+                elif "[" in stack_elem: # invocation of component cell
+                    cell = stack_elem.split("[")[0].strip()
+                    cell_sourceloc = cell_map[curr_component][cell]
+                    cell_component = stack_elem.split("[")[1].split("]")[0]
+                    cell_component_sourceloc = component_map[cell_component]
+                    new_stack_elem = f"{cell} {{{cell_sourceloc}}} [{cell_component} {{{cell_component_sourceloc}}}]"
+                    curr_component = cell_component
+                elif "(primitive)" in stack_elem: # primitive
+                    primitive = stack_elem.split("(primitive)")[0].strip()
+                    primitive_sourceloc = cell_map[curr_component][primitive]
+                    new_stack_elem = f"{stack_elem} {{{primitive_sourceloc}}}"
+                else: # group
+                    # ignore compiler-generated groups (invokes) for now...
+                    if stack_elem in group_map[curr_component]:
+                        sourceloc = group_map[curr_component][stack_elem]
+                    else:
+                        sourceloc = "compiler-generated"
+                    new_stack_elem = f"{stack_elem} {{{sourceloc}}}"
+                adl_stack.append(new_stack_elem)
+            adl_trace[i].append(adl_stack)
+
+    return adl_trace
 
 def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out, cells_for_timeline):
     print(f"Start time: {datetime.now()}")
@@ -670,9 +715,13 @@ def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out, ce
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
-    if adl_mapping_file is not "NA":
+    if adl_mapping_file != "NA":
         # do adl mapping stuff...
-        convert_trace(converter.trace, adl_mapping_file)
+        print("Computing ADL flames...")
+        adl_trace = convert_trace(converter.trace, adl_mapping_file)
+        flat_adl_flame = os.path.join(out_dir, "adl-flat-flame.folded")
+        scaled_adl_flame = os.path.join(out_dir, "adl-scaled-flame.folded")
+        create_flame_groups(adl_trace, flat_adl_flame, out_dir, scaled_flame_out_file=scaled_adl_flame)
 
 if __name__ == "__main__":
     if len(sys.argv) > 5:
@@ -690,6 +739,7 @@ if __name__ == "__main__":
         args_desc = [
             "VCD_FILE",
             "CELLS_JSON",
+            "ADL_MAP_JSON (NA if not applicable)",
             "OUT_DIR",
             "FLATTENED_FLAME_OUT",
             "[CELLS_FOR_TIMELINE]"

@@ -67,8 +67,8 @@ class Import(Emittable):
 class Program(Emittable):
     imports: List[Import]
     components: List[Component]
-    file_table: FileTable
-    position_table: PosTable
+    file_table: FileTable = field(default=None)
+    position_table: PosTable = field(default=None)
     meta: dict[Any, str] = field(default_factory=dict)
 
     def doc(self) -> str:
@@ -76,13 +76,14 @@ class Program(Emittable):
         if len(self.imports) > 0:
             out += "\n"
         out += "\n".join([c.doc() for c in self.components])
-        if len(self.meta) > 0 or len(self.file_table) > 0:
+        if len(self.meta) > 0 or self.file_table is not None:
             out += "\nmetadata #{\n"
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
             # first pass for emitting some file/source location metadata
-            out += self.file_table.emit_metadata()
-            out += self.position_table.emit_metadata()
+            if self.file_table is not None and self.position_table is not None:
+                out += self.file_table.emit_metadata()
+                out += self.position_table.emit_metadata()
             out += "}#"
         return out
 
@@ -385,9 +386,9 @@ class Connect(Structure):
 class Group(Structure):
     id: CompVar
     connections: list[Connect]
-    attributes: list[GroupAttribute] = field(default_factory=list)
     # XXX: This is a static group now. Remove this and add a new StaticGroup class.
     static_delay: Optional[int] = None
+    attributes: list[GroupAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
         # hack - add static delay on the fly. Might be problematic if the group was ever going to be written multiple times?

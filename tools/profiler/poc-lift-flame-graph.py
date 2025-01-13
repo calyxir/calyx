@@ -78,7 +78,7 @@ def parse(calyx_file):
                     curr_component = Component(name, pos_id)
                 elif line_strip.startswith("group "):
                     groupname = line_strip.split("<")[0].split(" ")[-1]
-                    pos_id = line_strip.split('"pos"=')[1].split(">")[0]
+                    pos_id = line_strip.split('"pos"=')[1].split(">")[0].split(",")[0]
                     if groupname in curr_component.groups:
                         raise RuntimeError(f"Group {groupname} already recorded in component {curr_component.name}")
                     curr_component.groups[groupname] = pos_id
@@ -88,6 +88,8 @@ def parse(calyx_file):
                     if cellname in curr_component.cells:
                         raise RuntimeError(f"Cell {cellname} already recorded in component {curr_component.name}")
                     curr_component.cells[cellname] = pos_id
+    # store last component
+    components[curr_component.name] = curr_component
 
     return components, position_map
 
