@@ -1,13 +1,16 @@
 use super::Attribute;
-use crate::InlineAttributes;
+use crate::{attribute::SetAttr, InlineAttributes};
 use calyx_utils::{CalyxResult, GPosIdx, WithPos};
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use std::convert::TryFrom;
+use smallvec::SmallVec;
+use std::{collections::HashMap, convert::TryFrom};
 
 #[derive(Debug, Clone, Default)]
 /// Attribute information stored on the Heap
 struct HeapAttrInfo {
     attrs: LinkedHashMap<Attribute, u64>,
+    set_attrs: HashMap<SetAttr, VecSet<u32, 4>>,
     span: GPosIdx,
 }
 
@@ -92,6 +95,10 @@ impl Attributes {
         }
     }
 
+    pub fn get_set(&self, key: SetAttr) -> Option<&VecSet<u32>> {
+        self.hinfo.set_attrs.get(&key)
+    }
+
     /// Check if an attribute key has been set
     pub fn has<A>(&self, key: A) -> bool
     where
@@ -105,7 +112,9 @@ impl Attributes {
 
     /// Returns true if there are no attributes
     pub fn is_empty(&self) -> bool {
-        self.inl.is_empty() && self.hinfo.attrs.is_empty()
+        self.inl.is_empty()
+            && self.hinfo.attrs.is_empty()
+            && self.hinfo.set_attrs.is_empty()
     }
 
     /// Remove attribute with the name `key`
@@ -151,9 +160,15 @@ impl Attributes {
         self
     }
 
-    pub fn to_string_with<F>(&self, sep: &'static str, fmt: F) -> String
+    pub fn to_string_with<F, S>(
+        &self,
+        sep: &'static str,
+        fmt: F,
+        set_fmt: S,
+    ) -> String
     where
         F: Fn(String, u64) -> String,
+        S: Fn(String, &[u32]) -> String,
     {
         if self.is_empty() {
             return String::default();
@@ -164,6 +179,18 @@ impl Attributes {
             .iter()
             .map(|(k, v)| fmt(k.to_string(), *v))
             .chain(self.inl.iter().map(|k| fmt(k.as_ref().to_string(), 1)))
+            .chain(self.hinfo.set_attrs.iter().filter_map(|(k, v)| {
+                if v.is_empty() {
+                    None
+                } else {
+                    let formatted = set_fmt(k.to_string(), v.as_slice());
+                    if formatted.is_empty() {
+                        None
+                    } else {
+                        Some(formatted)
+                    }
+                }
+            }))
             .collect::<Vec<_>>()
             .join(sep)
     }
@@ -190,5 +217,57 @@ impl serde::Serialize for HeapAttrInfo {
         S: serde::Serializer,
     {
         ser.collect_map(self.to_owned().attrs.iter())
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct VecSet<D, const ALLOC: usize = 4>
+where
+    D: Eq + std::hash::Hash + Clone,
+{
+    inner: SmallVec<[D; ALLOC]>,
+}
+
+impl<D, const ALLOC: usize> VecSet<D, ALLOC>
+where
+    D: Eq + std::hash::Hash + Clone,
+{
+    pub fn new() -> Self {
+        Self {
+            inner: SmallVec::new(),
+        }
+    }
+
+    pub fn insert(&mut self, d: D) {
+        if !self.inner.contains(&d) {
+            self.inner.push(d);
+        }
+    }
+
+    pub fn contains(&self, d: &D) -> bool {
+        self.inner.contains(d)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &D> {
+        self.inner.iter()
+    }
+
+    pub fn as_slice(&self) -> &[D] {
+        self.inner.as_slice()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl<D, const ALLOC: usize> FromIterator<D> for VecSet<D, ALLOC>
+where
+    D: Eq + std::hash::Hash + Clone,
+{
+    fn from_iter<T: IntoIterator<Item = D>>(iter: T) -> Self {
+        Self {
+            inner: iter.into_iter().unique().collect(),
+        }
     }
 }

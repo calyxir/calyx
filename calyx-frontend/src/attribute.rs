@@ -113,9 +113,6 @@ pub enum NumAttr {
     #[strum(serialize = "bound")]
     /// The bound of a while loop
     Bound,
-    #[strum(serialize = "pos")]
-    /// Source location position for this node
-    Pos,
     #[strum(serialize = "promotable")]
     /// Can promote the group, control, or @go port of the component to static
     /// with the annotated latency
@@ -160,6 +157,24 @@ impl From<InternalAttr> for Attribute {
     fn from(attr: InternalAttr) -> Self {
         Attribute::Internal(attr)
     }
+}
+
+#[derive(
+    AsRefStr,
+    EnumString,
+    Clone,
+    Copy,
+    Hash,
+    PartialEq,
+    Eq,
+    Debug,
+    strum_macros::Display,
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub enum SetAttr {
+    #[strum(serialize = "pos")]
+    /// Source location position for this node
+    Pos,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
