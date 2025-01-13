@@ -20,7 +20,7 @@ members = [
     "tools/component_cells",
     "tools/yxi",
     "tools/calyx-writer",
-    "calyx-metadata", "cider-idx",
+    "cider-idx",
 ]
 exclude = ["site"]
 
