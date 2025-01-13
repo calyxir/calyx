@@ -1,5 +1,5 @@
 use super::Attribute;
-use crate::{attribute::SetAttr, InlineAttributes};
+use crate::{attribute::SetAttribute, InlineAttributes};
 use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -10,7 +10,7 @@ use std::{collections::HashMap, convert::TryFrom};
 /// Attribute information stored on the Heap
 struct HeapAttrInfo {
     attrs: LinkedHashMap<Attribute, u64>,
-    set_attrs: HashMap<SetAttr, VecSet<u32, 4>>,
+    set_attrs: HashMap<SetAttribute, VecSet<u32, 4>>,
     span: GPosIdx,
 }
 
@@ -24,19 +24,54 @@ pub struct Attributes {
     hinfo: Box<HeapAttrInfo>,
 }
 
-impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
+pub enum ParseAttributeWrapper {
+    Attribute(Attribute, u64),
+    Set(SetAttribute, Vec<u32>),
+}
+
+impl From<(Attribute, u64)> for ParseAttributeWrapper {
+    fn from(value: (Attribute, u64)) -> Self {
+        Self::Attribute(value.0, value.1)
+    }
+}
+
+impl From<(SetAttribute, Vec<u32>)> for ParseAttributeWrapper {
+    fn from(value: (SetAttribute, Vec<u32>)) -> Self {
+        Self::Set(value.0, value.1)
+    }
+}
+
+impl TryFrom<Vec<ParseAttributeWrapper>> for Attributes {
     type Error = calyx_utils::Error;
 
-    fn try_from(v: Vec<(Attribute, u64)>) -> CalyxResult<Self> {
+    fn try_from(v: Vec<ParseAttributeWrapper>) -> CalyxResult<Self> {
         let mut attrs = Attributes::default();
-        for (k, v) in v {
-            if attrs.has(k) {
-                return Err(Self::Error::malformed_structure(format!(
-                    "Multiple entries for attribute: {}",
-                    k
-                )));
+
+        for item in v {
+            match item {
+                ParseAttributeWrapper::Attribute(k, v) => {
+                    if attrs.has(k) {
+                        return Err(Self::Error::malformed_structure(format!(
+                            "Multiple entries for attribute: {}",
+                            k
+                        )));
+                    }
+                    attrs.insert(k, v);
+                }
+                ParseAttributeWrapper::Set(set_attr, vec) => {
+                    if attrs.hinfo.set_attrs.contains_key(&set_attr) {
+                        return Err(Self::Error::malformed_structure(format!(
+                            "Multiple entries for attribute: {}",
+                            set_attr
+                        )));
+                    }
+
+                    attrs
+                        .hinfo
+                        .set_attrs
+                        .insert(set_attr, vec.into_iter().collect());
+                }
             }
-            attrs.insert(k, v);
         }
         Ok(attrs)
     }
@@ -95,8 +130,11 @@ impl Attributes {
         }
     }
 
-    pub fn get_set(&self, key: SetAttr) -> Option<&VecSet<u32>> {
-        self.hinfo.set_attrs.get(&key)
+    pub fn get_set<S>(&self, key: S) -> Option<&VecSet<u32>>
+    where
+        S: Into<SetAttribute>,
+    {
+        self.hinfo.set_attrs.get(&key.into())
     }
 
     /// Check if an attribute key has been set
@@ -179,18 +217,25 @@ impl Attributes {
             .iter()
             .map(|(k, v)| fmt(k.to_string(), *v))
             .chain(self.inl.iter().map(|k| fmt(k.as_ref().to_string(), 1)))
-            .chain(self.hinfo.set_attrs.iter().filter_map(|(k, v)| {
-                if v.is_empty() {
-                    None
-                } else {
-                    let formatted = set_fmt(k.to_string(), v.as_slice());
-                    if formatted.is_empty() {
-                        None
-                    } else {
-                        Some(formatted)
-                    }
-                }
-            }))
+            .chain(
+                self.hinfo
+                    .set_attrs
+                    .iter()
+                    .sorted_by_key(|(k, _)| *k)
+                    .filter_map(|(k, v)| {
+                        if v.is_empty() {
+                            None
+                        } else {
+                            let formatted =
+                                set_fmt(k.to_string(), v.as_slice());
+                            if formatted.is_empty() {
+                                None
+                            } else {
+                                Some(formatted)
+                            }
+                        }
+                    }),
+            )
             .collect::<Vec<_>>()
             .join(sep)
     }

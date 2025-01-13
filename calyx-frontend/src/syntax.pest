@@ -251,9 +251,13 @@ static_wire = {
 
 // =========== Attribute parsing ===============
 
+attr_set = {
+      "{" ~ bitwidth ~ ("," ~ bitwidth)* ~ "}"
+}
+
 // <"static" = 1> style annotation
 attribute = {
-      string_lit ~ "=" ~ bitwidth
+      string_lit ~ "=" ~ (bitwidth | attr_set)
 }
 latency_annotation = {
   "<" ~ bitwidth ~ ">"
@@ -270,7 +274,7 @@ attr_val = {
   "(" ~ bitwidth ~ ")"
 }
 at_attribute = {
-      "@" ~ identifier ~ attr_val?
+      "@" ~ identifier ~ (attr_val | attr_set)?
 }
 at_attributes = {
       at_attribute*

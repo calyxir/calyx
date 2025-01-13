@@ -1,0 +1,20 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(@foo(32) @go_port in: 32, go: 1, clk: 1, @interval @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (@interval(0) out: 32, done: 1, @done done0: 1) {
+  cells {
+    @my_other_set{3240189, 123, 2} r = std_reg(32);
+    @my_set{32} le = std_le(32);
+  }
+  wires {
+    group upd<"stable"=1, "pos"={1, 4, 8}, "my_z"={4}> {
+      @dead upd[done] = r.done;
+    }
+    comb group cond<"promotable"=0> {
+    }
+  }
+  control {
+    @pos{2, 5, 100000} @other{1} @z{2, 3, 4} while le.out with cond {
+      upd;
+    }
+  }
+}

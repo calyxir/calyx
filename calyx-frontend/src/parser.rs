@@ -5,7 +5,11 @@ use super::ast::{
     self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
 };
 use super::Attributes;
-use crate::{Attribute, Direction, PortDef, Primitive, Width};
+use crate::{
+    attribute::{SetAttr, SetAttribute},
+    attributes::ParseAttributeWrapper,
+    Attribute, Direction, PortDef, Primitive, Width,
+};
 use calyx_utils::{self, float, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
@@ -367,10 +371,14 @@ impl CalyxParser {
     }
 
     // ================ Attributes =====================
-    fn attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+    fn attribute(input: Node) -> ParseResult<ParseAttributeWrapper> {
         match_nodes!(
             input.clone().into_children();
-            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
+            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num).into()).map_err(|e| input.error(format!("{:?}", e))),
+            [string_lit(key), attr_set(nums)] => {
+                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e)))?;
+                Ok((attr, nums).into())
+            }
         )
     }
     fn attributes(input: Node) -> ParseResult<Attributes> {
@@ -405,6 +413,13 @@ impl CalyxParser {
         ))
     }
 
+    fn attr_set(input: Node) -> ParseResult<Vec<u32>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(num)..] => num.into_iter().map(|n| {let n_32: u32 = n.try_into().expect("set values must fit in a u32"); n_32}).collect()
+        ))
+    }
+
     fn latency_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
         let num = match_nodes!(
             input.clone().into_children();
@@ -417,11 +432,15 @@ impl CalyxParser {
         }
     }
 
-    fn at_attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+    fn at_attribute(input: Node) -> ParseResult<ParseAttributeWrapper> {
         match_nodes!(
             input.clone().into_children();
-            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num)),
-            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1)),
+            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num).into()),
+            [identifier(key), attr_set(nums)] => {
+                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e)))?;
+                Ok((attr, nums).into())
+            },
+            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1).into()),
         )
     }
 
