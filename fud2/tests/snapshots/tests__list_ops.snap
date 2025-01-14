@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+snapshot_kind: text
 ---
 [
     (
@@ -56,6 +57,11 @@ source: fud2/tests/tests.rs
         "debug",
         "cider",
         "cider-debug",
+    ),
+    (
+        "edsl-profiler",
+        "edsl",
+        "flamegraph",
     ),
     (
         "firrtl",
