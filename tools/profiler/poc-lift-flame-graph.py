@@ -133,8 +133,6 @@ def main(calyx_file, out_file):
         component = components[component_name]
         component.rewrite(position_map)
         maps.append(component.gen_dict_for_json())
-        print(component)
-        print()
 
     with open(out_file, "w", encoding="utf-8") as out:
         out.write(json.dumps(maps, indent=4))
