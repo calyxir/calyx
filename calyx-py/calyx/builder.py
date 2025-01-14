@@ -27,7 +27,8 @@ class MalformedGroupError(Exception):
 
 def frame_to_source_loc(position_table: ast.PosTable, frame: inspect.FrameInfo) -> int:
     """add metadata info from a Python frame"""
-    return position_table.add_entry(os.path.basename(frame.filename), frame.lineno)
+    # return position_table.add_entry(os.path.basename(frame.filename), frame.lineno)
+    return position_table.add_entry(frame.filename, frame.lineno)
 
 def determine_source_loc(position_table : ast.PosTable) -> Optional[int]:
     """Inspects the call stack to determine the first call site outside the calyx-py library."""
@@ -68,11 +69,6 @@ class Builder:
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
-        # Not really sure what I'm doing but attempt at preserving metadata through the builder?
-        # self.file_table: FileTable = FileTable()
-        # self.position_table: PosTable = PosTable(self.file_table)
-        # self.program.file_table = ast.FileTable()
-        # self.program.position_table = ast.PosTable(self.program.file_table)
 
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""

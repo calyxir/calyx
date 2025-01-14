@@ -623,9 +623,11 @@ def write_cell_stats(cell_to_active_cycles, out_dir):
         writer.writerows(stats)
 
 class SourceLoc:
-    def __init__(self, filename, linenum):
-        self.filename = filename
-        self.linenum = linenum
+
+    def __init__(self, json_dict):
+        self.filename = os.path.basename(json_dict["filename"])
+        self.linenum = json_dict["linenum"]
+        self.varname = json_dict["varname"]
 
     def __repr__(self):
         return f"{self.filename}: {self.linenum}"
@@ -638,14 +640,14 @@ def read_adl_mapping_file(adl_mapping_file):
         json_data = json.load(json_file)
     for component_dict in json_data:
         component_name = component_dict["component"]
-        component_mappings[component_name] = SourceLoc(component_dict["filename"], int(component_dict["linenum"]))
+        component_mappings[component_name] = SourceLoc(component_dict)
         cell_mappings[component_name] = {}
         for cell_dict in component_dict["cells"]:
-            cell_mappings[component_name][cell_dict["name"]] = SourceLoc(cell_dict["filename"], int(cell_dict["linenum"]))
+            cell_mappings[component_name][cell_dict["name"]] = SourceLoc(cell_dict)
         # probably worth removing code clone at some point
         group_mappings[component_name] = {}
         for group_dict in component_dict["groups"]:
-            group_mappings[component_name][group_dict["name"]] = SourceLoc(group_dict["filename"], int(group_dict["linenum"]))
+            group_mappings[component_name][group_dict["name"]] = SourceLoc(group_dict)
     return component_mappings, cell_mappings, group_mappings
 
 def convert_trace(trace, adl_mapping_file):
@@ -672,18 +674,18 @@ def convert_trace(trace, adl_mapping_file):
                     cell_component = stack_elem.split("[")[1].split("]")[0]
                     cell_component_sourceloc = component_map[cell_component]
                     mixed_stack_elem = f"{cell} {{{cell_sourceloc}}} [{cell_component} {{{cell_component_sourceloc}}}]"
-                    adl_stack_elem = f"{cell_sourceloc} [{cell_component_sourceloc}]" 
+                    adl_stack_elem = f"{cell_sourceloc.varname} {{{cell_sourceloc}}} [{cell_component_sourceloc.varname} {{{cell_component_sourceloc}}}]" 
                     curr_component = cell_component
                 elif "(primitive)" in stack_elem: # primitive
                     primitive = stack_elem.split("(primitive)")[0].strip()
                     primitive_sourceloc = cell_map[curr_component][primitive]
                     mixed_stack_elem = f"{stack_elem} {{{primitive_sourceloc}}}"
-                    adl_stack_elem = f"{{{primitive_sourceloc}}}"
+                    adl_stack_elem = f"{primitive_sourceloc.varname} {{{primitive_sourceloc}}}"
                 else: # group
                     # ignore compiler-generated groups (invokes) for now...
                     if stack_elem in group_map[curr_component]:
                         sourceloc = group_map[curr_component][stack_elem]
-                        adl_stack_elem = f"{{{sourceloc}}}"
+                        adl_stack_elem = f"{sourceloc.varname} {{{sourceloc}}}"
                     else:
                         sourceloc = "compiler-generated"
                         adl_stack_elem = sourceloc
