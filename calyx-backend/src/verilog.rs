@@ -477,10 +477,28 @@ fn emit_fsm<F: io::Write>(
     // Instantiate an FSM module from the definition above
     let fsm_name = fsm.borrow().name();
     writeln!(f, "{fsm_name}_{comp_name}_def {fsm_name} (")?;
+    let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
+    for transition in fsm.borrow().transitions.iter() {
+        if let ir::Transition::Conditional(guards) = transition {
+            for (guard, _) in guards.iter() {
+                for port in guard.all_ports().iter() {
+                    if used_port_names.insert(port.borrow().canonical()) {
+                        writeln!(
+                            f,
+                            "  .{}({}),",
+                            VerilogPortRef(port),
+                            VerilogPortRef(port)
+                        )?;
+                    }
+                }
+            }
+        }
+    }
+
     for (case, st_wire) in fsm_state_wires.into_iter().enumerate() {
         writeln!(f, "  .s{case}_out({st_wire}),")?;
     }
-    writeln!(f, "  .*")?;
+    // writeln!(f, "  .*")?;
     writeln!(f, ");")?;
 
     // Dump all assignments dependent on FSM state
@@ -495,36 +513,40 @@ fn emit_fsm_assignments<F: io::Write>(
 ) -> io::Result<()> {
     for collection in fsm.borrow().merge_assignments().iter() {
         let dst_ref = &collection.first().unwrap().1.dst;
-        writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
+        write!(f, "assign {} =", VerilogPortRef(dst_ref))?;
         for (i, (case, assign)) in collection.iter().enumerate() {
             // string representing the new guard on the assignment
             let case_guard = format!("{}_s{case}_out", fsm.borrow().name());
-            let case_guarded_assign_guard = if assign.guard.is_true() {
-                case_guard
-            } else {
-                format!(
-                    "({case_guard} & ({}))",
-                    unflattened_guard(&assign.guard)
-                )
-            };
+            // writeln!(f, "{} | ", case_guard)?;
 
-            // value for the wire to take if either fsm is not in relevant state
-            // or if the assignment's original condition is not met
-            let guard_unmet_value = if is_data_port(dst_ref) {
-                format!("'x")
-            } else {
-                format!("{}'d0", dst_ref.borrow().width)
-            };
+            // let case_guarded_assign_guard = if assign.guard.is_true() {
+            //     case_guard
+            // } else {
+            //     format!(
+            //         "({case_guard} & ({}))",
+            //         unflattened_guard(&assign.guard)
+            //     )
+            // };
 
-            writeln!(
-                f,
-                " {} ? {} :",
-                case_guarded_assign_guard,
-                VerilogPortRef(&assign.src)
-            )?;
+            // // value for the wire to take if either fsm is not in relevant state
+            // // or if the assignment's original condition is not met
+            // let guard_unmet_value = if is_data_port(dst_ref) {
+            //     format!("'x")
+            // } else {
+            //     format!("{}'d0", dst_ref.borrow().width)
+            // };
+
+            // writeln!(
+            //     f,
+            //     " {} ? {} :",
+            //     case_guarded_assign_guard,
+            //     VerilogPortRef(&assign.src)
+            // )?;
 
             if i + 1 == collection.len() {
-                writeln!(f, " {guard_unmet_value};")?;
+                writeln!(f, " {case_guard};")?;
+            } else {
+                write!(f, " {case_guard} |")?;
             }
         }
     }
