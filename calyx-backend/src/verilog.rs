@@ -561,6 +561,7 @@ fn emit_fsm_module<F: io::Write>(
     // Write module header. Inputs include ports checked during transitions, and
     // outputs include one one-bit wire for every state
     writeln!(f, "\nmodule {}_{comp_name}_def (", fsm.borrow().name())?;
+    writeln!(f, "\nmodule {}_{comp_name}_def (", fsm.borrow().name())?;
     writeln!(f, "  input logic clk,")?;
     writeln!(f, "  input logic reset,")?;
     let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
@@ -617,7 +618,7 @@ fn emit_fsm_module<F: io::Write>(
     }
 
     // Generate sequential block representing the FSM
-    writeln!(f, "  always_ff @(posedge clk) begin")?;
+    writeln!(f, "  always @(posedge clk) begin")?;
     writeln!(f, "    if (reset) begin")?;
     if onehot {
         writeln!(f, "      current_state <= 'b1;")?;
