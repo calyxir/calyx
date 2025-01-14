@@ -71,7 +71,7 @@ impl StaticInliner {
         // adding the interval %[offset, offset + latency]
         assign
             .guard
-            .add_interval(ir::StaticTiming::new((offset, offset + latency)));
+            .add_interval(ir::StaticTiming::new((offset, offset + 1)));
     }
 
     // calls update_assignment_timing on each assignment in assigns, which does the following:
@@ -348,6 +348,8 @@ impl StaticInliner {
                     // clone vs. can drain
                     let mut g_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                         g.borrow_mut().assignments.clone();
+
+                    println!("{:?}", g_assigns);
                     // add cur_offset to each static guard in g_assigns
                     // and add %[offset, offset + latency] to each assignment in
                     // g_assigns
