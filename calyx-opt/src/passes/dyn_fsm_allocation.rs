@@ -3,14 +3,14 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer, RRC,
+    self as ir, Assignment, Attribute, BoolAttr, GetAttributes, LibrarySignatures, Printer, StaticTiming, RRC
 };
 
 use calyx_ir::{build_assignments, guard, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
-use itertools::Itertools;
+use itertools::{Interleave, Itertools};
 use petgraph::dot::{self};
 use petgraph::graph::DiGraph;
 use petgraph::Graph;
@@ -454,7 +454,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // map each source state to a list of conditional transitions
         let mut transitions_map: HashMap<u64, Vec<(ir::Guard<Nothing>, u64)>> =
             HashMap::new();
-            println!("Size of transitions: {}", self.transitions.len());
             self.transitions.into_iter().for_each(
                 |(s, e, g)| {
                     match transitions_map.get_mut(&(s + 1)) {
@@ -465,7 +464,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     }
                 }
             );
-        println!("Size of transitions_map: {}", transitions_map.len());
 
         // push the cases of the fsm to the fsm instantiation
         let (mut transitions, mut assignments): (
@@ -607,7 +605,6 @@ impl Schedule<'_, '_> {
             // };
 
             let (cur_state, prev_states) = (cur_state, preds);
-
             // Add group to mapping for emitting group JSON info
             self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
 
@@ -671,15 +668,8 @@ impl Schedule<'_, '_> {
                 let cur_state = attributes.get(STATE_ID).unwrap_or_else(
                     || panic!("Group `{}` does not have state_id information", group.borrow().name())
                 );
-                // If there is exactly one previous transition state with a `true`
-                // guard, then merge this state into previous state.
-                // This happens when the first control statement is an enable not
-                // inside a branch.
-                let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
-                    (preds[0].0, vec![])
-                } else {
-                    (cur_state, preds)
-                };
+
+                let (cur_state, prev_states) = (cur_state, preds);
 
                 // Add group to mapping for emitting group JSON info
                 self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
@@ -689,18 +679,17 @@ impl Schedule<'_, '_> {
                 let signal_on = self.builder.add_constant(1, 1);
 
                 // Activate this group in the current state
-                let en_go = build_assignments!(self.builder;
-                    group["go"] = ? signal_on["out"];
-                );
+                // let en_go = build_assignments!(self.builder;
+                //     group["go"] = ? signal_on["out"];
+                // );
 
-                for i in cur_state..cur_state + sc.get_latency()  {
-                    self
-                        .enables
-                        .entry(i)
-                        .or_default()
-                        .extend(en_go.clone());
+                // for i in cur_state..cur_state + sc.get_latency()  {
+                //     self.enables
+                //         .entry(i)
+                //         .or_default()
+                //         .extend(en_go.clone());
 
-                }
+                // }
                 // Activate group in the cycle when previous state signals done.
                 // NOTE: We explicilty do not add `not_done` to the guard.
                 // See explanation in [ir::TopDownCompileControl] to understand
@@ -713,16 +702,34 @@ impl Schedule<'_, '_> {
                         self.enables.entry(*st).or_default().extend(early_go);
                     }
                 }
+
+                let assigns: Vec<ir::Assignment<StaticTiming>> = group.borrow_mut().assignments.drain(..).collect();
                 
-                // let mut transitions: Vec<(u64, u64, ir::Guard<Nothing>)> = vec![];
-                // for (pre_st, guard) in prev_states {
-                //     if pre_st + 1 != cur_state{
-                //         for i in pre_st..cur_state {
-                //             transitions.push((i, i+1, guard.clone()));
-                //             println!("Adding transition from {} to {}", i, i+1);
-                //         }
-                //     }
-                // }
+                for assign in assigns.iter(){
+                    if let ir::Guard::Info(timing_interval) = *assign.guard {
+                        let (u, v) = timing_interval.get_interval();
+                        for i in u..v{
+                            self.enables
+                                .entry(cur_state+i)
+                                .or_default()
+                                .push(ir::Assignment{
+                                    src: assign.src.clone(),
+                                    dst: assign.dst.clone(),
+                                    attributes: assign.attributes.clone(),
+                                    guard: Box::new(ir::Guard::True),
+                                });
+                        }
+                    }
+                    else{
+                        self.enables.entry(cur_state).or_default().push(ir::Assignment{
+                            src: assign.src.clone(),
+                            dst: assign.dst.clone(),
+                            attributes: assign.attributes.clone(),
+                            guard: Box::new(ir::Guard::True),
+                        });
+                    }
+                }
+                
 
                 let transitions = prev_states
                     .into_iter()
@@ -735,15 +742,13 @@ impl Schedule<'_, '_> {
                         }
                     );
                 self.transitions.extend(transitions);
-
-                for i in cur_state..cur_state + sc.get_latency()  {
+                    
+                for i in cur_state..cur_state + sc.get_latency()-1  {
                     self.transitions.push((i, i + 1, ir::Guard::True));
-                    println!("During static state recur, Adding transition from {} to {}", i, i+1);
                 }
                 
                 // adding the guard later 
                 let done_cond = ir::Guard::True;
-
                 Ok(vec![(cur_state, done_cond, true)])
             }else{
                 unreachable!("`calculate_states_recur` should not see a static control that is not an enable.")
@@ -766,7 +771,6 @@ impl Schedule<'_, '_> {
     ) -> CalyxResult<Vec<PredEdge>> {
         let mut prev = preds;
         for (i, stmt) in seq.stmts.iter().enumerate() {
-            println!("Calculating state for stmt {:?}", i);
             prev = self.calculate_states_recur(
                 stmt,
                 prev,
@@ -925,14 +929,14 @@ impl Schedule<'_, '_> {
         con: &ir::Control,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True, false);
+        // let first_state = (0, ir::Guard::True, false);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
         // the first group.
         let prev = self.calculate_states_recur(
             con,
-            vec![first_state],
+            vec![],
             early_transitions,
             false,
         )?;
@@ -1272,7 +1276,6 @@ impl Visitor for DynamicFSMAllocation {
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
         let comp_fsm = sch.realize_fsm(self.dump_fsm);
-        Ok(Action::Continue)
-        // Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
+        Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
     }
 }
