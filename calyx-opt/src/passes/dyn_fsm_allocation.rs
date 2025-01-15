@@ -134,10 +134,16 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
         ir::Control::Enable(ir::Enable { attributes, .. }) => {
+            if attributes.has(STATE_ID) {
+                attributes.remove(STATE_ID);
+            }
             attributes.insert(STATE_ID, cur_state);
             cur_state + 1
         }
         ir::Control::Par(ir::Par { stmts, attributes }) => {
+            if attributes.has(STATE_ID) {
+                attributes.remove(STATE_ID);
+            }
             attributes.insert(STATE_ID, cur_state);
             stmts.iter_mut().for_each(|stmt| {
                 compute_unique_state_ids(stmt, 0);
@@ -145,6 +151,9 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             cur_state + 1
         }
         ir::Control::Seq(ir::Seq { stmts, attributes }) => {
+            if attributes.has(STATE_ID) {
+                attributes.remove(STATE_ID);
+            }
             let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then insert attribute at the seq, and then
             // start over counting states from 0
@@ -168,6 +177,9 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         ir::Control::If(ir::If {
             tbranch, fbranch, attributes, ..
         }) => {
+            if attributes.has(STATE_ID) {
+                attributes.remove(STATE_ID);
+            }
             let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
@@ -198,6 +210,9 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             }
         }
         ir::Control::While(ir::While { body, attributes, .. }) => {
+            if attributes.has(STATE_ID) {
+                attributes.remove(STATE_ID);
+            }
             let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
@@ -227,9 +242,19 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
             ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
             ir::Control::Static(sc) => {
+                
                 if let ir::StaticControl::Enable(ir::StaticEnable{attributes,..}) = sc {
+                    if attributes.has(STATE_ID) {
+                        attributes.remove(STATE_ID);
+                    }
                     attributes.insert(STATE_ID, cur_state);
-                    cur_state + 1
+
+                    // if with new fsm then we create 1 state, otherwise we keep the latency amount of state
+                    if attributes.has(ir::BoolAttr::NewFSM) {
+                        cur_state + 1
+                    } else {
+                        cur_state + sc.get_latency()
+                    }
                 } else {
                     unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
                 }
@@ -409,7 +434,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // compute final state and fsm_size, and register initial fsm
         let fsm = self.builder.add_fsm("fsm");
-
         if dump_fsm {
             self.display(format!(
                 "{}:{}",
@@ -627,6 +651,7 @@ impl Schedule<'_, '_> {
 
                 // Add group to mapping for emitting group JSON info
                 self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
+
 
                 // let not_done = !guard!(group["done"]);
                 let signal_on = self.builder.add_constant(1, 1);
@@ -964,7 +989,6 @@ impl ConstructVisitor for DynamicFSMAllocation {
         Self: Sized + Named,
     {
         let opts = Self::get_opts(ctx);
-
         Ok(DynamicFSMAllocation {
             dump_fsm: opts[&"dump-fsm"].bool(),
             early_transitions: opts[&"early-transitions"].bool(),
@@ -1048,134 +1072,133 @@ impl Visitor for DynamicFSMAllocation {
         Ok(Action::Continue)
     }
 
-    fn finish_seq(
-        &mut self,
-        s: &mut calyx_ir::Seq,
-        comp: &mut calyx_ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
-        if !s.attributes.has(ir::BoolAttr::NewFSM) {
-            return Ok(Action::Continue);
-        }
+    // fn finish_seq(
+    //     &mut self,
+    //     s: &mut calyx_ir::Seq,
+    //     comp: &mut calyx_ir::Component,
+    //     sigs: &LibrarySignatures,
+    //     _comps: &[calyx_ir::Component],
+    // ) -> VisResult {
+    //     if !s.attributes.has(ir::BoolAttr::NewFSM) {
+    //         return Ok(Action::Continue);
+    //     }
 
-        let mut builder = ir::Builder::new(comp, sigs);
-        let mut sch = Schedule::from(&mut builder);
-        sch.calculate_states_seq(s, self.early_transitions)?;
-        let seq_fsm = sch.realize_fsm(self.dump_fsm);
-        let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
-        let state_id = s.attributes.get(STATE_ID).unwrap();
-        fsm_en.get_mut_attributes().insert(STATE_ID, state_id);
+    //     let mut builder = ir::Builder::new(comp, sigs);
+    //     let mut sch = Schedule::from(&mut builder);
+    //     sch.calculate_states_seq(s, self.early_transitions)?;
+    //     let seq_fsm = sch.realize_fsm(self.dump_fsm);
+    //     let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
+    //     let state_id = s.attributes.get(STATE_ID).unwrap();
+    //     fsm_en.get_mut_attributes().insert(STATE_ID, state_id);
+    //     Ok(Action::change(fsm_en))
+    // }
 
-        Ok(Action::change(fsm_en))
-    }
+    // fn finish_par(
+    //     &mut self,
+    //     s: &mut calyx_ir::Par,
+    //     comp: &mut calyx_ir::Component,
+    //     sigs: &LibrarySignatures,
+    //     _comps: &[calyx_ir::Component],
+    // ) -> VisResult {
+    //     let mut builder = ir::Builder::new(comp, sigs);
 
-    fn finish_par(
-        &mut self,
-        s: &mut calyx_ir::Par,
-        comp: &mut calyx_ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[calyx_ir::Component],
-    ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, sigs);
+    //     // Compilation FSM
+    //     let mut assigns_to_enable = vec![];
 
-        // Compilation FSM
-        let mut assigns_to_enable = vec![];
+    //     structure!(builder;
+    //         let signal_on = constant(1, 1);
+    //         let signal_off = constant(0, 1);
+    //     );
 
-        structure!(builder;
-            let signal_on = constant(1, 1);
-            let signal_off = constant(0, 1);
-        );
+    //     // Registers to save the done signal from each child.
+    //     let mut done_regs: Vec<RRC<ir::Cell>> =
+    //         Vec::with_capacity(s.stmts.len());
 
-        // Registers to save the done signal from each child.
-        let mut done_regs: Vec<RRC<ir::Cell>> =
-            Vec::with_capacity(s.stmts.len());
+    //     // replace every thread with a single-element sequential schedule
+    //     // in order to instantiate a 3-state FSM for the thread
+    //     let threads = s
+    //         .stmts
+    //         .drain(..)
+    //         .map(|s| ir::Control::seq(vec![s]))
+    //         .collect_vec();
 
-        // replace every thread with a single-element sequential schedule
-        // in order to instantiate a 3-state FSM for the thread
-        let threads = s
-            .stmts
-            .drain(..)
-            .map(|s| ir::Control::seq(vec![s]))
-            .collect_vec();
+    //     s.stmts.extend(threads);
 
-        s.stmts.extend(threads);
+    //     // For each child, build an FSM to run the thread
+    //     for con in &s.stmts {
+    //         // regardless of the type of thread (seq / enable / etc.),
+    //         // instantiate an FSM; we might want to change this in the future
+    //         // to enable no transition latency between par-thread-go and
+    //         // when the thread actually begins working (the common case might
+    //         // simply be a group, which would mean a 1-cycle group takes 3 cycles now)
+    //         let mut sch = Schedule::from(&mut builder);
+    //         sch.calculate_states(&con, self.early_transitions)?;
+    //         let fsm = sch.realize_fsm(self.dump_fsm);
 
-        // For each child, build an FSM to run the thread
-        for con in &s.stmts {
-            // regardless of the type of thread (seq / enable / etc.),
-            // instantiate an FSM; we might want to change this in the future
-            // to enable no transition latency between par-thread-go and
-            // when the thread actually begins working (the common case might
-            // simply be a group, which would mean a 1-cycle group takes 3 cycles now)
-            let mut sch = Schedule::from(&mut builder);
-            sch.calculate_states(&con, self.early_transitions)?;
-            let fsm = sch.realize_fsm(self.dump_fsm);
+    //         // Build circuitry to enable and disable this fsm.
+    //         structure!(builder;
+    //             let pd = prim std_reg(1);
+    //         );
 
-            // Build circuitry to enable and disable this fsm.
-            structure!(builder;
-                let pd = prim std_reg(1);
-            );
+    //         let fsm_go = !(guard!(pd["out"] | fsm["done"]));
+    //         let fsm_done = guard!(fsm["done"]);
 
-            let fsm_go = !(guard!(pd["out"] | fsm["done"]));
-            let fsm_done = guard!(fsm["done"]);
+    //         // save the go / done assignments for fsm representing the par thread
+    //         let par_thread_assigns: [ir::Assignment<Nothing>; 3] = build_assignments!(builder;
+    //             fsm["start"] = fsm_go ? signal_on["out"];
+    //             pd["in"] = fsm_done ? signal_on["out"];
+    //             pd["write_en"] = fsm_done ? signal_on["out"];
+    //         );
 
-            // save the go / done assignments for fsm representing the par thread
-            let par_thread_assigns: [ir::Assignment<Nothing>; 3] = build_assignments!(builder;
-                fsm["start"] = fsm_go ? signal_on["out"];
-                pd["in"] = fsm_done ? signal_on["out"];
-                pd["write_en"] = fsm_done ? signal_on["out"];
-            );
+    //         assigns_to_enable.extend(par_thread_assigns);
+    //         done_regs.push(pd)
+    //     }
 
-            assigns_to_enable.extend(par_thread_assigns);
-            done_regs.push(pd)
-        }
+    //     // Done condition for par block's FSM
+    //     let true_guard = ir::Guard::True;
+    //     let par_fsm = builder.add_fsm("par");
+    //     let transition_to_done: ir::Guard<Nothing> = done_regs
+    //         .clone()
+    //         .into_iter()
+    //         .map(|r| guard!(r["out"]))
+    //         .fold(true_guard.clone(), ir::Guard::and);
 
-        // Done condition for par block's FSM
-        let true_guard = ir::Guard::True;
-        let par_fsm = builder.add_fsm("par");
-        let transition_to_done: ir::Guard<Nothing> = done_regs
-            .clone()
-            .into_iter()
-            .map(|r| guard!(r["out"]))
-            .fold(true_guard.clone(), ir::Guard::and);
+    //     // generate transition conditions for each state of the par's FSM
+    //     let par_fsm_trans = vec![
+    //         // conditional transition from IDLE to COMPUTE on par_fsm_start
+    //         ir::Transition::Conditional(vec![
+    //             (guard!(par_fsm["start"]), 1),
+    //             (true_guard.clone(), 0),
+    //         ]),
+    //         // conditional transition from COMPUTE to DONE based on completion of all done regs
+    //         ir::Transition::Conditional(vec![
+    //             (transition_to_done, 2),
+    //             (true_guard.clone(), 1),
+    //         ]),
+    //         ir::Transition::Unconditional(0),
+    //     ];
 
-        // generate transition conditions for each state of the par's FSM
-        let par_fsm_trans = vec![
-            // conditional transition from IDLE to COMPUTE on par_fsm_start
-            ir::Transition::Conditional(vec![
-                (guard!(par_fsm["start"]), 1),
-                (true_guard.clone(), 0),
-            ]),
-            // conditional transition from COMPUTE to DONE based on completion of all done regs
-            ir::Transition::Conditional(vec![
-                (transition_to_done, 2),
-                (true_guard.clone(), 1),
-            ]),
-            ir::Transition::Unconditional(0),
-        ];
+    //     // generate assignments to occur at each state of par's FSM
+    //     let par_fsm_assigns = vec![
+    //         vec![],
+    //         assigns_to_enable,
+    //         build_assignments!(builder;
+    //             par_fsm["done"] = true_guard ? signal_on["out"];
+    //         )
+    //         .to_vec(),
+    //     ];
 
-        // generate assignments to occur at each state of par's FSM
-        let par_fsm_assigns = vec![
-            vec![],
-            assigns_to_enable,
-            build_assignments!(builder;
-                par_fsm["done"] = true_guard ? signal_on["out"];
-            )
-            .to_vec(),
-        ];
+    //     // place all of these into the FSM
+    //     par_fsm.borrow_mut().assignments.extend(par_fsm_assigns);
+    //     par_fsm.borrow_mut().transitions.extend(par_fsm_trans);
 
-        // place all of these into the FSM
-        par_fsm.borrow_mut().assignments.extend(par_fsm_assigns);
-        par_fsm.borrow_mut().transitions.extend(par_fsm_trans);
+    //     // put the state id of the par schedule onto the par fsm
+    //     let mut en = ir::Control::fsm_enable(par_fsm);
+    //     let state_id = s.attributes.get(STATE_ID).unwrap();
+    //     en.get_mut_attributes().insert(STATE_ID, state_id);
 
-        // put the state id of the par schedule onto the par fsm
-        let mut en = ir::Control::fsm_enable(par_fsm);
-        let state_id = s.attributes.get(STATE_ID).unwrap();
-        en.get_mut_attributes().insert(STATE_ID, state_id);
-
-        Ok(Action::change(en))
-    }
+    //     Ok(Action::change(en))
+    // }
 
     fn finish(
         &mut self,
@@ -1190,8 +1213,8 @@ impl Visitor for DynamicFSMAllocation {
 
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        let comp_fsm = sch.realize_fsm(self.dump_fsm);
-
-        Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
+        // let comp_fsm = sch.realize_fsm(self.dump_fsm);
+        Ok(Action::Continue)
+        // Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
     }
 }
