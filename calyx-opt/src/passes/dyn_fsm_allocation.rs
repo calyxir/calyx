@@ -3,18 +3,18 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer,
-    StaticGroup, RRC,
+    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer, RRC,
 };
 
-use calyx_ir::{build_assignments, guard, structure, Id};
+use calyx_ir::{build_assignments, guard, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use petgraph::dot::{self};
 use petgraph::graph::DiGraph;
+use petgraph::Graph;
 use serde::Serialize;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Write;
 use std::rc::Rc;
@@ -57,11 +57,11 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Empty(_) => {},
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(STATE_ID).unwrap();
-            exits.push((cur_state, guard!(group["done"])))
+            exits.push((cur_state, guard!(group["done"]), false))
         },
         ir::Control::FSMEnable(ir::FSMEnable{attributes, fsm}) => {
             let cur_state = attributes.get(STATE_ID).unwrap();
-            exits.push((cur_state, guard!(fsm["done"])))
+            exits.push((cur_state, guard!(fsm["done"]), false))
         },
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             if let Some(stmt) = stmts.last() { control_exits(stmt, exits) }
@@ -80,8 +80,8 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
             let mut loop_exits = vec![];
             control_exits(body, &mut loop_exits);
             // Loop exits only happen when the loop guard is false
-            exits.extend(loop_exits.into_iter().map(|(s, g)| {
-                (s, g & !ir::Guard::from(port.clone()))
+            exits.extend(loop_exits.into_iter().map(|(s, g, is_static)| {
+                (s, g & !ir::Guard::from(port.clone()), is_static)
             }));
         },
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
@@ -90,7 +90,8 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Static(sc) => {
             if let ir::StaticControl::Enable(ir::StaticEnable{group, attributes}) = sc {
                 let cur_state = attributes.get(STATE_ID).unwrap();
-                exits.push((cur_state, guard!(group["done"])))
+                //TODO: This is a hack to get the done signal of the group
+                exits.push((cur_state, guard!(group["go"]), false))
             } else {
                 unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
             }
@@ -381,7 +382,7 @@ impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
 impl<'b, 'a> Schedule<'b, 'a> {
     /// Validate that all states are reachable in the transition graph.
     fn validate(&self) {
-        let graph = DiGraph::<(), u32>::from_edges(
+        let graph: petgraph::Graph<(), u32> = DiGraph::<(), u32>::from_edges(
             self.transitions
                 .iter()
                 .map(|(s, e, _)| (*s as u32, *e as u32)),
@@ -390,7 +391,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         debug_assert!(
             petgraph::algo::connected_components(&graph) == 1,
             "State transition graph has unreachable states (graph has more than one connected component)\n{:?}.", 
-            petgraph::dot::Dot::new(&graph)
+            petgraph::dot::Dot::with_config(&graph, &[petgraph::dot::Config::EdgeNoLabel, petgraph::dot::Config::NodeNoLabel])
         );
     }
 
@@ -435,24 +436,36 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // compute final state and fsm_size, and register initial fsm
         let fsm = self.builder.add_fsm("fsm");
         if dump_fsm {
-            self.display(format!(
-                "{}:{}",
-                self.builder.component.name,
-                fsm.borrow().name()
-            ));
+
+            let graph: Graph<(), u32> = DiGraph::<(), u32>::from_edges(
+            self.transitions
+                .iter()
+                .map(|(s, e, _)| (*s as u32, *e as u32)),
+            );
+            println!("==== {} ====", fsm.borrow().name());
+            println!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel, dot::Config::NodeNoLabel]));
+            // self.display(format!(
+            //     "{}:{}",
+            //     self.builder.component.name,
+            //     fsm.borrow().name()
+            // ));
         }
 
         // map each source state to a list of conditional transitions
         let mut transitions_map: HashMap<u64, Vec<(ir::Guard<Nothing>, u64)>> =
             HashMap::new();
-        self.transitions.into_iter().for_each(
-            |(s, e, g)| match transitions_map.get_mut(&(s + 1)) {
-                Some(next_states) => next_states.push((g, e + 1)),
-                None => {
-                    transitions_map.insert(s + 1, vec![(g, e + 1)]);
+            println!("Size of transitions: {}", self.transitions.len());
+            self.transitions.into_iter().for_each(
+                |(s, e, g)| {
+                    match transitions_map.get_mut(&(s + 1)) {
+                        Some(next_states) => next_states.push((g, e + 1)),
+                        None => {
+                            transitions_map.insert(s + 1, vec![(g, e + 1)]);
+                        }
+                    }
                 }
-            },
-        );
+            );
+        println!("Size of transitions_map: {}", transitions_map.len());
 
         // push the cases of the fsm to the fsm instantiation
         let (mut transitions, mut assignments): (
@@ -462,7 +475,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
             .drain()
             .sorted_by(|(s1, _), (s2, _)| s1.cmp(s2))
             .map(|(state, mut cond_dsts)| {
-                let assigns = match self.fsm_enables.get(&(state - 1)) {
+                let assigns: Vec<calyx_ir::Assignment<Nothing>> = match self.fsm_enables.get(&(state - 1)) {
                     None => vec![],
                     Some(assigns) => assigns.clone(),
                 };
@@ -507,7 +520,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 /// Represents an edge from a predeccesor to the current control node.
 /// The `u64` represents the FSM state of the predeccesor and the guard needs
 /// to be true for the predeccesor to transition to the current state.
-type PredEdge = (u64, ir::Guard<Nothing>);
+type PredEdge = (u64, ir::Guard<Nothing>, bool);
 
 impl Schedule<'_, '_> {
     /// Recursively build an dynamic finite state machine represented by a [Schedule].
@@ -556,7 +569,7 @@ impl Schedule<'_, '_> {
 
             // Enable FSM to be triggered by states besides the most recent
             if early_transitions || has_fast_guarantee {
-                for (st, g) in &prev_states {
+                for (st, g, _is_static) in &prev_states {
                     let early_go = build_assignments!(self.builder;
                         fsm["start"] = g ? signal_on["out"];
                     );
@@ -566,11 +579,18 @@ impl Schedule<'_, '_> {
 
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| (st, cur_state, guard));
+                .map(|(st, guard, is_static)| {
+                    if is_static {
+                        (cur_state-1, cur_state, guard)
+                    } else {
+                        (st, cur_state, guard)
+                    }                    
+                }
+            );
             self.transitions.extend(transitions);
 
             let done_cond = guard!(fsm["done"]);
-            Ok(vec![(cur_state, done_cond)])
+            Ok(vec![(cur_state, done_cond, false)])
 
         },
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
@@ -580,11 +600,13 @@ impl Schedule<'_, '_> {
             // guard, then merge this state into previous state.
             // This happens when the first control statement is an enable not
             // inside a branch.
-            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
-                (preds[0].0, vec![])
-            } else {
-                (cur_state, preds)
-            };
+            // let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
+            //     (preds[0].0, vec![])
+            // } else {
+            //     (cur_state, preds)
+            // };
+
+            let (cur_state, prev_states) = (cur_state, preds);
 
             // Add group to mapping for emitting group JSON info
             self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
@@ -607,7 +629,7 @@ impl Schedule<'_, '_> {
             // See explanation in [ir::TopDownCompileControl] to understand
             // why.
             if early_transitions || has_fast_guarantee {
-                for (st, g) in &prev_states {
+                for (st, g, _is_static) in &prev_states {
                     let early_go = build_assignments!(self.builder;
                         group["go"] = g ? signal_on["out"];
                     );
@@ -617,11 +639,19 @@ impl Schedule<'_, '_> {
 
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| (st, cur_state, guard));
+                .map(|(st, guard, is_static)| 
+                    {
+                        if is_static {
+                            (cur_state-1, cur_state, guard)
+                        } else {
+                            (st, cur_state, guard)
+                        }
+                    }
+                );
             self.transitions.extend(transitions);
 
             let done_cond = guard!(group["done"]);
-            Ok(vec![(cur_state, done_cond)])
+            Ok(vec![(cur_state, done_cond, false)])
         }
         ir::Control::Seq(seq) => {
             self.calc_seq_recur(seq, preds, early_transitions)
@@ -638,7 +668,9 @@ impl Schedule<'_, '_> {
         ir::Control::Empty(_) => unreachable!("`calculate_states_recur` should not see an `empty` control."),
         ir::Control::Static(sc) => {
             if let ir::StaticControl::Enable(ir::StaticEnable{group, attributes }) = sc {
-                let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));
+                let cur_state = attributes.get(STATE_ID).unwrap_or_else(
+                    || panic!("Group `{}` does not have state_id information", group.borrow().name())
+                );
                 // If there is exactly one previous transition state with a `true`
                 // guard, then merge this state into previous state.
                 // This happens when the first control statement is an enable not
@@ -660,34 +692,59 @@ impl Schedule<'_, '_> {
                 let en_go = build_assignments!(self.builder;
                     group["go"] = ? signal_on["out"];
                 );
-                self
-                    .enables
-                    .entry(cur_state)
-                    .or_default()
-                    .extend(en_go);
 
+                for i in cur_state..cur_state + sc.get_latency()  {
+                    self
+                        .enables
+                        .entry(i)
+                        .or_default()
+                        .extend(en_go.clone());
+
+                }
                 // Activate group in the cycle when previous state signals done.
                 // NOTE: We explicilty do not add `not_done` to the guard.
                 // See explanation in [ir::TopDownCompileControl] to understand
                 // why.
                 if early_transitions || has_fast_guarantee {
-                    for (st, g) in &prev_states {
+                    for (st, g, _is_static) in &prev_states {
                         let early_go = build_assignments!(self.builder;
                             group["go"] = g ? signal_on["out"];
                         );
                         self.enables.entry(*st).or_default().extend(early_go);
                     }
                 }
+                
+                // let mut transitions: Vec<(u64, u64, ir::Guard<Nothing>)> = vec![];
+                // for (pre_st, guard) in prev_states {
+                //     if pre_st + 1 != cur_state{
+                //         for i in pre_st..cur_state {
+                //             transitions.push((i, i+1, guard.clone()));
+                //             println!("Adding transition from {} to {}", i, i+1);
+                //         }
+                //     }
+                // }
 
                 let transitions = prev_states
                     .into_iter()
-                    .map(|(st, guard)| (st, cur_state, guard));
+                    .map(|(st, guard, is_static)| {
+                        if is_static {
+                                (cur_state-1, cur_state, guard)
+                            } else {
+                                (st, cur_state, guard)
+                            }
+                        }
+                    );
                 self.transitions.extend(transitions);
 
+                for i in cur_state..cur_state + sc.get_latency()  {
+                    self.transitions.push((i, i + 1, ir::Guard::True));
+                    println!("During static state recur, Adding transition from {} to {}", i, i+1);
+                }
+                
+                // adding the guard later 
+                let done_cond = ir::Guard::True;
 
-                let done_cond = guard!(group["done"]);
-
-                Ok(vec![(cur_state, done_cond)])
+                Ok(vec![(cur_state, done_cond, true)])
             }else{
                 unreachable!("`calculate_states_recur` should not see a static control that is not an enable.")
             }
@@ -709,6 +766,7 @@ impl Schedule<'_, '_> {
     ) -> CalyxResult<Vec<PredEdge>> {
         let mut prev = preds;
         for (i, stmt) in seq.stmts.iter().enumerate() {
+            println!("Calculating state for stmt {:?}", i);
             prev = self.calculate_states_recur(
                 stmt,
                 prev,
@@ -741,7 +799,7 @@ impl Schedule<'_, '_> {
         let tru_transitions = preds
             .clone()
             .into_iter()
-            .map(|(s, g)| (s, g & port_guard.clone()))
+            .map(|(s, g, is_static)| (s, g & port_guard.clone(), is_static))
             .collect();
         let tru_prev = self.calculate_states_recur(
             &if_stmt.tbranch,
@@ -753,7 +811,7 @@ impl Schedule<'_, '_> {
         // to be false.
         let fal_transitions = preds
             .into_iter()
-            .map(|(s, g)| (s, g & !port_guard.clone()))
+            .map(|(s, g, is_static)| (s, g & !port_guard.clone(), is_static))
             .collect();
 
         let fal_prev = if let ir::Control::Empty(..) = *if_stmt.fbranch {
@@ -769,7 +827,7 @@ impl Schedule<'_, '_> {
             )?
         };
 
-        let prevs = tru_prev.into_iter().chain(fal_prev).collect();
+        let prevs: Vec<(u64, calyx_ir::Guard<Nothing>, bool)> = tru_prev.into_iter().chain(fal_prev).collect();
         Ok(prevs)
     }
 
@@ -802,7 +860,7 @@ impl Schedule<'_, '_> {
             .clone()
             .into_iter()
             .chain(exits)
-            .map(|(s, g)| (s, g & port_guard.clone()))
+            .map(|(s, g, is_static)| (s, g & port_guard.clone(), is_static))
             .collect();
         let prevs = self.calculate_states_recur(
             &while_stmt.body,
@@ -818,7 +876,7 @@ impl Schedule<'_, '_> {
         let all_prevs = preds
             .into_iter()
             .chain(prevs)
-            .map(|(st, guard)| (st, guard & not_port_guard.clone()))
+            .map(|(st, guard, is_static)| (st, guard & not_port_guard.clone(), is_static))
             .collect();
 
         Ok(all_prevs)
@@ -830,7 +888,7 @@ impl Schedule<'_, '_> {
         seq: &ir::Seq,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
+        let first_state = (0, ir::Guard::True, false);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -848,11 +906,11 @@ impl Schedule<'_, '_> {
     fn add_nxt_transition(&mut self, prev: Vec<PredEdge>) {
         let nxt = prev
             .iter()
-            .max_by(|(st1, _), (st2, _)| st1.cmp(st2))
+            .max_by(|(st1, _, _), (st2, _, _)| st1.cmp(st2))
             .unwrap()
             .0
             + 1;
-        let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
+        let transitions = prev.into_iter().map(|(st, guard, _)| (st, nxt, guard));
         self.transitions.extend(transitions);
     }
 
@@ -867,7 +925,7 @@ impl Schedule<'_, '_> {
         con: &ir::Control,
         early_transitions: bool,
     ) -> CalyxResult<()> {
-        let first_state = (0, ir::Guard::True);
+        let first_state = (0, ir::Guard::True, false);
         // We create an empty first state in case the control program starts with
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
@@ -1213,7 +1271,7 @@ impl Visitor for DynamicFSMAllocation {
 
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        // let comp_fsm = sch.realize_fsm(self.dump_fsm);
+        let comp_fsm = sch.realize_fsm(self.dump_fsm);
         Ok(Action::Continue)
         // Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
     }
