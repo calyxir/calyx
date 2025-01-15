@@ -489,15 +489,10 @@ impl Visitor for StaticPromotion {
         } else {
             ir::Control::Seq(ir::Seq {
                 stmts: new_stmts,
-                attributes: ir::Attributes::default(),
+                attributes: s.get_attributes().clone(),
             })
         };
         self.inference_analysis.fixup_ctrl(&mut new_ctrl);
-
-        // this might be part of a larger issue where passes remove some attributes they shouldn't
-        if s.get_attributes().has(BoolAttr::Fast) {
-            new_ctrl.get_mut_attributes().insert(BoolAttr::Fast, 1);
-        }
 
         Ok(Action::change(new_ctrl))
     }
@@ -548,7 +543,7 @@ impl Visitor for StaticPromotion {
         new_stmts.extend(d_stmts);
         let new_par = ir::Control::Par(ir::Par {
             stmts: new_stmts,
-            attributes: ir::Attributes::default(),
+            attributes: s.get_attributes().clone(),
         });
         Ok(Action::change(new_par))
     }
