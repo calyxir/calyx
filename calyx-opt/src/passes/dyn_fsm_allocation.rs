@@ -3,7 +3,8 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer, RRC,
+    self as ir, BoolAttr, GetAttributes, LibrarySignatures, Printer,
+    StaticGroup, RRC,
 };
 
 use calyx_ir::{build_assignments, guard, structure, Id};
@@ -13,6 +14,7 @@ use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
 use serde::Serialize;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Write;
 use std::rc::Rc;
@@ -85,7 +87,14 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Par(_) => unreachable!(),
-        ir::Control::Static(_) => unreachable!(" static control should have been compiled away. Run the static compilation passes before this pass")
+        ir::Control::Static(sc) => {
+            if let ir::StaticControl::Enable(ir::StaticEnable{group, attributes}) = sc {
+                let cur_state = attributes.get(STATE_ID).unwrap();
+                exits.push((cur_state, guard!(group["done"])))
+            } else {
+                unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
+            }
+        }
     }
 }
 
@@ -124,101 +133,108 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 /// and [control_exits].
 fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
-      ir::Control::Enable(ir::Enable { attributes, .. }) => {
-          attributes.insert(STATE_ID, cur_state);
-          cur_state + 1
-      }
-      ir::Control::Par(ir::Par { stmts, attributes }) => {
-          attributes.insert(STATE_ID, cur_state);
-          stmts.iter_mut().for_each(|stmt| {
-            compute_unique_state_ids(stmt, 0);
-          });
-          cur_state + 1
-      }
-      ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-          let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
-          // if new_fsm is true, then insert attribute at the seq, and then
-          // start over counting states from 0
-          let mut cur = if new_fsm{
-              attributes.insert(STATE_ID, cur_state);
-              0
-          } else {
-              cur_state
-          };
-          stmts.iter_mut().for_each(|stmt| {
-              cur = compute_unique_state_ids(stmt, cur);
-          });
-          // If new_fsm is true then we want to return cur_state + 1, since this
-          // seq should really only take up 1 "state" on the "outer" fsm
-          if new_fsm{
-              cur_state + 1
-          } else {
-              cur
-          }
-      }
-      ir::Control::If(ir::If {
-          tbranch, fbranch, attributes, ..
-      }) => {
-          let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
-          // if new_fsm is true, then we want to add an attribute to this
-          // control statement
-          if new_fsm {
-              attributes.insert(STATE_ID, cur_state);
-          }
-          // If the program starts with a branch then branches can't get
-          // the initial state.
-          // Also, if new_fsm is true, we want to start with state 1 as well:
-          // we can't start at 0 for the reason mentioned above
-          let cur = if new_fsm || cur_state == 0 {
-              1
-          } else {
-              cur_state
-          };
-          let tru_nxt = compute_unique_state_ids(
-              tbranch, cur
-          );
-          let false_nxt = compute_unique_state_ids(
-              fbranch, tru_nxt
-          );
-          // If new_fsm is true then we want to return cur_state + 1, since this
-          // if stmt should really only take up 1 "state" on the "outer" fsm
-          if new_fsm {
-              cur_state + 1
-          } else {
-              false_nxt
-          }
-      }
-      ir::Control::While(ir::While { body, attributes, .. }) => {
-          let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
-          // if new_fsm is true, then we want to add an attribute to this
-          // control statement
-          if new_fsm{
-              attributes.insert(STATE_ID, cur_state);
-          }
-          // If the program starts with a branch then branches can't get
-          // the initial state.
-          // Also, if new_fsm is true, we want to start with state 1 as well:
-          // we can't start at 0 for the reason mentioned above
-          let cur = if new_fsm || cur_state == 0 {
-              1
-          } else {
-              cur_state
-          };
-          let body_nxt = compute_unique_state_ids(body, cur);
-          // If new_fsm is true then we want to return cur_state + 1, since this
-          // while loop should really only take up 1 "state" on the "outer" fsm
-          if new_fsm{
-              cur_state + 1
-          } else {
-              body_nxt
-          }
-      }
-      ir::Control::FSMEnable(_) => unreachable!("shouldn't encounter fsm node"),
-      ir::Control::Empty(_) => cur_state,
-      ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
-      ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-      ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
-  }
+        ir::Control::Enable(ir::Enable { attributes, .. }) => {
+            attributes.insert(STATE_ID, cur_state);
+            cur_state + 1
+        }
+        ir::Control::Par(ir::Par { stmts, attributes }) => {
+            attributes.insert(STATE_ID, cur_state);
+            stmts.iter_mut().for_each(|stmt| {
+                compute_unique_state_ids(stmt, 0);
+            });
+            cur_state + 1
+        }
+        ir::Control::Seq(ir::Seq { stmts, attributes }) => {
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
+            // if new_fsm is true, then insert attribute at the seq, and then
+            // start over counting states from 0
+            let mut cur = if new_fsm{
+                attributes.insert(STATE_ID, cur_state);
+                0
+            } else {
+                cur_state
+            };
+            stmts.iter_mut().for_each(|stmt| {
+                cur = compute_unique_state_ids(stmt, cur);
+            });
+            // If new_fsm is true then we want to return cur_state + 1, since this
+            // seq should really only take up 1 "state" on the "outer" fsm
+            if new_fsm{
+                cur_state + 1
+            } else {
+                cur
+            }
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, attributes, ..
+        }) => {
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
+            // if new_fsm is true, then we want to add an attribute to this
+            // control statement
+            if new_fsm {
+                attributes.insert(STATE_ID, cur_state);
+            }
+            // If the program starts with a branch then branches can't get
+            // the initial state.
+            // Also, if new_fsm is true, we want to start with state 1 as well:
+            // we can't start at 0 for the reason mentioned above
+            let cur = if new_fsm || cur_state == 0 {
+                1
+            } else {
+                cur_state
+            };
+            let tru_nxt = compute_unique_state_ids(
+                tbranch, cur
+            );
+            let false_nxt = compute_unique_state_ids(
+                fbranch, tru_nxt
+            );
+            // If new_fsm is true then we want to return cur_state + 1, since this
+            // if stmt should really only take up 1 "state" on the "outer" fsm
+            if new_fsm {
+                cur_state + 1
+            } else {
+                false_nxt
+            }
+        }
+        ir::Control::While(ir::While { body, attributes, .. }) => {
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
+            // if new_fsm is true, then we want to add an attribute to this
+            // control statement
+            if new_fsm{
+                attributes.insert(STATE_ID, cur_state);
+            }
+            // If the program starts with a branch then branches can't get
+            // the initial state.
+            // Also, if new_fsm is true, we want to start with state 1 as well:
+            // we can't start at 0 for the reason mentioned above
+            let cur = if new_fsm || cur_state == 0 {
+                1
+            } else {
+                cur_state
+            };
+            let body_nxt = compute_unique_state_ids(body, cur);
+            // If new_fsm is true then we want to return cur_state + 1, since this
+            // while loop should really only take up 1 "state" on the "outer" fsm
+            if new_fsm{
+                cur_state + 1
+            } else {
+                body_nxt
+            }
+        }
+            ir::Control::FSMEnable(_) => unreachable!("shouldn't encounter fsm node"),
+            ir::Control::Empty(_) => cur_state,
+            ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
+            ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+            ir::Control::Static(sc) => {
+                if let ir::StaticControl::Enable(ir::StaticEnable{attributes,..}) = sc {
+                    attributes.insert(STATE_ID, cur_state);
+                    cur_state + 1
+                } else {
+                    unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
+                }
+            }
+    }
 }
 /// This function is used to provide a unique ID to each potential schedule within
 /// a control tree. Ultimately, this ID will be used by the parent of a given schedule
@@ -231,34 +247,34 @@ fn compute_unique_schedule_ids(con: &mut ir::Control, cur_sch: u64) -> u64 {
 
         // label a seq block; then, search for child schedules in its children
         ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-          let mut cur_sch = cur_sch;
-          attributes.insert(SCHEDULE_ID, cur_sch);
-          cur_sch += 1;
-          for child in stmts.iter_mut() {
-            cur_sch = compute_unique_schedule_ids(child, cur_sch);
-          }
-          cur_sch
+            let mut cur_sch = cur_sch;
+            attributes.insert(SCHEDULE_ID, cur_sch);
+            cur_sch += 1;
+            for child in stmts.iter_mut() {
+                cur_sch = compute_unique_schedule_ids(child, cur_sch);
+            }
+            cur_sch
         },
 
         // label an if; then, search for child schedules in its children
         ir::Control::If(ir::If { tbranch, fbranch, attributes, ..}) => {
-          let mut cur_sch = cur_sch;
-          attributes.insert(SCHEDULE_ID, cur_sch);
-          cur_sch = compute_unique_schedule_ids(tbranch, cur_sch + 1);
-          cur_sch = compute_unique_schedule_ids(fbranch, cur_sch);
-          cur_sch
+            let mut cur_sch = cur_sch;
+            attributes.insert(SCHEDULE_ID, cur_sch);
+            cur_sch = compute_unique_schedule_ids(tbranch, cur_sch + 1);
+            cur_sch = compute_unique_schedule_ids(fbranch, cur_sch);
+            cur_sch
         },
 
         // will always allocate a par block its own fsm; 
         // then, search for child schedules in its children
         ir::Control::Par(ir::Par { stmts, attributes })  => {
-          let mut cur_sch = cur_sch;
-          attributes.insert(SCHEDULE_ID, cur_sch);
-          cur_sch += 1;
-          for child in stmts.iter_mut() {
-            cur_sch = compute_unique_schedule_ids(child, cur_sch);
-          }
-          cur_sch
+            let mut cur_sch = cur_sch;
+            attributes.insert(SCHEDULE_ID, cur_sch);
+            cur_sch += 1;
+            for child in stmts.iter_mut() {
+                cur_sch = compute_unique_schedule_ids(child, cur_sch);
+            }
+            cur_sch
         },
         ir::Control::While(ir::While { body, attributes, .. }) => {
           let mut cur_sch = cur_sch;
@@ -269,7 +285,13 @@ fn compute_unique_schedule_ids(con: &mut ir::Control, cur_sch: u64) -> u64 {
         ir::Control::FSMEnable(_) => unreachable!("shouldn't encounter fsm node"),
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
+        ir::Control::Static(sc) => {
+            if let ir::StaticControl::Enable(ir::StaticEnable{attributes,..}) = sc {
+                cur_sch
+            } else {
+                unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
+            }
+        }
     }
 }
 
@@ -342,7 +364,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         debug_assert!(
             petgraph::algo::connected_components(&graph) == 1,
-            "State transition graph has unreachable states (graph has more than one connected component).");
+            "State transition graph has unreachable states (graph has more than one connected component)\n{:?}.", 
+            petgraph::dot::Dot::new(&graph)
+        );
     }
 
     /// Return the max state in the transition graph
@@ -541,12 +565,12 @@ impl Schedule<'_, '_> {
             // Add group to mapping for emitting group JSON info
             self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
 
-            let not_done = !guard!(group["done"]);
+            // let not_done = !guard!(group["done"]);
             let signal_on = self.builder.add_constant(1, 1);
 
             // Activate this group in the current state
             let en_go = build_assignments!(self.builder;
-                group["go"] = not_done ? signal_on["out"];
+                group["go"] = ? signal_on["out"];
             );
             self
                 .enables
@@ -588,7 +612,61 @@ impl Schedule<'_, '_> {
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`calculate_states_recur` should not see an `empty` control."),
-        ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
+        ir::Control::Static(sc) => {
+            if let ir::StaticControl::Enable(ir::StaticEnable{group, attributes }) = sc {
+                let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));
+                // If there is exactly one previous transition state with a `true`
+                // guard, then merge this state into previous state.
+                // This happens when the first control statement is an enable not
+                // inside a branch.
+                let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
+                    (preds[0].0, vec![])
+                } else {
+                    (cur_state, preds)
+                };
+
+                // Add group to mapping for emitting group JSON info
+                self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
+
+                // let not_done = !guard!(group["done"]);
+                let signal_on = self.builder.add_constant(1, 1);
+
+                // Activate this group in the current state
+                let en_go = build_assignments!(self.builder;
+                    group["go"] = ? signal_on["out"];
+                );
+                self
+                    .enables
+                    .entry(cur_state)
+                    .or_default()
+                    .extend(en_go);
+
+                // Activate group in the cycle when previous state signals done.
+                // NOTE: We explicilty do not add `not_done` to the guard.
+                // See explanation in [ir::TopDownCompileControl] to understand
+                // why.
+                if early_transitions || has_fast_guarantee {
+                    for (st, g) in &prev_states {
+                        let early_go = build_assignments!(self.builder;
+                            group["go"] = g ? signal_on["out"];
+                        );
+                        self.enables.entry(*st).or_default().extend(early_go);
+                    }
+                }
+
+                let transitions = prev_states
+                    .into_iter()
+                    .map(|(st, guard)| (st, cur_state, guard));
+                self.transitions.extend(transitions);
+
+
+                let done_cond = guard!(group["done"]);
+
+                Ok(vec![(cur_state, done_cond)])
+            }else{
+                unreachable!("`calculate_states_recur` should not see a static control that is not an enable.")
+            }
+        }
     }
     }
 
