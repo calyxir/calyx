@@ -619,6 +619,7 @@ fn emit_fsm_module<F: io::Write>(
     // Generate sequential block representing the FSM
     writeln!(f, "  always @(posedge clk) begin")?;
     writeln!(f, "    if (reset) begin")?;
+
     if onehot {
         writeln!(f, "      current_state <= 'b1;")?;
     } else {
