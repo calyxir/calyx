@@ -67,12 +67,18 @@ impl Visitor for DefaultAssigns {
         }
 
         // We only need to consider write set of the continuous assignments
-        let writes = comp
+        let mut writes = comp
             .continuous_assignments
             .iter()
             .analysis()
             .writes()
             .group_by_cell();
+
+        comp.fsms.iter().for_each(|fsm|{
+            fsm.borrow().assignments.iter().for_each(|assigns|{
+                writes.extend(assigns.iter().analysis().writes().group_by_cell());
+            })
+        });
 
         let mut assigns = Vec::new();
 

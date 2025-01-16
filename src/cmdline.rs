@@ -68,6 +68,10 @@ pub struct Opts {
     #[argh(switch, long = "nested")]
     pub nested_assign: bool,
 
+    /// emit all fsm in onehot style default is binary
+    #[argh(switch, long = "onehot")]
+    pub onehot: bool,
+
     /// emit extmodules to use with SystemVerilog implementations
     /// of primitives (only relevant to the FIRRTL backend)
     #[argh(switch, long = "emit-primitive-extmodules")]

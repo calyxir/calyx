@@ -131,8 +131,6 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 ///
 /// These identifiers are used by the compilation methods [calculate_states_recur]
 /// and [control_exits].
-/// These identifiers are used by the compilation methods [calculate_states_recur]
-/// and [control_exits].
 fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
         ir::Control::Enable(ir::Enable { attributes, .. }) => {
@@ -479,11 +477,15 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     Some(assigns) => assigns.clone(),
                 };
 
-                // self-loop if all other guards are not met;
-                // should be at the end of the conditional destinations vec!
-                cond_dsts.push((ir::Guard::True, state));
-
-                (ir::Transition::Conditional(cond_dsts), assigns)
+                if cond_dsts.len() == 1 && cond_dsts[0].0.is_true() {
+                    (ir::Transition::Unconditional(state+1), assigns)
+                }
+                else{
+                    // self-loop if all other guards are not met;
+                    // should be at the end of the conditional destinations vec!
+                    cond_dsts.push((ir::Guard::True, state));
+                    (ir::Transition::Conditional(cond_dsts), assigns)
+                }
             })
             .unzip();
 
@@ -735,7 +737,7 @@ impl Schedule<'_, '_> {
                     self.transitions.push((i, i + 1, ir::Guard::True));
                 }
                 
-                // adding the guard later 
+                // always transition to the next state
                 let done_cond = ir::Guard::True;
                 Ok(vec![(cur_state+ sc.get_latency()-1, done_cond)])
             }else{
@@ -1032,8 +1034,6 @@ pub struct DynamicFSMAllocation {
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<ProfilingInfo>,
-    /// STATE_ID mapping for all static groups
-    static_groups: HashMap<u64, Vec<ir::Assignment<StaticTiming>>>,
 }
 
 impl ConstructVisitor for DynamicFSMAllocation {
@@ -1046,7 +1046,6 @@ impl ConstructVisitor for DynamicFSMAllocation {
             dump_fsm: opts[&"dump-fsm"].bool(),
             early_transitions: opts[&"early-transitions"].bool(),
             fsm_groups: HashSet::new(),
-            static_groups: HashMap::new(),
         })
     }
 

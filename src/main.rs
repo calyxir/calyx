@@ -68,6 +68,7 @@ fn main() -> PassResult<()> {
         enable_verification: !opts.disable_verify,
         flat_assign: !opts.nested_assign,
         emit_primitive_extmodules: opts.emit_primitive_extmodules,
+        onehot: opts.onehot,
     };
     // Extra options for the passes
     ctx.extra_opts = opts.extra_opts.drain(..).collect();
