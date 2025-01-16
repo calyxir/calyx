@@ -144,8 +144,8 @@ impl PassManager {
                 WireInliner,
                 ClkInsertion,
                 ResetInsertion,
-                MergeAssign,
                 DefaultAssigns,
+                MergeAssign,
             ]
         );
 
