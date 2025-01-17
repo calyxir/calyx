@@ -1426,18 +1426,38 @@ impl CalyxParser {
 
     // end new metadata
 
+    fn extra_info(
+        input: Node,
+    ) -> ParseResult<(Option<String>, Option<MetadataTable>)> {
+        Ok(match_nodes!(input.into_children();
+                [metadata_legacy(l)] => (Some(l), None),
+                [metadata_table(t)] => (None, Some(t)),
+                [metadata_legacy(l), metadata_table(t)] => (Some(l), Some(t)),
+                [metadata_table(t), metadata_legacy(l)] => (Some(l), Some(t))
+        ))
+    }
+
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
             // There really seems to be no straightforward way to resolve this
             // duplication
-            [imports(imports), externs_and_comps(mixed), metadata_legacy(m), EOI(_)] => {
+            [imports(imports), externs_and_comps(mixed), extra_info(info), EOI(_)] => {
+                let (mut legacy_metadata, metadata) = info;
+                // remove empty metadata strings
+                if let Some(m) = &legacy_metadata {
+                    if m.is_empty() {
+                        legacy_metadata = None;
+                    }
+                }
+
                 let mut namespace =
                     ast::NamespaceDef {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
-                        metadata: if m != *"" { Some(m) } else { None }
+                        metadata: legacy_metadata,
+                        file_info_table: metadata
                     };
                 for m in mixed {
                     match m {
@@ -1461,7 +1481,8 @@ impl CalyxParser {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
-                        metadata: None
+                        metadata: None,
+                        file_info_table: None
                     };
                 for m in mixed {
                     match m {

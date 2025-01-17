@@ -58,7 +58,7 @@ file = {
       SOI
       ~ imports
       ~ externs_and_comps
-      ~ metadata_legacy?
+      ~ extra_info?
       ~ EOI
 }
 
@@ -417,4 +417,12 @@ position_table = {
 
 metadata_table = {
  ^"fileinfo" ~ "#{" ~ file_table ~ position_table ~ "}#"
+}
+
+
+extra_info = {
+      metadata_legacy
+      | metadata_table
+      | (metadata_legacy ~ metadata_table)
+      | (metadata_table ~ metadata_legacy)
 }

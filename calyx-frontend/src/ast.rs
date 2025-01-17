@@ -1,6 +1,6 @@
 //! Abstract Syntax Tree for Calyx
 use super::parser;
-use crate::{Attributes, PortDef, Primitive};
+use crate::{metadata::MetadataTable, Attributes, PortDef, Primitive};
 use atty::Stream;
 use calyx_utils::{CalyxResult, Error, GPosIdx, Id, PosString};
 use std::{num::NonZeroU64, path::PathBuf};
@@ -14,8 +14,10 @@ pub struct NamespaceDef {
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
     pub externs: Vec<(Option<PosString>, Vec<Primitive>)>,
-    /// Optional opaque metadata
+    /// Optional legacy opaque metadata. Newer metadata is in [NamespaceDef::file_info_table]
     pub metadata: Option<String>,
+    /// Optional metadata mapping table
+    pub file_info_table: Option<MetadataTable>,
 }
 
 impl NamespaceDef {
