@@ -4,12 +4,13 @@
 //! valid SystemVerilog program.
 
 use crate::traits::Backend;
-use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
+use calyx_ir::{self as ir, Assignment, Control, FlatGuard, Group, Guard, GuardRef, Port, RRC};
 use calyx_opt::passes::math_utilities::get_bit_width_from;
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::cell::RefCell;
+use std::collections::{self, HashMap, HashSet};
 use std::io;
 use std::rc::Rc;
 use std::{fs::File, time::Instant};
@@ -515,37 +516,59 @@ fn emit_fsm_assignments<F: io::Write>(
 ) -> io::Result<()> {
     for collection in fsm.borrow().merge_assignments().iter() {
         let dst_ref = &collection.first().unwrap().1.dst;
-        writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
-        for (i, (case, assign)) in collection.iter().enumerate() {
-            // string representing the new guard on the assignment
-            let case_guard = format!("{}_s{case}_out", fsm.borrow().name());
-            let case_guarded_assign_guard = if assign.guard.is_true() {
-                case_guard
-            } else {
-                format!(
-                    "({case_guard} & ({}))",
-                    unflattened_guard(&assign.guard)
-                )
-            };
 
-            // value for the wire to take if either fsm is not in relevant state
-            // or if the assignment's original condition is not met
-            let guard_unmet_value = if is_data_port(dst_ref) {
-                format!("'x")
-            } else {
-                format!("{}'d0", dst_ref.borrow().width)
-            };
+        let mut unique_src: HashSet<String> = HashSet::new();
+        collection.iter().for_each(|(_, assign)|{
+            let l = assign.src.borrow();
+            unique_src.insert(format!("{}.{}", l.get_parent_name(), l.name));
+        });
 
-            writeln!(
-                f,
-                "         {} ? {} :",
-                case_guarded_assign_guard,
-                VerilogPortRef(&assign.src)
-            )?;
-
-            if i + 1 == collection.len() {
-                writeln!(f, "         {guard_unmet_value};")?;
+        if is_data_port(dst_ref) || dst_ref.borrow().width != 1 {
+            if unique_src.len() == 1 {
+                let assign = &collection[0].1;
+                writeln!(f, "assign {} = {};",VerilogPortRef(dst_ref), VerilogPortRef(&assign.src))?;
             }
+            else{
+                writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
+                for (i, (case, assign)) in collection.iter().enumerate() {
+                    // string representing the new guard on the assignment
+                    let case_guard = format!("{}_s{case}_out", fsm.borrow().name());
+                    let case_guarded_assign_guard = if assign.guard.is_true() {
+                        case_guard
+                    } else {
+                        format!(
+                            "({case_guard} & ({}))",
+                            unflattened_guard(&assign.guard)
+                        )
+                    };
+                    writeln!(
+                        f,
+                        "       {} ? {} :",
+                        case_guarded_assign_guard,
+                        VerilogPortRef(&assign.src)
+                    )?;
+                    if i + 1 == collection.len() {
+                        writeln!(f, "       'dx;")?;
+                    }
+                }
+            }
+        }
+        else{
+            write!(f, "assign {} = ", VerilogPortRef(dst_ref))?;
+            let guard_strings: Vec<String> = collection.iter().map(
+                |(case, assign)| {
+                    let case_guard = format!("{}_s{case}_out", fsm.borrow().name());
+                    if assign.guard.is_true() {
+                        case_guard
+                    } else {
+                        format!(
+                            "({case_guard} & ({}))",
+                            unflattened_guard(&assign.guard)
+                        )
+                    }
+                }
+            ).collect();
+            writeln!(f, "{};", guard_strings.join(" | "))?;
         }
     }
     io::Result::Ok(())
@@ -756,6 +779,27 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
         // For cell.is_this() ports that were externalized, we already checked
         // that the parent cell had the `@data` attribute.
         if cell.attributes.has(ir::BoolAttr::Data) || cell.is_this() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Checks if:
+/// 1. The port is marked with `@control`
+/// 2. The port's cell parent is marked with `@control`
+fn is_control_port(pr: &RRC<ir::Port>) -> bool {
+    assert_eq!(ir::Direction::Input, pr.borrow().direction);
+    let port = pr.borrow();
+    if !port.attributes.has(ir::BoolAttr::Control) {
+        return false;
+    }
+    if let ir::PortParent::Cell(cwr) = &port.parent {
+        let cr = cwr.upgrade();
+        let cell = cr.borrow();
+        // For cell.is_this() ports that were externalized, we already checked
+        // that the parent cell had the `@data` attribute.
+        if cell.attributes.has(ir::BoolAttr::Control) || cell.is_this() {
             return true;
         }
     }
