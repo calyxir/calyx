@@ -120,7 +120,7 @@ impl PassManager {
                 AddGuard,
                 SimplifyStaticGuards,
                 StaticFSMOpts,
-                CompileStatic,
+                //CompileStatic,
                 DeadGroupRemoval,
                 DynamicFSMAllocation,
             ]

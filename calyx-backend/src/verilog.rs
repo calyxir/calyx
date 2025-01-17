@@ -479,6 +479,8 @@ fn emit_fsm<F: io::Write>(
     // Instantiate an FSM module from the definition above
     let fsm_name = fsm.borrow().name();
     writeln!(f, "{fsm_name}_{comp_name}_def {fsm_name} (")?;
+    writeln!(f, "  .clk(clk),")?;
+    writeln!(f, "  .reset(reset),")?;
     for (case, st_wire) in fsm_state_wires.into_iter().enumerate() {
         writeln!(f, "  .s{case}_out({st_wire}),")?;
     }
