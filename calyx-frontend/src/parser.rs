@@ -6,17 +6,19 @@ use super::ast::{
 };
 use super::Attributes;
 use crate::{
-    attribute::SetAttribute, attributes::ParseAttributeWrapper, Attribute,
-    Direction, PortDef, Primitive, Width,
+    attribute::SetAttribute,
+    attributes::ParseAttributeWrapper,
+    metadata::{FileId as MetadataFileId, LineNum, MetadataTable, PositionId},
+    Attribute, Direction, PortDef, Primitive, Width,
 };
 use calyx_utils::{self, float, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
-use std::fs;
 use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
+use std::{fs, path::PathBuf};
 
 type ParseResult<T> = Result<T, Error<Rule>>;
 type ComponentDef = ast::ComponentDef;
@@ -187,6 +189,20 @@ impl CalyxParser {
                 })
             })
             .parse(pairs)
+    }
+
+    #[cfg(test)]
+    /// A test helper for parsing the new metadata table
+    pub fn parse_metadata(input: &str) -> ParseResult<MetadataTable> {
+        let inputs = CalyxParser::parse_with_userdata(
+            Rule::metadata_table,
+            input,
+            UserData {
+                file: GlobalPositionTable::add_file("".into(), "".into()),
+            },
+        )?;
+        let input = inputs.single()?;
+        CalyxParser::metadata_table(input)
     }
 }
 
@@ -1339,18 +1355,83 @@ impl CalyxParser {
         ))
     }
 
-    fn metadata(input: Node) -> ParseResult<String> {
+    fn metadata_legacy(input: Node) -> ParseResult<String> {
         Ok(match_nodes!(input.into_children();
             [metadata_char(c)..] => c.collect::<String>().trim().into()
         ))
     }
+
+    // New Metadata
+    fn quote(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn path_text(input: Node) -> ParseResult<PathBuf> {
+        Ok(PathBuf::from(input.as_str()))
+    }
+
+    fn path(input: Node) -> ParseResult<PathBuf> {
+        Ok(match_nodes!(input.into_children();
+                [quote(_), path_text(p), quote(_)] => p
+        ))
+    }
+
+    fn file_entry(input: Node) -> ParseResult<(MetadataFileId, PathBuf)> {
+        Ok(match_nodes!(input.into_children();
+            [bitwidth(n), path(p)] => (MetadataFileId::new(n.try_into().expect("file ids must fit in a u32")), p)
+        ))
+    }
+
+    fn file_header(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn file_table(
+        input: Node,
+    ) -> ParseResult<impl IntoIterator<Item = (MetadataFileId, PathBuf)>> {
+        Ok(match_nodes!(input.into_children();
+            [file_header(_), file_entry(e)..] => e))
+    }
+
+    fn position_header(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn position_entry(
+        input: Node,
+    ) -> ParseResult<(PositionId, MetadataFileId, LineNum)> {
+        Ok(match_nodes!(input.into_children();
+            [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no)] => {
+                let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
+                let file_num = file_num.try_into().expect("file ids must fit in a u32");
+                let line_no = line_no.try_into().expect("line numbers must fit in a u32");
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no))}
+        ))
+    }
+
+    fn position_table(
+        input: Node,
+    ) -> ParseResult<
+        impl IntoIterator<Item = (PositionId, MetadataFileId, LineNum)>,
+    > {
+        Ok(match_nodes!(input.into_children();
+                [position_header(_), position_entry(e)..] => e))
+    }
+
+    fn metadata_table(input: Node) -> ParseResult<MetadataTable> {
+        Ok(match_nodes!(input.into_children();
+            [file_table(f), position_table(p)] => MetadataTable::new(f, p)
+        ))
+    }
+
+    // end new metadata
 
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
             // There really seems to be no straightforward way to resolve this
             // duplication
-            [imports(imports), externs_and_comps(mixed), metadata(m), EOI(_)] => {
+            [imports(imports), externs_and_comps(mixed), metadata_legacy(m), EOI(_)] => {
                 let mut namespace =
                     ast::NamespaceDef {
                         imports,

@@ -236,3 +236,34 @@ impl std::fmt::Debug for MetadataTableError {
 }
 
 pub type MetadataResult<T> = Result<T, MetadataTableError>;
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::parser::CalyxParser;
+
+    #[test]
+    fn test_parse_metadata() {
+        let input_str = r#"fileinfo #{
+    FILES
+        0: "test.calyx"
+        1: "test2.calyx"
+        2: "test3.calyx"
+    POSITIONS
+        0: 0 0
+        1: 0 1
+        2: 0 2
+}#"#;
+
+        let metadata = CalyxParser::parse_metadata(input_str).unwrap();
+        let file = metadata.lookup_file_path(1.into());
+        assert_eq!(file, &PathBuf::from("test2.calyx"));
+
+        let pos = metadata.lookup_position(1.into());
+        assert_eq!(pos.file, 0.into());
+        assert_eq!(pos.line, 1.into());
+
+        dbg!(metadata);
+    }
+}

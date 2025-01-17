@@ -58,7 +58,7 @@ file = {
       SOI
       ~ imports
       ~ externs_and_comps
-      ~ metadata?
+      ~ metadata_legacy?
       ~ EOI
 }
 
@@ -384,9 +384,37 @@ control = {
       "control" ~ (("{" ~ "}") | block)
 }
 
-// metadata
+// metadata Legacy
 
 any_char = { ANY }
 metadata_char = ${ !"}#" ~ any_char }
 
-metadata = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
+metadata_legacy = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
+
+// New Metadata
+
+file_header = {"FILES"}
+
+quote = {"\""}
+
+path_text = {(ASCII_ALPHANUMERIC | "\\" | "/" | "." | "_" | "-" )*}
+
+path = { quote ~ path_text ~ quote }
+
+file_entry = { bitwidth ~ ":" ~ path }
+
+file_table = {
+    file_header ~ file_entry+
+}
+
+position_header = {"POSITIONS"}
+
+position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth }
+
+position_table = {
+    position_header ~ position_entry+
+}
+
+metadata_table = {
+ ^"fileinfo" ~ "#{" ~ file_table ~ position_table ~ "}#"
+}
