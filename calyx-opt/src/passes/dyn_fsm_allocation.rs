@@ -1006,7 +1006,6 @@ impl Visitor for DynamicFSMAllocation {
 
         structure!(builder;
             let signal_on = constant(1, 1);
-            let signal_off = constant(0, 1);
         );
 
         // Registers to save the done signal from each child.
@@ -1031,7 +1030,7 @@ impl Visitor for DynamicFSMAllocation {
             // when the thread actually begins working (the common case might
             // simply be a group, which would mean a 1-cycle group takes 3 cycles now)
             let mut sch = Schedule::from(&mut builder);
-            sch.calculate_states(&con, self.early_transitions)?;
+            sch.calculate_states(con, self.early_transitions)?;
             let fsm = sch.realize_fsm(self.dump_fsm);
 
             // Build circuitry to enable and disable this fsm.

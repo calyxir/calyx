@@ -466,7 +466,6 @@ fn emit_fsm<F: io::Write>(
     // Initialize wires representing FSM internal state
     let num_states = fsm.borrow().assignments.len();
     let fsm_state_wires = (0..num_states)
-        .into_iter()
         .map(|st| format!("{}_s{st}_out", fsm.borrow().name()))
         .collect_vec();
 
@@ -511,7 +510,7 @@ fn emit_fsm_assignments<F: io::Write>(
             // value for the wire to take if either fsm is not in relevant state
             // or if the assignment's original condition is not met
             let guard_unmet_value = if is_data_port(dst_ref) {
-                format!("'x")
+                "'x".to_string()
             } else {
                 format!("{}'d0", dst_ref.borrow().width)
             };
@@ -556,7 +555,7 @@ fn emit_fsm_module<F: io::Write>(
             }
         }
     }
-    for state in (0..num_states).into_iter() {
+    for state in 0..num_states {
         writeln!(
             f,
             "  output logic s{}_out{}",
@@ -567,11 +566,11 @@ fn emit_fsm_module<F: io::Write>(
     writeln!(f, ");\n")?;
 
     // Write symbolic state variables and give them binary implementations
-    for state in (0..num_states).into_iter() {
+    for state in 0..num_states {
         writeln!(f, "  parameter s{state} = {reg_bitwidth}'d{state};")?;
     }
 
-    writeln!(f, "")?;
+    writeln!(f)?;
 
     // State register logic variable
     writeln!(f, "  logic [{}:0] state_reg;", reg_bitwidth - 1)?;
@@ -596,7 +595,7 @@ fn emit_fsm_module<F: io::Write>(
         writeln!(f, "        s{case}: begin")?;
 
         // Outward-facing wires
-        for st in (0..num_states).into_iter() {
+        for st in 0..num_states {
             writeln!(
                 f,
                 "{}s{st}_out = 1'b{};",
@@ -969,8 +968,8 @@ fn unflattened_guard(guard: &ir::Guard<Nothing>) -> String {
         Guard::Not(inner) => format!("~({})", unflattened_guard(inner)),
 
         Guard::Port(port) => format!("{}", VerilogPortRef(port)),
-        Guard::True => format!("1'd1"),
-        Guard::Info(_) => format!("1'd1"),
+        Guard::True => "1'd1".to_string(),
+        Guard::Info(_) => "1'd1".to_string(),
     }
 }
 
