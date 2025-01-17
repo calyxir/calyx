@@ -96,6 +96,9 @@ fn count_barriers(
         }
         ir::Control::Par(_) => Ok(()),
         ir::Control::Static(_) => Ok(()),
+        ir::Control::FSMEnable(_) => {
+            todo!("should not encounter fsm nodes")
+        }
     }
 }
 

@@ -4,12 +4,12 @@ use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
     DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
-    DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
-    InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation,
-    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
-    StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    DefaultAssigns, DynamicFSMAllocation, Externalize, GoInsertion,
+    GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
+    ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
+    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -54,6 +54,7 @@ impl PassManager {
         pm.register_pass::<CompileSync>()?;
         pm.register_pass::<CompileSyncWithoutSyncReg>()?;
         pm.register_pass::<AddGuard>()?;
+        pm.register_pass::<DynamicFSMAllocation>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -122,7 +123,7 @@ impl PassManager {
                 StaticFSMOpts,
                 CompileStatic,
                 DeadGroupRemoval,
-                TopDownCompileControl
+                DynamicFSMAllocation,
             ]
         );
         register_alias!(

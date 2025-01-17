@@ -50,7 +50,7 @@ const DUPLICATE_NUM_REG: u64 = 2;
 /// The exit set is `[(8, tru[done] & !comb_reg.out), (9, fal & !comb_reg.out)]`.
 fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
-        ir::Control::Empty(_) => {}
+        ir::Control::Empty(_) |  ir::Control::FSMEnable(_)=> {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap();
             exits.push((cur_state, guard!(group["done"])))
@@ -205,6 +205,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
                 body_nxt
             }
         }
+        ir::Control::FSMEnable(_) => todo!("should not encounter fsm nodes"),
         ir::Control::Empty(_) => cur_state,
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
@@ -715,6 +716,7 @@ impl Schedule<'_, '_> {
         has_fast_guarantee: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         match con {
+            ir::Control::FSMEnable(_) => todo!("should not encounter fsm nodes"),
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));

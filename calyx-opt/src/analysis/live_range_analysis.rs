@@ -668,6 +668,9 @@ impl LiveRangeAnalysis {
                 parents,
                 sc,
             ),
+            ir::Control::FSMEnable(_) => {
+                todo!("should not encounter fsm nodes")
+            }
         }
     }
 
@@ -1421,6 +1424,9 @@ impl LiveRangeAnalysis {
             }
             ir::Control::Static(sc) => {
                 self.build_live_ranges_static(sc, alive, gens, kills)
+            }
+            ir::Control::FSMEnable(_) => {
+                todo!("should not encounter fsm nodes")
             }
         }
     }

@@ -10,6 +10,7 @@ use calyx_frontend::{Attribute, BoolAttr};
 use calyx_utils::{CalyxResult, Error, GetName};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -19,6 +20,7 @@ pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
     StaticGroup(WRC<StaticGroup>),
+    FSM(WRC<FSM>),
 }
 
 /// Represents a port on a cell.
@@ -91,6 +93,7 @@ impl Port {
         match &self.parent {
             PortParent::Cell(cell) => cell.upgrade().borrow().name,
             PortParent::Group(group) => group.upgrade().borrow().name,
+            PortParent::FSM(fsm) => fsm.upgrade().borrow().name,
             PortParent::StaticGroup(group) => group.upgrade().borrow().name,
         }
     }
@@ -582,6 +585,19 @@ impl<StaticTiming> Assignment<StaticTiming> {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub enum Transition {
+    Unconditional(u64),
+    Conditional(Vec<(Guard<Nothing>, u64)>),
+}
+
+impl Transition {
+    pub fn new_uncond(s: u64) -> Self {
+        Self::Unconditional(s)
+    }
+}
+
 /// A Group of assignments that perform a logical action.
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
@@ -779,6 +795,133 @@ impl CombGroup {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub struct FSM {
+    /// Name of this construct
+    pub(super) name: Id,
+    /// Number of states in this FSM
+    pub num_states: u64,
+    /// Attributes for this FSM
+    pub attributes: Attributes,
+    /// State indexes into assignments that are supposed to be enabled at that state
+    pub assignments: Vec<Vec<Assignment<Nothing>>>,
+    /// State indexes into (potentially guarded) next states
+    pub transitions: Vec<Transition>,
+    // Wire representing fsm output
+    pub wires: SmallVec<[RRC<Port>; 2]>,
+}
+
+impl FSM {
+    /// Grants immutable access to the name of this cell.
+    pub fn name(&self) -> Id {
+        self.name
+    }
+
+    /// Constructs a new FSM construct using a list of cases and a name
+    pub fn new(name: Id) -> Self {
+        Self {
+            name,
+            num_states: 0,
+            assignments: vec![],
+            transitions: vec![],
+            wires: SmallVec::new(),
+            attributes: Attributes::default(),
+        }
+    }
+
+    /// Get a reference to the named hole if it exists.
+    pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display,
+        Id: PartialEq<S>,
+    {
+        self.wires
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(Rc::clone)
+    }
+
+    pub fn get<S>(&self, name: S) -> RRC<Port>
+    where
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
+    {
+        self.find(name.clone()).unwrap_or_else(|| {
+            panic!("Wire `{name}' not found on group `{}'", self.name)
+        })
+    }
+
+    pub fn extend_state_assignments<I>(&mut self, state: u64, assigns: I)
+    where
+        I: IntoIterator<Item = Assignment<Nothing>>,
+    {
+        let msg = format!("State {state} does not exist in FSM");
+        self.assignments
+            .get_mut(state as usize)
+            .expect(&msg)
+            .extend(assigns);
+    }
+
+    /// Returns a list of names of the groups, cells, or other port parents used
+    /// by the FSM. Requires as an argument a function that can
+    /// in-place update a Vec with the name of kinds of port parents you care about.
+    pub fn get_called_port_parents<F>(&self, push_parent_name: F) -> Vec<Id>
+    where
+        F: Fn(&mut Vec<Id>, &RRC<Port>),
+    {
+        self.transitions
+            .iter()
+            .zip(self.assignments.iter())
+            .flat_map(|(state_transitions, state_assignments)| {
+                let mut parent_names = vec![];
+
+                // if transitions uses the specified kind of port parent, add its Id
+                if let Transition::Conditional(conds) = state_transitions {
+                    for (guard, _) in conds.iter() {
+                        guard.all_ports().iter().for_each(|port| {
+                            push_parent_name(&mut parent_names, port)
+                        });
+                    }
+                }
+                // if assignments uses the specified kind of port parent, add its Id
+                for assign in state_assignments.iter() {
+                    assign.iter_ports().for_each(|port| {
+                        push_parent_name(&mut parent_names, &port);
+                    });
+                }
+                parent_names
+            })
+            .collect()
+    }
+
+    /// Each element of the resulting Vec is a collection of assignments writing
+    /// to the same destination port, where the `usize` value represents the
+    /// FSM state at which the assignment should take place.
+    pub fn merge_assignments(&self) -> Vec<Vec<(usize, Assignment<Nothing>)>> {
+        let mut assigns_by_port: HashMap<
+            Canonical,
+            Vec<(usize, Assignment<Nothing>)>,
+        > = HashMap::new();
+        for (case, assigns_at_state) in self.assignments.iter().enumerate() {
+            for assign in assigns_at_state.iter() {
+                let dest_port = assign.dst.borrow().canonical();
+                assigns_by_port
+                    .entry(dest_port)
+                    .and_modify(|assigns_at_port| {
+                        assigns_at_port.push((case, assign.clone()));
+                    })
+                    .or_insert(vec![(case, assign.clone())]);
+            }
+        }
+        assigns_by_port
+            .into_values()
+            // order by state, for better appearance when emitted
+            .sorted_by(|a, b| a.first().unwrap().0.cmp(&b.first().unwrap().0))
+            .collect()
+    }
+}
+
 impl GetName for Cell {
     fn name(&self) -> Id {
         self.name()
@@ -798,6 +941,12 @@ impl GetName for CombGroup {
 }
 
 impl GetName for StaticGroup {
+    fn name(&self) -> Id {
+        self.name()
+    }
+}
+
+impl GetName for FSM {
     fn name(&self) -> Id {
         self.name()
     }
