@@ -587,11 +587,26 @@ fn emit_fsm_module<F: io::Write>(
 
     // Write symbolic state variables and give them binary implementations
     for state in (0..num_states).into_iter() {
-        writeln!(
-            f,
-            "  localparam logic[{}:0] S{state} = {reg_bitwidth}'d{state};",
-            reg_bitwidth - 1
-        )?;
+        if onehot {
+            writeln!(
+                f,
+                "  localparam logic[{}:0] S{state} = {}'h{};",
+                num_states - 1,
+                num_states,
+                format!(
+                    "{}{:0>width$}",
+                    (1 << (state % 4)) as usize,
+                    "",
+                    width = (state / 4) as usize
+                ),
+            )?;
+        } else {
+            writeln!(
+                f,
+                "  localparam logic[{}:0] S{state} = {reg_bitwidth}'d{state};",
+                reg_bitwidth - 1
+            )?;
+        }
     }
 
     writeln!(f, "")?;
@@ -600,17 +615,6 @@ fn emit_fsm_module<F: io::Write>(
     if onehot {
         writeln!(f, "  logic [{}:0] current_state;", num_states - 1)?;
         writeln!(f, "  logic [{}:0] next_state;\n", num_states - 1)?;
-        write!(f, "  assign {{")?;
-        write!(
-            f,
-            "{}",
-            (0..num_states)
-                .rev()
-                .map(|st| format!("s{}_out", st))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )?;
-        writeln!(f, "}} = current_state;")?;
     } else {
         writeln!(f, "  logic [{}:0] current_state;", reg_bitwidth - 1)?;
         writeln!(f, "  logic [{}:0] next_state;\n", reg_bitwidth - 1)?;
@@ -619,12 +623,7 @@ fn emit_fsm_module<F: io::Write>(
     // Generate sequential block representing the FSM
     writeln!(f, "  always @(posedge clk) begin")?;
     writeln!(f, "    if (reset) begin")?;
-
-    if onehot {
-        writeln!(f, "      current_state <= 'b1;")?;
-    } else {
-        writeln!(f, "      current_state <= 'b0;")?;
-    }
+    writeln!(f, "      current_state <= S0;")?;
     writeln!(f, "    end")?;
     writeln!(f, "    else begin")?;
     writeln!(f, "      current_state <= next_state;")?;
@@ -633,50 +632,33 @@ fn emit_fsm_module<F: io::Write>(
 
     // Begin emitting the FSM's transitions and updates
     writeln!(f, "  always_comb begin")?;
-    if onehot {
-        writeln!(f, "    next_state = 'b0;")?;
-        writeln!(f, "    case ( 1'b1 )")?;
+    writeln!(f, "    case ( current_state )")?;
+    // At each state, write the updates to the state and the outward-facing
+    // wires to make high / low
+    for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
+        writeln!(f, "        S{case}: begin")?;
 
-        for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
-            writeln!(f, "      current_state[S{case}]: begin")?;
-            // Updates to state
-            emit_fsm_transtions(trans, onehot, f)?;
-
-            writeln!(f, "      end")?;
+        // Outward-facing wires
+        for st in (0..num_states).into_iter() {
+            writeln!(
+                f,
+                "{}s{st}_out = 1'b{};",
+                " ".repeat(10),
+                if st == case { 1 } else { 0 }
+            )?;
         }
-    } else {
-        writeln!(f, "    case ( current_state )")?;
-        // At each state, write the updates to the state and the outward-facing
-        // wires to make high / low
-        for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
-            writeln!(f, "        S{case}: begin")?;
 
-            // Outward-facing wires
-            for st in (0..num_states).into_iter() {
-                writeln!(
-                    f,
-                    "{}s{st}_out = 1'b{};",
-                    " ".repeat(10),
-                    if st == case { 1 } else { 0 }
-                )?;
-            }
+        // Updates to state
+        emit_fsm_transtions(trans, f)?;
 
-            // Updates to state
-            emit_fsm_transtions(trans, onehot, f)?;
-
-            writeln!(f, "        end")?;
-        }
+        writeln!(f, "        end")?;
     }
 
     writeln!(f, "      default begin")?;
-    if onehot {
-        writeln!(f, "          next_state = 'b1;")?;
-    } else {
-        for st in (0..num_states).into_iter() {
-            writeln!(f, "          s{st}_out = 1'b0;")?;
-        }
-        writeln!(f, "          next_state = 'b0;")?;
+    for st in (0..num_states).into_iter() {
+        writeln!(f, "          s{st}_out = 1'b0;")?;
     }
+    writeln!(f, "          next_state = S0;")?;
     writeln!(f, "      end")?;
     // Wrap up the module
     writeln!(f, "    endcase")?;
@@ -688,16 +670,11 @@ fn emit_fsm_module<F: io::Write>(
 
 fn emit_fsm_transtions<F: io::Write>(
     trans: &ir::Transition,
-    onehot: bool,
     f: &mut F,
 ) -> io::Result<()> {
     match trans {
         ir::Transition::Unconditional(ns) => {
-            if onehot {
-                writeln!(f, "{}next_state[S{ns}] = 1'b1;", " ".repeat(10))?;
-            } else {
-                writeln!(f, "{}next_state = S{ns};", " ".repeat(10))?;
-            }
+            writeln!(f, "{}next_state = S{ns};", " ".repeat(10))?;
         }
         ir::Transition::Conditional(conds) => {
             for (i, (g, ns)) in conds.iter().enumerate() {
@@ -709,11 +686,7 @@ fn emit_fsm_transtions<F: io::Write>(
                     format!("else if ({})", unflattened_guard(g))
                 };
                 writeln!(f, "{}{header} begin", " ".repeat(10))?;
-                if onehot {
-                    writeln!(f, "{}next_state[S{ns}] = 1'b1;", " ".repeat(12))?;
-                } else {
-                    writeln!(f, "{}next_state = S{ns};", " ".repeat(12))?;
-                }
+                writeln!(f, "{}next_state = S{ns};", " ".repeat(12))?;
                 writeln!(f, "{}end", " ".repeat(10))?;
             }
         }
