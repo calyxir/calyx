@@ -15,7 +15,7 @@ readme.workspace = true
 
 [features]
 default = []
-serialize = ["serde/derive", "dep:serde_with"]
+serialize = ["serde/derive", "dep:serde_with", "calyx-utils/serialize"]
 
 [dependencies]
 atty.workspace = true
