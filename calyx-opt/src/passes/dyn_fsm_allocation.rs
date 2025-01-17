@@ -611,14 +611,18 @@ impl Schedule<'_, '_> {
             let signal_on = self.builder.add_constant(1, 1);
 
             // Activate this group in the current state
-            let en_go = build_assignments!(self.builder;
-                group["go"] = ? signal_on["out"];
-            );
-            self
-                .enables
-                .entry(cur_state)
-                .or_default()
-                .extend(en_go);
+            let assigns: Vec<Assignment<Nothing>> = group.borrow_mut().assignments.clone();
+            for assign in assigns.iter(){
+                if assign.dst.borrow().name == "done"{
+                    continue;
+                }
+                self.enables.entry(cur_state).or_default().push(ir::Assignment{
+                    src: assign.src.clone(),
+                    dst: assign.dst.clone(),
+                    attributes: assign.attributes.clone(),
+                    guard: Box::new(ir::Guard::True),
+                });
+            }
 
             // Activate group in the cycle when previous state signals done.
             // NOTE: We explicilty do not add `not_done` to the guard.
@@ -641,8 +645,7 @@ impl Schedule<'_, '_> {
                     }
                 );
             self.transitions.extend(transitions);
-
-            let done_cond = guard!(group["done"]);
+            let done_cond = ir::Guard::Port(group.borrow().done_cond().src.clone());
             Ok(vec![(cur_state, done_cond)])
         }
         ir::Control::Seq(seq) => {

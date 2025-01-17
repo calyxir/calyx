@@ -74,9 +74,10 @@ impl Visitor for DefaultAssigns {
             .writes()
             .group_by_cell();
 
-        comp.fsms.iter().for_each(|fsm|{
-            fsm.borrow().assignments.iter().for_each(|assigns|{
-                writes.extend(assigns.iter().analysis().writes().group_by_cell());
+        comp.fsms.iter().for_each(|fsm| {
+            fsm.borrow().assignments.iter().for_each(|assigns| {
+                writes
+                    .extend(assigns.iter().analysis().writes().group_by_cell());
             })
         });
 

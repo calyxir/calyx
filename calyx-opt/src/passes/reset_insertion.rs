@@ -1,7 +1,7 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::Error;
-use std::rc::Rc;
+use std::{collections::HashSet, hash::Hash, rc::Rc};
 
 #[derive(Default)]
 /// Adds assignments from a components `reset` port to every
@@ -25,6 +25,17 @@ impl Visitor for ResetInsertion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let mut used_reset = HashSet::new();
+        comp.fsms.iter().for_each(|fsm| {
+            fsm.borrow().assignments.iter().for_each(|assigns| {
+                assigns.iter().for_each(|assign| {
+                    if assign.dst.borrow().name == "reset" {
+                        used_reset
+                            .insert(assign.dst.borrow().get_parent_name());
+                    }
+                })
+            })
+        });
         let builder = ir::Builder::new(comp, sigs);
         let reset = builder
             .component
@@ -38,13 +49,15 @@ impl Visitor for ResetInsertion {
                 if let Some(port) =
                     cell.find_unique_with_attr(ir::BoolAttr::Reset)?
                 {
-                    builder.component.continuous_assignments.push(
-                        builder.build_assignment(
-                            port,
-                            Rc::clone(&reset),
-                            ir::Guard::True,
-                        ),
-                    )
+                    if !used_reset.contains(&port.borrow().get_parent_name()) {
+                        builder.component.continuous_assignments.push(
+                            builder.build_assignment(
+                                port,
+                                Rc::clone(&reset),
+                                ir::Guard::True,
+                            ),
+                        )
+                    }
                 }
             }
         } else {
