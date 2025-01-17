@@ -123,7 +123,7 @@ impl PassManager {
                 StaticFSMOpts,
                 CompileStatic,
                 DeadGroupRemoval,
-                DynamicFSMAllocation,
+                TopDownCompileControl,
             ]
         );
         register_alias!(

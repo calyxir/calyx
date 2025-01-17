@@ -99,10 +99,9 @@ impl Visitor for WireInliner {
         let control = control_ref.borrow();
 
         match &*control {
-            ir::Control::FSMEnable(fsm_en) => {
+            ir::Control::Enable(..) | ir::Control::FSMEnable(..) => {
                 let this = Rc::clone(&comp.signature);
                 let mut builder = ir::Builder::new(comp, sigs);
-                let comp_fsm = &fsm_en.fsm;
                 let this_go_port = this
                     .borrow()
                     .find_unique_with_attr(ir::NumAttr::Go)?
@@ -110,14 +109,35 @@ impl Visitor for WireInliner {
                 structure!(builder;
                     let one = constant(1, 1);
                 );
-                let fsm_done = guard!(comp_fsm["done"]);
-                let assigns = build_assignments!(builder;
-                    comp_fsm["start"] = ? this[this_go_port.borrow().name];
-                    this["done"] = fsm_done ? one["out"];
-                );
+                let assigns = match &*control {
+                    ir::Control::Enable(en) => {
+                        let group = &en.group;
+                        let this_done_port = this
+                            .borrow()
+                            .find_unique_with_attr(ir::NumAttr::Done)?
+                            .unwrap();
+
+                        let group_done =
+                            guard!(group[this_done_port.borrow().name]);
+                        build_assignments!(builder;
+                            group["go"] = ? this[this_go_port.borrow().name];
+                            this["done"] = group_done ? one["out"];
+                        )
+                    }
+                    ir::Control::FSMEnable(fsm_en) => {
+                        let fsm = &fsm_en.fsm;
+                        let fsm_done = guard!(fsm["done"]);
+                        build_assignments!(builder;
+                            fsm["start"] = ? this[this_go_port.borrow().name];
+                            this["done"] = fsm_done ? one["out"];
+                        )
+                    }
+                    _ => unreachable!(),
+                };
                 comp.continuous_assignments.extend(assigns);
             }
             ir::Control::Empty(_) => {}
+
             _ => {
                 return Err(calyx_utils::Error::malformed_control(format!(
                     "{}: Structure has more than one group",
