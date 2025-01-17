@@ -193,7 +193,9 @@ impl CalyxParser {
 
     #[cfg(test)]
     /// A test helper for parsing the new metadata table
-    pub fn parse_metadata(input: &str) -> ParseResult<MetadataTable> {
+    pub fn parse_metadata(
+        input: &str,
+    ) -> Result<MetadataTable, Box<Error<Rule>>> {
         let inputs = CalyxParser::parse_with_userdata(
             Rule::metadata_table,
             input,
@@ -202,7 +204,7 @@ impl CalyxParser {
             },
         )?;
         let input = inputs.single()?;
-        CalyxParser::metadata_table(input)
+        Ok(CalyxParser::metadata_table(input)?)
     }
 }
 
