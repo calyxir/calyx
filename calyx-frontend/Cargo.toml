@@ -30,6 +30,7 @@ pest_derive.workspace = true
 pest_consume.workspace = true
 itertools.workspace = true
 
+thiserror = "2"
 calyx-utils.workspace = true
 
 strum_macros = "0.25"

@@ -353,6 +353,7 @@ dependencies = [
  "smallvec",
  "strum",
  "strum_macros",
+ "thiserror 2.0.8",
 ]
 
 [[package]]

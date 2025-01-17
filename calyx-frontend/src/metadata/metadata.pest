@@ -1,0 +1,30 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+
+num = @{ ASCII_DIGIT+ }
+
+
+file_header = {"FILES"}
+
+quote = {"\""}
+
+path_text = {(ASCII_ALPHANUMERIC | "\\" | "/" | "." | "_" | "-" )*}
+
+path = {quote ~ path_text ~ quote }
+
+file_entry = { num ~ ":" ~ path }
+
+file_table = {
+    file_header ~ file_entry+
+}
+
+position_header = {"POSITIONS"}
+
+position_entry = {num ~ ":" ~ num ~ num }
+
+position_table = {
+    position_header ~ position_entry+
+}
+
+metadata_table = {
+   WHITESPACE* ~ file_table ~ position_table
+}
