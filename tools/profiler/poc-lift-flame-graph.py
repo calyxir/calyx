@@ -11,7 +11,7 @@ def get_var_name(filename, linenum):
         varname = line.split(":")[0].split(" ")[-1]
     elif "=" in line:
         # janky as hell. probably should actually parse into Python and obtain the variable name but I want to see things work first
-        before_equals = line.split("=")[0].strip()
+        before_equals = line.split("=")[0].split(":")[0].strip() # save cases where type is declared?
         if before_equals.count(" ") != 0:
             varname = "unnamed"
         else:
