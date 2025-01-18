@@ -2,6 +2,8 @@ from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass, field
 from typing import Dict, List, Any, Tuple, Optional
 from calyx.utils import block
+import inspect
+import os
 
 @dataclass
 class Emittable:
@@ -35,6 +37,31 @@ class FileTable:
 class PosTable:
     counter : int = 0
     table : Dict[(int, int), int] = {} # (fileid, linenum) -> positionId
+
+    @staticmethod
+    def determine_source_loc() -> Optional[int]:
+        """Inspects the call stack to determine the first call site outside the calyx-py library."""
+        stacktrace = inspect.stack()
+
+        # inspect top frame to determine the path to the calyx-py library
+        top = stacktrace[0]
+        assert top.function == "determine_source_loc"
+        library_path = os.path.dirname(top.filename)
+        assert os.path.join(library_path, "py_ast.py") == top.filename
+
+        # find first stack frame that is not part of the library
+        user = None
+        for frame in stacktrace:
+            # skip frames that do not have a real filename
+            if frame.filename == "<string>":
+                continue
+            if not frame.filename.startswith(library_path):
+                user = frame
+                break
+        if user is None:
+            return None
+
+        return PosTable.add_entry(frame.filename, frame.lineno)
 
     @staticmethod
     def add_entry(filename, line_num):
@@ -541,7 +568,7 @@ class Control(Emittable):
 @dataclass
 class Enable(Control):
     stmt: str
-    # loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         return f"{self.stmt};"
