@@ -25,12 +25,7 @@ class WidthInferenceError(Exception):
 class MalformedGroupError(Exception):
     """Raised when a group is malformed."""
 
-def frame_to_source_loc(position_table: ast.PosTable, frame: inspect.FrameInfo) -> int:
-    """add metadata info from a Python frame"""
-    # return position_table.add_entry(os.path.basename(frame.filename), frame.lineno)
-    return position_table.add_entry(frame.filename, frame.lineno)
-
-def determine_source_loc(position_table : ast.PosTable) -> Optional[int]:
+def determine_source_loc() -> Optional[int]:
     """Inspects the call stack to determine the first call site outside the calyx-py library."""
     stacktrace = inspect.stack()
 
@@ -52,19 +47,16 @@ def determine_source_loc(position_table : ast.PosTable) -> Optional[int]:
     if user is None:
         return None
 
-    return frame_to_source_loc(position_table, user)
+    return ast.PosTable.add_entry(frame.filename, frame.lineno)
     
 
 class Builder:
     """The entry-point builder for top-level Calyx programs."""
 
     def __init__(self):
-        filetable = ast.FileTable()
         self.program = ast.Program(
             imports=[],
-            components=[],
-            file_table=filetable,
-            position_table=ast.PosTable(filetable)
+            components=[]
         )
         self.imported = set()
         self.import_("primitives/core.futil")
@@ -134,7 +126,7 @@ class ComponentBuilder:
         )
 
         if not is_comb:
-            position_id = determine_source_loc(self.prog.program.position_table)
+            position_id = determine_source_loc()
             if position_id is not None:
                 self.component.attributes.append(ast.CompAttribute("pos", position_id))
 
@@ -318,7 +310,7 @@ class ComponentBuilder:
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError("Combinational components do not have groups.")
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
-        position_id = determine_source_loc(self.prog.program.position_table)
+        position_id = determine_source_loc()
         if position_id is not None:
             group.attributes.append(ast.GroupAttribute("pos", position_id))
         assert group not in self.component.wires, f"group '{name}' already exists"
@@ -369,7 +361,7 @@ class ComponentBuilder:
 
         cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
         assert cell not in self.component.cells, f"cell '{name}' already exists"
-        position_id = determine_source_loc(self.prog.program.position_table)
+        position_id = determine_source_loc()
         if position_id is not None:
             cell.attributes.append(ast.CellAttribute("pos", position_id))
 

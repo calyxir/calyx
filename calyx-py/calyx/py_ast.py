@@ -13,44 +13,41 @@ class Emittable:
 
 
 class FileTable:
-    def __init__(self):
-        self.counter = 0
-        self.table: Dict[str, int] = {}
+    # making fields static so that we can still get new fileIds without having to pass an object around.
+    # Not really a fan of this, but this is the first pass...
+    counter : int = 0
+    table: Dict[str, int] = {}
     
-    def get_fileid(self, filename):
-        if filename not in self.table:
-            self.table[filename] = self.counter
-            self.counter += 1
-        return self.table[filename]
+    @staticmethod
+    def get_fileid(filename):
+        if filename not in FileTable.table:
+            FileTable.table[filename] = FileTable.counter
+            FileTable.counter += 1
+        return FileTable.table[filename]
     
-    def __len__(self):
-        return len(self.table)
-    
-    def emit_metadata(self):
+    @staticmethod
+    def emit_metadata():
         out = ""
-        for (filename, fileid) in self.table.items():
+        for (filename, fileid) in FileTable.table.items():
                 out += f"file-{fileid}: {filename}\n"
         return out
 
 class PosTable:
-    def __init__(self, file_table):
-        self.counter : int = 0
-        self.file_table : FileTable = file_table
-        self.table: Dict[(int, int), int] = {} # (fileid, linenum) -> positionId
+    counter : int = 0
+    table : Dict[(int, int), int] = {} # (fileid, linenum) -> positionId
 
-    def add_entry(self, filename, line_num):
-        file_id = self.file_table.get_fileid(filename)
-        if (file_id, line_num) not in self.table:
-            self.table[(file_id, line_num)] = self.counter
-            self.counter += 1
-        return self.table[(file_id, line_num)]
+    @staticmethod
+    def add_entry(filename, line_num):
+        file_id = FileTable.get_fileid(filename)
+        if (file_id, line_num) not in PosTable.table:
+            PosTable.table[(file_id, line_num)] = PosTable.counter
+            PosTable.counter += 1
+        return PosTable.table[(file_id, line_num)]
     
-    def __len__(self):
-        return len(self.table)
-    
-    def emit_metadata(self):
+    @staticmethod
+    def emit_metadata():
         out = ""
-        for ((fileid, linenum), position_id) in self.table.items():
+        for ((fileid, linenum), position_id) in PosTable.table.items():
             out += f"pos-{position_id}: ({fileid}, {linenum})\n"
         return out
 
@@ -67,8 +64,6 @@ class Import(Emittable):
 class Program(Emittable):
     imports: List[Import]
     components: List[Component]
-    file_table: FileTable = field(default=None)
-    position_table: PosTable = field(default=None)
     meta: dict[Any, str] = field(default_factory=dict)
 
     def doc(self) -> str:
@@ -76,14 +71,14 @@ class Program(Emittable):
         if len(self.imports) > 0:
             out += "\n"
         out += "\n".join([c.doc() for c in self.components])
-        if len(self.meta) > 0 or self.file_table is not None:
+        if len(self.meta) > 0 or len(FileTable.table) > 0:
             out += "\nmetadata #{\n"
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
             # first pass for emitting some file/source location metadata
-            if self.file_table is not None and self.position_table is not None:
-                out += self.file_table.emit_metadata()
-                out += self.position_table.emit_metadata()
+            if len(FileTable.table) > 0 and len(PosTable.table) > 0:
+                out += FileTable.emit_metadata()
+                out += PosTable.emit_metadata()
             out += "}#"
         return out
 
