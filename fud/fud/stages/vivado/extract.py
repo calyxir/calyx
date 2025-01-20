@@ -98,7 +98,7 @@ def place_and_route_extract(
                 f9_muxes = to_int(
                     find_row(slice_logic, "Site Type", "F9 Muxes")["Used"]
                 )
-            except:
+            except AssertionError:
                 # Older FPGAs use a different table format
                 slice_logic = impl_parser.get_table(re.compile(r"1\. Slice Logic"), 2)
                 bram_table = impl_parser.get_table(re.compile(r"3\. Memory"), 2)
