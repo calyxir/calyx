@@ -70,6 +70,19 @@ impl Visitor for Canonicalize {
             }
         });
 
+        comp.fsms.iter_mut().for_each(|fsm| {
+            fsm.borrow_mut().assignments.iter_mut().for_each(|assigns| {
+                assigns.iter_mut().for_each(|assign| {
+                    if let Guard::Port(p) = &(*assign.guard) {
+                        // 1'd1 ? r1.done
+                        if p.borrow().is_constant(1, 1) {
+                            assign.guard = Guard::True.into()
+                        }
+                    }
+                })
+            })
+        });
+
         for gr in comp.get_groups().iter() {
             // Handles group[done] = a ? 1'd1 -> group[done] = a
             let mut group = gr.borrow_mut();

@@ -398,7 +398,6 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
                     _ => None,
                 }
             }
-            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Group(_) => unreachable!(),
             ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::StaticGroup(_) => unreachable!(),
@@ -791,27 +790,6 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
     false
 }
 
-/// Checks if:
-/// 1. The port is marked with `@control`
-/// 2. The port's cell parent is marked with `@control`
-fn is_control_port(pr: &RRC<ir::Port>) -> bool {
-    assert_eq!(ir::Direction::Input, pr.borrow().direction);
-    let port = pr.borrow();
-    if !port.attributes.has(ir::BoolAttr::Control) {
-        return false;
-    }
-    if let ir::PortParent::Cell(cwr) = &port.parent {
-        let cr = cwr.upgrade();
-        let cell = cr.borrow();
-        // For cell.is_this() ports that were externalized, we already checked
-        // that the parent cell had the `@data` attribute.
-        if cell.attributes.has(ir::BoolAttr::Control) || cell.is_this() {
-            return true;
-        }
-    }
-    false
-}
-
 /// Generates an assign statement that uses ternaries to select the correct
 /// assignment to enable and adds a default assignment to 0 when none of the
 /// guards are active.
@@ -956,7 +934,6 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
                 )),
             }
         }
-        ir::PortParent::FSM(_) => todo!(),
         ir::PortParent::Group(_) => unreachable!(),
         ir::PortParent::FSM(_) => todo!(),
         ir::PortParent::StaticGroup(_) => unreachable!(),
@@ -1032,7 +1009,6 @@ impl<'a> std::fmt::Display for VerilogPortRef<'a> {
                     }
                 }
             }
-            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Group(_) => unreachable!(),
             ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::StaticGroup(_) => unreachable!(),

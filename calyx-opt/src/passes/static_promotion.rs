@@ -5,7 +5,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
 };
-use calyx_ir::{self as ir, BoolAttr, LibrarySignatures};
+use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use ir::GetAttributes;
 use itertools::Itertools;

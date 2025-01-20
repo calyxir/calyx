@@ -1,7 +1,7 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::Error;
-use std::{collections::HashSet, hash::Hash, rc::Rc};
+use std::{collections::HashSet, rc::Rc};
 
 #[derive(Default)]
 /// Adds assignments from a components `reset` port to every

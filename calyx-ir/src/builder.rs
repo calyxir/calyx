@@ -373,7 +373,6 @@ impl<'a> Builder<'a> {
     /// offending code.
     fn is_port_well_formed(&self, port: &ir::Port) {
         match &port.parent {
-            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Cell(cell_wref) => {
                 let cell_ref = cell_wref.internal.upgrade().expect("Weak reference to port's parent cell points to nothing. This usually means that the Component did not retain a pointer to the Cell.");
 

@@ -3,7 +3,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, structure, Assignment, Attribute, BoolAttr, GetAttributes, LibrarySignatures, Printer, StaticTiming, RRC
+    self as ir, structure, Assignment, BoolAttr, GetAttributes, LibrarySignatures, Printer, StaticTiming, RRC
 };
 
 use calyx_ir::{build_assignments, guard, Id};
@@ -16,6 +16,7 @@ use petgraph::graph::DiGraph;
 use petgraph::Graph;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::fs::File;
 use std::io::Write;
 use std::rc::Rc;
 
@@ -289,7 +290,7 @@ fn compute_unique_schedule_ids(con: &mut ir::Control, cur_sch: u64) -> u64 {
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Static(sc) => {
-            if let ir::StaticControl::Enable(ir::StaticEnable{attributes,..}) = sc {
+            if let ir::StaticControl::Enable(ir::StaticEnable{..}) = sc {
                 cur_sch
             } else {
                 unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
@@ -372,15 +373,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
         );
     }
 
-    /// Return the max state in the transition graph
-    fn last_state(&self) -> u64 {
-        self.transitions
-            .iter()
-            .max_by_key(|(_, s, _)| s)
-            .expect("Schedule::transition is empty!")
-            .1
-    }
-
     /// Print out the current schedule
     fn display(&self, group: String) {
         let out = &mut std::io::stdout();
@@ -395,7 +387,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     writeln!(out).unwrap();
                 })
             });
-        writeln!(out, "{}:\n  <end>", self.last_state()).unwrap();
+        writeln!(out, "{}:\n  <end>", 
+            self.transitions
+                .iter()
+                .max_by_key(|(_, s, _)| s)
+                .expect("Schedule::transition is empty!")
+                .1
+        ).unwrap();
         writeln!(out, "transitions:").unwrap();
         self.transitions
             .iter()
@@ -406,27 +404,34 @@ impl<'b, 'a> Schedule<'b, 'a> {
             });
     }
 
-    fn realize_fsm(self, dump_fsm: bool) -> RRC<ir::FSM> {
+    fn realize_fsm(self, dump_fsm: bool, dump_dot: &String) -> RRC<ir::FSM> {
         // ensure schedule is valid
         self.validate();
 
         // compute final state and fsm_size, and register initial fsm
         let fsm = self.builder.add_fsm("fsm");
         if dump_fsm {
-
+            println!("==== {} ====", fsm.borrow().name());
+            self.display(format!(
+                "{}:{}",
+                self.builder.component.name,
+                fsm.borrow().name()
+            ));
+        }
+        
+        if !dump_dot.is_empty() {
             let graph: Graph<(), u32> = DiGraph::<(), u32>::from_edges(
             self.transitions
                 .iter()
                 .map(|(s, e, _)| (*s as u32, *e as u32)),
             );
-            println!("==== {} ====", fsm.borrow().name());
-            println!("{:?}", dot::Dot::with_config(&graph, &[dot::Config::EdgeNoLabel, dot::Config::NodeNoLabel]));
-            // self.display(format!(
-            //     "{}:{}",
-            //     self.builder.component.name,
-            //     fsm.borrow().name()
-            // ));
+            let mut dot_file = File::create(dump_dot).expect("Unable to create file");
+            writeln!(dot_file, "{:?}", dot::Dot::with_config(&graph, 
+                                                             &[dot::Config::EdgeNoLabel, 
+                                                             dot::Config::NodeNoLabel])
+            ).expect("Unable to write to dot file");
         }
+
 
         // map each source state to a list of conditional transitions
         let mut transitions_map: HashMap<u64, Vec<(ir::Guard<Nothing>, u64)>> =
@@ -638,35 +643,6 @@ impl Schedule<'_, '_> {
 
                 // Add group to mapping for emitting group JSON info
                 self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
-
-
-                // let not_done = !guard!(group["done"]);
-                let signal_on = self.builder.add_constant(1, 1);
-
-                // // Activate this group in the current state
-                // let en_go = build_assignments!(self.builder;
-                //     group["go"] = ? signal_on["out"];
-                // );
-
-                // for i in cur_state..cur_state + sc.get_latency()  {
-                //     self.enables
-                //         .entry(i)
-                //         .or_default()
-                //         .extend(en_go.clone());
-
-                // }
-                // Activate group in the cycle when previous state signals done.
-                // NOTE: We explicilty do not add `not_done` to the guard.
-                // See explanation in [ir::TopDownCompileControl] to understand
-                // why.
-                // if early_transitions || has_fast_guarantee {
-                //     for (st, g, _is_static) in &prev_states {
-                //         let early_go = build_assignments!(self.builder;
-                //             group["go"] = g ? signal_on["out"];
-                //         );
-                //         self.enables.entry(*st).or_default().extend(early_go);
-                //     }
-                // }
 
                 let assigns: Vec<Assignment<StaticTiming>> = group.borrow_mut().assignments.clone();
                 for assign in assigns.iter(){
@@ -1000,6 +976,8 @@ impl Schedule<'_, '_> {
 pub struct DynamicFSMAllocation {
     /// Print out the FSM representation to STDOUT
     dump_fsm: bool,
+    /// Print out the FSM representation to a dot file
+    dump_dot: String,
     /// Enable early transitions
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
@@ -1014,6 +992,7 @@ impl ConstructVisitor for DynamicFSMAllocation {
         let opts = Self::get_opts(ctx);
         Ok(DynamicFSMAllocation {
             dump_fsm: opts[&"dump-fsm"].bool(),
+            dump_dot: opts[&"dump-dot"].string(),
             early_transitions: opts[&"early-transitions"].bool(),
             fsm_groups: HashSet::new(),
         })
@@ -1040,6 +1019,12 @@ impl Named for DynamicFSMAllocation {
                 "Print out the state machine implementing the schedule",
                 ParseVal::Bool(false),
                 PassOpt::parse_bool,
+            ),
+            PassOpt::new(
+                "dump-dot",
+                "Print out the state machine implementing the schedule to a dot file",
+                ParseVal::String("".to_string()),
+                PassOpt::parse_string,
             ),
             PassOpt::new(
                 "dump-fsm-json",
@@ -1109,7 +1094,7 @@ impl Visitor for DynamicFSMAllocation {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
-        let seq_fsm = sch.realize_fsm(self.dump_fsm);
+        let seq_fsm = sch.realize_fsm(self.dump_fsm, &self.dump_dot);
         let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
         let state_id = s.attributes.get(NODE_ID).unwrap();
         fsm_en.get_mut_attributes().insert(NODE_ID, state_id);
@@ -1156,7 +1141,7 @@ impl Visitor for DynamicFSMAllocation {
             // simply be a group, which would mean a 1-cycle group takes 3 cycles now)
             let mut sch = Schedule::from(&mut builder);
             sch.calculate_states(con, self.early_transitions)?;
-            let fsm = sch.realize_fsm(self.dump_fsm);
+            let fsm = sch.realize_fsm(self.dump_fsm, &self.dump_dot);
 
             // Build circuitry to enable and disable this fsm.
             structure!(builder;
@@ -1236,7 +1221,7 @@ impl Visitor for DynamicFSMAllocation {
 
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        let comp_fsm = sch.realize_fsm(self.dump_fsm);
+        let comp_fsm = sch.realize_fsm(self.dump_fsm, &self.dump_dot);
 
         Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
     }
