@@ -3,7 +3,8 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, structure, Assignment, BoolAttr, GetAttributes, LibrarySignatures, Printer, StaticTiming, RRC
+    self as ir, structure, Assignment, BoolAttr, GetAttributes,
+    LibrarySignatures, Printer, StaticTiming, RRC,
 };
 
 use calyx_ir::{build_assignments, guard, Id};
@@ -228,7 +229,6 @@ fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
       ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
       ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
             ir::Control::Static(sc) => {
-                
                 if let ir::StaticControl::Enable(ir::StaticEnable{attributes,..}) = sc {
                     if attributes.has(NODE_ID) {
                         attributes.remove(NODE_ID);
@@ -394,13 +394,16 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     writeln!(out).unwrap();
                 })
             });
-        writeln!(out, "{}:\n  <end>", 
+        writeln!(
+            out,
+            "{}:\n  <end>",
             self.transitions
                 .iter()
                 .max_by_key(|(_, s, _)| s)
                 .expect("Schedule::transition is empty!")
                 .1
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(out, "transitions:").unwrap();
         self.transitions
             .iter()
@@ -425,34 +428,41 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 fsm.borrow().name()
             ));
         }
-        
+
         if !dump_dot.is_empty() {
             let graph: Graph<(), u32> = DiGraph::<(), u32>::from_edges(
-            self.transitions
-                .iter()
-                .map(|(s, e, _)| (*s as u32, *e as u32)),
+                self.transitions
+                    .iter()
+                    .map(|(s, e, _)| (*s as u32, *e as u32)),
             );
-            let mut dot_file = File::create(dump_dot).expect("Unable to create file");
-            writeln!(dot_file, "{:?}", dot::Dot::with_config(&graph, 
-                                                             &[dot::Config::EdgeNoLabel, 
-                                                             dot::Config::NodeNoLabel])
-            ).expect("Unable to write to dot file");
+            let mut dot_file =
+                File::create(dump_dot).expect("Unable to create file");
+            writeln!(
+                dot_file,
+                "{:?}",
+                dot::Dot::with_config(
+                    &graph,
+                    &[dot::Config::EdgeNoLabel, dot::Config::NodeNoLabel]
+                )
+            )
+            .expect("Unable to write to dot file");
         }
-
 
         // map each source state to a list of conditional transitions
         let mut transitions_map: HashMap<u64, Vec<(ir::Guard<Nothing>, u64)>> =
             HashMap::new();
-            self.transitions.into_iter().for_each(
-                |(s, e, g)| {
-                    match transitions_map.get_mut(&(s + 1)) {
-                        Some(next_states) => next_states.push((g, e + 1)),
-                        None => {
-                            transitions_map.insert(s + 1, vec![(g, e + 1)]);
-                        }
-                    }
+        self.transitions.into_iter().for_each(|(s, e, g)| {
+            if (s == e) && g.is_true() {
+                return;
+            }
+
+            match transitions_map.get_mut(&(s + 1)) {
+                Some(next_states) => next_states.push((g, e + 1)),
+                None => {
+                    transitions_map.insert(s + 1, vec![(g, e + 1)]);
                 }
-            );
+            }
+        });
 
         // push the cases of the fsm to the fsm instantiation
         let (mut transitions, mut assignments): (
@@ -462,15 +472,16 @@ impl<'b, 'a> Schedule<'b, 'a> {
             .drain()
             .sorted_by(|(s1, _), (s2, _)| s1.cmp(s2))
             .map(|(state, mut cond_dsts)| {
-                let assigns: Vec<calyx_ir::Assignment<Nothing>> = match self.fsm_enables.get(&(state - 1)) {
-                    None => vec![],
-                    Some(assigns) => assigns.clone(),
-                };
+                let assigns: Vec<calyx_ir::Assignment<Nothing>> =
+                    match self.fsm_enables.get(&(state - 1)) {
+                        None => vec![],
+                        Some(assigns) => assigns.clone(),
+                    };
 
                 if cond_dsts.len() == 1 && cond_dsts[0].0.is_true() {
-                    (ir::Transition::Unconditional(state+1), assigns)
-                }
-                else{
+                    // if only have one true guard, then it is an unconditional transition
+                    (ir::Transition::Unconditional(state + 1), assigns)
+                } else {
                     // self-loop if all other guards are not met;
                     // should be at the end of the conditional destinations vec!
                     cond_dsts.push((ir::Guard::True, state));
@@ -568,9 +579,12 @@ impl Schedule<'_, '_> {
                 }
             }
 
+
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| (st, cur_state, guard));
+                .map(|(st, guard)|{
+                    (st, cur_state, guard)
+                });
             self.transitions.extend(transitions);
 
             let done_cond = guard!(fsm["done"]);
@@ -616,8 +630,7 @@ impl Schedule<'_, '_> {
 
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| 
-                    {
+                .map(|(st, guard)|{
                         (st, cur_state, guard)
                     }
                 );
@@ -644,7 +657,11 @@ impl Schedule<'_, '_> {
                     || panic!("Group `{}` does not have state_id information", group.borrow().name())
                 );
 
-                let (cur_state, prev_states) = (cur_state, preds);
+                let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() && preds[0].0 == 0 {
+                    (preds[0].0, vec![])
+                } else {
+                    (cur_state, preds)
+                };
 
                 // Add group to mapping for emitting group JSON info
                 self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
@@ -674,7 +691,6 @@ impl Schedule<'_, '_> {
                         });
                     }
                 }
-                
 
                 let transitions = prev_states
                     .into_iter()
@@ -683,11 +699,11 @@ impl Schedule<'_, '_> {
                         }
                     );
                 self.transitions.extend(transitions);
-                    
+
                 for i in cur_state..cur_state + sc.get_latency()-1  {
                     self.transitions.push((i, i + 1, ir::Guard::True));
                 }
-                
+
                 // always transition to the next state
                 let done_cond = ir::Guard::True;
                 Ok(vec![(cur_state+ sc.get_latency()-1, done_cond)])
@@ -772,7 +788,8 @@ impl Schedule<'_, '_> {
             )?
         };
 
-        let prevs: Vec<(u64, calyx_ir::Guard<Nothing>)> = tru_prev.into_iter().chain(fal_prev).collect();
+        let prevs: Vec<(u64, calyx_ir::Guard<Nothing>)> =
+            tru_prev.into_iter().chain(fal_prev).collect();
         Ok(prevs)
     }
 
@@ -844,6 +861,25 @@ impl Schedule<'_, '_> {
         Ok(())
     }
 
+    fn calculate_states_while(
+        &mut self,
+        while_stmt: &ir::While,
+        early_transitions: bool,
+    ) -> CalyxResult<()> {
+        let first_state: (u64, calyx_ir::Guard<_>) = (0, ir::Guard::True);
+        // We create an empty first state in case the control program starts with
+        // a branch (if, while).
+        // If the program doesn't branch, then the initial state is merged into
+        // the first group.
+        let prev = self.calc_while_recur(
+            while_stmt,
+            vec![first_state],
+            early_transitions,
+        )?;
+        self.add_nxt_transition(prev);
+        Ok(())
+    }
+
     /// Given predecessors prev, creates a new "next" state and transitions from
     /// each state in prev to the next state.
     /// In other words, it just adds an "end" state to [Schedule] and the
@@ -855,8 +891,7 @@ impl Schedule<'_, '_> {
             .unwrap()
             .0
             + 1;
-        let transitions = prev.into_iter()
-                                                            .map(|(st, guard)| (st, nxt, guard));
+        let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
         self.transitions.extend(transitions);
     }
 
@@ -876,12 +911,8 @@ impl Schedule<'_, '_> {
         // a branch (if, while).
         // If the program doesn't branch, then the initial state is merged into
         // the first group.
-        let prev = self.calculate_states_recur(
-            con,
-            vec![],
-            early_transitions,
-            false,
-        )?;
+        let prev =
+            self.calculate_states_recur(con, vec![], early_transitions, false)?;
         self.add_nxt_transition(prev);
         Ok(())
     }
@@ -1103,7 +1134,6 @@ impl Visitor for DynamicFSMAllocation {
         let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
         let state_id = s.attributes.get(NODE_ID).unwrap();
         fsm_en.get_mut_attributes().insert(NODE_ID, state_id);
-
         Ok(Action::change(fsm_en))
     }
 
@@ -1192,7 +1222,7 @@ impl Visitor for DynamicFSMAllocation {
         ];
 
         // generate assignments to occur at each state of par's FSM
-        let par_fsm_assigns = vec![
+        let par_fsm_assigns: Vec<Vec<Assignment<Nothing>>> = vec![
             vec![],
             assigns_to_enable,
             build_assignments!(builder;
@@ -1211,6 +1241,27 @@ impl Visitor for DynamicFSMAllocation {
         en.get_mut_attributes().insert(NODE_ID, state_id);
 
         Ok(Action::change(en))
+    }
+
+    fn finish_while(
+        &mut self,
+        s: &mut calyx_ir::While,
+        comp: &mut calyx_ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        if !s.attributes.has(ir::BoolAttr::NewFSM) {
+            return Ok(Action::Continue);
+        }
+
+        let mut builder = ir::Builder::new(comp, sigs);
+        let mut sch = Schedule::from(&mut builder);
+        sch.calculate_states_while(s, self.early_transitions)?;
+        let seq_fsm = sch.realize_fsm(self.dump_fsm, &self.dump_dot);
+        let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
+        let state_id = s.attributes.get(NODE_ID).unwrap();
+        fsm_en.get_mut_attributes().insert(NODE_ID, state_id);
+        Ok(Action::change(fsm_en))
     }
 
     fn finish(
