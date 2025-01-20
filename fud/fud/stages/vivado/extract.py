@@ -40,28 +40,35 @@ def file_contains(regex, filename):
 def rpt_extract(file: PurePath):
     if not file.exists():
         log.error(f"RPT file {file} is missing")
-        return {}
+        return None
 
     parser = rpt.RPTParser(file)
 
     # Optional asterisk at the end of table name here because in synthesis files the name comes with an asterisk
-    slice_logic = parser.get_table(re.compile(r"\d+\. CLB Logic\*?"), 2)
-    bram_table = parser.get_table(re.compile(r"\d+\. BLOCKRAM"), 2)
-    dsp_table = parser.get_table(re.compile(r"\d+\. ARITHMETIC"), 2)
+    slice_logic = parser.get_table(re.compile(r"^\d+\. CLB Logic\*?$"), 2)
+    bram_table = parser.get_table(re.compile(r"^\d+\. BLOCKRAM$"), 2)
+    dsp_table = parser.get_table(re.compile(r"^\d+\. ARITHMETIC$"), 2)
+    logic_type = "CLB"
 
     if not all([slice_logic, bram_table, dsp_table]):
         log.warn("Failed to find CLB logic tables, defaulting to older RPT format")
-        slice_logic = parser.get_table(re.compile(r"\d+\. Slice Logic\*?"), 2)
-        bram_table = parser.get_table(re.compile(r"\d+\. Memory"), 2)
-        dsp_table = parser.get_table(re.compile(r"\d+\. DSP"), 2)
+        slice_logic = parser.get_table(re.compile(r"^\d+\. Slice Logic\*?$"), 2)
+        bram_table = parser.get_table(re.compile(r"^\d+\. Memory$"), 2)
+        dsp_table = parser.get_table(re.compile(r"^\d+\. DSP$"), 2)
+        logic_type = "Slice"
 
     if not all([slice_logic, bram_table, dsp_table]):
-        log.error("Failed to find CLB logic tables")
-        return {}
+        log.error("Failed to extract resource information")
+        return None
 
-    clb_lut = safe_get(find_row(slice_logic, "Site Type", "CLB LUTs", False), "Used")
-    clb_reg = safe_get(
-        find_row(slice_logic, "Site Type", "CLB Registers", False), "Used"
+    print(slice_logic, bram_table, dsp_table)
+    lut = find_row(slice_logic, "Site Type", f"{logic_type} LUTs", False)
+    if lut is None:
+        # Try to find the LUTs with the asterisk for synthesis files
+        lut = find_row(slice_logic, "Site Type", f"{logic_type} LUTs*", False)
+    lut = safe_get(lut, "Used")
+    reg = safe_get(
+        find_row(slice_logic, "Site Type", f"{logic_type} Registers", False), "Used"
     )
     carry8 = safe_get(find_row(slice_logic, "Site Type", "CARRY8", False), "Used")
     f7_muxes = safe_get(find_row(slice_logic, "Site Type", "F7 Muxes", False), "Used")
@@ -71,10 +78,10 @@ def rpt_extract(file: PurePath):
     brams = safe_get(find_row(bram_table, "Site Type", "Block RAM Tile", False), "Used")
 
     return {
-        "lut": to_int(clb_lut),
+        "lut": to_int(lut),
         "dsp": to_int(dsp),
         "brams": to_int(brams),
-        "clb_registers": to_int(clb_reg),
+        "registers": to_int(reg),
         "carry8": to_int(carry8),
         "f7_muxes": to_int(f7_muxes),
         "f8_muxes": to_int(f8_muxes),
