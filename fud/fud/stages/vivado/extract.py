@@ -37,19 +37,45 @@ def file_contains(regex, filename):
     return len(strings) == 0
 
 
-def rtl_component_extract(file: Path, name: str):
-    try:
-        with file.open() as f:
-            log = f.read()
-            comp_usage = re.search(
-                r"Start RTL Component Statistics(.*?)Finished RTL", log, re.DOTALL
-            ).group(1)
-            a = re.findall("{} := ([0-9]*).*$".format(name), comp_usage, re.MULTILINE)
-            return sum(map(int, a))
-    except Exception as e:
-        print(e)
-        print("RTL component log not found")
-        return 0
+def rpt_extract(file: PurePath):
+    if not file.exists():
+        log.error(f"RPT file {file} is missing")
+        return None
+
+    parser = rpt.RPTParser(file)
+
+    # Optional asterisk at the end of table name here because in synthesis files the name comes with an asterisk
+    slice_logic = parser.get_table(re.compile(r"\d+\. CLB Logic\*?"), 2)
+    bram_table = parser.get_table(re.compile(r"\d+\. BLOCKRAM"), 2)
+    dsp_table = parser.get_table(re.compile(r"\d+\. ARITHMETIC"), 2)
+
+    if not all([slice_logic, bram_table, dsp_table]):
+        log.warn("Failed to find CLB logic tables, defaulting to older RPT format")
+        slice_logic = parser.get_table(re.compile(r"\d+\. Slice Logic\*?"), 2)
+        bram_table = parser.get_table(re.compile(r"\d+\. Memory"), 2)
+        dsp_table = parser.get_table(re.compile(r"\d+\. DSP"), 2)
+
+    clb_lut = safe_get(find_row(slice_logic, "Site Type", "CLB LUTs", False), "Used")
+    clb_reg = safe_get(
+        find_row(slice_logic, "Site Type", "CLB Registers", False), "Used"
+    )
+    carry8 = safe_get(find_row(slice_logic, "Site Type", "CARRY8", False), "Used")
+    f7_muxes = safe_get(find_row(slice_logic, "Site Type", "F7 Muxes", False), "Used")
+    f8_muxes = safe_get(find_row(slice_logic, "Site Type", "F8 Muxes", False), "Used")
+    f9_muxes = safe_get(find_row(slice_logic, "Site Type", "F9 Muxes", False), "Used")
+    dsp = safe_get(find_row(dsp_table, "Site Type", "DSPs", False), "Used")
+    brams = safe_get(find_row(bram_table, "Site Type", "Block RAM Tile", False), "Used")
+
+    return {
+        "lut": to_int(clb_lut),
+        "dsp": to_int(dsp),
+        "brams": to_int(brams),
+        "clb_registers": to_int(clb_reg),
+        "carry8": to_int(carry8),
+        "f7_muxes": to_int(f7_muxes),
+        "f8_muxes": to_int(f8_muxes),
+        "f9_muxes": to_int(f9_muxes),
+    }
 
 
 def place_and_route_extract(
@@ -77,67 +103,12 @@ def place_and_route_extract(
 
     # Extract utilization information
     try:
-        if util_file.exists():
-            impl_parser = rpt.RPTParser(util_file)
-            try:
-                slice_logic = impl_parser.get_table(re.compile(r"1\. CLB Logic"), 2)
-                bram_table = impl_parser.get_table(re.compile(r"3\. BLOCKRAM"), 2)
-                dsp_table = impl_parser.get_table(re.compile(r"4\. ARITHMETIC"), 2)
-
-                clb_lut = to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"])
-                clb_reg = to_int(
-                    find_row(slice_logic, "Site Type", "CLB Registers")["Used"]
-                )
-                carry8 = to_int(find_row(slice_logic, "Site Type", "CARRY8")["Used"])
-                f7_muxes = to_int(
-                    find_row(slice_logic, "Site Type", "F7 Muxes")["Used"]
-                )
-                f8_muxes = to_int(
-                    find_row(slice_logic, "Site Type", "F8 Muxes")["Used"]
-                )
-                f9_muxes = to_int(
-                    find_row(slice_logic, "Site Type", "F9 Muxes")["Used"]
-                )
-            except AssertionError:
-                # Older FPGAs use a different table format
-                slice_logic = impl_parser.get_table(re.compile(r"1\. Slice Logic"), 2)
-                bram_table = impl_parser.get_table(re.compile(r"3\. Memory"), 2)
-                dsp_table = impl_parser.get_table(re.compile(r"4\. DSP"), 2)
-
-                clb_lut = to_int(
-                    find_row(slice_logic, "Site Type", "Slice LUTs")["Used"]
-                )
-                clb_reg = to_int(
-                    find_row(slice_logic, "Site Type", "Slice Registers")["Used"]
-                )
-                carry8 = -1
-                f7_muxes = to_int(
-                    find_row(slice_logic, "Site Type", "F7 Muxes")["Used"]
-                )
-                f8_muxes = to_int(
-                    find_row(slice_logic, "Site Type", "F8 Muxes")["Used"]
-                )
-                f9_muxes = -1
-
-            resource_info.update(
-                {
-                    "lut": clb_lut,
-                    "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
-                    "brams": to_int(
-                        find_row(bram_table, "Site Type", "Block RAM Tile")["Used"]
-                    ),
-                    "registers": rtl_component_extract(synth_file, "Registers"),
-                    "muxes": rtl_component_extract(synth_file, "Muxes"),
-                    "clb_registers": clb_reg,
-                    "carry8": carry8,
-                    "f7_muxes": f7_muxes,
-                    "f8_muxes": f8_muxes,
-                    "f9_muxes": f9_muxes,
-                    "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
-                }
-            )
-        else:
-            log.error(f"Utilization implementation file {util_file} is missing")
+        resource_info.update(
+            {
+                "synth": rpt_extract(synth_file),
+                "impl": rpt_extract(util_file),
+            }
+        )
 
     except Exception:
         log.error(traceback.format_exc())
