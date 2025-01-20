@@ -22,7 +22,7 @@ yxi = $calyx-base/target/debug/yxi
 rule yxi
   command = $yxi -l $calyx-base $in > $out
 
-axi-generator = $calyx-base/yxi/axi-calyx/axi-generator.py
+axi-generator = $calyx-base/yxi/axi-calyx/axi_generator.py
 python = python3
 rule gen-axi
   command = $python $axi-generator $in > $out

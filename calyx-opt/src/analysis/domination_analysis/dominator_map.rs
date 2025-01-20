@@ -23,21 +23,22 @@ const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 /// - While Guards
 /// - If Guards
 /// - "End" If nodes, representing the place we're at in the program after the if
-/// statement has just finished. This doesn't correspond to any actual Calyx code, but is
-/// just a conceptualization we use to reason about domination.
+///   statement has just finished. This doesn't correspond to any actual Calyx code, but is
+///   just a conceptualization we use to reason about domination.
+///
 /// Note that seqs and pars will *not* be included in the domination map.
 ///
 /// Here is the algorithm we use to build the domination map.
 /// - Start with an emtpy map.
 /// - Visit each node n in the control program, and set:
 /// - dom(n) = {U dom(p) for each predecessor p of n} U {n}. In other words, take the
-/// dominators of each predecessor of n, and union them together. Then add n to
-/// this set, and set this set as the dominators of n.
+///   dominators of each predecessor of n, and union them together. Then add n to
+///   this set, and set this set as the dominators of n.
 /// - (Another clarification): by "predecessors" of node n we mean the set of nodes
-/// that could be the most recent node executed when n begins to execute.
+///   that could be the most recent node executed when n begins to execute.
 /// - If we visit every node of the control program and the map has not changed,
-/// then we are done. If it has changed, then we visit each node again to repeat
-/// the process.
+///   then we are done. If it has changed, then we visit each node again to repeat
+///   the process.
 ///
 /// The reason why we can take the union (rather than intersection) of the
 /// dominators of each predecessor is because we know each predecessor of each
@@ -46,19 +47,19 @@ const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 /// our algorithm to deal with them.
 ///
 /// 1) The While Guard
-/// The last node(s) in the while body are predecessor(s) of the while guard but
-/// are not guaranteed to be executed. So, we can think of the while guard's
-/// predecessors as being split in two groups: the "body predecessors" that are not guaranteed to
-/// be executed before the while guard and the "outside predecessors" that are
-/// outside the body of the while loop and are guaranteed to be executed before
-/// the while loop guard.
-/// Here we take:
-/// dom(while guard) = U(dom(outside preds)) U {while guard}
+///    The last node(s) in the while body are predecessor(s) of the while guard but
+///    are not guaranteed to be executed. So, we can think of the while guard's
+///    predecessors as being split in two groups: the "body predecessors" that are not guaranteed to
+///    be executed before the while guard and the "outside predecessors" that are
+///    outside the body of the while loop and are guaranteed to be executed before
+///    the while loop guard.
+///    Here we take:
+///    dom(while guard) = U(dom(outside preds)) U {while guard}
 ///
 /// Justification:
 /// dom(while guard) is a subset of U(dom(outside preds)) U {while guard}
 /// Suppose n dominates the while guard. Every path to the while guard must end in
-/// 1) outside pred -> while guard OR 2) body pred -> while guard. But for choice 2)
+/// (1) outside pred -> while guard OR (2) body pred -> while guard. But for choice 2)
 /// we know the path was really something like outside pred -> while guard -> body
 /// -> while guard... body -> while guard. Since n dominates the while guard
 /// we know that it *cannot* be in the while body. Therefore, since every path to the
@@ -72,10 +73,10 @@ const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 /// n dominates the while guard.
 ///
 /// 2) "End Node" of If Statements
-/// In this case, *neither* of the predecessor sets (the set in the tbranch or
-/// the set in the fbranch) are guaranteed to be executed.
-/// Here we take:
-/// dom(end node) = dom(if guard) U {end node}.
+///    In this case, *neither* of the predecessor sets (the set in the tbranch or
+///    the set in the fbranch) are guaranteed to be executed.
+///    Here we take:
+///    dom(end node) = dom(if guard) U {end node}.
 ///
 /// Justification:
 /// dom(end node) is a subset of dom(if guard) U {end node}.

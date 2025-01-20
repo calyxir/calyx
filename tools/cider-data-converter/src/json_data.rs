@@ -1,4 +1,4 @@
-use interp::serialization::Dimensions;
+use cider::serialization::Dimensions;
 use num_bigint::{BigInt, ParseBigIntError};
 use serde::{self, Deserialize, Serialize, Serializer};
 use serde_json::Number;
@@ -72,9 +72,9 @@ impl FormatInfo {
         }
     }
 
-    pub fn as_data_dump_format(&self) -> interp::serialization::FormatInfo {
+    pub fn as_data_dump_format(&self) -> cider::serialization::FormatInfo {
         match &self.numeric_type {
-            NumericType::Bitnum => interp::serialization::FormatInfo::Bitnum {
+            NumericType::Bitnum => cider::serialization::FormatInfo::Bitnum {
                 signed: self.is_signed,
                 width: self.width.unwrap(),
             },
@@ -99,14 +99,14 @@ impl FormatInfo {
                     )
                 };
 
-                interp::serialization::FormatInfo::Fixed {
+                cider::serialization::FormatInfo::Fixed {
                     signed: self.is_signed,
                     int_width,
                     frac_width,
                 }
             }
             NumericType::IEEE754Float => {
-                interp::serialization::FormatInfo::IEEFloat {
+                cider::serialization::FormatInfo::IEEFloat {
                     signed: self.is_signed,
                     width: self.width.unwrap(),
                 }

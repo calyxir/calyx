@@ -103,12 +103,16 @@ def place_and_route_extract(
                 f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
                 f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
                 f9_muxes = -1
-
-                
+            
+            bram_table = impl_parser.get_table(re.compile(r"3\. BLOCKRAM"), 2)
+            
             resource_info.update(
                 {
                     "lut": clb_lut,
                     "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
+                    "brams": to_int(
+                        find_row(bram_table, "Site Type", "Block RAM Tile")["Used"]
+                    ),
                     "registers": rtl_component_extract(synth_file, "Registers"),
                     "muxes": rtl_component_extract(synth_file, "Muxes"),
                     "clb_registers": clb_reg,
