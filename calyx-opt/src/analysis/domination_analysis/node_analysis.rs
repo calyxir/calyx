@@ -125,7 +125,7 @@ impl NodeReads {
                 | ir::Control::Par(_)
                 | ir::Control::Repeat(_)
                 | ir::Control::Static(_)
-                | ir::Control::FSMEnable(_) => {
+                | ir::Control::FSMEnable(_)  => {
                     unreachable!(
                         "no empty/seqs/pars/static/fsms should be in domination map"
                     )

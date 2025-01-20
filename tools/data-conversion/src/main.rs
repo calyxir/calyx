@@ -1,12 +1,12 @@
 //use std::env;
 use argh::FromArgs;
-use std::error::Error;
 use std::fmt;
 use std::fs::read_to_string;
 use std::fs::File;
 use std::io::stdout;
 use std::io::{self, Write};
 use std::str::FromStr;
+use std::{error::Error, fmt::Display};
 
 //cargo run -- --from $PATH1 --to $PATH2 --ftype "from" --totype "to"
 
@@ -29,14 +29,15 @@ enum NumType {
     Fixed,
 }
 
-impl ToString for NumType {
-    fn to_string(&self) -> String {
+impl Display for NumType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NumType::Binary => "binary".to_string(),
-            NumType::Float => "float".to_string(),
-            NumType::Hex => "hex".to_string(),
-            NumType::Fixed => "fixed".to_string(),
+            NumType::Binary => "binary",
+            NumType::Float => "float",
+            NumType::Hex => "hex",
+            NumType::Fixed => "fixed",
         }
+        .fmt(f)
     }
 }
 
@@ -171,22 +172,18 @@ fn convert(
         }
         _ => panic!(
             "Conversion from {} to {} is not supported",
-            convert_from.to_string(),
-            convert_to.to_string()
+            convert_from, convert_to
         ),
     }
     if let Some(filepath) = filepath_send {
         eprintln!(
             "Successfully converted from {} to {} in {}",
-            convert_from.to_string(),
-            convert_to.to_string(),
-            filepath
+            convert_from, convert_to, filepath
         );
     } else {
         eprintln!(
             "Successfully converted from {} to {}",
-            convert_from.to_string(),
-            convert_to.to_string(),
+            convert_from, convert_to,
         );
     }
 }

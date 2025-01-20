@@ -669,7 +669,7 @@ impl LiveRangeAnalysis {
                 sc,
             ),
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }
@@ -1426,7 +1426,7 @@ impl LiveRangeAnalysis {
                 self.build_live_ranges_static(sc, alive, gens, kills)
             }
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }

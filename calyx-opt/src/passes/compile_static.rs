@@ -351,7 +351,7 @@ impl CompileStatic {
                 }
             }
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }
@@ -815,7 +815,7 @@ impl CompileStatic {
                 vec![s.group.borrow().name()]
             }
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }
@@ -1003,8 +1003,8 @@ impl CompileStatic {
                         PortParent::Cell(_) => true,
                         // Don't add assignment to `group[done]`
                         PortParent::Group(_) => dst.name != "done",
-                        PortParent::StaticGroup(_) => true,
                         PortParent::FSM(_) => unreachable!(),
+                        PortParent::StaticGroup(_) => true,
                     }
                 }),
             );

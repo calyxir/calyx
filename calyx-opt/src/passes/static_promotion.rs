@@ -21,12 +21,12 @@ const APPROX_WHILE_REPEAT_SIZE: u64 = 3;
 ///
 /// Promotion occurs the following policies:
 /// 1. ``Threshold'': How large the island must be. We have three const
-/// defined as heuristics to measure approximately how big each control program
-/// is. It must be larger than that threshold.
+///    defined as heuristics to measure approximately how big each control program
+///    is. It must be larger than that threshold.
 /// 2. ``Cycle limit": The maximum number of cycles the island can be when we
-/// promote it.
+///    promote it.
 /// 3. ``If Diff Limit": The maximum difference in latency between if statments
-/// that we can tolerate to promote it.
+///    that we can tolerate to promote it.
 ///
 pub struct StaticPromotion {
     /// An InferenceAnalysis object so that we can re-infer the latencies of
@@ -193,7 +193,7 @@ impl StaticPromotion {
             }
             ir::Control::Static(sc) => Self::approx_size_static(sc, false),
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }

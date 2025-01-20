@@ -357,7 +357,7 @@ impl StaticParTiming {
                 self.build_time_map_static(sc, None, live);
             }
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }

@@ -367,13 +367,13 @@ impl SingleNode {
     /// Therefore we take in a bunch of data structures to keep track of coloring:
     ///   - `coloring` that maps group names -> colors,
     ///   - `colors_to_max_values` which maps colors -> (max latency, max_num_repeats)
-    ///   (we need to make sure that when we instantiate a color,
-    ///   we give enough bits to support the maximum latency/num_repeats that will be
-    ///   used for that color)
+    ///     (we need to make sure that when we instantiate a color,
+    ///     we give enough bits to support the maximum latency/num_repeats that will be
+    ///     used for that color)
     ///   - `colors_to_fsm`
-    ///   which maps colors to (fsm_register, iter_count_register): fsm_register counts
-    ///   up for a single iteration, iter_count_register counts the number of iterations
-    ///   that have passed.
+    ///     which maps colors to (fsm_register, iter_count_register): fsm_register counts
+    ///     up for a single iteration, iter_count_register counts the number of iterations
+    ///     that have passed.
     ///
     /// Note that it is not always necessary to instantiate one or both registers (e.g.,
     /// if num_repeats == 1 then you don't need an iter_count_register).
@@ -1279,6 +1279,7 @@ impl SingleNode {
     ///   - if `global_view` is true, then you have to include the iteration
     ///     count register in the assignment's guard.
     ///   - if `global_view` is false, then you dont' have to include it
+    ///
     /// `ignore_timing`: remove static timing guards instead of transforming them
     /// into an FSM query. Note that in order to do this, the timing guard must
     /// equal %[0:1], otherwise we will throw an error. This option is here

@@ -93,6 +93,7 @@ impl Port {
         match &self.parent {
             PortParent::Cell(cell) => cell.upgrade().borrow().name,
             PortParent::Group(group) => group.upgrade().borrow().name,
+            PortParent::FSM(fsm) => fsm.upgrade().borrow().name,
             PortParent::StaticGroup(group) => group.upgrade().borrow().name,
             PortParent::FSM(fsm) => fsm.upgrade().borrow().name,
         }

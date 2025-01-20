@@ -141,7 +141,6 @@ impl Visitor for DeadCellRemoval {
                 },
             )
         }));
-
         // Add @external cells, @protected cells and ref cells.
         self.all_reads.extend(
             comp.cells

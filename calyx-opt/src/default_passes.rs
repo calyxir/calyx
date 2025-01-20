@@ -80,6 +80,7 @@ impl PassManager {
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
 
+        // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
 
         //add metadata
@@ -122,7 +123,7 @@ impl PassManager {
                 StaticFSMOpts,
                 //CompileStatic,
                 DeadGroupRemoval,
-                DynamicFSMAllocation,
+                TopDownCompileControl,
             ]
         );
         register_alias!(
@@ -154,6 +155,20 @@ impl PassManager {
             pm,
             "all",
             ["validate", "pre-opt", "compile", "post-opt", "lower",]
+        );
+
+        // profiler flow for pass explorer access
+        register_alias!(
+            pm,
+            "profiler",
+            [
+                StaticInliner,
+                CompileStatic,
+                CompileRepeat,
+                CompileInvoke,
+                ProfilerInstrumentation,
+                "all"
+            ]
         );
 
         // Compilation flow with no optimizations enables

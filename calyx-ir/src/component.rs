@@ -171,6 +171,7 @@ impl Component {
         &mut self.groups
     }
 
+    /// gets mutable access to the component's fsms
     pub fn get_fsms_mut(&mut self) -> &mut IdList<FSM> {
         &mut self.fsms
     }

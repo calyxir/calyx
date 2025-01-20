@@ -386,6 +386,7 @@ impl<'a> Builder<'a> {
                 let group = &group_ref.borrow();
                 self.component.find_group(group.name()).expect("Hole's parent cell not present in the component. Add the group to the component before using the Hole.");
             }
+            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::StaticGroup(group_wref) => {
                 let group_ref = group_wref.internal.upgrade().expect("Weak reference to hole's parent group points to nothing. This usually means that the Component did not retain a pointer to the Group.");
 

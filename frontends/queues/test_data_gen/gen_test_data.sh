@@ -1,9 +1,17 @@
 #!/usr/bin/bash
 
-num_cmds=20000
+if [[ $# -eq 2 ]]; then # Generate custom-length command list to the specified output directory
+    num_cmds=$1
+    tests_dir=$2
+    mkdir -p ${tests_dir}/binheap/round_robin ${tests_dir}/binheap/strict ${tests_dir}/round_robin ${tests_dir}/strict # NOTE: hacky and will break when other tests are created.
+    echo "Number of commands: ${num_cmds}; output directory: ${tests_dir}"
+else
+    num_cmds=20000
+    tests_dir="$(dirname "$0")/../tests"
+fi
+
 queue_size=16
 
-tests_dir="$(dirname "$0")/../tests"
 data_gen_dir="$(dirname "$0")"
 
 

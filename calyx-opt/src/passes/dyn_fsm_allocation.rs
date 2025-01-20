@@ -10,19 +10,17 @@ use calyx_ir::{build_assignments, guard, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
-use itertools::{Interleave, Itertools};
+use itertools::Itertools;
 use petgraph::dot::{self};
 use petgraph::graph::DiGraph;
 use petgraph::Graph;
 use serde::Serialize;
-use serde_json::Map;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::Write;
 use std::rc::Rc;
 
-const STATE_ID: ir::Attribute =
-    ir::Attribute::Internal(ir::InternalAttr::STATE_ID);
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
 
 const SCHEDULE_ID: ir::Attribute =
     ir::Attribute::Internal(ir::InternalAttr::SCHEDULE_ID);
@@ -34,8 +32,8 @@ const SCHEDULE_ID: ir::Attribute =
 /// ```
 /// while comb_reg.out {
 ///   seq {
-///     @STATE_ID(4) incr;
-///     @STATE_ID(5) cond0;
+///     @NODE_ID(4) incr;
+///     @NODE_ID(5) cond0;
 ///   }
 /// }
 /// ```
@@ -45,11 +43,11 @@ const SCHEDULE_ID: ir::Attribute =
 /// Multiple exit points are created when conditions are used:
 /// ```
 /// while comb_reg.out {
-///   @STATE_ID(7) incr;
+///   @NODE_ID(7) incr;
 ///   if comb_reg2.out {
-///     @STATE_ID(8) tru;
+///     @NODE_ID(8) tru;
 ///   } else {
-///     @STATE_ID(9) fal;
+///     @NODE_ID(9) fal;
 ///   }
 /// }
 /// ```
@@ -58,11 +56,11 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
         ir::Control::Empty(_) => {},
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            let cur_state = attributes.get(STATE_ID).unwrap();
+            let cur_state = attributes.get(NODE_ID).unwrap();
             exits.push((cur_state, guard!(group["done"])))
         },
         ir::Control::FSMEnable(ir::FSMEnable{attributes, fsm}) => {
-            let cur_state = attributes.get(STATE_ID).unwrap();
+            let cur_state = attributes.get(NODE_ID).unwrap();
             exits.push((cur_state, guard!(fsm["done"])))
         },
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
@@ -89,18 +87,11 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Par(_) => unreachable!(),
-        ir::Control::Static(sc) => {
-            if let ir::StaticControl::Enable(ir::StaticEnable{group, attributes}) = sc {
-                let cur_state = attributes.get(STATE_ID).unwrap();
-                exits.push((cur_state, ir::Guard::True));
-            } else {
-                unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
-            }
-        }
+        ir::Control::Static(_) => unreachable!(" static control should have been compiled away. Run the static compilation passes before this pass")
     }
 }
 
-/// Adds the @STATE_ID attribute to [ir::Enable] and [ir::Par].
+/// Adds the @NODE_ID attribute to [ir::Enable] and [ir::Par].
 /// Each [ir::Enable] gets a unique label within the context of a child of
 /// a [ir::Par] node.
 /// Furthermore, if an if/while/seq statement is labeled with a `new_fsm` attribute,
@@ -115,139 +106,126 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
 /// gets the labels:
 /// ```
 /// seq {
-///   @STATE_ID(1) A; @STATE_ID(2) B;
-///   @STATE_ID(3) par {
-///     @STATE_ID(0) C;
-///     @STATE_ID(0) D;
+///   @NODE_ID(1) A; @NODE_ID(2) B;
+///   @NODE_ID(3) par {
+///     @NODE_ID(0) C;
+///     @NODE_ID(0) D;
 ///   }
-///   @STATE_ID(4) E;
-///   @STATE_ID(5) seq{
-///     @STATE_ID(0) F;
-///     @STATE_ID(1) G;
-///     @STATE_ID(2) H;
+///   @NODE_ID(4) E;
+///   @NODE_ID(5) seq{
+///     @NODE_ID(0) F;
+///     @NODE_ID(1) G;
+///     @NODE_ID(2) H;
 ///   }
 /// }
 /// ```
 ///
 /// These identifiers are used by the compilation methods [calculate_states_recur]
 /// and [control_exits].
+/// These identifiers are used by the compilation methods [calculate_states_recur]
+/// and [control_exits].
 fn compute_unique_state_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
-        ir::Control::Enable(ir::Enable { attributes, .. }) => {
-            if attributes.has(STATE_ID) {
-                attributes.remove(STATE_ID);
-            }
-            attributes.insert(STATE_ID, cur_state);
-            cur_state + 1
-        }
-        ir::Control::Par(ir::Par { stmts, attributes }) => {
-            if attributes.has(STATE_ID) {
-                attributes.remove(STATE_ID);
-            }
-            attributes.insert(STATE_ID, cur_state);
-            stmts.iter_mut().for_each(|stmt| {
-                compute_unique_state_ids(stmt, 0);
-            });
-            cur_state + 1
-        }
-        ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-            if attributes.has(STATE_ID) {
-                attributes.remove(STATE_ID);
-            }
-            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
-            // if new_fsm is true, then insert attribute at the seq, and then
-            // start over counting states from 0
-            let mut cur = if new_fsm{
-                attributes.insert(STATE_ID, cur_state);
-                0
-            } else {
-                cur_state
-            };
-            stmts.iter_mut().for_each(|stmt| {
-                cur = compute_unique_state_ids(stmt, cur);
-            });
-            // If new_fsm is true then we want to return cur_state + 1, since this
-            // seq should really only take up 1 "state" on the "outer" fsm
-            if new_fsm{
-                cur_state + 1
-            } else {
-                cur
-            }
-        }
-        ir::Control::If(ir::If {
-            tbranch, fbranch, attributes, ..
-        }) => {
-            if attributes.has(STATE_ID) {
-                attributes.remove(STATE_ID);
-            }
-            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
-            // if new_fsm is true, then we want to add an attribute to this
-            // control statement
-            if new_fsm {
-                attributes.insert(STATE_ID, cur_state);
-            }
-            // If the program starts with a branch then branches can't get
-            // the initial state.
-            // Also, if new_fsm is true, we want to start with state 1 as well:
-            // we can't start at 0 for the reason mentioned above
-            let cur = if new_fsm || cur_state == 0 {
-                1
-            } else {
-                cur_state
-            };
-            let tru_nxt = compute_unique_state_ids(
-                tbranch, cur
-            );
-            let false_nxt = compute_unique_state_ids(
-                fbranch, tru_nxt
-            );
-            // If new_fsm is true then we want to return cur_state + 1, since this
-            // if stmt should really only take up 1 "state" on the "outer" fsm
-            if new_fsm {
-                cur_state + 1
-            } else {
-                false_nxt
-            }
-        }
-        ir::Control::While(ir::While { body, attributes, .. }) => {
-            if attributes.has(STATE_ID) {
-                attributes.remove(STATE_ID);
-            }
-            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
-            // if new_fsm is true, then we want to add an attribute to this
-            // control statement
-            if new_fsm{
-                attributes.insert(STATE_ID, cur_state);
-            }
-            // If the program starts with a branch then branches can't get
-            // the initial state.
-            // Also, if new_fsm is true, we want to start with state 1 as well:
-            // we can't start at 0 for the reason mentioned above
-            let cur = if new_fsm || cur_state == 0 {
-                1
-            } else {
-                cur_state
-            };
-            let body_nxt = compute_unique_state_ids(body, cur);
-            // If new_fsm is true then we want to return cur_state + 1, since this
-            // while loop should really only take up 1 "state" on the "outer" fsm
-            if new_fsm{
-                cur_state + 1
-            } else {
-                body_nxt
-            }
-        }
-            ir::Control::FSMEnable(_) => unreachable!("shouldn't encounter fsm node"),
-            ir::Control::Empty(_) => cur_state,
-            ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
-            ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+      ir::Control::Enable(ir::Enable { attributes, .. }) => {
+          attributes.insert(NODE_ID, cur_state);
+          cur_state + 1
+      }
+      ir::Control::Par(ir::Par { stmts, attributes }) => {
+          attributes.insert(NODE_ID, cur_state);
+          stmts.iter_mut().for_each(|stmt| {
+            compute_unique_state_ids(stmt, 0);
+          });
+          cur_state + 1
+      }
+      ir::Control::Seq(ir::Seq { stmts, attributes }) => {
+          let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
+          // if new_fsm is true, then insert attribute at the seq, and then
+          // start over counting states from 0
+          let mut cur = if new_fsm{
+              attributes.insert(NODE_ID, cur_state);
+              0
+          } else {
+              cur_state
+          };
+          stmts.iter_mut().for_each(|stmt| {
+              cur = compute_unique_state_ids(stmt, cur);
+          });
+          // If new_fsm is true then we want to return cur_state + 1, since this
+          // seq should really only take up 1 "state" on the "outer" fsm
+          if new_fsm{
+              cur_state + 1
+          } else {
+              cur
+          }
+      }
+      ir::Control::If(ir::If {
+          tbranch, fbranch, attributes, ..
+      }) => {
+          let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
+          // if new_fsm is true, then we want to add an attribute to this
+          // control statement
+          if new_fsm {
+              attributes.insert(NODE_ID, cur_state);
+          }
+          // If the program starts with a branch then branches can't get
+          // the initial state.
+          // Also, if new_fsm is true, we want to start with state 1 as well:
+          // we can't start at 0 for the reason mentioned above
+          let cur = if new_fsm || cur_state == 0 {
+              1
+          } else {
+              cur_state
+          };
+          let tru_nxt = compute_unique_state_ids(
+              tbranch, cur
+          );
+          let false_nxt = compute_unique_state_ids(
+              fbranch, tru_nxt
+          );
+          // If new_fsm is true then we want to return cur_state + 1, since this
+          // if stmt should really only take up 1 "state" on the "outer" fsm
+          if new_fsm {
+              cur_state + 1
+          } else {
+              false_nxt
+          }
+      }
+      ir::Control::While(ir::While { body, attributes, .. }) => {
+          let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
+          // if new_fsm is true, then we want to add an attribute to this
+          // control statement
+          if new_fsm{
+              attributes.insert(NODE_ID, cur_state);
+          }
+          // If the program starts with a branch then branches can't get
+          // the initial state.
+          // Also, if new_fsm is true, we want to start with state 1 as well:
+          // we can't start at 0 for the reason mentioned above
+          let cur = if new_fsm || cur_state == 0 {
+              1
+          } else {
+              cur_state
+          };
+          let body_nxt = compute_unique_state_ids(body, cur);
+          // If new_fsm is true then we want to return cur_state + 1, since this
+          // while loop should really only take up 1 "state" on the "outer" fsm
+          if new_fsm{
+              cur_state + 1
+          } else {
+              body_nxt
+          }
+      }
+      ir::Control::FSMEnable(_) => unreachable!("shouldn't encounter fsm node"),
+      ir::Control::Empty(_) => cur_state,
+      ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
+      ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
             ir::Control::Static(sc) => {
                 
                 if let ir::StaticControl::Enable(ir::StaticEnable{attributes,..}) = sc {
-                    if attributes.has(STATE_ID) {
-                        attributes.remove(STATE_ID);
+                    if attributes.has(NODE_ID) {
+                        attributes.remove(NODE_ID);
                     }
-                    attributes.insert(STATE_ID, cur_state);
+                    attributes.insert(NODE_ID, cur_state);
 
                     // if with new fsm then we create 1 state, otherwise we keep the latency amount of state
                     if attributes.has(ir::BoolAttr::NewFSM) {
@@ -549,7 +527,7 @@ impl Schedule<'_, '_> {
     ) -> CalyxResult<Vec<PredEdge>> {
         match con {
         ir::Control::FSMEnable(ir::FSMEnable {fsm, attributes}) => {
-            let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", fsm.borrow().name()));
+            let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", fsm.borrow().name()));
             let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
                 (preds[0].0, vec![])
             } else {
@@ -580,10 +558,7 @@ impl Schedule<'_, '_> {
 
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| {
-                    (st, cur_state, guard)        
-                }
-            );
+                .map(|(st, guard)| (st, cur_state, guard));
             self.transitions.extend(transitions);
 
             let done_cond = guard!(fsm["done"]);
@@ -592,37 +567,32 @@ impl Schedule<'_, '_> {
         },
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            let cur_state = attributes.get(STATE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));
+            let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
             // This happens when the first control statement is an enable not
             // inside a branch.
-            // let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
-            //     (preds[0].0, vec![])
-            // } else {
-            //     (cur_state, preds)
-            // };
+            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
+                (preds[0].0, vec![])
+            } else {
+                (cur_state, preds)
+            };
 
-            let (cur_state, prev_states) = (cur_state, preds);
             // Add group to mapping for emitting group JSON info
             self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
 
-            // let not_done = !guard!(group["done"]);
+            let not_done = !guard!(group["done"]);
             let signal_on = self.builder.add_constant(1, 1);
 
             // Activate this group in the current state
-            let assigns: Vec<Assignment<Nothing>> = group.borrow_mut().assignments.clone();
-            for assign in assigns.iter(){
-                if assign.dst.borrow().name == "done"{
-                    continue;
-                }
-                self.enables.entry(cur_state).or_default().push(ir::Assignment{
-                    src: assign.src.clone(),
-                    dst: assign.dst.clone(),
-                    attributes: assign.attributes.clone(),
-                    guard: Box::new(ir::Guard::True),
-                });
-            }
+            let en_go = build_assignments!(self.builder;
+                group["go"] = not_done ? signal_on["out"];
+            );
+            self
+                .enables
+                .entry(cur_state)
+                .or_default()
+                .extend(en_go);
 
             // Activate group in the cycle when previous state signals done.
             // NOTE: We explicilty do not add `not_done` to the guard.
@@ -639,13 +609,10 @@ impl Schedule<'_, '_> {
 
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| 
-                    {
-                        (st, cur_state, guard)
-                    }
-                );
+                .map(|(st, guard)| (st, cur_state, guard));
             self.transitions.extend(transitions);
-            let done_cond = ir::Guard::Port(group.borrow().done_cond().src.clone());
+
+            let done_cond = guard!(group["done"]);
             Ok(vec![(cur_state, done_cond)])
         }
         ir::Control::Seq(seq) => {
@@ -663,7 +630,7 @@ impl Schedule<'_, '_> {
         ir::Control::Empty(_) => unreachable!("`calculate_states_recur` should not see an `empty` control."),
         ir::Control::Static(sc) => {
             if let ir::StaticControl::Enable(ir::StaticEnable{group, attributes }) = sc {
-                let cur_state = attributes.get(STATE_ID).unwrap_or_else(
+                let cur_state = attributes.get(NODE_ID).unwrap_or_else(
                     || panic!("Group `{}` does not have state_id information", group.borrow().name())
                 );
 
@@ -1144,8 +1111,9 @@ impl Visitor for DynamicFSMAllocation {
         sch.calculate_states_seq(s, self.early_transitions)?;
         let seq_fsm = sch.realize_fsm(self.dump_fsm);
         let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
-        let state_id = s.attributes.get(STATE_ID).unwrap();
-        fsm_en.get_mut_attributes().insert(STATE_ID, state_id);
+        let state_id = s.attributes.get(NODE_ID).unwrap();
+        fsm_en.get_mut_attributes().insert(NODE_ID, state_id);
+
         Ok(Action::change(fsm_en))
     }
 
@@ -1163,7 +1131,6 @@ impl Visitor for DynamicFSMAllocation {
 
         structure!(builder;
             let signal_on = constant(1, 1);
-            let signal_off = constant(0, 1);
         );
 
         // Registers to save the done signal from each child.
@@ -1188,7 +1155,7 @@ impl Visitor for DynamicFSMAllocation {
             // when the thread actually begins working (the common case might
             // simply be a group, which would mean a 1-cycle group takes 3 cycles now)
             let mut sch = Schedule::from(&mut builder);
-            sch.calculate_states(&con, self.early_transitions)?;
+            sch.calculate_states(con, self.early_transitions)?;
             let fsm = sch.realize_fsm(self.dump_fsm);
 
             // Build circuitry to enable and disable this fsm.
@@ -1250,8 +1217,8 @@ impl Visitor for DynamicFSMAllocation {
 
         // put the state id of the par schedule onto the par fsm
         let mut en = ir::Control::fsm_enable(par_fsm);
-        let state_id = s.attributes.get(STATE_ID).unwrap();
-        en.get_mut_attributes().insert(STATE_ID, state_id);
+        let state_id = s.attributes.get(NODE_ID).unwrap();
+        en.get_mut_attributes().insert(NODE_ID, state_id);
 
         Ok(Action::change(en))
     }
@@ -1270,6 +1237,7 @@ impl Visitor for DynamicFSMAllocation {
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
         let comp_fsm = sch.realize_fsm(self.dump_fsm);
+
         Ok(Action::change(ir::Control::fsm_enable(comp_fsm)))
     }
 }

@@ -4,13 +4,12 @@
 //! valid SystemVerilog program.
 
 use crate::traits::Backend;
-use calyx_ir::{self as ir, Assignment, Control, FlatGuard, Group, Guard, GuardRef, Port, RRC};
+use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_opt::passes::math_utilities::get_bit_width_from;
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
-use std::cell::RefCell;
-use std::collections::{self, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::rc::Rc;
 use std::{fs::File, time::Instant};
@@ -401,6 +400,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
             }
             ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Group(_) => unreachable!(),
+            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::StaticGroup(_) => unreachable!(),
         })
         .collect()
@@ -434,7 +434,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
                     );
                 } else {
                     param_binding.iter().for_each(|(name, value)| {
-                    if *value > (std::i32::MAX as u64) {
+                    if *value > (i32::MAX as u64) {
                         panic!(
                             "Parameter value {} for `{}` cannot be represented using 32 bits",
                             value,
@@ -518,7 +518,7 @@ fn emit_fsm_assignments<F: io::Write>(
         let dst_ref = &collection.first().unwrap().1.dst;
 
         let mut unique_src: HashSet<String> = HashSet::new();
-        collection.iter().for_each(|(_, assign)|{
+        collection.iter().for_each(|(_, assign)| {
             let l = assign.src.borrow();
             unique_src.insert(format!("{}.{}", l.get_parent_name(), l.name));
         });
@@ -526,13 +526,18 @@ fn emit_fsm_assignments<F: io::Write>(
         if is_data_port(dst_ref) || dst_ref.borrow().width != 1 {
             if unique_src.len() == 1 {
                 let assign = &collection[0].1;
-                writeln!(f, "assign {} = {};",VerilogPortRef(dst_ref), VerilogPortRef(&assign.src))?;
-            }
-            else{
+                writeln!(
+                    f,
+                    "assign {} = {};",
+                    VerilogPortRef(dst_ref),
+                    VerilogPortRef(&assign.src)
+                )?;
+            } else {
                 writeln!(f, "assign {} =", VerilogPortRef(dst_ref))?;
                 for (i, (case, assign)) in collection.iter().enumerate() {
                     // string representing the new guard on the assignment
-                    let case_guard = format!("{}_s{case}_out", fsm.borrow().name());
+                    let case_guard =
+                        format!("{}_s{case}_out", fsm.borrow().name());
                     let case_guarded_assign_guard = if assign.guard.is_true() {
                         case_guard
                     } else {
@@ -552,12 +557,13 @@ fn emit_fsm_assignments<F: io::Write>(
                     }
                 }
             }
-        }
-        else{
+        } else {
             write!(f, "assign {} = ", VerilogPortRef(dst_ref))?;
-            let guard_strings: Vec<String> = collection.iter().map(
-                |(case, assign)| {
-                    let case_guard = format!("{}_s{case}_out", fsm.borrow().name());
+            let guard_strings: Vec<String> = collection
+                .iter()
+                .map(|(case, assign)| {
+                    let case_guard =
+                        format!("{}_s{case}_out", fsm.borrow().name());
                     if assign.guard.is_true() {
                         case_guard
                     } else {
@@ -566,8 +572,8 @@ fn emit_fsm_assignments<F: io::Write>(
                             unflattened_guard(&assign.guard)
                         )
                     }
-                }
-            ).collect();
+                })
+                .collect();
             writeln!(f, "{};", guard_strings.join(" | "))?;
         }
     }
@@ -952,6 +958,7 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
         }
         ir::PortParent::FSM(_) => todo!(),
         ir::PortParent::Group(_) => unreachable!(),
+        ir::PortParent::FSM(_) => todo!(),
         ir::PortParent::StaticGroup(_) => unreachable!(),
     }
 }
@@ -1027,11 +1034,14 @@ impl<'a> std::fmt::Display for VerilogPortRef<'a> {
             }
             ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::Group(_) => unreachable!(),
+            ir::PortParent::FSM(_) => todo!(),
             ir::PortParent::StaticGroup(_) => unreachable!(),
         }
     }
 }
 
+/// Given a (potentially nested) guard, generates a Verilog expression
+/// representing that guard using nested parentheses.
 fn unflattened_guard(guard: &ir::Guard<Nothing>) -> String {
     match guard {
         Guard::Or(left, right) => {
@@ -1062,8 +1072,8 @@ fn unflattened_guard(guard: &ir::Guard<Nothing>) -> String {
         Guard::Not(inner) => format!("~({})", unflattened_guard(inner)),
 
         Guard::Port(port) => format!("{}", VerilogPortRef(port)),
-        Guard::True => format!("1'd1"),
-        Guard::Info(_) => format!("1'd1"),
+        Guard::True => "1'd1".to_string(),
+        Guard::Info(_) => "1'd1".to_string(),
     }
 }
 

@@ -199,7 +199,7 @@ fn build_conflict_graph(
             build_conflict_graph_static(sc, confs, all_nodes)
         }
         ir::Control::FSMEnable(_) => {
-            unreachable!("should not encounter fsm nodes")
+            todo!("should not encounter fsm nodes")
         }
     }
 }

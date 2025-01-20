@@ -46,6 +46,13 @@ impl PyenvCommand {
             .stdout(std::io::stdout())
             .output()?;
 
+        // install vcdvcd (for Profiler)
+        Command::new(pyenv.join("bin").join("pip"))
+            .arg("install")
+            .arg("vcdvcd")
+            .stdout(std::io::stdout())
+            .output()?;
+
         // install flit
         Command::new(pyenv.join("bin").join("pip"))
             .arg("install")

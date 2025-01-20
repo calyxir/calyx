@@ -680,7 +680,7 @@ fn build_reaching_def(
             build_reaching_def_static(sc, reach, killed, rd, counter)
         }
         ir::Control::FSMEnable(_) => {
-            unreachable!("should not encounter fsm nodes")
+            todo!("should not encounter fsm nodes")
         }
     }
 }

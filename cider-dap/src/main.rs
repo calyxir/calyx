@@ -108,7 +108,6 @@ where
                     // Not sure if we need it
                     // Make VSCode send disassemble request
                     supports_stepping_granularity: Some(true),
-                    supports_single_thread_execution_requests: Some(true),
                     ..Default::default()
                 }));
             server.respond(rsp)?;
@@ -149,21 +148,13 @@ where
     // Construct the adapter
     let mut adapter = MyAdapter::new(program_path, std_path)?;
 
-    // Currently, we need two threads to run the debugger and step through,
-    // not sure why but would be good to look into for the future.
+    // one thread idk why but it works
     let thread = &adapter.create_thread(String::from("Main")); //does not seem as though this does anything
-    let thread2 = &adapter.create_thread(String::from("Thread 1"));
 
     // Notify server of first thread
     server.send_event(Event::Thread(ThreadEventBody {
         reason: types::ThreadEventReason::Started,
         thread_id: thread.id,
-    }))?;
-
-    //Notify server of second thread
-    server.send_event(Event::Thread(ThreadEventBody {
-        reason: types::ThreadEventReason::Started,
-        thread_id: thread2.id,
     }))?;
 
     // Return the adapter instead of running the server
@@ -241,12 +232,7 @@ fn run_server<R: Read, W: Write>(
             }
             // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
-                // Create new frame if empty, SUBJECT TO CHANGE
-                let frames = if adapter.clone_stack().is_empty() {
-                    adapter.create_stack()
-                } else {
-                    adapter.clone_stack()
-                };
+                let frames = adapter.get_stack();
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {
                         stack_frames: frames,
@@ -255,14 +241,16 @@ fn run_server<R: Read, W: Write>(
                 server.respond(rsp)?;
             }
             // Continue the debugger
-            Command::Continue(_args) => {
+            Command::Continue(args) => {
                 // need to run debugger, ngl not really sure how to implement this functionality
                 // run debugger until breakpoint or paused -> maybe have a process to deal w running debugger?
+                let stopped = adapter.on_continue(args.thread_id);
                 let rsp =
                     req.success(ResponseBody::Continue(ContinueResponse {
-                        all_threads_continued: None,
+                        all_threads_continued: Some(true),
                     }));
                 server.respond(rsp)?;
+                server.send_event(stopped)?;
             }
             // Send a Stopped event with reason Pause
             Command::Pause(args) => {
@@ -347,19 +335,13 @@ fn run_server<R: Read, W: Write>(
                 server.send_event(stopped)?;
             }
             Command::Scopes(args) => {
-                //variables go in here most likely
-                //just get stuff displaying then figure out how to pretty it up
-
                 let frame_id = args.frame_id;
                 let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
                     scopes: adapter.get_scopes(frame_id),
                 }));
-                info!(logger, "responded with {rsp:?}");
                 server.respond(rsp)?;
             }
             Command::Variables(args) => {
-                info!(logger, "variables req");
-                // never happening idk why
                 let var_ref = args.variables_reference;
                 let rsp =
                     req.success(ResponseBody::Variables(VariablesResponse {

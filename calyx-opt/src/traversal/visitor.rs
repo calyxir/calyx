@@ -293,6 +293,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed at an [ir::FSMEnable] node.
     fn fsm_enable(
         &mut self,
         _s: &mut ir::FSMEnable,

@@ -431,7 +431,7 @@ impl Printer {
         write!(f, "{}}}", " ".repeat(indent_level))
     }
 
-    /// Formt and write an FSM
+    /// Format and write an FSM
     pub fn write_fsm<F: io::Write>(
         fsm: &ir::FSM,
         indent_level: usize,
@@ -685,6 +685,10 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "{};", group.borrow().name().id)
             }
+            ir::Control::FSMEnable(ir::FSMEnable { fsm, attributes }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "{};", fsm.borrow().name().id)
+            }
             ir::Control::Invoke(ir::Invoke {
                 comp,
                 inputs,
@@ -827,9 +831,9 @@ impl Printer {
     }
 
     /// Generate a String-based representation for a guard.
-    pub fn guard_str<T: ToString>(guard: &ir::Guard<T>) -> String
+    pub fn guard_str<T>(guard: &ir::Guard<T>) -> String
     where
-        T: Eq,
+        T: Eq + ToString,
     {
         match &guard {
             ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
