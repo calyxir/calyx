@@ -163,7 +163,7 @@ class RPTParser:
                 while self.lines[end].strip() != "":
                     end += 1
 
-        if start <= end:
+        if end <= start:
             return None
 
         return self._parse_table(self.lines[start:end], multi_header)
