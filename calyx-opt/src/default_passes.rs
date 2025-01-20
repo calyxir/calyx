@@ -139,7 +139,7 @@ impl PassManager {
                 SimplifyStaticGuards,
                 StaticFSMOpts,
                 DeadGroupRemoval,
-                TopDownCompileControl,
+                DynamicFSMAllocation,
             ]
         );
         register_alias!(
@@ -171,13 +171,13 @@ impl PassManager {
         register_alias!(
             pm,
             "all-tdcc",
-            [
-                "validate",
-                "pre-opt",
-                "tdcc-compile",
-                "post-opt",
-                "lower",
-            ]
+            ["validate", "pre-opt", "tdcc-compile", "post-opt", "lower",]
+        );
+
+        register_alias!(
+            pm,
+            "all-fsm",
+            ["validate", "pre-opt", "fsm-compile", "post-opt", "lower",]
         );
 
         // profiler flow for pass explorer access
@@ -190,7 +190,7 @@ impl PassManager {
                 CompileRepeat,
                 CompileInvoke,
                 ProfilerInstrumentation,
-                "all"
+                "all-tdcc"
             ]
         );
 

@@ -88,7 +88,14 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Par(_) => unreachable!(),
-        ir::Control::Static(_) => unreachable!(" static control should have been compiled away. Run the static compilation passes before this pass")
+        ir::Control::Static(sc) => {
+            if let ir::StaticControl::Enable(ir::StaticEnable{attributes, ..}) = sc {
+                let cur_state = attributes.get(NODE_ID).unwrap();
+                exits.push((cur_state, ir::Guard::True));
+            } else {
+                unreachable!("static control should have been compiled away. Run the static-inline passes before this pass")
+            }
+        }
     }
 }
 
@@ -573,31 +580,26 @@ impl Schedule<'_, '_> {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", group.borrow().name()));
-            // If there is exactly one previous transition state with a `true`
-            // guard, then merge this state into previous state.
-            // This happens when the first control statement is an enable not
-            // inside a branch.
-            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
-                (preds[0].0, vec![])
-            } else {
-                (cur_state, preds)
-            };
-
+            let (cur_state, prev_states) = (cur_state, preds);
             // Add group to mapping for emitting group JSON info
             self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
 
-            let not_done = !guard!(group["done"]);
+            // let not_done = !guard!(group["done"]);
             let signal_on = self.builder.add_constant(1, 1);
 
             // Activate this group in the current state
-            let en_go = build_assignments!(self.builder;
-                group["go"] = not_done ? signal_on["out"];
-            );
-            self
-                .enables
-                .entry(cur_state)
-                .or_default()
-                .extend(en_go);
+            let assigns: Vec<Assignment<Nothing>> = group.borrow_mut().assignments.clone();
+            for assign in assigns.iter(){
+                if assign.dst.borrow().name == "done"{
+                    continue;
+                }
+                self.enables.entry(cur_state).or_default().push(ir::Assignment{
+                    src: assign.src.clone(),
+                    dst: assign.dst.clone(),
+                    attributes: assign.attributes.clone(),
+                    guard: Box::new(ir::Guard::True),
+                });
+            }
 
             // Activate group in the cycle when previous state signals done.
             // NOTE: We explicilty do not add `not_done` to the guard.
@@ -614,10 +616,13 @@ impl Schedule<'_, '_> {
 
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| (st, cur_state, guard));
+                .map(|(st, guard)| 
+                    {
+                        (st, cur_state, guard)
+                    }
+                );
             self.transitions.extend(transitions);
-
-            let done_cond = guard!(group["done"]);
+            let done_cond = ir::Guard::Port(group.borrow().done_cond().src.clone());
             Ok(vec![(cur_state, done_cond)])
         }
         ir::Control::Seq(seq) => {
