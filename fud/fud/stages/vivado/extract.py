@@ -40,7 +40,7 @@ def file_contains(regex, filename):
 def rpt_extract(file: PurePath):
     if not file.exists():
         log.error(f"RPT file {file} is missing")
-        return None
+        return {}
 
     parser = rpt.RPTParser(file)
 
@@ -54,6 +54,10 @@ def rpt_extract(file: PurePath):
         slice_logic = parser.get_table(re.compile(r"\d+\. Slice Logic\*?"), 2)
         bram_table = parser.get_table(re.compile(r"\d+\. Memory"), 2)
         dsp_table = parser.get_table(re.compile(r"\d+\. DSP"), 2)
+
+    if not all([slice_logic, bram_table, dsp_table]):
+        log.error("Failed to find CLB logic tables")
+        return {}
 
     clb_lut = safe_get(find_row(slice_logic, "Site Type", "CLB LUTs", False), "Used")
     clb_reg = safe_get(
@@ -139,40 +143,6 @@ def place_and_route_extract(
         resource_info.update(
             {"frequency": float(safe_get(period_info, "Frequency(MHz)"))}
         )
-
-    # Extraction for synthesis files.
-    try:
-        if not synth_file.exists():
-            log.error(f"Synthesis file {synth_file} is missing")
-        else:
-            synth_parser = rpt.RPTParser(synth_file)
-            cell_usage_tbl = synth_parser.get_table(
-                re.compile(r"Report Cell Usage:"), 0
-            )
-            cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
-            cell_lut2 = find_row(cell_usage_tbl, "Cell", "LUT2", False)
-            cell_lut3 = find_row(cell_usage_tbl, "Cell", "LUT3", False)
-            cell_lut4 = find_row(cell_usage_tbl, "Cell", "LUT4", False)
-            cell_lut5 = find_row(cell_usage_tbl, "Cell", "LUT5", False)
-            cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
-            cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
-            uram_usage = find_row(cell_usage_tbl, "Cell", "URAM288", False)
-
-            resource_info.update(
-                {
-                    "uram": to_int(safe_get(uram_usage, "Count")),
-                    "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
-                    "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
-                    "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
-                    "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
-                    "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
-                    "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
-                    "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
-                }
-            )
-    except Exception:
-        log.error(traceback.format_exc())
-        log.error("Failed to extract synthesis information")
 
     return json.dumps(resource_info, indent=2)
 

@@ -213,7 +213,7 @@ class VivadoExtractStage(Stage):
                 "FutilBuild.runs",
                 PurePath("impl_1", "main_utilization_placed.rpt"),
                 PurePath("impl_1", "main_timing_summary_routed.rpt"),
-                PurePath("synth_1", "runme.log"),
+                PurePath("synth_1", "main_utilization_synth.rpt"),
             )
 
         return extract(input)
@@ -269,7 +269,7 @@ class VivadoHLSPlaceAndRouteExtractStage(Stage):
                 "benchmark.prj",
                 verilog_dir / "report" / f"{top}_utilization_routed.rpt",
                 verilog_dir / "report" / f"{top}_timing_routed.rpt",
-                verilog_dir / "project.runs" / "bd_0_hls_inst_0_synth_1" / "runme.log",
+                verilog_dir / "report" / f"{top}_utilization_synth.rpt",
             )
 
         return extract(input)
