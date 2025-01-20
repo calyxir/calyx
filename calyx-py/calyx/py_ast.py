@@ -571,7 +571,12 @@ class Enable(Control):
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return f"{self.stmt};"
+        # FIXME: hack for first pass. Probably should have actual attributes
+        if self.loc is None:
+            return f"{self.stmt};"
+        else:
+            return f"@pos({self.loc}) {self.stmt};"
+        
 
 
 @dataclass
@@ -614,10 +619,13 @@ class Invoke(Control):
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
     attributes: List[Tuple[str, int]] = field(default_factory=list)
-    # loc: Optional[SourceLoc] = field(default_factory=determine_source_loc)
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"
+        # add loc to attributes if present
+        if self.loc is not None:
+            self.attributes.append(("pos", self.loc))
 
         # Add attributes if present
         if len(self.attributes) > 0:
