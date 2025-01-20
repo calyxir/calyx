@@ -269,7 +269,7 @@ class VivadoHLSPlaceAndRouteExtractStage(Stage):
                 "benchmark.prj",
                 verilog_dir / "report" / f"{top}_utilization_routed.rpt",
                 verilog_dir / "report" / f"{top}_timing_routed.rpt",
-                verilog_dir / "report" / f"{top}_utilization_synth.rpt",
+                verilog_dir / "project.runs" / "bd_0_hls_inst_0_synth_1" / f"{top}_utilization_synth.rpt",
             )
 
         return extract(input)
