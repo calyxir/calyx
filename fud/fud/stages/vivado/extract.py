@@ -89,24 +89,36 @@ def place_and_route_extract(
                     find_row(slice_logic, "Site Type", "CLB Registers")["Used"]
                 )
                 carry8 = to_int(find_row(slice_logic, "Site Type", "CARRY8")["Used"])
-                f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
-                f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
-                f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
+                f7_muxes = to_int(
+                    find_row(slice_logic, "Site Type", "F7 Muxes")["Used"]
+                )
+                f8_muxes = to_int(
+                    find_row(slice_logic, "Site Type", "F8 Muxes")["Used"]
+                )
+                f9_muxes = to_int(
+                    find_row(slice_logic, "Site Type", "F9 Muxes")["Used"]
+                )
             except:
                 # Older FPGAs use a different table format
                 slice_logic = impl_parser.get_table(re.compile(r"1\. Slice Logic"), 2)
                 bram_table = impl_parser.get_table(re.compile(r"3\. Memory"), 2)
                 dsp_table = impl_parser.get_table(re.compile(r"4\. DSP"), 2)
-                
-                clb_lut = to_int(find_row(slice_logic, "Site Type", "Slice LUTs")["Used"])
+
+                clb_lut = to_int(
+                    find_row(slice_logic, "Site Type", "Slice LUTs")["Used"]
+                )
                 clb_reg = to_int(
                     find_row(slice_logic, "Site Type", "Slice Registers")["Used"]
                 )
                 carry8 = -1
-                f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
-                f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
+                f7_muxes = to_int(
+                    find_row(slice_logic, "Site Type", "F7 Muxes")["Used"]
+                )
+                f8_muxes = to_int(
+                    find_row(slice_logic, "Site Type", "F8 Muxes")["Used"]
+                )
                 f9_muxes = -1
-            
+
             resource_info.update(
                 {
                     "lut": clb_lut,
