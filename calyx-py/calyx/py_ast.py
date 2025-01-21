@@ -101,10 +101,10 @@ class Program(Emittable):
             out += "\n"
         out += "\n".join([c.doc() for c in self.components])
         if len(self.meta) > 0 or len(FileTable.table) > 0:
-            out += "\nmetadata #{\n"
-            for key, val in self.meta.items():
-                out += f"{key}: {val}\n"
-            out += "}#"
+            # out += "\nmetadata #{\n"
+            # for key, val in self.meta.items():
+            #     out += f"{key}: {val}\n"
+            # out += "}#"
             # first pass for emitting some file/source location metadata
             if len(FileTable.table) > 0 and len(PosTable.table) > 0:
                 out += "\n\nfileinfo #{\n"
@@ -248,7 +248,10 @@ class CompAttribute(Attribute):
     value: int
 
     def doc(self) -> str:
-        return f'"{self.name}"={self.value}'
+        if self.name == "pos":
+            return f'"{self.name}"={{{self.value}}}'
+        else:
+            return f'"{self.name}"={self.value}'
 
 @dataclass
 class CellAttribute(Attribute):
@@ -256,7 +259,12 @@ class CellAttribute(Attribute):
     value: Optional[int] = None
 
     def doc(self) -> str:
-        return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
+        if self.value is None:
+            return f"@{self.name}"
+        elif self.name == "pos":
+            return f"@{self.name}{{{self.value}}}"
+        else:
+            return f"@{self.name}({self.value})"
 
 @dataclass
 class GroupAttribute(Attribute):
@@ -264,7 +272,10 @@ class GroupAttribute(Attribute):
     value: int # FIXME: might want to change?
 
     def doc(self) -> str:
-        return f'"{self.name}"={self.value}'
+        if self.name == "pos":
+            return f'"{self.name}"={{{self.value}}}'
+        else:
+            return f'"{self.name}"={self.value}'
 
 @dataclass
 class PortAttribute(Attribute):
@@ -574,7 +585,7 @@ def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
     if loc is None or not POS_CONTROL:
         return source
     else:
-        return f"@pos({loc}) {source}"
+        return f"@pos{{{loc}}} {source}"
     
 @dataclass
 class Enable(Control):

@@ -32,8 +32,16 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(Path::new(path).into())
 }
 
+fn id_serialize_passthrough<S>(id: &Id, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    id.to_string().serialize(ser)
+}
+
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct ComponentInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
     pub component: Id,
     pub filename: String,
     pub linenum: usize,
@@ -43,6 +51,7 @@ struct ComponentInfo {
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct PosInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
     pub name: Id,
     pub filename: String,
     pub linenum: usize,
@@ -90,20 +99,24 @@ fn gen_component_info(
     // get pos for cell
     for cell in comp.cells.iter() {
         let cell_ref = cell.borrow();
-        let cell_set_attr = cell_ref
-            .attributes
-            .get_set(SetAttribute::Set(SetAttr::Pos))
-            .unwrap();
-        // FIXME: currently assuming that there is only one element in the set attr.
-        let cell_pos = cell_set_attr.iter().next().unwrap();
-        component_pos_id.cells.insert(cell_ref.name(), *cell_pos);
-        if let ir::CellType::Component { name } = cell_ref.prototype {
-            let component = ctx
-                .components
-                .iter()
-                .find(|comp| comp.name == name)
-                .unwrap();
-            gen_component_info(ctx, component, component_info)?;
+        match cell_ref.attributes.get_set(SetAttribute::Set(SetAttr::Pos)) {
+            None => {
+                println!("Ignoring cell without pos: {}", cell_ref.name());
+                continue;
+            }
+            Some(cell_set_attr) => {
+                // FIXME: currently assuming that there is only one element in the set attr.
+                let cell_pos = cell_set_attr.iter().next().unwrap();
+                component_pos_id.cells.insert(cell_ref.name(), *cell_pos);
+                if let ir::CellType::Component { name } = cell_ref.prototype {
+                    let component = ctx
+                        .components
+                        .iter()
+                        .find(|comp| comp.name == name)
+                        .unwrap();
+                    gen_component_info(ctx, component, component_info)?;
+                }
+            }
         }
     }
     component_info.insert(comp.name, component_pos_id);
