@@ -248,7 +248,7 @@ impl<'a> MetadataFileReader<'a> {
             .lines()
             // this is very stupid and there's probably a better way but it
             // works I guess.
-            // Need to subtract 1 from the line number since lines are 0-indexed
+            // Need to subtract 1 from the line number since iterators are 0-indexed
             .nth(pos.line.as_usize() - 1)
             .expect("file does not have the given line number");
 
