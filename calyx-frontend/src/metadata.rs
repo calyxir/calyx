@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use std::{
-    cell::RefCell, collections::HashMap, fmt::Display, io::Read, path::PathBuf,
+    cell::RefCell, collections::HashMap, fmt::Display, io::Read, num::NonZero,
+    path::PathBuf,
 };
 use thiserror::Error;
 
@@ -52,14 +53,14 @@ impl Display for PositionId {
 
 /// A newtype wrapping a line number
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LineNum(Word);
+pub struct LineNum(NonZero<Word>);
 
 impl LineNum {
     pub fn new(line: Word) -> Self {
-        Self(line)
+        Self(NonZero::new(line).expect("Line number must be non-zero"))
     }
     pub fn as_usize(&self) -> usize {
-        self.0 as usize
+        self.0.get() as usize
     }
 }
 
@@ -69,9 +70,25 @@ impl Display for LineNum {
     }
 }
 
-impl From<Word> for LineNum {
-    fn from(value: Word) -> Self {
-        Self(value)
+#[derive(Error)]
+#[error("Line number cannot be zero")]
+pub struct LineNumCreationError;
+
+impl std::fmt::Debug for LineNumCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
+impl TryFrom<Word> for LineNum {
+    type Error = LineNumCreationError;
+
+    fn try_from(value: Word) -> Result<Self, Self::Error> {
+        if value != 0 {
+            Ok(Self(NonZero::new(value).unwrap()))
+        } else {
+            Err(LineNumCreationError)
+        }
     }
 }
 
@@ -230,8 +247,9 @@ impl<'a> MetadataFileReader<'a> {
         let line = content
             .lines()
             // this is very stupid and there's probably a better way but it
-            // works I guess
-            .nth(pos.line.as_usize())
+            // works I guess.
+            // Need to subtract 1 from the line number since lines are 0-indexed
+            .nth(pos.line.as_usize() - 1)
             .expect("file does not have the given line number");
 
         Ok(line.to_string())
@@ -278,7 +296,7 @@ pub type MetadataResult<T> = Result<T, MetadataTableError>;
 mod tests {
     use std::path::PathBuf;
 
-    use crate::parser::CalyxParser;
+    use crate::{metadata::LineNum, parser::CalyxParser};
 
     use super::MetadataTable;
 
@@ -290,7 +308,7 @@ mod tests {
         1: "test2.calyx"
         2: "test3.calyx"
     POSITIONS
-        0: 0 0
+        0: 0 5
         1: 0 1
         2: 0 2
 }#"#;
@@ -301,9 +319,7 @@ mod tests {
 
         let pos = metadata.lookup_position(1.into());
         assert_eq!(pos.file, 0.into());
-        assert_eq!(pos.line, 1.into());
-
-        dbg!(metadata);
+        assert_eq!(pos.line, LineNum::new(1));
     }
 
     #[test]
@@ -313,9 +329,9 @@ mod tests {
         metadata.add_file(1.into(), "test2.calyx".into());
         metadata.add_file(2.into(), "test3.calyx".into());
 
-        metadata.add_position(0.into(), 0.into(), 1.into());
-        metadata.add_position(1.into(), 1.into(), 14.into());
-        metadata.add_position(150.into(), 2.into(), 148.into());
+        metadata.add_position(0.into(), 0.into(), LineNum::new(1));
+        metadata.add_position(1.into(), 1.into(), LineNum::new(2));
+        metadata.add_position(150.into(), 2.into(), LineNum::new(148));
 
         let mut serialized_str = vec![];
         metadata.serialize(&mut serialized_str).unwrap();
