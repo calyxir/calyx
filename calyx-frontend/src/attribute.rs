@@ -113,9 +113,6 @@ pub enum NumAttr {
     #[strum(serialize = "bound")]
     /// The bound of a while loop
     Bound,
-    #[strum(serialize = "pos")]
-    /// Source location position for this node
-    Pos,
     #[strum(serialize = "promotable")]
     /// Can promote the group, control, or @go port of the component to static
     /// with the annotated latency
@@ -162,6 +159,91 @@ impl From<InternalAttr> for Attribute {
     }
 }
 
+#[derive(
+    AsRefStr,
+    EnumString,
+    Clone,
+    Copy,
+    Hash,
+    PartialEq,
+    Eq,
+    Debug,
+    strum_macros::Display,
+    PartialOrd,
+    Ord,
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub enum SetAttr {
+    #[strum(serialize = "pos")]
+    /// Source location position for this node
+    Pos,
+}
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub enum SetAttribute {
+    Set(SetAttr),
+    Unknown(Id),
+}
+
+impl Ord for SetAttribute {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (SetAttribute::Set(s1), SetAttribute::Set(s2)) => s1.cmp(s2),
+            (SetAttribute::Set(_), SetAttribute::Unknown(_)) => {
+                std::cmp::Ordering::Less
+            }
+            (SetAttribute::Unknown(_), SetAttribute::Set(_)) => {
+                std::cmp::Ordering::Greater
+            }
+            (SetAttribute::Unknown(id1), SetAttribute::Unknown(id2)) => {
+                id1.as_ref().cmp(id2.as_ref())
+            }
+        }
+    }
+}
+
+impl PartialOrd for SetAttribute {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<Id> for SetAttribute {
+    fn from(v: Id) -> Self {
+        Self::Unknown(v)
+    }
+}
+
+impl From<SetAttr> for SetAttribute {
+    fn from(v: SetAttr) -> Self {
+        Self::Set(v)
+    }
+}
+
+impl std::fmt::Display for SetAttribute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SetAttribute::Set(set_attr) => set_attr.fmt(f),
+            SetAttribute::Unknown(id) => id.fmt(f),
+        }
+    }
+}
+
+impl FromStr for SetAttribute {
+    type Err = Error;
+    fn from_str(s: &str) -> CalyxResult<Self> {
+        if let Ok(s) = SetAttr::from_str(s) {
+            Ok(SetAttribute::Set(s))
+        } else {
+            // Reject attributes that all caps since those are reserved for internal attributes
+            if s.to_uppercase() == s {
+                return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));
+            }
+            Ok(SetAttribute::Unknown(s.into()))
+        }
+    }
+}
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Defines the known attributes that can be attached to IR nodes.
@@ -197,6 +279,11 @@ impl FromStr for Attribute {
             if DEPRECATED_ATTRIBUTES.contains(&s) {
                 log::warn!("The attribute @{s} is deprecated and will be ignored by the compiler.");
             }
+
+            if let Ok(SetAttribute::Set(_)) = SetAttribute::from_str(s) {
+                log::warn!("Set attribute {s} incorrectly written as a standard attribute, i.e. '@{s}(..)' or '\"{s}\" = ..'. This will be ignored by the compiler. Instead write '@{s}{{..}}' or '\"{s}\" = {{..}}'.");
+            }
+
             // Reject attributes that all caps since those are reserved for internal attributes
             if s.to_uppercase() == s {
                 return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));

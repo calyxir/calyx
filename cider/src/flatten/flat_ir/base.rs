@@ -5,14 +5,11 @@ use std::{
 
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
 use crate::{
-    flatten::structures::{
-        environment::clock::ClockPair,
-        index_trait::{impl_index, impl_index_nonzero, IndexRange, IndexRef},
-        thread::ThreadIdx,
-    },
+    flatten::structures::{environment::clock::ClockPair, thread::ThreadIdx},
     serialization::PrintCode,
 };
 use baa::{BitVecOps, BitVecValue};
+use cider_idx::{impl_index, impl_index_nonzero, iter::IndexRange, IndexRef};
 use std::collections::HashSet;
 
 // making these all u32 for now, can give the macro an optional type as the
@@ -876,7 +873,7 @@ impl From<ComponentIdx> for ParentIdx {
 
 /// don't look at this. Seriously
 mod sealed {
-    use crate::flatten::structures::index_trait::IndexRef;
+    use cider_idx::IndexRef;
 
     use super::{LocalPortOffset, LocalRefPortOffset};
 
@@ -1044,3 +1041,7 @@ impl Sub<&BaseIndices> for &GlobalRefCellIdx {
         LocalRefCellOffset::new(self.index() - rhs.ref_cell_base.index())
     }
 }
+
+use cider_idx::iter::ConcatenatedIndexRanges;
+
+pub type SignatureRange = ConcatenatedIndexRanges<LocalPortOffset, 2>;

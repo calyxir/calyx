@@ -1,9 +1,8 @@
 use std::{num::NonZeroU32, ops::Index};
 
-use super::{
-    environment::clock::ClockIdx, index_trait::impl_index_nonzero,
-    indexed_map::IndexedMap,
-};
+use cider_idx::{impl_index_nonzero, maps::IndexedMap};
+
+use super::environment::clock::ClockIdx;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ThreadIdx(NonZeroU32);

@@ -2,12 +2,14 @@ use std::collections::HashSet;
 
 use ahash::{HashMap, HashMapExt};
 use calyx_ir::{self as cir, NumAttr, RRC};
+use cider_idx::iter::IndexRange;
 use itertools::Itertools;
 
 use crate::{
     as_raw::AsRaw,
     flatten::{
         flat_ir::{
+            base::SignatureRange,
             cell_prototype::{CellPrototype, ConstantType},
             component::{
                 AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
@@ -20,9 +22,8 @@ use crate::{
             },
             wires::{core::Group, guards::Guard},
         },
-        structures::{
-            context::{Context, InterpretationContext, SecondaryContext},
-            index_trait::{IndexRange, SignatureRange},
+        structures::context::{
+            Context, InterpretationContext, SecondaryContext,
         },
     },
 };

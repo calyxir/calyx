@@ -1,6 +1,7 @@
 use std::{collections::hash_map::Entry, num::NonZeroU32};
 
 use ahash::{HashMap, HashMapExt};
+use cider_idx::{impl_index_nonzero, iter::IndexRange, IndexRef};
 use smallvec::SmallVec;
 
 use super::super::context::Context;
@@ -9,10 +10,7 @@ use crate::flatten::{
         AssignmentIdx, CombGroupIdx, ControlIdx, ControlMap, ControlNode,
         GlobalCellIdx,
     },
-    structures::{
-        index_trait::{impl_index_nonzero, IndexRange, IndexRef},
-        thread::ThreadIdx,
-    },
+    structures::thread::ThreadIdx,
 };
 
 use itertools::{FoldWhile, Itertools};

@@ -1,9 +1,9 @@
-use super::super::structures::context::Context;
-use crate::flatten::structures::{
-    index_trait::{IndexRange, SignatureRange},
-    indexed_map::IndexedMap,
-    sparse_map::SparseMap,
+use cider_idx::{
+    iter::IndexRange,
+    maps::{IndexedMap, SparseMap},
 };
+
+use super::super::structures::context::Context;
 
 use super::{control::structures::ControlIdx, prelude::*};
 

@@ -60,7 +60,13 @@ impl MlirBackend {
         } else {
             format!(
                 " {{{}}}",
-                attrs.to_string_with(", ", |k, v| { format!("{k}={v}") })
+                attrs.to_string_with(
+                    ", ",
+                    |k, v| { format!("{k}={v}") },
+                    // this is a placeholder for set attributes until they can
+                    // be added to the MLIR dialect
+                    |_, _| "".to_string()
+                )
             )
         }
     }

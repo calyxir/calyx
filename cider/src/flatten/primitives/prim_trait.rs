@@ -4,7 +4,6 @@ use crate::{
         flat_ir::base::GlobalPortIdx,
         structures::{
             environment::{clock::ClockMap, PortMap},
-            index_trait::SplitIndexRange,
             thread::ThreadMap,
         },
     },
@@ -12,6 +11,7 @@ use crate::{
 };
 
 use baa::BitVecValue;
+use cider_idx::iter::SplitIndexRange;
 
 pub struct AssignResult {
     pub destination: GlobalPortIdx,

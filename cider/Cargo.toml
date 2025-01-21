@@ -38,6 +38,7 @@ calyx-ir = { path = "../calyx-ir" }
 calyx-utils = { path = "../calyx-utils", features = ["serialize"] }
 calyx-opt = { path = "../calyx-opt" }
 calyx-frontend = { path = "../calyx-frontend" }
+cider-idx = { path = "../cider-idx" }
 
 ciborium = "0.2.2"
 baa.workspace = true

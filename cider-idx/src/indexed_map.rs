@@ -4,7 +4,11 @@ use std::{
     ops::{self, Index},
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct IndexedMap<K, D>
 where
     K: IndexRef,
@@ -182,7 +186,8 @@ where
 }
 
 #[derive(Debug)]
-pub struct AuxiliaryMap<K, D>
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct SecondaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -194,7 +199,7 @@ where
 
 // NOTE TO SELF: do not implement IndexMut
 
-impl<K, D> Index<K> for AuxiliaryMap<K, D>
+impl<K, D> Index<K> for SecondaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -210,7 +215,7 @@ where
     }
 }
 
-impl<K, D> AuxiliaryMap<K, D>
+impl<K, D> SecondaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -258,7 +263,7 @@ where
     }
 }
 
-impl<K, D> AuxiliaryMap<K, D>
+impl<K, D> SecondaryMap<K, D>
 where
     K: IndexRef,
     D: Clone + Default,
@@ -280,7 +285,7 @@ where
     }
 }
 
-impl<K, D> Default for AuxiliaryMap<K, D>
+impl<K, D> Default for SecondaryMap<K, D>
 where
     K: IndexRef,
     D: Clone + Default,

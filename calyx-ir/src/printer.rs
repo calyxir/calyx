@@ -16,13 +16,17 @@ impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     pub fn format_at_attributes(attrs: &ir::Attributes) -> String {
-        let mut buf = attrs.to_string_with(" ", |name, val| {
-            if val == 1 {
-                format!("@{}", name)
-            } else {
-                format!("@{}({val})", name)
-            }
-        });
+        let mut buf = attrs.to_string_with(
+            " ",
+            |name, val| {
+                if val == 1 {
+                    format!("@{}", name)
+                } else {
+                    format!("@{}({val})", name)
+                }
+            },
+            |name, vals| format!("@{}{{{}}}", name, vals.iter().join(", ")),
+        );
         if !attrs.is_empty() {
             buf.push(' ');
         }
@@ -37,9 +41,13 @@ impl Printer {
         } else {
             format!(
                 "<{}>",
-                attrs.to_string_with(", ", |name, val| {
-                    format!("\"{}\"={}", name, val)
-                })
+                attrs.to_string_with(
+                    ", ",
+                    |name, val| { format!("\"{}\"={}", name, val) },
+                    |name, vals| {
+                        format!("\"{}\"={{{}}}", name, vals.iter().join(", "))
+                    },
+                )
             )
         }
     }

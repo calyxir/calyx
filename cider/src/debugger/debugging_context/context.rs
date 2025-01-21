@@ -6,12 +6,11 @@ use crate::{
     debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
     flatten::{
         flat_ir::prelude::GroupIdx,
-        structures::{
-            context::Context, environment::Environment, indexed_map::IndexedMap,
-        },
+        structures::{context::Context, environment::Environment},
     },
 };
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use cider_idx::maps::IndexedMap;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use smallvec::{smallvec, SmallVec};

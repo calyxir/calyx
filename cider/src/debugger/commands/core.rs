@@ -13,11 +13,12 @@ use crate::{
         structures::{
             context::Context,
             environment::{Environment, Path},
-            index_trait::impl_index,
         },
     },
     serialization::PrintCode,
 };
+
+use cider_idx::impl_index;
 
 /// Identifier for breakpoints
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]

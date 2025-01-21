@@ -4,13 +4,11 @@ use crate::flatten::{
         all_defined, comb_primitive, declare_ports, ports,
         prim_trait::UpdateStatus, utils::floored_division, Primitive,
     },
-    structures::{
-        environment::PortMap,
-        index_trait::{IndexRef, SplitIndexRange},
-    },
+    structures::environment::PortMap,
 };
 
 use baa::{BitVecOps, BitVecValue};
+use cider_idx::{iter::SplitIndexRange, IndexRef};
 
 use super::prim_trait::UpdateResult;
 

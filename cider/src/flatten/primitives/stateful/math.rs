@@ -7,10 +7,11 @@ use crate::{
             prim_trait::*,
             utils::{floored_division, int_sqrt, ShiftBuffer},
         },
-        structures::{environment::PortMap, index_trait::SplitIndexRange},
+        structures::environment::PortMap,
     },
 };
 use baa::{BitVecOps, BitVecValue, WidthInt};
+use cider_idx::iter::SplitIndexRange;
 use num_traits::Euclid;
 
 #[derive(Clone)]
