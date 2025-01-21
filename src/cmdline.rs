@@ -77,9 +77,8 @@ pub struct Opts {
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,
 
-    /// run a pass or passes during execution. You can supply multiple -p to specify the pass pipeline 
-    /// and the passes will and executed in the order it passed in. Alternatively you can provide the 
-    /// passes by a semicolon separated string. "p1;p2" is the same as "-p p1 -p p2" and will run p1 then p2.
+    /// run a pass or passes during execution. You can supply multiple -p to specify the pass pipeline
+    /// and the passes will and executed in the order it passed in. i.e."-p p1 -p p2" and will run p1 then p2.
     /// Accept alias. Default is "all"
     #[argh(option, short = 'p')]
     pub pass: Vec<String>,
@@ -92,7 +91,8 @@ pub struct Opts {
     #[argh(option, short = 'x', long = "extra-opt")]
     pub extra_opts: Vec<String>,
 
-    /// establish a relative ordering of passes. "a:b" will insert pass `b` after pass `a`
+    /// establish a relative ordering of passes. "a:b" will move pass `b` after pass `a`.
+    /// Similar to the `-p` flag, you can supply multiple `-i` flags to specify multiple ordering constraints.
     #[argh(option, short = 'i', long = "insert")]
     pub insertions: Vec<String>,
 
@@ -211,11 +211,6 @@ impl Opts {
         // in manually.
         if opts.pass.is_empty() {
             opts.pass = vec!["all".into()];
-        }
-        else {
-            opts.pass = opts.pass.iter()
-                .flat_map(|s| s.split(';').map(String::from))
-                .collect();
         }
 
         Ok(opts)
