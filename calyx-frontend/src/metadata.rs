@@ -146,7 +146,7 @@ impl MetadataTable {
         // write the position table
         writeln!(f, "POSITIONS")?;
         for (position, SourceLocation { line, file }) in
-            self.position_map.iter()
+            self.position_map.iter().sorted_by_key(|(&k, _)| k)
         {
             writeln!(f, "{position}: {file} {line}")?;
         }
@@ -306,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialze() {
+    fn test_serialize() {
         let mut metadata = MetadataTable::new_empty();
         metadata.add_file(0.into(), "test.calyx".into());
         metadata.add_file(1.into(), "test2.calyx".into());
