@@ -58,7 +58,6 @@ struct PosInfo {
 }
 
 struct ComponentPosIds {
-    pub component: Id,
     pub component_pos_id: u32,
     pub cells: HashMap<Id, u32>,
     pub groups: HashMap<Id, u32>,
@@ -77,7 +76,6 @@ fn gen_component_info(
     // FIXME: currently assuming that there is only one element in the set attr.
     let component_pos = component_set_attr.iter().next().unwrap();
     let mut component_pos_id = ComponentPosIds {
-        component: comp.name,
         component_pos_id: *component_pos,
         cells: HashMap::new(),
         groups: HashMap::new(),
