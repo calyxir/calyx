@@ -77,7 +77,10 @@ pub struct Opts {
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,
 
-    /// run a pass or passes during execution. Passes are separated by a semicolon i.e "a;b". Accept alias. Default is "all"
+    /// run a pass or passes during execution. You can supply multiple -p to specify the pass pipeline 
+    /// and the passes will and executed in the order it passed in. Alternatively you can provide the 
+    /// passes by a semicolon separated string. "p1;p2" is the same as "-p p1 -p p2" and will run p1 then p2.
+    /// Accept alias. Default is "all"
     #[argh(option, short = 'p')]
     pub pass: Vec<String>,
 
