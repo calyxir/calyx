@@ -1,15 +1,7 @@
 //! Defines the default passes available to [PassManager].
 use crate::pass_manager::PassResult;
 use crate::passes::{
-    AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
-    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
-    DefaultAssigns, DynamicFSMAllocation, Externalize, GoInsertion,
-    GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
-    ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
-    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
-    WellFormed, WireInliner, WrapMain,
+    AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp, CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns, Dump, DynamicFSMAllocation, Externalize, GoInsertion, GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed, WireInliner, WrapMain
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -82,6 +74,9 @@ impl PassManager {
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
+
+        // debug helper pass
+        pm.register_pass::<Dump>()?;
 
         //add metadata
         pm.register_pass::<Metadata>()?;

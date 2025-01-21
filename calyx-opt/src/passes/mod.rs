@@ -42,6 +42,8 @@ mod well_formed;
 mod wire_inliner;
 mod wrap_main;
 
+mod dump;
+
 pub use canonical::Canonicalize;
 pub use cell_share::CellShare;
 pub use clk_insertion::ClkInsertion;
@@ -78,6 +80,7 @@ pub use unroll_bound::UnrollBounded;
 // pub use simplify_guards::SimplifyGuards;
 pub use add_guard::AddGuard;
 pub use default_assigns::DefaultAssigns;
+pub use dump::Dump;
 pub use dyn_fsm_allocation::DynamicFSMAllocation;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
