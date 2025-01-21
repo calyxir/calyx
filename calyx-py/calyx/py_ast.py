@@ -31,9 +31,9 @@ class FileTable:
     
     @staticmethod
     def emit_metadata():
-        out = ""
+        out = "\tFILES\n"
         for (filename, fileid) in FileTable.table.items():
-                out += f"file-{fileid}: {filename}\n"
+                out += f"\t\t{fileid}: \"{filename}\"\n"
         return out
 
 class PosTable:
@@ -75,9 +75,9 @@ class PosTable:
     
     @staticmethod
     def emit_metadata():
-        out = ""
+        out = "\tPOSITIONS\n"
         for ((fileid, linenum), position_id) in PosTable.table.items():
-            out += f"pos-{position_id}: ({fileid}, {linenum})\n"
+            out += f"\t\t{position_id}: {fileid} {linenum}\n"
         return out
 
 # Program
@@ -104,11 +104,14 @@ class Program(Emittable):
             out += "\nmetadata #{\n"
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
+            out += "}#"
             # first pass for emitting some file/source location metadata
             if len(FileTable.table) > 0 and len(PosTable.table) > 0:
+                out += "\n\nfileinfo #{\n"
                 out += FileTable.emit_metadata()
                 out += PosTable.emit_metadata()
-            out += "}#"
+                out += "}#"
+
         return out
 
 
@@ -646,7 +649,7 @@ class Invoke(Control):
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 
-        return ctrl_with_pos_attribute(inv)
+        return ctrl_with_pos_attribute(inv, self.loc)
 
     def with_attr(self, key: str, value: int) -> Invoke:
         self.attributes.append((key, value))
@@ -700,7 +703,7 @@ class While(Control):
         cond += f"while {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
-        return ctrl_with_pos_attribute(block(cond, self.body.doc(), sep=""))
+        return ctrl_with_pos_attribute(block(cond, self.body.doc(), sep=""), self.loc)
 
 
 @dataclass
@@ -738,7 +741,7 @@ class If(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch)
+        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch, self.loc)
 
 
 @dataclass
@@ -754,7 +757,7 @@ class StaticIf(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch)
+        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch, self.loc)
 
 
 # Standard Library
