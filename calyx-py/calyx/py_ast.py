@@ -564,52 +564,54 @@ class Gte(GuardExpr):
 class Control(Emittable):
     pass
 
+POS_CONTROL=False
 
+def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
+    """adds the @pos attribute of loc is not None"""
+    if loc is None or not POS_CONTROL:
+        return source
+    else:
+        return f"@pos({loc}) {source}"
+    
 @dataclass
 class Enable(Control):
     stmt: str
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        # FIXME: hack for first pass. Probably should have actual attributes
-        if self.loc is None:
-            return f"{self.stmt};"
-        else:
-            return f"@pos({self.loc}) {self.stmt};"
-        
-
+        return ctrl_with_pos_attribute(f"{self.stmt};", self.loc)
 
 @dataclass
 class SeqComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("seq", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("seq", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class StaticSeqComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("static seq", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("static seq", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class ParComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("par", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("par", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class StaticParComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("static par", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("static par", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class Invoke(Control):
@@ -694,9 +696,13 @@ class While(Control):
     # XXX: This should probably be called the cond_group.
     cond: Optional[CompVar]
     body: Control
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        cond = f"while {self.port.doc()}"
+        cond = ""
+        if self.loc is not None:
+            cond = f"@pos({self.loc}) "
+        cond += f"while {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
         return block(cond, self.body.doc(), sep="")
@@ -725,9 +731,13 @@ class If(Control):
     cond: Optional[CompVar]
     true_branch: Control
     false_branch: Control = field(default_factory=Empty)
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        cond = f"if {self.port.doc()}"
+        cond = ""
+        if self.loc is not None:
+            cond = f"@pos({self.loc}) "
+        cond += f"if {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
         true_branch = self.true_branch.doc()
