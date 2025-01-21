@@ -43,9 +43,10 @@ impl From<Word> for PositionId {
         Self(value)
     }
 }
+
 impl Display for PositionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 
