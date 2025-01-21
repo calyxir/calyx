@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::{
     cell::RefCell, collections::HashMap, fmt::Display, io::Read, path::PathBuf,
 };
@@ -8,6 +9,12 @@ type Word = u32;
 /// An identifier representing a given file path
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct FileId(Word);
+
+impl Display for FileId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 impl FileId {
     pub fn new(id: Word) -> Self {
@@ -55,13 +62,19 @@ impl LineNum {
     }
 }
 
+impl Display for LineNum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl From<Word> for LineNum {
     fn from(value: Word) -> Self {
         Self(value)
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MetadataTable {
     /// map file ids to the file path, note that this does not contain file content
     file_map: HashMap<FileId, PathBuf>,
@@ -94,7 +107,14 @@ impl MetadataTable {
         line: LineNum,
     ) {
         self.position_map
-            .insert(pos, SourceLocation::new(line, file));
+            .insert(pos, SourceLocation::new(file, line));
+    }
+
+    pub fn new_empty() -> Self {
+        Self {
+            file_map: HashMap::new(),
+            position_map: HashMap::new(),
+        }
     }
 
     pub fn new<F, P>(file_map: F, position_map: P) -> Self
@@ -102,31 +122,47 @@ impl MetadataTable {
         F: IntoIterator<Item = (FileId, PathBuf)>,
         P: IntoIterator<Item = (PositionId, FileId, LineNum)>,
     {
-        let mut table = MetadataTable {
-            file_map: HashMap::new(),
-            position_map: HashMap::new(),
-        };
+        MetadataTable {
+            file_map: file_map.into_iter().collect(),
+            position_map: position_map
+                .into_iter()
+                .map(|(pos, file, line)| (pos, SourceLocation::new(file, line)))
+                .collect(),
+        }
+    }
 
-        for (file, path) in file_map {
-            table.add_file(file, path);
+    pub fn serialize<W: std::io::Write>(
+        &self,
+        mut f: W,
+    ) -> Result<(), std::io::Error> {
+        writeln!(f, "fileinfo #{{")?;
+
+        // write file table
+        writeln!(f, "FILES")?;
+        for (file, path) in self.file_map.iter().sorted_by_key(|(&k, _)| k) {
+            writeln!(f, "{file}: \"{}\"", path.display())?;
         }
 
-        for (pos, file, line) in position_map {
-            table.add_position(pos, file, line);
+        // write the position table
+        writeln!(f, "POSITIONS")?;
+        for (position, SourceLocation { line, file }) in
+            self.position_map.iter()
+        {
+            writeln!(f, "{position}: {file} {line}")?;
         }
 
-        table
+        writeln!(f, "}}#")
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceLocation {
-    pub line: LineNum,
     pub file: FileId,
+    pub line: LineNum,
 }
 
 impl SourceLocation {
-    pub fn new(line: LineNum, file: FileId) -> Self {
+    pub fn new(file: FileId, line: LineNum) -> Self {
         Self { line, file }
     }
 }
@@ -243,6 +279,8 @@ mod tests {
 
     use crate::parser::CalyxParser;
 
+    use super::MetadataTable;
+
     #[test]
     fn test_parse_metadata() {
         let input_str = r#"fileinfo #{
@@ -265,5 +303,26 @@ mod tests {
         assert_eq!(pos.line, 1.into());
 
         dbg!(metadata);
+    }
+
+    #[test]
+    fn test_serialze() {
+        let mut metadata = MetadataTable::new_empty();
+        metadata.add_file(0.into(), "test.calyx".into());
+        metadata.add_file(1.into(), "test2.calyx".into());
+        metadata.add_file(2.into(), "test3.calyx".into());
+
+        metadata.add_position(0.into(), 0.into(), 1.into());
+        metadata.add_position(1.into(), 1.into(), 14.into());
+        metadata.add_position(150.into(), 2.into(), 148.into());
+
+        let mut serialized_str = vec![];
+        metadata.serialize(&mut serialized_str).unwrap();
+        let serialized_str = String::from_utf8(serialized_str).unwrap();
+
+        let parsed_metadata =
+            CalyxParser::parse_metadata(&serialized_str).unwrap();
+
+        assert_eq!(metadata, parsed_metadata)
     }
 }
