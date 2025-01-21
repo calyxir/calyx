@@ -2,7 +2,7 @@
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
 use crate::{self as ir, RRC};
-use calyx_frontend::PrimitiveInfo;
+use calyx_frontend::{metadata::MetadataTable, PrimitiveInfo};
 use calyx_utils::float;
 use itertools::Itertools;
 use std::io;
@@ -115,7 +115,9 @@ impl Printer {
             ir::Printer::write_component(comp, f)?;
             writeln!(f)?
         }
-        write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))
+        write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))?;
+
+        Printer::write_file_info_table(f, &ctx.file_info_table)
     }
 
     /// Formats and writes extern statements.
@@ -864,6 +866,17 @@ impl Printer {
             format!("metadata #{{\n{}\n}}#\n", metadata_str)
         } else {
             String::new()
+        }
+    }
+
+    pub fn write_file_info_table<W: io::Write>(
+        f: &mut W,
+        metadata: &Option<MetadataTable>,
+    ) -> Result<(), std::io::Error> {
+        if let Some(metadata) = metadata {
+            metadata.serialize(f)
+        } else {
+            Ok(())
         }
     }
 }
