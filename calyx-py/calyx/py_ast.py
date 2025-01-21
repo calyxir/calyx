@@ -5,6 +5,8 @@ from calyx.utils import block
 import inspect
 import os
 
+POS_CONTROL=False # FIXME: way too hacky. Toggle to add pos attributes to control (necessary for cider but my dinky parser doesn't account for it rn)
+
 @dataclass
 class Emittable:
     def doc(self) -> str:
@@ -564,8 +566,6 @@ class Gte(GuardExpr):
 class Control(Emittable):
     pass
 
-POS_CONTROL=False
-
 def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
     """adds the @pos attribute of loc is not None"""
     if loc is None or not POS_CONTROL:
@@ -625,9 +625,6 @@ class Invoke(Control):
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"
-        # add loc to attributes if present
-        if self.loc is not None:
-            self.attributes.append(("pos", self.loc))
 
         # Add attributes if present
         if len(self.attributes) > 0:
@@ -649,7 +646,7 @@ class Invoke(Control):
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 
-        return inv
+        return ctrl_with_pos_attribute(inv)
 
     def with_attr(self, key: str, value: int) -> Invoke:
         self.attributes.append((key, value))
@@ -700,12 +697,10 @@ class While(Control):
 
     def doc(self) -> str:
         cond = ""
-        if self.loc is not None:
-            cond = f"@pos({self.loc}) "
         cond += f"while {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
-        return block(cond, self.body.doc(), sep="")
+        return ctrl_with_pos_attribute(block(cond, self.body.doc(), sep=""))
 
 
 @dataclass
@@ -735,8 +730,6 @@ class If(Control):
 
     def doc(self) -> str:
         cond = ""
-        if self.loc is not None:
-            cond = f"@pos({self.loc}) "
         cond += f"if {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
@@ -745,7 +738,7 @@ class If(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return block(cond, true_branch, sep="") + false_branch
+        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch)
 
 
 @dataclass
@@ -761,7 +754,7 @@ class StaticIf(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return block(cond, true_branch, sep="") + false_branch
+        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch)
 
 
 # Standard Library
