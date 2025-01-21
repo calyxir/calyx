@@ -24,4 +24,5 @@ pub use attribute::{
 pub use attributes::{Attributes, GetAttributes};
 pub use common::{Direction, PortDef, Primitive, Width};
 pub use lib_sig::{LibrarySignatures, PrimitiveInfo};
+pub use metadata::{FileId, MetadataTable, PositionId, SourceLocation};
 pub use workspace::Workspace;
