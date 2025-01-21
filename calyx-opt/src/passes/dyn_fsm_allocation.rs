@@ -375,7 +375,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         debug_assert!(
             petgraph::algo::connected_components(&graph) == 1,
-            "State transition graph has unreachable states (graph has more than one connected component)\n{:?}.", 
+            "State transition graph for {} has unreachable states (graph has more than one connected component)\n{:?}.", 
+            self.builder.component.name,
             petgraph::dot::Dot::with_config(&graph, &[petgraph::dot::Config::EdgeNoLabel, petgraph::dot::Config::NodeNoLabel])
         );
     }
@@ -551,11 +552,12 @@ impl Schedule<'_, '_> {
         match con {
         ir::Control::FSMEnable(ir::FSMEnable {fsm, attributes}) => {
             let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have state_id information", fsm.borrow().name()));
-            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
+            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() && cur_state == 0 {
                 (preds[0].0, vec![])
             } else {
                 (cur_state, preds)
             };
+
             // Add group to mapping for emitting group JSON info
             self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: fsm.borrow().name() });
 
@@ -1131,7 +1133,7 @@ impl Visitor for DynamicFSMAllocation {
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
         let seq_fsm = sch.realize_fsm(self.dump_fsm, &self.dump_dot);
-        let mut fsm_en = ir::Control::fsm_enable(seq_fsm);
+        let mut fsm_en: calyx_ir::Control = ir::Control::fsm_enable(seq_fsm);
         let state_id = s.attributes.get(NODE_ID).unwrap();
         fsm_en.get_mut_attributes().insert(NODE_ID, state_id);
         Ok(Action::change(fsm_en))
