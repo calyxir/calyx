@@ -33,9 +33,11 @@ fn profiling_setup(e) {
     e.rule("edsl-to-calyx", "python3 $in > $out");
 
     // NOTE: this will go when we have an actual parser and tool to emit json.
-    e.var_("parse-metadata-script", "$calyx-base/tools/profiler/poc-lift-flame-graph.py");
+    // e.var_("parse-metadata-script", "$calyx-base/tools/profiler/poc-lift-flame-graph.py");
     e.var_("metadata-mapping-json", "metadata-map.json");
-    e.rule("parse-metadata", "python3 $parse-metadata-script $in $metadata-mapping-json");
+    // e.rule("parse-metadata", "python3 $parse-metadata-script $in $metadata-mapping-json");
+    e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
+    e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
 
     e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells $metadata-mapping-json profiler-out $out");
 }
