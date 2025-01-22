@@ -11,6 +11,9 @@ fn profiling_setup(e) {
     // series of passes after instrumentation?
     e.config_var_or("passes", "profiler.compilation-passes", "-p all"); // set passes="-p no-opt" to run without optimizations
 
+    // eDSL python file arguments
+    e.config_var_or("edsl-args", "profiler.edsl-args", "");
+
     // rules for preprocessing
 
     e.config_var_or("component_cells", "component_cells", "$calyx-base/target/debug/component_cells");
@@ -30,12 +33,9 @@ fn profiling_setup(e) {
     e.rsrc("tb.sv");
 
     // ---- eDSL to Calyx to flame graph.
-    e.rule("edsl-to-calyx", "python3 $in > $out");
+    e.rule("edsl-to-calyx", "python3 $in $edsl-args > $out");
 
-    // NOTE: this will go when we have an actual parser and tool to emit json.
-    // e.var_("parse-metadata-script", "$calyx-base/tools/profiler/poc-lift-flame-graph.py");
     e.var_("metadata-mapping-json", "metadata-map.json");
-    // e.rule("parse-metadata", "python3 $parse-metadata-script $in $metadata-mapping-json");
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
 

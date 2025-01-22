@@ -21,6 +21,7 @@ rule calyx-cider
 
 cells = cells.json
 passes = -p all
+edsl-args = 
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
