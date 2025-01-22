@@ -1,6 +1,10 @@
 use itertools::Itertools;
 use std::{
-    cell::RefCell, collections::HashMap, fmt::Display, io::Read, path::PathBuf,
+    cell::RefCell,
+    collections::HashMap,
+    fmt::Display,
+    io::Read,
+    path::{Iter, PathBuf},
 };
 use thiserror::Error;
 
@@ -87,6 +91,12 @@ pub struct MetadataTable {
 impl MetadataTable {
     pub fn lookup_file_path(&self, file: FileId) -> &PathBuf {
         &self.file_map[&file]
+    }
+
+    pub fn get_file_map(&self) -> HashMap<FileId, PathBuf> {
+        // FIXME: I don't want to give the whole filemap but I need a way to provide all of the filenames.
+        // Ask Griffin for help.........
+        self.file_map.clone()
     }
 
     pub fn lookup_position(&self, pos: PositionId) -> &SourceLocation {

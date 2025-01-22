@@ -7,6 +7,7 @@ use calyx_ir::{self as ir, Id};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -45,6 +46,7 @@ struct ComponentInfo {
     pub component: Id,
     pub filename: String,
     pub linenum: usize,
+    pub varname: String,
     pub cells: Vec<PosInfo>,
     pub groups: Vec<PosInfo>,
 }
@@ -55,6 +57,7 @@ struct PosInfo {
     pub name: Id,
     pub filename: String,
     pub linenum: usize,
+    pub varname: String,
 }
 
 struct ComponentPosIds {
@@ -99,7 +102,7 @@ fn gen_component_info(
         let cell_ref = cell.borrow();
         match cell_ref.attributes.get_set(SetAttribute::Set(SetAttr::Pos)) {
             None => {
-                println!("Ignoring cell without pos: {}", cell_ref.name());
+                dbg!("Ignoring cell without pos: {}", cell_ref.name());
                 continue;
             }
             Some(cell_set_attr) => {
@@ -125,6 +128,7 @@ fn obtain_pos_info(
     name: &Id,
     pos_id: &u32,
     metadata_table: &MetadataTable,
+    file_lines_map: &HashMap<String, Vec<String>>,
 ) -> CalyxResult<PosInfo> {
     let SourceLocation { file, line } =
         metadata_table.lookup_position(PositionId::from(*pos_id));
@@ -137,61 +141,101 @@ fn obtain_pos_info(
         name: *name,
         filename: filename.to_string(),
         linenum: line.as_usize(),
+        varname: get_var_name(
+            &filename.to_string(),
+            line.as_usize(),
+            file_lines_map,
+        ),
     })
 }
 
+fn get_var_name(
+    filename: &String,
+    linenum: usize,
+    file_lines_map: &HashMap<String, Vec<String>>,
+) -> String {
+    let unnamed = String::from("unnamed");
+    // FIXME: assuming eDSL for now. Maybe there's a better way to do things based on the ADL?
+    let file_lines: &Vec<String> = file_lines_map.get(filename).unwrap();
+    let og_line_cloned = file_lines[linenum].clone();
+    let line = og_line_cloned.trim();
+    if line.starts_with("with") && line.contains(".group(") {
+        // trying to write a rust equivalent of the below python
+        // varname = line.split(":")[0].split(" ")[-1]
+        line.split(":").collect::<Vec<&str>>()[0]
+            .split(" ")
+            .collect::<Vec<&str>>()
+            .last()
+            .unwrap()
+            .to_string()
+    } else if line.contains("=") {
+        let before_equals = line.split("=").collect::<Vec<&str>>()[0]
+            .split(":")
+            .collect::<Vec<&str>>()[0]
+            .trim()
+            .to_string();
+        let word_count = before_equals.chars().filter(|c| *c == ' ').count();
+        if word_count == 0 {
+            before_equals
+        } else {
+            unnamed
+        }
+    } else {
+        unnamed
+    }
+}
+
 fn resolve(
-    ctx: &ir::Context,
+    metadata_table: &MetadataTable,
     component_pos_ids: &HashMap<Id, ComponentPosIds>,
     component_info: &mut HashSet<ComponentInfo>,
+    file_lines_map: &HashMap<String, Vec<String>>,
 ) -> CalyxResult<()> {
-    match &ctx.file_info_table {
-        Some(metadata_table) => {
-            for (curr_component, curr_component_pos_ids) in
-                component_pos_ids.iter()
-            {
-                let SourceLocation { file, line } = metadata_table
-                    .lookup_position(PositionId::from(
-                        curr_component_pos_ids.component_pos_id,
-                    ));
-                let mut curr_component_info = ComponentInfo {
-                    component: *curr_component,
-                    filename: metadata_table
-                        .lookup_file_path(*file)
-                        .as_path()
-                        .to_str()
-                        .unwrap()
-                        .to_string(),
-                    linenum: line.as_usize(),
-                    cells: Vec::new(),
-                    groups: Vec::new(),
-                };
-                for (cell_name, cell_pos_id) in
-                    curr_component_pos_ids.cells.iter()
-                {
-                    if let Ok(pos_info) =
-                        obtain_pos_info(cell_name, cell_pos_id, metadata_table)
-                    {
-                        curr_component_info.cells.push(pos_info);
-                    };
-                }
-                for (group_name, group_pos_id) in
-                    curr_component_pos_ids.groups.iter()
-                {
-                    if let Ok(pos_info) = obtain_pos_info(
-                        group_name,
-                        group_pos_id,
-                        metadata_table,
-                    ) {
-                        curr_component_info.groups.push(pos_info);
-                    }
-                }
-                component_info.insert(curr_component_info);
-            }
-            Ok(())
+    for (curr_component, curr_component_pos_ids) in component_pos_ids.iter() {
+        let SourceLocation { file, line } = metadata_table.lookup_position(
+            PositionId::from(curr_component_pos_ids.component_pos_id),
+        );
+        let curr_component_filename = metadata_table
+            .lookup_file_path(*file)
+            .as_path()
+            .to_str()
+            .unwrap()
+            .to_string();
+        let mut curr_component_info = ComponentInfo {
+            component: *curr_component,
+            filename: curr_component_filename.clone(),
+            linenum: line.as_usize(),
+            varname: get_var_name(
+                &curr_component_filename,
+                line.as_usize(),
+                file_lines_map,
+            ),
+            cells: Vec::new(),
+            groups: Vec::new(),
+        };
+        for (cell_name, cell_pos_id) in curr_component_pos_ids.cells.iter() {
+            if let Ok(pos_info) = obtain_pos_info(
+                cell_name,
+                cell_pos_id,
+                metadata_table,
+                file_lines_map,
+            ) {
+                curr_component_info.cells.push(pos_info);
+            };
         }
-        None => panic!("No fileinfo table to read from!"),
+        for (group_name, group_pos_id) in curr_component_pos_ids.groups.iter() {
+            if let Ok(pos_info) = obtain_pos_info(
+                group_name,
+                group_pos_id,
+                metadata_table,
+                file_lines_map,
+            ) {
+                curr_component_info.groups.push(pos_info);
+            }
+        }
+        component_info.insert(curr_component_info);
     }
+    Ok(())
 }
 
 /// Write the collected set of component information to a JSON file.
@@ -202,6 +246,23 @@ fn write_json(
     let created_vec: Vec<ComponentInfo> = component_info.into_iter().collect();
     serde_json::to_writer_pretty(file.get_write(), &created_vec)?;
     Ok(())
+}
+
+// really naive way of implementing reading all of the lines
+fn create_file_map(
+    metadata_table: &MetadataTable,
+) -> HashMap<String, Vec<String>> {
+    let mut toplevel_file_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (_, path) in metadata_table.get_file_map().iter() {
+        let file_lines: Vec<String> = read_to_string(path)
+            .unwrap()
+            .lines()
+            .map(String::from)
+            .collect();
+        let filename = path.as_path().to_str().unwrap().to_string();
+        toplevel_file_map.insert(filename, file_lines);
+    }
+    toplevel_file_map
 }
 
 fn main() -> CalyxResult<()> {
@@ -216,12 +277,20 @@ fn main() -> CalyxResult<()> {
     let mut component_pos_ids: HashMap<Id, ComponentPosIds> = HashMap::new();
 
     let mut component_info: HashSet<ComponentInfo> = HashSet::new();
-
     gen_component_info(&ctx, main_comp, &mut component_pos_ids)?;
 
-    resolve(&ctx, &component_pos_ids, &mut component_info)?;
-
-    write_json(component_info.clone(), p.output)?;
-
-    Ok(())
+    match &ctx.file_info_table {
+        Some(metadata_table) => {
+            let file_lines_map = create_file_map(metadata_table);
+            resolve(
+                &metadata_table,
+                &component_pos_ids,
+                &mut component_info,
+                &file_lines_map,
+            )?;
+            write_json(component_info.clone(), p.output)?;
+            Ok(())
+        }
+        None => panic!("No fileinfo table to read from!"),
+    }
 }
