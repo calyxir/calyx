@@ -162,9 +162,10 @@ fn get_var_name(
     if line.starts_with("with") && line.contains(".group(") {
         // trying to write a rust equivalent of the below python
         // varname = line.split(":")[0].split(" ")[-1]
-        line.split(":").collect::<Vec<&str>>()[0]
+        line.split(":")
+            .next()
+            .unwrap()
             .split(" ")
-            .collect::<Vec<&str>>()
             .last()
             .unwrap()
             .to_string()

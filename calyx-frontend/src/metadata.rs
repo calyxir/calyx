@@ -99,6 +99,18 @@ impl MetadataTable {
         self.file_map.clone()
     }
 
+    // pub fn get_files(&self) -> impl Iterator<Item = &PathBuf> {
+    //     self.file_map.values()
+    // }
+
+    // pub fn get_file(&self) -> Vec<&PathBuf> {
+    //     self.file_map.values().collect()
+    // }
+
+    pub fn get_file(&self) -> Vec<PathBuf> {
+        self.file_map.values().cloned().collect()
+    }
+
     pub fn lookup_position(&self, pos: PositionId) -> &SourceLocation {
         &self.position_map[&pos]
     }
