@@ -157,7 +157,7 @@ fn get_var_name(
     let unnamed = String::from("unnamed");
     // FIXME: assuming eDSL for now. Maybe there's a better way to do things based on the ADL?
     let file_lines: &Vec<String> = file_lines_map.get(filename).unwrap();
-    let og_line_cloned = file_lines[linenum].clone();
+    let og_line_cloned = file_lines[linenum - 1].clone();
     let line = og_line_cloned.trim();
     if line.starts_with("with") && line.contains(".group(") {
         // trying to write a rust equivalent of the below python
