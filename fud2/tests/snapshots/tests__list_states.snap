@@ -1,6 +1,5 @@
 ---
 source: fud2/tests/tests.rs
-assertion_line: 229
 ---
 [
     "calyx",
