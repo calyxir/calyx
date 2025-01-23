@@ -373,6 +373,7 @@ impl ReadWriteSet {
                     None => (r, w),
                 }
             }
+
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 let (mut reads, mut writes) = (vec![], vec![]);

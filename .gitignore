@@ -61,8 +61,8 @@ tools/btor2/btor2i/build/
 tools/profiler/data
 tools/profiler/meta-logs
 tools/profiler/fg-tmp
-tools/profiler/handmade-flame-graphs/*/*.svg
-tools/profiler/inst-check-tmp
+*.svg
+*.folded
 
 temp/
 
@@ -75,3 +75,5 @@ frontends/queues/tests/**/*.expect
 
 # emacs
 *~
+
+!docs/dev/assets/*.png

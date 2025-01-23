@@ -1,0 +1,51 @@
+[package]
+name = "cider"
+version = "0.1.1"
+authors = ["The Calyx authors"]
+edition = "2021"
+rust-version.workspace = true
+
+[[bin]]
+name = "cider"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+smallvec = { workspace = true, features = ["union", "const_generics"] }
+serde = { workspace = true, features = ["derive", "rc"] }
+itertools.workspace = true
+pest.workspace = true
+pest_derive.workspace = true
+pest_consume.workspace = true
+argh.workspace = true
+owo-colors = "^3.5"
+serde_json = "1.0"
+rustyline = "=10.0.0"
+fraction = { version = "0.15.3", features = ["with-serde-support"] }
+thiserror = "1.0.26"
+slog = "2.7.0"
+slog-term = "2.8.0"
+slog-async = "2.7.0"
+ahash = "0.8.3"
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+
+petgraph = "0.6.3"
+
+calyx-ir = { path = "../calyx-ir" }
+calyx-utils = { path = "../calyx-utils", features = ["serialize"] }
+calyx-opt = { path = "../calyx-opt" }
+calyx-frontend = { path = "../calyx-frontend" }
+
+ciborium = "0.2.2"
+baa.workspace = true
+fst-writer = "0.2.3"
+bon = "2.3"
+
+[dev-dependencies]
+proptest = "1.0.0"
+
+[dependencies.serde_with]
+version = "1.6.4"

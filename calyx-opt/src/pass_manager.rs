@@ -19,6 +19,8 @@ pub struct PassManager {
     passes: HashMap<String, PassClosure>,
     /// Tracks alias for groups of passes that run together.
     aliases: HashMap<String, Vec<String>>,
+    /// Tracks alias for groups of passes that run together before flatten.
+    aliases_cmd: HashMap<String, Vec<String>>,
     // Track the help information for passes
     help: HashMap<String, String>,
 }
@@ -117,8 +119,8 @@ impl PassManager {
             ))
             .into());
         }
-        // Expand any aliases used in defining this alias.
-        let all_passes = passes
+        self.aliases_cmd.insert(name.clone(), passes.clone());
+        let all_passes: Vec<String> = passes
             .into_iter()
             .flat_map(|pass| {
                 if self.aliases.contains_key(&pass) {
@@ -130,6 +132,7 @@ impl PassManager {
                 }
             })
             .collect();
+
         self.aliases.insert(name, all_passes);
         Ok(())
     }
@@ -162,7 +165,7 @@ impl PassManager {
         });
 
         // Push all aliases
-        let mut aliases = self.aliases.iter().collect::<Vec<_>>();
+        let mut aliases = self.aliases_cmd.iter().collect::<Vec<_>>();
         aliases.sort_by(|kv1, kv2| kv1.0.cmp(kv2.0));
         ret.push_str("\nAliases:\n");
         aliases.iter().for_each(|(alias, passes)| {
@@ -218,7 +221,7 @@ impl PassManager {
 
         // Validate that names of passes in incl and excl sets are known
         passes.iter().chain(excl_set.iter().chain(insertions.iter().flat_map(|(pass1, pass2)| vec![pass1, pass2]))).try_for_each(|pass| {
-            if !self.passes.contains_key(pass) {
+            if !self.passes.contains_key(pass) && !self.aliases.contains_key(pass) {
                 Err(Error::misc(format!(
                     "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
                 )))
@@ -272,6 +275,7 @@ impl PassManager {
     ) -> PassResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl, insn)?;
 
+        // Expand all aliases in the list of passes.
         for name in passes {
             // Pass is known to exist because create_plan validates the
             // names of passes.
@@ -284,10 +288,11 @@ impl PassManager {
                     let start = Instant::now();
                     pass(ctx)?;
                     if dump_ir {
+                        eprint!("\nAfter pass: {}\n", name);
                         ir::Printer::write_context(
                             ctx,
                             true,
-                            &mut std::io::stdout(),
+                            &mut std::io::stderr(),
                         )?;
                     }
                     let elapsed = start.elapsed();

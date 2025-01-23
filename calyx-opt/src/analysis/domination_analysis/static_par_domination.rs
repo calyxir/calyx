@@ -314,7 +314,7 @@ impl StaticParDomination {
                 self.build_time_map_static(sc, None, true);
             }
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!()
             }
         }
     }

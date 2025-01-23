@@ -53,7 +53,7 @@ impl WithStatic for ir::Control {
             ir::Control::Enable(en) => en.update_static(&()),
             ir::Control::Empty(_) => Some(0),
             ir::Control::Static(sc) => Some(sc.get_latency()),
-            ir::Control::FSMEnable(_) => unreachable!(),
+            ir::Control::FSMEnable(_) => todo!(),
         }
     }
 }

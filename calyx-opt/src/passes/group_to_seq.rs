@@ -404,7 +404,7 @@ where
         // checks !cell.done ?
         && asmt.guard.is_not_done(cell)
         // checks 1'd1
-        && asmt.src.borrow().is_constant(1, 1)
+        && asmt.src.borrow().is_constant_value(1, 1)
     }
 }
 

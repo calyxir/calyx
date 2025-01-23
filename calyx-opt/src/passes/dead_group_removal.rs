@@ -21,6 +21,10 @@ impl DeadGroupRemoval {
     ) {
         if let ir::PortParent::Group(group_wref) = &port.borrow().parent {
             group_names.push(group_wref.upgrade().borrow().name());
+        } else if let ir::PortParent::StaticGroup(group_wref) =
+            &port.borrow().parent
+        {
+            group_names.push(group_wref.upgrade().borrow().name());
         }
     }
 }

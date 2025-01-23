@@ -13,11 +13,11 @@ can use [fud2][]. The latter is generally recommended.
 
 To run an example program, try:
 
-    cd interp && cargo run tests/control/if.futil
+    cd cider && cargo run -- tests/control/if.futil
 
 You should see something like:
 
-    Z{"top_level":"main","memories":[{"name":"mem","width":32,"size":1,"dimensions":{"D1":1}}]}%
+    ���T�itop_leveldmainhmemories��dnamecmemjdimensions�bD1fformat�fBitnum�fsigned�ewidth %
 
 
 This output contains some header information and the raw binary data of the
@@ -26,7 +26,7 @@ memories in the program and as such is not human readable. A separate tool,
 vice versa. Once you've compiled it, either by running `cargo build` in
 `tools/cider-data-converter` or by running `cargo build --all`, you can run:
 
-    cargo run tests/control/if.futil | ../target/debug/cider-data-converter --to json
+    cargo run -- tests/control/if.futil | ../target/debug/cider-data-converter --to json
 
 which should produce
 ```json
@@ -50,7 +50,7 @@ program before interpretation.
 You'll want to build the interpreter and compiler first:
 
     cargo build && \
-    cd interp && cargo build && \
+    cd cider && cargo build && \
     cd ../tools/cider-data-converter && cargo build && cd ../../
 
 or just run

@@ -1,7 +1,8 @@
 //! Definitions for tracking source position information of Calyx programs
 
+use std::{cmp, fmt::Write, sync::LazyLock};
+
 use itertools::Itertools;
-use std::{cmp, fmt::Write, mem, sync};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 /// Handle to a position in a [PositionTable]
@@ -16,9 +17,9 @@ pub struct FileIdx(u32);
 /// A source program file
 struct File {
     /// Name of the file
-    name: String,
+    name: Box<str>,
     /// The source code of the file
-    source: String,
+    source: Box<str>,
 }
 
 struct PosData {
@@ -32,11 +33,11 @@ struct PosData {
 }
 
 /// Source position information for a Calyx program.
-pub struct PositionTable {
+struct PositionTable {
     /// The source files of the program
-    files: Vec<File>,
+    files: boxcar::Vec<File>,
     /// Mapping from indexes to position data
-    indices: Vec<PosData>,
+    indices: boxcar::Vec<PosData>,
 }
 
 impl Default for PositionTable {
@@ -51,9 +52,9 @@ impl PositionTable {
 
     /// Create a new position table where the first file and first position are unknown
     pub fn new() -> Self {
-        let mut table = PositionTable {
-            files: Vec::new(),
-            indices: Vec::new(),
+        let table = PositionTable {
+            files: boxcar::Vec::new(),
+            indices: boxcar::Vec::new(),
         };
         table.add_file("unknown".to_string(), "".to_string());
         let pos = table.add_pos(FileIdx(0), 0, 0);
@@ -62,10 +63,12 @@ impl PositionTable {
     }
 
     /// Add a new file to the position table
-    pub fn add_file(&mut self, name: String, source: String) -> FileIdx {
-        let file = File { name, source };
-        let file_idx = self.files.len();
-        self.files.push(file);
+    pub fn add_file(&self, name: String, source: String) -> FileIdx {
+        let file = File {
+            name: name.into(),
+            source: source.into(),
+        };
+        let file_idx = self.files.push(file);
         FileIdx(file_idx as u32)
     }
 
@@ -79,15 +82,9 @@ impl PositionTable {
     }
 
     /// Add a new position to the position table
-    pub fn add_pos(
-        &mut self,
-        file: FileIdx,
-        start: usize,
-        end: usize,
-    ) -> PosIdx {
+    pub fn add_pos(&self, file: FileIdx, start: usize, end: usize) -> PosIdx {
         let pos = PosData { file, start, end };
-        let pos_idx = self.indices.len();
-        self.indices.push(pos);
+        let pos_idx = self.indices.push(pos);
         PosIdx(pos_idx as u32)
     }
 
@@ -99,28 +96,27 @@ impl PositionTable {
 /// The global position table
 pub struct GlobalPositionTable;
 
-impl GlobalPositionTable {
-    /// Return reference to a global [PositionTable]
-    pub fn as_mut() -> &'static mut PositionTable {
-        static mut SINGLETON: mem::MaybeUninit<PositionTable> =
-            mem::MaybeUninit::uninit();
-        static ONCE: sync::Once = sync::Once::new();
+static GPOS_TABLE: LazyLock<PositionTable> = LazyLock::new(PositionTable::new);
 
-        // SAFETY:
-        // - writing to the singleton is OK because we only do it one time
-        // - the ONCE guarantees that SINGLETON is init'ed before assume_init_ref
-        unsafe {
-            ONCE.call_once(|| {
-                SINGLETON.write(PositionTable::new());
-                assert!(PositionTable::UNKNOWN == GPosIdx::UNKNOWN.0)
-            });
-            SINGLETON.assume_init_mut()
-        }
+impl GlobalPositionTable {
+    fn get_pos(pos: PosIdx) -> &'static PosData {
+        GPOS_TABLE.get_pos(pos)
     }
 
-    /// Return an immutable reference to the global position table
-    pub fn as_ref() -> &'static PositionTable {
-        Self::as_mut()
+    fn get_file_data(file: FileIdx) -> &'static File {
+        GPOS_TABLE.get_file_data(file)
+    }
+
+    pub fn get_source(file: FileIdx) -> &'static str {
+        GPOS_TABLE.get_source(file)
+    }
+
+    pub fn add_file(name: String, source: String) -> FileIdx {
+        GPOS_TABLE.add_file(name, source)
+    }
+
+    pub fn add_pos(file: FileIdx, start: usize, end: usize) -> PosIdx {
+        GPOS_TABLE.add_pos(file, start, end)
     }
 }
 
@@ -153,9 +149,8 @@ impl GPosIdx {
     /// 2. start position of the first line in span
     /// 3. line number of the span
     fn get_lines(&self) -> (Vec<&str>, usize, usize) {
-        let table = GlobalPositionTable::as_ref();
-        let pos_d = table.get_pos(self.0);
-        let file = &table.get_file_data(pos_d.file).source;
+        let pos_d = GlobalPositionTable::get_pos(self.0);
+        let file = &*GlobalPositionTable::get_file_data(pos_d.file).source;
 
         let lines = file.split('\n').collect_vec();
         let mut pos: usize = 0;
@@ -187,10 +182,9 @@ impl GPosIdx {
     /// returns:
     /// 1. the name of the file the span is in
     /// 2. the (inclusive) range of lines within the span
-    pub fn get_line_num(&self) -> (&String, (usize, usize)) {
-        let table = GlobalPositionTable::as_ref();
-        let pos_data = table.get_pos(self.0);
-        let file_name = &table.get_file_data(pos_data.file).name;
+    pub fn get_line_num(&self) -> (&str, (usize, usize)) {
+        let pos_data = GlobalPositionTable::get_pos(self.0);
+        let file_name = &GlobalPositionTable::get_file_data(pos_data.file).name;
         let (buf, _, line_num) = self.get_lines();
         //reformat to return the range (inclusive)
         let rng = (line_num, line_num + buf.len() - 1);
@@ -199,8 +193,7 @@ impl GPosIdx {
 
     /// Format this position with the error message `err_msg`
     pub fn format_raw<S: AsRef<str>>(&self, err_msg: S) -> String {
-        let table = GlobalPositionTable::as_ref();
-        let pos_d = table.get_pos(self.0);
+        let pos_d = GlobalPositionTable::get_pos(self.0);
 
         let (lines, pos, linum) = self.get_lines();
         let mut buf = String::new();
@@ -228,9 +221,8 @@ impl GPosIdx {
 
     /// Format this position with filename header and the error message `err_msg`
     pub fn format<S: AsRef<str>>(&self, err_msg: S) -> String {
-        let table = GlobalPositionTable::as_ref();
-        let pos_d = table.get_pos(self.0);
-        let name = &table.get_file_data(pos_d.file).name;
+        let pos_d = GlobalPositionTable::get_pos(self.0);
+        let name = &*GlobalPositionTable::get_file_data(pos_d.file).name;
 
         let mut buf = name.to_string();
         writeln!(buf).unwrap();
@@ -239,9 +231,8 @@ impl GPosIdx {
     }
 
     pub fn get_location(&self) -> (&str, usize, usize) {
-        let table = GlobalPositionTable::as_ref();
-        let pos_d = table.get_pos(self.0);
-        let name = &table.get_file_data(pos_d.file).name;
+        let pos_d = GlobalPositionTable::get_pos(self.0);
+        let name = &*GlobalPositionTable::get_file_data(pos_d.file).name;
         (name, pos_d.start, pos_d.end)
     }
 

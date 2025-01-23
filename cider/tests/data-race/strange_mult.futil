@@ -1,0 +1,50 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> (out: 32) {
+  cells {
+    first_reg = std_reg(32);
+    mult = std_mult_pipe(32);
+    second_reg = std_reg(32);
+    adder = std_add(32);
+    adder2 = std_add(32);
+  }
+  wires {
+    group init {
+     first_reg.in = 32'd10;
+     first_reg.write_en = 1'd1;
+     second_reg.in = 32'd20;
+     second_reg.write_en = 1'd1;
+     init[done] = first_reg.done;
+    }
+
+    group incr_first_reg {
+      adder.left = first_reg.out;
+      adder.right = 32'd1;
+      first_reg.in = adder.out;
+      first_reg.write_en = 1'd1;
+      incr_first_reg[done] = first_reg.done;
+    }
+
+    group incr_second_reg {
+      adder2.left = second_reg.out;
+      adder2.right = 32'd1;
+      second_reg.in = adder2.out;
+      second_reg.write_en = 1'd1;
+      incr_second_reg[done] = second_reg.done;
+    }
+
+    mult.left = first_reg.out;
+    mult.right = second_reg.out;
+  }
+  control {
+    seq {
+      init;
+      par {
+        incr_first_reg;
+        incr_second_reg;
+      }
+    }
+  }
+}

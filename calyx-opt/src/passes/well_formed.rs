@@ -541,13 +541,13 @@ impl Visitor for WellFormed {
                         {
                             Err(Error::malformed_structure(format!(
                                 "Static Timing Guard has improper interval: `{}`",
-                                static_timing.to_string()
+                                static_timing
                             ))
                             .with_pos(&assign.attributes))
                         } else if static_timing.get_interval().1 > group_latency {
                             Err(Error::malformed_structure(format!(
                                 "Static Timing Guard has interval `{}`, which is out of bounds since its static group has latency {}",
-                                static_timing.to_string(),
+                                static_timing,
                                 group_latency
                             ))
                             .with_pos(&assign.attributes))
@@ -640,7 +640,7 @@ impl Visitor for WellFormed {
 
         let asgn = group.done_cond();
         let const_done_assign =
-            asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1);
+            asgn.guard.is_true() && asgn.src.borrow().is_constant_value(1, 1);
 
         if const_done_assign {
             self.diag.err(Error::malformed_structure("Group with constant done condition is invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));

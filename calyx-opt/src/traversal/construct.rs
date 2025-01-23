@@ -106,7 +106,7 @@ impl std::fmt::Display for ParseVal {
                 }
                 write!(f, "]")
             }
-            ParseVal::OutStream(o) => write!(f, "{}", o.to_string()),
+            ParseVal::OutStream(o) => write!(f, "{}", o),
         }
     }
 }

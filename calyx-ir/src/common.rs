@@ -2,6 +2,7 @@ use calyx_utils::GetName;
 #[cfg(debug_assertions)]
 use calyx_utils::Id;
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::rc::{Rc, Weak};
 
 /// Alias for a RefCell contained in an Rc reference.

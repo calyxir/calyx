@@ -1,8 +1,8 @@
 {
   "name": "cider-dap",
-  "displayName": "Cider",
+  "displayName": "Cider DAP",
   "version": "0.0.1",
-  "publisher": "Cider",
+  "publisher": "Capra @ Cornell",
   "description": "A debug adapter for Calyx files",
   "author": {
     "name": "...",

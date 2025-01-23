@@ -68,6 +68,10 @@ pub struct Opts {
     #[argh(switch, long = "nested")]
     pub nested_assign: bool,
 
+    /// emit all fsm in onehot style default is binary
+    #[argh(switch, long = "onehot")]
+    pub onehot: bool,
+
     /// emit extmodules to use with SystemVerilog implementations
     /// of primitives (only relevant to the FIRRTL backend)
     #[argh(switch, long = "emit-primitive-extmodules")]
@@ -200,14 +204,14 @@ impl Opts {
         {
             return Err(Error::misc(format!(
                 "--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project",
-                opts.backend.to_string()
+                opts.backend
             )));
         }
 
         // argh doesn't allow us to specify a default for this so we fill it
         // in manually.
         if opts.pass.is_empty() {
-            opts.pass = vec!["all".into()];
+            opts.pass = vec!["all-tdcc".into()];
         }
 
         Ok(opts)

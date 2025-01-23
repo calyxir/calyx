@@ -62,8 +62,8 @@ impl FromStr for BackendOpt {
 }
 
 /// Convert `BackendOpt` to a string
-impl ToString for BackendOpt {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for BackendOpt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Mlir => "mlir",
             Self::Resources => "resources",
@@ -76,6 +76,6 @@ impl ToString for BackendOpt {
             Self::PrimitiveUses => "primitive-uses",
             Self::None => "none",
         }
-        .to_string()
+        .fmt(f)
     }
 }

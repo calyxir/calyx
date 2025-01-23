@@ -1,5 +1,7 @@
 // use serde::{Serialize, Serializer};
 
+use std::fmt::Display;
+
 pub type GSym = symbol_table::GlobalSymbol;
 
 /// Represents an identifier in a Calyx program

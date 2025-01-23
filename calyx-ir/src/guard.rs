@@ -2,7 +2,7 @@ use crate::Printer;
 
 use super::{NumAttr, Port, RRC};
 use calyx_utils::Error;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
@@ -11,9 +11,9 @@ use std::{cmp::Ordering, hash::Hash, rc::Rc};
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Nothing;
 
-impl ToString for Nothing {
-    fn to_string(&self) -> String {
-        "".to_string()
+impl Display for Nothing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")
     }
 }
 
@@ -33,6 +33,19 @@ pub enum PortComp {
     Geq,
     /// p1 <= p2
     Leq,
+}
+
+impl Display for PortComp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PortComp::Eq => write!(f, "=="),
+            PortComp::Neq => write!(f, "!="),
+            PortComp::Gt => write!(f, ">"),
+            PortComp::Lt => write!(f, "<"),
+            PortComp::Geq => write!(f, ">="),
+            PortComp::Leq => write!(f, "<="),
+        }
+    }
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
@@ -56,18 +69,39 @@ pub enum Guard<T> {
     Info(T),
 }
 
+impl<T: Display> Display for Guard<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Guard::Or(l, r) => write!(f, "({} | {})", l, r),
+            Guard::And(l, r) => write!(f, "({} & {})", l, r),
+            Guard::Not(inner) => write!(f, "!{}", inner),
+            Guard::CompOp(op, l, r) => {
+                write!(f, "{} {} {}", l.borrow().name, op, r.borrow().name)
+            }
+            Guard::Port(p) => write!(
+                f,
+                "{}.{}",
+                p.borrow().get_parent_name(),
+                p.borrow().name
+            ),
+            Guard::True => write!(f, "true_guard"),
+            Guard::Info(i) => write!(f, "{}", i),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticTiming {
     interval: (u64, u64),
 }
 
-impl ToString for StaticTiming {
-    fn to_string(&self) -> String {
+impl Display for StaticTiming {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.interval.0 + 1 == self.interval.1 {
-            format!("%{}", self.interval.0)
+            write!(f, "%{}", self.interval.0)
         } else {
-            format!("%[{}:{}]", self.interval.0, self.interval.1)
+            write!(f, "%[{}:{}]", self.interval.0, self.interval.1)
         }
     }
 }
@@ -154,7 +188,7 @@ impl<T> Guard<T> {
     pub fn is_true(&self) -> bool {
         match self {
             Guard::True => true,
-            Guard::Port(p) => p.borrow().is_constant(1, 1),
+            Guard::Port(p) => p.borrow().is_constant_value(1, 1),
             _ => false,
         }
     }
@@ -212,7 +246,7 @@ impl<T> Guard<T> {
     }
 
     pub fn port(p: RRC<Port>) -> Self {
-        if p.borrow().is_constant(1, 1) {
+        if p.borrow().is_constant_value(1, 1) {
             Guard::True
         } else {
             Guard::Port(p)

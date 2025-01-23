@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use petgraph::matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero};
 use petgraph::visit::IntoEdgeReferences;
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, fmt::Display, hash::Hash};
 
 /// Index into a [WeightGraph]
 pub type Idx = NodeIndex;
@@ -126,14 +126,13 @@ where
     }
 }
 
-impl<T: Eq + Hash + ToString + Clone + Ord> ToString for WeightGraph<T> {
-    fn to_string(&self) -> String {
+impl<T: Eq + Hash + ToString + Clone + Ord> Display for WeightGraph<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let rev_map = self.reverse_index();
         let keys: Vec<_> = self.index_map.keys().collect();
         let nodes = keys
             .iter()
-            .enumerate()
-            .map(|(_idx, key)| {
+            .map(|key| {
                 format!(
                     "  {} [label=\"{}\"];",
                     key.to_string(),
@@ -154,6 +153,6 @@ impl<T: Eq + Hash + ToString + Clone + Ord> ToString for WeightGraph<T> {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        format!("graph {{ \n{}\n{}\n }}", nodes, edges)
+        write!(f, "graph {{ \n{}\n{}\n }}", nodes, edges)
     }
 }

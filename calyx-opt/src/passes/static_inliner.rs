@@ -348,6 +348,7 @@ impl StaticInliner {
                     // clone vs. can drain
                     let mut g_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                         g.borrow_mut().assignments.clone();
+
                     // add cur_offset to each static guard in g_assigns
                     // and add %[offset, offset + latency] to each assignment in
                     // g_assigns

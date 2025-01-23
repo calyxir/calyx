@@ -1,0 +1,35 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external a = comb_mem_d1(32, 1, 1);
+    lt = std_lt(32);
+    @control @generated @protected wr_a___main_group_probe = std_wire(1);
+    @control @generated @protected a___wr_a___main_primitive_probe = std_wire(1);
+    @control @generated @protected wr_b___main_group_probe = std_wire(1);
+    @control @generated @protected wr_a___wr_b___main_se_probe = std_wire(1);
+  }
+  wires {
+    group wr_a {
+      a.addr0 = 1'd0;
+      a.write_en = 1'd1;
+      a.write_data = 32'd1;
+      wr_a[done] = a.done;
+      wr_a___main_group_probe.in = 1'd1;
+      a___wr_a___main_primitive_probe.in = 1'd1;
+    }
+    group wr_b {
+      wr_a[go] = lt.out ? 1'd1;
+      wr_b[done] = wr_a[done];
+      wr_b___main_group_probe.in = 1'd1;
+      wr_a___wr_b___main_se_probe.in = lt.out ? 1'd1;
+    }
+    comb group cond {
+      lt.left = 32'd5;
+      lt.right = 32'd9;
+    }
+  }
+  control {
+    wr_b;
+  }
+}

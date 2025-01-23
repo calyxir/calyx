@@ -4,7 +4,7 @@ use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
     DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
-    DefaultAssigns, DynamicFSMAllocation, Externalize, GoInsertion,
+    DefaultAssigns, Dump, DynamicFSMAllocation, Externalize, GoInsertion,
     GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
@@ -80,7 +80,11 @@ impl PassManager {
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
 
+        // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
+
+        // debug helper pass
+        pm.register_pass::<Dump>()?;
 
         //add metadata
         pm.register_pass::<Metadata>()?;
@@ -102,7 +106,8 @@ impl PassManager {
                 DeadCellRemoval, // Clean up dead wires left by CombProp
                 CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
-                CompileInvoke,   // creates dead comb groups
+                DataPathInfer,
+                CompileInvoke, // creates dead comb groups
                 StaticInference,
                 StaticPromotion,
                 CompileRepeat,
@@ -110,9 +115,10 @@ impl PassManager {
                 CollapseControl,
             ]
         );
+
         register_alias!(
             pm,
-            "compile",
+            "tdcc-compile",
             [
                 StaticInliner,
                 MergeAssign, // Static inliner generates lots of assigns
@@ -122,6 +128,21 @@ impl PassManager {
                 StaticFSMOpts,
                 CompileStatic,
                 DeadGroupRemoval,
+                TopDownCompileControl
+            ]
+        );
+
+        register_alias!(
+            pm,
+            "fsm-compile",
+            [
+                StaticInliner,
+                MergeAssign, // Static inliner generates lots of assigns
+                DeadGroupRemoval, // Static inliner generates lots of dead groups
+                AddGuard,
+                SimplifyStaticGuards,
+                StaticFSMOpts,
+                DeadGroupRemoval,
                 DynamicFSMAllocation,
             ]
         );
@@ -129,6 +150,7 @@ impl PassManager {
             pm,
             "post-opt",
             [
+                Canonicalize,
                 DeadGroupRemoval,
                 CombProp,
                 DeadAssignmentRemoval,
@@ -144,16 +166,36 @@ impl PassManager {
                 WireInliner,
                 ClkInsertion,
                 ResetInsertion,
-                MergeAssign,
                 DefaultAssigns,
+                MergeAssign,
             ]
         );
 
         // Default flow
         register_alias!(
             pm,
-            "all",
-            ["validate", "pre-opt", "compile", "post-opt", "lower",]
+            "all-tdcc",
+            ["validate", "pre-opt", "tdcc-compile", "post-opt", "lower",]
+        );
+
+        register_alias!(
+            pm,
+            "all-fsm",
+            ["validate", "pre-opt", "fsm-compile", "post-opt", "lower",]
+        );
+
+        // profiler flow for pass explorer access
+        register_alias!(
+            pm,
+            "profiler",
+            [
+                StaticInliner,
+                CompileStatic,
+                CompileRepeat,
+                CompileInvoke,
+                ProfilerInstrumentation,
+                "all-tdcc"
+            ]
         );
 
         // Compilation flow with no optimizations enables
@@ -165,7 +207,7 @@ impl PassManager {
                 CompileSync,
                 SimplifyWithControl,
                 CompileInvoke,
-                "compile",
+                "tdcc-compile",
                 "lower"
             ]
         );
@@ -177,7 +219,7 @@ impl PassManager {
                 "validate",
                 SynthesisPapercut,
                 "pre-opt",
-                "compile",
+                "tdcc-compile",
                 "post-opt",
                 "lower",
                 Externalize,

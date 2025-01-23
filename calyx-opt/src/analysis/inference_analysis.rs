@@ -383,7 +383,6 @@ impl InferenceAnalysis {
                     }
                 }
               }
-
               ir::PortParent::StaticGroup(_) => // done ports of static groups should clearly NOT have static latencies
               panic!("Have not decided how to handle static groups in infer-static-timing"),
           }
@@ -521,7 +520,7 @@ impl InferenceAnalysis {
                 }
             }
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!()
             }
         }
     }
@@ -552,10 +551,11 @@ impl InferenceAnalysis {
 
     /// "Fixes Up" the component. In particular:
     /// 1. Removes @promotable annotations for any groups that write to any
-    /// `updated_components`.
+    ///    `updated_components`.
     /// 2. Try to re-infer groups' latencies.
     /// 3. Removes all @promotable annotation from the control program.
     /// 4. Re-infers the @promotable annotations for any groups or control.
+    ///
     /// Note that this only fixes up the component's ``internals''.
     /// It does *not* fix the component's signature.
     pub fn fixup_timing(&self, comp: &mut ir::Component) {

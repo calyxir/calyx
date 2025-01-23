@@ -57,7 +57,7 @@ pub fn meaningful_port_read_set<'a, T: 'a>(
                 && asgn.guard.is_not_done(
                     &asgn.dst.borrow().cell_parent().borrow().name(),
                 )
-                && asgn.src.borrow().is_constant(1, 1)
+                && asgn.src.borrow().is_constant_value(1, 1)
         })
         .analysis()
         .writes()
@@ -669,7 +669,7 @@ impl LiveRangeAnalysis {
                 sc,
             ),
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }
@@ -1426,7 +1426,7 @@ impl LiveRangeAnalysis {
                 self.build_live_ranges_static(sc, alive, gens, kills)
             }
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }

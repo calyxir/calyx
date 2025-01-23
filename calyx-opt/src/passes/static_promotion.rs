@@ -5,7 +5,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
 };
-use calyx_ir::{self as ir, BoolAttr, LibrarySignatures};
+use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use ir::GetAttributes;
 use itertools::Itertools;
@@ -21,12 +21,12 @@ const APPROX_WHILE_REPEAT_SIZE: u64 = 3;
 ///
 /// Promotion occurs the following policies:
 /// 1. ``Threshold'': How large the island must be. We have three const
-/// defined as heuristics to measure approximately how big each control program
-/// is. It must be larger than that threshold.
+///    defined as heuristics to measure approximately how big each control program
+///    is. It must be larger than that threshold.
 /// 2. ``Cycle limit": The maximum number of cycles the island can be when we
-/// promote it.
+///    promote it.
 /// 3. ``If Diff Limit": The maximum difference in latency between if statments
-/// that we can tolerate to promote it.
+///    that we can tolerate to promote it.
 ///
 pub struct StaticPromotion {
     /// An InferenceAnalysis object so that we can re-infer the latencies of
@@ -193,7 +193,7 @@ impl StaticPromotion {
             }
             ir::Control::Static(sc) => Self::approx_size_static(sc, false),
             ir::Control::FSMEnable(_) => {
-                unreachable!("should not encounter fsm nodes")
+                todo!("should not encounter fsm nodes")
             }
         }
     }
@@ -489,15 +489,10 @@ impl Visitor for StaticPromotion {
         } else {
             ir::Control::Seq(ir::Seq {
                 stmts: new_stmts,
-                attributes: ir::Attributes::default(),
+                attributes: s.get_attributes().clone(),
             })
         };
         self.inference_analysis.fixup_ctrl(&mut new_ctrl);
-
-        // this might be part of a larger issue where passes remove some attributes they shouldn't
-        if s.get_attributes().has(BoolAttr::Fast) {
-            new_ctrl.get_mut_attributes().insert(BoolAttr::Fast, 1);
-        }
 
         Ok(Action::change(new_ctrl))
     }
@@ -548,7 +543,7 @@ impl Visitor for StaticPromotion {
         new_stmts.extend(d_stmts);
         let new_par = ir::Control::Par(ir::Par {
             stmts: new_stmts,
-            attributes: ir::Attributes::default(),
+            attributes: s.get_attributes().clone(),
         });
         Ok(Action::change(new_par))
     }

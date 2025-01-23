@@ -1,8 +1,11 @@
+use std::path::Display;
+
 use super::Attributes;
 use crate::Attribute;
 use calyx_utils::{CalyxResult, Error, GetName, Id};
 use linked_hash_map::LinkedHashMap;
 use smallvec::SmallVec;
+use strum_macros::Display;
 
 /// Representation of a external primitive definition.
 ///
@@ -194,7 +197,7 @@ impl PortDef<Width> {
 }
 
 /// Direction of a port on a cell.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Display)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Direction {
     /// Input port.

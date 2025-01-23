@@ -7,7 +7,7 @@ from math import log2
 """
 This file takes in a `.yxi` description and outputs a xml suitable for a `kernel.xml` file
 can be used to package an xclbin for the Xilinx XRT runtime.
-See https://docs.amd.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
+See https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/RTL-Kernel-XML-File
 for the spec this is based on.
 """
 size_key = "total_size"
@@ -26,7 +26,7 @@ def gen_xml(yxi):
             "name": yxi["toplevel"],
             "language": "ip_c",
             # TODO: Make sure this matches component.xml, Namely the `Toplevel` part.
-            #  See https://docs.amd.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
+            #  See https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/RTL-Kernel-XML-File
             "vlnv": "capra.cs.cornell.edu:kernel:Toplevel:1.0",
             "attributes": "",
             "preferredWorkGroupSizeMultiple": "0",

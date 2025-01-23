@@ -57,10 +57,14 @@ impl CalyxParser {
         })?;
         // Add a new file to the position table
         let string_content = std::str::from_utf8(content)?.to_string();
-        let file = GlobalPositionTable::as_mut()
-            .add_file(path.to_string_lossy().to_string(), string_content);
+        let file = GlobalPositionTable::add_file(
+            path.to_string_lossy().to_string(),
+            string_content,
+        );
         let user_data = UserData { file };
-        let content = GlobalPositionTable::as_ref().get_source(file);
+
+        let content = GlobalPositionTable::get_source(file);
+
         // Parse the file
         let inputs =
             CalyxParser::parse_with_userdata(Rule::file, content, user_data)
@@ -93,17 +97,17 @@ impl CalyxParser {
             ))
         })?;
         // Save the input string to the position table
-        let file =
-            GlobalPositionTable::as_mut().add_file("<stdin>".to_string(), buf);
+        let file = GlobalPositionTable::add_file("<stdin>".to_string(), buf);
         let user_data = UserData { file };
-        let contents = GlobalPositionTable::as_ref().get_source(file);
+        let content = GlobalPositionTable::get_source(file);
+
         // Parse the input
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, contents, user_data)
+            CalyxParser::parse_with_userdata(Rule::file, content, user_data)
                 .map_err(|e| {
-                calyx_utils::Error::parse_error(e.variant.message())
-                    .with_pos(&Self::error_span(&e, file))
-            })?;
+                    calyx_utils::Error::parse_error(e.variant.message())
+                        .with_pos(&Self::error_span(&e, file))
+                })?;
         let input = inputs.single().map_err(|e| {
             calyx_utils::Error::parse_error(e.variant.message())
                 .with_pos(&Self::error_span(&e, file))
@@ -118,11 +122,7 @@ impl CalyxParser {
     fn get_span(node: &Node) -> GPosIdx {
         let ud = node.user_data();
         let sp = node.as_span();
-        let pos = GlobalPositionTable::as_mut().add_pos(
-            ud.file,
-            sp.start(),
-            sp.end(),
-        );
+        let pos = GlobalPositionTable::add_pos(ud.file, sp.start(), sp.end());
         GPosIdx(pos)
     }
 
@@ -131,7 +131,7 @@ impl CalyxParser {
             pest::error::InputLocation::Pos(off) => (off, off + 1),
             pest::error::InputLocation::Span((start, end)) => (start, end),
         };
-        let pos = GlobalPositionTable::as_mut().add_pos(file, start, end);
+        let pos = GlobalPositionTable::add_pos(file, start, end);
         GPosIdx(pos)
     }
 

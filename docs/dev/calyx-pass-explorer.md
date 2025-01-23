@@ -9,6 +9,7 @@ is just to run it on code and see what happens.
 Enter [`calyx-pass-explorer`](https://github.com/calyxir/calyx/tree/main/tools/calyx-pass-explorer).
 It's a command line tool that provides an interactive interface for visualizing
 how different passes affect the source code.
+It's been used to debug and develop new compiler passes as well as implement new features in the compiler, so I hope you can find it useful too!
 
 > ![Example running of the tool](https://raw.githubusercontent.com/calyxir/calyx/main/tools/calyx-pass-explorer/example_v0.0.0.png)
 > _The above image depicts the tool's interface in v0.0.0.
@@ -67,11 +68,11 @@ tool to help develop it!
 We'll first run `calyx-pass-explorer example0.futil`.
 You should get something horrific like
 
-![Lots of random text output that doesn't make sense](./assets/horrific-interface.png)
+![Lots of random text output that doesn't make sense](assets/horrific-interface.png)
 
 > [!TIP]
 > If you get this message:
-> ![Calyx executable could not be found](./assets/calyx-missing.png)
+> ![Calyx executable could not be found](assets/calyx-missing.png)
 > You should setup `fud` or pass the path explicitly with `-e`, as suggested.
 > However, we're going to update this later to look at `fud2` as well because
 > `fud` is now officially deprecated.
@@ -82,7 +83,7 @@ What we really want is to focus on what happens to, _e.g._, the `main` component
 To do that, we just pass `-c main` (or `--component main`) as a flag:
 
 ![Running the tool and visualizing how the well-formed pass affects the main
-component](./assets/well-formed.png)
+component](assets/well-formed.png)
 
 That's a lot better, but it's still quite a bit of information.
 Let's break it down.

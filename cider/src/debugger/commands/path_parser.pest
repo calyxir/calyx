@@ -1,0 +1,13 @@
+root = { "." }
+
+separator = { "-" }
+
+body = { "b" }
+
+num = { ASCII_DIGIT+ }
+
+branch = {"t" | "f"}
+
+clause = { separator ~ (body | num | branch) }
+
+path = { SOI ~ root ~ clause* ~ EOI }

@@ -26,6 +26,7 @@
   - [Scripting](./running-calyx/fud2/scripts.md)
 - [Interfacing with Calyx RTL](./running-calyx/interfacing.md)
 - [The Calyx Interpreter](./running-calyx/interpreter.md)
+- [The Calyx Profiler](./running-calyx/profiler.md)
 - [FIRRTL Backend](./running-calyx/firrtl.md)
 
 # Compiler Development Guide

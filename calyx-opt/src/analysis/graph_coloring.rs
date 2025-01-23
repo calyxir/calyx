@@ -3,6 +3,7 @@ use itertools::Itertools;
 use petgraph::algo;
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::Display,
     hash::Hash,
 };
 
@@ -216,8 +217,8 @@ where
     }
 }
 
-impl<T: Eq + Hash + ToString + Clone + Ord> ToString for GraphColoring<T> {
-    fn to_string(&self) -> String {
-        self.graph.to_string()
+impl<T: Eq + Hash + ToString + Clone + Ord> Display for GraphColoring<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.graph.to_string().fmt(f)
     }
 }

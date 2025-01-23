@@ -16,6 +16,8 @@ pub struct BackendConf {
     /// [FIRRTL backend only] Emit extmodule declarations for primtives
     /// for use with SystemVerilog implementations
     pub emit_primitive_extmodules: bool,
+    /// Emit all FSMs with onehot encoding.
+    pub onehot: bool,
 }
 
 /// The IR Context that represents an entire Calyx program with all of its

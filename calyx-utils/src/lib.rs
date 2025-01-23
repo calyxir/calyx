@@ -18,7 +18,5 @@ pub use math::bits_needed_for;
 pub use namegenerator::NameGenerator;
 pub use out_file::OutputFile;
 pub use pos_string::PosString;
-pub use position::{
-    FileIdx, GPosIdx, GlobalPositionTable, PosIdx, PositionTable, WithPos,
-};
+pub use position::{FileIdx, GPosIdx, GlobalPositionTable, PosIdx, WithPos};
 pub use weight_graph::{BoolIdx, Idx, WeightGraph};
