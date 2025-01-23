@@ -1,8 +1,5 @@
 use itertools::Itertools;
-use std::{
-    cell::RefCell, collections::HashMap, fmt::Display, io::Read, num::NonZero,
-    path::PathBuf,
-};
+use std::{collections::HashMap, fmt::Display, num::NonZero, path::PathBuf};
 use thiserror::Error;
 
 type Word = u32;
@@ -155,10 +152,6 @@ impl SourceInfoTable {
         self.position_map.values()
     }
 
-    pub fn create_file_reader(&self) -> SourceInfoFileReader<'_> {
-        SourceInfoFileReader::new(self)
-    }
-
     /// Adds a file to the file map with the given id
     pub fn add_file(&mut self, file: FileId, path: PathBuf) {
         self.file_map.insert(file, path);
@@ -288,105 +281,8 @@ impl SourceLocation {
         Self { line, file }
     }
 }
-
-/// A wrapper around the metadata table that reads file contents into memory.
-/// Constructed via [`SourceInfoTable::create_file_reader`].
-///
-///
-/// These allocations are dropped when the reader goes out of scope. Since the
-/// lifetime of the reader is tied to the metadata table that created it, this
-/// isn't intended to be a long term structure.
-pub struct SourceInfoFileReader<'a> {
-    metadata: &'a SourceInfoTable,
-    /// I'm not thrilled using interior mutability here, but the alternative is
-    /// having reads always require a mutable access which is not ideal. A more
-    /// comprehensive solution might involve extending lifetimes rather than
-    /// cloning strings
-    reader_map: RefCell<HashMap<FileId, Box<str>>>,
-}
-
-impl<'a> SourceInfoFileReader<'a> {
-    pub fn new(metadata: &'a SourceInfoTable) -> Self {
-        Self {
-            metadata,
-            reader_map: RefCell::new(HashMap::new()),
-        }
-    }
-
-    fn read_file_into_memory(&self, file: FileId) -> SourceInfoResult<()> {
-        let path = self.metadata.lookup_file_path(file);
-        if path.exists() {
-            let mut reader = std::fs::File::open(path)?;
-            let mut content = String::new();
-            reader.read_to_string(&mut content)?;
-            self.reader_map
-                .borrow_mut()
-                .insert(file, content.into_boxed_str());
-            Ok(())
-        } else {
-            Err(SourceInfoTableError::FileDoesNotExist(path.clone()))
-        }
-    }
-
-    /// Looks up the given source position. If the file used by this position
-    /// has not been read yet this will cause the contents of the file to be
-    /// read into memory. Returns None if either the file or line does not exist
-    ///
-    /// TODO griffin: make this able to return [str] instead of [String]. Maybe
-    /// also don't buffer file contents into memory? This allocation probably
-    /// isn't a big deal though
-    pub fn lookup_source(
-        &self,
-        pos: &SourceLocation,
-    ) -> SourceInfoResult<String> {
-        // bind this as a separate variable to avoid borrow collisions since
-        // reading the file into memory requires
-        let contains_key = self.reader_map.borrow().contains_key(&pos.file);
-        if !contains_key {
-            self.read_file_into_memory(pos.file)?;
-        }
-
-        let content = &self.reader_map.borrow()[&pos.file];
-
-        let line = content
-            .lines()
-            // this is very stupid and there's probably a better way but it
-            // works I guess.
-            // Need to subtract 1 from the line number since iterators are 0-indexed
-            .nth(pos.line.as_usize() - 1)
-            .expect("file does not have the given line number");
-
-        Ok(line.to_string())
-    }
-
-    /// Given a position id, returns the line of source code that it references
-    /// if it exists
-    pub fn lookup_position(&self, pos: PositionId) -> SourceInfoResult<String> {
-        if let Some(entry) = self.metadata.position_map.get(&pos) {
-            self.lookup_source(entry)
-        } else {
-            Err(SourceInfoTableError::PositionDoesNotExist(pos))
-        }
-    }
-
-    /// Panicking version of [`MetadataFileReader::lookup_source`]
-    pub fn unwrap_source(&self, pos: &SourceLocation) -> String {
-        self.lookup_source(pos).unwrap()
-    }
-}
-
 #[derive(Error)]
 pub enum SourceInfoTableError {
-    /// General IO error other than file does not exist
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("File {0} does not exist")]
-    FileDoesNotExist(PathBuf),
-
-    #[error("Position {0} does not exist in the metadata table")]
-    PositionDoesNotExist(PositionId),
-
     #[error("Duplicate positions found in the metadata table. Position {pos} is defined multiple times:
     1. file {}, line {}
     2. file {}, line {}\n", s1.file, s1.line, s2.file, s2.line)]
@@ -438,7 +334,9 @@ mod tests {
         2: 0 2
 }#"#;
 
-        let metadata = CalyxParser::parse_metadata(input_str).unwrap().unwrap();
+        let metadata = CalyxParser::parse_source_info_table(input_str)
+            .unwrap()
+            .unwrap();
         let file = metadata.lookup_file_path(1.into());
         assert_eq!(file, &PathBuf::from("test2.calyx"));
 
@@ -459,7 +357,7 @@ mod tests {
                 1: 0 1
                 2: 0 2
         }#"#;
-        let metadata = CalyxParser::parse_metadata(input_str).unwrap();
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
 
         assert!(metadata.is_err());
         let err = metadata.unwrap_err();
@@ -483,7 +381,7 @@ mod tests {
                 0: 0 1
                 2: 0 2
         }#"#;
-        let metadata = CalyxParser::parse_metadata(input_str).unwrap();
+        let metadata = CalyxParser::parse_source_info_table(input_str).unwrap();
 
         assert!(metadata.is_err());
         let err = metadata.unwrap_err();
@@ -513,9 +411,10 @@ mod tests {
         metadata.serialize(&mut serialized_str).unwrap();
         let serialized_str = String::from_utf8(serialized_str).unwrap();
 
-        let parsed_metadata = CalyxParser::parse_metadata(&serialized_str)
-            .unwrap()
-            .unwrap();
+        let parsed_metadata =
+            CalyxParser::parse_source_info_table(&serialized_str)
+                .unwrap()
+                .unwrap();
 
         assert_eq!(metadata, parsed_metadata)
     }

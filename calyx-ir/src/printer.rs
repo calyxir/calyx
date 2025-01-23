@@ -117,7 +117,7 @@ impl Printer {
         }
         write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))?;
 
-        Printer::write_source_info_table(f, &ctx.source_info)
+        Printer::write_source_info_table(f, &ctx.source_info_table)
     }
 
     /// Formats and writes extern statements.

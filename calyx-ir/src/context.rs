@@ -32,10 +32,10 @@ pub struct Context {
     /// Extra options provided to the command line.
     /// Interpreted by individual passes
     pub extra_opts: Vec<String>,
-    /// An optional legacy opaque metadata string
+    /// An optional opaque metadata string
     pub metadata: Option<String>,
     /// An optional metadata mapping table
-    pub source_info: Option<SourceInfoTable>,
+    pub source_info_table: Option<SourceInfoTable>,
 }
 
 impl Context {

@@ -389,9 +389,9 @@ control = {
 any_char = { ANY }
 metadata_char = ${ !"}#" ~ any_char }
 
-metadata_legacy = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
+metadata = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
 
-// New Metadata
+// Source Info Table
 
 file_header = {^"FILES"}
 
@@ -412,14 +412,14 @@ position_table = {
     position_header ~ position_entry+
 }
 
-metadata_table = {
+source_info_table = {
  ^"sourceinfo" ~ "#{" ~ file_table ~ position_table ~ "}#"
 }
 
 
 extra_info = {
-      metadata_legacy
-      | metadata_table
-      | (metadata_legacy ~ metadata_table)
-      | (metadata_table ~ metadata_legacy)
+      metadata
+      | source_info_table
+      | (metadata ~ source_info_table)
+      | (source_info_table ~ metadata)
 }

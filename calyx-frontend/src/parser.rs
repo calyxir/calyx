@@ -196,18 +196,18 @@ impl CalyxParser {
 
     #[cfg(test)]
     /// A test helper for parsing the new metadata table
-    pub fn parse_metadata(
+    pub fn parse_source_info_table(
         input: &str,
     ) -> Result<SourceInfoResult<SourceInfoTable>, Box<Error<Rule>>> {
         let inputs = CalyxParser::parse_with_userdata(
-            Rule::metadata_table,
+            Rule::source_info_table,
             input,
             UserData {
                 file: GlobalPositionTable::add_file("".into(), "".into()),
             },
         )?;
         let input = inputs.single()?;
-        Ok(CalyxParser::metadata_table(input)?)
+        Ok(CalyxParser::source_info_table(input)?)
     }
 }
 
@@ -1360,13 +1360,13 @@ impl CalyxParser {
         ))
     }
 
-    fn metadata_legacy(input: Node) -> ParseResult<String> {
+    fn metadata(input: Node) -> ParseResult<String> {
         Ok(match_nodes!(input.into_children();
             [metadata_char(c)..] => c.collect::<String>().trim().into()
         ))
     }
 
-    // New Metadata
+    // Source Info Table
 
     fn path_text(input: Node) -> ParseResult<PathBuf> {
         Ok(PathBuf::from(input.as_str().trim()))
@@ -1414,7 +1414,7 @@ impl CalyxParser {
                 [position_header(_), position_entry(e)..] => e))
     }
 
-    fn metadata_table(
+    fn source_info_table(
         input: Node,
     ) -> ParseResult<SourceInfoResult<SourceInfoTable>> {
         Ok(match_nodes!(input.into_children();
@@ -1428,29 +1428,29 @@ impl CalyxParser {
         input: Node,
     ) -> ParseResult<(Option<String>, Option<SourceInfoTable>)> {
         Ok(match_nodes!(input.into_children();
-                [metadata_legacy(l)] => (Some(l), None),
-                [metadata_table(t)] => {
-                    if let Ok(t) = t {
-                        (None, Some(t))
+                [metadata(m)] => (Some(m), None),
+                [source_info_table(s)] => {
+                    if let Ok(s) = s {
+                        (None, Some(s))
                     } else {
-                        log::error!("{}", t.unwrap_err());
+                        log::error!("{}", s.unwrap_err());
                         (None, None)
                     }
                 },
-                [metadata_legacy(l), metadata_table(t)] => {
-                    if let Ok(t) = t {
-                        (Some(l), Some(t))
+                [metadata(m), source_info_table(s)] => {
+                    if let Ok(s) = s {
+                        (Some(m), Some(s))
                     } else {
-                        log::error!("{}", t.unwrap_err());
-                        (Some(l), None)
+                        log::error!("{}", s.unwrap_err());
+                        (Some(m), None)
                     }
                 },
-                [metadata_table(t), metadata_legacy(l)] => {
-                    if let Ok(t) = t {
-                        (Some(l), Some(t))
+                [source_info_table(s), metadata(m)] => {
+                    if let Ok(s) = s {
+                        (Some(m), Some(s))
                     } else {
-                        log::error!("{}", t.unwrap_err());
-                        (Some(l), None)
+                        log::error!("{}", s.unwrap_err());
+                        (Some(m), None)
                     }
                 }
         ))
@@ -1462,11 +1462,11 @@ impl CalyxParser {
             // There really seems to be no straightforward way to resolve this
             // duplication
             [imports(imports), externs_and_comps(mixed), extra_info(info), EOI(_)] => {
-                let (mut legacy_metadata, metadata) = info;
+                let (mut metadata, source_info_table) = info;
                 // remove empty metadata strings
-                if let Some(m) = &legacy_metadata {
+                if let Some(m) = &metadata {
                     if m.is_empty() {
-                        legacy_metadata = None;
+                        metadata = None;
                     }
                 }
 
@@ -1475,8 +1475,8 @@ impl CalyxParser {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
-                        metadata: legacy_metadata,
-                        source_info: metadata
+                        metadata,
+                         source_info_table
                     };
                 for m in mixed {
                     match m {
@@ -1501,7 +1501,7 @@ impl CalyxParser {
                         components: Vec::new(),
                         externs: Vec::new(),
                         metadata: None,
-                        source_info: None
+                        source_info_table: None
                     };
                 for m in mixed {
                     match m {
