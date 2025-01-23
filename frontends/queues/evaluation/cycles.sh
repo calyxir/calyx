@@ -2,7 +2,7 @@
 
 shopt -s globstar
 
-cd "$(dirname "$0")/../.." # move to root
+cd "$(dirname "$0")/../../.." # move to root
 
 declare -a files=(frontends/queues/tests/**/*.py)
 num_files=${#files[@]}

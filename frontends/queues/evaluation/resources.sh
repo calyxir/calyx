@@ -7,7 +7,7 @@ if [ "$#" -gt 1 ]; then
     exit 1
 fi
 
-cd "$(dirname "$0")/../.." # move to root
+cd "$(dirname "$0")/../../.." # move to root
 
 declare -a files=(frontends/queues/tests/**/*.py)
 num_files=${#files[@]}

@@ -3,6 +3,7 @@ source: fud2/tests/tests.rs
 ---
 [
     "calyx",
+    "calyx_py",
     "cider",
     "cider-debug",
     "cocotb-axi",
