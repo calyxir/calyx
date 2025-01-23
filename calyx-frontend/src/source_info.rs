@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use std::{
     cell::RefCell, collections::HashMap, fmt::Display, io::Read, num::NonZero,
-    ops::Add, path::PathBuf,
+    path::PathBuf,
 };
 use thiserror::Error;
 
@@ -222,22 +222,28 @@ impl SourceInfoTable {
 
         for (file, path) in files {
             if let Some(first_path) = file_map.insert(file, path) {
-                return Err(SourceInfoTableError::DuplicateFiles {
-                    id1: file,
-                    path1: first_path,
-                    path2: file_map[&file].clone(),
-                });
+                let inserted_path = &file_map[&file];
+                if &first_path != inserted_path {
+                    return Err(SourceInfoTableError::DuplicateFiles {
+                        id1: file,
+                        path1: first_path,
+                        path2: inserted_path.clone(),
+                    });
+                }
             }
         }
 
         for (pos, file, line) in positions {
             let source = SourceLocation::new(file, line);
             if let Some(first_pos) = position_map.insert(pos, source) {
-                return Err(SourceInfoTableError::DuplicatePositions {
-                    pos,
-                    s1: first_pos,
-                    s2: position_map[&pos].clone(),
-                });
+                let inserted_position = &position_map[&pos];
+                if inserted_position != &first_pos {
+                    return Err(SourceInfoTableError::DuplicatePositions {
+                        pos,
+                        s1: first_pos,
+                        s2: position_map[&pos].clone(),
+                    });
+                }
             }
         }
 
