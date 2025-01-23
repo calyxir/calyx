@@ -395,13 +395,10 @@ metadata_legacy = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
 
 file_header = {"FILES"}
 
-quote = {"\""}
+path_text = @{(ASCII_ALPHANUMERIC | "\\" | "/" | "." | "_" | "-" )*}
 
-path_text = {(ASCII_ALPHANUMERIC | "\\" | "/" | "." | "_" | "-" )*}
 
-path = { quote ~ path_text ~ quote }
-
-file_entry = { bitwidth ~ ":" ~ path }
+file_entry = { bitwidth ~ ":" ~ path_text }
 
 file_table = {
     file_header ~ file_entry+

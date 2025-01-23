@@ -1364,23 +1364,14 @@ impl CalyxParser {
     }
 
     // New Metadata
-    fn quote(_input: Node) -> ParseResult<()> {
-        Ok(())
-    }
 
     fn path_text(input: Node) -> ParseResult<PathBuf> {
-        Ok(PathBuf::from(input.as_str()))
-    }
-
-    fn path(input: Node) -> ParseResult<PathBuf> {
-        Ok(match_nodes!(input.into_children();
-                [quote(_), path_text(p), quote(_)] => p
-        ))
+        Ok(PathBuf::from(input.as_str().trim()))
     }
 
     fn file_entry(input: Node) -> ParseResult<(MetadataFileId, PathBuf)> {
         Ok(match_nodes!(input.into_children();
-            [bitwidth(n), path(p)] => (MetadataFileId::new(n.try_into().expect("file ids must fit in a u32")), p)
+            [bitwidth(n), path_text(p)] => (MetadataFileId::new(n.try_into().expect("file ids must fit in a u32")), p)
         ))
     }
 

@@ -158,7 +158,7 @@ impl MetadataTable {
         // write file table
         writeln!(f, "FILES")?;
         for (file, path) in self.file_map.iter().sorted_by_key(|(&k, _)| k) {
-            writeln!(f, "{file}: \"{}\"", path.display())?;
+            writeln!(f, "{file}: {}", path.display())?;
         }
 
         // write the position table
@@ -304,9 +304,9 @@ mod tests {
     fn test_parse_metadata() {
         let input_str = r#"fileinfo #{
     FILES
-        0: "test.calyx"
-        1: "test2.calyx"
-        2: "test3.calyx"
+        0: test.calyx
+        1: test2.calyx
+        2: test3.calyx
     POSITIONS
         0: 0 5
         1: 0 1
