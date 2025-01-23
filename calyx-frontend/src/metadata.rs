@@ -102,6 +102,8 @@ pub struct MetadataTable {
 }
 
 impl MetadataTable {
+    const HEADER: &str = "sourceinfo";
+
     pub fn lookup_file_path(&self, file: FileId) -> &PathBuf {
         &self.file_map[&file]
     }
@@ -153,7 +155,7 @@ impl MetadataTable {
         &self,
         mut f: W,
     ) -> Result<(), std::io::Error> {
-        writeln!(f, "fileinfo #{{")?;
+        writeln!(f, "{} #{{", Self::HEADER)?;
 
         // write file table
         writeln!(f, "FILES")?;
@@ -302,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_parse_metadata() {
-        let input_str = r#"fileinfo #{
+        let input_str = r#"sourceinfo #{
     FILES
         0: test.calyx
         1: test2.calyx

@@ -413,7 +413,7 @@ position_table = {
 }
 
 metadata_table = {
- ^"fileinfo" ~ "#{" ~ file_table ~ position_table ~ "}#"
+ ^"sourceinfo" ~ "#{" ~ file_table ~ position_table ~ "}#"
 }
 
 

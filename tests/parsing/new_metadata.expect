@@ -55,7 +55,7 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
     }
   }
 }
-fileinfo #{
+sourceinfo #{
 FILES
 0: test.futil
 1: tests/parsing/new_metadata.expect
