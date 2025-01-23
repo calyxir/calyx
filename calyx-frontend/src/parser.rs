@@ -9,7 +9,8 @@ use crate::{
     attribute::SetAttribute,
     attributes::ParseAttributeWrapper,
     source_info::{
-        FileId as MetadataFileId, LineNum, PositionId, SourceInfoTable,
+        FileId as MetadataFileId, LineNum, PositionId, SourceInfoResult,
+        SourceInfoTable,
     },
     Attribute, Direction, PortDef, Primitive, Width,
 };
@@ -197,7 +198,7 @@ impl CalyxParser {
     /// A test helper for parsing the new metadata table
     pub fn parse_metadata(
         input: &str,
-    ) -> Result<SourceInfoTable, Box<Error<Rule>>> {
+    ) -> Result<SourceInfoResult<SourceInfoTable>, Box<Error<Rule>>> {
         let inputs = CalyxParser::parse_with_userdata(
             Rule::metadata_table,
             input,
@@ -1413,7 +1414,9 @@ impl CalyxParser {
                 [position_header(_), position_entry(e)..] => e))
     }
 
-    fn metadata_table(input: Node) -> ParseResult<SourceInfoTable> {
+    fn metadata_table(
+        input: Node,
+    ) -> ParseResult<SourceInfoResult<SourceInfoTable>> {
         Ok(match_nodes!(input.into_children();
             [file_table(f), position_table(p)] => SourceInfoTable::new(f, p)
         ))
@@ -1426,9 +1429,30 @@ impl CalyxParser {
     ) -> ParseResult<(Option<String>, Option<SourceInfoTable>)> {
         Ok(match_nodes!(input.into_children();
                 [metadata_legacy(l)] => (Some(l), None),
-                [metadata_table(t)] => (None, Some(t)),
-                [metadata_legacy(l), metadata_table(t)] => (Some(l), Some(t)),
-                [metadata_table(t), metadata_legacy(l)] => (Some(l), Some(t))
+                [metadata_table(t)] => {
+                    if let Ok(t) = t {
+                        (None, Some(t))
+                    } else {
+                        log::error!("{}", t.unwrap_err());
+                        (None, None)
+                    }
+                },
+                [metadata_legacy(l), metadata_table(t)] => {
+                    if let Ok(t) = t {
+                        (Some(l), Some(t))
+                    } else {
+                        log::error!("{}", t.unwrap_err());
+                        (Some(l), None)
+                    }
+                },
+                [metadata_table(t), metadata_legacy(l)] => {
+                    if let Ok(t) = t {
+                        (Some(l), Some(t))
+                    } else {
+                        log::error!("{}", t.unwrap_err());
+                        (Some(l), None)
+                    }
+                }
         ))
     }
 
