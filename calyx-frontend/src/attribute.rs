@@ -130,6 +130,8 @@ pub enum NumAttr {
     /// dynamic.
     /// Therefore, we only place if we can *guarantee* the interval of the component.
     Interval,
+    #[strum(serialize = "state")]
+    State,
 }
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {
@@ -155,6 +157,7 @@ pub enum InternalAttr {
     LOOP,
     START,
     END,
+    SCHEDULE_ID,
 }
 impl From<InternalAttr> for Attribute {
     fn from(attr: InternalAttr) -> Self {

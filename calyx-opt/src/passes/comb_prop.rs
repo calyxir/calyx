@@ -285,6 +285,7 @@ impl CombProp {
             }
             ir::PortParent::Group(_) => false,
             ir::PortParent::StaticGroup(_) => false,
+            ir::PortParent::FSM(_) => false,
         }
     }
 

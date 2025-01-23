@@ -129,6 +129,18 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Add cells required by any FSM
+        self.all_reads.extend(comp.fsms.iter().flat_map(|fsm| {
+            fsm.borrow().get_called_port_parents(
+                |cell_names: &mut Vec<ir::Id>, port: &ir::RRC<ir::Port>| {
+                    if let ir::PortParent::Cell(group_wref) =
+                        &port.borrow().parent
+                    {
+                        cell_names.push(group_wref.upgrade().borrow().name());
+                    }
+                },
+            )
+        }));
         // Add @external cells, @protected cells and ref cells.
         self.all_reads.extend(
             comp.cells

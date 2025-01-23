@@ -28,9 +28,9 @@ pub use common::{rrc, RRC, WRC};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context};
 pub use control::{
-    Cloner, Control, Empty, Enable, GenericControl, If, Invoke, Par, Repeat,
-    Seq, StaticControl, StaticEnable, StaticIf, StaticInvoke, StaticPar,
-    StaticRepeat, StaticSeq, While,
+    Cloner, Control, Empty, Enable, FSMEnable, GenericControl, If, Invoke, Par,
+    Repeat, Seq, StaticControl, StaticEnable, StaticIf, StaticInvoke,
+    StaticPar, StaticRepeat, StaticSeq, While,
 };
 pub use flat_guard::{FlatGuard, GuardPool, GuardRef};
 pub use guard::{Guard, Nothing, PortComp, StaticTiming};
@@ -39,7 +39,7 @@ pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;
 pub use structure::{
     Assignment, Binding, Canonical, Cell, CellType, CombGroup, Group, Port,
-    PortIterator, PortParent, StaticGroup,
+    PortIterator, PortParent, StaticGroup, Transition, FSM,
 };
 
 // Re-export types from the frontend.

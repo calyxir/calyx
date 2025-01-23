@@ -192,6 +192,9 @@ impl StaticPromotion {
                     + APPROX_IF_SIZE
             }
             ir::Control::Static(sc) => Self::approx_size_static(sc, false),
+            ir::Control::FSMEnable(_) => {
+                todo!("should not encounter fsm nodes")
+            }
         }
     }
 
