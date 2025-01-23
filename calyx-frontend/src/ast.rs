@@ -1,6 +1,6 @@
 //! Abstract Syntax Tree for Calyx
 use super::parser;
-use crate::{metadata::MetadataTable, Attributes, PortDef, Primitive};
+use crate::{source_info::SourceInfoTable, Attributes, PortDef, Primitive};
 use atty::Stream;
 use calyx_utils::{CalyxResult, Error, GPosIdx, Id, PosString};
 use std::{num::NonZeroU64, path::PathBuf};
@@ -17,7 +17,7 @@ pub struct NamespaceDef {
     /// Optional legacy opaque metadata. Newer metadata is in [NamespaceDef::file_info_table]
     pub metadata: Option<String>,
     /// Optional metadata mapping table
-    pub file_info_table: Option<MetadataTable>,
+    pub file_info_table: Option<SourceInfoTable>,
 }
 
 impl NamespaceDef {

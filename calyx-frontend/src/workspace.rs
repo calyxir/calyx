@@ -2,7 +2,7 @@ use super::{
     ast::{ComponentDef, NamespaceDef},
     parser,
 };
-use crate::{metadata::MetadataTable, LibrarySignatures};
+use crate::{source_info::SourceInfoTable, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error, WithPos};
 use std::{
     collections::HashSet,
@@ -51,7 +51,7 @@ pub struct Workspace {
     /// Optional legacy opaque metadata attached to the top-level file. Newer metadata is stored in [Workspace::file_info_table]
     pub metadata: Option<String>,
     /// Optional metadata mapping table attached to the top-level file
-    pub file_info_table: Option<MetadataTable>,
+    pub file_info_table: Option<SourceInfoTable>,
 }
 
 impl Workspace {

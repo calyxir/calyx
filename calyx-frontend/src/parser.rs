@@ -8,7 +8,9 @@ use super::Attributes;
 use crate::{
     attribute::SetAttribute,
     attributes::ParseAttributeWrapper,
-    metadata::{FileId as MetadataFileId, LineNum, MetadataTable, PositionId},
+    source_info::{
+        FileId as MetadataFileId, LineNum, PositionId, SourceInfoTable,
+    },
     Attribute, Direction, PortDef, Primitive, Width,
 };
 use calyx_utils::{self, float, CalyxResult, Id, PosString};
@@ -195,7 +197,7 @@ impl CalyxParser {
     /// A test helper for parsing the new metadata table
     pub fn parse_metadata(
         input: &str,
-    ) -> Result<MetadataTable, Box<Error<Rule>>> {
+    ) -> Result<SourceInfoTable, Box<Error<Rule>>> {
         let inputs = CalyxParser::parse_with_userdata(
             Rule::metadata_table,
             input,
@@ -1411,9 +1413,9 @@ impl CalyxParser {
                 [position_header(_), position_entry(e)..] => e))
     }
 
-    fn metadata_table(input: Node) -> ParseResult<MetadataTable> {
+    fn metadata_table(input: Node) -> ParseResult<SourceInfoTable> {
         Ok(match_nodes!(input.into_children();
-            [file_table(f), position_table(p)] => MetadataTable::new(f, p)
+            [file_table(f), position_table(p)] => SourceInfoTable::new(f, p)
         ))
     }
 
@@ -1421,7 +1423,7 @@ impl CalyxParser {
 
     fn extra_info(
         input: Node,
-    ) -> ParseResult<(Option<String>, Option<MetadataTable>)> {
+    ) -> ParseResult<(Option<String>, Option<SourceInfoTable>)> {
         Ok(match_nodes!(input.into_children();
                 [metadata_legacy(l)] => (Some(l), None),
                 [metadata_table(t)] => (None, Some(t)),

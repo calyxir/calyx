@@ -5,8 +5,8 @@
 //! in the `ir` module.
 
 pub mod ast;
-pub mod metadata;
 pub mod parser;
+pub mod source_info;
 
 mod attribute;
 mod attributes;

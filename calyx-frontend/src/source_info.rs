@@ -93,7 +93,7 @@ impl TryFrom<Word> for LineNum {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MetadataTable {
+pub struct SourceInfoTable {
     /// map file ids to the file path, note that this does not contain file content
     file_map: HashMap<FileId, PathBuf>,
     /// maps position ids to their source locations. Positions must be handed
@@ -101,7 +101,7 @@ pub struct MetadataTable {
     position_map: HashMap<PositionId, SourceLocation>,
 }
 
-impl MetadataTable {
+impl SourceInfoTable {
     const HEADER: &str = "sourceinfo";
 
     pub fn lookup_file_path(&self, file: FileId) -> &PathBuf {
@@ -142,7 +142,7 @@ impl MetadataTable {
         F: IntoIterator<Item = (FileId, PathBuf)>,
         P: IntoIterator<Item = (PositionId, FileId, LineNum)>,
     {
-        MetadataTable {
+        SourceInfoTable {
             file_map: file_map.into_iter().collect(),
             position_map: position_map
                 .into_iter()
@@ -195,7 +195,7 @@ impl SourceLocation {
 /// lifetime of the reader is tied to the metadata table that created it, this
 /// isn't intended to be a long term structure.
 pub struct MetadataFileReader<'a> {
-    metadata: &'a MetadataTable,
+    metadata: &'a SourceInfoTable,
     /// I'm not thrilled using interior mutability here, but the alternative is
     /// having reads always require a mutable access which is not ideal. A more
     /// comprehensive solution might involve extending lifetimes rather than
@@ -204,7 +204,7 @@ pub struct MetadataFileReader<'a> {
 }
 
 impl<'a> MetadataFileReader<'a> {
-    pub fn new(metadata: &'a MetadataTable) -> Self {
+    pub fn new(metadata: &'a SourceInfoTable) -> Self {
         Self {
             metadata,
             reader_map: RefCell::new(HashMap::new()),
@@ -298,9 +298,9 @@ pub type MetadataResult<T> = Result<T, MetadataTableError>;
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{metadata::LineNum, parser::CalyxParser};
+    use crate::{parser::CalyxParser, source_info::LineNum};
 
-    use super::MetadataTable;
+    use super::SourceInfoTable;
 
     #[test]
     fn test_parse_metadata() {
@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_serialize() {
-        let mut metadata = MetadataTable::new_empty();
+        let mut metadata = SourceInfoTable::new_empty();
         metadata.add_file(0.into(), "test.calyx".into());
         metadata.add_file(1.into(), "test2.calyx".into());
         metadata.add_file(2.into(), "test3.calyx".into());
