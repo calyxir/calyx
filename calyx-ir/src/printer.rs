@@ -117,7 +117,7 @@ impl Printer {
         }
         write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))?;
 
-        Printer::write_file_info_table(f, &ctx.file_info_table)
+        Printer::write_source_info_table(f, &ctx.source_info)
     }
 
     /// Formats and writes extern statements.
@@ -869,7 +869,7 @@ impl Printer {
         }
     }
 
-    pub fn write_file_info_table<W: io::Write>(
+    pub fn write_source_info_table<W: io::Write>(
         f: &mut W,
         metadata: &Option<SourceInfoTable>,
     ) -> Result<(), std::io::Error> {

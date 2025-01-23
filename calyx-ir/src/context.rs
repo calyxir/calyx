@@ -35,7 +35,7 @@ pub struct Context {
     /// An optional legacy opaque metadata string
     pub metadata: Option<String>,
     /// An optional metadata mapping table
-    pub file_info_table: Option<SourceInfoTable>,
+    pub source_info: Option<SourceInfoTable>,
 }
 
 impl Context {

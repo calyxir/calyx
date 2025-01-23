@@ -14,10 +14,10 @@ pub struct NamespaceDef {
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
     pub externs: Vec<(Option<PosString>, Vec<Primitive>)>,
-    /// Optional legacy opaque metadata. Newer metadata is in [NamespaceDef::file_info_table]
+    /// Optional legacy opaque metadata. Newer metadata is in [NamespaceDef::source_info]
     pub metadata: Option<String>,
     /// Optional metadata mapping table
-    pub file_info_table: Option<SourceInfoTable>,
+    pub source_info: Option<SourceInfoTable>,
 }
 
 impl NamespaceDef {

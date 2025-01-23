@@ -290,7 +290,7 @@ impl SourceLocation {
 }
 
 /// A wrapper around the metadata table that reads file contents into memory.
-/// Constructed via [`MetadataTable::file_reader`].
+/// Constructed via [`SourceInfoTable::create_file_reader`].
 ///
 ///
 /// These allocations are dropped when the reader goes out of scope. Since the

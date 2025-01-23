@@ -1476,7 +1476,7 @@ impl CalyxParser {
                         components: Vec::new(),
                         externs: Vec::new(),
                         metadata: legacy_metadata,
-                        file_info_table: metadata
+                        source_info: metadata
                     };
                 for m in mixed {
                     match m {
@@ -1501,7 +1501,7 @@ impl CalyxParser {
                         components: Vec::new(),
                         externs: Vec::new(),
                         metadata: None,
-                        file_info_table: None
+                        source_info: None
                     };
                 for m in mixed {
                     match m {
