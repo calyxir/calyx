@@ -393,7 +393,7 @@ metadata_legacy = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
 
 // New Metadata
 
-file_header = {"FILES"}
+file_header = {^"FILES"}
 
 path_text = @{(ASCII_ALPHANUMERIC | "\\" | "/" | "." | "_" | "-" )*}
 
@@ -404,7 +404,7 @@ file_table = {
     file_header ~ file_entry+
 }
 
-position_header = {"POSITIONS"}
+position_header = {^"POSITIONS"}
 
 position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth }
 
