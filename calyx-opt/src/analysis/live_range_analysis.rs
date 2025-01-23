@@ -57,7 +57,7 @@ pub fn meaningful_port_read_set<'a, T: 'a>(
                 && asgn.guard.is_not_done(
                     &asgn.dst.borrow().cell_parent().borrow().name(),
                 )
-                && asgn.src.borrow().is_constant(1, 1)
+                && asgn.src.borrow().is_constant_value(1, 1)
         })
         .analysis()
         .writes()

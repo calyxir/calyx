@@ -1,7 +1,15 @@
 //! Defines the default passes available to [PassManager].
 use crate::pass_manager::PassResult;
 use crate::passes::{
-    AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp, CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns, Dump, DynamicFSMAllocation, Externalize, GoInsertion, GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed, WireInliner, WrapMain
+    AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
+    CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
+    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
+    DefaultAssigns, Dump, DynamicFSMAllocation, Externalize, GoInsertion,
+    GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
+    ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
+    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -98,7 +106,8 @@ impl PassManager {
                 DeadCellRemoval, // Clean up dead wires left by CombProp
                 CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
-                CompileInvoke,   // creates dead comb groups
+                DataPathInfer,
+                CompileInvoke, // creates dead comb groups
                 StaticInference,
                 StaticPromotion,
                 CompileRepeat,

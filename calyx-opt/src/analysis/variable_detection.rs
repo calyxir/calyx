@@ -46,7 +46,7 @@ impl VariableDetection {
             cell.find_unique_with_attr(ir::NumAttr::Go).ok().flatten()?;
         let activation = graph
             .writes_to(&go_port.borrow())
-            .map(|src| src.borrow().is_constant(1, 1))
+            .map(|src| src.borrow().is_constant_value(1, 1))
             .collect::<Vec<_>>();
         if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
             log::debug!("`{}' is not variableLike: Assignment to cell's go port is not 1'd1", group.name());
@@ -58,7 +58,7 @@ impl VariableDetection {
         let activation = graph
             .writes_to(&group.get("done").borrow())
             // Handle g[done] = g ? 1'd1
-            .filter(|src| !src.borrow().is_constant(1, 1))
+            .filter(|src| !src.borrow().is_constant_value(1, 1))
             .map(|src| src.borrow().get_parent_name() == cell.name())
             .collect::<Vec<_>>();
         if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {

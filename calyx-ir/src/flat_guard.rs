@@ -34,7 +34,7 @@ impl FlatGuard {
     pub fn is_true(&self) -> bool {
         match self {
             FlatGuard::True => true,
-            FlatGuard::Port(p) => p.borrow().is_constant(1, 1),
+            FlatGuard::Port(p) => p.borrow().is_constant_value(1, 1),
             _ => false,
         }
     }

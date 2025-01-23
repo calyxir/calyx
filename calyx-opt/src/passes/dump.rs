@@ -5,7 +5,6 @@ use crate::traversal::{
 use calyx_ir as ir;
 use calyx_utils::CalyxResult;
 
-#[derive(Default)]
 /// Prints the current component
 pub struct Dump {
     /// Print to stderr instead of stdout

@@ -8,6 +8,7 @@ use super::{
 };
 use calyx_frontend::{Attribute, BoolAttr};
 use calyx_utils::{CalyxResult, Error, GetName};
+use core::fmt;
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::collections::HashMap;
@@ -21,6 +22,25 @@ pub enum PortParent {
     Group(WRC<Group>),
     StaticGroup(WRC<StaticGroup>),
     FSM(WRC<FSM>),
+}
+
+impl fmt::Display for PortParent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PortParent::Cell(cell) => {
+                write!(f, "{}", cell.upgrade().borrow().name)
+            }
+            PortParent::Group(group) => {
+                write!(f, "{}", group.upgrade().borrow().name)
+            }
+            PortParent::StaticGroup(group) => {
+                write!(f, "{}", group.upgrade().borrow().name)
+            }
+            PortParent::FSM(fsm) => {
+                write!(f, "{}", fsm.upgrade().borrow().name)
+            }
+        }
+    }
 }
 
 /// Represents a port on a cell.
@@ -37,6 +57,16 @@ pub struct Port {
     pub parent: PortParent,
     /// Attributes associated with this port.
     pub attributes: Attributes,
+}
+
+impl fmt::Display for Port {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "({}){}.{}[{}][{:?}]",
+            self.direction, self.parent, self.name, self.width, self.attributes
+        )
+    }
 }
 
 /// Canonical name of a Port
@@ -75,12 +105,24 @@ impl Port {
     }
 
     /// Checks if this port is a constant of value: `val`.
-    pub fn is_constant(&self, val: u64, width: u64) -> bool {
+    pub fn is_constant_value(&self, val: u64, width: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {
             match cell.upgrade().borrow().prototype {
                 CellType::Constant { val: v, width: w } => {
                     v == val && width == w
                 }
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Checks if this port is a constant type
+    pub fn is_constant(&self) -> bool {
+        if let PortParent::Cell(cell) = &self.parent {
+            match cell.upgrade().borrow().prototype {
+                CellType::Constant { .. } => true,
                 _ => false,
             }
         } else {
@@ -234,6 +276,34 @@ pub enum CellType {
         /// Width of this constant
         width: u64,
     },
+}
+
+impl fmt::Display for CellType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            } => {
+                write!(
+                    f,
+                    "{}({})",
+                    name,
+                    param_binding.iter().map(|(_, v)| v.to_string()).join(", ")
+                )
+            }
+            CellType::Component { name } => {
+                write!(f, "{}", name)
+            }
+            CellType::ThisComponent => {
+                write!(f, "ThisComponent")
+            }
+            CellType::Constant { val, width } => {
+                write!(f, "Constant(val={}, width={})", val, width)
+            }
+        }
+    }
 }
 
 impl CellType {
@@ -516,6 +586,33 @@ pub struct Assignment<T> {
     pub attributes: Attributes,
 }
 
+impl fmt::Display for Assignment<Nothing> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let dst = self.dst.borrow();
+        let src = self.src.borrow();
+        if self.guard.is_true() {
+            write!(
+                f,
+                "{}.{} = {}.{}",
+                dst.get_parent_name(),
+                dst.name,
+                src.get_parent_name(),
+                src.name,
+            )
+        } else {
+            write!(
+                f,
+                "{}.{} = {:?} ? {}.{}",
+                dst.get_parent_name(),
+                dst.name,
+                self.guard,
+                src.get_parent_name(),
+                src.name,
+            )
+        }
+    }
+}
+
 impl<T> Assignment<T> {
     /// Build a new unguarded assignment
     pub fn new(dst: RRC<Port>, src: RRC<Port>) -> Self {
@@ -595,6 +692,21 @@ pub enum Transition {
 impl Transition {
     pub fn new_uncond(s: u64) -> Self {
         Self::Unconditional(s)
+    }
+}
+
+impl fmt::Display for Transition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Transition::Unconditional(s) => write!(f, "Uncond -> {}", s),
+            Transition::Conditional(conds) => {
+                writeln!(f, "{{")?;
+                for (g, s) in conds.iter() {
+                    writeln!(f, "  {} -> {}", g, s)?;
+                }
+                writeln!(f, "}}")
+            }
+        }
     }
 }
 

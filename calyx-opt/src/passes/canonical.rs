@@ -56,7 +56,7 @@ impl Visitor for Canonicalize {
         comp.for_each_assignment(|assign| {
             if let Guard::Port(p) = &(*assign.guard) {
                 // 1'd1 ? r1.done
-                if p.borrow().is_constant(1, 1) {
+                if p.borrow().is_constant_value(1, 1) {
                     assign.guard = Guard::True.into()
                 }
             }
@@ -64,7 +64,7 @@ impl Visitor for Canonicalize {
         comp.for_each_static_assignment(|assign| {
             if let Guard::Port(p) = &(*assign.guard) {
                 // 1'd1 ? r1.done
-                if p.borrow().is_constant(1, 1) {
+                if p.borrow().is_constant_value(1, 1) {
                     assign.guard = Guard::True.into()
                 }
             }
@@ -75,7 +75,7 @@ impl Visitor for Canonicalize {
                 assigns.iter_mut().for_each(|assign| {
                     if let Guard::Port(p) = &(*assign.guard) {
                         // 1'd1 ? r1.done
-                        if p.borrow().is_constant(1, 1) {
+                        if p.borrow().is_constant_value(1, 1) {
                             assign.guard = Guard::True.into()
                         }
                     }
@@ -88,7 +88,7 @@ impl Visitor for Canonicalize {
             let mut group = gr.borrow_mut();
             let done_assign = group.done_cond_mut();
             if let Guard::Port(p) = &(*done_assign.guard) {
-                if done_assign.src.borrow().is_constant(1, 1) {
+                if done_assign.src.borrow().is_constant_value(1, 1) {
                     done_assign.src = p.clone(); //rc clone
                     done_assign.guard = Guard::True.into();
                 }

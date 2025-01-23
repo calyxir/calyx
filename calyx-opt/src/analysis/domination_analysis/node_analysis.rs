@@ -69,7 +69,7 @@ fn reads_only_dones<T>(assignment: &ir::Assignment<T>) -> bool {
 // Returns true if port is a "done" port or is a constant
 fn done_or_const(port: &ir::RRC<ir::Port>) -> bool {
     port.borrow().attributes.has(ir::NumAttr::Done)
-        || port.borrow().is_constant(1, 1)
+        || port.borrow().is_constant_value(1, 1)
 }
 
 //Adds the ids of any state_shareable cells that are read from in assignments,
@@ -251,7 +251,7 @@ impl NodeSearch {
             let dst_ref = assign.dst.borrow();
             if dst_ref.attributes.has(ir::NumAttr::Go)
                 && assign.guard.is_true()
-                && assign.src.borrow().is_constant(1, 1)
+                && assign.src.borrow().is_constant_value(1, 1)
             {
                 if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
                     return cell_wref.upgrade().borrow().name() == self.name;

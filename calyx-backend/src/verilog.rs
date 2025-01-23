@@ -4,12 +4,14 @@
 //! valid SystemVerilog program.
 
 use crate::traits::Backend;
-use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
+use calyx_ir::{
+    self as ir, Assignment, Control, FlatGuard, Group, Guard, GuardRef, RRC,
+};
 use calyx_opt::passes::math_utilities::get_bit_width_from;
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map, BTreeMap, HashMap, HashSet};
 use std::io;
 use std::rc::Rc;
 use std::{fs::File, time::Instant};
@@ -465,43 +467,82 @@ fn emit_fsm<F: io::Write>(
     comp_name: ir::Id,
     f: &mut F,
 ) -> io::Result<()> {
-    // Initialize wires representing FSM internal state
-    let num_states = fsm.borrow().assignments.len();
-    let fsm_state_wires = (0..num_states)
-        .into_iter()
-        .map(|st| format!("{}_s{st}_out", fsm.borrow().name()))
-        .collect_vec();
-
-    for state_wire in fsm_state_wires.iter() {
-        writeln!(f, "logic {state_wire};")?;
-    }
-
     // Instantiate an FSM module from the definition above
     let fsm_name = fsm.borrow().name();
     writeln!(f, "{fsm_name}_{comp_name}_def {fsm_name} (")?;
     writeln!(f, "  .clk(clk),")?;
     writeln!(f, "  .reset(reset),")?;
-    for (case, st_wire) in fsm_state_wires.into_iter().enumerate() {
-        writeln!(f, "  .s{case}_out({st_wire}),")?;
+
+    let mut non_data_ports: BTreeMap<
+        String,
+        BTreeMap<usize, Assignment<Nothing>>,
+    > = BTreeMap::new();
+    for assigns in fsm.borrow().merge_assignments().iter() {
+        let dst = &assigns[0].1.dst;
+        if is_data_port(dst) {
+            continue;
+        }
+
+        let port_name = VerilogPortRef(&dst).to_string();
+        assert_ne!(
+            non_data_ports.contains_key(&port_name),
+            true,
+            "repeated port name"
+        );
+        let assigns_at_time: BTreeMap<usize, Assignment<Nothing>> =
+            BTreeMap::from_iter(assigns.iter().cloned());
+
+        non_data_ports.insert(port_name, assigns_at_time);
     }
-    let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
+
+    let mut used_port_names: HashSet<String> = HashSet::new();
+    let mut port_list: Vec<String> = vec![];
+
+    writeln!(f, "  // dst ports")?;
+    for p in non_data_ports.keys() {
+        if used_port_names.insert(p.to_string()) {
+            port_list.push(format!("  .{}({})", p, p));
+        }
+    }
+
+    writeln!(f, "  // input ports")?;
+
+    for assign in non_data_ports.values().flat_map(|m| m.values()) {
+        if assign.src.borrow().is_constant() {
+            continue;
+        }
+        if used_port_names.insert(assign.src.borrow().canonical().to_string()) {
+            port_list.push(format!(
+                "  .{}({})",
+                VerilogPortRef(&assign.src),
+                VerilogPortRef(&assign.src)
+            ));
+        }
+    }
+
     for transition in fsm.borrow().transitions.iter() {
         if let ir::Transition::Conditional(guards) = transition {
             for (guard, _) in guards.iter() {
                 for port in guard.all_ports().iter() {
-                    if used_port_names.insert(port.borrow().canonical()) {
-                        writeln!(
-                            f,
-                            "  .{}({}),",
+                    if used_port_names
+                        .insert(port.borrow().canonical().to_string())
+                    {
+                        if port.borrow().is_constant() {
+                            continue;
+                        }
+                        port_list.push(format!(
+                            "  .{}({})",
                             VerilogPortRef(port),
                             VerilogPortRef(port)
-                        )?;
+                        ));
                     }
                 }
             }
         }
     }
-    writeln!(f, ");")?;
+
+    writeln!(f, "{}", port_list.join(",\n"))?;
+    writeln!(f, ");\n")?;
 
     // Dump all assignments dependent on FSM state
     emit_fsm_assignments(fsm, f)?;
@@ -522,7 +563,7 @@ fn emit_fsm_assignments<F: io::Write>(
             unique_src.insert(format!("{}.{}", l.get_parent_name(), l.name));
         });
 
-        if is_data_port(dst_ref) || dst_ref.borrow().width != 1 {
+        if is_data_port(dst_ref) {
             if unique_src.len() == 1 {
                 let assign = &collection[0].1;
                 writeln!(
@@ -556,25 +597,26 @@ fn emit_fsm_assignments<F: io::Write>(
                     }
                 }
             }
-        } else {
-            write!(f, "assign {} = ", VerilogPortRef(dst_ref))?;
-            let guard_strings: Vec<String> = collection
-                .iter()
-                .map(|(case, assign)| {
-                    let case_guard =
-                        format!("{}_s{case}_out", fsm.borrow().name());
-                    if assign.guard.is_true() {
-                        case_guard
-                    } else {
-                        format!(
-                            "({case_guard} & ({}))",
-                            unflattened_guard(&assign.guard)
-                        )
-                    }
-                })
-                .collect();
-            writeln!(f, "{};", guard_strings.join(" | "))?;
         }
+        // else {
+        //     write!(f, "assign {} = ", VerilogPortRef(dst_ref))?;
+        //     let guard_strings: Vec<String> = collection
+        //         .iter()
+        //         .map(|(case, assign)| {
+        //             let case_guard =
+        //                 format!("{}_s{case}_out", fsm.borrow().name());
+        //             if assign.guard.is_true() {
+        //                 case_guard
+        //             } else {
+        //                 format!(
+        //                     "({case_guard} & ({}))",
+        //                     unflattened_guard(&assign.guard)
+        //                 )
+        //             }
+        //         })
+        //         .collect();
+        //     writeln!(f, "{};", guard_strings.join(" | "))?;
+        // }
     }
     io::Result::Ok(())
 }
@@ -593,26 +635,69 @@ fn emit_fsm_module<F: io::Write>(
     writeln!(f, "\nmodule {}_{comp_name}_def (", fsm.borrow().name())?;
     writeln!(f, "  input logic clk,")?;
     writeln!(f, "  input logic reset,")?;
-    let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
+
+    let mut non_data_ports: BTreeMap<
+        String,
+        BTreeMap<usize, Assignment<Nothing>>,
+    > = BTreeMap::new();
+    for assigns in fsm.borrow().merge_assignments().iter() {
+        let dst = &assigns[0].1.dst;
+        if is_data_port(dst) {
+            continue;
+        }
+
+        let port_name = VerilogPortRef(&dst).to_string();
+        assert_ne!(
+            non_data_ports.contains_key(&port_name),
+            true,
+            "repeated port name"
+        );
+        let assigns_at_time: BTreeMap<usize, Assignment<Nothing>> =
+            BTreeMap::from_iter(assigns.iter().cloned());
+
+        non_data_ports.insert(port_name, assigns_at_time);
+    }
+
+    let mut used_port_names: HashSet<String> = HashSet::new();
+    let mut port_list: Vec<String> = vec![];
+
+    for p in non_data_ports.keys() {
+        if used_port_names.insert(p.to_string()) {
+            port_list.push(format!("  output logic {}", p));
+        }
+    }
+
+    for assign in non_data_ports.values().flat_map(|m| m.values()) {
+        if assign.src.borrow().is_constant() {
+            continue;
+        }
+        if used_port_names.insert(assign.src.borrow().canonical().to_string()) {
+            port_list
+                .push(format!("  input logic {}", VerilogPortRef(&assign.src)));
+        }
+    }
+
     for transition in fsm.borrow().transitions.iter() {
         if let ir::Transition::Conditional(guards) = transition {
             for (guard, _) in guards.iter() {
                 for port in guard.all_ports().iter() {
-                    if used_port_names.insert(port.borrow().canonical()) {
-                        writeln!(f, "  input logic {},", VerilogPortRef(port))?;
+                    if used_port_names
+                        .insert(port.borrow().canonical().to_string())
+                    {
+                        if port.borrow().is_constant() {
+                            continue;
+                        }
+                        port_list.push(format!(
+                            "  input logic {}",
+                            VerilogPortRef(port)
+                        ));
                     }
                 }
             }
         }
     }
-    for state in (0..num_states).into_iter() {
-        writeln!(
-            f,
-            "  output logic s{}_out{}",
-            state,
-            if state < num_states - 1 { "," } else { "" }
-        )?;
-    }
+
+    writeln!(f, "{}", port_list.join(",\n"))?;
     writeln!(f, ");\n")?;
 
     // Write symbolic state variables and give them binary implementations
@@ -665,17 +750,22 @@ fn emit_fsm_module<F: io::Write>(
     writeln!(f, "    case ( current_state )")?;
     // At each state, write the updates to the state and the outward-facing
     // wires to make high / low
+
     for (case, trans) in fsm.borrow().transitions.iter().enumerate() {
         writeln!(f, "        S{case}: begin")?;
 
-        // Outward-facing wires
-        for st in (0..num_states).into_iter() {
-            writeln!(
-                f,
-                "{}s{st}_out = 1'b{};",
-                " ".repeat(10),
-                if st == case { 1 } else { 0 }
-            )?;
+        for (k, v) in non_data_ports.iter() {
+            let assign = v.get(&case);
+            if let Some(assign) = assign {
+                writeln!(
+                    f,
+                    "          {} = {};",
+                    k,
+                    VerilogPortRef(&assign.src)
+                )?;
+            } else {
+                writeln!(f, "          {} = 'b0;", k)?;
+            }
         }
 
         // Updates to state
@@ -685,9 +775,11 @@ fn emit_fsm_module<F: io::Write>(
     }
 
     writeln!(f, "      default begin")?;
-    for st in (0..num_states).into_iter() {
-        writeln!(f, "          s{st}_out = 1'b0;")?;
+
+    for k in non_data_ports.keys() {
+        writeln!(f, "          {} = 'b0;", k)?;
     }
+
     writeln!(f, "          next_state = S0;")?;
     writeln!(f, "      end")?;
     // Wrap up the module
@@ -790,6 +882,26 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
     false
 }
 
+/// Checks if:
+/// 1. The port is marked with `@control`
+/// 2. The port's cell parent is marked with `@control`
+fn is_control_port(pr: &RRC<ir::Port>) -> bool {
+    assert_eq!(ir::Direction::Input, pr.borrow().direction);
+    let port = pr.borrow();
+    if !port.attributes.has(ir::BoolAttr::Control) {
+        return false;
+    }
+    if let ir::PortParent::Cell(cwr) = &port.parent {
+        let cr = cwr.upgrade();
+        let cell = cr.borrow();
+        // that the parent cell had the `@control` attribute.
+        if cell.attributes.has(ir::BoolAttr::Control) {
+            return true;
+        }
+    }
+    false
+}
+
 /// Generates an assign statement that uses ternaries to select the correct
 /// assignment to enable and adds a default assignment to 0 when none of the
 /// guards are active.
@@ -840,7 +952,7 @@ fn emit_assignment(
             let (src, gr) = &assignments[0];
             if gr.is_true() {
                 port_to_ref(src)
-            } else if src.borrow().is_constant(1, 1) {
+            } else if src.borrow().is_constant_value(1, 1) {
                 let guard = pool.get(*gr);
                 guard_to_expr(guard, pool)
             } else {
@@ -886,7 +998,7 @@ fn emit_assignment_flat<F: io::Write>(
                     VerilogPortRef(dst),
                     VerilogPortRef(src)
                 );
-            } else if src.borrow().is_constant(1, 1) {
+            } else if src.borrow().is_constant_value(1, 1) {
                 return writeln!(
                     f,
                     "assign {} = {};",

@@ -640,7 +640,7 @@ impl Visitor for WellFormed {
 
         let asgn = group.done_cond();
         let const_done_assign =
-            asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1);
+            asgn.guard.is_true() && asgn.src.borrow().is_constant_value(1, 1);
 
         if const_done_assign {
             self.diag.err(Error::malformed_structure("Group with constant done condition is invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));

@@ -297,7 +297,7 @@ impl GroupToInvoke {
                             ir::Printer::assignment_to_str(assign)
                         );
                     return;
-                } else if assign.src.borrow().is_constant(1, 1) {
+                } else if assign.src.borrow().is_constant_value(1, 1) {
                     go_wr_cnt += 1;
                 } else {
                     // if go port's guard is not true, src is not (1,1), then

@@ -603,7 +603,7 @@ impl CompileStatic {
                 }
                 PortParent::Group(_) | PortParent::FSM(_) => panic!(""),
                 PortParent::StaticGroup(sgroup) => {
-                    assert!(assign.src.borrow().is_constant(1, 1));
+                    assert!(assign.src.borrow().is_constant_value(1, 1));
                     let (beg, end) = Self::get_interval_from_guard(
                         &assign.guard,
                         target_group.borrow().get_latency(),
@@ -696,7 +696,7 @@ impl CompileStatic {
                 PortParent::Cell(_) => (),
                 PortParent::Group(_) | PortParent::FSM(_) => unreachable!(""),
                 PortParent::StaticGroup(sgroup) => {
-                    assert!(assign.src.borrow().is_constant(1, 1));
+                    assert!(assign.src.borrow().is_constant_value(1, 1));
                     let (beg, end) = Self::get_interval_from_guard(
                         &assign.guard,
                         target_group.borrow().get_latency(),

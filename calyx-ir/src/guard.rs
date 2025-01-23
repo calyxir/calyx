@@ -35,6 +35,19 @@ pub enum PortComp {
     Leq,
 }
 
+impl Display for PortComp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PortComp::Eq => write!(f, "=="),
+            PortComp::Neq => write!(f, "!="),
+            PortComp::Gt => write!(f, ">"),
+            PortComp::Lt => write!(f, "<"),
+            PortComp::Geq => write!(f, ">="),
+            PortComp::Leq => write!(f, "<="),
+        }
+    }
+}
+
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
@@ -54,6 +67,27 @@ pub enum Guard<T> {
     Port(RRC<Port>),
     /// Other types of information.
     Info(T),
+}
+
+impl<T: Display> Display for Guard<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Guard::Or(l, r) => write!(f, "({} | {})", l, r),
+            Guard::And(l, r) => write!(f, "({} & {})", l, r),
+            Guard::Not(inner) => write!(f, "!{}", inner),
+            Guard::CompOp(op, l, r) => {
+                write!(f, "{} {} {}", l.borrow().name, op, r.borrow().name)
+            }
+            Guard::Port(p) => write!(
+                f,
+                "{}.{}",
+                p.borrow().get_parent_name(),
+                p.borrow().name
+            ),
+            Guard::True => write!(f, "true_guard"),
+            Guard::Info(i) => write!(f, "{}", i),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -154,7 +188,7 @@ impl<T> Guard<T> {
     pub fn is_true(&self) -> bool {
         match self {
             Guard::True => true,
-            Guard::Port(p) => p.borrow().is_constant(1, 1),
+            Guard::Port(p) => p.borrow().is_constant_value(1, 1),
             _ => false,
         }
     }
@@ -212,7 +246,7 @@ impl<T> Guard<T> {
     }
 
     pub fn port(p: RRC<Port>) -> Self {
-        if p.borrow().is_constant(1, 1) {
+        if p.borrow().is_constant_value(1, 1) {
             Guard::True
         } else {
             Guard::Port(p)
