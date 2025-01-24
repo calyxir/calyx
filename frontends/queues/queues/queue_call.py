@@ -2,6 +2,9 @@
 from calyx.py_ast import Empty
 import calyx.builder as cb
 
+ERR_CODE = 2**32 - 1
+PUSH_CODE = 2**32 - 2
+
 
 def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     """Inserts the component `name` into the program.
@@ -18,12 +21,15 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
        `1`: push
     - 2: `values`, a list of values.
        Where each value is a 32-bit unsigned integer.
-       The value at `i` is pushed if the command at `i` is `2`.
-    - 3: `has_ans`, a 1-bit unsigned integer.
+       The value at `i` is pushed if the command at `i` is `1`.
+    - 3: `ranks`, a list of ranks. [optional]
+       Where each rank is a 32-bit unsigned integer.
+       The value at `i` is pushed with the rank at `i` if the command at `i` is `1`.
+    - 4: `has_ans`, a 1-bit unsigned integer.
        We raise/lower this to indicate whether the queue had a reply to the command.
-    - 4: `component_ans`, a 32-bit unsigned integer.
+    - 5: `component_ans`, a 32-bit unsigned integer.
        We put in this register the answer, if any.
-    - 5: `component_err`, a 1-bit unsigned integer.
+    - 6: `component_err`, a 1-bit unsigned integer.
        We raise/lower it to indicate whether an error occurred.
     """
     assert (
@@ -230,13 +236,13 @@ def insert_main(
                     main.mem_store_d1(
                         ans_mem,
                         i.out,
-                        cb.const(32, 4294967295),
+                        cb.const(32, ERR_CODE),
                         "write_err",  # store the value 2^32 - 1 (code for error) to `ans_mem`
                     ),
                     main.mem_store_d1(  # if we're here, we must be here because we were a successful push.
                         ans_mem,
                         i.out,
-                        cb.const(32, 4294967294),
+                        cb.const(32, PUSH_CODE),
                         "write_push",  # store the value 2^32 - 2 (code for push) to `ans_mem`
                     ),
                 ),
