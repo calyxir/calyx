@@ -1,0 +1,65 @@
+import "primitives/float.futil";
+import "primitives/core.futil";
+import "primitives/compile.futil";
+import "primitives/float/compareFN.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    cst_0 = std_float_const(0, 32, 2.01);
+    in0 = std_float_const(0, 32, 1.99); 
+    std_and_1 = std_and(1);
+    std_and_0 = std_and(1);
+    unordered_port_0_reg = std_reg(1);
+    compare_port_0_reg = std_reg(1);
+    cmpf_0_reg = std_reg(1);
+    std_compareFN_0 = std_compareFN(8, 24, 32);
+    @external mem_write_eq = comb_mem_d1(1, 1, 1);
+    @external mem_write_unordered = comb_mem_d1(1, 1, 1);
+    std_not_0 = std_not(1);
+  }
+  wires {
+    group bb0_0 {
+      std_compareFN_0.left = cst_0.out;
+      std_compareFN_0.right = in0.out;
+      std_compareFN_0.signaling = 1'd0;
+    
+      std_not_0.in = std_compareFN_0.unordered;
+      
+      compare_port_0_reg.write_en = std_compareFN_0.done;
+      compare_port_0_reg.in = std_compareFN_0.eq;
+
+      unordered_port_0_reg.write_en = std_compareFN_0.done;
+      unordered_port_0_reg.in = std_not_0.out;
+
+      std_and_0.left = compare_port_0_reg.out;
+      std_and_0.right = unordered_port_0_reg.out;
+      std_and_1.left = compare_port_0_reg.done;
+      std_and_1.right = unordered_port_0_reg.done;
+
+      cmpf_0_reg.in = std_and_0.out;
+      cmpf_0_reg.write_en = std_and_1.out;
+
+      std_compareFN_0.go = !std_compareFN_0.done ? 1'd1;
+      bb0_0[done] = cmpf_0_reg.done;
+    }
+    group ret_assign_0 {
+        mem_write_eq.addr0 = 1'b0;
+        mem_write_eq.write_data = cmpf_0_reg.out;
+        mem_write_eq.write_en = 1'b1;
+
+        mem_write_unordered.addr0 = 1'b0;
+        mem_write_unordered.write_data = unordered_port_0_reg.out;
+        mem_write_unordered.write_en = 1'b1;
+
+        ret_assign_0[done] = (mem_write_eq.done) ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      seq {
+        bb0_0;
+        ret_assign_0;
+      }
+    }
+  }
+}

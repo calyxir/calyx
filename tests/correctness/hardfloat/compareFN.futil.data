@@ -1,0 +1,18 @@
+{
+  "mem_write_eq": {
+    "data": [0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 1
+    }
+  },
+  "mem_write_unordered": {
+    "data": [0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 1
+    }
+  }
+}
