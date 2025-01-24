@@ -385,26 +385,27 @@ impl Backend for VerilogBackend {
                 build_library_bundle(ctx, &temp_file, &handlers)?;
 
             let file_list = derive_file_list(ctx, &temp_file, &handlers)?;
-            let syntax_trees = morty::build_syntax_tree(
-                &file_list, false, // By default, don't strip comments
-                false, // By default, don't ignore unparseable
-                true, // By default, propagate defines from first files to the following files
-                false, // By default, don't force sequential
-            )
-            .unwrap();
+            let syntax_trees =
+                morty::build_syntax_tree(&file_list, false, false, true, false)
+                    .map_err(|err| {
+                        Error::write_error(format!(
+                            "Failed to build syntax tree with Morty: {}",
+                            err
+                        ))
+                    })?;
             let top_module = ctx.entrypoint.to_string();
             let _pickled = morty::do_pickle(
-                None, // By default, don't need to prepend a name to all global names
-                None, // By default, don't need to append a name to all global names
-                HashSet::new(), // By default, don't specify module, interface, package that should not be renamed; instead, let morty to dictate the behavior
-                HashSet::new(), // By default, don't specify module, interface, package that shouldn't be included in the pickled file list; instead, we let morty to dictate the behavior
+                None,
+                None,
+                HashSet::new(),
+                HashSet::new(),
                 library_bundle,
                 syntax_trees,
                 Box::new(temp_file.reopen()?) as Box<dyn Write>,
                 Some(&top_module),
-                true, // By default, keep defines to prevent removal of `define` statements
-                true, // By default, propagate defines from first files to the following files
-                false, // By default, keep the time units
+                true,
+                true,
+                false,
             )
             .map_err(|err| Error::write_error(format!("{}", err)))?;
         }
