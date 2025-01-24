@@ -1,7 +1,6 @@
-use crate::flatten::{
-    flat_ir::prelude::*,
-    structures::{index_trait::IndexRange, indexed_map::IndexedMap},
-};
+use cider_idx::{iter::IndexRange, maps::IndexedMap};
+
+use crate::flatten::flat_ir::prelude::*;
 
 /// A map storing all the assignments defined by the program either explicitly
 /// or implicitly

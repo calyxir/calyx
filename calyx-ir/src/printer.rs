@@ -2,7 +2,7 @@
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
 use crate::{self as ir, RRC};
-use calyx_frontend::PrimitiveInfo;
+use calyx_frontend::{source_info::SourceInfoTable, PrimitiveInfo};
 use calyx_utils::float;
 use itertools::Itertools;
 use std::io;
@@ -16,13 +16,17 @@ impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     pub fn format_at_attributes(attrs: &ir::Attributes) -> String {
-        let mut buf = attrs.to_string_with(" ", |name, val| {
-            if val == 1 {
-                format!("@{}", name)
-            } else {
-                format!("@{}({val})", name)
-            }
-        });
+        let mut buf = attrs.to_string_with(
+            " ",
+            |name, val| {
+                if val == 1 {
+                    format!("@{}", name)
+                } else {
+                    format!("@{}({val})", name)
+                }
+            },
+            |name, vals| format!("@{}{{{}}}", name, vals.iter().join(", ")),
+        );
         if !attrs.is_empty() {
             buf.push(' ');
         }
@@ -37,9 +41,13 @@ impl Printer {
         } else {
             format!(
                 "<{}>",
-                attrs.to_string_with(", ", |name, val| {
-                    format!("\"{}\"={}", name, val)
-                })
+                attrs.to_string_with(
+                    ", ",
+                    |name, val| { format!("\"{}\"={}", name, val) },
+                    |name, vals| {
+                        format!("\"{}\"={{{}}}", name, vals.iter().join(", "))
+                    },
+                )
             )
         }
     }
@@ -107,7 +115,9 @@ impl Printer {
             ir::Printer::write_component(comp, f)?;
             writeln!(f)?
         }
-        write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))
+        write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))?;
+
+        Printer::write_source_info_table(f, &ctx.source_info_table)
     }
 
     /// Formats and writes extern statements.
@@ -856,6 +866,17 @@ impl Printer {
             format!("metadata #{{\n{}\n}}#\n", metadata_str)
         } else {
             String::new()
+        }
+    }
+
+    pub fn write_source_info_table<W: io::Write>(
+        f: &mut W,
+        metadata: &Option<SourceInfoTable>,
+    ) -> Result<(), std::io::Error> {
+        if let Some(metadata) = metadata {
+            metadata.serialize(f)
+        } else {
+            Ok(())
         }
     }
 }

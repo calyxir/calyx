@@ -2,7 +2,7 @@ use super::{
     ast::{ComponentDef, NamespaceDef},
     parser,
 };
-use crate::LibrarySignatures;
+use crate::{source_info::SourceInfoTable, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error, WithPos};
 use std::{
     collections::HashSet,
@@ -48,8 +48,10 @@ pub struct Workspace {
     pub lib: LibrarySignatures,
     /// Original import statements present in the top-level file.
     pub original_imports: Vec<String>,
-    /// Optional opaque metadata attached to the top-level file
+    /// Optional opaque metadata attached to the top-level file.
     pub metadata: Option<String>,
+    /// Optional source info table attached to the top-level file
+    pub source_info_table: Option<SourceInfoTable>,
 }
 
 impl Workspace {
@@ -281,6 +283,7 @@ impl Workspace {
         // TODO (griffin): Probably not a great idea to clone the metadata
         // string but it works for now
         ws.metadata = ns.metadata.clone();
+        ws.source_info_table = ns.source_info_table.clone();
 
         // Merge the initial namespace
         let parent_canonical = parent_path.canonicalize().map_err(|err| {

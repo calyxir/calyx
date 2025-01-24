@@ -428,6 +428,7 @@ dependencies = [
  "smallvec",
  "strum",
  "strum_macros",
+ "thiserror 2.0.8",
 ]
 
 [[package]]
@@ -610,6 +611,7 @@ dependencies = [
  "calyx-opt",
  "calyx-utils",
  "ciborium",
+ "cider-idx",
  "fraction",
  "fst-writer",
  "itertools 0.11.0",
@@ -664,6 +666,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.64",
+]
+
+[[package]]
+name = "cider-idx"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.8.10",
+ "serde",
+ "smallvec",
 ]
 
 [[package]]

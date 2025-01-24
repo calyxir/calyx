@@ -2,7 +2,7 @@
 //! need to transform, lower, an emit a program.
 //! Passes usually have transform/analyze the components in the IR.
 use super::{Component, Id};
-use calyx_frontend::LibrarySignatures;
+use calyx_frontend::{source_info::SourceInfoTable, LibrarySignatures};
 
 /// Configuration information for the backends.
 #[derive(Default)]
@@ -32,8 +32,10 @@ pub struct Context {
     /// Extra options provided to the command line.
     /// Interpreted by individual passes
     pub extra_opts: Vec<String>,
-    /// An optional opaque metadata string which is used by Cider
+    /// An optional opaque metadata string
     pub metadata: Option<String>,
+    /// An optional metadata mapping table
+    pub source_info_table: Option<SourceInfoTable>,
 }
 
 impl Context {

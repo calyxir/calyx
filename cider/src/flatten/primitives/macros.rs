@@ -15,7 +15,7 @@ pub(crate) use replace_expr;
 
 macro_rules! ports {
     ($base:expr; $( $port:ident : $offset:expr ),+ ) => {
-        $(let $port: $crate::flatten::flat_ir::prelude::GlobalPortIdx = ($crate::flatten::structures::index_trait::IndexRef::index($base) + $offset).into();)+
+        $(let $port: $crate::flatten::flat_ir::prelude::GlobalPortIdx = (cider_idx::IndexRef::index($base) + $offset).into();)+
     }
 }
 
@@ -49,10 +49,10 @@ macro_rules! declare_ports {
         const END_IDX: usize = ([$($output_offset),+][$crate::flatten::primitives::macros::count_tts!($($output_offset)+) - 1]) + 1;
 
         #[inline]
-        pub fn get_signature(&self) -> $crate::flatten::structures::index_trait::SplitIndexRange<$crate::flatten::flat_ir::prelude::GlobalPortIdx> {
-            use $crate::flatten::structures::index_trait::IndexRef;
+        pub fn get_signature(&self) -> cider_idx::iter::SplitIndexRange<$crate::flatten::flat_ir::prelude::GlobalPortIdx> {
+            use cider_idx::IndexRef;
 
-            $crate::flatten::structures::index_trait::SplitIndexRange::new(self.base_port,
+            cider_idx::iter::SplitIndexRange::new(self.base_port,
                 $crate::flatten::flat_ir::prelude::GlobalPortIdx::new(self.base_port.index() + Self::SPLIT_IDX),
                 $crate::flatten::flat_ir::prelude::GlobalPortIdx::new(self.base_port.index() + Self::END_IDX),
             )
@@ -77,7 +77,7 @@ macro_rules! make_getters {
         $(
             #[inline]
             fn $port(&self) -> $crate::flatten::flat_ir::prelude::GlobalPortIdx {
-                ($crate::flatten::structures::index_trait::IndexRef::index(&self.$base) + &self.addresser.non_address_base() + $offset).into()
+                (cider_idx::IndexRef::index(&self.$base) + &self.addresser.non_address_base() + $offset).into()
             }
         )+
 
@@ -160,7 +160,7 @@ macro_rules! comb_primitive {
                 false
             }
 
-            fn get_ports(&self) -> $crate::flatten::structures::index_trait::SplitIndexRange<$crate::flatten::flat_ir::prelude::GlobalPortIdx> {
+            fn get_ports(&self) -> cider_idx::iter::SplitIndexRange<$crate::flatten::flat_ir::prelude::GlobalPortIdx> {
                 self.get_signature()
             }
 
