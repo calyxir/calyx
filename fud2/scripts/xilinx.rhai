@@ -1,10 +1,14 @@
-import "calyx" as c;
+// import "calyx" as c;
+import "axi" as axi;
 import "rtl_sim" as sim;
 import "testbench" as tb;
 
 let xo = state("xo", ["xo"]);
 let xclbin = state("xclbin", ["xclbin"]);
 
+fn default_xml_generator() {
+    "$calyx-base/yxi/xml/xml_generator.py";
+}
 fn xilinx_setup(e) {
     // Locations for Vivado and Vitis installations.
     e.config_var("vivado-dir", "xilinx.vivado");
@@ -28,12 +32,16 @@ fn xilinx_setup(e) {
         "$vitis-dir/bin/v++ -g -t $xilinx-mode --platform $platform --save-temps --profile.data all:all:all --profile.exec all:all:all -lo $out $in"
     );
     e.arg("pool", "console");
+
+    // Generate a kernel.xml from a yxi file.
+    e.config_var_or("xml-generator", "xml.generator", default_xml_generator());
+    e.rule("gen-kernel-xml", "$python $xml-generator $in > $out");
 };
 
 op(
     "xo",
-    [c::calyx_setup, xilinx_setup],
-    c::calyx_state,
+    [axi::c::calyx_setup, xilinx_setup],
+    axi::c::calyx_state,
     xo,
     |e, input, output| {
         // Emit the Verilog itself in "synthesis mode."
@@ -60,7 +68,50 @@ op(
                "get-ports.py",
             ],
         );
-    },
+    }
+);
+
+// Assumes that verilog was generated with the `--synthesis` flag.
+// `-p external` can also be used, but is not necesary for designs using `ref` memories.
+op(
+    "verilog-to-xo",
+    [axi::c::calyx_setup, xilinx_setup],
+    axi::c::verilog_state,
+    xo,
+    |e, input, output | {
+        let file_name = input.split("/")[-1];
+        let sv_file_name = file_name;
+        sv_file_name.replace(`v`, `sv`);
+        let yxi_file = e.config_val("yxi.file");
+        let yxi_path = e.external_path(yxi_file);
+
+        e.build_cmd(
+            ["kernel.xml"],
+            "gen-kernel-xml",
+            [yxi_path],
+            ["$xml-generator"],
+        );
+
+        e.build_cmd(
+            [sv_file_name],
+            "copy",
+            [input],
+            [],
+        );
+
+        e.build_cmd(
+            [output],
+            "gen-xo",
+            [], 
+            [
+                sv_file_name,
+                yxi_path,
+                "gen_xo.tcl",
+                "get-ports.py",
+                "kernel.xml",
+            ],
+        );
+    }
 );
 
 op("xclbin", [xilinx_setup], xo, xclbin, |e, input, output| {
