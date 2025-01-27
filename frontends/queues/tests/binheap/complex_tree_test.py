@@ -17,7 +17,9 @@ def build():
     prog = cb.Builder()
 
     fi_strict1 = fi.insert_boundary_flow_inference(prog, "fi_strict1", [44, 88, 133])
-    pifo_strict1 = st.insert_binheap_strict(prog, "pifo_strict1", 3, [0, 1, 2], fi_strict1)
+    pifo_strict1 = st.insert_binheap_strict(
+        prog, "pifo_strict1", 3, [0, 1, 2], fi_strict1
+    )
 
     fi_rr = fi.insert_boundary_flow_inference(prog, "fi_rr", [177, 221, 266])
     pifo_rr = rr.insert_binheap_rr(prog, "pifo_rr", 3, fi_rr)
@@ -28,8 +30,12 @@ def build():
     fi_root = fi.insert_value_flow_inference(prog, "fi_root", 3)
     pifo_root = rr.insert_binheap_rr(prog, "pifo_root", 3, fi_root)
 
-    fi_tree = fi.insert_boundary_flow_inference(prog, "fi_tree", [133, 266, 400], flow_bits=32)
-    pifo_tree = tr.insert_tree(prog, "pifo_tree", pifo_root, [pifo_strict1, pifo_rr, pifo_strict2], fi_tree)
+    fi_tree = fi.insert_boundary_flow_inference(
+        prog, "fi_tree", [133, 266, 400], flow_bits=32
+    )
+    pifo_tree = tr.insert_tree(
+        prog, "pifo_tree", pifo_root, [pifo_strict1, pifo_rr, pifo_strict2], fi_tree
+    )
 
     qc.insert_main(prog, pifo_tree, num_cmds, keepgoing=keepgoing)
     return prog.program
