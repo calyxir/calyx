@@ -33,7 +33,7 @@ class FileTable:
     def emit_metadata():
         out = "\tFILES\n"
         for (filename, fileid) in FileTable.table.items():
-                out += f"\t\t{fileid}: \"{filename}\"\n"
+                out += f"\t\t{fileid}: {filename}\n"
         return out
 
 class PosTable:
@@ -107,7 +107,7 @@ class Program(Emittable):
             # out += "}#"
             # first pass for emitting some file/source location metadata
             if len(FileTable.table) > 0 and len(PosTable.table) > 0:
-                out += "\n\nfileinfo #{\n"
+                out += "\n\nsourceinfo #{\n"
                 out += FileTable.emit_metadata()
                 out += PosTable.emit_metadata()
                 out += "}#"

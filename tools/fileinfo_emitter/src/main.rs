@@ -284,7 +284,7 @@ fn main() -> CalyxResult<()> {
         Some(source_info_table) => {
             let file_lines_map = create_file_map(source_info_table);
             resolve(
-                &source_info_table,
+                source_info_table,
                 &component_pos_ids,
                 &mut component_info,
                 &file_lines_map,
