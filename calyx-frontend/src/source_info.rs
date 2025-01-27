@@ -116,6 +116,8 @@ impl SourceInfoTable {
         &self.position_map[&pos]
     }
 
+    /// Looks up the source location of the position with the given id. If no
+    /// such position exists, returns `None`
     pub fn get_position(&self, pos: PositionId) -> Option<&SourceLocation> {
         self.position_map.get(&pos)
     }
