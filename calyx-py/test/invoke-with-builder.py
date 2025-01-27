@@ -1,5 +1,6 @@
 import calyx.builder as cb
 
+
 def insert_foo_component(prog):
     foo = prog.component("foo")
 
@@ -19,6 +20,7 @@ def insert_foo_component(prog):
     foo.control += let
 
     return foo
+
 
 def insert_main_component(prog):
     main = prog.component("main")
@@ -43,7 +45,7 @@ def insert_main_component(prog):
     main.control += write_constant
     main.control += cb.invoke(foo, in_a=b.out)
     main.control += save_foo
-    
+
 
 if __name__ == "__main__":
     prog = cb.Builder()

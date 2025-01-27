@@ -5,7 +5,8 @@ from calyx.utils import block
 import inspect
 import os
 
-POS_CONTROL=False # FIXME: way too hacky. Toggle to add pos attributes to control (necessary for cider but my dinky parser doesn't account for it rn)
+POS_CONTROL = False  # FIXME: way too hacky. Toggle to add pos attributes to control (necessary for cider but my dinky parser doesn't account for it rn)
+
 
 @dataclass
 class Emittable:
@@ -19,26 +20,27 @@ class Emittable:
 class FileTable:
     # making fields static so that we can still get new fileIds without having to pass an object around.
     # Not really a fan of this, but this is the first pass...
-    counter : int = 0
+    counter: int = 0
     table: Dict[str, int] = {}
-    
+
     @staticmethod
     def get_fileid(filename):
         if filename not in FileTable.table:
             FileTable.table[filename] = FileTable.counter
             FileTable.counter += 1
         return FileTable.table[filename]
-    
+
     @staticmethod
     def emit_metadata():
         out = "\tFILES\n"
-        for (filename, fileid) in FileTable.table.items():
-                out += f"\t\t{fileid}: {filename}\n"
+        for filename, fileid in FileTable.table.items():
+            out += f"\t\t{fileid}: {filename}\n"
         return out
 
+
 class PosTable:
-    counter : int = 0
-    table : Dict[(int, int), int] = {} # (fileid, linenum) -> positionId
+    counter: int = 0
+    table: Dict[(int, int), int] = {}  # (fileid, linenum) -> positionId
 
     @staticmethod
     def determine_source_loc() -> Optional[int]:
@@ -72,13 +74,14 @@ class PosTable:
             PosTable.table[(file_id, line_num)] = PosTable.counter
             PosTable.counter += 1
         return PosTable.table[(file_id, line_num)]
-    
+
     @staticmethod
     def emit_metadata():
         out = "\tPOSITIONS\n"
-        for ((fileid, linenum), position_id) in PosTable.table.items():
+        for (fileid, linenum), position_id in PosTable.table.items():
             out += f"\t\t{position_id}: {fileid} {linenum}\n"
         return out
+
 
 # Program
 @dataclass
@@ -253,6 +256,7 @@ class CompAttribute(Attribute):
         else:
             return f'"{self.name}"={self.value}'
 
+
 @dataclass
 class CellAttribute(Attribute):
     name: str
@@ -266,16 +270,18 @@ class CellAttribute(Attribute):
         else:
             return f"@{self.name}({self.value})"
 
+
 @dataclass
 class GroupAttribute(Attribute):
     name: str
-    value: int # FIXME: might want to change?
+    value: int  # FIXME: might want to change?
 
     def doc(self) -> str:
         if self.name == "pos":
             return f'"{self.name}"={{{self.value}}}'
         else:
             return f'"{self.name}"={self.value}'
+
 
 @dataclass
 class PortAttribute(Attribute):
@@ -391,9 +397,9 @@ class Cell(Structure):
     def doc(self) -> str:
         # NOTE: adding external on the fly (instead of having the user add it to attributes)
         # so that we can easily do this check
-        assert not (
-            self.is_ref and self.is_external
-        ), "Cell cannot be both a ref and external"
+        assert not (self.is_ref and self.is_external), (
+            "Cell cannot be both a ref and external"
+        )
         if self.is_external:
             self.attributes.append(CellAttribute("external"))
         attribute_annotation = (
@@ -575,10 +581,12 @@ class Gte(GuardExpr):
     def doc(self) -> str:
         return f"({self.left.doc()} >= {self.right.doc()})"
 
+
 # Control
 @dataclass
 class Control(Emittable):
     pass
+
 
 def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
     """adds the @pos attribute of loc is not None"""
@@ -586,7 +594,8 @@ def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
         return source
     else:
         return f"@pos{{{loc}}} {source}"
-    
+
+
 @dataclass
 class Enable(Control):
     stmt: str
@@ -595,13 +604,17 @@ class Enable(Control):
     def doc(self) -> str:
         return ctrl_with_pos_attribute(f"{self.stmt};", self.loc)
 
+
 @dataclass
 class SeqComp(Control):
     stmts: list[Control]
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return ctrl_with_pos_attribute(block("seq", [s.doc() for s in self.stmts]), self.loc)
+        return ctrl_with_pos_attribute(
+            block("seq", [s.doc() for s in self.stmts]), self.loc
+        )
+
 
 @dataclass
 class StaticSeqComp(Control):
@@ -609,7 +622,10 @@ class StaticSeqComp(Control):
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return ctrl_with_pos_attribute(block("static seq", [s.doc() for s in self.stmts]), self.loc)
+        return ctrl_with_pos_attribute(
+            block("static seq", [s.doc() for s in self.stmts]), self.loc
+        )
+
 
 @dataclass
 class ParComp(Control):
@@ -617,7 +633,10 @@ class ParComp(Control):
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return ctrl_with_pos_attribute(block("par", [s.doc() for s in self.stmts]), self.loc)
+        return ctrl_with_pos_attribute(
+            block("par", [s.doc() for s in self.stmts]), self.loc
+        )
+
 
 @dataclass
 class StaticParComp(Control):
@@ -625,7 +644,10 @@ class StaticParComp(Control):
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return ctrl_with_pos_attribute(block("static par", [s.doc() for s in self.stmts]), self.loc)
+        return ctrl_with_pos_attribute(
+            block("static par", [s.doc() for s in self.stmts]), self.loc
+        )
+
 
 @dataclass
 class Invoke(Control):
@@ -752,7 +774,9 @@ class If(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch, self.loc)
+        return ctrl_with_pos_attribute(
+            block(cond, true_branch, sep="") + false_branch, self.loc
+        )
 
 
 @dataclass
@@ -768,7 +792,9 @@ class StaticIf(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch, self.loc)
+        return ctrl_with_pos_attribute(
+            block(cond, true_branch, sep="") + false_branch, self.loc
+        )
 
 
 # Standard Library
@@ -791,7 +817,7 @@ class Stdlib:
 
     @staticmethod
     def op(op: str, bitwidth: int, signed: bool):
-        return CompInst(f'std_{"s" if signed else ""}{op}', [bitwidth])
+        return CompInst(f"std_{'s' if signed else ''}{op}", [bitwidth])
 
     @staticmethod
     def const_mult(bitwidth: int, const: int):
@@ -923,7 +949,7 @@ class Stdlib:
         op: str, width: int, int_width: int, frac_width: int, signed: bool
     ):
         return CompInst(
-            f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]
+            f"std_fp_{'s' if signed else ''}{op}", [width, int_width, frac_width]
         )
 
     @staticmethod

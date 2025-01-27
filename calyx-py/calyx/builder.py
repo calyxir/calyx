@@ -21,16 +21,14 @@ class WidthInferenceError(Exception):
 
 
 class MalformedGroupError(Exception):
-    """Raised when a group is malformed."""    
+    """Raised when a group is malformed."""
+
 
 class Builder:
     """The entry-point builder for top-level Calyx programs."""
 
     def __init__(self):
-        self.program = ast.Program(
-            imports=[],
-            components=[]
-        )
+        self.program = ast.Program(imports=[], components=[])
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
@@ -1087,6 +1085,7 @@ class CellAndGroup:
     cell: CellBuilder
     group: GroupBuilder
 
+
 def as_control(obj):
     """Convert a Python object into a control statement.
 
@@ -1111,9 +1110,9 @@ def as_control(obj):
             "GroupBuilder represents continuous assignments and"
             " cannot be used as a control statement"
         )
-        assert not isinstance(
-            gl, ast.CombGroup
-        ), "Cannot use combinational group as control statement"
+        assert not isinstance(gl, ast.CombGroup), (
+            "Cannot use combinational group as control statement"
+        )
         return ast.Enable(gl.id.name)
     if isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
@@ -1172,9 +1171,9 @@ def if_with(port_comb: CellAndGroup, body, else_body=None) -> ast.If:
     cond = port_comb.group
     else_body = else_body or ast.Empty()
 
-    assert isinstance(
-        cond.group_like, ast.CombGroup
-    ), "if condition must be a combinational group"
+    assert isinstance(cond.group_like, ast.CombGroup), (
+        "if condition must be a combinational group"
+    )
     return ast.If(
         port.expr, cond.group_like.id, as_control(body), as_control(else_body)
     )
@@ -1187,9 +1186,9 @@ def while_with(port_comb: CellAndGroup, body) -> ast.While:
 
     port = port_comb.cell.out
     cond = port_comb.group
-    assert isinstance(
-        cond.group_like, ast.CombGroup
-    ), "while condition must be a combinational group"
+    assert isinstance(cond.group_like, ast.CombGroup), (
+        "while condition must be a combinational group"
+    )
     return ast.While(port.expr, cond.group_like.id, as_control(body))
 
 
@@ -1215,11 +1214,9 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             (
                 k[3:],
                 (
-                    (
-                        const(try_infer_width(k[3:]), v).expr
-                        if isinstance(v, int)
-                        else ExprBuilder.unwrap(v)
-                    )
+                    const(try_infer_width(k[3:]), v).expr
+                    if isinstance(v, int)
+                    else ExprBuilder.unwrap(v)
                 ),
             )
             for (k, v) in kwargs.items()
@@ -1268,7 +1265,7 @@ class ControlBuilder:
     """Wraps control statements for convenient construction."""
 
     def __init__(self, stmt=None):
-        self.stmt = as_control(stmt)        
+        self.stmt = as_control(stmt)
 
     def __add__(self, other):
         """Build sequential composition."""
@@ -1644,9 +1641,9 @@ class GroupBuilder:
             "GroupLikeBuilder represents continuous assignments"
             " and does not have a done hole"
         )
-        assert not isinstance(
-            self.group_like, ast.CombGroup
-        ), "done hole not available for comb group"
+        assert not isinstance(self.group_like, ast.CombGroup), (
+            "done hole not available for comb group"
+        )
 
         return ExprBuilder(ast.HolePort(ast.CompVar(self.group_like.id.name), "done"))
 
