@@ -87,6 +87,11 @@ mv $tests_dir/pifo_test.data $tests_dir/binheap/
 mv $tests_dir/pifo_test.expect $tests_dir/binheap/
 [[ $? -eq 0 ]] && echo "Generated binheap/pifo_test.expect"
 
+cp $tests_dir/complex_tree_test.data $tests_dir/binheap/
+[[ $? -eq 0 ]] && echo "Generated binheap/complex_tree_test.data"
+cp $tests_dir/complex_tree_test.expect $tests_dir/binheap/
+[[ $? -eq 0 ]] && echo "Generated binheap/complex_tree_test.expect"
+
 for i in $tests_dir/round_robin/*.data; do
     file="$(basename $i)"
     cp $i $tests_dir/binheap/round_robin/$file
