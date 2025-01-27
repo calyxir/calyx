@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
 use ahash::{HashMap, HashMapExt};
+use calyx_frontend::{source_info::PositionId, SetAttr};
+use calyx_ir::GetAttributes;
 use calyx_ir::{self as cir, NumAttr, RRC};
 use cider_idx::iter::IndexRange;
 use itertools::Itertools;
@@ -265,7 +267,7 @@ fn translate_component(
     *ctx = taken_ctx;
 
     for node in IndexRange::new(ctrl_idx_start, ctrl_idx_end).iter() {
-        if let ControlNode::Invoke(i) = &mut ctx.primary.control[node] {
+        if let Control::Invoke(i) = &mut ctx.primary.control[node].control {
             let assign_start_index = ctx.primary.assignments.peek_next_idx();
 
             for (dst, src) in i.signature.iter() {
@@ -618,20 +620,20 @@ impl FlattenTree for cir::Control {
         aux: &Self::AuxiliaryData,
     ) -> Self::Output {
         let (group_map, layout, ctx, comp_info) = aux;
-        match self {
-            cir::Control::Seq(s) => ControlNode::Seq(Seq::new(
+        let ctrl = match self {
+            cir::Control::Seq(s) => Control::Seq(Seq::new(
                 s.stmts.iter().map(|s| handle.enqueue(s)),
             )),
-            cir::Control::Par(p) => ControlNode::Par(Par::new(
+            cir::Control::Par(p) => Control::Par(Par::new(
                 p.stmts.iter().map(|s| handle.enqueue(s)),
             )),
-            cir::Control::If(i) => ControlNode::If(If::new(
+            cir::Control::If(i) => Control::If(If::new(
                 layout.port_map[&i.port.as_raw()],
                 i.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
                 handle.enqueue(&i.tbranch),
                 handle.enqueue(&i.fbranch),
             )),
-            cir::Control::While(w) => ControlNode::While(While::new(
+            cir::Control::While(w) => Control::While(While::new(
                 layout.port_map[&w.port.as_raw()],
                 w.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
                 handle.enqueue(&w.body),
@@ -734,7 +736,7 @@ impl FlattenTree for cir::Control {
                 );
                 let comp_done = layout.port_map[&done[0].as_raw()];
 
-                ControlNode::Invoke(Invoke::new(
+                Control::Invoke(Invoke::new(
                     invoked_cell,
                     inv.comb_group
                         .as_ref()
@@ -746,17 +748,25 @@ impl FlattenTree for cir::Control {
                     comp_done,
                 ))
             }
-            cir::Control::Enable(e) => ControlNode::Enable(Enable::new(
+            cir::Control::Enable(e) => Control::Enable(Enable::new(
                 group_map.groups[&e.group.as_raw()],
             )),
-            cir::Control::Empty(_) => ControlNode::Empty(Empty),
+            cir::Control::Empty(_) => Control::Empty(Empty),
             cir::Control::Static(_) => {
                 todo!("The interpreter does not support static control yet")
             }
             cir::Control::Repeat(repeat) => {
                 let body = handle.enqueue(&repeat.body);
-                ControlNode::Repeat(Repeat::new(body, repeat.num_repeats))
+                Control::Repeat(Repeat::new(body, repeat.num_repeats))
             }
+        };
+
+        ControlNode {
+            control: ctrl,
+            pos: self
+                .get_attributes()
+                .get_set(SetAttr::Pos)
+                .map(|x| x.iter().map(|p| PositionId::new(*p)).collect()),
         }
     }
 }
