@@ -397,9 +397,9 @@ class Cell(Structure):
     def doc(self) -> str:
         # NOTE: adding external on the fly (instead of having the user add it to attributes)
         # so that we can easily do this check
-        assert not (self.is_ref and self.is_external), (
-            "Cell cannot be both a ref and external"
-        )
+        assert not (
+            self.is_ref and self.is_external
+        ), "Cell cannot be both a ref and external"
         if self.is_external:
             self.attributes.append(CellAttribute("external"))
         attribute_annotation = (
