@@ -26,7 +26,7 @@ fn cocotb_setup(e) {
     e.rule("copy", "cp $in $out");
     // This cleans up the extra `make` cruft, leaving what is in between `{` and `}.`
     e.rule(
-      "cleanup-cocotb", `sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out`
+      "cleanup-cocotb", `sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p;}' $in > $out`
     );
 }
 
@@ -49,6 +49,8 @@ op(
     c::verilog_noverify,
     cocotb_axi,
     |e, input, output| {
+        // Cocotb wants files relative to the location of the makefile.
+        // This is annoying to calculate on the fly, so we just copy necessary files to the build directory
         e.build_cmd(
             ["Makefile"],
             "copy",
