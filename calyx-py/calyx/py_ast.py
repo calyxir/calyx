@@ -1,8 +1,11 @@
 from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass, field
-from typing import List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional
 from calyx.utils import block
+import inspect
+import os
 
+POS_CONTROL=False # FIXME: way too hacky. Toggle to add pos attributes to control (necessary for cider but my dinky parser doesn't account for it rn)
 
 @dataclass
 class Emittable:
@@ -12,6 +15,70 @@ class Emittable:
     def emit(self):
         print(self.doc())
 
+
+class FileTable:
+    # making fields static so that we can still get new fileIds without having to pass an object around.
+    # Not really a fan of this, but this is the first pass...
+    counter : int = 0
+    table: Dict[str, int] = {}
+    
+    @staticmethod
+    def get_fileid(filename):
+        if filename not in FileTable.table:
+            FileTable.table[filename] = FileTable.counter
+            FileTable.counter += 1
+        return FileTable.table[filename]
+    
+    @staticmethod
+    def emit_metadata():
+        out = "\tFILES\n"
+        for (filename, fileid) in FileTable.table.items():
+                out += f"\t\t{fileid}: \"{filename}\"\n"
+        return out
+
+class PosTable:
+    counter : int = 0
+    table : Dict[(int, int), int] = {} # (fileid, linenum) -> positionId
+
+    @staticmethod
+    def determine_source_loc() -> Optional[int]:
+        """Inspects the call stack to determine the first call site outside the calyx-py library."""
+        stacktrace = inspect.stack()
+
+        # inspect top frame to determine the path to the calyx-py library
+        top = stacktrace[0]
+        assert top.function == "determine_source_loc"
+        library_path = os.path.dirname(top.filename)
+        assert os.path.join(library_path, "py_ast.py") == top.filename
+
+        # find first stack frame that is not part of the library
+        user = None
+        for frame in stacktrace:
+            # skip frames that do not have a real filename
+            if frame.filename == "<string>":
+                continue
+            if not frame.filename.startswith(library_path):
+                user = frame
+                break
+        if user is None:
+            return None
+
+        return PosTable.add_entry(frame.filename, frame.lineno)
+
+    @staticmethod
+    def add_entry(filename, line_num):
+        file_id = FileTable.get_fileid(filename)
+        if (file_id, line_num) not in PosTable.table:
+            PosTable.table[(file_id, line_num)] = PosTable.counter
+            PosTable.counter += 1
+        return PosTable.table[(file_id, line_num)]
+    
+    @staticmethod
+    def emit_metadata():
+        out = "\tPOSITIONS\n"
+        for ((fileid, linenum), position_id) in PosTable.table.items():
+            out += f"\t\t{position_id}: {fileid} {linenum}\n"
+        return out
 
 # Program
 @dataclass
@@ -33,11 +100,18 @@ class Program(Emittable):
         if len(self.imports) > 0:
             out += "\n"
         out += "\n".join([c.doc() for c in self.components])
-        if len(self.meta) > 0:
-            out += "\nmetadata #{\n"
-            for key, val in self.meta.items():
-                out += f"{key}: {val}\n"
-            out += "}#"
+        if len(self.meta) > 0 or len(FileTable.table) > 0:
+            # out += "\nmetadata #{\n"
+            # for key, val in self.meta.items():
+            #     out += f"{key}: {val}\n"
+            # out += "}#"
+            # first pass for emitting some file/source location metadata
+            if len(FileTable.table) > 0 and len(PosTable.table) > 0:
+                out += "\n\nfileinfo #{\n"
+                out += FileTable.emit_metadata()
+                out += PosTable.emit_metadata()
+                out += "}#"
+
         return out
 
 
@@ -174,8 +248,34 @@ class CompAttribute(Attribute):
     value: int
 
     def doc(self) -> str:
-        return f'"{self.name}"={self.value}'
+        if self.name == "pos":
+            return f'"{self.name}"={{{self.value}}}'
+        else:
+            return f'"{self.name}"={self.value}'
 
+@dataclass
+class CellAttribute(Attribute):
+    name: str
+    value: Optional[int] = None
+
+    def doc(self) -> str:
+        if self.value is None:
+            return f"@{self.name}"
+        elif self.name == "pos":
+            return f"@{self.name}{{{self.value}}}"
+        else:
+            return f"@{self.name}({self.value})"
+
+@dataclass
+class GroupAttribute(Attribute):
+    name: str
+    value: int # FIXME: might want to change?
+
+    def doc(self) -> str:
+        if self.name == "pos":
+            return f'"{self.name}"={{{self.value}}}'
+        else:
+            return f'"{self.name}"={self.value}'
 
 @dataclass
 class PortAttribute(Attribute):
@@ -286,14 +386,23 @@ class Cell(Structure):
     comp: CompInst
     is_external: bool = False
     is_ref: bool = False
+    attributes: list[CellAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
+        # NOTE: adding external on the fly (instead of having the user add it to attributes)
+        # so that we can easily do this check
         assert not (
             self.is_ref and self.is_external
         ), "Cell cannot be both a ref and external"
-        external = "@external " if self.is_external else ""
+        if self.is_external:
+            self.attributes.append(CellAttribute("external"))
+        attribute_annotation = (
+            f"{' '.join([f'{a.doc()}' for a in self.attributes])} "
+            if len(self.attributes) > 0
+            else ""
+        )
         ref = "ref " if self.is_ref else ""
-        return f"{external}{ref}{self.id.doc()} = {self.comp.doc()};"
+        return f"{attribute_annotation}{ref}{self.id.doc()} = {self.comp.doc()};"
 
 
 @dataclass
@@ -317,13 +426,19 @@ class Group(Structure):
     connections: list[Connect]
     # XXX: This is a static group now. Remove this and add a new StaticGroup class.
     static_delay: Optional[int] = None
+    attributes: list[GroupAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
-        static_delay_attr = (
-            "" if self.static_delay is None else f'<"promotable"={self.static_delay}>'
+        # hack - add static delay on the fly. Might be problematic if the group was ever going to be written multiple times?
+        if self.static_delay is not None:
+            self.attributes.append(GroupAttribute("promotable", self.static_delay))
+        attribute_annotation = (
+            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            if len(self.attributes) > 0
+            else ""
         )
         return block(
-            f"group {self.id.doc()}{static_delay_attr}",
+            f"group {self.id.doc()}{attribute_annotation}",
             [c.doc() for c in self.connections],
         )
 
@@ -460,52 +575,57 @@ class Gte(GuardExpr):
     def doc(self) -> str:
         return f"({self.left.doc()} >= {self.right.doc()})"
 
-
 # Control
 @dataclass
 class Control(Emittable):
     pass
 
-
+def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
+    """adds the @pos attribute of loc is not None"""
+    if loc is None or not POS_CONTROL:
+        return source
+    else:
+        return f"@pos{{{loc}}} {source}"
+    
 @dataclass
 class Enable(Control):
     stmt: str
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return f"{self.stmt};"
-
+        return ctrl_with_pos_attribute(f"{self.stmt};", self.loc)
 
 @dataclass
 class SeqComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("seq", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("seq", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class StaticSeqComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("static seq", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("static seq", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class ParComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("par", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("par", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class StaticParComp(Control):
     stmts: list[Control]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        return block("static par", [s.doc() for s in self.stmts])
-
+        return ctrl_with_pos_attribute(block("static par", [s.doc() for s in self.stmts]), self.loc)
 
 @dataclass
 class Invoke(Control):
@@ -515,6 +635,7 @@ class Invoke(Control):
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
     attributes: List[Tuple[str, int]] = field(default_factory=list)
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         inv = f"invoke {self.id.doc()}"
@@ -539,7 +660,7 @@ class Invoke(Control):
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 
-        return inv
+        return ctrl_with_pos_attribute(inv, self.loc)
 
     def with_attr(self, key: str, value: int) -> Invoke:
         self.attributes.append((key, value))
@@ -586,12 +707,14 @@ class While(Control):
     # XXX: This should probably be called the cond_group.
     cond: Optional[CompVar]
     body: Control
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        cond = f"while {self.port.doc()}"
+        cond = ""
+        cond += f"while {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
-        return block(cond, self.body.doc(), sep="")
+        return ctrl_with_pos_attribute(block(cond, self.body.doc(), sep=""), self.loc)
 
 
 @dataclass
@@ -617,9 +740,11 @@ class If(Control):
     cond: Optional[CompVar]
     true_branch: Control
     false_branch: Control = field(default_factory=Empty)
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        cond = f"if {self.port.doc()}"
+        cond = ""
+        cond += f"if {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
         true_branch = self.true_branch.doc()
@@ -627,7 +752,7 @@ class If(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return block(cond, true_branch, sep="") + false_branch
+        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch, self.loc)
 
 
 @dataclass
@@ -643,7 +768,7 @@ class StaticIf(Control):
             false_branch = ""
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
-        return block(cond, true_branch, sep="") + false_branch
+        return ctrl_with_pos_attribute(block(cond, true_branch, sep="") + false_branch, self.loc)
 
 
 # Standard Library
