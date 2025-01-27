@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Rust stable
+      - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Build calyx dev
         run: cargo build
@@ -107,18 +107,22 @@ jobs:
         git checkout -f $GITHUB_SHA
         git clean -fd
 
+    - name: Checkout toolchain configuration
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          rust-toolchain.toml
+        sparse-checkout-cone-mode: false
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all --all-features --manifest-path /home/calyx/interp/Cargo.toml
-
-    - name: Set location of cider binary
-      run: |
-        fud c stages.interpreter.exec /home/calyx/target/debug/cider
+        args: --all --all-features --manifest-path /home/calyx/cider/Cargo.toml
 
     - name: Runt tests
-      working-directory: /home/calyx/interp/tests
+      working-directory: /home/calyx/cider/tests
       run: |
         # Run the remaining tests
         runt -x '(numeric types correctness and parsing)' -d -o fail
@@ -127,13 +131,13 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path /home/calyx/interp/Cargo.toml
+        args: --manifest-path /home/calyx/cider/Cargo.toml
 
     - name: Source code doc tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path /home/calyx/interp/Cargo.toml --doc
+        args: --manifest-path /home/calyx/cider/Cargo.toml --doc
 
   compiler:
     name: Test Compiler
@@ -158,6 +162,16 @@ jobs:
         git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
+
+    - name: Checkout toolchain configuration
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          rust-toolchain.toml
+        sparse-checkout-cone-mode: false
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
 
     - name: Install calyx-py, MrXL, and queues
       working-directory: /home/calyx
@@ -225,6 +239,16 @@ jobs:
         git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
+
+    - name: Checkout toolchain configuration
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          rust-toolchain.toml
+        sparse-checkout-cone-mode: false
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
 
     - name: Build
       uses: actions-rs/cargo@v1

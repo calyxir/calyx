@@ -151,9 +151,9 @@ impl PortMap {
         self.insert_val(
             target,
             AssignedValue::cell_value(if done_bool {
-                BitVecValue::tru()
+                BitVecValue::new_true()
             } else {
-                BitVecValue::fals()
+                BitVecValue::new_false()
             }),
         )
         .map_err(|e| RuntimeError::ConflictingAssignments(e).into())
@@ -373,13 +373,45 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.pc.iter().map(|(_, x)| x)
     }
 
+    /// Method that returns an iterator over all component instances in the debugger
+    /// Used for Cider-DAP extension
+    pub fn iter_compts(
+        &self,
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+        self.cells.iter().filter_map(|(idx, ledge)| match ledge {
+            CellLedger::Primitive { .. } => None,
+            CellLedger::Component(component_ledger) => {
+                Some((idx, self.ctx().lookup_name(component_ledger.comp_id)))
+            }
+            CellLedger::RaceDetectionPrimitive { .. } => None, //what this
+        })
+    }
+    /// Method that returns an iterator over all cells in component cpt
+    /// Used for Cider-DAP extension
+    pub fn iter_cmpt_cells(
+        &self,
+        cpt: GlobalCellIdx,
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+        // take globalcellid, look up in env to get compt ledger and get base indices
+        // w cmpt id, go to context look at ctx.secondary[cmptidx] to get aux info, want cell offset map just keys
+        // add local and globel offset, lookup full name and port info
+        let ledger = self.cells[cpt].as_comp().unwrap();
+        let cells_keys = self.ctx().secondary.comp_aux_info[ledger.comp_id]
+            .cell_offset_map
+            .keys();
+        cells_keys.map(|x| {
+            let idx = &ledger.index_bases + x;
+            (idx.get_full_name(self), self.ports_helper(idx))
+        })
+    }
+
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<String>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
         let env = self;
         let cell_names = self.cells.iter().map(|(idx, _ledger)| {
-            (idx.get_full_name(env), self.get_ports_for_cell(idx))
+            (idx.get_full_name(env), self.ports_helper(idx))
         });
 
         cell_names
@@ -388,45 +420,32 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     //not sure if beneficial to change this to be impl iterator as well
-    fn get_ports_for_cell(&self, cell: GlobalCellIdx) -> Vec<String> {
+    fn ports_helper(&self, cell: GlobalCellIdx) -> Vec<(String, PortValue)> {
         let parent = self.get_parent_cell_from_cell(cell);
         match parent {
             None => {
-                let comp_ledger = self.cells[cell].as_comp().unwrap();
-                let comp_info =
-                    self.ctx().secondary.comp_aux_info.get(comp_ledger.comp_id);
-                let port_ids = comp_info.signature().into_iter().map(|x| {
-                    &self.ctx().secondary.local_port_defs
-                        [comp_info.port_offset_map[x]]
-                        .name
-                });
-                let port_names = port_ids
-                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                let ports = self.get_ports_from_cell(cell);
+                let info = ports
+                    .map(|(name, id)| {
+                        (
+                            (name.lookup_name(self.ctx())).clone(),
+                            self.ports[id].clone(),
+                        )
+                    })
                     .collect_vec();
-                port_names
+                info
             }
             Some(parent_cell) => {
-                let parent_comp_ledger = self.cells[parent_cell].unwrap_comp();
-                let comp_info = self
-                    .ctx()
-                    .secondary
-                    .comp_aux_info
-                    .get(parent_comp_ledger.comp_id);
-                let local_offset = cell - &parent_comp_ledger.index_bases;
-
-                let port_ids = self.ctx().secondary.local_cell_defs
-                    [comp_info.cell_offset_map[local_offset]]
-                    .ports
-                    .into_iter()
-                    .map(|x| {
-                        &self.ctx().secondary.local_port_defs
-                            [comp_info.port_offset_map[x]]
-                            .name
-                    });
-                let names = port_ids
-                    .map(|x| String::from(x.lookup_name(self.ctx())))
+                let ports = self.get_ports_from_cell(parent_cell);
+                let info = ports
+                    .map(|(name, id)| {
+                        (
+                            (name.lookup_name(self.ctx())).clone(),
+                            self.ports[id].clone(),
+                        )
+                    })
                     .collect_vec();
-                names
+                info
             }
         }
     }
@@ -1668,7 +1687,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             + self.env.ctx.as_ref().primary[ledger.comp_id]
                 .unwrap_standard()
                 .go;
-        self.env.ports[go] = PortValue::new_implicit(BitVecValue::tru());
+        self.env.ports[go] = PortValue::new_implicit(BitVecValue::new_true());
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -1848,7 +1867,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         for (comp, id) in self.env.pc.finished_comps() {
             let done_port = self.env.unwrap_comp_done(*comp);
-            let v = PortValue::new_implicit(BitVecValue::tru());
+            let v = PortValue::new_implicit(BitVecValue::new_true());
             self.env.ports[done_port] = if self.conf.check_data_race {
                 v.with_thread(id.expect("finished comps should have a thread"))
             } else {
@@ -1883,7 +1902,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             // if the done is not high & defined, we need to set it to low
             if !self.env.ports[comp_done].as_bool().unwrap_or_default() {
                 self.env.ports[comp_done] =
-                    PortValue::new_implicit(BitVecValue::fals());
+                    PortValue::new_implicit(BitVecValue::new_false());
             }
 
             match &ctx_ref.primary[node.control_node_idx] {
@@ -1898,7 +1917,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     // set go high
                     let go_idx = index_bases + go_local;
                     self.env.ports[go_idx] =
-                        PortValue::new_implicit(BitVecValue::tru());
+                        PortValue::new_implicit(BitVecValue::new_true());
                 }
                 ControlNode::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
@@ -1912,7 +1931,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                     let go = self.get_global_port_idx(&invoke.go, node.comp);
                     self.env.ports[go] =
-                        PortValue::new_implicit(BitVecValue::tru())
+                        PortValue::new_implicit(BitVecValue::new_true())
                             .with_thread_optional(
                                 if self.conf.check_data_race {
                                     assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. In {}", node.comp.get_full_name(&self.env));

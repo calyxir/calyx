@@ -1,9 +1,9 @@
 use argh::FromArgs;
+use cider::serialization::{self, DataDump, SerializationError};
 use cider_data_converter::{
     converter, dat_parser::unwrap_line_or_comment, json_data::JsonData,
 };
 use core::str;
-use interp::serialization::{self, DataDump, SerializationError};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, BufWriter, Read, Write},

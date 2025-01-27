@@ -11,7 +11,9 @@ Until then, fud remains your first choice for all your build-related needs.
 
 ## Set Up
 
-fud2 is a Rust tool, so you can build it along with everything else in this monorepo with `cargo build`.
+If you would like to use `fud2` as is, and already have Calyx installed, you can `cargo install --path fud2` from this repository's root to automatically add the binary to your path.
+
+Alternatively, if you would like to work on development of `fud2` and/or keep up with the latest changes when you `git pull`, you can build it along with everything else in this monorepo with `cargo build`.
 You might then want to do something like ``ln -s `pwd`/target/debug/fud2 ~/.local/bin`` for easy access to the `fud2` binary.
 
 fud2 depends on [Ninja][].
