@@ -116,6 +116,12 @@ impl SourceInfoTable {
         &self.position_map[&pos]
     }
 
+    /// Looks up the source location of the position with the given id. If no
+    /// such position exists, returns `None`
+    pub fn get_position(&self, pos: PositionId) -> Option<&SourceLocation> {
+        self.position_map.get(&pos)
+    }
+
     /// Iterate over the stored file map, returning a tuple of references to the
     /// file id and the path
     pub fn iter_file_map(&self) -> impl Iterator<Item = (&FileId, &PathBuf)> {

@@ -412,7 +412,40 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     .print_watchpoints(self.interpreter.env()),
 
                 Command::PrintPC(print_mode) => match print_mode {
-                    PrintCommand::Normal | PrintCommand::PrintCalyx => {
+                    PrintCommand::Normal => {
+                        if let Some(source_info) = &self
+                            .program_context
+                            .as_ref()
+                            .secondary
+                            .source_info_table
+                        {
+                            let mut printed_position = false;
+                            for position in
+                                self.interpreter.env().iter_positions()
+                            {
+                                if let Some(location) =
+                                    source_info.get_position(position)
+                                {
+                                    println!(
+                                        "{}:{}",
+                                        source_info
+                                            .lookup_file_path(location.file)
+                                            .display(),
+                                        location.line
+                                    );
+                                    printed_position = true;
+                                }
+                            }
+
+                            if !printed_position {
+                                println!("Source info unavailable, falling back to Calyx");
+                                self.interpreter.print_pc();
+                            }
+                        } else {
+                            self.interpreter.print_pc();
+                        }
+                    }
+                    PrintCommand::PrintCalyx => {
                         self.interpreter.print_pc();
                     }
                     PrintCommand::PrintNodes => {

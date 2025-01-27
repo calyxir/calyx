@@ -171,9 +171,9 @@ impl<'a> Printer<'a> {
         control: ControlIdx,
         indent: usize,
     ) -> String {
-        match &self.ctx.primary[control] {
-            ControlNode::Empty(_) => String::new(),
-            ControlNode::Enable(e) => text_utils::indent(
+        match &self.ctx.primary[control].control {
+            Control::Empty(_) => String::new(),
+            Control::Enable(e) => text_utils::indent(
                 format!(
                     "{};     ({:?})",
                     self.ctx.secondary[self.ctx.primary[e.group()].name()]
@@ -184,7 +184,7 @@ impl<'a> Printer<'a> {
             ),
 
             // TODO Griffin: refactor into shared function rather than copy-paste?
-            ControlNode::Seq(s) => {
+            Control::Seq(s) => {
                 let mut seq = text_utils::indent(
                     format!("seq {{  ({:?})\n", control),
                     indent,
@@ -197,7 +197,7 @@ impl<'a> Printer<'a> {
                 seq += &text_utils::indent("}", indent);
                 seq
             }
-            ControlNode::Par(p) => {
+            Control::Par(p) => {
                 let mut par = text_utils::indent("par {\n", indent);
                 for stmt in p.stms() {
                     let child = self.format_control(parent, *stmt, indent + 1);
@@ -207,7 +207,7 @@ impl<'a> Printer<'a> {
                 par += &text_utils::indent("}", indent);
                 par
             }
-            ControlNode::If(i) => {
+            Control::If(i) => {
                 let cond = self.lookup_id_from_port(parent, i.cond_port());
                 let mut out = text_utils::indent(
                     format!("if {} ", cond.format_name(self.string_table())),
@@ -237,7 +237,7 @@ impl<'a> Printer<'a> {
 
                 out
             }
-            ControlNode::While(w) => {
+            Control::While(w) => {
                 let cond = self.lookup_id_from_port(parent, w.cond_port());
                 let mut out = text_utils::indent(
                     format!("while {} ", cond.format_name(self.string_table())),
@@ -257,7 +257,7 @@ impl<'a> Printer<'a> {
 
                 out
             }
-            ControlNode::Invoke(i) => {
+            Control::Invoke(i) => {
                 let invoked_name =
                     &self.ctx.secondary[self.lookup_cell_id(parent, i.cell)];
 
@@ -285,7 +285,7 @@ impl<'a> Printer<'a> {
 
                 text_utils::indent(out, indent)
             }
-            ControlNode::Repeat(_) => {
+            Control::Repeat(_) => {
                 todo!()
             }
         }
