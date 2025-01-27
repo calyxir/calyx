@@ -58,11 +58,9 @@ results.xml
 tools/btor2/btor2i/build/
 
 # profiling ignore
-tools/profiler/data
-tools/profiler/meta-logs
-tools/profiler/fg-tmp
 *.svg
 *.folded
+fud2-runs
 
 temp/
 
