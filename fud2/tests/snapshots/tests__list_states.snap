@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+snapshot_kind: text
 ---
 [
     "calyx",
@@ -9,6 +10,7 @@ source: fud2/tests/tests.rs
     "cocotb-axi",
     "dahlia",
     "dat",
+    "edsl",
     "firrtl",
     "firrtl-with-primitives",
     "flamegraph",
@@ -16,11 +18,8 @@ source: fud2/tests/tests.rs
     "mrxl",
     "primitive-uses-json",
     "sim",
-    "sim-instrumented",
     "vcd",
-    "vcd-instrumented",
     "verilog",
-    "verilog-instrumented",
     "verilog-noverify",
     "verilog-refmem",
     "verilog-refmem-noverify",
