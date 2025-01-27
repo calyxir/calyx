@@ -1,9 +1,7 @@
 use calyx_ir::PortComp;
+use cider_idx::maps::IndexedMap;
 
-use crate::flatten::{
-    flat_ir::prelude::{GuardIdx, PortRef},
-    structures::indexed_map::IndexedMap,
-};
+use crate::flatten::flat_ir::prelude::{GuardIdx, PortRef};
 
 /// A map storing all the guards defined in the program
 pub type GuardMap = IndexedMap<GuardIdx, Guard>;

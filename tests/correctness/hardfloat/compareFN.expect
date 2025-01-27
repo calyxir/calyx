@@ -1,0 +1,11 @@
+{
+  "cycles": 7,
+  "memories": {
+    "mem_write_eq": [
+      0
+    ],
+    "mem_write_unordered": [
+      1
+    ]
+  }
+}

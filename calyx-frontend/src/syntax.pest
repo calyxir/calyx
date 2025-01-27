@@ -58,7 +58,7 @@ file = {
       SOI
       ~ imports
       ~ externs_and_comps
-      ~ metadata?
+      ~ extra_info?
       ~ EOI
 }
 
@@ -251,9 +251,13 @@ static_wire = {
 
 // =========== Attribute parsing ===============
 
+attr_set = {
+      "{" ~ bitwidth ~ ("," ~ bitwidth)* ~ "}"
+}
+
 // <"static" = 1> style annotation
 attribute = {
-      string_lit ~ "=" ~ bitwidth
+      string_lit ~ "=" ~ (bitwidth | attr_set)
 }
 latency_annotation = {
   "<" ~ bitwidth ~ ">"
@@ -270,7 +274,7 @@ attr_val = {
   "(" ~ bitwidth ~ ")"
 }
 at_attribute = {
-      "@" ~ identifier ~ attr_val?
+      "@" ~ identifier ~ (attr_val | attr_set)?
 }
 at_attributes = {
       at_attribute*
@@ -380,9 +384,42 @@ control = {
       "control" ~ (("{" ~ "}") | block)
 }
 
-// metadata
+// metadata Legacy
 
 any_char = { ANY }
 metadata_char = ${ !"}#" ~ any_char }
 
 metadata = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
+
+// Source Info Table
+
+file_header = {^"FILES"}
+
+path_text = @{(ASCII_ALPHANUMERIC | "\\" | "/" | "." | "_" | "-" )*}
+
+
+file_entry = { bitwidth ~ ":" ~ path_text }
+
+file_table = {
+    file_header ~ file_entry+
+}
+
+position_header = {^"POSITIONS"}
+
+position_entry = {bitwidth ~ ":" ~ bitwidth ~ bitwidth }
+
+position_table = {
+    position_header ~ position_entry+
+}
+
+source_info_table = {
+ ^"sourceinfo" ~ "#{" ~ file_table ~ position_table ~ "}#"
+}
+
+
+extra_info = {
+      metadata
+      | source_info_table
+      | (metadata ~ source_info_table)
+      | (source_info_table ~ metadata)
+}

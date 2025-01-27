@@ -245,6 +245,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         entrypoint,
         extra_opts: vec![],
         metadata: workspace.metadata,
+        source_info_table: workspace.source_info_table,
     })
 }
 

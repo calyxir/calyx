@@ -1,7 +1,5 @@
 use super::{
-    super::{
-        context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
-    },
+    super::context::Context,
     assignments::{GroupInterfacePorts, ScheduledAssignments},
     clock::ClockMap,
     program_counter::{
@@ -34,7 +32,6 @@ use crate::{
             environment::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
-            index_trait::IndexRef,
             thread::{ThreadIdx, ThreadMap},
         },
     },
@@ -49,6 +46,7 @@ use ahash::HashSet;
 use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
 use baa::{BitVecOps, BitVecValue};
+use cider_idx::{iter::IndexRange, maps::IndexedMap, IndexRef};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
@@ -56,7 +54,28 @@ use slog::{info, warn, Logger};
 use std::fmt::Write;
 use std::{convert::Into, fmt::Debug};
 
-pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
+#[derive(Debug, Clone)]
+pub struct PortMap(IndexedMap<GlobalPortIdx, PortValue>);
+
+impl PortMap {
+    pub fn with_capacity(size: usize) -> Self {
+        Self(IndexedMap::with_capacity(size))
+    }
+}
+
+impl std::ops::DerefMut for PortMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::ops::Deref for PortMap {
+    type Target = IndexedMap<GlobalPortIdx, PortValue>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl PortMap {
     /// Essentially asserts that the port given is undefined, it errors out if

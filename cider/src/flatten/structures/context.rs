@@ -1,6 +1,11 @@
 use std::ops::Index;
 
 use calyx_ir::Direction;
+use cider_idx::{
+    iter::IndexRange,
+    maps::{IndexedMap, SecondaryMap, SecondarySparseMap},
+    IndexRef,
+};
 
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
@@ -23,12 +28,7 @@ use crate::flatten::flat_ir::{
     },
 };
 
-use super::{
-    index_trait::{IndexRange, IndexRef},
-    indexed_map::{AuxiliaryMap, IndexedMap},
-    printer::Printer,
-    sparse_map::AuxiliarySparseMap,
-};
+use super::printer::Printer;
 
 /// The immutable program context for the interpreter. Relevant at simulation
 /// time
@@ -47,7 +47,7 @@ pub struct InterpretationContext {
     /// Map from guard to the ports it reads. Might be worth doing some extra
     /// work to make this save memory since empty vecs for True guards is
     /// probably not worth it
-    pub guard_read_map: AuxiliarySparseMap<GuardIdx, Vec<PortRef>>,
+    pub guard_read_map: SecondarySparseMap<GuardIdx, Vec<PortRef>>,
     /// Control trees
     pub control: ControlMap,
 }
@@ -128,7 +128,7 @@ pub struct SecondaryContext {
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
     /// auxiliary information for components
-    pub comp_aux_info: AuxiliaryMap<ComponentIdx, AuxiliaryComponentInfo>,
+    pub comp_aux_info: SecondaryMap<ComponentIdx, AuxiliaryComponentInfo>,
 }
 
 impl Index<Identifier> for SecondaryContext {

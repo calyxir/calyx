@@ -5,15 +5,23 @@ use super::ast::{
     self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
 };
 use super::Attributes;
-use crate::{Attribute, Direction, PortDef, Primitive, Width};
+use crate::{
+    attribute::SetAttribute,
+    attributes::ParseAttributeWrapper,
+    source_info::{
+        FileId as MetadataFileId, LineNum, PositionId, SourceInfoResult,
+        SourceInfoTable,
+    },
+    Attribute, Direction, PortDef, Primitive, Width,
+};
 use calyx_utils::{self, float, CalyxResult, Id, PosString};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
-use std::fs;
 use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
+use std::{fs, path::PathBuf};
 
 type ParseResult<T> = Result<T, Error<Rule>>;
 type ComponentDef = ast::ComponentDef;
@@ -184,6 +192,22 @@ impl CalyxParser {
                 })
             })
             .parse(pairs)
+    }
+
+    #[cfg(test)]
+    /// A test helper for parsing the new metadata table
+    pub fn parse_source_info_table(
+        input: &str,
+    ) -> Result<SourceInfoResult<SourceInfoTable>, Box<Error<Rule>>> {
+        let inputs = CalyxParser::parse_with_userdata(
+            Rule::source_info_table,
+            input,
+            UserData {
+                file: GlobalPositionTable::add_file("".into(), "".into()),
+            },
+        )?;
+        let input = inputs.single()?;
+        Ok(CalyxParser::source_info_table(input)?)
     }
 }
 
@@ -367,10 +391,14 @@ impl CalyxParser {
     }
 
     // ================ Attributes =====================
-    fn attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+    fn attribute(input: Node) -> ParseResult<ParseAttributeWrapper> {
         match_nodes!(
             input.clone().into_children();
-            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
+            [string_lit(key), bitwidth(num)] => Attribute::from_str(key.as_ref()).map(|attr| (attr, num).into()).map_err(|e| input.error(format!("{:?}", e))),
+            [string_lit(key), attr_set(nums)] => {
+                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e)))?;
+                Ok((attr, nums).into())
+            }
         )
     }
     fn attributes(input: Node) -> ParseResult<Attributes> {
@@ -405,6 +433,13 @@ impl CalyxParser {
         ))
     }
 
+    fn attr_set(input: Node) -> ParseResult<Vec<u32>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(num)..] => num.into_iter().map(|n| {let n_32: u32 = n.try_into().expect("set values must fit in a u32"); n_32}).collect()
+        ))
+    }
+
     fn latency_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
         let num = match_nodes!(
             input.clone().into_children();
@@ -417,11 +452,15 @@ impl CalyxParser {
         }
     }
 
-    fn at_attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+    fn at_attribute(input: Node) -> ParseResult<ParseAttributeWrapper> {
         match_nodes!(
             input.clone().into_children();
-            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num)),
-            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1)),
+            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num).into()),
+            [identifier(key), attr_set(nums)] => {
+                let attr = SetAttribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e)))?;
+                Ok((attr, nums).into())
+            },
+            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1).into()),
         )
     }
 
@@ -1327,18 +1366,117 @@ impl CalyxParser {
         ))
     }
 
+    // Source Info Table
+
+    fn path_text(input: Node) -> ParseResult<PathBuf> {
+        Ok(PathBuf::from(input.as_str().trim()))
+    }
+
+    fn file_entry(input: Node) -> ParseResult<(MetadataFileId, PathBuf)> {
+        Ok(match_nodes!(input.into_children();
+            [bitwidth(n), path_text(p)] => (MetadataFileId::new(n.try_into().expect("file ids must fit in a u32")), p)
+        ))
+    }
+
+    fn file_header(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn file_table(
+        input: Node,
+    ) -> ParseResult<impl IntoIterator<Item = (MetadataFileId, PathBuf)>> {
+        Ok(match_nodes!(input.into_children();
+            [file_header(_), file_entry(e)..] => e))
+    }
+
+    fn position_header(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn position_entry(
+        input: Node,
+    ) -> ParseResult<(PositionId, MetadataFileId, LineNum)> {
+        Ok(match_nodes!(input.into_children();
+            [bitwidth(pos_num), bitwidth(file_num), bitwidth(line_no)] => {
+                let pos_num = pos_num.try_into().expect("position ids must fit in a u32");
+                let file_num = file_num.try_into().expect("file ids must fit in a u32");
+                let line_no = line_no.try_into().expect("line numbers must fit in a u32");
+                (PositionId::new(pos_num), MetadataFileId::new(file_num), LineNum::new(line_no))}
+        ))
+    }
+
+    fn position_table(
+        input: Node,
+    ) -> ParseResult<
+        impl IntoIterator<Item = (PositionId, MetadataFileId, LineNum)>,
+    > {
+        Ok(match_nodes!(input.into_children();
+                [position_header(_), position_entry(e)..] => e))
+    }
+
+    fn source_info_table(
+        input: Node,
+    ) -> ParseResult<SourceInfoResult<SourceInfoTable>> {
+        Ok(match_nodes!(input.into_children();
+            [file_table(f), position_table(p)] => SourceInfoTable::new(f, p)
+        ))
+    }
+
+    // end new metadata
+
+    fn extra_info(
+        input: Node,
+    ) -> ParseResult<(Option<String>, Option<SourceInfoTable>)> {
+        Ok(match_nodes!(input.into_children();
+                [metadata(m)] => (Some(m), None),
+                [source_info_table(s)] => {
+                    if let Ok(s) = s {
+                        (None, Some(s))
+                    } else {
+                        log::error!("{}", s.unwrap_err());
+                        (None, None)
+                    }
+                },
+                [metadata(m), source_info_table(s)] => {
+                    if let Ok(s) = s {
+                        (Some(m), Some(s))
+                    } else {
+                        log::error!("{}", s.unwrap_err());
+                        (Some(m), None)
+                    }
+                },
+                [source_info_table(s), metadata(m)] => {
+                    if let Ok(s) = s {
+                        (Some(m), Some(s))
+                    } else {
+                        log::error!("{}", s.unwrap_err());
+                        (Some(m), None)
+                    }
+                }
+        ))
+    }
+
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
             // There really seems to be no straightforward way to resolve this
             // duplication
-            [imports(imports), externs_and_comps(mixed), metadata(m), EOI(_)] => {
+            [imports(imports), externs_and_comps(mixed), extra_info(info), EOI(_)] => {
+                let (mut metadata, source_info_table) = info;
+                // remove empty metadata strings
+                if let Some(m) = &metadata {
+                    if m.is_empty() {
+                        metadata = None;
+                    }
+                }
+
                 let mut namespace =
                     ast::NamespaceDef {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
-                        metadata: if m != *"" { Some(m) } else { None }
+                        metadata,
+                         source_info_table
                     };
                 for m in mixed {
                     match m {
@@ -1362,7 +1500,8 @@ impl CalyxParser {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
-                        metadata: None
+                        metadata: None,
+                        source_info_table: None
                     };
                 for m in mixed {
                     match m {

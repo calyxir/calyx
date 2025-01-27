@@ -1,0 +1,14 @@
+{
+  "cycles": 2,
+  "memories": {
+    "mem_read_a": [
+      2.7
+    ],
+    "mem_read_b": [
+      -2
+    ],
+    "mem_write": [
+      -5.4
+    ]
+  }
+}
