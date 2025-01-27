@@ -1,0 +1,64 @@
+import "primitives/core.futil";
+component main<"pos"={0}>() -> () {
+  cells {
+    @pos{1} b = std_reg(32);
+    @pos{2} c = std_reg(32);
+    @pos{3} cst = std_const(32, 1);
+    @pos{8} foo0 = foo();
+  }
+  wires {
+    group write_constant<"pos"={9}, "promotable"=1> {
+      b.in = cst.out;
+      b.write_en = 1'd1;
+      write_constant[done] = b.done;
+    }
+    group save_foo<"pos"={10}> {
+      c.in = foo0.out;
+      c.write_en = 1'd1;
+      save_foo[done] = c.done;
+    }
+  }
+  control {
+    seq {
+      write_constant;
+      invoke foo0(a=b.out)();
+      save_foo;
+    }
+  }
+}
+component foo<"pos"={4}>(a: 32) -> (out: 32) {
+  cells {
+    @pos{5} temp = std_reg(32);
+  }
+  wires {
+    group let<"pos"={6}, "promotable"=1> {
+      temp.in = a;
+      temp.write_en = 1'd1;
+      let[done] = temp.done;
+    }
+    out = temp.out;
+  }
+  control {
+    let;
+  }
+}
+
+sourceinfo #{
+	FILES
+		0: /home/ayaka/projects/calyx/calyx-py/test/invoke-with-builder.py
+	POSITIONS
+		0: 0 26
+		1: 0 29
+		2: 0 30
+		3: 0 31
+		4: 0 5
+		5: 0 10
+		6: 0 12
+		7: 0 20
+		8: 0 32
+		9: 0 35
+		10: 0 40
+		11: 0 45
+		12: 0 46
+		13: 0 47
+}#

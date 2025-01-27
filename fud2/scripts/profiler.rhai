@@ -2,16 +2,17 @@ import "calyx" as c;
 import "verilator" as v;
 import "rtl_sim" as sim;
 
-export const instrumented_verilog = state("verilog-instrumented", ["sv"]);
-export const instrumented_sim = state("sim-instrumented", ["exe"]);
-export const instrumented_vcd = state("vcd-instrumented", ["vcd"]);
 export const flamegraph = state("flamegraph", ["svg"]);
+export const edsl = state("edsl", ["py"]);
 
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
 
     // series of passes after instrumentation?
     e.config_var_or("passes", "profiler.compilation-passes", "-p all"); // set passes="-p no-opt" to run without optimizations
+
+    // eDSL python file arguments
+    e.config_var_or("edsl-args", "profiler.edsl-args", "");
 
     // rules for preprocessing
 
@@ -22,7 +23,7 @@ fn profiling_setup(e) {
 
     // script to process vcd and produce folded representation of flame graph
     e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells profiler-out $out");
+    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells NA profiler-out $out");
 
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
@@ -31,6 +32,61 @@ fn profiling_setup(e) {
     // Standalone Verilog testbench. copied from testbench
     e.rsrc("tb.sv");
 
+    // ---- eDSL to Calyx to flame graph.
+    e.rule("edsl-to-calyx", "python3 $in $edsl-args > $out");
+
+    e.var_("metadata-mapping-json", "metadata-map.json");
+    e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
+    e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
+
+    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells $metadata-mapping-json profiler-out $out");
+}
+
+// first pass. probably worth merging with calyx_to_flamegraph one of these days
+fn edsl_to_flamegraph(e, input, output) {
+    // create calyx file
+    let calyx = "calyx.futil";
+    e.build_cmd([calyx], "edsl-to-calyx", [input], []);
+
+    // create metatdata mapping file
+    e.build_cmd(["$metadata-mapping-json"], "parse-metadata", [calyx], []);
+
+    // instrument calyx and produce verilog
+    let instrumented_verilog = "instrumented.sv";
+    e.build_cmd(["$cells"], "component-cells", [calyx], []);
+    e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
+    e.arg("backend", "verilog");
+    e.arg("args", "-p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
+
+    let instrumented_sim = "instrumented.exe";
+    // verilog --> sim; adapted from verilator::verilator_build()
+    let verilator_out_dir = "verilator-out";
+    let sim_bin = `${verilator_out_dir}/Vtoplevel`;
+    e.build_cmd(
+      [sim_bin],
+      "verilator-compile-standalone-tb",
+      [instrumented_verilog],
+      ["tb.sv"],
+    );
+    e.arg("out-dir", verilator_out_dir);
+    e.build("cp", sim_bin, instrumented_sim);
+
+    let instrumented_vcd = "instrumented.vcd";
+    // sim --> vcd; adapted from rtl_sim
+    e.build_cmd(
+        ["sim.log", instrumented_vcd],
+        "sim-run",
+        [instrumented_sim, "$datadir"],
+        [],
+    );
+    e.arg("bin", instrumented_sim);
+    e.arg("args", `+NOTRACE=0 +OUT=${instrumented_vcd}`);
+
+    // vcd --> flamegraph
+    let elems_profiled_json = "elems-profiled.json";
+    let flamegraph_folded = "flamegraph.folded";
+    e.build_cmd([flamegraph_folded], "parse-vcd-from-adl", [instrumented_vcd], ["$cells", "$metadata-mapping-json"]);
+    e.build_cmd([output], "create-visuals", [flamegraph_folded], []);
 }
 
 fn calyx_to_flamegraph(e, input, output) {
@@ -79,3 +135,10 @@ op(
     flamegraph,
     |e, input, output| calyx_to_flamegraph(e, input, output)
 );
+
+op("edsl-profiler",
+    [c::calyx_setup, profiling_setup, v::verilator_setup, sim::sim_setup],
+    edsl,
+    flamegraph,
+    |e, input, output| edsl_to_flamegraph(e, input, output)
+)

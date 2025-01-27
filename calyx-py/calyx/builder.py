@@ -5,6 +5,7 @@ from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
 
+
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
 TLS = threading.local()
@@ -27,10 +28,7 @@ class Builder:
     """The entry-point builder for top-level Calyx programs."""
 
     def __init__(self):
-        self.program = ast.Program(
-            imports=[],
-            components=[],
-        )
+        self.program = ast.Program(imports=[], components=[])
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
@@ -97,6 +95,11 @@ class ComponentBuilder:
                 structs=list(),
             )
         )
+
+        if not is_comb:
+            position_id = ast.PosTable.determine_source_loc()
+            if position_id is not None:
+                self.component.attributes.append(ast.CompAttribute("pos", position_id))
 
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         self.continuous = GroupBuilder(None, self)
@@ -278,6 +281,9 @@ class ComponentBuilder:
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError("Combinational components do not have groups.")
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
+        position_id = ast.PosTable.determine_source_loc()
+        if position_id is not None:
+            group.attributes.append(ast.GroupAttribute("pos", position_id))
         assert group not in self.component.wires, f"group '{name}' already exists"
 
         self.component.wires.append(group)
@@ -326,6 +332,9 @@ class ComponentBuilder:
 
         cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
         assert cell not in self.component.cells, f"cell '{name}' already exists"
+        position_id = ast.PosTable.determine_source_loc()
+        if position_id is not None:
+            cell.attributes.append(ast.CellAttribute("pos", position_id))
 
         self.component.cells.append(cell)
         builder = CellBuilder(cell)
@@ -1205,11 +1214,9 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             (
                 k[3:],
                 (
-                    (
-                        const(try_infer_width(k[3:]), v).expr
-                        if isinstance(v, int)
-                        else ExprBuilder.unwrap(v)
-                    )
+                    const(try_infer_width(k[3:]), v).expr
+                    if isinstance(v, int)
+                    else ExprBuilder.unwrap(v)
                 ),
             )
             for (k, v) in kwargs.items()
