@@ -46,6 +46,7 @@ use ahash::HashSet;
 use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
 use baa::{BitVecOps, BitVecValue};
+use calyx_frontend::source_info::PositionId;
 use cider_idx::{iter::IndexRange, maps::IndexedMap, IndexRef};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
@@ -723,6 +724,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.get_comp_go(comp).unwrap()
     }
 
+    pub fn comp_go_as_bool(&self, comp: GlobalCellIdx) -> bool {
+        let go = self.unwrap_comp_go(comp);
+        self.ports[go].as_bool().unwrap_or_default()
+    }
+
     pub fn get_comp_done(&self, comp: GlobalCellIdx) -> Option<GlobalPortIdx> {
         let ledger = self.cells[comp]
             .as_comp()
@@ -1395,6 +1401,21 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let comp = &self.ctx.as_ref().secondary[comp_idx];
         let idx = comp.ref_port_offset_map[port];
         self.ctx.as_ref().secondary[idx]
+    }
+
+    pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> + '_ {
+        self.pc
+            .iter()
+            .filter_map(|(_, ctrl_point)| {
+                let node = &self.ctx().primary[ctrl_point.control_node_idx];
+
+                if self.comp_go_as_bool(ctrl_point.comp) {
+                    Some(node.positions())
+                } else {
+                    None
+                }
+            })
+            .flatten()
     }
 }
 
