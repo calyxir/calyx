@@ -43,7 +43,7 @@ pub struct GroupMapper {
 }
 
 pub fn translate(orig_ctx: &cir::Context) -> Context {
-    let mut ctx = Context::new();
+    let mut ctx = Context::new(orig_ctx.source_info_table.clone());
 
     let mut component_id_map = ComponentMapper::new();
 
