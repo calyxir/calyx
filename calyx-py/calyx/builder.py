@@ -225,6 +225,29 @@ class ComponentBuilder:
 
         return par(*ifs)
 
+    # def case(
+    #     self, signal: ExprBuilder, cases: Dict[int, Controllable], signed=False
+    # ) -> None:
+    #     """Add the required cells, wiring, and `if` statements to enable `case`
+    #     like semantics in the component. Does not support `default` cases.
+    #     Branches are implemented via mutually exclusive `if` statements in the
+    #     component's `control` block."""
+    #     width = self.infer_width(signal)
+    #     curr_if = None
+    #     prev_if = None
+    #     for branch, controllable in reversed(cases.items()):
+    #         prev_if = curr_if
+    #         std_eq = self.eq(
+    #             width, self.generate_name(f"{signal.name}_eq_{branch}"), signed
+    #         )
+
+    #         with self.continuous:
+    #             std_eq.left = signal
+    #             std_eq.right = const(width, branch)
+    #         curr_if = if_(std_eq["out"], controllable, prev_if)
+
+    #     return curr_if
+
     def port_width(self, port: ExprBuilder) -> int:
         """Get the width of an expression, which may be a port of this component."""
         name = ExprBuilder.unwrap(port).item.id.name
