@@ -251,7 +251,7 @@ class CompAttribute(Attribute):
 
     def doc(self) -> str:
         if self.name == "pos":
-            return f'"{self.name}"={{{self.value}}}'
+            return f'"{self.name}"={{{self.value}}}' if EMIT_FILEINFO else ""
         else:
             return f'"{self.name}"={self.value}'
 
@@ -265,7 +265,7 @@ class CellAttribute(Attribute):
         if self.value is None:
             return f"@{self.name}"
         elif self.name == "pos":
-            return f"@{self.name}{{{self.value}}}"
+            return f"@{self.name}{{{self.value}}}" if EMIT_FILEINFO else ""
         else:
             return f"@{self.name}({self.value})"
 
@@ -277,7 +277,7 @@ class GroupAttribute(Attribute):
 
     def doc(self) -> str:
         if self.name == "pos":
-            return f'"{self.name}"={{{self.value}}}'
+            return f'"{self.name}"={{{self.value}}}' if EMIT_FILEINFO else ""
         else:
             return f'"{self.name}"={self.value}'
 
