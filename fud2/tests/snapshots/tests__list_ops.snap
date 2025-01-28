@@ -14,6 +14,11 @@ snapshot_kind: text
         "verilog-noverify",
     ),
     (
+        "calyx-py-profiler",
+        "calyx_py",
+        "flamegraph",
+    ),
+    (
         "calyx-to-cider",
         "calyx",
         "cider",
@@ -62,11 +67,6 @@ snapshot_kind: text
         "debug",
         "cider",
         "cider-debug",
-    ),
-    (
-        "edsl-profiler",
-        "edsl",
-        "flamegraph",
     ),
     (
         "firrtl",

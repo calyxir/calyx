@@ -10,7 +10,6 @@ snapshot_kind: text
     "cocotb-axi",
     "dahlia",
     "dat",
-    "edsl",
     "firrtl",
     "firrtl-with-primitives",
     "flamegraph",
