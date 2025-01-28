@@ -106,10 +106,10 @@ class Program(Emittable):
             out += "\n"
         out += "\n".join([c.doc() for c in self.components])
         if len(self.meta) > 0 or len(FileTable.table) > 0:
-            # out += "\nmetadata #{\n"
-            # for key, val in self.meta.items():
-            #     out += f"{key}: {val}\n"
-            # out += "}#"
+            out += "\nmetadata #{\n"
+            for key, val in self.meta.items():
+                out += f"{key}: {val}\n"
+            out += "}#"
             if EMIT_FILEINFO and len(FileTable.table) > 0 and len(PosTable.table) > 0:
                 out += "\n\nsourceinfo #{\n"
                 out += FileTable.emit_fileinfo_metadata()
