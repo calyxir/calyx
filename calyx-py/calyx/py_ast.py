@@ -130,7 +130,7 @@ class Component:
     cells: list[Cell]
     controls: Control
     latency: Optional[int]
-    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    loc: Optional[int]
 
     def __init__(
         self,
@@ -148,6 +148,7 @@ class Component:
         self.outputs = outputs
         self.controls = controls
         self.latency = latency
+        self.loc = PosTable.determine_source_loc()
 
         # Partition cells and wires.
         def is_cell(x):
