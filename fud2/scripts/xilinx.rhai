@@ -39,6 +39,10 @@ fn xilinx_setup(e) {
     e.rule("gen-kernel-xml", "$python $xml-generator $in > $out");
 };
 
+
+// TODO(nathanielnrn): Remove this and instead have a calyx -> verilog stage
+// that uses the "xilinx" backend when the correct flags are set.
+// When the yxi/calyx based wrappers are complete this can be removed.
 op(
     "xo",
     [axi::c::calyx_setup, xilinx_setup],
