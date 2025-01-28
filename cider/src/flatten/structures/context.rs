@@ -1,5 +1,6 @@
 use std::ops::Index;
 
+use calyx_frontend::source_info::SourceInfoTable;
 use calyx_ir::Direction;
 use cider_idx::{
     iter::IndexRange,
@@ -129,6 +130,8 @@ pub struct SecondaryContext {
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
     /// auxiliary information for components
     pub comp_aux_info: SecondaryMap<ComponentIdx, AuxiliaryComponentInfo>,
+    /// Source Info Table
+    pub source_info_table: Option<SourceInfoTable>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -180,6 +183,18 @@ impl Index<ComponentIdx> for SecondaryContext {
 }
 
 impl SecondaryContext {
+    pub fn new(source_info_table: Option<SourceInfoTable>) -> Self {
+        Self {
+            string_table: IdMap::new(),
+            local_port_defs: Default::default(),
+            ref_port_defs: Default::default(),
+            local_cell_defs: Default::default(),
+            ref_cell_defs: Default::default(),
+            comp_aux_info: Default::default(),
+            source_info_table,
+        }
+    }
+
     /// Insert a new local port definition into the context and return its index
     pub fn push_local_port(
         &mut self,
@@ -228,19 +243,6 @@ impl SecondaryContext {
     }
 }
 
-impl Default for SecondaryContext {
-    fn default() -> Self {
-        Self {
-            string_table: IdMap::new(),
-            local_port_defs: Default::default(),
-            ref_port_defs: Default::default(),
-            local_cell_defs: Default::default(),
-            ref_cell_defs: Default::default(),
-            comp_aux_info: Default::default(),
-        }
-    }
-}
-
 /// The full immutable program context for the interpreter.
 #[derive(Debug)]
 pub struct Context {
@@ -258,7 +260,7 @@ impl Default for Context {
     fn default() -> Self {
         Self {
             primary: Default::default(),
-            secondary: Default::default(),
+            secondary: SecondaryContext::new(None),
             entry_point: ComponentIdx::new(0),
         }
     }
@@ -278,8 +280,13 @@ impl From<(InterpretationContext, SecondaryContext)> for Context {
 
 impl Context {
     /// Create a new empty context
-    pub fn new() -> Self {
-        Default::default()
+    pub fn new(source_info_table: Option<SourceInfoTable>) -> Self {
+        Self {
+            primary: Default::default(),
+            secondary: SecondaryContext::new(source_info_table),
+
+            entry_point: ComponentIdx::new(0),
+        }
     }
 
     /// Resolve the string associated with the given identifier
