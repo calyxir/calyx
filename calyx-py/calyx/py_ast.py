@@ -5,7 +5,9 @@ from calyx.utils import block
 import inspect
 import os
 
-EMIT_FILEINFO = False # Toggle to True to obtain fileinfo metadata and @pos{} attributes
+EMIT_FILEINFO = (
+    False  # Toggle to True to obtain fileinfo metadata and @pos{} attributes
+)
 
 
 @dataclass
@@ -396,7 +398,7 @@ class Cell(Structure):
     is_ref: bool = False
     attributes: list[CellAttribute] = field(default_factory=list)
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
-    
+
     def doc(self) -> str:
         # NOTE: adding external on the fly (instead of having the user add it to attributes)
         # so that we can easily do this check
