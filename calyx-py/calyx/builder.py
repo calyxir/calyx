@@ -33,6 +33,9 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
+    def activate_fileinfo_emitting():
+        ast.EMIT_FILEINFO = True
+
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
         comp_builder = ComponentBuilder(self, name, latency)

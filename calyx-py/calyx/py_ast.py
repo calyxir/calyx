@@ -5,8 +5,7 @@ from calyx.utils import block
 import inspect
 import os
 
-POS_CONTROL = False  # FIXME: way too hacky. Toggle to add pos attributes to control (necessary for cider but my dinky parser doesn't account for it rn)
-
+EMIT_FILEINFO = False
 
 @dataclass
 class Emittable:
@@ -31,7 +30,7 @@ class FileTable:
         return FileTable.table[filename]
 
     @staticmethod
-    def emit_metadata():
+    def emit_fileinfo_metadata():
         out = "\tFILES\n"
         for filename, fileid in FileTable.table.items():
             out += f"\t\t{fileid}: {filename}\n"
@@ -76,7 +75,7 @@ class PosTable:
         return PosTable.table[(file_id, line_num)]
 
     @staticmethod
-    def emit_metadata():
+    def emit_fileinfo_metadata():
         out = "\tPOSITIONS\n"
         for (fileid, linenum), position_id in PosTable.table.items():
             out += f"\t\t{position_id}: {fileid} {linenum}\n"
@@ -108,8 +107,7 @@ class Program(Emittable):
             # for key, val in self.meta.items():
             #     out += f"{key}: {val}\n"
             # out += "}#"
-            # first pass for emitting some file/source location metadata
-            if len(FileTable.table) > 0 and len(PosTable.table) > 0:
+            if EMIT_FILEINFO and len(FileTable.table) > 0 and len(PosTable.table) > 0:
                 out += "\n\nsourceinfo #{\n"
                 out += FileTable.emit_metadata()
                 out += PosTable.emit_metadata()
@@ -590,7 +588,7 @@ class Control(Emittable):
 
 def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
     """adds the @pos attribute of loc is not None"""
-    if loc is None or not POS_CONTROL:
+    if loc is None or not EMIT_FILEINFO:
         return source
     else:
         return f"@pos{{{loc}}} {source}"
@@ -603,7 +601,6 @@ class Enable(Control):
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(f"{self.stmt};", self.loc)
-
 
 @dataclass
 class SeqComp(Control):
