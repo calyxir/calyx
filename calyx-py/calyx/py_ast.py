@@ -7,6 +7,7 @@ import os
 
 EMIT_FILEINFO = False
 
+
 @dataclass
 class Emittable:
     def doc(self) -> str:
@@ -601,6 +602,7 @@ class Enable(Control):
 
     def doc(self) -> str:
         return ctrl_with_pos_attribute(f"{self.stmt};", self.loc)
+
 
 @dataclass
 class SeqComp(Control):
