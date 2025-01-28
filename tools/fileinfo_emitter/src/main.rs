@@ -11,7 +11,9 @@ use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 
-// emits a JSON mapping components, cells, and groups to their @pos filenames and line numbers
+// Emits a JSON mapping components, cells, and groups to their @pos filenames and line numbers.
+// Used by the profiler when the source code is written in the calyx-py eDSL.
+// NOTE: Assumes that any @pos{} is a singleton set.
 
 #[derive(FromArgs)]
 /// Path for library and path for file to read from
@@ -76,7 +78,6 @@ fn gen_component_info(
         .attributes
         .get_set(SetAttribute::Set(SetAttr::Pos))
         .unwrap();
-    // FIXME: currently assuming that there is only one element in the set attr.
     let component_pos = component_set_attr.iter().next().unwrap();
     let mut component_pos_id = ComponentPosIds {
         component_pos_id: *component_pos,
@@ -106,7 +107,6 @@ fn gen_component_info(
                 continue;
             }
             Some(cell_set_attr) => {
-                // FIXME: currently assuming that there is only one element in the set attr.
                 let cell_pos = cell_set_attr.iter().next().unwrap();
                 component_pos_id.cells.insert(cell_ref.name(), *cell_pos);
                 if let ir::CellType::Component { name } = cell_ref.prototype {
@@ -145,6 +145,7 @@ fn obtain_pos_info(
             &filename.to_string(),
             line.as_usize(),
             file_lines_map,
+            name,
         ),
     })
 }
@@ -153,15 +154,14 @@ fn get_var_name(
     filename: &String,
     linenum: usize,
     file_lines_map: &HashMap<String, Vec<String>>,
+    calyx_var_name: &Id,
 ) -> String {
-    let unnamed = String::from("unnamed");
-    // FIXME: assuming eDSL for now. Maybe there's a better way to do things based on the ADL?
+    let unnamed = format!("'{calyx_var_name}'");
+    // NOTE: This function only supports calyx-py eDSL for now. Maybe there's a better way to do things based on the ADL?
     let file_lines: &Vec<String> = file_lines_map.get(filename).unwrap();
     let og_line_cloned = file_lines[linenum - 1].clone();
     let line = og_line_cloned.trim();
     if line.starts_with("with") && line.contains(".group(") {
-        // trying to write a rust equivalent of the below python
-        // varname = line.split(":")[0].split(" ")[-1]
         line.split(":")
             .next()
             .unwrap()
@@ -210,6 +210,7 @@ fn resolve(
                 &curr_component_filename,
                 line.as_usize(),
                 file_lines_map,
+                curr_component,
             ),
             cells: Vec::new(),
             groups: Vec::new(),
@@ -249,7 +250,7 @@ fn write_json(
     Ok(())
 }
 
-// really naive way of implementing reading all of the lines
+// Read all lines from all files for lookup in resolve()
 fn create_file_map(
     source_info_table: &SourceInfoTable,
 ) -> HashMap<String, Vec<String>> {
