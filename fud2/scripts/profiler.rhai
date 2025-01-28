@@ -1,9 +1,9 @@
 import "calyx" as c;
+import "calyx_py-to-calyx" as cp;
 import "verilator" as v;
 import "rtl_sim" as sim;
 
 export const flamegraph = state("flamegraph", ["svg"]);
-export const edsl = state("edsl", ["py"]);
 
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
@@ -136,9 +136,9 @@ op(
     |e, input, output| calyx_to_flamegraph(e, input, output)
 );
 
-op("edsl-profiler",
+op("calyx-py-profiler",
     [c::calyx_setup, profiling_setup, v::verilator_setup, sim::sim_setup],
-    edsl,
+    cp::calyx_py,
     flamegraph,
     |e, input, output| edsl_to_flamegraph(e, input, output)
 )
