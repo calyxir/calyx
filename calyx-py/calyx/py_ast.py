@@ -5,7 +5,7 @@ from calyx.utils import block
 import inspect
 import os
 
-EMIT_FILEINFO = False
+EMIT_FILEINFO = False # Toggle to True to obtain fileinfo metadata and @pos{} attributes
 
 
 @dataclass
@@ -110,8 +110,8 @@ class Program(Emittable):
             # out += "}#"
             if EMIT_FILEINFO and len(FileTable.table) > 0 and len(PosTable.table) > 0:
                 out += "\n\nsourceinfo #{\n"
-                out += FileTable.emit_metadata()
-                out += PosTable.emit_metadata()
+                out += FileTable.emit_fileinfo_metadata()
+                out += PosTable.emit_fileinfo_metadata()
                 out += "}#"
 
         return out
@@ -128,6 +128,7 @@ class Component:
     cells: list[Cell]
     controls: Control
     latency: Optional[int]
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def __init__(
         self,
@@ -170,6 +171,8 @@ class Component:
         latency_annotation = (
             f"static<{self.latency}> " if self.latency is not None else ""
         )
+        if EMIT_FILEINFO and self.loc is not None:
+            self.attributes.append(CompAttribute("pos", self.loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
             if self.attributes
@@ -392,7 +395,8 @@ class Cell(Structure):
     is_external: bool = False
     is_ref: bool = False
     attributes: list[CellAttribute] = field(default_factory=list)
-
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
+    
     def doc(self) -> str:
         # NOTE: adding external on the fly (instead of having the user add it to attributes)
         # so that we can easily do this check
@@ -401,6 +405,8 @@ class Cell(Structure):
         ), "Cell cannot be both a ref and external"
         if self.is_external:
             self.attributes.append(CellAttribute("external"))
+        if EMIT_FILEINFO and self.loc is not None:
+            self.attributes.append(CellAttribute("pos", self.loc))
         attribute_annotation = (
             f"{' '.join([f'{a.doc()}' for a in self.attributes])} "
             if len(self.attributes) > 0
@@ -432,11 +438,14 @@ class Group(Structure):
     # XXX: This is a static group now. Remove this and add a new StaticGroup class.
     static_delay: Optional[int] = None
     attributes: list[GroupAttribute] = field(default_factory=list)
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         # hack - add static delay on the fly. Might be problematic if the group was ever going to be written multiple times?
         if self.static_delay is not None:
             self.attributes.append(GroupAttribute("promotable", self.static_delay))
+        if EMIT_FILEINFO and self.loc is not None:
+            self.attributes.append(GroupAttribute("pos", self.loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
             if len(self.attributes) > 0
@@ -783,6 +792,7 @@ class StaticIf(Control):
     port: Port
     true_branch: Control
     false_branch: Control = field(default_factory=Empty)
+    loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
         cond = f"static if {self.port.doc()}"
