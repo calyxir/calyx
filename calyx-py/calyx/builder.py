@@ -208,7 +208,7 @@ class ComponentBuilder:
         component's `control` block."""
         width = self.infer_width(signal)
         curr_case = None
-        for branch, controllable in cases.items():
+        for branch, controllable in reversed(cases.items()):
             prev_case = curr_case
             std_eq = self.eq(
                 width, self.generate_name(f"{signal.name}_eq_{branch}"), signed
