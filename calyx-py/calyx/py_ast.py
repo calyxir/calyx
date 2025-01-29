@@ -20,8 +20,7 @@ class Emittable:
 
 
 class FileTable:
-    # making fields static so that we can still get new fileIds without having to pass an object around.
-    # Not really a fan of this, but this is the first pass...
+    # global counter to ensure unique ids
     counter: int = 0
     table: Dict[str, int] = {}
 
@@ -123,7 +122,7 @@ class Program(Emittable):
 @dataclass
 class Component:
     name: str
-    attributes: list[Attribute]
+    attributes: set[Attribute]
     inputs: list[PortDef]
     outputs: list[PortDef]
     wires: list[Structure]
@@ -139,7 +138,7 @@ class Component:
         outputs: list[PortDef],
         structs: list[Structure],
         controls: Control,
-        attributes: Optional[list[CompAttribute]] = None,
+        attributes: Optional[set[CompAttribute]] = None,
         latency: Optional[int] = None,
     ):
         self.name = name
@@ -175,7 +174,7 @@ class Component:
             f"static<{self.latency}> " if self.latency is not None else ""
         )
         if EMIT_FILEINFO and self.loc is not None:
-            self.attributes.append(CompAttribute("pos", self.loc))
+            self.attributes.add(CompAttribute("pos", self.loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
             if self.attributes
@@ -194,7 +193,7 @@ class CombComponent:
     """Like a Component, but with no latency and no control."""
 
     name: str
-    attributes: list[Attribute]
+    attributes: set[Attribute]
     inputs: list[PortDef]
     outputs: list[PortDef]
     wires: list[Structure]
@@ -206,7 +205,7 @@ class CombComponent:
         inputs: list[PortDef],
         outputs: list[PortDef],
         structs: list[Structure],
-        attributes: Optional[list[CompAttribute]] = None,
+        attributes: Optional[set[CompAttribute]] = None,
     ):
         self.name = name
         self.attributes = attributes
@@ -255,6 +254,9 @@ class CompAttribute(Attribute):
     name: str
     value: int
 
+    def __hash__(self):
+        return hash((self.name, self.value))
+
     def doc(self) -> str:
         if self.name == "pos":
             return f'"{self.name}"={{{self.value}}}' if EMIT_FILEINFO else ""
@@ -266,6 +268,9 @@ class CompAttribute(Attribute):
 class CellAttribute(Attribute):
     name: str
     value: Optional[int] = None
+
+    def __hash__(self):
+        return hash((self.name, self.value))
 
     def doc(self) -> str:
         if self.value is None:
@@ -279,7 +284,11 @@ class CellAttribute(Attribute):
 @dataclass
 class GroupAttribute(Attribute):
     name: str
-    value: int  # FIXME: might want to change?
+    value: int
+
+    def __hash__(self):
+        return hash((self.name, self.value))
+
 
     def doc(self) -> str:
         if self.name == "pos":
@@ -293,11 +302,8 @@ class PortAttribute(Attribute):
     name: str
     value: Optional[int] = None
 
-
-@dataclass
-class PortAttribute(Attribute):
-    name: str
-    value: Optional[int] = None
+    def __hash__(self):
+        return hash((self.name, self.value))
 
     def doc(self) -> str:
         return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
@@ -374,7 +380,7 @@ class CompVar(Emittable):
 class PortDef(Emittable):
     id: CompVar
     width: int
-    attributes: List[PortAttribute] = field(default_factory=list)
+    attributes: set[PortAttribute] = field(default_factory=set)
 
     def doc(self) -> str:
         attributes = (
@@ -397,19 +403,17 @@ class Cell(Structure):
     comp: CompInst
     is_external: bool = False
     is_ref: bool = False
-    attributes: list[CellAttribute] = field(default_factory=list)
+    attributes: set[CellAttribute] = field(default_factory=set)
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        # NOTE: adding external on the fly (instead of having the user add it to attributes)
-        # so that we can easily do this check
         assert not (
             self.is_ref and self.is_external
         ), "Cell cannot be both a ref and external"
         if self.is_external:
-            self.attributes.append(CellAttribute("external"))
+            self.attributes.add(CellAttribute("external"))
         if EMIT_FILEINFO and self.loc is not None:
-            self.attributes.append(CellAttribute("pos", self.loc))
+            self.attributes.add(CellAttribute("pos", self.loc))
         attribute_annotation = (
             f"{' '.join([f'{a.doc()}' for a in self.attributes])} "
             if len(self.attributes) > 0
@@ -440,15 +444,14 @@ class Group(Structure):
     connections: list[Connect]
     # XXX: This is a static group now. Remove this and add a new StaticGroup class.
     static_delay: Optional[int] = None
-    attributes: list[GroupAttribute] = field(default_factory=list)
+    attributes: set[GroupAttribute] = field(default_factory=set)
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        # hack - add static delay on the fly. Might be problematic if the group was ever going to be written multiple times?
         if self.static_delay is not None:
-            self.attributes.append(GroupAttribute("promotable", self.static_delay))
+            self.attributes.add(GroupAttribute("promotable", self.static_delay))
         if EMIT_FILEINFO and self.loc is not None:
-            self.attributes.append(GroupAttribute("pos", self.loc))
+            self.attributes.add(GroupAttribute("pos", self.loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
             if len(self.attributes) > 0
@@ -667,7 +670,7 @@ class Invoke(Control):
     out_connects: List[Tuple[str, Port]]
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
-    attributes: List[Tuple[str, int]] = field(default_factory=list)
+    attributes: set[Tuple[str, int]] = field(default_factory=set)
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
@@ -696,7 +699,7 @@ class Invoke(Control):
         return ctrl_with_pos_attribute(inv, self.loc)
 
     def with_attr(self, key: str, value: int) -> Invoke:
-        self.attributes.append((key, value))
+        self.attributes.add((key, value))
         return self
 
 
@@ -706,7 +709,7 @@ class StaticInvoke(Control):
     in_connects: List[Tuple[str, Port]]
     out_connects: List[Tuple[str, Port]]
     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
-    attributes: List[Tuple[str, int]] = field(default_factory=list)
+    attributes: set[Tuple[str, int]] = field(default_factory=set)
 
     def doc(self) -> str:
         inv = f"static invoke {self.id.doc()}"
@@ -730,7 +733,7 @@ class StaticInvoke(Control):
         return inv
 
     def with_attr(self, key: str, value: int) -> Invoke:
-        self.attributes.append((key, value))
+        self.attributes.add((key, value))
         return self
 
 
