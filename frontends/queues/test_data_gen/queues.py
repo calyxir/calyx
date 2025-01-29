@@ -507,7 +507,7 @@ class Binheap:
 
 
 @dataclass
-class RRQueue:
+class RRPifo:
     """
     This is a version of a PIFO generalized to `n` flows, with a work conserving
     round robin policy. If a flow is silent when it is its turn, that flow
