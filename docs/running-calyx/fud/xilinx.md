@@ -158,6 +158,56 @@ The VCD file is at `.run/*/hw_em/device0/binary_0/behav_waveform/xsim/dump.vcd` 
 [xrt-debug]: https://xilinx.github.io/Vitis_Accel_Examples/2021.1/html/debug_profile.html
 [vcd]: https://en.wikipedia.org/wiki/Value_change_dump
 
+### WIP: `fud2`/Calyx native Xilinx workflows
+
+!!!note Both the `fud2` workflows and AXI controllers implemented in Calyx are a work in process. Use at your own risk and expect some hiccups!
+
+Work is ongoing for better Xilinx workflow support with `fud2`.
+Additionally, `fud2` supports creating AXI controllers implemented entirely in
+Calyx.
+
+To take a Calyx file to something that can be emulated/executed with Xilinx via `fud2`,
+there are a few commands that need to be run. The following assumes the
+existence of a `dyn-vec-add.futil` file. The `dyn` prefix suggests the the calyx memories
+used are [dynamic memories](https://github.com/calyxir/calyx/blob/main/primitives/memories/dyn.sv).
+
+1. Create a `.yxi` file, that describes the memory interface of the vector adder:  
+
+    ```bash
+    fud2 dyn-vec-add.futil -o dyn-vec-add.yxi
+    ```
+
+2. Wrap the calyx file with AXI memory controllers (implemented in Calyx).
+If your original Calyx file uses `std_mem` you'll want to leave out the `--set dynamic=true`:
+
+    ```bash    
+    fud2 dyn-vec-add.futil --from calyx --to calyx --through axi-wrapped --set dynamic=true -o axi-wrapped.futil
+    ```
+
+
+3. Turn the wrapped Calyx file into verilog. At this point you need to decide if you
+are targeting emulation or execution. If you are targeting execution make sure the target is `verilog-noverify`, as opposed to (the default) `verilog`:
+
+    ```bash
+    fud2 axi-wrapped.futil --set calyx.args=--synthesis --to verilog-noverify -o axi-wrapped.v
+    ```
+
+4. Generate a `.xo` from the verilog created, and the `.yxi` file created in step 1.
+Based on what was targeted in the last step, either `xilinx.mode=hw_emu` (the default)
+or set `xilinx.mode=hw`.
+
+    ```bash
+    fud2 axi-wrapped.v -o axi-wrapped.xo --set yxi.file=dyn-vec-add.yxi --set xilinx.mode=hw
+    ```
+
+5. Generate a `.xclbin`. Use the same `xilinx.mode` setting from the previous step:
+
+    ```bash
+    fud2 axi-wrapped.xo -o axi-wrapped.xclbin --set xilinx.mode=hw
+    ```
+
+Now that we have a `.xclbin` file, we can execute our design with our [xclrun tool](#execution-via-xclrun).
+
 ### How it Works
 
 The first step is to generate input files.
