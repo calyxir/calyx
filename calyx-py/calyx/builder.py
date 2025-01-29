@@ -207,8 +207,9 @@ class ComponentBuilder:
         Branches are implemented via mutually exclusive `if` statements in the
         component's `control` block."""
         width = self.infer_width(signal)
-        ifs = []
+        curr_case = None
         for branch, controllable in cases.items():
+            prev_case = curr_case
             std_eq = self.eq(
                 width, self.generate_name(f"{signal.name}_eq_{branch}"), signed
             )
@@ -216,9 +217,9 @@ class ComponentBuilder:
             with self.continuous:
                 std_eq.left = signal
                 std_eq.right = const(width, branch)
-            ifs.append(if_(std_eq["out"], controllable))
+            curr_case = if_(std_eq["out"], controllable, prev_case)
 
-        return par(*ifs)
+        return curr_case
 
     def port_width(self, port: ExprBuilder) -> int:
         """Get the width of an expression, which may be a port of this component."""
