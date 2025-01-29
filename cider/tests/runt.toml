@@ -285,3 +285,11 @@ timeout = 180
 #             -s verilog.data {}.data \
 #             -s jq.expr ".main"
 # """
+
+[[tests]]
+name = "Debugger Interaction"
+paths = ["debugger/*.futil"]
+cmd = """
+cat {}.commands | fud2 --to cider-debug {} \
+         -s calyx.args="--log off"
+"""
