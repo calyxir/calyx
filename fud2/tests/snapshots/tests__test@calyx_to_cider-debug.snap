@@ -27,7 +27,7 @@ cider-flags =
 data = --data data.dump
 sim_data = /test/data.json
 rule run-cider-debug
-  command = $cider-exe -l $calyx-base $data $cider-flags $in debug || true
+  command = $cider-exe -l $calyx-base $data $cider-flags $in debug && echo > $out
   pool = console
 rule run-cider
   command = $cider-exe -l $calyx-base $data $cider-flags $in > $out
