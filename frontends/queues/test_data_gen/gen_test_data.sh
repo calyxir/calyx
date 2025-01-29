@@ -30,11 +30,11 @@ cat $tests_dir/sdn_test.data | python3 $data_gen_dir/pifo_tree_oracle.py $num_cm
 # - pifo_oracle.py
 # - pifo_tree_oracle.py
 
-for queue_kind in fifo pifo pifo_tree complex_tree; do
+for queue_kind in fifo pifo_tree complex_tree; do
     python3 $data_gen_dir/gen_oracle_data.py $num_cmds > $tests_dir/${queue_kind}_test.data
-    [[ "$queue_kind" != "pifo" && $? -eq 0 ]] && echo "Generated ${queue_kind}_test.data"
+    [[ $? -eq 0 ]] && echo "Generated ${queue_kind}_test.data"
     cat $tests_dir/${queue_kind}_test.data | python3 $data_gen_dir/${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing > $tests_dir/${queue_kind}_test.expect
-    [[ "$queue_kind" != "pifo" && $? -eq 0 ]] && echo "Generated ${queue_kind}_test.expect"
+    [[ $? -eq 0 ]] && echo "Generated ${queue_kind}_test.expect"
 done
 
 
@@ -83,17 +83,12 @@ for n in {2..7}; do
 done
 
 
-# Copying/Moving into binheap/
+# Copying into binheap/
 
 cp $tests_dir/fifo_test.data $tests_dir/binheap/
 [[ $? -eq 0 ]] && echo "Generated binheap/fifo_test.data"
 cp $tests_dir/fifo_test.expect $tests_dir/binheap/
 [[ $? -eq 0 ]] && echo "Generated binheap/fifo_test.expect"
-
-mv $tests_dir/pifo_test.data $tests_dir/binheap/
-[[ $? -eq 0 ]] && echo "Generated binheap/pifo_test.data"
-mv $tests_dir/pifo_test.expect $tests_dir/binheap/
-[[ $? -eq 0 ]] && echo "Generated binheap/pifo_test.expect"
 
 for i in $tests_dir/round_robin/*.data; do
     file="$(basename $i)"

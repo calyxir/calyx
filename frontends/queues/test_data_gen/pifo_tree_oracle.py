@@ -20,10 +20,13 @@ if __name__ == "__main__":
     #   - FIFO_blue is the right child.
     #   - The boundary for this is 200.
 
-    pifo = queues.Pifo(
-        queues.Pifo(queues.Fifo(len), queues.Fifo(len), 100, len),
-        queues.Fifo(len),
-        200,
+    pifo = queues.RRPifo(
+        2,
+        [200, 400],
+        [
+            queues.RRPifo(2, [100, 200], [queues.Fifo(len), queues.Fifo(len)], len),
+            queues.Fifo(len),
+        ],
         len,
     )
 
