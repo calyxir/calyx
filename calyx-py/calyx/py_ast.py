@@ -5,10 +5,7 @@ from calyx.utils import block
 import inspect
 import os
 
-EMIT_FILEINFO = (
-    False  # Toggle to True to obtain fileinfo metadata and @pos{} attributes
-)
-
+EMIT_FILEINFO = "CALYX_PY_SOURCELOC" in os.environ and bool(os.environ.get("CALYX_PY_SOURCELOC"))
 
 @dataclass
 class Emittable:

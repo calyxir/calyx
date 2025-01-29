@@ -4,12 +4,12 @@ import threading
 from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
+import os
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
 TLS = threading.local()
 TLS.groups = []
-
 
 class NotFoundError(Exception):
     """Raised when a component or group is not found."""
@@ -31,9 +31,6 @@ class Builder:
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
-
-    def activate_fileinfo_emitting():
-        ast.EMIT_FILEINFO = True
 
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
