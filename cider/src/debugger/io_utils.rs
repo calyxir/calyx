@@ -1,6 +1,6 @@
 use super::commands::parse_command;
 use super::commands::Command;
-use crate::errors::CiderResult;
+use crate::errors::{BoxedCiderError, CiderResult};
 use rustyline::Editor;
 use std::collections::VecDeque;
 
@@ -23,8 +23,18 @@ impl Input {
             return Ok(self.command_buffer.pop_front().unwrap());
         }
 
-        let result = self.buffer.readline(SHELL_PROMPT)?;
-        self.buffer.add_history_entry(result.clone());
-        parse_command(&result)
+        match self.buffer.readline(SHELL_PROMPT) {
+            Ok(command_str) => {
+                self.buffer.add_history_entry(command_str.clone());
+                parse_command(&command_str)
+            }
+            Err(e) => {
+                if let rustyline::error::ReadlineError::Eof = e {
+                    Ok(Command::Exit)
+                } else {
+                    Err(BoxedCiderError::from(e))
+                }
+            }
+        }
     }
 }
