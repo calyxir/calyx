@@ -11,6 +11,7 @@ import os
 TLS = threading.local()
 TLS.groups = []
 
+
 class NotFoundError(Exception):
     """Raised when a component or group is not found."""
 
