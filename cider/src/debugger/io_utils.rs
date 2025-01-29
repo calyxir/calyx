@@ -1,13 +1,13 @@
 use super::commands::parse_command;
 use super::commands::Command;
 use crate::errors::{BoxedCiderError, CiderResult};
-use rustyline::Editor;
+use rustyline::{DefaultEditor, Editor};
 use std::collections::VecDeque;
 
 const SHELL_PROMPT: &str = " > ";
 
 pub struct Input {
-    buffer: Editor<()>,
+    buffer: DefaultEditor,
     command_buffer: VecDeque<Command>,
 }
 
@@ -25,7 +25,7 @@ impl Input {
 
         match self.buffer.readline(SHELL_PROMPT) {
             Ok(command_str) => {
-                self.buffer.add_history_entry(command_str.clone());
+                self.buffer.add_history_entry(command_str.clone())?;
                 parse_command(&command_str)
             }
             Err(e) => {
