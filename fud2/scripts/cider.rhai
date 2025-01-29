@@ -39,7 +39,7 @@ fn cider_setup(e) {
     //                                                       to avoid fud2
     //                                                       complaining about
     //                                                       there being no file
-        "$cider-exe -l $calyx-base $data $cider-flags $in debug  && echo > $out",
+        "$cider-exe -l $calyx-base $data $cider-flags $in debug && echo > $out",
     );
     e.arg("pool", "console");
 
