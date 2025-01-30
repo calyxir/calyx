@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 import heapq
 
+ERR_CODE = 2**32 - 1
+PUSH_CODE = 2**32 - 2
+
 
 class QueueError(Exception):
     """An error that occurs on popping from an empty queue or pushing to a full one"""
@@ -619,7 +622,7 @@ def operate_queue(
             try:
                 ans.append(queue.pop(time))
             except QueueError:
-                ans.append(4294967295)
+                ans.append(ERR_CODE)
                 if keepgoing:
                     continue
                 break
@@ -627,9 +630,9 @@ def operate_queue(
         elif cmd == 1:  # Push
             try:
                 queue.push(val, rank, time)
-                ans.append(4294967294)
+                ans.append(PUSH_CODE)
             except QueueError:
-                ans.append(4294967295)
+                ans.append(ERR_CODE)
                 if keepgoing:
                     continue
                 break
