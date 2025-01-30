@@ -52,19 +52,17 @@ class RankValue:
 class NWCSimple:
     """A simple test oracle structure for non-work-conserving queues.
 
-    This serves the same purpose as PIEOs and Calendar Queues
-    (see Python implementation below),
-    representing an abstract implementation for any non-work-conserving,
-    time-dependent structure.
+    This serves the same purpose as PIEOs and Calendar Queues 
+    (see Python implementation below), representing an abstract implementation 
+    for any non-work-conserving, time-dependent structure.
 
-    In our implementation, we support time-based 'ripeness' predicates,
-    which check that an element's encoded 'readiness time' is earlier than
-    the specified current time.
+    In our implementation, we support time-based 'ripeness' predicates, which 
+    check that an element's encoded 'readiness time' is earlier than the 
+    specified current time.
 
-    The term 'ripe', as defined above, takes in an element
-    (which has some encoded readiness time),
-    and a specified 'current time'. It checks that the element's readiness
-    time is <= the current time.
+    The term 'ripe', as defined above, takes in an element 
+    (which has some encoded readiness time), and a specified 'current time'. 
+    It checks that the element's readiness time is <= the current time.
 
     Supports the operations `push` and `pop`.
 
@@ -78,21 +76,18 @@ class NWCSimple:
     - Otherwise, we insert the element into the PIEO such that the rank order
     stays increasing.
     - To avoid ties between ranks, we left-shift the rank and then add either
-    a custom buffer,
-        or an internal element count tracker.
+    a custom buffer, or an internal element count tracker.
 
     When asked to pop:
     - If the length of `data` is 0, we raise an error .
-
     - We can either pop based on value or based on eligibility.
     - This implementation supports the most common readiness predicate -
-        whether an element is 'ripe', or time-ready
+        whether an element is 'ripe' or time-ready
         (the inputted time is >= the element's specified readiness time).
-
-    - If a value is passed in, we pop the first (lowest-rank) instance of that
-      value which is 'ripe'.
-    - If no value is passed in but a time is,
-        we pop the first (lowest-rank) value that passes the predicate.
+    - If a value is passed in, we pop the first (lowest-rank) instance of that 
+    value which is 'ripe'.
+    - If no value is passed in but a time is, we pop the first (lowest-rank) 
+    value that passes the predicate.
     """
 
     def __init__(self, max_len: int):
@@ -102,11 +97,11 @@ class NWCSimple:
 
     def push(self, val, rank=0, time=0) -> None:
         if len(self.data) >= self.max_len:
-            raise QueueError("Overflow")
+            raise QueueError("Cannot push to full queue.")
 
-        # Left-shift the rank by 32 and add in the insertion count.
-        # With every push, we modify the insertion count as to reduce any
-        # possible duplicate ranks.
+        # Left shift the rank by 32 and add in the insertion count.
+        # This breaks rank ties in insertion order: that is, if two elements are 
+        # inserted with the same rank, the element inserted first gets popped first.
 
         heapq.heappush(
             self.data, RankValue(((rank << 32) + self.insertion_count), (val, time))
@@ -116,9 +111,9 @@ class NWCSimple:
     def is_ripe(self, time) -> bool:
         return self.data[0].value[1] <= time
 
-    def query(self, time=0, val=None) -> Optional[int]:
+    def query(self, time=0, val=None) -> int:
         if len(self.data) == 0:
-            raise QueueError("Underflow")
+            raise QueueError("Cannot pop from empty queue.")
 
         # Cache popped values from heap while searching for the first eligible one
         temp = []
@@ -142,7 +137,7 @@ class NWCSimple:
         # cached elements
         for elem in temp:
             heapq.heappush(self.data, elem)
-        raise QueueError("Underflow")
+        raise QueueError("Cannot pop from empty queue.")
 
     def pop(self, time=0, val=None) -> Optional[int]:
         return self.query(time, val)

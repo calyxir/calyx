@@ -3,7 +3,12 @@
 if [[ $# -eq 2 ]]; then # Generate custom-length command list to the specified output directory
     num_cmds=$1
     tests_dir=$2
-    mkdir -p ${tests_dir}/binheap/round_robin ${tests_dir}/binheap/strict ${tests_dir}/round_robin ${tests_dir}/strict # NOTE: hacky and will break when other tests are created.
+    # NOTE: hacky and will break when other tests are created.
+    mkdir -p \
+        ${tests_dir}/binheap/round_robin \
+        ${tests_dir}/binheap/strict \
+        ${tests_dir}/round_robin \
+        ${tests_dir}/strict 
     echo "Number of commands: ${num_cmds}; output directory: ${tests_dir}"
 else
     num_cmds=20000
@@ -15,8 +20,8 @@ queue_size=16
 data_gen_dir="$(dirname "$0")"
 
 
-# For SDN, we use piezo mode when making the data file and
-# use pifotree_oracle to generate the expected output
+# For SDN, we use piezo mode when making the data file and use pifotree_oracle to 
+# generate the expected output.
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds --no-err $queue_size \
     > ${tests_dir}/sdn_test.data
@@ -46,25 +51,27 @@ for queue_kind in fifo pifo_tree complex_tree; do
 done
 
 
-# Here, we test the queues for non-work-conserving algorithms,
-# which are the following:
-# - pieo_oracle.py
-# - pcq_oracle.py
+# For the PIEO and PCQ, we drop piezo mode and enable ranks and readiness times for 
+# data gen and use nwc_oracle to generate the expected output.
 
-for queue_kind in pieo nwc_simple; do
-    python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds --nwc-en \
-        > ${tests_dir}/${queue_kind}_test.data
-    [[ $? -eq 0 ]] && echo "Generated ${queue_kind}_test.data"
+python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds --nwc-en \
+    > ${tests_dir}/pieo_test.data
+[[ $? -eq 0 ]] && echo "Generated pieo_test.data"
 
-    cat ${tests_dir}/${queue_kind}_test.data \
-        | python3 ${data_gen_dir}/${queue_kind}_oracle.py $num_cmds $queue_size --keepgoing \
-        > ${tests_dir}/${queue_kind}_test.expect
-    [[ $? -eq 0 ]] && echo "Generated ${queue_kind}_test.expect"
-done  
+cat ${tests_dir}/pieo_test.data \
+    | python3 ${data_gen_dir}/nwc_oracle.py $num_cmds $queue_size --keepgoing \
+    > ${tests_dir}/pieo_test.expect
+[[ $? -eq 0 ]] && echo "Generated pieo_test.expect"
+
+cp ${tests_dir}/pieo_test.data ${tests_dir}/pcq_test.data
+[[ $? -eq 0 ]] && echo "Generated pcq_test.data"
+
+cp ${tests_dir}/pieo_test.expect ${tests_dir}/pcq_test.expect
+[[ $? -eq 0 ]] && echo "Generated pcq_test.expect"
 
 
 # For the Binary Heap, we drop piezo mode and enable ranks for data gen and
-# use binheap_oracle to generate the expected output
+# use binheap_oracle to generate the expected output.
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds --use-rank \
     > ${tests_dir}/binheap/stable_binheap_test.data
@@ -77,7 +84,8 @@ cat ${tests_dir}/binheap/stable_binheap_test.data \
 
 
 # For the Round Robin queues, we drop piezo mode as well and use rr_oracle to
-# generate the expected output for queues with 2..7 flows. This generates 6 data expect file pairs.
+# generate the expected output for queues with 2..7 flows. This generates 6 data 
+# expect file pairs.
 
 for n in {2..7}; do
     python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
