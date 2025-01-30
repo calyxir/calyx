@@ -4,7 +4,7 @@ import heapq
 
 
 class QueueError(Exception):
-    """An error that occurs when we try to pop from an empty queue,"""
+    """An error that occurs on popping from an empty queue or pushing to a full one"""
 
 
 class CmdError(Exception):
@@ -27,18 +27,20 @@ class Fifo:
         """Pushes `val` to the FIFO."""
         if len(self.data) == self.max_len:
             raise QueueError("Cannot push to full FIFO.")
+
         self.data.append(val)
 
-    def pop(self, *_) -> Optional[int]:
+    def pop(self, *_) -> int:
         """Pops the FIFO."""
         if len(self.data) == 0:
             raise QueueError("Cannot pop from empty FIFO.")
+
         return self.data.pop(0)
 
     def __len__(self) -> int:
         return len(self.data)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.data)
 
 
@@ -52,16 +54,16 @@ class RankValue:
 class NWCSimple:
     """A simple test oracle structure for non-work-conserving queues.
 
-    This serves the same purpose as PIEOs and Calendar Queues 
-    (see Python implementation below), representing an abstract implementation 
+    This serves the same purpose as PIEOs and Calendar Queues
+    (see Python implementation below), representing an abstract implementation
     for any non-work-conserving, time-dependent structure.
 
-    In our implementation, we support time-based 'ripeness' predicates, which 
-    check that an element's encoded 'readiness time' is earlier than the 
+    In our implementation, we support time-based 'ripeness' predicates, which
+    check that an element's encoded 'readiness time' is earlier than the
     specified current time.
 
-    The term 'ripe', as defined above, takes in an element 
-    (which has some encoded readiness time), and a specified 'current time'. 
+    The term 'ripe', as defined above, takes in an element
+    (which has some encoded readiness time), and a specified 'current time'.
     It checks that the element's readiness time is <= the current time.
 
     Supports the operations `push` and `pop`.
@@ -84,9 +86,9 @@ class NWCSimple:
     - This implementation supports the most common readiness predicate -
         whether an element is 'ripe' or time-ready
         (the inputted time is >= the element's specified readiness time).
-    - If a value is passed in, we pop the first (lowest-rank) instance of that 
+    - If a value is passed in, we pop the first (lowest-rank) instance of that
     value which is 'ripe'.
-    - If no value is passed in but a time is, we pop the first (lowest-rank) 
+    - If no value is passed in but a time is, we pop the first (lowest-rank)
     value that passes the predicate.
     """
 
@@ -95,12 +97,12 @@ class NWCSimple:
         self.max_len = max_len
         self.insertion_count = 0
 
-    def push(self, val, rank=0, time=0) -> None:
+    def push(self, val: int, rank: int = 0, time: int = 0) -> None:
         if len(self.data) >= self.max_len:
             raise QueueError("Cannot push to full queue.")
 
         # Left shift the rank by 32 and add in the insertion count.
-        # This breaks rank ties in insertion order: that is, if two elements are 
+        # This breaks rank ties in insertion order: that is, if two elements are
         # inserted with the same rank, the element inserted first gets popped first.
 
         heapq.heappush(
@@ -108,10 +110,10 @@ class NWCSimple:
         )
         self.insertion_count += 1
 
-    def is_ripe(self, time) -> bool:
+    def is_ripe(self, time: int) -> bool:
         return self.data[0].value[1] <= time
 
-    def query(self, time=0, val=None) -> int:
+    def query(self, time: int = 0, val: Optional[int] = None) -> int:
         if len(self.data) == 0:
             raise QueueError("Cannot pop from empty queue.")
 
@@ -137,9 +139,10 @@ class NWCSimple:
         # cached elements
         for elem in temp:
             heapq.heappush(self.data, elem)
+
         raise QueueError("Cannot pop from empty queue.")
 
-    def pop(self, time=0, val=None) -> Optional[int]:
+    def pop(self, time: int = 0, val: Optional[int] = None) -> int:
         return self.query(time, val)
 
 
@@ -398,24 +401,26 @@ class Binheap:
     Supports the operations `push` and `pop`.
     """
 
-    def __init__(self, max_len):
+    def __init__(self, max_len: int):
         self.heap = []
         self.len = 0
         self.counter = 0
         self.max_len = max_len
 
-    def push(self, val: int, rank, *_) -> None:
+    def push(self, val: int, rank: int, *_) -> None:
         """Pushes `(rnk, val)` to the Binary Heap."""
         if self.len == self.max_len:
             raise QueueError("Cannot push to full Binary Heap.")
+
         self.counter += 1
         self.len += 1
         heapq.heappush(self.heap, RankValue((rank << 32) + self.counter, val))
 
-    def pop(self, *_) -> Optional[int]:
+    def pop(self, *_) -> int:
         """Pops the Binary Heap."""
         if self.len == 0:
             raise QueueError("Cannot pop from empty Binary Heap.")
+
         self.len -= 1
         return heapq.heappop(self.heap).value
 
@@ -431,6 +436,7 @@ class RRPifo:
     simply skips its turn and the next flow is offered service.
 
     Supports the operations `push` and `pop`.
+
     It takes in a list `boundaries` that must be of length `n`, using which the
     client can divide the incoming traffic into `n` flows.
     For example, if n = 3 and the client passes boundaries [133, 266, 400],
@@ -447,36 +453,44 @@ class RRPifo:
     in round robin fashion.
     """
 
-    def __init__(self, n, boundaries, subqueues, max_len: int):
+    def __init__(self, n: int, boundaries: list, subqueues: list, max_len: int):
         self.hot = 0
         self.n = n
         self.pifo_len = 0
         self.boundaries = boundaries
         self.data = subqueues
-
         self.max_len = max_len
-        assert (
-            self.pifo_len <= self.max_len
-        )  # We can't be initialized with a PIFO that is too long.
 
-    def push(self, val: int, *_):
+        # Can't initialize a PIFO that is too long.
+        assert self.pifo_len <= self.max_len
+        # Need one boundary per flow.
+        assert len(self.boundaries) == self.n
+        # Need one subqueue per flow.
+        assert len(self.data) == self.n
+        # `boundaries` must be strictly increasing.
+        assert sorted(set(self.boundaries)) == self.boundaries
+
+    def push(self, val: int, *_) -> None:
         """Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
+
         for subqueue, boundary in zip(self.data, self.boundaries):
             if val <= boundary:
                 subqueue.push(val)
                 self.pifo_len += 1
-                break
+                return
 
-    def increment_hot(self):
+        raise QueueError(f"Cannot push value > {max(self.boundaries)}.")
+
+    def increment_hot(self) -> None:
         """Increments `hot`, taking into account wraparound."""
-        self.hot = 0 if self.hot == (self.n - 1) else self.hot + 1
+        self.hot = (self.hot + 1) % self.n
 
-    def pop(self, *_) -> Optional[int]:
+    def pop(self, *_) -> int:
         """Pops the PIFO by popping some internal subqueue.
         Updates `hot` to be one more than the index of the internal subqueue that
-        we did pop.
+        we popped.
         """
         if self.pifo_len == 0:
             raise QueueError("Cannot pop from empty PIFO.")
@@ -484,11 +498,9 @@ class RRPifo:
         while True:
             try:
                 val = self.data[self.hot].pop()
-                if val is not None:
-                    self.increment_hot()
-                    self.pifo_len -= 1
-                    return val
                 self.increment_hot()
+                self.pifo_len -= 1
+                return val
             except QueueError:
                 self.increment_hot()
 
@@ -527,32 +539,45 @@ class StrictPifo:
     it tries `order[1]`, etc.
     """
 
-    def __init__(self, n, boundaries, order, subqueues, max_len: int):
+    def __init__(
+        self, n: int, boundaries: list, order: list, subqueues: list, max_len: int
+    ):
         self.order = order
         self.priority = 0
         self.n = n
         self.pifo_len = 0
         self.boundaries = boundaries
         self.data = subqueues
-
         self.max_len = max_len
 
-    def push(self, val: int, *_):
+        # Can't initialize a PIFO that is too long.
+        assert self.pifo_len <= self.max_len
+        # Need one boundary per flow.
+        assert len(self.boundaries) == self.n
+        # Need one subqueue per flow.
+        assert len(self.data) == self.n
+        # `boundaries` must be strictly increasing.
+        assert sorted(set(self.boundaries)) == self.boundaries
+
+    def push(self, val: int, *_) -> None:
         """Works the same as in RRQueue. Pushes `val` to the PIFO."""
         if self.pifo_len == self.max_len:
             raise QueueError("Cannot push to full PIFO.")
+
         for b in range(self.n):
             if val <= self.boundaries[b]:
                 idx = self.order.index(b)
                 self.data[idx].push(val)
                 self.pifo_len += 1
-                break
+                return
 
-    def next_priority(self):
+        raise QueueError(f"Cannot push value > {max(self.boundaries)}.")
+
+    def next_priority(self) -> None:
         """Increments priority, taking into account wrap around."""
-        self.priority = 0 if self.priority == (self.n - 1) else self.priority + 1
+        self.priority = (self.priority + 1) % self.n
 
-    def pop(self, *_):
+    def pop(self, *_) -> int:
         """Pops the PIFO."""
         if self.pifo_len == 0:
             raise QueueError("Cannot pop from empty PIFO.")
@@ -562,12 +587,9 @@ class StrictPifo:
         while True:
             try:
                 val = self.data[self.priority].pop()
-                if val is not None:
-                    self.pifo_len -= 1
-                    self.priority = original_priority
-                    return val
-                else:
-                    self.next_priority()
+                self.priority = original_priority
+                self.pifo_len -= 1
+                return val
             except QueueError:
                 self.next_priority()
 
@@ -587,6 +609,7 @@ def operate_queue(
         0 : pop (for non-work-conserving queues, pop by predicate)
         1 : push
     """
+
     ans = []
     ranks = ranks or [0] * len(values)
     times = times or [0] * len(values)
