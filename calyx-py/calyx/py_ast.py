@@ -5,8 +5,16 @@ from calyx.utils import block
 import inspect
 import os
 
-EMIT_FILEINFO = "CALYX_PY_SOURCELOC" in os.environ and bool(
-    os.environ.get("CALYX_PY_SOURCELOC")
+"""
+The global variable "CALYX_PY_SOURCELOC" determines whether, and how, source-location metadata will be emitted.
+
+The modes are
+"" (empty string): Omit sourceloc information
+"test": Output sourceloc information with relative paths (should only be used for testing)
+otherwise, output sourceloc information with absolute paths
+"""
+FILEINFO_OPT = "CALYX_PY_SOURCELOC" in os.environ and os.environ.get(
+    "CALYX_PY_SOURCELOC"
 )
 
 
@@ -66,7 +74,13 @@ class PosTable:
         if user is None:
             return None
 
-        return PosTable.add_entry(frame.filename, frame.lineno)
+        # filename depends on whether we're testing or not.
+        if FILEINFO_OPT == "test":
+            filename = os.path.relpath(frame.filename)
+        else:
+            filename = frame.filename
+
+        return PosTable.add_entry(filename, frame.lineno)
 
     @staticmethod
     def add_entry(filename, line_num):
@@ -109,7 +123,7 @@ class Program(Emittable):
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
             out += "}#"
-        if EMIT_FILEINFO and len(FileTable.table) > 0 and len(PosTable.table) > 0:
+        if bool(FILEINFO_OPT) and len(FileTable.table) > 0 and len(PosTable.table) > 0:
             out += "\n\nsourceinfo #{\n"
             out += FileTable.emit_fileinfo_metadata()
             out += PosTable.emit_fileinfo_metadata()
@@ -173,7 +187,7 @@ class Component:
         latency_annotation = (
             f"static<{self.latency}> " if self.latency is not None else ""
         )
-        if EMIT_FILEINFO and self.loc is not None:
+        if bool(FILEINFO_OPT) and self.loc is not None:
             self.attributes.add(CompAttribute("pos", self.loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])}>"
@@ -259,7 +273,7 @@ class CompAttribute(Attribute):
 
     def doc(self) -> str:
         if self.name == "pos":
-            return f'"{self.name}"={{{self.value}}}' if EMIT_FILEINFO else ""
+            return f'"{self.name}"={{{self.value}}}' if bool(FILEINFO_OPT) else ""
         else:
             return f'"{self.name}"={self.value}'
 
@@ -276,7 +290,7 @@ class CellAttribute(Attribute):
         if self.value is None:
             return f"@{self.name}"
         elif self.name == "pos":
-            return f"@{self.name}{{{self.value}}}" if EMIT_FILEINFO else ""
+            return f"@{self.name}{{{self.value}}}" if bool(FILEINFO_OPT) else ""
         else:
             return f"@{self.name}({self.value})"
 
@@ -291,7 +305,7 @@ class GroupAttribute(Attribute):
 
     def doc(self) -> str:
         if self.name == "pos":
-            return f'"{self.name}"={{{self.value}}}' if EMIT_FILEINFO else ""
+            return f'"{self.name}"={{{self.value}}}' if bool(FILEINFO_OPT) else ""
         else:
             return f'"{self.name}"={self.value}'
 
@@ -416,7 +430,7 @@ class Cell(Structure):
         ), "Cell cannot be both a ref and external"
         if self.is_external:
             self.attributes.add(CellAttribute("external"))
-        if EMIT_FILEINFO and self.loc is not None:
+        if bool(FILEINFO_OPT) and self.loc is not None:
             self.attributes.add(CellAttribute("pos", self.loc))
         attribute_annotation = (
             f"{' '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])} "
@@ -454,7 +468,7 @@ class Group(Structure):
     def doc(self) -> str:
         if self.static_delay is not None:
             self.attributes.add(GroupAttribute("promotable", self.static_delay))
-        if EMIT_FILEINFO and self.loc is not None:
+        if bool(FILEINFO_OPT) and self.loc is not None:
             self.attributes.add(GroupAttribute("pos", self.loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])}>"
@@ -608,7 +622,7 @@ class Control(Emittable):
 
 def ctrl_with_pos_attribute(source: str, loc: Optional[int]) -> str:
     """adds the @pos attribute of loc is not None"""
-    if loc is None or not EMIT_FILEINFO:
+    if loc is None or not bool(FILEINFO_OPT):
         return source
     else:
         return f"@pos{{{loc}}} {source}"

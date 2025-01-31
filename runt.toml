@@ -207,7 +207,7 @@ python3 {} |\
 name = "[calyx-py] source-loc"
 paths = ["calyx-py/test/source-loc/*.py"]
 cmd = """
-export CALYX_PY_SOURCELOC=true && python3 {}
+export CALYX_PY_SOURCELOC=test && python3 {}
 """
 
 ##### Correctness Tests #####
