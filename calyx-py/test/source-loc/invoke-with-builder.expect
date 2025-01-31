@@ -44,21 +44,21 @@ component foo<"pos"={4}>(a: 32) -> (out: 32) {
 }
 
 sourceinfo #{
-	FILES
-		0: /home/ayaka/projects/calyx/calyx-py/test/source-loc/invoke-with-builder.py
-	POSITIONS
-		0: 0 26
-		1: 0 29
-		2: 0 30
-		3: 0 31
-		4: 0 5
-		5: 0 10
-		6: 0 12
-		7: 0 20
-		8: 0 32
-		9: 0 35
-		10: 0 40
-		11: 0 45
-		12: 0 46
-		13: 0 47
+  FILES
+    0: /home/ayaka/projects/calyx/calyx-py/test/source-loc/invoke-with-builder.py
+  POSITIONS
+    0: 0 26
+    1: 0 29
+    2: 0 30
+    3: 0 31
+    4: 0 5
+    5: 0 10
+    6: 0 12
+    7: 0 20
+    8: 0 32
+    9: 0 35
+    10: 0 40
+    11: 0 45
+    12: 0 46
+    13: 0 47
 }#

@@ -8,6 +8,7 @@ import os
 EMIT_FILEINFO = "CALYX_PY_SOURCELOC" in os.environ and bool(
     os.environ.get("CALYX_PY_SOURCELOC")
 )
+INDENT = "  "
 
 
 @dataclass
@@ -33,9 +34,9 @@ class FileTable:
 
     @staticmethod
     def emit_fileinfo_metadata():
-        out = "\tFILES\n"
+        out = f"{INDENT}FILES\n"
         for filename, fileid in FileTable.table.items():
-            out += f"\t\t{fileid}: {filename}\n"
+            out += f"{INDENT}{INDENT}{fileid}: {filename}\n"
         return out
 
 
@@ -78,9 +79,9 @@ class PosTable:
 
     @staticmethod
     def emit_fileinfo_metadata():
-        out = "\tPOSITIONS\n"
+        out = f"{INDENT}POSITIONS\n"
         for (fileid, linenum), position_id in PosTable.table.items():
-            out += f"\t\t{position_id}: {fileid} {linenum}\n"
+            out += f"{INDENT}{INDENT}{position_id}: {fileid} {linenum}\n"
         return out
 
 
