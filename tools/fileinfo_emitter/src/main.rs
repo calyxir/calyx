@@ -68,6 +68,7 @@ struct ComponentPosIds {
     pub groups: HashMap<Id, u32>,
 }
 
+/// Collects @pos{} attributes for each component, group, and cell.
 fn gen_component_info(
     ctx: &ir::Context,
     comp: &ir::Component,
@@ -124,6 +125,7 @@ fn gen_component_info(
     Ok(())
 }
 
+/// Uses a position Id and the source info table to obtain the filename and line number for the given Calyx construct.
 fn obtain_pos_info(
     name: &Id,
     pos_id: &u32,
@@ -141,7 +143,7 @@ fn obtain_pos_info(
         name: *name,
         filename: filename.to_string(),
         linenum: line.as_usize(),
-        varname: get_var_name(
+        varname: get_adl_var_name(
             &filename.to_string(),
             line.as_usize(),
             file_lines_map,
@@ -150,14 +152,16 @@ fn obtain_pos_info(
     })
 }
 
-fn get_var_name(
+/// Attempts to retrieve the ADL-level variable name of the component/group/cell by scanning the source line.
+/// If an ADL-level variable name cannot be found, "'<calyx_var_name>'" will be returned as a substitute.
+fn get_adl_var_name(
     filename: &String,
     linenum: usize,
     file_lines_map: &HashMap<String, Vec<String>>,
     calyx_var_name: &Id,
 ) -> String {
-    let unnamed = format!("'{calyx_var_name}'");
-    // NOTE: This function only supports calyx-py eDSL for now. Maybe there's a better way to do things based on the ADL?
+    // NOTE: This function currently only supports calyx-py eDSL.
+    let unnamed = format!("'{calyx_var_name}'"); // fallback: Calyx-level construct variable name
     let file_lines: &Vec<String> = file_lines_map.get(filename).unwrap();
     let og_line_cloned = file_lines[linenum - 1].clone();
     let line = og_line_cloned.trim();
@@ -186,6 +190,7 @@ fn get_var_name(
     }
 }
 
+/// Resolves all position Ids with their corresponding file names, line numbers, and ADL-level variable names.
 fn resolve(
     source_info_table: &SourceInfoTable,
     component_pos_ids: &HashMap<Id, ComponentPosIds>,
@@ -206,7 +211,7 @@ fn resolve(
             component: *curr_component,
             filename: curr_component_filename.clone(),
             linenum: line.as_usize(),
-            varname: get_var_name(
+            varname: get_adl_var_name(
                 &curr_component_filename,
                 line.as_usize(),
                 file_lines_map,
@@ -250,7 +255,7 @@ fn write_json(
     Ok(())
 }
 
-// Read all lines from all files for lookup in resolve()
+/// Read all lines from all files for lookup in resolve()
 fn create_file_map(
     source_info_table: &SourceInfoTable,
 ) -> HashMap<String, Vec<String>> {
