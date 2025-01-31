@@ -152,7 +152,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         probe_labels_to_sets = {"group_probe_out": group_active, "se_probe_out": structural_enable_active, "cell_probe_out": cell_enable_active, "primitive_probe_out" : primitive_enable}
 
-        self.trace = {} # cycle number --> list of stacks
+        self.trace = {} # dict contents: cycle number --> list of stacks
 
         main_done = False # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
