@@ -132,7 +132,7 @@ class ComponentBuilder:
 
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
-        self.component.attributes.append(ast.CompAttribute(name, value))
+        self.component.attributes.add(ast.CompAttribute(name, value))
 
     def _port_with_attributes(
         self,

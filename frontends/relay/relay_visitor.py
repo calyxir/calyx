@@ -276,7 +276,7 @@ class Relay2Calyx(ExprFunctor):
             invoke = ru.emit_invoke_control(
                 comp_decl, dest, value.args, old_args=old_func_args, old_dest=old_dest
             )
-            invoke.attributes.append(("pos", self.pos_count))
+            invoke.attributes.add(("pos", self.pos_count))
             self.controls.append(invoke)
 
             tag = self.pos_count
