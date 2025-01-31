@@ -45,7 +45,7 @@ component foo<"pos"={4}>(a: 32) -> (out: 32) {
 
 sourceinfo #{
 FILES 
-  0: /home/ayaka/projects/calyx/calyx-py/test/source-loc/invoke-with-builder.py
+  0: /home/calyx/calyx-py/test/source-loc/invoke-with-builder.py
 POSITIONS 
   0: 0 26
   1: 0 29
