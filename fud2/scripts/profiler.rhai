@@ -42,7 +42,7 @@ fn profiling_setup(e) {
     e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells profiler-out $out $metadata-mapping-json");
 }
 
-// first pass. probably worth merging with calyx_to_flamegraph one of these days
+// TODO: merge with calyx_to_flamegraph
 fn edsl_to_flamegraph(e, input, output) {
     // create calyx file
     let calyx = "calyx.futil";
