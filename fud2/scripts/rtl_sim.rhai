@@ -30,7 +30,7 @@ fn sim_setup(e) {
     // Rule for simulation execution.
     e.rule(
         "sim-run",
-        "./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out",
+        "./$bin $args > $out",
     );
 
     // More shared configuration.

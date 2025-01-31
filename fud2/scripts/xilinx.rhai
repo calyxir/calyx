@@ -20,7 +20,7 @@ fn xilinx_setup(e) {
     );
     e.arg("pool", "console");  // Lets Ninja stream the tool output "live."
 
-    // Compile an `.xo` file to an `.xclbin` file, which is where the actual EDA work occurs.
+    // Compile an `.xo` ile to an `.xclbin` file, which is where the actual EDA work occurs.
     e.config_var_or("xilinx-mode", "xilinx.mode", "hw_emu");
     e.config_var_or("platform", "xilinx.device", "xilinx_u50_gen3x16_xdma_201920_3");
     e.rule(
