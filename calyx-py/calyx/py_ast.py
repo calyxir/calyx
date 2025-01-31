@@ -685,7 +685,7 @@ class Invoke(Control):
             attrs = " ".join(
                 [
                     f"@{tag}({val})"
-                    for tag, val in sorted(self.attributes, key=lambda a: a.name)
+                    for tag, val in sorted(self.attributes, key=lambda a: a[0])
                 ]
             )
             inv = f"{attrs} {inv}"
