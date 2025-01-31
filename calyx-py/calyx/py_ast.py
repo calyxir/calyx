@@ -289,7 +289,6 @@ class GroupAttribute(Attribute):
     def __hash__(self):
         return hash((self.name, self.value))
 
-
     def doc(self) -> str:
         if self.name == "pos":
             return f'"{self.name}"={{{self.value}}}' if EMIT_FILEINFO else ""

@@ -549,22 +549,14 @@ def dump_trace(trace, out_dir):
     with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
         json.dump(trace, json_out, indent = 2)
 
-def compute_timeline(trace, cells_for_timeline, cells_to_components, main_component, out_dir):
-    # cells_for_timeline should be a txt file with each line being a cell to display timeline info for.
+def compute_timeline(trace, cells_to_components, main_component, out_dir):
     cells_to_curr_active = {}
     cells_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
-    if cells_for_timeline != "":
-        with open(cells_for_timeline, "r") as ct_file:
-            for line in ct_file:
-                cell_to_track = line.strip()
-                cells_to_curr_active[cell_to_track] = -1
-                cells_to_closed_segments[cell_to_track] = []
-    else: # get all cells lol
-        for cell in sorted(cells_to_components.keys(), key=(lambda x : x.count("."))):
-            if cell != main_component:
-                cells_to_curr_active[cell] = -1
-                cells_to_closed_segments[cell] = []
-    # do the most naive thing for now. improve later?
+    # creating a timeline for all cells in the program.
+    for cell in sorted(cells_to_components.keys(), key=(lambda x : x.count("."))):
+        if cell != main_component:
+            cells_to_curr_active[cell] = -1
+            cells_to_closed_segments[cell] = []
     currently_active = set()
     for i in trace:
         active_this_cycle = set()
@@ -697,7 +689,7 @@ def convert_trace(trace, adl_mapping_file):
 
     return adl_only_trace, mixed_trace
 
-def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out, cells_for_timeline):
+def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out):
     print(f"Start time: {datetime.now()}")
     main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
     print(f"Start reading VCD: {datetime.now()}")
@@ -720,12 +712,11 @@ def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out, ce
     create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     create_flame_groups(converter.trace, flame_out, out_dir)
-    print(f"Cells for timeline file (will produce a timeline for all cells if empty): {cells_for_timeline}")
-    compute_timeline(converter.trace, cells_for_timeline, cells_to_components, main_component, out_dir)
+    compute_timeline(converter.trace, cells_to_components, main_component, out_dir)
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
-    if adl_mapping_file != "NA": # emit ADL flame graphs.
+    if adl_mapping_file is not None: # emit ADL flame graphs.
         print("Computing ADL flames...")
         adl_trace, mixed_trace = convert_trace(converter.trace, adl_mapping_file)
         adl_flat_flame = os.path.join(out_dir, f"adl-flat-flame.folded")
@@ -736,25 +727,24 @@ def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out, ce
         create_flame_groups(mixed_trace, mixed_flat_flame, out_dir, scaled_flame_out_file=mixed_scaled_flame)        
 
 if __name__ == "__main__":
-    if len(sys.argv) > 5:
+    if len(sys.argv) > 4:
         vcd_filename = sys.argv[1]
         cells_json = sys.argv[2]
-        adl_mapping_file = sys.argv[3]
-        out_dir = sys.argv[4]
-        flame_out = sys.argv[5]
-        if len(sys.argv) > 6:
-            cells_for_timeline = sys.argv[6]
+        out_dir = sys.argv[3]
+        flame_out = sys.argv[4]
+        if len(sys.argv) > 5:
+            adl_mapping_file = sys.argv[5]
         else:
-            cells_for_timeline = ""
-        main(vcd_filename, cells_json, adl_mapping_file, out_dir, flame_out, cells_for_timeline)
+            adl_mapping_file = None
+        print(adl_mapping_file)
+        main(vcd_filename, cells_json, adl_mapping_file, out_dir, flame_out)
     else:
         args_desc = [
             "VCD_FILE",
             "CELLS_JSON",
-            "ADL_MAP_JSON (NA if not applicable)",
             "OUT_DIR",
             "FLATTENED_FLAME_OUT",
-            "[CELLS_FOR_TIMELINE]"
+            "[ADL_MAP_JSON]"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         print("CELLS_JSON: Run the `component_cells` tool")

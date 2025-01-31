@@ -23,7 +23,7 @@ fn profiling_setup(e) {
 
     // script to process vcd and produce folded representation of flame graph
     e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells NA profiler-out $out");
+    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells profiler-out $out");
 
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
@@ -39,7 +39,7 @@ fn profiling_setup(e) {
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
 
-    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells $metadata-mapping-json profiler-out $out");
+    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells profiler-out $out $metadata-mapping-json");
 }
 
 // first pass. probably worth merging with calyx_to_flamegraph one of these days

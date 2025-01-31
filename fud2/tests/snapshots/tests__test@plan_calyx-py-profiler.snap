@@ -27,7 +27,7 @@ rule component-cells
   command = $component_cells -l $calyx-base $in > $out
 parse-vcd-script = $calyx-base/tools/profiler/profiler-process.py
 rule parse-vcd
-  command = python3 $parse-vcd-script $in $cells NA profiler-out $out
+  command = python3 $parse-vcd-script $in $cells profiler-out $out
 
 verilator = verilator
 cycle-limit = 500000000

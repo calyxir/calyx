@@ -79,7 +79,7 @@ class ComponentBuilder:
         self.component: Union[ast.Component, ast.CombComponent] = (
             ast.Component(
                 name,
-                attributes=[],
+                attributes=set(),
                 inputs=[],
                 outputs=[],
                 structs=list(),
@@ -89,7 +89,7 @@ class ComponentBuilder:
             if not is_comb
             else ast.CombComponent(
                 name,
-                attributes=[],
+                attributes=set(),
                 inputs=[],
                 outputs=[],
                 structs=list(),
@@ -139,19 +139,19 @@ class ComponentBuilder:
         name: str,
         size: int,
         is_input: bool,
-        attribute_literals: List[RawPortAttr],
+        attribute_literals: set[RawPortAttr],
     ) -> ExprBuilder:
         """Should not be called directly.
         Declare a port on the component with attributes.
 
         Returns an expression builder for the port.
         """
-        attributes = []
+        attributes = set()
         for attr in attribute_literals:
             if isinstance(attr, str):
-                attributes.append(ast.PortAttribute(attr))
+                attributes.add(ast.PortAttribute(attr))
             elif isinstance(attr, tuple):
-                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+                attributes.add(ast.PortAttribute(attr[0], attr[1]))
             else:
                 raise ValueError(
                     f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
