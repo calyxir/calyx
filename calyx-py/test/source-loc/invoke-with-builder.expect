@@ -7,7 +7,7 @@ component main<"pos"={0}>() -> () {
     @pos{8} foo0 = foo();
   }
   wires {
-    group write_constant<"promotable"=1, "pos"={9}> {
+    group write_constant<"pos"={9}, "promotable"=1> {
       b.in = cst.out;
       b.write_en = 1'd1;
       write_constant[done] = b.done;

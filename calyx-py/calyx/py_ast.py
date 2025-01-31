@@ -177,7 +177,7 @@ class Component:
         if EMIT_FILEINFO and self.loc is not None:
             self.attributes.add(CompAttribute("pos", self.loc))
         attribute_annotation = (
-            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            f"<{', '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])}>"
             if self.attributes
             else ""
         )
@@ -232,7 +232,7 @@ class CombComponent:
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         attribute_annotation = (
-            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            f"<{', '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])}>"
             if self.attributes
             else ""
         )
@@ -386,7 +386,7 @@ class PortDef(Emittable):
         attributes = (
             ""
             if len(self.attributes) == 0
-            else (" ".join([x.doc() for x in self.attributes]) + " ")
+            else (" ".join([x.doc() for x in sorted(self.attributes, key=lambda a: a.name)]) + " ")
         )
         return f"{attributes}{self.id.doc()}: {self.width}"
 
@@ -415,7 +415,7 @@ class Cell(Structure):
         if EMIT_FILEINFO and self.loc is not None:
             self.attributes.add(CellAttribute("pos", self.loc))
         attribute_annotation = (
-            f"{' '.join([f'{a.doc()}' for a in self.attributes])} "
+            f"{' '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])} "
             if len(self.attributes) > 0
             else ""
         )
@@ -453,7 +453,7 @@ class Group(Structure):
         if EMIT_FILEINFO and self.loc is not None:
             self.attributes.add(GroupAttribute("pos", self.loc))
         attribute_annotation = (
-            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            f"<{', '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])}>"
             if len(self.attributes) > 0
             else ""
         )
@@ -678,7 +678,7 @@ class Invoke(Control):
 
         # Add attributes if present
         if len(self.attributes) > 0:
-            attrs = " ".join([f"@{tag}({val})" for tag, val in self.attributes])
+            attrs = " ".join([f"@{tag}({val})" for tag, val in sorted(self.attributes, key=lambda a: a.name)])
             inv = f"{attrs} {inv}"
 
         # Add ref cells if present
@@ -716,7 +716,7 @@ class StaticInvoke(Control):
 
         # Add attributes if present
         if len(self.attributes) > 0:
-            attrs = " ".join([f"@{tag}({val})" for tag, val in self.attributes])
+            attrs = " ".join([f"@{tag}({val})" for tag, val in sorted(self.attributes, key=lambda a: a.name)])
             inv = f"{attrs} {inv}"
 
         # Add ref cells if present
