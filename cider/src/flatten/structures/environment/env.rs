@@ -46,6 +46,7 @@ use ahash::HashSet;
 use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
 use baa::{BitVecOps, BitVecValue};
+use calyx_frontend::source_info::PositionId;
 use cider_idx::{iter::IndexRange, maps::IndexedMap, IndexRef};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
@@ -723,6 +724,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.get_comp_go(comp).unwrap()
     }
 
+    pub fn comp_go_as_bool(&self, comp: GlobalCellIdx) -> bool {
+        let go = self.unwrap_comp_go(comp);
+        self.ports[go].as_bool().unwrap_or_default()
+    }
+
     pub fn get_comp_done(&self, comp: GlobalCellIdx) -> Option<GlobalPortIdx> {
         let ledger = self.cells[comp]
             .as_comp()
@@ -756,9 +762,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
     ) -> impl Iterator<Item = GroupIdx> + '_ {
         self.pc.iter().filter_map(|(_, point)| {
-            let node = &self.ctx.as_ref().primary[point.control_node_idx];
+            let node =
+                &self.ctx.as_ref().primary[point.control_node_idx].control;
             match node {
-                ControlNode::Enable(x) => {
+                Control::Enable(x) => {
                     let comp_go = self.get_comp_go(point.comp).unwrap();
                     if self.ports[comp_go].as_bool().unwrap_or_default() {
                         Some(x.group())
@@ -879,9 +886,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn print_pc(&self) {
         let current_nodes = self.pc.iter().filter(|(_thread, point)| {
-            let node = &self.ctx.as_ref().primary[point.control_node_idx];
+            let node =
+                &self.ctx.as_ref().primary[point.control_node_idx].control;
             match node {
-                ControlNode::Enable(_) | ControlNode::Invoke(_) => {
+                Control::Enable(_) | Control::Invoke(_) => {
                     let comp_go = self.unwrap_comp_go(point.comp);
                     self.ports[comp_go].as_bool().unwrap_or_default()
                 }
@@ -893,9 +901,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let ctx = &self.ctx.as_ref();
 
         for (_thread, point) in current_nodes {
-            let node = &ctx.primary[point.control_node_idx];
+            let node = &ctx.primary[point.control_node_idx].control;
             match node {
-                ControlNode::Enable(x) => {
+                Control::Enable(x) => {
                     let go = &self.cells[point.comp].unwrap_comp().index_bases
                         + self.ctx().primary[x.group()].go;
                     println!(
@@ -909,7 +917,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         }
                     );
                 }
-                ControlNode::Invoke(x) => {
+                Control::Invoke(x) => {
                     let invoked_name = match x.cell {
                         CellRef::Local(l) => self.get_full_name(
                             &self.cells[point.comp].unwrap_comp().index_bases
@@ -1394,6 +1402,21 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let idx = comp.ref_port_offset_map[port];
         self.ctx.as_ref().secondary[idx]
     }
+
+    pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> + '_ {
+        self.pc
+            .iter()
+            .filter_map(|(_, ctrl_point)| {
+                let node = &self.ctx().primary[ctrl_point.control_node_idx];
+
+                if self.comp_go_as_bool(ctrl_point.comp) {
+                    Some(node.positions())
+                } else {
+                    None
+                }
+            })
+            .flatten()
+    }
 }
 
 enum ControlNodeEval {
@@ -1718,8 +1741,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         control_points
             .iter()
             .filter_map(|(thread, node)| {
-                match &self.ctx().primary[node.control_node_idx] {
-                    ControlNode::Enable(e) => {
+                match &self.ctx().primary[node.control_node_idx].control {
+                    Control::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
 
                         Some(ScheduledAssignments::new_control(
@@ -1733,7 +1756,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         ))
                     }
 
-                    ControlNode::Invoke(i) => {
+                    Control::Invoke(i) => {
                         Some(ScheduledAssignments::new_control(
                             node.comp,
                             i.assignments,
@@ -1742,13 +1765,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         ))
                     }
 
-                    ControlNode::Empty(_) => None,
+                    Control::Empty(_) => None,
                     // non-leaf nodes
-                    ControlNode::If(_)
-                    | ControlNode::While(_)
-                    | ControlNode::Repeat(_)
-                    | ControlNode::Seq(_)
-                    | ControlNode::Par(_) => None,
+                    Control::If(_)
+                    | Control::While(_)
+                    | Control::Repeat(_)
+                    | Control::Seq(_)
+                    | Control::Par(_) => None,
                 }
             })
             .chain(self.env.pc.continuous_assigns().iter().map(|x| {
@@ -1924,9 +1947,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     PortValue::new_implicit(BitVecValue::new_false());
             }
 
-            match &ctx_ref.primary[node.control_node_idx] {
+            match &ctx_ref.primary[node.control_node_idx].control {
                 // actual nodes
-                ControlNode::Enable(enable) => {
+                Control::Enable(enable) => {
                     let go_local = ctx_ref.primary[enable.group()].go;
                     let index_bases = &self.env.cells[node.comp]
                         .as_comp()
@@ -1938,7 +1961,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     self.env.ports[go_idx] =
                         PortValue::new_implicit(BitVecValue::new_true());
                 }
-                ControlNode::Invoke(invoke) => {
+                Control::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
                         && !with_map.contains_key(node)
                     {
@@ -1965,7 +1988,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     self.initialize_ref_cells(node.comp, invoke);
                 }
                 // with nodes
-                ControlNode::If(i) => {
+                Control::If(i) => {
                     if i.cond_group().is_some() && !with_map.contains_key(node)
                     {
                         with_map.insert(
@@ -1974,7 +1997,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         );
                     }
                 }
-                ControlNode::While(w) => {
+                Control::While(w) => {
                     if w.cond_group().is_some() && !with_map.contains_key(node)
                     {
                         with_map.insert(
@@ -1984,10 +2007,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     }
                 }
                 // --
-                ControlNode::Empty(_)
-                | ControlNode::Seq(_)
-                | ControlNode::Par(_)
-                | ControlNode::Repeat(_) => {}
+                Control::Empty(_)
+                | Control::Seq(_)
+                | Control::Par(_)
+                | Control::Repeat(_) => {}
             }
         }
 
@@ -2144,9 +2167,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
 
         // just considering a single node case for the moment
-        let retain_bool = match &ctx.primary[node.control_node_idx] {
-            ControlNode::Seq(seq) => self.handle_seq(seq, node),
-            ControlNode::Par(par) => self.handle_par(
+        let retain_bool = match &ctx.primary[node.control_node_idx].control {
+            Control::Seq(seq) => self.handle_seq(seq, node),
+            Control::Par(par) => self.handle_par(
                 par_map,
                 node,
                 thread,
@@ -2154,21 +2177,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 par,
                 new_nodes,
             ),
-            ControlNode::If(i) => self.handle_if(with_map, node, thread, i)?,
-            ControlNode::While(w) => {
+            Control::If(i) => self.handle_if(with_map, node, thread, i)?,
+            Control::While(w) => {
                 self.handle_while(w, with_map, node, thread)?
             }
-            ControlNode::Repeat(rep) => {
-                self.handle_repeat(repeat_map, node, rep)
-            }
+            Control::Repeat(rep) => self.handle_repeat(repeat_map, node, rep),
 
             // ===== leaf nodes =====
-            ControlNode::Empty(_) => {
-                node.mutate_into_next(self.env.ctx.as_ref())
-            }
+            Control::Empty(_) => node.mutate_into_next(self.env.ctx.as_ref()),
 
-            ControlNode::Enable(e) => self.handle_enable(e, node),
-            ControlNode::Invoke(i) => self.handle_invoke(i, node, with_map)?,
+            Control::Enable(e) => self.handle_enable(e, node),
+            Control::Invoke(i) => self.handle_invoke(i, node, with_map)?,
         };
 
         if retain_bool && node.should_reprocess(ctx) {
@@ -2177,7 +2196,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         if !retain_bool && ControlPoint::get_next(node, self.env.ctx.as_ref()).is_none() &&
          // either we are not a par node, or we are the last par node
-         (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
+         (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx].control, Control::Par(_)) || !par_map.contains_key(node))
         {
             if self.conf.check_data_race {
                 assert!(

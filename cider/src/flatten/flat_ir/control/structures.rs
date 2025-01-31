@@ -1,3 +1,4 @@
+use calyx_frontend::source_info::PositionId;
 use cider_idx::{impl_index, iter::IndexRange, maps::IndexedMap};
 use smallvec::SmallVec;
 
@@ -278,7 +279,7 @@ impl Repeat {
 
 /// An enum representing the different types of control nodes. Analogue of [calyx_ir::Control]
 #[derive(Debug)]
-pub enum ControlNode {
+pub enum Control {
     /// An empty control node
     Empty(Empty),
     /// A group enable node
@@ -297,20 +298,44 @@ pub enum ControlNode {
     Invoke(Invoke),
 }
 
-impl ControlNode {
+impl Control {
     /// Returns true if the control node is a leaf node (i.e. invoke, enable, or
     /// empty)
     pub fn is_leaf(&self) -> bool {
         match self {
-            ControlNode::While(_)
-            | ControlNode::Repeat(_)
-            | ControlNode::Seq(_)
-            | ControlNode::Par(_)
-            | ControlNode::If(_) => false,
-            ControlNode::Enable(_)
-            | ControlNode::Invoke(_)
-            | ControlNode::Empty(_) => true,
+            Control::While(_)
+            | Control::Repeat(_)
+            | Control::Seq(_)
+            | Control::Par(_)
+            | Control::If(_) => false,
+            Control::Enable(_) | Control::Invoke(_) | Control::Empty(_) => true,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ControlNode {
+    pub control: Control,
+    pub pos: Option<Box<[PositionId]>>,
+}
+
+impl AsRef<Control> for ControlNode {
+    fn as_ref(&self) -> &Control {
+        &self.control
+    }
+}
+
+impl ControlNode {
+    pub fn positions(&self) -> impl Iterator<Item = PositionId> + '_ {
+        self.pos.iter().flatten().copied()
+    }
+}
+
+impl std::ops::Deref for ControlNode {
+    type Target = Control;
+
+    fn deref(&self) -> &Self::Target {
+        &self.control
     }
 }
 
