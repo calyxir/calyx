@@ -36,7 +36,7 @@ class FileTable:
         contents = []
         for filename, fileid in FileTable.table.items():
             contents.append(f"{fileid}: {filename}")
-        return block("FILES", contents, metadata=True)
+        return block("FILES", contents, with_curly=False)
 
 
 class PosTable:
@@ -81,7 +81,7 @@ class PosTable:
         contents = []
         for (fileid, linenum), position_id in PosTable.table.items():
             contents.append(f"{position_id}: {fileid} {linenum}")
-        return block("POSITIONS", contents, metadata=True)
+        return block("POSITIONS", contents, with_curly=False)
 
 
 # Program
