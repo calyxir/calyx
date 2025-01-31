@@ -8,7 +8,6 @@ import os
 EMIT_FILEINFO = "CALYX_PY_SOURCELOC" in os.environ and bool(
     os.environ.get("CALYX_PY_SOURCELOC")
 )
-INDENT = "  "
 
 
 @dataclass
@@ -34,10 +33,10 @@ class FileTable:
 
     @staticmethod
     def emit_fileinfo_metadata():
-        out = f"{INDENT}FILES\n"
+        contents = []
         for filename, fileid in FileTable.table.items():
-            out += f"{INDENT}{INDENT}{fileid}: {filename}\n"
-        return out
+            contents.append(f"{fileid}: {filename}")
+        return block("FILES", contents, metadata=True)
 
 
 class PosTable:
@@ -79,10 +78,10 @@ class PosTable:
 
     @staticmethod
     def emit_fileinfo_metadata():
-        out = f"{INDENT}POSITIONS\n"
+        contents = []
         for (fileid, linenum), position_id in PosTable.table.items():
-            out += f"{INDENT}{INDENT}{position_id}: {fileid} {linenum}\n"
-        return out
+            contents.append(f"{position_id}: {fileid} {linenum}")
+        return block("POSITIONS", contents, metadata=True)
 
 
 # Program
@@ -386,7 +385,12 @@ class PortDef(Emittable):
         attributes = (
             ""
             if len(self.attributes) == 0
-            else (" ".join([x.doc() for x in sorted(self.attributes, key=lambda a: a.name)]) + " ")
+            else (
+                " ".join(
+                    [x.doc() for x in sorted(self.attributes, key=lambda a: a.name)]
+                )
+                + " "
+            )
         )
         return f"{attributes}{self.id.doc()}: {self.width}"
 
@@ -678,7 +682,12 @@ class Invoke(Control):
 
         # Add attributes if present
         if len(self.attributes) > 0:
-            attrs = " ".join([f"@{tag}({val})" for tag, val in sorted(self.attributes, key=lambda a: a.name)])
+            attrs = " ".join(
+                [
+                    f"@{tag}({val})"
+                    for tag, val in sorted(self.attributes, key=lambda a: a.name)
+                ]
+            )
             inv = f"{attrs} {inv}"
 
         # Add ref cells if present
@@ -716,7 +725,12 @@ class StaticInvoke(Control):
 
         # Add attributes if present
         if len(self.attributes) > 0:
-            attrs = " ".join([f"@{tag}({val})" for tag, val in sorted(self.attributes, key=lambda a: a.name)])
+            attrs = " ".join(
+                [
+                    f"@{tag}({val})"
+                    for tag, val in sorted(self.attributes, key=lambda a: a.name)
+                ]
+            )
             inv = f"{attrs} {inv}"
 
         # Add ref cells if present

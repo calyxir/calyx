@@ -2,16 +2,22 @@ import textwrap
 import math
 
 
-def block(decl, contents, indent=2, sep="\n"):
+def block(decl, contents, indent=2, sep="\n", metadata=False):
     """Format a block like this:
         decl {
           contents[0] <sep> contents[1] ...
         }
     where `decl` is one line and contents is a list that is separated with `sep`.
+    If `metadata` is `True` then the block would be formatted without curly braces.
     """
-    return "".join(
-        (decl, " {\n", textwrap.indent(sep.join(contents), indent * " "), "\n}")
-    )
+    if not metadata:
+        return "".join(
+            (decl, " {\n", textwrap.indent(sep.join(contents), indent * " "), "\n}")
+        )
+    else:
+        return "".join(
+            (decl, " \n", textwrap.indent(sep.join(contents), indent * " "), "\n")
+        )
 
 
 def bits_needed(num):
