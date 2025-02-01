@@ -550,40 +550,51 @@ def dump_trace(trace, out_dir):
         json.dump(trace, json_out, indent = 2)
 
 def compute_timeline(trace, cells_to_components, main_component, out_dir):
-    cells_to_curr_active = {}
-    cells_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
+    groups = set()
+    construct_to_curr_active = {} # currently active cell --> start cycle
+    construct_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
     # creating a timeline for all cells in the program.
-    for cell in sorted(cells_to_components.keys(), key=(lambda x : x.count("."))):
-        if cell != main_component:
-            cells_to_curr_active[cell] = -1
-            cells_to_closed_segments[cell] = []
+    # for cell in sorted(cells_to_components.keys(), key=(lambda x : x.count("."))):
+    #     if cell != main_component:
+    #         construct_to_curr_active[cell] = -1
+    #         construct_to_closed_segments[cell] = []
     currently_active = set()
     for i in trace:
         active_this_cycle = set()
         for stack in trace[i]:
-            stack_acc = main_component
+            stack_acc = main_component            
             for stack_elem in stack:
+                name = None
                 if " [" in stack_elem: # cell
                     stack_acc += "." + stack_elem.split(" [")[0]
-                if stack_acc in cells_to_curr_active: # this is a cell we care about!
-                    active_this_cycle.add(stack_acc)
+                    name = stack_acc
+                elif "(primitive)" not in stack_elem: # group
+                    name = stack_acc + "." + stack_elem
+                    groups.add(name)
+                else:
+                    continue
+                active_this_cycle.add(name)
+                if name not in construct_to_curr_active:
+                    construct_to_curr_active[name] = -1
+                if name not in construct_to_closed_segments:
+                    construct_to_closed_segments[name] = []
         for nonactive in currently_active.difference(active_this_cycle): # cell that was previously active but no longer is
-            start_cycle = cells_to_curr_active[nonactive]
-            cells_to_closed_segments[nonactive].append({"start": start_cycle, "end": i})
-            cells_to_curr_active[nonactive] = -1
+            start_cycle = construct_to_curr_active[nonactive]
+            construct_to_closed_segments[nonactive].append({"start": start_cycle, "end": i})
+            construct_to_curr_active[nonactive] = -1
         for newly_active in active_this_cycle.difference(currently_active):
-            cells_to_curr_active[newly_active] = i
+            construct_to_curr_active[newly_active] = i
         currently_active = active_this_cycle # retain the current one for next cycle.
-    for cell in currently_active: # need to close
-        start_cycle = cells_to_curr_active[cell]
-        cells_to_closed_segments[cell].append({"start": start_cycle, "end": len(trace)})
+    for active in currently_active: # need to close
+        start_cycle = construct_to_curr_active[active]
+        construct_to_closed_segments[active].append({"start": start_cycle, "end": len(trace)})
     events = []
     # add main on process + thread 1 so we get the full picture.
     events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0})
     events.append({"name": main_component, "cat": "main", "ph": "E", "pid": 1, "tid": 1, "ts": len(trace) * ts_multiplier})
     pt_id = 2
-    for cell in cells_to_closed_segments:
-        for closed_segment in cells_to_closed_segments[cell]:
+    for cell in construct_to_closed_segments:
+        for closed_segment in construct_to_closed_segments[cell]:
             start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : 1, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
             events.append(start_event)
             end_event = start_event.copy()
