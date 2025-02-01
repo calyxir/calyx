@@ -549,15 +549,10 @@ def dump_trace(trace, out_dir):
     with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
         json.dump(trace, json_out, indent = 2)
 
-def compute_timeline(trace, cells_to_components, main_component, out_dir):
+def compute_timeline(trace, main_component, out_dir):
     groups = set()
-    construct_to_curr_active = {} # currently active cell --> start cycle
+    construct_to_curr_active = {} # cell --> start cycle. -1 if not currently active.
     construct_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
-    # creating a timeline for all cells in the program.
-    # for cell in sorted(cells_to_components.keys(), key=(lambda x : x.count("."))):
-    #     if cell != main_component:
-    #         construct_to_curr_active[cell] = -1
-    #         construct_to_closed_segments[cell] = []
     currently_active = set()
     for i in trace:
         active_this_cycle = set()
@@ -568,11 +563,11 @@ def compute_timeline(trace, cells_to_components, main_component, out_dir):
                 if " [" in stack_elem: # cell
                     stack_acc += "." + stack_elem.split(" [")[0]
                     name = stack_acc
-                elif "(primitive)" not in stack_elem: # group
+                elif "(primitive)" in stack_elem: # ignore primitives for now.
+                    continue                    
+                else: # group
                     name = stack_acc + "." + stack_elem
                     groups.add(name)
-                else:
-                    continue
                 active_this_cycle.add(name)
                 if name not in construct_to_curr_active:
                     construct_to_curr_active[name] = -1
@@ -723,7 +718,7 @@ def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out):
     create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     create_flame_groups(converter.trace, flame_out, out_dir)
-    compute_timeline(converter.trace, cells_to_components, main_component, out_dir)
+    compute_timeline(converter.trace, main_component, out_dir)
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
