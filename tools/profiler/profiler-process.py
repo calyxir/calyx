@@ -585,23 +585,39 @@ def compute_timeline(trace, main_component, out_dir):
         construct_to_closed_segments[active].append({"start": start_cycle, "end": len(trace)})
     events = []
     # add main on process + thread 1 so we get the full picture.
-    events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0})
-    events.append({"name": main_component, "cat": "main", "ph": "E", "pid": 1, "tid": 1, "ts": len(trace) * ts_multiplier})
+    events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0, "sf": 1})
+    events.append({"name": main_component, "cat": "main", "ph": "E", "pid": 1, "tid": 1, "ts": len(trace) * ts_multiplier, "sf": 1})
     pt_id = 2
+    construct_to_stack_ids = {main_component : 1} # construct --> stack_id
+    stack_id_acc = 2
     for cell in construct_to_closed_segments:
+        if cell not in construct_to_stack_ids:
+            construct_to_stack_ids[cell] = stack_id_acc
+            stack_id_acc += 1
+        cell_stack_id = construct_to_stack_ids[cell]
         for closed_segment in construct_to_closed_segments[cell]:
-            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : 1, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
+            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : 1, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier, "sf": cell_stack_id}
             events.append(start_event)
             end_event = start_event.copy()
             end_event["ph"] = "E"
             end_event["ts"] = closed_segment["end"] * ts_multiplier
             events.append(end_event)
         pt_id += 1
-
+    # making the stack frames!
+    stack_frames = {}
+    for (construct, stack_id) in construct_to_stack_ids.items():
+        stack_frame_map = { "name" : construct }
+        if construct in groups:
+            stack_frame_map["category"] = "group"
+            parent = ".".join(construct.split(".")[:-1])
+            stack_frame_map["parent"] = construct_to_stack_ids[parent]
+        else:
+            stack_frame_map["category"] = "cell"
+        stack_frames[stack_id] = stack_frame_map
     # write to file
     out_path = os.path.join(out_dir, "timeline-dump.json")
     with open(out_path, "w", encoding="utf-8") as out_file:
-        out_file.write(json.dumps({"traceEvents" : events}, indent=4))
+        out_file.write(json.dumps({"traceEvents" : events, "stackFrames" : stack_frames}, indent=4))
 
 def write_cell_stats(cell_to_active_cycles, out_dir):
     # cell-name,total-cycles,times-active,avg
