@@ -7,7 +7,7 @@ from fud.stages.remote_context import RemoteExecution
 from fud.utils import TmpDir, shell
 from fud import config as cfg
 
-from .extract import hls_extract, place_and_route_extract
+from .extract import hls_extract, vivado_extract
 
 
 class VivadoBaseStage(Stage):
@@ -208,7 +208,7 @@ class VivadoExtractStage(Stage):
             """
             Extract relevant data from Vivado synthesis files.
             """
-            return place_and_route_extract(
+            return vivado_extract(
                 Path(directory.name),
                 "FutilBuild.runs",
                 PurePath("impl_1", "main_utilization_placed.rpt"),
@@ -264,7 +264,7 @@ class VivadoHLSPlaceAndRouteExtractStage(Stage):
             top = config.get(["stages", self.name, "top"]) or "kernel"
             verilog_dir = PurePath("solution1", "impl", "verilog")
 
-            return place_and_route_extract(
+            return vivado_extract(
                 Path(directory.name),
                 "benchmark.prj",
                 verilog_dir / "report" / f"{top}_utilization_routed.rpt",

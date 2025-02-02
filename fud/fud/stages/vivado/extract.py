@@ -1,9 +1,9 @@
 import json
+import logging as log
 import os
-from pathlib import Path, PurePath
 import re
 import traceback
-import logging as log
+from pathlib import Path, PurePath
 
 from fud import errors
 
@@ -52,12 +52,9 @@ def rtl_component_extract(file: Path, name: str):
         return 0
 
 
-def place_and_route_extract(
+def _find_report_location(
     directory: Path,
     files_root: str,
-    utilization_file: PurePath,
-    timing_file: PurePath,
-    synthesis_file: PurePath,
 ):
     # Search for the given root directory
     for root, dirs, _ in os.walk(directory):
@@ -66,8 +63,81 @@ def place_and_route_extract(
                 directory = Path(os.path.join(root, d))
                 break
 
-    util_file = directory / utilization_file
+    return directory
+
+
+def synthesis_results(
+    directory: Path,
+    files_root: str,
+    synthesis_file: PurePath,
+):
+    """
+    Extracts information from the synthesis files.
+    Synthesis is the first and faster step that transforms RTL into a netlist
+    but does not place and route the design. The resource utilization from
+    synthesis should be treated as estimates.
+    """
+
+    directory = _find_report_location(directory, files_root)
     synth_file = directory / synthesis_file
+
+    resource_info = {}
+
+    # Extraction for synthesis files.
+    try:
+        if not synth_file.exists():
+            log.error(f"Synthesis file {synth_file} is missing")
+        else:
+            synth_parser = rpt.RPTParser(synth_file)
+            cell_usage_tbl = synth_parser.get_table(
+                re.compile(r"Report Cell Usage:"), 0
+            )
+            cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
+            cell_lut2 = find_row(cell_usage_tbl, "Cell", "LUT2", False)
+            cell_lut3 = find_row(cell_usage_tbl, "Cell", "LUT3", False)
+            cell_lut4 = find_row(cell_usage_tbl, "Cell", "LUT4", False)
+            cell_lut5 = find_row(cell_usage_tbl, "Cell", "LUT5", False)
+            cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
+            cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
+            uram_usage = find_row(cell_usage_tbl, "Cell", "URAM288", False)
+
+            resource_info.update(
+                {
+                    "uram": to_int(safe_get(uram_usage, "Count")),
+                    "registers": rtl_component_extract(synth_file, "Registers"),
+                    "muxes": rtl_component_extract(synth_file, "Muxes"),
+                    "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
+                    "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
+                    "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
+                    "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
+                    "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
+                    "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
+                    "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
+                }
+            )
+    except Exception:
+        log.error(traceback.format_exc())
+        log.error("Failed to extract synthesis information")
+
+    return resource_info
+
+
+def place_and_route_results(
+    directory: Path,
+    files_root: str,
+    utilization_file: PurePath,
+    timing_file: PurePath,
+):
+    """
+    Extracts information from both the implementation files.
+    Implementation is the slower step that places and routes the design and
+    provides much more detailed information about the resource utilization.
+    """
+
+    # Search for the given root directory
+    directory = _find_report_location(directory, files_root)
+
+    util_file = directory / utilization_file
     timing_file = directory / timing_file
 
     # The resource information is extracted first for the implementation files, and
@@ -100,8 +170,6 @@ def place_and_route_extract(
                     "brams": to_int(
                         find_row(bram_table, "Site Type", "Block RAM Tile")["Used"]
                     ),
-                    "registers": rtl_component_extract(synth_file, "Registers"),
-                    "muxes": rtl_component_extract(synth_file, "Muxes"),
                     "clb_registers": clb_reg,
                     "carry8": carry8,
                     "f7_muxes": f7_muxes,
@@ -143,41 +211,7 @@ def place_and_route_extract(
             {"frequency": float(safe_get(period_info, "Frequency(MHz)"))}
         )
 
-    # Extraction for synthesis files.
-    try:
-        if not synth_file.exists():
-            log.error(f"Synthesis file {synth_file} is missing")
-        else:
-            synth_parser = rpt.RPTParser(synth_file)
-            cell_usage_tbl = synth_parser.get_table(
-                re.compile(r"Report Cell Usage:"), 0
-            )
-            cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
-            cell_lut2 = find_row(cell_usage_tbl, "Cell", "LUT2", False)
-            cell_lut3 = find_row(cell_usage_tbl, "Cell", "LUT3", False)
-            cell_lut4 = find_row(cell_usage_tbl, "Cell", "LUT4", False)
-            cell_lut5 = find_row(cell_usage_tbl, "Cell", "LUT5", False)
-            cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
-            cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
-            uram_usage = find_row(cell_usage_tbl, "Cell", "URAM288", False)
-
-            resource_info.update(
-                {
-                    "uram": to_int(safe_get(uram_usage, "Count")),
-                    "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
-                    "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
-                    "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
-                    "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
-                    "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
-                    "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
-                    "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
-                }
-            )
-    except Exception:
-        log.error(traceback.format_exc())
-        log.error("Failed to extract synthesis information")
-
-    return json.dumps(resource_info, indent=2)
+    return resource_info
 
 
 def hls_extract(directory: Path, top: str):
