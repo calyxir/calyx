@@ -44,7 +44,8 @@ def rpt_extract(file: PurePath):
 
     parser = rpt.RPTParser(file)
 
-    # Optional asterisk at the end of table name here because in synthesis files the name comes with an asterisk
+    # Optional asterisk at the end of table name here because in synthesis files
+    # the name comes with an asterisk
     slice_logic = parser.get_table(re.compile(r"^\d+\. CLB Logic\*?$"), 2)
     bram_table = parser.get_table(re.compile(r"^\d+\. BLOCKRAM$"), 2)
     dsp_table = parser.get_table(re.compile(r"^\d+\. ARITHMETIC$"), 2)
