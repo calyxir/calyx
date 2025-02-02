@@ -554,10 +554,11 @@ def compute_timeline(trace, main_component, out_dir):
     construct_to_curr_active = {} # cell --> start cycle. -1 if not currently active.
     construct_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
     currently_active = set()
+    main_name = main_component.split(".")[-1]
     for i in trace:
         active_this_cycle = set()
         for stack in trace[i]:
-            stack_acc = main_component            
+            stack_acc = main_component
             for stack_elem in stack:
                 name = None
                 if " [" in stack_elem: # cell
@@ -565,7 +566,10 @@ def compute_timeline(trace, main_component, out_dir):
                     name = stack_acc
                     cells.add(name)
                 elif "(primitive)" in stack_elem: # ignore primitives for now.
-                    continue                    
+                    continue
+                elif stack_elem == main_name: # don't accumulate to the stack if your name is main.
+                    stack_acc = stack_acc
+                    name = main_component
                 else: # group
                     name = stack_acc + "." + stack_elem
                 active_this_cycle.add(name)
@@ -585,15 +589,15 @@ def compute_timeline(trace, main_component, out_dir):
         construct_to_closed_segments[active].append({"start": start_cycle, "end": len(trace)})
     events = []
     # add main on process + thread 1 so we get the full picture.
-    events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0, "sf": 1})
-    events.append({"name": main_component, "cat": "main", "ph": "E", "pid": 1, "tid": 1, "ts": len(trace) * ts_multiplier, "sf": 1})
+    # events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0, "sf": 1})
+    # events.append({"name": main_component, "cat": "main", "ph": "E", "pid": 1, "tid": 1, "ts": len(trace) * ts_multiplier, "sf": 1})
     # one pass to determine the pt_id and stacks of every construct, and create stackFrames dictionary.
     pt_id_acc = 2
     stack_id_acc = 2
     construct_to_ids = {main_component : (1, 1)} # construct --> (pt_id, stack_id)
     stack_frames = {}
     # looping through cells first to avoid any groups not being able to access their parents.
-    for cell in cells:
+    for cell in sorted(cells, key=lambda c: c.count(".")):
         construct_to_ids[cell] = (pt_id_acc, stack_id_acc)
         stack_frames[stack_id_acc] = { "name" : cell, "category" : "cell" }
         pt_id_acc += 1
@@ -608,8 +612,9 @@ def compute_timeline(trace, main_component, out_dir):
     
     for construct in construct_to_closed_segments:
         (pt_id, stack_id) = construct_to_ids[construct]
+        cat = "cell" if construct in cells else "group"
         for closed_segment in construct_to_closed_segments[construct]:
-            start_event = {"name": construct, "cat": "cell", "ph": "B", "pid" : pt_id, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier, "sf": stack_id}
+            start_event = {"name": construct, "cat": cat, "ph": "B", "pid" : pt_id, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier, "sf": stack_id}
             events.append(start_event)
             end_event = start_event.copy()
             end_event["ph"] = "E"
