@@ -1,12 +1,12 @@
 # =========== Workspace configuration ===========
 [workspace]
 members = [
-    "calyx-ir",
-    "calyx-utils",
-    "calyx-opt",
-    "calyx-frontend",
-    "calyx-stdlib",
-    "calyx-backend",
+    "calyx/ir",
+    "calyx/utils",
+    "calyx/opt",
+    "calyx/frontend",
+    "calyx/stdlib",
+    "calyx/backend",
     "calyx-lsp",
     "cider",
     "web/rust",
@@ -54,11 +54,11 @@ pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
 anyhow = "1"
-calyx-utils = { path = "calyx-utils", version = "0.7.1" }
-calyx-ir = { path = "calyx-ir", version = "0.7.1" }
-calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
-calyx-opt = { path = "calyx-opt", version = "0.7.1" }
-calyx-backend = { path = "calyx-backend", version = "0.7.1" }
+calyx-utils = { path = "calyx/utils", version = "0.7.1" }
+calyx-ir = { path = "calyx/ir", version = "0.7.1" }
+calyx-frontend = { path = "calyx/frontend", version = "0.7.1" }
+calyx-opt = { path = "calyx/opt", version = "0.7.1" }
+calyx-backend = { path = "calyx/backend", version = "0.7.1" }
 baa = { version = "0.16.0", features = ["bigint", "serde1", "fraction1"] }
 
 [workspace.dependencies.petgraph]
@@ -99,7 +99,7 @@ default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
 
 [build-dependencies]
-calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
+calyx-stdlib = { path = "calyx/stdlib", version = "0.7.1" }
 
 [dependencies]
 atty.workspace = true
@@ -124,9 +124,9 @@ lto = "thin"
 # = ========== Benchmarks ===========
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
-calyx-ir = { path = "calyx-ir" }
-calyx-opt = { path = "calyx-opt" }
-calyx-frontend = { path = "calyx-frontend" }
+calyx-ir = { path = "calyx/ir" }
+calyx-opt = { path = "calyx/opt" }
+calyx-frontend = { path = "calyx/frontend" }
 
 [[bench]]
 name = "component-sharing"
