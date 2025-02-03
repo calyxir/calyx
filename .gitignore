@@ -63,6 +63,7 @@ tools/profiler/meta-logs
 tools/profiler/fg-tmp
 *.svg
 *.folded
+fud2-runs
 
 temp/
 
