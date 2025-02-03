@@ -10,14 +10,14 @@ use crate::flatten::{
     flat_ir::base::GlobalCellIdx, structures::thread::ThreadIdx,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ClockIdx(NonZeroU32);
-impl_index_nonzero!(ClockIdx);
-
 use baa::BitVecValue;
 use cider_idx::{impl_index_nonzero, maps::IndexedMap};
 use itertools::Itertools;
 use thiserror::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ClockIdx(NonZeroU32);
+impl_index_nonzero!(ClockIdx);
 
 pub type ThreadClockPair = (ThreadIdx, ClockIdx);
 
