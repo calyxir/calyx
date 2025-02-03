@@ -3116,23 +3116,28 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             // TODO griffin: Sort this out
             panic!("Value has both direct clock and transitive clock. This shouldn't happen?")
         } else if let Some(clocks) = val.clocks() {
-            let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
-            clocks.check_read_w_cell(
-                (thread, thread_clock),
-                clock_map,
-                info.attached_cell,
-                info.entry_number,
-            )?
+            clocks
+                .check_read_with_ascription(
+                    (thread, thread_clock),
+                    *val.winner().unwrap().as_assign().unwrap(),
+                    clock_map,
+                )
+                .map_err(|e| {
+                    let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
+                    e.add_cell_info(info.attached_cell, info.entry_number)
+                })?
         } else if let Some(transitive_clocks) = val.transitive_clocks() {
             for clock_pair in transitive_clocks {
-                let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
-
-                clock_pair.check_read_w_cell(
-                    (thread, thread_clock),
-                    clock_map,
-                    info.attached_cell,
-                    info.entry_number,
-                )?
+                clock_pair
+                    .check_read_with_ascription(
+                        (thread, thread_clock),
+                        *val.winner().unwrap().as_assign().unwrap(),
+                        clock_map,
+                    )
+                    .map_err(|e| {
+                        let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
+                        e.add_cell_info(info.attached_cell, info.entry_number)
+                    })?
             }
         }
 

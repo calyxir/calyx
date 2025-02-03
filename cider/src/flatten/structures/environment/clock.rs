@@ -7,11 +7,18 @@ use std::{
 };
 
 use crate::flatten::{
-    flat_ir::base::GlobalCellIdx, structures::thread::ThreadIdx,
+    flat_ir::base::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
+    structures::{
+        context::Context,
+        thread::{ThreadIdx, ThreadMap},
+    },
 };
 
 use baa::BitVecValue;
-use cider_idx::{impl_index_nonzero, maps::IndexedMap};
+use cider_idx::{
+    impl_index_nonzero,
+    maps::{IndexedMap, SecondarySparseMap},
+};
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -30,10 +37,59 @@ pub struct ClockPairInfo {
     pub entry_number: Option<u32>,
 }
 
+#[derive(Debug, Clone)]
+pub struct WriteInfo {
+    pub thread: ThreadIdx,
+    pub assignment: AssignmentWinner,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReadInfo {
+    pub thread: ThreadIdx,
+    pub assignment: AssignmentIdx,
+}
+
+impl ReadInfo {
+    pub fn new(thread: ThreadIdx, assignment: AssignmentIdx) -> Self {
+        Self { thread, assignment }
+    }
+
+    pub fn format(&self, ctx: &Context) -> String {
+        format!(
+            "read in thread {:?} from {}",
+            self.thread,
+            ctx.printer().print_assignment(
+                ctx.find_assignment_definition(self.assignment).0,
+                self.assignment
+            )
+        )
+    }
+}
+
+impl WriteInfo {
+    pub fn new(thread: ThreadIdx, assignment: AssignmentWinner) -> Self {
+        Self { thread, assignment }
+    }
+    pub fn format(&self, ctx: &Context) -> String {
+        format!(
+            "write in thread {:?} from {}",
+            self.thread,
+            ctx.printer().print_assignment(
+                ctx.find_assignment_definition(
+                    *self.assignment.as_assign().unwrap()
+                )
+                .0,
+                *self.assignment.as_assign().unwrap()
+            )
+        )
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ClockMap {
     clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
     reverse_map: HashMap<ClockPair, ClockPairInfo>,
+    extra_info: SecondarySparseMap<ClockIdx, WriteInfo>,
 }
 
 impl ClockMap {
@@ -74,6 +130,13 @@ impl ClockMap {
     /// Returns a new clock that is the clone of the given clock
     pub fn fork_clock(&mut self, parent: ClockIdx) -> ClockIdx {
         self.clocks.push(self.clocks[parent].clone())
+    }
+
+    pub fn log_write(&mut self, clock: ClockIdx, info: WriteInfo) {
+        self.extra_info.insert_value(clock, info);
+    }
+    pub fn get_logged_write(&mut self, clock: ClockIdx) -> Option<&WriteInfo> {
+        self.extra_info.get(clock)
     }
 }
 
@@ -395,11 +458,11 @@ impl ClockPair {
         }
     }
 
-    pub fn check_read(
+    fn check_read(
         &self,
         (thread, reading_clock): ThreadClockPair,
         clock_map: &mut ClockMap,
-    ) -> Result<(), ClockError> {
+    ) -> Result<(), ReadError> {
         if clock_map[reading_clock] >= clock_map[self.write_clock] {
             let v = clock_map[reading_clock][thread];
             clock_map[self.read_clock].set_thread_clock(thread, v);
@@ -408,7 +471,7 @@ impl ClockPair {
             .partial_cmp(&clock_map[self.write_clock])
             .is_none()
         {
-            Err(ClockError::ReadWriteUnhelpful)
+            Err(ReadError)
         } else {
             // This implies that the read happens before the write which I think
             // shouldn't be possible
@@ -419,22 +482,27 @@ impl ClockPair {
     }
 
     /// A wrapper method which checks the read and adds cell info on an error
-    pub fn check_read_w_cell(
+    pub fn check_read_with_ascription(
         &self,
         (thread, reading_clock): ThreadClockPair,
+        assignment: AssignmentIdx,
         clock_map: &mut ClockMap,
-        cell: GlobalCellIdx,
-        entry_number: Option<u32>,
     ) -> Result<(), ClockError> {
         self.check_read((thread, reading_clock), clock_map)
-            .map_err(|e| e.add_cell_info(cell, entry_number))
+            .map_err(|_| ClockError::ReadAfterWrite {
+                write: clock_map
+                    .get_logged_write(self.write_clock)
+                    .unwrap()
+                    .clone(),
+                read: ReadInfo { thread, assignment },
+            })
     }
 
-    pub fn check_write(
+    fn check_write(
         &self,
         writing_clock: ClockIdx,
         clock_map: &mut ClockMap,
-    ) -> Result<(), ClockError> {
+    ) -> Result<(), WriteError> {
         if clock_map[writing_clock] >= clock_map[self.write_clock]
             && clock_map[writing_clock] >= clock_map[self.read_clock]
         {
@@ -446,12 +514,12 @@ impl ClockPair {
                 .is_none()
         {
             // dbg!(&clock_map[writing_clock], &clock_map[self.read_clock]);
-            Err(ClockError::ReadWriteUnhelpful)
+            Err(WriteError::WriteRead)
         } else if clock_map[writing_clock]
             .partial_cmp(&clock_map[self.write_clock])
             .is_none()
         {
-            Err(ClockError::WriteWriteUnhelpful)
+            Err(WriteError::WriteWrite)
         } else {
             // This implies the current write happened before the prior write
             // which I think shouldn't be possible
@@ -460,18 +528,74 @@ impl ClockPair {
             )
         }
     }
+
+    pub fn check_write_with_ascription(
+        &self,
+        thread: ThreadIdx,
+        thread_map: &ThreadMap,
+        clock_map: &mut ClockMap,
+        winner: &AssignmentWinner,
+    ) -> Result<(), ClockError> {
+        let current_clock = thread_map.unwrap_clock_id(thread);
+        let result = self.check_write(current_clock, clock_map);
+        match result {
+            Ok(val) => {
+                clock_map.log_write(
+                    self.write_clock,
+                    WriteInfo::new(thread, winner.clone()),
+                );
+                Ok(val)
+            }
+            Err(e) => match e {
+                WriteError::WriteWrite => Err(ClockError::WriteAfterWrite {
+                    write1: clock_map
+                        .get_logged_write(self.write_clock)
+                        .unwrap()
+                        .clone(),
+                    write2: WriteInfo::new(thread, winner.clone()),
+                }),
+                WriteError::WriteRead => Err(ClockError::WriteAfterRead {
+                    write: WriteInfo::new(thread, winner.clone()),
+                }),
+            },
+        }
+    }
 }
+
+#[derive(Debug, Clone, Error)]
+pub enum WriteError {
+    #[error("concurrent writes to same value")]
+    WriteWrite,
+    #[error("concurrent write and read to same value")]
+    WriteRead,
+}
+
+#[derive(Debug, Clone, Error)]
+#[error("Concurrent read and write")]
+/// An empty error struct for when a read fails. Since a read can only fail
+/// because there was an earlier write which is concurrent with this read, no
+/// additional information is needed.
+pub struct ReadError;
 
 #[derive(Debug, Clone, Error)]
 pub enum ClockError {
     #[error("Concurrent read & write to the same register/memory")]
-    ReadWriteUnhelpful,
+    ReadAfterWrite { write: WriteInfo, read: ReadInfo },
     #[error("Concurrent writes to the same register/memory")]
-    WriteWriteUnhelpful,
-    #[error("Concurrent read & write to the same register/memory {0:?}")]
-    ReadWrite(GlobalCellIdx, Option<u32>),
-    #[error("Concurrent writes to the same register/memory {0:?}")]
-    WriteWrite(GlobalCellIdx, Option<u32>),
+    WriteAfterWrite {
+        write1: WriteInfo,
+        write2: WriteInfo,
+    },
+    #[error("Concurrent writes to the same register/memory")]
+    WriteAfterRead { write: WriteInfo },
+}
+
+#[derive(Debug, Clone, Error)]
+#[error("encountered error {error}. This text should never be seen")]
+pub struct ClockErrorWithCell {
+    pub error: ClockError,
+    pub cell: GlobalCellIdx,
+    pub entry_number: Option<u32>,
 }
 
 impl ClockError {
@@ -479,15 +603,11 @@ impl ClockError {
         self,
         cell: GlobalCellIdx,
         entry_number: Option<u32>,
-    ) -> Self {
-        match self {
-            ClockError::ReadWriteUnhelpful => {
-                ClockError::ReadWrite(cell, entry_number)
-            }
-            ClockError::WriteWriteUnhelpful => {
-                ClockError::WriteWrite(cell, entry_number)
-            }
-            _ => self,
+    ) -> ClockErrorWithCell {
+        ClockErrorWithCell {
+            error: self,
+            cell,
+            entry_number,
         }
     }
 }
