@@ -549,7 +549,90 @@ def dump_trace(trace, out_dir):
     with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
         json.dump(trace, json_out, indent = 2)
 
+class TimelineCell:
+    # bookkeeping for forming cells and their groups
+    def __init__(self, name, pid):
+        self.name = name
+        self.pid = pid
+        self.tid = 1 # the cell itself gets tid 1, and any groups that come out of the cell get tid 2+
+        self.tid_acc = 2
+        self.groups_to_tid = {} # contents: group --> tid
+
+    def get_group_tid(self, group_name):
+        if group_name not in self.groups_to_tid:
+            self.groups_to_tid[group_name] = self.tid_acc
+            self.tid_acc += 1
+        return self.groups_to_tid[group_name]
+
+
 def compute_timeline(trace, main_component, out_dir):
+    events = [] # try to save space by recording on the fly when things start and end.
+    # each cell has its own pid. each group in the cell has its own tid. (TODO: try to squash this later for a nicer visualization.)
+    cell_to_info = {main_component: TimelineCell(main_component, 1)}
+    group_to_parent_cell = {}
+    pid_acc = 2
+    currently_active = set()
+    main_name = main_component.split(".")[-1]
+    for i in trace:
+        print(i)
+        active_this_cycle = set()
+        for stack in trace[i]:
+            stack_acc = main_component
+            current_cell = main_component # need to keep track of cells in case we have a structural group enable.
+            for stack_elem in stack:
+                name = None
+                if " [" in stack_elem: # cell
+                    stack_acc += "." + stack_elem.split(" [")[0]
+                    name = stack_acc
+                    current_cell = name
+                    if name not in cell_to_info: # cell is not registered yet
+                        cell_to_info[name] = TimelineCell(name, pid_acc)
+                        pid_acc += 1
+                elif "(primitive)" in stack_elem: # ignore primitives for now.
+                    continue
+                elif stack_elem == main_name: # don't accumulate to the stack if your name is main.
+                    stack_acc = stack_acc
+                    name = main_component
+                else: # group
+                    name = stack_acc + "." + stack_elem
+                    group_to_parent_cell[name] = current_cell
+                active_this_cycle.add(name)
+        for nonactive_element in currently_active.difference(active_this_cycle): # element that was previously active but no longer is.
+            # make end event
+            end_event = create_timeline_event(nonactive_element, i, "E", cell_to_info, group_to_parent_cell)
+            events.append(end_event)
+        for newly_active_element in active_this_cycle.difference(currently_active):
+            # print(f"newly active element: {newly_active_element}")
+            begin_event = create_timeline_event(newly_active_element, i, "B", cell_to_info, group_to_parent_cell)
+            # print(f"writing begin event: {begin_event}")
+            events.append(begin_event)
+        currently_active = active_this_cycle
+
+    for still_active_element in currently_active: # need to close any elements that are still active at the end of the simulation
+        end_event = create_timeline_event(still_active_element, len(trace), "E", cell_to_info, group_to_parent_cell)
+        events.append(end_event)
+
+    # write to file
+    out_path = os.path.join(out_dir, "timeline-dump.json")
+    with open(out_path, "w", encoding="utf-8") as out_file:
+        out_file.write(json.dumps({"traceEvents" : events}, indent=4))
+
+"""
+Creates a JSON entry for traceEvents.
+element_name: fully qualified name of cell/group
+cycle: timestamp of the event, in cycles
+event_type: "B" for begin event, "E" for end event
+"""
+def create_timeline_event(element_name, cycle, event_type, cell_to_info, group_to_parent_cell):
+    if element_name in cell_to_info: # cell
+        event = {"name": element_name, "cat": "cell", "ph": event_type, "pid": cell_to_info[element_name].pid, "tid": 1, "ts": cycle * ts_multiplier}
+    else: # group; need to extract the cell name to obtain tid and pid.
+        cell_name = group_to_parent_cell[element_name]
+        cell_info = cell_to_info[cell_name]
+        event = {"name": element_name, "cat": "group", "ph": event_type, "pid": cell_info.pid, "tid": cell_info.get_group_tid(element_name), "ts": cycle * ts_multiplier}
+    return event
+
+def compute_timeline_old(trace, main_component, out_dir):
     cells = {main_component}
     construct_to_curr_active = {} # cell --> start cycle. -1 if not currently active.
     construct_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
