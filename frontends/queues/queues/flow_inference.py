@@ -5,7 +5,7 @@ from calyx.tuple import insert_untuplify
 
 
 def insert_boundary_flow_inference(prog, name, boundaries, flow_bits=None):
-    flow_bits = bits_needed(len(boundaries) - 1) if flow_bits is None else flow_bits
+    flow_bits = flow_bits or bits_needed(len(boundaries) - 1)
 
     comp = prog.component(name)
 
