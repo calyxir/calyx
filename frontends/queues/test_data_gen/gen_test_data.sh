@@ -123,6 +123,12 @@ cp ${tests_dir}/fifo_test.data ${tests_dir}/binheap/
 cp ${tests_dir}/fifo_test.expect ${tests_dir}/binheap/
 [[ $? -eq 0 ]] && echo "Generated binheap/fifo_test.expect"
 
+cp $tests_dir/complex_tree_test.data $tests_dir/binheap/
+[[ $? -eq 0 ]] && echo "Generated binheap/complex_tree_test.data"
+
+cp $tests_dir/complex_tree_test.expect $tests_dir/binheap/
+[[ $? -eq 0 ]] && echo "Generated binheap/complex_tree_test.expect"
+
 for sched_algo in round_robin strict; do 
     for i in ${tests_dir}/${sched_algo}/*.data; do
         name="$(basename $i .data)"
