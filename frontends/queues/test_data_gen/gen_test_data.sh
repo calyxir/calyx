@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
-if [[ $# -eq 2 ]]; then # Generate custom-length command list to the specified output directory
+# Generate custom-length command list to the specified output directory
+if [[ $# -eq 2 ]]; then 
     num_cmds=$1
     tests_dir=$2
     # NOTE: hacky and will break when other tests are created.
@@ -33,11 +34,8 @@ cat ${tests_dir}/sdn_test.data \
 [[ $? -eq 0 ]] && echo "Generated sdn_test.expect"
 
 
-# For the others, we drop piezo mode for data gen, and we use the appropriate
-# oracle, which is one of the following:
-# - fifo_oracle.py
-# - pifo_oracle.py
-# - pifo_tree_oracle.py
+# For hierarchical queues, we drop piezo mode for data gen and use the appropriate
+# oracle, which is either complex_tree_oracle pifo_tree_oracle.
 
 for queue_kind in fifo pifo_tree complex_tree; do
     python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
@@ -51,7 +49,7 @@ for queue_kind in fifo pifo_tree complex_tree; do
 done
 
 
-# For the PIEO and PCQ, we drop piezo mode and enable ranks and readiness times for 
+# For PIEO and PCQ, we drop piezo mode and enable ranks and readiness times for 
 # data gen and use nwc_oracle to generate the expected output.
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds --nwc-en \
@@ -99,9 +97,9 @@ for n in {2..7}; do
 done
 
 
-# For Strict queues, we use strict_oracle.py to generate the expected output
-# for queues with 2..6 flows, each with a different strict ordering. This generates 5
-# expect file pairs.
+# For Strict queues, we use strict_oracle to generate the expected output
+# for queues with 2..7 flows, each with a different strict ordering. This generates 6
+# data expect file pairs.
 
 for n in {2..7}; do
     python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
@@ -115,7 +113,11 @@ for n in {2..7}; do
 done
 
 
-# Copying into binheap/
+# Copying into binheap/ for heap-based implementations of previous queues: namely,
+# - FIFO
+# - Complex Tree
+# - Round Robin
+# - Strict
 
 cp ${tests_dir}/fifo_test.data ${tests_dir}/binheap/
 [[ $? -eq 0 ]] && echo "Generated binheap/fifo_test.data"
