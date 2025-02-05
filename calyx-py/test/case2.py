@@ -2,7 +2,7 @@ import calyx.builder as cb
 
 def insert_identity_component(prog):
     identity = prog.component("identity")
-    r = identity.reg(32, "reg")
+    r = identity.reg(32, "r")
     in_1 = identity.input("in_1", 32)
     identity.output("out", 32)
 
@@ -20,8 +20,8 @@ def insert_identity_component(prog):
 
 def make_program(prog):
     main = prog.component("main")
-    mem = main.comb_mem_d1("mem", 32, 10, 32)
-    reg = main.reg(32, "reg")
+    mem = main.comb_mem_d1("mem", 32, 1, 1, is_external=True)
+    reg = main.reg(32, "r")
     ans = main.reg(32, "ans")
     id_component = insert_identity_component(prog)
     # make 5 versions of ident
@@ -37,8 +37,15 @@ def make_program(prog):
         reg.write_en = cb.HI
         read.done = reg.done
 
+    with main.group("write") as write:
+        mem.addr0 = cb.LO
+        mem.write_en = cb.HI
+        mem.write_data = reg.out
+        write.done = mem.done
 
+    main.control += read
     main.control += main.case(reg.out, {n : cb.invoke(ids[n], in_in_1=reg.out, out_out=ans.in_) for n in range(num_ident)})
+    main.control += write
 
 
 def build():
