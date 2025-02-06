@@ -355,7 +355,7 @@ impl PinnedPorts {
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
-    ports: PortMap,
+    pub(super) ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
     pub(super) cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
@@ -1917,17 +1917,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             }
         }
 
-        let (mut vecs, par_map, mut with_map, repeat_map) =
+        let (vecs, par_map, mut with_map, repeat_map) =
             self.env.pc.take_fields();
-
-        // For thread propagation during race detection we need to iterate in
-        // containment order. This probably isn't necessary for normal execution
-        // and could be guarded by the `check_data_race` flag. Will leave it for
-        // the moment though and see if we need to change it down the line. In
-        // expectation, the program counter should almost always be already
-        // sorted as the only thing which causes nodes to be added or removed
-        // are par nodes
-        vecs.sort_by_key(|x| x.1.comp);
 
         // for mutability reasons, this should be a cheap clone, either an RC in
         // the owned case or a simple reference clone
@@ -2124,7 +2115,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 }
             }
         }
+        let removed_empty = removed.is_empty();
 
+        // should consider if swap remove is the right choice hre since it
+        // breaks the list ordering which we then have to fix. Possibly a
+        // standard remove would make more sense here? Or maybe an approach with
+        // tombstones
         for i in removed.into_iter().rev() {
             vecs.swap_remove(i);
         }
@@ -2133,8 +2129,19 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             .pc
             .restore_fields((vecs, par_map, with_map, repeat_map));
 
+        let new_nodes_empty = new_nodes.is_empty();
+
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
+
+        // For thread propagation during race detection we need to iterate in
+        // containment order. This probably isn't necessary for normal execution
+        // and could be guarded by the `check_data_race` flag.
+        //
+        // If we altered the node list, we need to restore the order invariant
+        if !removed_empty || !new_nodes_empty {
+            self.env.pc.vec_mut().sort_by_key(|x| x.1.comp);
+        }
 
         Ok(())
     }

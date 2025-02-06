@@ -463,6 +463,18 @@ impl Context {
         }
         unreachable!("Assignment does not belong to any component");
     }
+
+    /// Returns the assignment definition information, if it exists. This
+    /// requires the component that the assignment is defined in. If the
+    /// component is not readily available use
+    /// [Self::find_assignment_definition] instead
+    pub fn lookup_assignment_definition(
+        &self,
+        target: AssignmentIdx,
+        comp: ComponentIdx,
+    ) -> Option<AssignmentDefinitionLocation> {
+        self.primary.components[comp].contains_assignment(self, target)
+    }
 }
 
 impl AsRef<Context> for &Context {

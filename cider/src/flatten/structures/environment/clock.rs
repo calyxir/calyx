@@ -7,7 +7,11 @@ use std::{
 };
 
 use crate::flatten::{
-    flat_ir::base::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
+    flat_ir::{
+        base::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
+        component::AssignmentDefinitionLocation,
+        prelude::ControlIdx,
+    },
     structures::{
         context::Context,
         thread::{ThreadIdx, ThreadMap},
@@ -20,7 +24,10 @@ use cider_idx::{
     maps::{IndexedMap, SecondarySparseMap},
 };
 use itertools::Itertools;
+use owo_colors::OwoColorize;
 use thiserror::Error;
+
+use super::Environment;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClockIdx(NonZeroU32);
@@ -41,6 +48,15 @@ pub struct ClockPairInfo {
 pub struct WriteInfo {
     pub thread: ThreadIdx,
     pub assignment: AssignmentWinner,
+}
+
+pub enum ReadSource {
+    /// Read comes from the right hand side of an assignment
+    Assignment(AssignmentIdx),
+    /// Read comes from the guard of a given assignment
+    Guard(AssignmentIdx),
+    /// Read comes from the evaluation of a conditional
+    Conditional(ControlIdx),
 }
 
 #[derive(Debug, Clone)]
@@ -70,18 +86,58 @@ impl WriteInfo {
     pub fn new(thread: ThreadIdx, assignment: AssignmentWinner) -> Self {
         Self { thread, assignment }
     }
-    pub fn format(&self, ctx: &Context) -> String {
-        format!(
-            "write in thread {:?} from {}",
-            self.thread,
-            ctx.printer().print_assignment(
-                ctx.find_assignment_definition(
-                    *self.assignment.as_assign().unwrap()
+    pub fn format<C: AsRef<Context> + Clone>(
+        &self,
+        env: &Environment<C>,
+    ) -> String {
+        match self.assignment {
+            AssignmentWinner::Cell => todo!(),
+            AssignmentWinner::Implicit => todo!(),
+            AssignmentWinner::Assign(assignment_idx, global_cell_idx) => {
+                let ctx = env.ctx();
+                let comp_idx = env.cells[global_cell_idx].unwrap_comp().comp_id;
+                let assign_def = ctx
+                    .lookup_assignment_definition(assignment_idx, comp_idx)
+                    .unwrap();
+
+                let location_str = match assign_def {
+                    AssignmentDefinitionLocation::CombGroup(comb_group_idx) => {
+                        format!(
+                            "comb group {}",
+                            ctx.lookup_name(comb_group_idx)
+                        )
+                    }
+                    AssignmentDefinitionLocation::Group(group_idx) => {
+                        format!(
+                            "group {}",
+                            ctx.lookup_name(group_idx).underline()
+                        )
+                    }
+                    AssignmentDefinitionLocation::ContinuousAssignment => {
+                        "continuous logic".to_string()
+                    }
+                    AssignmentDefinitionLocation::Invoke(control_idx) => {
+                        format!(
+                            "invoke statement: {}",
+                            ctx.printer().format_control(
+                                comp_idx,
+                                control_idx,
+                                0
+                            )
+                        )
+                    }
+                };
+
+                format!(
+                    "write in thread {:?} from assignment {} in {}",
+                    self.thread,
+                    ctx.printer()
+                        .print_assignment(comp_idx, assignment_idx)
+                        .yellow(),
+                    location_str
                 )
-                .0,
-                *self.assignment.as_assign().unwrap()
-            )
-        )
+            }
+        }
     }
 }
 
