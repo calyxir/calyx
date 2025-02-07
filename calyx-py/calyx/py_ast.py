@@ -180,7 +180,7 @@ class Component:
         latency_annotation = (
             f"static<{self.latency}> " if self.latency is not None else ""
         )
-        if self.loc is not None:
+        if self.loc is not None and self.attributes:
             self.attributes.add(CompAttribute("pos", self.loc))
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in sorted(self.attributes, key=lambda a: a.name)])}>"

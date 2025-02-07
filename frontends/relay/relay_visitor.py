@@ -384,6 +384,7 @@ class Relay2Calyx(ExprFunctor):
                 outputs=[],
                 structs=self.wires + list(self.id_to_cell.values()),
                 controls=SeqComp(self.controls),
+                attributes=set()
             ),
             self.func_defs,
         )
