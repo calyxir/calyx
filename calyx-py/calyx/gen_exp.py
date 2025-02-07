@@ -22,7 +22,7 @@ from calyx.builder import (
     HI,
     par,
 )
-
+import os
 
 def generate_fp_pow_component(
     builder: Builder, width: int, int_width: int, is_signed: bool
@@ -693,7 +693,7 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     we already have an `exp` component that works for base `e`, it is better
     to just use that if we want to calculate the base being e).
     """
-    builder = Builder()
+    builder = Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     builder.import_("primitives/core.futil")
     builder.import_("primitives/binary_operators.futil")
 
@@ -728,7 +728,7 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     Builds a program that uses reads from an external memory file to test
     the exp component. Exp can calculate any power as long as the base is e.
     """
-    builder = Builder()
+    builder = Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     builder.import_("primitives/core.futil")
     builder.import_("primitives/binary_operators.futil")
 
