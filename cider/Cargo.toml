@@ -43,8 +43,8 @@ ciborium = "0.2.2"
 fst-writer = "0.2.3"
 bon = "2.3"
 
-[dev-dependencies]
-proptest = "1.0.0"
-
 [dependencies.serde_with]
 version = "1.6.4"
+
+[dev-dependencies]
+proptest = "1.0.0"
