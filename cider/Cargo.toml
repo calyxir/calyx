@@ -9,9 +9,6 @@ rust-version.workspace = true
 name = "cider"
 path = "src/main.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-
 [dependencies]
 smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
@@ -32,9 +29,10 @@ calyx-frontend.workspace = true
 calyx-utils = { workspace = true, features = ["serialize"] }
 cider-idx.workspace = true
 baa.workspace = true
+serde_json.workspace = true
+serde_with.workspace = true
 
 owo-colors = "^3.5"
-serde_json = "1.0"
 rustyline = "=15.0.0"
 fraction = { version = "0.15.3", features = ["with-serde-support"] }
 num-bigint = "0.4.6"
@@ -42,9 +40,6 @@ num-traits = "0.2.19"
 ciborium = "0.2.2"
 fst-writer = "0.2.3"
 bon = "2.3"
-
-[dependencies.serde_with]
-version = "1.6.4"
 
 [dev-dependencies]
 proptest = "1.0.0"
