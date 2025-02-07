@@ -1,12 +1,12 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component adder(val1: 32, val2: 32) -> (out: 32) {
+component adder<"pos"={0}>(val1: 32, val2: 32) -> (out: 32) {
   cells {
-    reg_1 = std_reg(32);
-    add_2 = std_add(32);
+    @pos{1} reg_1 = std_reg(32);
+    @pos{2} add_2 = std_add(32);
   }
   wires {
-    group compute_sum {
+    group compute_sum<"pos"={3}> {
       add_2.left = val1;
       add_2.right = val2;
       reg_1.write_en = 1'd1;
@@ -16,6 +16,17 @@ component adder(val1: 32, val2: 32) -> (out: 32) {
     out = reg_1.out;
   }
   control {
-    compute_sum;
+    @pos{4} compute_sum;
   }
 }
+
+sourceinfo #{
+FILES 
+  0: helloworld.py
+POSITIONS 
+  0: 0 5
+  1: 0 11
+  2: 0 12
+  3: 0 14
+  4: 0 24
+}#
