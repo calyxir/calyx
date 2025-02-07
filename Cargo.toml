@@ -1,26 +1,35 @@
 # =========== Workspace configuration ===========
 [workspace]
 members = [
+    # Core Calyx crates
     "calyx/ir",
     "calyx/utils",
     "calyx/opt",
     "calyx/frontend",
     "calyx/stdlib",
     "calyx/backend",
-    "calyx-lsp",
+
+    # Cider crates
     "cider",
-    "web/rust",
-    "tools/data_gen",
-    "cider-dap",
+    "cider/idx",
+    "cider/dap",
+
+    # Fud2
     "fud2",
     "fud2/fud-core",
+
+    # Misc tools
     "tools/data-conversion",
     "tools/calyx-pass-explorer",
     "tools/cider-data-converter",
     "tools/component_cells",
     "tools/yxi",
     "tools/calyx-writer",
-    "cider-idx",
+    "tools/data_gen",
+    "calyx-lsp",
+
+    # Playground crate
+    "web/rust",
 ]
 exclude = ["site"]
 
@@ -38,6 +47,19 @@ version = "0.7.1"
 rust-version = "1.80"
 
 [workspace.dependencies]
+# Internal crates
+calyx-utils = { path = "calyx/utils", version = "0.7.1" }
+calyx-ir = { path = "calyx/ir", version = "0.7.1" }
+calyx-frontend = { path = "calyx/frontend", version = "0.7.1" }
+calyx-opt = { path = "calyx/opt", version = "0.7.1" }
+calyx-backend = { path = "calyx/backend", version = "0.7.1" }
+cider = { path = "cider", version = "0.1.0" }
+cider-idx = { path = "cider/idx", version = "0.1.0" }
+cider-dap = { path = "cider/dap", version = "0.1.0" }
+
+# External crates
+# When adding a new dependency, do not pin the minor version, i.e., use `0.1`
+# instead of `0.1.0`
 itertools = "0.11"
 atty = "0.2"
 log = "0.4"
@@ -49,16 +71,16 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_sexpr = "0.1.0"
 serde_with = "3"
+thiserror = "1.0"
 pest = "2"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
 anyhow = "1"
-calyx-utils = { path = "calyx/utils", version = "0.7.1" }
-calyx-ir = { path = "calyx/ir", version = "0.7.1" }
-calyx-frontend = { path = "calyx/frontend", version = "0.7.1" }
-calyx-opt = { path = "calyx/opt", version = "0.7.1" }
-calyx-backend = { path = "calyx/backend", version = "0.7.1" }
+slog = "2.7"
+slog-term = "2.8"
+slog-async = "2.7"
+ahash = "0.8"
 baa = { version = "0.16.0", features = ["bigint", "serde1", "fraction1"] }
 
 [workspace.dependencies.petgraph]

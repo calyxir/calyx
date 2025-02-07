@@ -20,28 +20,26 @@ pest.workspace = true
 pest_derive.workspace = true
 pest_consume.workspace = true
 argh.workspace = true
-owo-colors = "^3.5"
-serde_json = "1.0"
-rustyline = "=15.0.0"
-fraction = { version = "0.15.3", features = ["with-serde-support"] }
-thiserror = "1.0.26"
-slog = "2.7.0"
-slog-term = "2.8.0"
-slog-async = "2.7.0"
-ahash = "0.8.3"
-num-bigint = "0.4.6"
-num-traits = "0.2.19"
-
-petgraph = "0.6.3"
-
+thiserror.workspace = true
+slog.workspace = true
+slog-term.workspace = true
+slog-async.workspace = true
+ahash.workspace = true
+petgraph.workspace = true
 calyx-ir.workspace = true
 calyx-opt.workspace = true
 calyx-frontend.workspace = true
 calyx-utils = { workspace = true, features = ["serialize"] }
-cider-idx = { path = "../cider-idx" }
-
-ciborium = "0.2.2"
+cider-idx.workspace = true
 baa.workspace = true
+
+owo-colors = "^3.5"
+serde_json = "1.0"
+rustyline = "=15.0.0"
+fraction = { version = "0.15.3", features = ["with-serde-support"] }
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+ciborium = "0.2.2"
 fst-writer = "0.2.3"
 bon = "2.3"
 
