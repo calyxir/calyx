@@ -365,7 +365,7 @@ checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
 
 [[package]]
 name = "calyx"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "argh",
  "atty",
@@ -384,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-backend"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
@@ -408,7 +408,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-frontend"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "atty",
  "calyx-utils",
@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-ir"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "calyx-frontend",
  "calyx-utils",
@@ -445,7 +445,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-lsp"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
@@ -467,7 +467,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-opt"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "calyx-ir",
  "calyx-utils",
@@ -493,11 +493,11 @@ dependencies = [
 
 [[package]]
 name = "calyx-stdlib"
-version = "0.7.1"
+version = "0.8.0"
 
 [[package]]
 name = "calyx-utils"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "atty",
  "boxcar",
@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "calyx_writer"
-version = "0.7.1"
+version = "0.8.0"
 
 [[package]]
 name = "camino"
@@ -760,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "component_cells"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "argh",
  "calyx-frontend",
@@ -1061,7 +1061,7 @@ dependencies = [
 
 [[package]]
 name = "data-conversion"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "argh",
 ]
@@ -4235,7 +4235,7 @@ dependencies = [
 
 [[package]]
 name = "yxi"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "argh",
  "calyx-frontend",
