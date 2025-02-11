@@ -1,0 +1,26 @@
+{
+  "synth": {
+    "lut": 300,
+    "dsp": 4,
+    "brams": 0,
+    "registers": 373,
+    "carry8": 31,
+    "f7_muxes": 0,
+    "f8_muxes": 0,
+    "f9_muxes": 0
+  },
+  "impl": {
+    "lut": 282,
+    "dsp": 4,
+    "brams": 0,
+    "registers": 373,
+    "carry8": 31,
+    "f7_muxes": 0,
+    "f8_muxes": 0,
+    "f9_muxes": 0
+  },
+  "meet_timing": 1,
+  "worst_slack": 7.37,
+  "period": 10.0,
+  "frequency": 100.0
+}

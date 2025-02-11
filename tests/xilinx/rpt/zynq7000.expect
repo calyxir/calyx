@@ -1,0 +1,29 @@
+{
+  "synth": {
+    "lut": 297,
+    "dsp": 4,
+    "brams": 0,
+    "registers": 534,
+    "carry8": -1,
+    "f7_muxes": 0,
+    "f8_muxes": 0,
+    "f9_muxes": -1
+  },
+  "impl": {
+    "lut": 269,
+    "dsp": 4,
+    "brams": 0,
+    "registers": 534,
+    "carry8": -1,
+    "f7_muxes": 0,
+    "f8_muxes": 0,
+    "f9_muxes": -1
+  },
+  "meet_timing": 1,
+  "worst_slack": 3.993,
+  "period": 10.0,
+  "frequency": 100.0
+}
+---STDERR---
+WARNING:root:Failed to find CLB logic tables, defaulting to older RPT format
+WARNING:root:Failed to find CLB logic tables, defaulting to older RPT format
