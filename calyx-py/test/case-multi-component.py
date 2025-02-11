@@ -1,5 +1,6 @@
 import calyx.builder as cb
 
+
 def insert_identity_component(prog):
     identity = prog.component("identity")
     r = identity.reg(32, "r")
@@ -10,13 +11,14 @@ def insert_identity_component(prog):
         r.in_ = in_1
         r.write_en = cb.HI
         save.done = r.done
-    
+
     with identity.continuous:
         identity.this().out = r.out
 
     identity.control += save
 
     return identity
+
 
 def make_program(prog):
     main = prog.component("main")
@@ -29,7 +31,7 @@ def make_program(prog):
     ids = []
     for i in range(1, 1 + num_ident):
         ids.append(main.cell(f"id_{i}", id_component))
-    
+
     # group to read from the memory
     with main.group("read") as read:
         mem.addr0 = cb.LO
@@ -44,7 +46,13 @@ def make_program(prog):
         write.done = mem.done
 
     main.control += read
-    main.control += main.case(reg.out, {n : cb.invoke(ids[n], in_in_1=reg.out, out_out=ans.in_) for n in range(num_ident)})
+    main.control += main.case(
+        reg.out,
+        {
+            n: cb.invoke(ids[n], in_in_1=reg.out, out_out=ans.in_)
+            for n in range(num_ident)
+        },
+    )
     main.control += write
 
 
@@ -52,6 +60,7 @@ def build():
     prog = cb.Builder()
     make_program(prog)
     return prog.program
+
 
 if __name__ == "__main__":
     build().emit()
