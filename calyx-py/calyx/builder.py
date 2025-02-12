@@ -207,7 +207,7 @@ class ComponentBuilder:
         Branches are implemented via mutually exclusive `if` statements in the
         component's `control` block."""
         width = self.infer_width(signal)
-        curr_case = None
+        curr_case = ast.Empty()
         for branch, controllable in reversed(cases.items()):
             prev_case = curr_case
             std_eq = self.eq(
