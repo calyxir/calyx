@@ -707,7 +707,6 @@ def compute_timeline(trace, main_component, out_dir):
     currently_active = set()
     main_name = main_component.split(".")[-1]
     for i in trace:
-        print(i)
         active_this_cycle = set()
         for stack in trace[i]:
             stack_acc = main_component
