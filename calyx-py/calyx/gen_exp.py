@@ -24,6 +24,7 @@ from calyx.builder import (
 )
 import os
 
+
 def generate_fp_pow_component(
     builder: Builder, width: int, int_width: int, is_signed: bool
 ) -> Component:
