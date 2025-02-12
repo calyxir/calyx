@@ -9,7 +9,7 @@
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
-component main() -> () {
+component main<"pos"={0}>() -> () {
   cells {
     @external @pos{1} a = seq_mem_d1(32, 4, 3);
     @external @pos{2} phis = seq_mem_d1(32, 4, 3);
