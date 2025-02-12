@@ -1,6 +1,7 @@
 import calyx.builder as cb
 import os
 
+
 def insert_foo_component(prog):
     comp = prog.component("foo")
 

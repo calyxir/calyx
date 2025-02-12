@@ -1,7 +1,7 @@
 import calyx.py_ast as ast
 import os
 
-ast.FILEINFO_BASE_PATH=os.path.dirname(os.path.realpath(__file__))
+ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 
 x = ast.CompVar("x")
 lt = ast.CompVar("lt")
@@ -29,7 +29,9 @@ wires = [
         connections=[
             ast.Connect(ast.CompPort(x, "in"), ast.ConstantPort(32, 1)),
             ast.Connect(ast.CompPort(x, "write_en"), ast.ConstantPort(1, 1)),
-            ast.Connect(ast.HolePort(ast.CompVar(true), "done"), ast.CompPort(x, "done")),
+            ast.Connect(
+                ast.HolePort(ast.CompVar(true), "done"), ast.CompPort(x, "done")
+            ),
         ],
     ),
     ast.Group(
@@ -37,7 +39,9 @@ wires = [
         connections=[
             ast.Connect(ast.CompPort(x, "in"), ast.ConstantPort(32, 0)),
             ast.Connect(ast.CompPort(x, "write_en"), ast.ConstantPort(1, 1)),
-            ast.Connect(ast.HolePort(ast.CompVar(false), "done"), ast.CompPort(x, "done")),
+            ast.Connect(
+                ast.HolePort(ast.CompVar(false), "done"), ast.CompPort(x, "done")
+            ),
         ],
     ),
 ]
