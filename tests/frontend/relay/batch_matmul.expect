@@ -302,20 +302,32 @@ component batch_matmul_4x7x7() -> () {
 
 component main() -> () {
   cells {
-    @external a = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external b = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external x = seq_mem_d3(32, 4, 7, 7, 3, 3, 3);
-    batch_matmul_4x7x7_ = batch_matmul_4x7x7();
+    @external @pos{0} a = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external @pos{0} b = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external @pos{0} x = seq_mem_d3(32, 4, 7, 7, 3, 3, 3);
+    @pos{1} batch_matmul_4x7x7_ = batch_matmul_4x7x7();
   }
   wires {
 
   }
   control {
-    seq {
-      @pos(0) invoke batch_matmul_4x7x7_[a=a, b=b, x=x]()();
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke batch_matmul_4x7x7_[a=a, b=b, x=x]()();
     }
   }
 }
 metadata #{
 0: let %x: Tensor[(4, 7, 7), int32] /* ty=Tensor[(4, 7, 7), int32] span=from_string:4:3 */ = nn.batch_matmul(%a, %b, transpose_b=True) /* ty=Tensor[(4, 7, 7), int32] span=from_string:3:40 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 276
+  2: 0 117
+  3: 1 391
+  4: 1 386
 }#

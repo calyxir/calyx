@@ -298,78 +298,78 @@ component softmax_1x10() -> () {
 }
 component exp(x: 32) -> (out: 32) {
   cells {
-    exponent_value = std_reg(32);
-    int_x = std_reg(32);
-    frac_x = std_reg(32);
-    m = std_reg(32);
-    and0 = std_and(32);
-    and1 = std_and(32);
-    rsh = std_rsh(32);
-    lt = std_slt(32);
-    c2 = std_const(32, 2);
-    c3 = std_const(32, 3);
-    c4 = std_const(32, 4);
-    c5 = std_const(32, 5);
-    c6 = std_const(32, 6);
-    c7 = std_const(32, 7);
-    c8 = std_const(32, 8);
-    one = std_const(32, 65536);
-    e = std_const(32, 178145);
-    negative_one = std_const(32, 4294901760);
-    product2 = std_reg(32);
-    product3 = std_reg(32);
-    product4 = std_reg(32);
-    product5 = std_reg(32);
-    product6 = std_reg(32);
-    product7 = std_reg(32);
-    product8 = std_reg(32);
-    p2 = std_reg(32);
-    p3 = std_reg(32);
-    p4 = std_reg(32);
-    p5 = std_reg(32);
-    p6 = std_reg(32);
-    p7 = std_reg(32);
-    p8 = std_reg(32);
-    sum1 = std_reg(32);
-    sum2 = std_reg(32);
-    sum3 = std_reg(32);
-    sum4 = std_reg(32);
-    add1 = std_fp_sadd(32, 16, 16);
-    add2 = std_fp_sadd(32, 16, 16);
-    add3 = std_fp_sadd(32, 16, 16);
-    add4 = std_fp_sadd(32, 16, 16);
-    mult_pipe1 = std_fp_smult_pipe(32, 16, 16);
-    mult_pipe2 = std_fp_smult_pipe(32, 16, 16);
-    mult_pipe3 = std_fp_smult_pipe(32, 16, 16);
-    mult_pipe4 = std_fp_smult_pipe(32, 16, 16);
-    mult_pipe5 = std_fp_smult_pipe(32, 16, 16);
-    mult_pipe6 = std_fp_smult_pipe(32, 16, 16);
-    mult_pipe7 = std_fp_smult_pipe(32, 16, 16);
-    mult_pipe8 = std_fp_smult_pipe(32, 16, 16);
-    div_pipe = std_fp_sdiv_pipe(32, 16, 16);
-    reciprocal_factorial2 = std_const(32, 32768);
-    reciprocal_factorial3 = std_const(32, 10923);
-    reciprocal_factorial4 = std_const(32, 2731);
-    reciprocal_factorial5 = std_const(32, 546);
-    reciprocal_factorial6 = std_const(32, 91);
-    reciprocal_factorial7 = std_const(32, 13);
-    reciprocal_factorial8 = std_const(32, 2);
-    pow1 = fp_pow();
-    pow2 = fp_pow();
-    pow3 = fp_pow();
-    pow4 = fp_pow();
-    pow5 = fp_pow();
-    pow6 = fp_pow();
-    pow7 = fp_pow();
-    pow8 = fp_pow();
+    @pos{5} exponent_value = std_reg(32);
+    @pos{5} int_x = std_reg(32);
+    @pos{5} frac_x = std_reg(32);
+    @pos{5} m = std_reg(32);
+    @pos{5} and0 = std_and(32);
+    @pos{5} and1 = std_and(32);
+    @pos{5} rsh = std_rsh(32);
+    @pos{5} lt = std_slt(32);
+    @pos{5} c2 = std_const(32, 2);
+    @pos{5} c3 = std_const(32, 3);
+    @pos{5} c4 = std_const(32, 4);
+    @pos{5} c5 = std_const(32, 5);
+    @pos{5} c6 = std_const(32, 6);
+    @pos{5} c7 = std_const(32, 7);
+    @pos{5} c8 = std_const(32, 8);
+    @pos{5} one = std_const(32, 65536);
+    @pos{5} e = std_const(32, 178145);
+    @pos{5} negative_one = std_const(32, 4294901760);
+    @pos{5} product2 = std_reg(32);
+    @pos{5} product3 = std_reg(32);
+    @pos{5} product4 = std_reg(32);
+    @pos{5} product5 = std_reg(32);
+    @pos{5} product6 = std_reg(32);
+    @pos{5} product7 = std_reg(32);
+    @pos{5} product8 = std_reg(32);
+    @pos{5} p2 = std_reg(32);
+    @pos{5} p3 = std_reg(32);
+    @pos{5} p4 = std_reg(32);
+    @pos{5} p5 = std_reg(32);
+    @pos{5} p6 = std_reg(32);
+    @pos{5} p7 = std_reg(32);
+    @pos{5} p8 = std_reg(32);
+    @pos{5} sum1 = std_reg(32);
+    @pos{5} sum2 = std_reg(32);
+    @pos{5} sum3 = std_reg(32);
+    @pos{5} sum4 = std_reg(32);
+    @pos{5} add1 = std_fp_sadd(32, 16, 16);
+    @pos{5} add2 = std_fp_sadd(32, 16, 16);
+    @pos{5} add3 = std_fp_sadd(32, 16, 16);
+    @pos{5} add4 = std_fp_sadd(32, 16, 16);
+    @pos{5} mult_pipe1 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} mult_pipe2 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} mult_pipe3 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} mult_pipe4 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} mult_pipe5 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} mult_pipe6 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} mult_pipe7 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} mult_pipe8 = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} div_pipe = std_fp_sdiv_pipe(32, 16, 16);
+    @pos{5} reciprocal_factorial2 = std_const(32, 32768);
+    @pos{5} reciprocal_factorial3 = std_const(32, 10923);
+    @pos{5} reciprocal_factorial4 = std_const(32, 2731);
+    @pos{5} reciprocal_factorial5 = std_const(32, 546);
+    @pos{5} reciprocal_factorial6 = std_const(32, 91);
+    @pos{5} reciprocal_factorial7 = std_const(32, 13);
+    @pos{5} reciprocal_factorial8 = std_const(32, 2);
+    @pos{5} pow1 = fp_pow();
+    @pos{5} pow2 = fp_pow();
+    @pos{5} pow3 = fp_pow();
+    @pos{5} pow4 = fp_pow();
+    @pos{5} pow5 = fp_pow();
+    @pos{5} pow6 = fp_pow();
+    @pos{5} pow7 = fp_pow();
+    @pos{5} pow8 = fp_pow();
   }
   wires {
-    group init<"promotable"=1> {
+    group init<"pos"={5}, "promotable"=1> {
       exponent_value.write_en = 1'd1;
       exponent_value.in = x;
       init[done] = exponent_value.done;
     }
-    group split_bits_int_x {
+    group split_bits_int_x<"pos"={5}> {
       and0.left = exponent_value.out;
       and0.right = 32'd4294901760;
       rsh.left = and0.out;
@@ -378,14 +378,14 @@ component exp(x: 32) -> (out: 32) {
       int_x.in = rsh.out;
       split_bits_int_x[done] = int_x.done;
     }
-    group split_bits_frac_x {
+    group split_bits_frac_x<"pos"={5}> {
       and1.left = exponent_value.out;
       and1.right = 32'd65535;
       frac_x.write_en = 1'd1;
       frac_x.in = and1.out;
       split_bits_frac_x[done] = frac_x.done;
     }
-    group negate {
+    group negate<"pos"={5}> {
       mult_pipe1.left = exponent_value.out;
       mult_pipe1.right = negative_one.out;
       mult_pipe1.go = !mult_pipe1.done ? 1'd1;
@@ -397,7 +397,7 @@ component exp(x: 32) -> (out: 32) {
       lt.left = x;
       lt.right = 32'd0;
     }
-    group reciprocal {
+    group reciprocal<"pos"={5}> {
       div_pipe.left = one.out;
       div_pipe.right = m.out;
       div_pipe.go = !div_pipe.done ? 1'd1;
@@ -405,42 +405,42 @@ component exp(x: 32) -> (out: 32) {
       m.in = div_pipe.out_quotient;
       reciprocal[done] = m.done;
     }
-    group consume_pow2<"promotable"=1> {
+    group consume_pow2<"pos"={5}, "promotable"=1> {
       p2.write_en = 1'd1;
       p2.in = pow2.out;
       consume_pow2[done] = p2.done ? 1'd1;
     }
-    group consume_pow3<"promotable"=1> {
+    group consume_pow3<"pos"={5}, "promotable"=1> {
       p3.write_en = 1'd1;
       p3.in = pow3.out;
       consume_pow3[done] = p3.done ? 1'd1;
     }
-    group consume_pow4<"promotable"=1> {
+    group consume_pow4<"pos"={5}, "promotable"=1> {
       p4.write_en = 1'd1;
       p4.in = pow4.out;
       consume_pow4[done] = p4.done ? 1'd1;
     }
-    group consume_pow5<"promotable"=1> {
+    group consume_pow5<"pos"={5}, "promotable"=1> {
       p5.write_en = 1'd1;
       p5.in = pow5.out;
       consume_pow5[done] = p5.done ? 1'd1;
     }
-    group consume_pow6<"promotable"=1> {
+    group consume_pow6<"pos"={5}, "promotable"=1> {
       p6.write_en = 1'd1;
       p6.in = pow6.out;
       consume_pow6[done] = p6.done ? 1'd1;
     }
-    group consume_pow7<"promotable"=1> {
+    group consume_pow7<"pos"={5}, "promotable"=1> {
       p7.write_en = 1'd1;
       p7.in = pow7.out;
       consume_pow7[done] = p7.done ? 1'd1;
     }
-    group consume_pow8<"promotable"=1> {
+    group consume_pow8<"pos"={5}, "promotable"=1> {
       p8.write_en = 1'd1;
       p8.in = pow8.out;
       consume_pow8[done] = p8.done ? 1'd1;
     }
-    group mult_by_reciprocal_factorial2 {
+    group mult_by_reciprocal_factorial2<"pos"={5}> {
       mult_pipe2.left = p2.out;
       mult_pipe2.right = reciprocal_factorial2.out;
       mult_pipe2.go = !mult_pipe2.done ? 1'd1;
@@ -448,7 +448,7 @@ component exp(x: 32) -> (out: 32) {
       product2.in = mult_pipe2.out;
       mult_by_reciprocal_factorial2[done] = product2.done;
     }
-    group mult_by_reciprocal_factorial3 {
+    group mult_by_reciprocal_factorial3<"pos"={5}> {
       mult_pipe3.left = p3.out;
       mult_pipe3.right = reciprocal_factorial3.out;
       mult_pipe3.go = !mult_pipe3.done ? 1'd1;
@@ -456,7 +456,7 @@ component exp(x: 32) -> (out: 32) {
       product3.in = mult_pipe3.out;
       mult_by_reciprocal_factorial3[done] = product3.done;
     }
-    group mult_by_reciprocal_factorial4 {
+    group mult_by_reciprocal_factorial4<"pos"={5}> {
       mult_pipe4.left = p4.out;
       mult_pipe4.right = reciprocal_factorial4.out;
       mult_pipe4.go = !mult_pipe4.done ? 1'd1;
@@ -464,7 +464,7 @@ component exp(x: 32) -> (out: 32) {
       product4.in = mult_pipe4.out;
       mult_by_reciprocal_factorial4[done] = product4.done;
     }
-    group mult_by_reciprocal_factorial5 {
+    group mult_by_reciprocal_factorial5<"pos"={5}> {
       mult_pipe5.left = p5.out;
       mult_pipe5.right = reciprocal_factorial5.out;
       mult_pipe5.go = !mult_pipe5.done ? 1'd1;
@@ -472,7 +472,7 @@ component exp(x: 32) -> (out: 32) {
       product5.in = mult_pipe5.out;
       mult_by_reciprocal_factorial5[done] = product5.done;
     }
-    group mult_by_reciprocal_factorial6 {
+    group mult_by_reciprocal_factorial6<"pos"={5}> {
       mult_pipe6.left = p6.out;
       mult_pipe6.right = reciprocal_factorial6.out;
       mult_pipe6.go = !mult_pipe6.done ? 1'd1;
@@ -480,7 +480,7 @@ component exp(x: 32) -> (out: 32) {
       product6.in = mult_pipe6.out;
       mult_by_reciprocal_factorial6[done] = product6.done;
     }
-    group mult_by_reciprocal_factorial7 {
+    group mult_by_reciprocal_factorial7<"pos"={5}> {
       mult_pipe7.left = p7.out;
       mult_pipe7.right = reciprocal_factorial7.out;
       mult_pipe7.go = !mult_pipe7.done ? 1'd1;
@@ -488,7 +488,7 @@ component exp(x: 32) -> (out: 32) {
       product7.in = mult_pipe7.out;
       mult_by_reciprocal_factorial7[done] = product7.done;
     }
-    group mult_by_reciprocal_factorial8 {
+    group mult_by_reciprocal_factorial8<"pos"={5}> {
       mult_pipe8.left = p8.out;
       mult_pipe8.right = reciprocal_factorial8.out;
       mult_pipe8.go = !mult_pipe8.done ? 1'd1;
@@ -496,63 +496,63 @@ component exp(x: 32) -> (out: 32) {
       product8.in = mult_pipe8.out;
       mult_by_reciprocal_factorial8[done] = product8.done;
     }
-    group sum_round1_1<"promotable"=1> {
+    group sum_round1_1<"pos"={5}, "promotable"=1> {
       add1.left = frac_x.out;
       add1.right = product2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round1_1[done] = sum1.done;
     }
-    group sum_round1_2<"promotable"=1> {
+    group sum_round1_2<"pos"={5}, "promotable"=1> {
       add2.left = product3.out;
       add2.right = product4.out;
       sum2.write_en = 1'd1;
       sum2.in = add2.out;
       sum_round1_2[done] = sum2.done;
     }
-    group sum_round1_3<"promotable"=1> {
+    group sum_round1_3<"pos"={5}, "promotable"=1> {
       add3.left = product5.out;
       add3.right = product6.out;
       sum3.write_en = 1'd1;
       sum3.in = add3.out;
       sum_round1_3[done] = sum3.done;
     }
-    group sum_round1_4<"promotable"=1> {
+    group sum_round1_4<"pos"={5}, "promotable"=1> {
       add4.left = product7.out;
       add4.right = product8.out;
       sum4.write_en = 1'd1;
       sum4.in = add4.out;
       sum_round1_4[done] = sum4.done;
     }
-    group sum_round2_1<"promotable"=1> {
+    group sum_round2_1<"pos"={5}, "promotable"=1> {
       add1.left = sum1.out;
       add1.right = sum2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round2_1[done] = sum1.done;
     }
-    group sum_round2_2<"promotable"=1> {
+    group sum_round2_2<"pos"={5}, "promotable"=1> {
       add2.left = sum3.out;
       add2.right = sum4.out;
       sum2.write_en = 1'd1;
       sum2.in = add2.out;
       sum_round2_2[done] = sum2.done;
     }
-    group sum_round3_1<"promotable"=1> {
+    group sum_round3_1<"pos"={5}, "promotable"=1> {
       add1.left = sum1.out;
       add1.right = sum2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round3_1[done] = sum1.done;
     }
-    group add_degree_zero<"promotable"=1> {
+    group add_degree_zero<"pos"={5}, "promotable"=1> {
       add1.left = sum1.out;
       add1.right = one.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       add_degree_zero[done] = sum1.done;
     }
-    group final_multiply {
+    group final_multiply<"pos"={5}> {
       mult_pipe1.left = pow1.out;
       mult_pipe1.right = sum1.out;
       mult_pipe1.go = !mult_pipe1.done ? 1'd1;
@@ -563,84 +563,84 @@ component exp(x: 32) -> (out: 32) {
     out = m.out;
   }
   control {
-    seq {
-      init;
-      if lt.out with is_negative {
-        negate;
+    @pos{5} seq {
+      @pos{5} init;
+      @pos{5} if lt.out with is_negative {
+        @pos{5} negate;
       }
-      par {
-        split_bits_int_x;
-        split_bits_frac_x;
+      @pos{5} par {
+        @pos{5} split_bits_int_x;
+        @pos{5} split_bits_frac_x;
       }
-      par {
-        invoke pow1(base=e.out, integer_exp=int_x.out)();
-        invoke pow2(base=frac_x.out, integer_exp=c2.out)();
-        invoke pow3(base=frac_x.out, integer_exp=c3.out)();
-        invoke pow4(base=frac_x.out, integer_exp=c4.out)();
-        invoke pow5(base=frac_x.out, integer_exp=c5.out)();
-        invoke pow6(base=frac_x.out, integer_exp=c6.out)();
-        invoke pow7(base=frac_x.out, integer_exp=c7.out)();
-        invoke pow8(base=frac_x.out, integer_exp=c8.out)();
+      @pos{5} par {
+        @pos{5} invoke pow1(base=e.out, integer_exp=int_x.out)();
+        @pos{5} invoke pow2(base=frac_x.out, integer_exp=c2.out)();
+        @pos{5} invoke pow3(base=frac_x.out, integer_exp=c3.out)();
+        @pos{5} invoke pow4(base=frac_x.out, integer_exp=c4.out)();
+        @pos{5} invoke pow5(base=frac_x.out, integer_exp=c5.out)();
+        @pos{5} invoke pow6(base=frac_x.out, integer_exp=c6.out)();
+        @pos{5} invoke pow7(base=frac_x.out, integer_exp=c7.out)();
+        @pos{5} invoke pow8(base=frac_x.out, integer_exp=c8.out)();
       }
-      par {
-        consume_pow2;
-        consume_pow3;
-        consume_pow4;
-        consume_pow5;
-        consume_pow6;
-        consume_pow7;
-        consume_pow8;
+      @pos{5} par {
+        @pos{5} consume_pow2;
+        @pos{5} consume_pow3;
+        @pos{5} consume_pow4;
+        @pos{5} consume_pow5;
+        @pos{5} consume_pow6;
+        @pos{5} consume_pow7;
+        @pos{5} consume_pow8;
       }
-      par {
-        mult_by_reciprocal_factorial2;
-        mult_by_reciprocal_factorial3;
-        mult_by_reciprocal_factorial4;
-        mult_by_reciprocal_factorial5;
-        mult_by_reciprocal_factorial6;
-        mult_by_reciprocal_factorial7;
-        mult_by_reciprocal_factorial8;
+      @pos{5} par {
+        @pos{5} mult_by_reciprocal_factorial2;
+        @pos{5} mult_by_reciprocal_factorial3;
+        @pos{5} mult_by_reciprocal_factorial4;
+        @pos{5} mult_by_reciprocal_factorial5;
+        @pos{5} mult_by_reciprocal_factorial6;
+        @pos{5} mult_by_reciprocal_factorial7;
+        @pos{5} mult_by_reciprocal_factorial8;
       }
-      par {
-        sum_round1_1;
-        sum_round1_2;
-        sum_round1_3;
-        sum_round1_4;
+      @pos{5} par {
+        @pos{5} sum_round1_1;
+        @pos{5} sum_round1_2;
+        @pos{5} sum_round1_3;
+        @pos{5} sum_round1_4;
       }
-      par {
-        sum_round2_1;
-        sum_round2_2;
+      @pos{5} par {
+        @pos{5} sum_round2_1;
+        @pos{5} sum_round2_2;
       }
-      par {
-        sum_round3_1;
+      @pos{5} par {
+        @pos{5} sum_round3_1;
       }
-      add_degree_zero;
-      final_multiply;
-      if lt.out with is_negative {
-        reciprocal;
+      @pos{5} add_degree_zero;
+      @pos{5} final_multiply;
+      @pos{5} if lt.out with is_negative {
+        @pos{5} reciprocal;
       }
     }
   }
 }
 component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
   cells {
-    pow = std_reg(32);
-    count = std_reg(32);
-    mul = std_fp_smult_pipe(32, 16, 16);
-    count_incr_1_1 = std_sadd(32);
-    lt_2 = std_slt(32);
+    @pos{5} pow = std_reg(32);
+    @pos{5} count = std_reg(32);
+    @pos{5} mul = std_fp_smult_pipe(32, 16, 16);
+    @pos{5} count_incr_1_1 = std_sadd(32);
+    @pos{5} lt_2 = std_slt(32);
   }
   wires {
-    group init_pow {
+    group init_pow<"pos"={5}> {
       pow.in = 32'd65536;
       pow.write_en = 1'd1;
       init_pow[done] = pow.done;
     }
-    group init_count {
+    group init_count<"pos"={5}> {
       count.in = 32'd0;
       count.write_en = 1'd1;
       init_count[done] = count.done;
     }
-    group execute_mul {
+    group execute_mul<"pos"={5}> {
       mul.left = base;
       mul.right = pow.out;
       mul.go = !mul.done ? 1'd1;
@@ -648,7 +648,7 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
       pow.in = mul.out;
       execute_mul[done] = pow.done;
     }
-    group count_incr_1_1_group {
+    group count_incr_1_1_group<"pos"={5}> {
       count_incr_1_1.left = count.out;
       count_incr_1_1.right = 32'd1;
       count.write_en = 1'd1;
@@ -662,15 +662,15 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
     out = pow.out;
   }
   control {
-    seq {
-      par {
-        init_pow;
-        init_count;
+    @pos{5} seq {
+      @pos{5} par {
+        @pos{5} init_pow;
+        @pos{5} init_count;
       }
-      while lt_2.out with lt_2_group {
-        par {
-          execute_mul;
-          count_incr_1_1_group;
+      @pos{5} while lt_2.out with lt_2_group {
+        @pos{5} par {
+          @pos{5} execute_mul;
+          @pos{5} count_incr_1_1_group;
         }
       }
     }
@@ -678,19 +678,33 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
 }
 component main() -> () {
   cells {
-    @external x = seq_mem_d2(32, 1, 10, 1, 4);
-    @external x1 = seq_mem_d2(32, 1, 10, 1, 4);
-    softmax_1x10_ = softmax_1x10();
+    @external @pos{0} x = seq_mem_d2(32, 1, 10, 1, 4);
+    @external @pos{0} x1 = seq_mem_d2(32, 1, 10, 1, 4);
+    @pos{1} softmax_1x10_ = softmax_1x10();
   }
   wires {
 
   }
   control {
-    seq {
-      @pos(0) invoke softmax_1x10_[x=x, x1=x1]()();
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke softmax_1x10_[x=x, x1=x1]()();
     }
   }
 }
 metadata #{
 0: let %x1: Tensor[(1, 10), float32] /* ty=Tensor[(1, 10), float32] span=from_string:4:3 */ = nn.softmax(%x) /* ty=Tensor[(1, 10), float32] span=from_string:3:39 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+  2: dahlia_impl.py
+POSITIONS 
+  0: 0 157
+  1: 1 276
+  2: 0 117
+  3: 1 391
+  4: 1 386
+  5: 2 876
 }#
