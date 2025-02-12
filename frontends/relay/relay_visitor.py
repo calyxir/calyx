@@ -27,6 +27,11 @@ from calyx.utils import float_to_fixed_point
 from calyx import numeric_types
 from dahlia_impl import emit_components
 
+# Calyx-py soureinfo should emit paths relative to the script's directory
+import calyx.py_ast as ast
+import os
+ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+
 calyx_keywords_list = ["input"]
 
 
