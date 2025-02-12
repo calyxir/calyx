@@ -15,12 +15,12 @@ from calyx.py_ast import (
     CompInst,
     Invoke,
     Import,
-    Program
+    Program,
 )
 import calyx.py_ast as ast
 import os
 
-ast.FILEINFO_BASE_PATH=os.path.dirname(os.path.realpath(__file__))
+ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
 temp = CompVar("temp")

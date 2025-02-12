@@ -1,7 +1,7 @@
 import calyx.py_ast as ast
 import os
 
-ast.FILEINFO_BASE_PATH=os.path.dirname(os.path.realpath(__file__))
+ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 
 # Variable identifiers.
 lhs = ast.CompVar("lhs")
@@ -56,7 +56,10 @@ wires = [
             # sum.in = add.out
             ast.Connect(ast.CompPort(sum, "in"), ast.CompPort(add, "out")),
             # compute_sum[done] = sum.done
-            ast.Connect(ast.HolePort(ast.CompVar(compute_sum), "done"), ast.CompPort(sum, "done")),
+            ast.Connect(
+                ast.HolePort(ast.CompVar(compute_sum), "done"),
+                ast.CompPort(sum, "done"),
+            ),
         ],
     ),
 ]
