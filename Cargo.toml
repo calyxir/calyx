@@ -23,6 +23,7 @@ members = [
     "tools/calyx-pass-explorer",
     "tools/cider-data-converter",
     "tools/component_cells",
+    "tools/fileinfo_emitter",
     "tools/yxi",
     "tools/calyx-writer",
     "tools/data_gen",

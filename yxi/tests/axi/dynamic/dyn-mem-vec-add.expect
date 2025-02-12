@@ -204,7 +204,7 @@ component write_controller_A0(axi_address: 64, write_data: 32, ARESETn: 1, AWREA
     }
   }
 }
-component axi_dyn_mem_A0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component axi_dyn_mem_A0(@data @write_together(1) addr0: 3, @go(1) @write_together(1) content_en: 1, @write_together(2) write_en: 1, @data @write_together(2) write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     address_translator_A0 = address_translator_A0();
     read_controller_A0 = read_controller_A0();
@@ -427,7 +427,7 @@ component write_controller_B0(axi_address: 64, write_data: 32, ARESETn: 1, AWREA
     }
   }
 }
-component axi_dyn_mem_B0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component axi_dyn_mem_B0(@data @write_together(1) addr0: 3, @go(1) @write_together(1) content_en: 1, @write_together(2) write_en: 1, @data @write_together(2) write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     address_translator_B0 = address_translator_B0();
     read_controller_B0 = read_controller_B0();
@@ -650,7 +650,7 @@ component write_controller_Sum0(axi_address: 64, write_data: 32, ARESETn: 1, AWR
     }
   }
 }
-component axi_dyn_mem_Sum0(@write_together(1) @data addr0: 3, @write_together(1) @go(1) content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
+component axi_dyn_mem_Sum0(@data @write_together(1) addr0: 3, @go(1) @write_together(1) content_en: 1, @write_together(2) write_en: 1, @data @write_together(2) write_data: 32, ARESETn: 1, ARREADY: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2, AWREADY: 1, WREADY: 1, BVALID: 1, BRESP: 2) -> (@stable read_data: 32, ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3, RREADY: 1, AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3, WVALID: 1, WLAST: 1, WDATA: 32, BREADY: 1) {
   cells {
     address_translator_Sum0 = address_translator_Sum0();
     read_controller_Sum0 = read_controller_Sum0();

@@ -14,6 +14,7 @@ from gen_post_op import (
     relu_dynamic_post_op,
     OUT_MEM,
 )
+import os
 
 # Dict that maps command line arguments (e.g., "leaky-relu") to component names
 # and function that creates them.
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     systolic_config = SystolicConfiguration()
     systolic_config.parse_arguments()
     # Building the main component
-    prog = cb.Builder()
+    prog = cb.Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     comp_unit_inserted = create_systolic_array(prog, systolic_config)
     if systolic_config.post_op in POST_OP_DICT.keys():
         component_building_func = POST_OP_DICT[systolic_config.post_op]

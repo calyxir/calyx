@@ -418,8 +418,8 @@ source_info_table = {
 
 
 extra_info = {
-      metadata
-      | source_info_table
-      | (metadata ~ source_info_table)
-      | (source_info_table ~ metadata)
+      (metadata ~ source_info_table)
+    | (source_info_table ~ metadata)
+    | metadata
+    | source_info_table
 }

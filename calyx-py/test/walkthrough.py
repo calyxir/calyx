@@ -1,5 +1,5 @@
 import calyx.builder as cb
-
+import os
 
 def insert_adder_component(prog):
     """Insert an adder component into the program.
@@ -198,7 +198,7 @@ def insert_main_component(prog, map):
 
 # ANCHOR: build
 def build():
-    prog = cb.Builder()
+    prog = cb.Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     insert_adder_component(prog)
     diff_comp = insert_abs_diff_component(prog)
     insert_mux_component(prog, diff_comp)

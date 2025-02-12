@@ -15,8 +15,13 @@ from calyx.py_ast import (
     CompInst,
     Invoke,
     Import,
-    Program,
+    Program
 )
+import calyx.py_ast as ast
+import os
+
+ast.FILEINFO_BASE_PATH=os.path.dirname(os.path.realpath(__file__))
+
 
 temp = CompVar("temp")
 
@@ -37,7 +42,7 @@ foo_wires = [
 
 foo_component = Component(
     name="foo",
-    attributes=[],
+    attributes=set(),
     inputs=[PortDef(CompVar("a"), 32)],
     outputs=[PortDef(CompVar("out"), 32)],
     structs=foo_cells + foo_wires,
@@ -84,7 +89,7 @@ controls = [
 
 main_component = Component(
     name="main",
-    attributes=[],
+    attributes=set(),
     inputs=[],
     outputs=[],
     structs=cells + wires,

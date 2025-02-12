@@ -203,6 +203,13 @@ python3 {} |\
        -q
 """
 
+[[tests]]
+name = "[calyx-py] source-loc"
+paths = ["calyx-py/test/source-loc/*.py"]
+cmd = """
+export CALYX_PY_SOURCELOC=test && python3 {}
+"""
+
 ##### Correctness Tests #####
 ## Tests that ensure that individual control
 ## constructs have correct behavior when compiled.
