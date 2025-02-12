@@ -296,7 +296,7 @@ component softmax_1x10() -> () {
     }
   }
 }
-component exp(x: 32) -> (out: 32) {
+component exp<"pos"={5}>(x: 32) -> (out: 32) {
   cells {
     @pos{5} exponent_value = std_reg(32);
     @pos{5} int_x = std_reg(32);
@@ -621,7 +621,7 @@ component exp(x: 32) -> (out: 32) {
     }
   }
 }
-component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
+component fp_pow<"pos"={5}>(base: 32, integer_exp: 32) -> (out: 32) {
   cells {
     @pos{5} pow = std_reg(32);
     @pos{5} count = std_reg(32);
@@ -676,7 +676,7 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
     }
   }
 }
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
     @external @pos{0} x = seq_mem_d2(32, 1, 10, 1, 4);
     @external @pos{0} x1 = seq_mem_d2(32, 1, 10, 1, 4);

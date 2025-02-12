@@ -71,7 +71,7 @@ component multiply_1(x1: 32) -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={5}>() -> () {
   cells {
     @external @pos{0} x = seq_mem_d1(32, 1, 1);
     @pos{1} x1 = std_const(32, 0);

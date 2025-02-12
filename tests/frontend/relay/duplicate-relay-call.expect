@@ -94,7 +94,7 @@ component negative_2x2() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
     @external @pos{0} x = seq_mem_d2(32, 2, 2, 2, 2);
     @external @pos{0} x1 = seq_mem_d2(32, 2, 2, 2, 2);

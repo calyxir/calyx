@@ -137,7 +137,7 @@ component batch_flatten_1x4() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
     @external @pos{0} x = seq_mem_d3(32, 1, 2, 2, 1, 2, 2);
     @external @pos{0} x1 = seq_mem_d2(32, 1, 4, 1, 3);

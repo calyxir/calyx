@@ -300,7 +300,7 @@ component batch_matmul_4x7x7() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
     @external @pos{0} a = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
     @external @pos{0} b = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);

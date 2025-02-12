@@ -402,7 +402,7 @@ component conv2d_5x512x14x14() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
     @external @pos{0} data = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     @external @pos{0} weight = seq_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);

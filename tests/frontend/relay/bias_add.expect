@@ -165,7 +165,7 @@ component bias_add_1x64x512x256() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
     @external @pos{0} x = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
     @external @pos{0} bias = seq_mem_d1(32, 64, 7);

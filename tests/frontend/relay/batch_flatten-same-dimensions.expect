@@ -108,7 +108,7 @@ component batch_flatten_2x4096() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
     @external @pos{0} x = seq_mem_d2(32, 2, 4096, 2, 13);
     @external @pos{0} x1 = seq_mem_d2(32, 2, 4096, 2, 13);
