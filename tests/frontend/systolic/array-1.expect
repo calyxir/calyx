@@ -2,7 +2,7 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/pipelined.futil";
 import "primitives/memories/comb.futil";
-static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
+static<1> component mac_pe<"pos"={0}>(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
   cells {
     @pos{1} acc = std_reg(32);
     @pos{2} adder = std_fp_sadd(32, 16, 16);
@@ -28,7 +28,7 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
     }
   }
 }
-component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 2, l0_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 1) {
+component systolic_array_comp<"pos"={5}>(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 2, l0_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 1) {
   cells {
     @pos{6} iter_limit = std_reg(32);
     @pos{7} iter_limit_add = std_add(32);
@@ -137,7 +137,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
     }
   }
 }
-component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 1) -> (computation_done: 1, out_mem_0_addr0: 1, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
+component default_post_op<"pos"={36}>(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 1) -> (computation_done: 1, out_mem_0_addr0: 1, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
   cells {
     @pos{37} delay_reg = std_reg(1);
   }
@@ -160,7 +160,7 @@ component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 
     }
   }
 }
-component main() -> () {
+component main<"pos"={41}>() -> () {
   cells {
     @pos{42} systolic_array_component = systolic_array_comp();
     @pos{43} post_op_component = default_post_op();
