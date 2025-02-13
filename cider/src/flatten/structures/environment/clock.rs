@@ -8,7 +8,7 @@ use std::{
 
 use crate::flatten::{
     flat_ir::{
-        base::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
+        base::{AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx},
         component::AssignmentDefinitionLocation,
         prelude::ControlIdx,
     },
@@ -50,6 +50,16 @@ pub struct WriteInfo {
     pub assignment: AssignmentWinner,
 }
 
+pub struct ReadList {
+    pub map: SecondarySparseMap<ThreadIdx, ReadInfo>,
+}
+
+pub enum ReadWriteInfo {
+    Write(WriteInfo),
+    Read(ReadList),
+}
+
+#[derive(Debug, Clone)]
 pub enum ReadSource {
     /// Read comes from the right hand side of an assignment
     Assignment(AssignmentIdx),
@@ -61,24 +71,66 @@ pub enum ReadSource {
 
 #[derive(Debug, Clone)]
 pub struct ReadInfo {
+    // this is technically redundant info but it makes things a bit easier to
+    // deal with
     pub thread: ThreadIdx,
-    pub assignment: AssignmentIdx,
+    pub source: ReadSource,
+    pub cell: GlobalCellIdx,
 }
 
 impl ReadInfo {
-    pub fn new(thread: ThreadIdx, assignment: AssignmentIdx) -> Self {
-        Self { thread, assignment }
+    pub fn new(
+        thread: ThreadIdx,
+        source: ReadSource,
+        cell: GlobalCellIdx,
+    ) -> Self {
+        Self {
+            thread,
+            source,
+            cell,
+        }
     }
 
-    pub fn format(&self, ctx: &Context) -> String {
-        format!(
-            "read in thread {:?} from {}",
-            self.thread,
-            ctx.printer().print_assignment(
-                ctx.find_assignment_definition(self.assignment).0,
-                self.assignment
-            )
-        )
+    pub fn format<C: AsRef<Context> + Clone>(
+        &self,
+        env: &Environment<C>,
+    ) -> String {
+        let ctx = env.ctx();
+        let read_string = match self.source {
+            ReadSource::Assignment(assignment_idx) => {
+                let (comp, assign_src) =
+                    ctx.find_assignment_definition(assignment_idx);
+                let location_str =
+                    format_assignment_location(ctx, comp, assign_src);
+                format!(
+                    "RHS from assignment {} in {}",
+                    ctx.printer()
+                        .print_assignment(comp, assignment_idx)
+                        .yellow(),
+                    location_str
+                )
+            }
+            ReadSource::Guard(assignment_idx) => {
+                let (comp, assign_src) =
+                    ctx.find_assignment_definition(assignment_idx);
+                let location_str =
+                    format_assignment_location(ctx, comp, assign_src);
+                format!(
+                    "guard of assignment {} in {}",
+                    ctx.printer().print_assignment(comp, assignment_idx),
+                    location_str
+                )
+            }
+            ReadSource::Conditional(control_idx) => {
+                let comp = ctx.lookup_control_definition(control_idx);
+                format!(
+                    "conditional evaluation: \n {}",
+                    ctx.printer().format_control(comp, control_idx, 4)
+                )
+            }
+        };
+
+        format!("read in thread {:?} from {}", self.thread, read_string)
     }
 }
 
@@ -100,33 +152,8 @@ impl WriteInfo {
                     .lookup_assignment_definition(assignment_idx, comp_idx)
                     .unwrap();
 
-                let location_str = match assign_def {
-                    AssignmentDefinitionLocation::CombGroup(comb_group_idx) => {
-                        format!(
-                            "comb group {}",
-                            ctx.lookup_name(comb_group_idx)
-                        )
-                    }
-                    AssignmentDefinitionLocation::Group(group_idx) => {
-                        format!(
-                            "group {}",
-                            ctx.lookup_name(group_idx).underline()
-                        )
-                    }
-                    AssignmentDefinitionLocation::ContinuousAssignment => {
-                        "continuous logic".to_string()
-                    }
-                    AssignmentDefinitionLocation::Invoke(control_idx) => {
-                        format!(
-                            "invoke statement: {}",
-                            ctx.printer().format_control(
-                                comp_idx,
-                                control_idx,
-                                0
-                            )
-                        )
-                    }
-                };
+                let location_str =
+                    format_assignment_location(ctx, comp_idx, assign_def);
 
                 format!(
                     "write in thread {:?} from assignment {} in {}",
@@ -137,6 +164,30 @@ impl WriteInfo {
                     location_str
                 )
             }
+        }
+    }
+}
+
+fn format_assignment_location(
+    ctx: &Context,
+    comp_idx: crate::flatten::flat_ir::prelude::ComponentIdx,
+    assign_def: AssignmentDefinitionLocation,
+) -> String {
+    match assign_def {
+        AssignmentDefinitionLocation::CombGroup(comb_group_idx) => {
+            format!("comb group {}", ctx.lookup_name(comb_group_idx))
+        }
+        AssignmentDefinitionLocation::Group(group_idx) => {
+            format!("group {}", ctx.lookup_name(group_idx).underline())
+        }
+        AssignmentDefinitionLocation::ContinuousAssignment => {
+            "continuous logic".to_string()
+        }
+        AssignmentDefinitionLocation::Invoke(control_idx) => {
+            format!(
+                "invoke statement: {}",
+                ctx.printer().format_control(comp_idx, control_idx, 0)
+            )
         }
     }
 }
@@ -541,7 +592,8 @@ impl ClockPair {
     pub fn check_read_with_ascription(
         &self,
         (thread, reading_clock): ThreadClockPair,
-        assignment: AssignmentIdx,
+        source: ReadSource,
+        cell: GlobalCellIdx,
         clock_map: &mut ClockMap,
     ) -> Result<(), ClockError> {
         self.check_read((thread, reading_clock), clock_map)
@@ -550,7 +602,7 @@ impl ClockPair {
                     .get_logged_write(self.write_clock)
                     .unwrap()
                     .clone(),
-                read: ReadInfo { thread, assignment },
+                read: ReadInfo::new(thread, source, cell),
             })
     }
 

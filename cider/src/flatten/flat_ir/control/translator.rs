@@ -260,11 +260,14 @@ fn translate_component(
     let ctrl_idx_end = taken_control.peek_next_idx();
 
     // unwrap all the stuff packed into the argument tuple
-    let (_, layout, mut taken_ctx, auxiliary_component_info) = argument_tuple;
+    let (_, layout, mut taken_ctx, mut auxiliary_component_info) =
+        argument_tuple;
 
     // put stuff back
     taken_ctx.primary.control = taken_control;
     *ctx = taken_ctx;
+
+    auxiliary_component_info.set_control_range(ctrl_idx_start, ctrl_idx_end);
 
     for node in IndexRange::new(ctrl_idx_start, ctrl_idx_end).iter() {
         if let Control::Invoke(i) = &mut ctx.primary.control[node].control {

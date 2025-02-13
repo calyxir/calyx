@@ -37,6 +37,9 @@ pub struct DefinitionRanges {
     /// The entire range of comb-groups defined by this component. Does not
     /// include sub-component instances.
     comb_groups: IndexRange<CombGroupIdx>,
+    /// The entire range of control nodes defined by this component. Does not
+    /// include control nodes defined in sub-components
+    control: IndexRange<ControlIdx>,
 }
 
 impl DefinitionRanges {
@@ -63,6 +66,10 @@ impl DefinitionRanges {
     pub fn comb_groups(&self) -> &IndexRange<CombGroupIdx> {
         &self.comb_groups
     }
+
+    pub fn control(&self) -> IndexRange<ControlIdx> {
+        self.control
+    }
 }
 
 impl Default for DefinitionRanges {
@@ -74,6 +81,7 @@ impl Default for DefinitionRanges {
             ref_cells: IndexRange::empty_interval(),
             groups: IndexRange::empty_interval(),
             comb_groups: IndexRange::empty_interval(),
+            control: IndexRange::empty_interval(),
         }
     }
 }
@@ -378,6 +386,14 @@ impl AuxiliaryComponentInfo {
         end: CombGroupIdx,
     ) {
         self.definitions.comb_groups = IndexRange::new(start, end)
+    }
+
+    pub fn set_control_range(&mut self, start: ControlIdx, end: ControlIdx) {
+        self.definitions.control = IndexRange::new(start, end)
+    }
+
+    pub fn contains_control(&self, target: ControlIdx) -> bool {
+        self.definitions.control.contains(target)
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = LocalPortOffset> + '_ {

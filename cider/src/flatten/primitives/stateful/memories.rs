@@ -16,7 +16,7 @@ use crate::{
         },
         structures::{
             environment::{
-                clock::{new_clock_pair, ClockMap, ValueWithClock},
+                clock::{new_clock_pair, ClockMap, ReadSource, ValueWithClock},
                 PortMap,
             },
             thread::{ThreadIdx, ThreadMap},
@@ -1083,11 +1083,13 @@ impl RaceDetectionPrimitive for SeqMem {
                                 ),
                                 thread_clock.unwrap(),
                             ),
-                            *port_map[self.content_enable()]
-                                .winner()
-                                .unwrap()
-                                .as_assign()
-                                .unwrap(),
+                            ReadSource::Assignment(
+                                *port_map[self.content_enable()]
+                                    .winner()
+                                    .unwrap()
+                                    .as_assign()
+                                    .unwrap(),
+                            ),
                             clock_map,
                         )
                         .map_err(|e| {

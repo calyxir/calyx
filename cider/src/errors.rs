@@ -330,7 +330,7 @@ impl RuntimeError {
                     // memory
                     match error {
                         ClockError::ReadAfterWrite { write, read } => {
-                            CiderError::GenericError(format!("Concurrent read & write to the same memory {} at entry {num}\n  {}\n  {}", env.get_full_name(cell).underline(), write.format(env), read.format(env.ctx())))
+                            CiderError::GenericError(format!("Concurrent read & write to the same memory {} at entry {num}\n  {}\n  {}", env.get_full_name(cell).underline(), write.format(env), read.format(env)))
                         },
                         ClockError::WriteAfterWrite { write1, write2 } => {
                             CiderError::GenericError(format!("Concurrent writes to the same memory {} at entry {num}\n  1. {}\n  2. {}", env.get_full_name(cell).underline(), write1.format(env), write2.format(env)))
@@ -343,13 +343,13 @@ impl RuntimeError {
                     // register
                     match error {
                         ClockError::ReadAfterWrite { write, read } => {
-                            CiderError::GenericError(format!("Concurrent read & write to the same register {}\n  {}\n  {}", env.get_full_name(cell).underline(), write.format(env), read.format(env.ctx())))
+                            CiderError::GenericError(format!("Concurrent read & write to the same register {}\n  {}\n  {}", env.get_full_name(cell).underline(), write.format(env), read.format(env)))
                         },
                         ClockError::WriteAfterWrite { write1, write2 } => {
                             CiderError::GenericError(format!("Concurrent writes to the same register {}\n  1. {}\n  2. {}", env.get_full_name(cell).underline(), write1.format(env), write2.format(env)))
                         },
                         ClockError::WriteAfterRead { write } => {
-                            CiderError::GenericError(format!("Concurrent read and write to the same register {}\n  1. {}\n  read <UNAVAILABLE>", env.get_full_name(cell).underline(), write.format(env)))
+                            CiderError::GenericError(format!("Concurrent read & write to the same register {}\n  {}\n  read <UNAVAILABLE>", env.get_full_name(cell).underline(), write.format(env)))
                         },
                     }
                 }

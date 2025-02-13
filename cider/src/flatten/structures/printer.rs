@@ -175,10 +175,9 @@ impl<'a> Printer<'a> {
             Control::Empty(_) => String::new(),
             Control::Enable(e) => text_utils::indent(
                 format!(
-                    "{};     ({:?})",
+                    "{};",
                     self.ctx.secondary[self.ctx.primary[e.group()].name()]
                         .clone(),
-                    control
                 ),
                 indent,
             ),

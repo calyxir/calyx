@@ -1,7 +1,7 @@
 use super::{
     super::context::Context,
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::ClockMap,
+    clock::{ClockMap, ReadSource},
     program_counter::{
         ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
     },
@@ -34,6 +34,7 @@ use crate::{
             },
             thread::{ThreadIdx, ThreadMap},
         },
+        text_utils::Color,
     },
     logging,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
@@ -909,7 +910,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     println!(
                         "{}::{}{}",
                         self.get_full_name(point.comp),
-                        ctx.lookup_name(x.group()).underline(),
+                        ctx.lookup_name(x.group()).stylize_name(),
                         if self.ports[go].as_bool().unwrap_or_default() {
                             ""
                         } else {
@@ -938,7 +939,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     println!(
                         "{}: invoke {}",
                         self.get_full_name(point.comp),
-                        invoked_name.underline()
+                        invoked_name.stylize_name()
                     );
                 }
                 _ => unreachable!(),
@@ -1569,7 +1570,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     slog::error!(
                         self.base.env().logger,
                         "Program execution failed with error: {}",
-                        e.red()
+                        e.stylize_error()
                     );
                 }
                 Err(e)
@@ -2048,6 +2049,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                         ThreadMap::continuous_thread(),
                                         port,
                                         &mut clock_map,
+                                        ReadSource::Assignment(
+                                            *val.winner().as_assign().unwrap(),
+                                        ),
                                     )
                                     .map_err(|e| {
                                         e.prettify_message(&self.env)
@@ -2428,6 +2432,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 w.cond_port(),
                 node.comp,
                 &mut clock_map,
+                ReadSource::Conditional(node.control_node_idx),
             )?;
 
             self.env.clocks = clock_map;
@@ -2478,7 +2483,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if self.conf.check_data_race {
                 let mut clock_map = std::mem::take(&mut self.env.clocks);
 
-                self.check_read(thread.unwrap(), idx, &mut clock_map)?;
+                self.check_read(
+                    thread.unwrap(),
+                    idx,
+                    &mut clock_map,
+                    ReadSource::Conditional(node.control_node_idx),
+                    node.comp,
+                )?;
 
                 self.env.clocks = clock_map;
             }
@@ -2872,6 +2883,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             assign.src,
                             *active_cell,
                             &mut clock_map,
+                            ReadSource::Assignment(assign_idx),
                         )?;
                     }
 
@@ -2890,6 +2902,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 *port,
                                 *active_cell,
                                 &mut clock_map,
+                                ReadSource::Guard(assign_idx),
                             )?;
                         }
                     }
@@ -3105,9 +3118,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         port: PortRef,
         active_cell: GlobalCellIdx,
         clock_map: &mut ClockMap,
+        source: ReadSource,
     ) -> Result<(), BoxedRuntimeError> {
         let global_port = self.get_global_port_idx(&port, active_cell);
-        self.check_read(thread, global_port, clock_map)
+        self.check_read(thread, global_port, clock_map, source, active_cell)
     }
 
     fn check_read(
@@ -3115,6 +3129,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         thread: ThreadIdx,
         global_port: GlobalPortIdx,
         clock_map: &mut ClockMap,
+        source: ReadSource,
+        cell: GlobalCellIdx,
     ) -> Result<(), BoxedRuntimeError> {
         let val = &self.env.ports[global_port];
         let thread_clock = self.env.thread_map.unwrap_clock_id(thread);
@@ -3126,7 +3142,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             clocks
                 .check_read_with_ascription(
                     (thread, thread_clock),
-                    *val.winner().unwrap().as_assign().unwrap(),
+                    source,
+                    cell,
                     clock_map,
                 )
                 .map_err(|e| {
@@ -3138,7 +3155,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 clock_pair
                     .check_read_with_ascription(
                         (thread, thread_clock),
-                        *val.winner().unwrap().as_assign().unwrap(),
+                        source.clone(),
+                        cell,
                         clock_map,
                     )
                     .map_err(|e| {

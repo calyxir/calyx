@@ -2,6 +2,7 @@ use super::super::{
     commands::{PrintTuple, WatchPosition},
     debugger_core::SPACING,
 };
+use crate::flatten::text_utils::Color;
 use crate::{
     debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
     flatten::{
@@ -511,7 +512,7 @@ impl DebuggingContext {
             let num = target.as_number().unwrap();
             println!(
                 "Error: There is no breakpoint numbered {}",
-                num.red().bold().strikethrough()
+                num.stylize_debugger_missing()
             )
         }
     }

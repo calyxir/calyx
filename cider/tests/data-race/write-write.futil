@@ -5,7 +5,7 @@ component main() -> () {
         r1 = std_reg(32);
         delay_r = std_reg(1);
         const = std_const(32, 1);
-        wire = std_wire(1);
+        cond_wire = std_wire(1);
     }
 
     wires {
@@ -28,14 +28,14 @@ component main() -> () {
         }
 
         comb group true {
-            wire.in = 1'd1;
+            cond_wire.in = 1'd1;
         }
 
     }
 
     control {
         par {
-            if wire.out with true {
+            if cond_wire.out with true {
                 seq {
                     delay;
                     write_r1_10;
