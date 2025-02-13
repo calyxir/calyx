@@ -2045,13 +2045,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                     // transitive reads, we will check them at
                                     // the cycle boundary and attribute the read
                                     // to the continuous thread
+                                    let (assign_idx, cell) =
+                                        val.winner().as_assign().unwrap();
                                     self.check_read(
                                         ThreadMap::continuous_thread(),
                                         port,
                                         &mut clock_map,
-                                        ReadSource::Assignment(
-                                            *val.winner().as_assign().unwrap(),
-                                        ),
+                                        ReadSource::Assignment(assign_idx),
+                                        cell,
                                     )
                                     .map_err(|e| {
                                         e.prettify_message(&self.env)

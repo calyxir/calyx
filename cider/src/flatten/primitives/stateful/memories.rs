@@ -1075,6 +1075,12 @@ impl RaceDetectionPrimitive for SeqMem {
                     .as_bool()
                     .unwrap_or_default()
                 {
+                    let (assignment_idx, cell) = port_map
+                        [self.content_enable()]
+                    .winner()
+                    .unwrap()
+                    .as_assign()
+                    .unwrap();
                     val.clocks
                         .check_read_with_ascription(
                             (
@@ -1083,13 +1089,8 @@ impl RaceDetectionPrimitive for SeqMem {
                                 ),
                                 thread_clock.unwrap(),
                             ),
-                            ReadSource::Assignment(
-                                *port_map[self.content_enable()]
-                                    .winner()
-                                    .unwrap()
-                                    .as_assign()
-                                    .unwrap(),
-                            ),
+                            ReadSource::Assignment(assignment_idx),
+                            cell,
                             clock_map,
                         )
                         .map_err(|e| {
