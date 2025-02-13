@@ -94,25 +94,37 @@ component negative_2x2() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
-    @external x = seq_mem_d2(32, 2, 2, 2, 2);
-    @external x1 = seq_mem_d2(32, 2, 2, 2, 2);
-    negative_2x2_ = negative_2x2();
-    @external x2 = seq_mem_d2(32, 2, 2, 2, 2);
-    negative_2x2_1 = negative_2x2();
+    @external @pos{0} x = seq_mem_d2(32, 2, 2, 2, 2);
+    @external @pos{0} x1 = seq_mem_d2(32, 2, 2, 2, 2);
+    @pos{1} negative_2x2_ = negative_2x2();
+    @external @pos{0} x2 = seq_mem_d2(32, 2, 2, 2, 2);
+    @pos{1} negative_2x2_1 = negative_2x2();
   }
   wires {
 
   }
   control {
-    seq {
-      @pos(0) invoke negative_2x2_[x=x, x1=x1]()();
-      @pos(1) invoke negative_2x2_1[x=x1, x1=x2]()();
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke negative_2x2_[x=x, x1=x1]()();
+      @pos{2} @pos(1) invoke negative_2x2_1[x=x1, x1=x2]()();
     }
   }
 }
 metadata #{
 0: let %x1: Tensor[(2, 2), int32] /* ty=Tensor[(2, 2), int32] span=from_string:4:22 */ = negative(%x) /* ty=Tensor[(2, 2), int32] span=from_string:3:13 */;
 1: let %x2: Tensor[(2, 2), int32] /* ty=Tensor[(2, 2), int32] span=from_string:5:3 */ = negative(%x1) /* ty=Tensor[(2, 2), int32] span=from_string:4:13 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 276
+  2: 0 117
+  3: 1 391
+  4: 1 386
 }#

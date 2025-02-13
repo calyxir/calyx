@@ -71,22 +71,35 @@ component multiply_1(x1: 32) -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={5}>() -> () {
   cells {
-    @external x = seq_mem_d1(32, 1, 1);
-    x1 = std_const(32, 0);
-    @external x2 = seq_mem_d1(32, 1, 1);
-    multiply_1_ = multiply_1();
+    @external @pos{0} x = seq_mem_d1(32, 1, 1);
+    @pos{1} x1 = std_const(32, 0);
+    @external @pos{0} x2 = seq_mem_d1(32, 1, 1);
+    @pos{2} multiply_1_ = multiply_1();
   }
   wires {
 
   }
   control {
-    seq {
-      @pos(0) invoke multiply_1_[x=x, x2=x2](x1=x1.out)();
+    @pos{4} seq {
+      @pos{3} @pos(0) invoke multiply_1_[x=x, x2=x2](x1=x1.out)();
     }
   }
 }
 metadata #{
 0: let %x2: Tensor[(1), int32] /* ty=Tensor[(1), int32] span=from_string:5:3 */ = multiply(%x, %x1) /* ty=Tensor[(1), int32] span=from_string:4:36 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 199
+  2: 1 276
+  3: 0 117
+  4: 1 391
+  5: 1 386
 }#

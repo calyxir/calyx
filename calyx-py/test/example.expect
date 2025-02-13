@@ -1,21 +1,21 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main() -> () {
+component main<"pos"={7}>() -> () {
   cells {
-    lhs = std_reg(32);
-    rhs = std_reg(32);
-    sum = std_reg(32);
-    add = std_add(32);
+    @pos{0} lhs = std_reg(32);
+    @pos{1} rhs = std_reg(32);
+    @pos{2} sum = std_reg(32);
+    @pos{3} add = std_add(32);
   }
   wires {
-    group update_operands {
+    group update_operands<"pos"={4}> {
       lhs.in = 32'd1;
       rhs.in = 32'd41;
       lhs.write_en = 1'd1;
       rhs.write_en = 1'd1;
       update_operands[done] = (lhs.done & rhs.done) ? 1'd1;
     }
-    group compute_sum {
+    group compute_sum<"pos"={5}> {
       add.left = lhs.out;
       add.right = rhs.out;
       sum.write_en = 1'd1;
@@ -24,9 +24,23 @@ component main() -> () {
     }
   }
   control {
-    seq {
-      update_operands;
-      compute_sum;
+    @pos{6} seq {
+      @pos{6} update_operands;
+      @pos{6} compute_sum;
     }
   }
 }
+
+sourceinfo #{
+FILES 
+  0: example.py
+POSITIONS 
+  0: 0 14
+  1: 0 15
+  2: 0 16
+  3: 0 17
+  4: 0 27
+  5: 0 47
+  6: 0 68
+  7: 0 71
+}#
