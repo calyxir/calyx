@@ -64,61 +64,115 @@ impl ControlPoint {
     /// path is displayed in the minimal metadata path syntax.
     pub fn string_path(&self, ctx: &Context) -> String {
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
-        let mut path_vec = path.path;
-        let idx = self.control_node_idx.index();
-        let name = ctx.lookup_comp_by_name(&idx.to_string()).unwrap();
-
-        // Remove first element since we know it is a root
-        path_vec.remove(0);
-        let mut string_path = name.index().to_string();
-        string_path.push('.');
         let control_map = &ctx.primary.control;
-        let mut count = -1;
+        let mut path_vec = path.path;
+
+        let mut string_path = String::new();
+
+        // Maybe parameterize prefix?
+        string_path.push('0');
+        string_path.push('.');
+
+        // special conditions
         let mut body = false;
-        let mut if_branches: HashMap<ControlIdx, String> = HashMap::new();
+        let mut branch = false;
+        // let mut count = 0;
+        let mut branch_tracker = None;
+
+        // Remove first index
+        let control_idx = path_vec.remove(0).node;
+        let control_node = control_map.get(control_idx).unwrap();
+
+        let mut children = match control_node {
+            ControlNode::Seq(struc) => struc.stms(),
+            ControlNode::Par(struc) => struc.stms(),
+            ControlNode::If(struc) => {
+                branch = true;
+                branch_tracker = Some(struc);
+                &[]
+            }
+            ControlNode::While(_) => {
+                body = true;
+                &[]
+            }
+            _ => &[],
+        };
+
         for search_node in path_vec {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
             let control_idx = search_node.node;
             let control_node = control_map.get(control_idx).unwrap();
-            match control_node {
-                // These are terminal nodes
-                // ControlNode::Empty(_) => "empty",
-                // ControlNode::Invoke(_) => "invoke",
-                // ControlNode::Enable(_) => "enable",
 
-                // These have unbounded children
-                // ControlNode::Seq(_) => "seq",
-                // ControlNode::Par(_) => "par",
-
-                // Special cases
-                ControlNode::If(if_node) => {
-                    if_branches.insert(if_node.tbranch(), String::from("t"));
-                    if_branches.insert(if_node.tbranch(), String::from("f"));
-                }
-                ControlNode::While(_) => {
-                    body = true;
-                }
-                ControlNode::Repeat(_) => {
-                    body = true;
-                }
-                _ => {}
-            };
-
-            let control_type = if body {
+            // we are onto the next iteration and in the body... if Seq or Par is present save their children
+            // essentially skip iteration
+            if body {
                 body = false;
-                count = -1;
-                String::from("b")
-            } else if if_branches.contains_key(&control_idx) {
-                let (_, branch) =
-                    if_branches.get_key_value(&control_idx).unwrap();
-                branch.clone()
+                string_path += "-b";
+                // what happens if double while loop?
+                children = match control_node {
+                    ControlNode::Seq(struc) => struc.stms(),
+                    ControlNode::Par(struc) => struc.stms(),
+                    ControlNode::While(_) => {
+                        body = true;
+                        &[]
+                    }
+                    ControlNode::If(struc) => {
+                        branch = true;
+                        branch_tracker = Some(struc);
+                        &[]
+                    }
+                    _ => &[],
+                };
+            } else if branch {
+                branch = false;
+                children = match control_node {
+                    ControlNode::Seq(struc) => struc.stms(),
+                    ControlNode::Par(struc) => struc.stms(),
+                    ControlNode::While(_) => {
+                        body = true;
+                        &[]
+                    }
+                    ControlNode::If(struc) => {
+                        branch = true;
+                        branch_tracker = Some(struc);
+                        &[]
+                    }
+                    _ => &[],
+                };
+                let append = if branch_tracker.unwrap().tbranch() == control_idx
+                {
+                    "-t"
+                } else {
+                    "-f"
+                };
+                string_path += append;
             } else {
-                count += 1;
-                count.to_string()
-            };
+                let count = children
+                    .iter()
+                    .position(|&idx| idx == control_idx)
+                    .unwrap();
+                match control_node {
+                    ControlNode::If(if_node) => {
+                        branch_tracker = Some(if_node);
+                        branch = true;
+                    }
+                    ControlNode::While(_) | ControlNode::Repeat(_) => {
+                        body = true;
+                    }
+                    ControlNode::Seq(struc) => {
+                        // Keep track for next iteration
+                        children = struc.stms();
+                    }
+                    ControlNode::Par(struc) => {
+                        children = struc.stms();
+                    }
+                    _ => {}
+                };
 
-            string_path = string_path + "-" + &control_type;
+                let control_type = String::from("-") + &count.to_string();
+                string_path = string_path + &control_type;
+            }
         }
         string_path
     }

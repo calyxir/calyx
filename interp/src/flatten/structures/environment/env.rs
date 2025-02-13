@@ -9,6 +9,7 @@ use super::{
 };
 use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
+    debugger::commands::{path_parser::parse_path, ParseNodes, ParsePath},
     errors::{BoxedCiderError, CiderResult, ConflictingAssignments},
     flatten::{
         flat_ir::{
@@ -31,6 +32,7 @@ use crate::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
             index_trait::IndexRef,
+            printer::Printer,
             thread::{ThreadIdx, ThreadMap},
         },
     },
@@ -862,14 +864,93 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
+    /// Returns the controlidx of the last node in the given path and component idx
+    pub fn path_idx(
+        &self,
+        component: ComponentIdx,
+        path: ParsePath,
+    ) -> ControlIdx {
+        let path_nodes = path.get_path();
+        let ctx = self.ctx();
+
+        let component_map = &ctx.primary.components;
+        let control_map = &ctx.primary.control;
+
+        // Get nodes
+        let component_node = component_map.get(component).unwrap();
+
+        let mut control_id = component_node.control.unwrap();
+
+        let mut control_node = control_map.get(control_id).unwrap();
+        for parse_node in path_nodes {
+            match parse_node {
+                ParseNodes::Body => match control_node {
+                    ControlNode::While(while_struct) => {
+                        control_id = while_struct.body();
+                    }
+                    ControlNode::Repeat(repeat_struct) => {
+                        control_id = repeat_struct.body;
+                    }
+                    _ => {
+                        // TODO: Dont want to crash if invalid path, return result type w/ error malformed
+                        panic!();
+                    }
+                },
+                ParseNodes::If(branch) => match control_node {
+                    ControlNode::If(if_struct) => {
+                        control_id = if branch {
+                            if_struct.tbranch()
+                        } else {
+                            if_struct.fbranch()
+                        };
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+                ParseNodes::Offset(child) => match control_node {
+                    ControlNode::Par(par_struct) => {
+                        let children = par_struct.stms();
+                        control_id = children[child as usize];
+                    }
+                    ControlNode::Seq(seq_struct) => {
+                        let children = seq_struct.stms();
+                        control_id = children[child as usize];
+                    }
+                    _ => {
+                        // Do nothing! use same control_id! Something wrong here...
+                    }
+                },
+            }
+            control_node = control_map.get(control_id).unwrap();
+        }
+        control_id
+    }
+
     pub fn print_pc_string(&self) {
         let ctx = self.ctx.as_ref();
         for node in self.pc_iter() {
-            println!(
-                "{}: {}",
-                self.get_full_name(node.comp),
-                node.string_path(ctx)
-            );
+            let string_path = node.string_path(ctx);
+            println!("{}: {}", self.get_full_name(node.comp), string_path);
+
+            // Debug assert:
+            let ledger = self.cells.get(node.comp).unwrap();
+            let comp_ledger = ledger.as_comp().unwrap();
+            let component = comp_ledger.comp_id;
+
+            let path = parse_path(&string_path).unwrap();
+
+            let control_idx = self.path_idx(component, path);
+
+            // For debugging:
+            // let printer = Printer::new(ctx);
+            // let format = printer.format_control(component, control_idx, 4);
+            // let format2 =
+            //     printer.format_control(component, node.control_node_idx, 4);
+            // println!("What we got: {}", format);
+            // println!("What we want: {}", format2);
+
+            assert!(control_idx == node.control_node_idx);
         }
     }
 

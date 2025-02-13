@@ -670,6 +670,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         control_id = repeat_struct.body;
                     }
                     _ => {
+                        // TODO: Dont want to crash if invalid path, return result type w/ error malformed
                         panic!();
                     }
                 },
