@@ -188,13 +188,15 @@ def divide_and_conquer_sums(comp: ComponentBuilder, degree: int):
     These rounds can then be executed in parallel.
 
     For example, with N == 4, we will produce groups:
+    ```
       group sum_round1_1 { ... }     #    x   p2  p3  p4
-                                     #     \  /   \  /
+                                     #     \\  /   \\  /
       group sum_round1_2 { ... }     #    sum1   sum2
-                                     #       \   /
+                                     #       \\   /
       group sum_round2_1 { ... }     #        sum1
 
       group add_degree_zero { ... }  #    sum1 + 1
+    ```
     """
     sum_count = degree
     round = 1
@@ -482,9 +484,9 @@ def generate_exp_taylor_series_approximation(
     Reference: https://en.wikipedia.org/wiki/Taylor_series#Exponential_function
     """
     # TODO(cgyurgyik): Support any degree.
-    assert (
-        degree > 0 and log2(degree).is_integer()
-    ), f"The degree: {degree} should be a power of 2."
+    assert degree > 0 and log2(degree).is_integer(), (
+        f"The degree: {degree} should be a power of 2."
+    )
 
     comp = builder.component("exp")
     comp.input("x", width)
@@ -605,8 +607,8 @@ def generate_fp_pow_full(
                 "-1.0", width, int_width, is_signed=is_signed
             ).unsigned_integer(),
         )
-        gen_reverse_sign(comp, "rev_base_sign", new_base_reg, mult, const_neg_one),
-        gen_reverse_sign(comp, "rev_res_sign", res, mult, const_neg_one),
+        (gen_reverse_sign(comp, "rev_base_sign", new_base_reg, mult, const_neg_one),)
+        (gen_reverse_sign(comp, "rev_res_sign", res, mult, const_neg_one),)
 
         base_lt_zero = comp.lt_use(
             comp.this().base,
@@ -640,7 +642,7 @@ def generate_fp_pow_full(
     write_e_to_res = comp.reg_store(res, e.out, "write_e_to_res")
 
     gen_reciprocal(comp, "set_base_reciprocal", new_base_reg, div, const_one)
-    gen_reciprocal(comp, "set_res_reciprocal", res, div, const_one),
+    (gen_reciprocal(comp, "set_res_reciprocal", res, div, const_one),)
     base_lt_one = comp.lt_use(
         stored_base_reg.out,
         const_one.out,
