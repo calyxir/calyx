@@ -484,9 +484,9 @@ def generate_exp_taylor_series_approximation(
     Reference: https://en.wikipedia.org/wiki/Taylor_series#Exponential_function
     """
     # TODO(cgyurgyik): Support any degree.
-    assert degree > 0 and log2(degree).is_integer(), (
-        f"The degree: {degree} should be a power of 2."
-    )
+    assert (
+        degree > 0 and log2(degree).is_integer()
+    ), f"The degree: {degree} should be a power of 2."
 
     comp = builder.component("exp")
     comp.input("x", width)
