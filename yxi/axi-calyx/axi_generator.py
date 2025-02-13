@@ -13,6 +13,7 @@ from calyx.builder import (
 from typing import Literal
 from math import log2, ceil
 import json
+import os
 import sys
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
@@ -662,7 +663,7 @@ def clog2_or_1(x):
 
 
 def build():
-    prog = Builder()
+    prog = Builder(os.path.dirname(os.path.realpath(__file__)))
     check_mems_welformed(mems)
     add_arread_channel(prog, mems[0])
     add_awwrite_channel(prog, mems[0])
