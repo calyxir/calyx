@@ -32,7 +32,7 @@ use crate::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
             index_trait::IndexRef,
-            printer::Printer,
+            // printer::Printer,
             thread::{ThreadIdx, ThreadMap},
         },
     },
