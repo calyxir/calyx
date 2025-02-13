@@ -6,9 +6,7 @@ ver = "0.4.1"
 [[tests]]
 name = "compile"
 expect_dir = "compile"
-paths = [
-  "*.futil"
-]
+paths = ["*.futil"]
 cmd = """
 fud exec -q -s calyx.exec '../../target/debug/calyx' \
     {} -o {}.xclbin --to xclbin &&
@@ -19,10 +17,18 @@ fud exec -q -s calyx.exec '../../target/debug/calyx' \
 [[tests]]
 name = "emulate"
 expect_dir = "emulate"
-paths = [
-  "*.futil"
-]
+paths = ["*.futil"]
 cmd = """
 fud exec -q -s calyx.exec ../../target/debug/calyx \
     {} --to fpga -s fpga.data {}.data
+"""
+
+# RPT tests
+[[tests]]
+name = "rpt"
+expect_dir = "rpt"
+paths = ["rpt/*/"]
+cmd = """
+dir=$(basename {}) && \
+./rpt_parse.py --dir $dir
 """

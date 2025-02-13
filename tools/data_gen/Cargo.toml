@@ -8,11 +8,11 @@ edition = "2021"
 [dependencies]
 serde.workspace = true
 lazy_static.workspace = true
-serde_json = "1.0.79"
-rand = "0.8.4"
-argh = "0.1"
+serde_json.workspace = true
+argh.workspace = true
+rand.workspace = true
 
-calyx-ir = { path = "../../calyx-ir"}
-calyx-utils = { path = "../../calyx-utils"}
-calyx-frontend = { path = "../../calyx-frontend"}
-calyx-opt = { path = "../../calyx-opt"}
+calyx-ir.workspace = true
+calyx-utils.workspace = true
+calyx-frontend.workspace = true
+calyx-opt.workspace = true

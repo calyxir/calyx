@@ -68,7 +68,7 @@ cmd = """
 
 [[tests]]
 name = "fud2 yxi invocation"
-paths = ["yxi/tests/ref-mems-vec-add.futil"]
+paths = ["yxi/tests/yxi-tool/ref-mems-vec-add.futil"]
 cmd = """
 fud2 {} --from calyx --to yxi
 """
@@ -557,6 +557,25 @@ fud exec -s calyx.exec './target/debug/calyx' \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
+## Tests HardFloat library
+[[tests]]
+name = "correctness HardFloat floating point"
+paths = ["tests/correctness/hardfloat/*.futil"]
+cmd = """
+if [ ! -d "primitives/float/HardFloat-1" ]; then
+  bash primitives/float/get_hardfloat.sh > /dev/null 2>&1
+fi &&
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s verilog.data {}.data \
+         -s calyx.exec './target/debug/calyx' \
+         -s verilog.cycle_limit 500 \
+         {} -q
+"""
+expect_dir = "tests/correctness/hardfloat/"
+timeout = 30
+
 ##### Examples #####
 
 [[tests]]
@@ -604,14 +623,14 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "calyx-py read-write-compute AXI wrapper generation"
 paths = ["yxi/tests/axi/read-compute-write/*.yxi"]
 cmd = """
-python3 yxi/axi-calyx/axi-generator.py {}
+python3 yxi/axi-calyx/axi_generator.py {}
 """
 
 [[tests]]
 name = "calyx-py dynamic AXI wrapper generation"
 paths = ["yxi/tests/axi/dynamic/*.yxi"]
 cmd = """
-python3 yxi/axi-calyx/dynamic-axi-generator.py {}
+python3 yxi/axi-calyx/dynamic_axi_generator.py {}
 """
 
 #Ignore fud2 stderr for now due to ninja nondeterminism
@@ -681,12 +700,4 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   make clean && \
   rm -f results.xml
 
-"""
-
-### Profiler tests
-[[tests]]
-name = "profiler"
-paths = ["tests/profiler/*.futil"]
-cmd = """
-bash tools/profiler/get-profile-counts-info.sh {} {}.data STDOUT -d
 """

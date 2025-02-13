@@ -1,0 +1,51 @@
+import "primitives/core.futil";
+
+
+component main() -> () {
+    cells {
+        r1 = std_reg(32);
+        r2 = std_reg(32);
+        r3 = std_reg(32);
+    }
+
+    wires {
+        group write_r1 {
+            r1.in = 32'd5;
+            r1.write_en = 1'd1;
+            write_r1[done] = r1.done;
+        }
+
+        group write_r2 {
+            r2.in = 32'd10;
+            r2.write_en = 1'd1;
+            write_r2[done] = r2.done;
+        }
+
+         group write_r3 {
+            r3.in = 32'd15;
+            r3.write_en = 1'd1;
+            write_r3[done] = r3.done;
+        }
+    }
+
+    control {
+        seq {
+            @pos{0} write_r1;
+            @pos{1,3} write_r2;
+            @pos{0,2} write_r3;
+        }
+    }
+}
+
+
+sourceinfo #{
+    FILES
+        0: test.futil
+        1: my_super_cool_file.txt
+
+    POSITIONS
+        0: 0 14
+        1: 1 15
+        2: 0 6578
+        3: 1 45
+}#

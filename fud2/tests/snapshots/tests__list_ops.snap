@@ -38,6 +38,11 @@ source: fud2/tests/tests.rs
         "yxi",
     ),
     (
+        "calyx_py-to-calyx",
+        "calyx_py",
+        "calyx",
+    ),
+    (
         "cider",
         "cider",
         "dat",

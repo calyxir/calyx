@@ -1,0 +1,32 @@
+use num_bigint::BigUint;
+use std::str::FromStr;
+
+pub struct IntermediateRepresentation {
+    pub sign: bool,
+    pub mantissa: BigUint,
+    pub exponent: i64,  // Arbitrary precision exponent
+}
+
+impl IntermediateRepresentation {
+    // Function to check if the value is NaN
+    pub fn is_nan(&self, bit_width: usize) -> bool {
+        let max_exponent_value = (1 << (bit_width - 1)) - 1; // Max exponent for NaN
+        self.exponent == max_exponent_value as i64 && !self.mantissa.is_zero()
+    }
+
+    // Function to check if the value is infinity
+    pub fn is_infinity(&self, bit_width: usize) -> bool {
+        let max_exponent_value = (1 << (bit_width - 1)) - 1; // Max exponent for infinity
+        self.exponent == max_exponent_value as i64 && self.mantissa.is_zero()
+    }
+
+    // Function to check if the value is denormalized
+    pub fn is_denormalized(&self) -> bool {
+        self.exponent == 0 && !self.mantissa.is_zero()
+    }
+
+    // Function to check if the value is zero
+    pub fn is_zero(&self) -> bool {
+        self.exponent == 0 && self.mantissa.is_zero()
+    }
+}

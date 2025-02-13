@@ -37,19 +37,57 @@ def file_contains(regex, filename):
     return len(strings) == 0
 
 
-def rtl_component_extract(file: Path, name: str):
-    try:
-        with file.open() as f:
-            log = f.read()
-            comp_usage = re.search(
-                r"Start RTL Component Statistics(.*?)Finished RTL", log, re.DOTALL
-            ).group(1)
-            a = re.findall("{} := ([0-9]*).*$".format(name), comp_usage, re.MULTILINE)
-            return sum(map(int, a))
-    except Exception as e:
-        print(e)
-        print("RTL component log not found")
-        return 0
+def rpt_extract(file: PurePath):
+    if not file.exists():
+        log.error(f"RPT file {file} is missing")
+        return None
+
+    parser = rpt.RPTParser(file)
+
+    # Optional asterisk at the end of table name here because in synthesis files
+    # the name comes with an asterisk
+    slice_logic = parser.get_table(re.compile(r"^\d+\. CLB Logic\*?$"), 2)
+    bram_table = parser.get_table(re.compile(r"^\d+\. BLOCKRAM$"), 2)
+    dsp_table = parser.get_table(re.compile(r"^\d+\. ARITHMETIC$"), 2)
+    logic_type = "CLB"
+
+    if not all([slice_logic, bram_table, dsp_table]):
+        log.warn("Failed to find CLB logic tables, defaulting to older RPT format")
+        slice_logic = parser.get_table(re.compile(r"^\d+\. Slice Logic\*?$"), 2)
+        bram_table = parser.get_table(re.compile(r"^\d+\. Memory$"), 2)
+        dsp_table = parser.get_table(re.compile(r"^\d+\. DSP$"), 2)
+        logic_type = "Slice"
+
+    if not all([slice_logic, bram_table, dsp_table]):
+        log.error("Failed to extract resource information")
+        return None
+
+    print(slice_logic, bram_table, dsp_table)
+    lut = find_row(slice_logic, "Site Type", f"{logic_type} LUTs", False)
+    if lut is None:
+        # Try to find the LUTs with the asterisk for synthesis files
+        lut = find_row(slice_logic, "Site Type", f"{logic_type} LUTs*", False)
+    lut = safe_get(lut, "Used")
+    reg = safe_get(
+        find_row(slice_logic, "Site Type", f"{logic_type} Registers", False), "Used"
+    )
+    carry8 = safe_get(find_row(slice_logic, "Site Type", "CARRY8", False), "Used")
+    f7_muxes = safe_get(find_row(slice_logic, "Site Type", "F7 Muxes", False), "Used")
+    f8_muxes = safe_get(find_row(slice_logic, "Site Type", "F8 Muxes", False), "Used")
+    f9_muxes = safe_get(find_row(slice_logic, "Site Type", "F9 Muxes", False), "Used")
+    dsp = safe_get(find_row(dsp_table, "Site Type", "DSPs", False), "Used")
+    brams = safe_get(find_row(bram_table, "Site Type", "Block RAM Tile", False), "Used")
+
+    return {
+        "lut": to_int(lut),
+        "dsp": to_int(dsp),
+        "brams": to_int(brams),
+        "registers": to_int(reg),
+        "carry8": to_int(carry8),
+        "f7_muxes": to_int(f7_muxes),
+        "f8_muxes": to_int(f8_muxes),
+        "f9_muxes": to_int(f9_muxes),
+    }
 
 
 def place_and_route_extract(
@@ -77,37 +115,12 @@ def place_and_route_extract(
 
     # Extract utilization information
     try:
-        if util_file.exists():
-            impl_parser = rpt.RPTParser(util_file)
-            slice_logic = impl_parser.get_table(re.compile(r"1\. CLB Logic"), 2)
-            dsp_table = impl_parser.get_table(re.compile(r"4\. ARITHMETIC"), 2)
-
-            clb_lut = to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"])
-            clb_reg = to_int(
-                find_row(slice_logic, "Site Type", "CLB Registers")["Used"]
-            )
-            carry8 = to_int(find_row(slice_logic, "Site Type", "CARRY8")["Used"])
-            f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
-            f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
-            f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
-            resource_info.update(
-                {
-                    "lut": to_int(
-                        find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]
-                    ),
-                    "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
-                    "registers": rtl_component_extract(synth_file, "Registers"),
-                    "muxes": rtl_component_extract(synth_file, "Muxes"),
-                    "clb_registers": clb_reg,
-                    "carry8": carry8,
-                    "f7_muxes": f7_muxes,
-                    "f8_muxes": f8_muxes,
-                    "f9_muxes": f9_muxes,
-                    "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
-                }
-            )
-        else:
-            log.error(f"Utilization implementation file {util_file} is missing")
+        resource_info.update(
+            {
+                "synth": rpt_extract(synth_file),
+                "impl": rpt_extract(util_file),
+            }
+        )
 
     except Exception:
         log.error(traceback.format_exc())
@@ -138,40 +151,6 @@ def place_and_route_extract(
         resource_info.update(
             {"frequency": float(safe_get(period_info, "Frequency(MHz)"))}
         )
-
-    # Extraction for synthesis files.
-    try:
-        if not synth_file.exists():
-            log.error(f"Synthesis file {synth_file} is missing")
-        else:
-            synth_parser = rpt.RPTParser(synth_file)
-            cell_usage_tbl = synth_parser.get_table(
-                re.compile(r"Report Cell Usage:"), 0
-            )
-            cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
-            cell_lut2 = find_row(cell_usage_tbl, "Cell", "LUT2", False)
-            cell_lut3 = find_row(cell_usage_tbl, "Cell", "LUT3", False)
-            cell_lut4 = find_row(cell_usage_tbl, "Cell", "LUT4", False)
-            cell_lut5 = find_row(cell_usage_tbl, "Cell", "LUT5", False)
-            cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
-            cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
-            uram_usage = find_row(cell_usage_tbl, "Cell", "URAM288", False)
-
-            resource_info.update(
-                {
-                    "uram": to_int(safe_get(uram_usage, "Count")),
-                    "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
-                    "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
-                    "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
-                    "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
-                    "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
-                    "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
-                    "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
-                }
-            )
-    except Exception:
-        log.error(traceback.format_exc())
-        log.error("Failed to extract synthesis information")
 
     return json.dumps(resource_info, indent=2)
 

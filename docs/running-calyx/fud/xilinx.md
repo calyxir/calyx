@@ -154,7 +154,7 @@ Then, look in the resulting directory, which will be named `fud-out-*` for some 
 In there, the Xilinx trace files you want are named `*.wdb` and `*.wcfg`.
 The VCD file is at `.run/*/hw_em/device0/binary_0/behav_waveform/xsim/dump.vcd` or similar.
 
-[emconfig.json]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/emconfigutil-Utility
+[emconfig.json]: https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/emconfigutil-Utility
 [xrt-debug]: https://xilinx.github.io/Vitis_Accel_Examples/2021.1/html/debug_profile.html
 [vcd]: https://en.wikipedia.org/wiki/Value_change_dump
 
@@ -260,5 +260,5 @@ It sets up the necessary input files and constructs a command line that looks mu
 [ip-xact]: https://en.wikipedia.org/wiki/IP-XACT
 [duh]: https://github.com/sifive/duh
 [package_kernel]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.1/Hardware_Acceleration/Feature_Tutorials/01-rtl_kernel_workflow/reference-files/scripts/package_kernel.tcl
-[package_xo]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/package_xo-Command
+[package_xo]: https://docs.amd.com/r/en-US/ug1702-vitis-accelerated-reference/package_xo-Command
 [pynq]: https://github.com/Xilinx/PYNQ

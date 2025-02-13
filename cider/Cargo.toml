@@ -1,0 +1,45 @@
+[package]
+name = "cider"
+version = "0.1.1"
+authors = ["The Calyx authors"]
+edition = "2021"
+rust-version.workspace = true
+
+[[bin]]
+name = "cider"
+path = "src/main.rs"
+
+[dependencies]
+smallvec = { workspace = true, features = ["union", "const_generics"] }
+serde = { workspace = true, features = ["derive", "rc"] }
+itertools.workspace = true
+pest.workspace = true
+pest_derive.workspace = true
+pest_consume.workspace = true
+argh.workspace = true
+thiserror.workspace = true
+slog.workspace = true
+slog-term.workspace = true
+slog-async.workspace = true
+ahash.workspace = true
+petgraph.workspace = true
+calyx-ir.workspace = true
+calyx-opt.workspace = true
+calyx-frontend.workspace = true
+calyx-utils = { workspace = true, features = ["serialize"] }
+cider-idx.workspace = true
+baa.workspace = true
+serde_json.workspace = true
+serde_with.workspace = true
+
+owo-colors = "^3.5"
+rustyline = "=15.0.0"
+fraction = { version = "0.15.3", features = ["with-serde-support"] }
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+ciborium = "0.2.2"
+fst-writer = "0.2.3"
+bon = "2.3"
+
+[dev-dependencies]
+proptest = "1.0.0"
