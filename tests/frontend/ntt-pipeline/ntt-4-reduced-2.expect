@@ -9,137 +9,137 @@
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
-component main() -> () {
+component main<"pos"={0}>() -> () {
   cells {
-    @external a = seq_mem_d1(32, 4, 3);
-    @external phis = seq_mem_d1(32, 4, 3);
-    r0 = std_reg(32);
-    A0 = std_reg(32);
-    phi0 = std_reg(32);
-    mod_pipe0 = std_sdiv_pipe(32);
-    r1 = std_reg(32);
-    A1 = std_reg(32);
-    phi1 = std_reg(32);
-    mod_pipe1 = std_sdiv_pipe(32);
-    r2 = std_reg(32);
-    A2 = std_reg(32);
-    phi2 = std_reg(32);
-    mod_pipe2 = std_sdiv_pipe(32);
-    r3 = std_reg(32);
-    A3 = std_reg(32);
-    phi3 = std_reg(32);
-    mod_pipe3 = std_sdiv_pipe(32);
-    mult0 = std_reg(32);
-    mult_pipe0 = std_smult_pipe(32);
-    add0 = std_sadd(32);
-    sub0 = std_ssub(32);
-    mult1 = std_reg(32);
-    mult_pipe1 = std_smult_pipe(32);
-    add1 = std_sadd(32);
-    sub1 = std_ssub(32);
+    @external @pos{1} a = seq_mem_d1(32, 4, 3);
+    @external @pos{2} phis = seq_mem_d1(32, 4, 3);
+    @pos{3} r0 = std_reg(32);
+    @pos{4} A0 = std_reg(32);
+    @pos{5} phi0 = std_reg(32);
+    @pos{6} mod_pipe0 = std_sdiv_pipe(32);
+    @pos{3} r1 = std_reg(32);
+    @pos{4} A1 = std_reg(32);
+    @pos{5} phi1 = std_reg(32);
+    @pos{6} mod_pipe1 = std_sdiv_pipe(32);
+    @pos{3} r2 = std_reg(32);
+    @pos{4} A2 = std_reg(32);
+    @pos{5} phi2 = std_reg(32);
+    @pos{6} mod_pipe2 = std_sdiv_pipe(32);
+    @pos{3} r3 = std_reg(32);
+    @pos{4} A3 = std_reg(32);
+    @pos{5} phi3 = std_reg(32);
+    @pos{6} mod_pipe3 = std_sdiv_pipe(32);
+    @pos{7} mult0 = std_reg(32);
+    @pos{8} mult_pipe0 = std_smult_pipe(32);
+    @pos{9} add0 = std_sadd(32);
+    @pos{10} sub0 = std_ssub(32);
+    @pos{7} mult1 = std_reg(32);
+    @pos{8} mult_pipe1 = std_smult_pipe(32);
+    @pos{9} add1 = std_sadd(32);
+    @pos{10} sub1 = std_ssub(32);
   }
   wires {
-    group preamble_0_reg {
+    group preamble_0_reg<"pos"={11}> {
       a.addr0 = 3'd0;
       a.content_en = 1'd1;
       r0.write_en = a.done ? 1'd1;
       r0.in = a.done ? a.read_data;
       preamble_0_reg[done] = r0.done;
     }
-    group preamble_0_phi {
+    group preamble_0_phi<"pos"={12}> {
       phis.addr0 = 3'd0;
       phis.content_en = 1'd1;
       phi0.write_en = phis.done ? 1'd1;
       phi0.in = phis.done ? phis.read_data;
       preamble_0_phi[done] = phi0.done;
     }
-    group preamble_1_reg {
+    group preamble_1_reg<"pos"={11}> {
       a.addr0 = 3'd1;
       a.content_en = 1'd1;
       r1.write_en = a.done ? 1'd1;
       r1.in = a.done ? a.read_data;
       preamble_1_reg[done] = r1.done;
     }
-    group preamble_1_phi {
+    group preamble_1_phi<"pos"={12}> {
       phis.addr0 = 3'd1;
       phis.content_en = 1'd1;
       phi1.write_en = phis.done ? 1'd1;
       phi1.in = phis.done ? phis.read_data;
       preamble_1_phi[done] = phi1.done;
     }
-    group preamble_2_reg {
+    group preamble_2_reg<"pos"={11}> {
       a.addr0 = 3'd2;
       a.content_en = 1'd1;
       r2.write_en = a.done ? 1'd1;
       r2.in = a.done ? a.read_data;
       preamble_2_reg[done] = r2.done;
     }
-    group preamble_2_phi {
+    group preamble_2_phi<"pos"={12}> {
       phis.addr0 = 3'd2;
       phis.content_en = 1'd1;
       phi2.write_en = phis.done ? 1'd1;
       phi2.in = phis.done ? phis.read_data;
       preamble_2_phi[done] = phi2.done;
     }
-    group preamble_3_reg {
+    group preamble_3_reg<"pos"={11}> {
       a.addr0 = 3'd3;
       a.content_en = 1'd1;
       r3.write_en = a.done ? 1'd1;
       r3.in = a.done ? a.read_data;
       preamble_3_reg[done] = r3.done;
     }
-    group preamble_3_phi {
+    group preamble_3_phi<"pos"={12}> {
       phis.addr0 = 3'd3;
       phis.content_en = 1'd1;
       phi3.write_en = phis.done ? 1'd1;
       phi3.in = phis.done ? phis.read_data;
       preamble_3_phi[done] = phi3.done;
     }
-    group precursor_0 {
+    group precursor_0<"pos"={13}> {
       r0.in = A0.out;
       r0.write_en = 1'd1;
       precursor_0[done] = r0.done;
     }
-    group precursor_1 {
+    group precursor_1<"pos"={13}> {
       r1.in = A1.out;
       r1.write_en = 1'd1;
       precursor_1[done] = r1.done;
     }
-    group precursor_2 {
+    group precursor_2<"pos"={13}> {
       r2.in = A2.out;
       r2.write_en = 1'd1;
       precursor_2[done] = r2.done;
     }
-    group precursor_3 {
+    group precursor_3<"pos"={13}> {
       r3.in = A3.out;
       r3.write_en = 1'd1;
       precursor_3[done] = r3.done;
     }
-    group s0_mul0 {
+    group s0_mul0<"pos"={14}> {
       mult_pipe0.left = phi1.out;
       mult_pipe0.right = r2.out;
       mult_pipe0.go = 1'd1;
       s0_mul0[done] = mult_pipe0.done;
     }
-    group s0_mul1 {
+    group s0_mul1<"pos"={14}> {
       mult_pipe1.left = phi1.out;
       mult_pipe1.right = r3.out;
       mult_pipe1.go = 1'd1;
       s0_mul1[done] = mult_pipe1.done;
     }
-    group s1_mul0 {
+    group s1_mul0<"pos"={14}> {
       mult_pipe0.left = phi2.out;
       mult_pipe0.right = r1.out;
       mult_pipe0.go = 1'd1;
       s1_mul0[done] = mult_pipe0.done;
     }
-    group s1_mul1 {
+    group s1_mul1<"pos"={14}> {
       mult_pipe1.left = phi3.out;
       mult_pipe1.right = r3.out;
       mult_pipe1.go = 1'd1;
       s1_mul1[done] = mult_pipe1.done;
     }
-    group s0_r0_op_mod {
+    group s0_r0_op_mod<"pos"={15}> {
       add0.left = r0.out;
       add0.right = mult_pipe0.out;
       mod_pipe0.left = add0.out;
@@ -149,7 +149,7 @@ component main() -> () {
       A0.in = mod_pipe0.out_remainder;
       s0_r0_op_mod[done] = A0.done;
     }
-    group s0_r1_op_mod {
+    group s0_r1_op_mod<"pos"={15}> {
       add1.left = r1.out;
       add1.right = mult_pipe1.out;
       mod_pipe1.left = add1.out;
@@ -159,7 +159,7 @@ component main() -> () {
       A1.in = mod_pipe1.out_remainder;
       s0_r1_op_mod[done] = A1.done;
     }
-    group s0_r2_op_mod {
+    group s0_r2_op_mod<"pos"={15}> {
       sub0.left = r0.out;
       sub0.right = mult_pipe0.out;
       mod_pipe2.left = sub0.out;
@@ -169,7 +169,7 @@ component main() -> () {
       A2.in = mod_pipe2.out_remainder;
       s0_r2_op_mod[done] = A2.done;
     }
-    group s0_r3_op_mod {
+    group s0_r3_op_mod<"pos"={15}> {
       sub1.left = r1.out;
       sub1.right = mult_pipe1.out;
       mod_pipe3.left = sub1.out;
@@ -179,7 +179,7 @@ component main() -> () {
       A3.in = mod_pipe3.out_remainder;
       s0_r3_op_mod[done] = A3.done;
     }
-    group s1_r0_op_mod {
+    group s1_r0_op_mod<"pos"={15}> {
       add0.left = r0.out;
       add0.right = mult_pipe0.out;
       mod_pipe0.left = add0.out;
@@ -189,7 +189,7 @@ component main() -> () {
       A0.in = mod_pipe0.out_remainder;
       s1_r0_op_mod[done] = A0.done;
     }
-    group s1_r1_op_mod {
+    group s1_r1_op_mod<"pos"={15}> {
       sub0.left = r0.out;
       sub0.right = mult_pipe0.out;
       mod_pipe1.left = sub0.out;
@@ -199,7 +199,7 @@ component main() -> () {
       A1.in = mod_pipe1.out_remainder;
       s1_r1_op_mod[done] = A1.done;
     }
-    group s1_r2_op_mod {
+    group s1_r2_op_mod<"pos"={15}> {
       add1.left = r2.out;
       add1.right = mult_pipe1.out;
       mod_pipe2.left = add1.out;
@@ -209,7 +209,7 @@ component main() -> () {
       A2.in = mod_pipe2.out_remainder;
       s1_r2_op_mod[done] = A2.done;
     }
-    group s1_r3_op_mod {
+    group s1_r3_op_mod<"pos"={15}> {
       sub1.left = r2.out;
       sub1.right = mult_pipe1.out;
       mod_pipe3.left = sub1.out;
@@ -219,28 +219,28 @@ component main() -> () {
       A3.in = mod_pipe3.out_remainder;
       s1_r3_op_mod[done] = A3.done;
     }
-    group epilogue_0 {
+    group epilogue_0<"pos"={16}> {
       a.addr0 = 3'd0;
       a.write_en = 1'd1;
       a.write_data = A0.out;
       epilogue_0[done] = a.done;
       a.content_en = 1'd1;
     }
-    group epilogue_1 {
+    group epilogue_1<"pos"={16}> {
       a.addr0 = 3'd1;
       a.write_en = 1'd1;
       a.write_data = A1.out;
       epilogue_1[done] = a.done;
       a.content_en = 1'd1;
     }
-    group epilogue_2 {
+    group epilogue_2<"pos"={16}> {
       a.addr0 = 3'd2;
       a.write_en = 1'd1;
       a.write_data = A2.out;
       epilogue_2[done] = a.done;
       a.content_en = 1'd1;
     }
-    group epilogue_3 {
+    group epilogue_3<"pos"={16}> {
       a.addr0 = 3'd3;
       a.write_en = 1'd1;
       a.write_data = A3.out;
@@ -249,64 +249,98 @@ component main() -> () {
     }
   }
   control {
-    seq {
-      seq {
-        par {
-          preamble_0_reg;
-          preamble_0_phi;
+    @pos{27} seq {
+      @pos{20} seq {
+        @pos{19} par {
+          @pos{17} preamble_0_reg;
+          @pos{18} preamble_0_phi;
         }
-        par {
-          preamble_1_reg;
-          preamble_1_phi;
+        @pos{19} par {
+          @pos{17} preamble_1_reg;
+          @pos{18} preamble_1_phi;
         }
-        par {
-          preamble_2_reg;
-          preamble_2_phi;
+        @pos{19} par {
+          @pos{17} preamble_2_reg;
+          @pos{18} preamble_2_phi;
         }
-        par {
-          preamble_3_reg;
-          preamble_3_phi;
+        @pos{19} par {
+          @pos{17} preamble_3_reg;
+          @pos{18} preamble_3_phi;
         }
       }
-      par {
-        s0_mul0;
-        s0_mul1;
+      @pos{26} par {
+        @pos{22} s0_mul0;
+        @pos{22} s0_mul1;
       }
-      par {
-        s0_r0_op_mod;
-        s0_r1_op_mod;
+      @pos{26} par {
+        @pos{23} s0_r0_op_mod;
+        @pos{23} s0_r1_op_mod;
       }
-      par {
-        s0_r2_op_mod;
-        s0_r3_op_mod;
+      @pos{26} par {
+        @pos{23} s0_r2_op_mod;
+        @pos{23} s0_r3_op_mod;
       }
-      par {
-        precursor_0;
-        precursor_1;
+      @pos{26} par {
+        @pos{24} precursor_0;
+        @pos{24} precursor_1;
       }
-      par {
-        precursor_2;
-        precursor_3;
+      @pos{26} par {
+        @pos{24} precursor_2;
+        @pos{24} precursor_3;
       }
-      par {
-        s1_mul0;
-        s1_mul1;
+      @pos{26} par {
+        @pos{22} s1_mul0;
+        @pos{22} s1_mul1;
       }
-      par {
-        s1_r0_op_mod;
-        s1_r1_op_mod;
+      @pos{26} par {
+        @pos{23} s1_r0_op_mod;
+        @pos{23} s1_r1_op_mod;
       }
-      par {
-        s1_r2_op_mod;
-        s1_r3_op_mod;
+      @pos{26} par {
+        @pos{23} s1_r2_op_mod;
+        @pos{23} s1_r3_op_mod;
       }
-      seq {
-        epilogue_0;
-        epilogue_1;
-        epilogue_2;
-        epilogue_3;
+      @pos{21} seq {
+        @pos{21} epilogue_0;
+        @pos{21} epilogue_1;
+        @pos{21} epilogue_2;
+        @pos{21} epilogue_3;
       }
     }
   }
 }
+
+sourceinfo #{
+FILES 
+  0: gen-ntt-pipeline.py
+POSITIONS 
+  0: 0 291
+  1: 0 227
+  2: 0 228
+  3: 0 231
+  4: 0 232
+  5: 0 233
+  6: 0 234
+  7: 0 237
+  8: 0 238
+  9: 0 239
+  10: 0 240
+  11: 0 207
+  12: 0 213
+  13: 0 200
+  14: 0 170
+  15: 0 187
+  16: 0 223
+  17: 0 262
+  18: 0 263
+  19: 0 260
+  20: 0 258
+  21: 0 270
+  22: 0 281
+  23: 0 285
+  24: 0 277
+  25: 0 287
+  26: 0 44
+  27: 0 47
+}#
 

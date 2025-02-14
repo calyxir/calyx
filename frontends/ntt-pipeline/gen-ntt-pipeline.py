@@ -5,7 +5,7 @@ import numpy as np
 import calyx.py_ast as ast
 import calyx.builder as cb
 from calyx.utils import bits_needed
-
+import os
 
 def reduce_parallel_control_pass(component: ast.Component, N: int, input_size: int):
     """Reduces the amount of fan-out by reducing
@@ -287,7 +287,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         return ast.SeqComp(preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
-    prog = cb.Builder()
+    prog = cb.Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     main = prog.component("main")
     insert_cells(main)
     wires(main)

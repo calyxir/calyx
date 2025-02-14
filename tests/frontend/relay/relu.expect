@@ -185,21 +185,33 @@ component relu_2x4x8x32() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
-    @external x = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
-    @external x1 = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
-    relu_2x4x8x32_ = relu_2x4x8x32();
+    @external @pos{0} x = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    @external @pos{0} x1 = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    @pos{1} relu_2x4x8x32_ = relu_2x4x8x32();
   }
   wires {
 
   }
   control {
-    seq {
-      @pos(0) invoke relu_2x4x8x32_[x=x, x1=x1]()();
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke relu_2x4x8x32_[x=x, x1=x1]()();
     }
   }
 }
 metadata #{
 0: let %x1: Tensor[(2, 4, 8, 32), float32] /* ty=Tensor[(2, 4, 8, 32), float32] span=from_string:4:3 */ = nn.relu(%x) /* ty=Tensor[(2, 4, 8, 32), float32] span=from_string:3:45 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 276
+  2: 0 117
+  3: 1 391
+  4: 1 386
 }#

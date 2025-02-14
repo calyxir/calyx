@@ -1218,6 +1218,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "fileinfo_emitter"
+version = "0.7.1"
+dependencies = [
+ "argh",
+ "calyx-frontend",
+ "calyx-ir",
+ "calyx-opt",
+ "calyx-utils",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

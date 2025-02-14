@@ -26,14 +26,13 @@ class MalformedGroupError(Exception):
 class Builder:
     """The entry-point builder for top-level Calyx programs."""
 
-    def __init__(self):
-        self.program = ast.Program(
-            imports=[],
-            components=[],
-        )
+    def __init__(self, fileinfo_base_path=None, emit_sourceloc=True):
+        self.program = ast.Program(imports=[], components=[])
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
+        ast.FILEINFO_BASE_PATH = fileinfo_base_path
+        ast.EMIT_SOURCELOC = emit_sourceloc
 
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
@@ -81,7 +80,7 @@ class ComponentBuilder:
         self.component: Union[ast.Component, ast.CombComponent] = (
             ast.Component(
                 name,
-                attributes=[],
+                attributes=set(),
                 inputs=[],
                 outputs=[],
                 structs=list(),
@@ -91,7 +90,7 @@ class ComponentBuilder:
             if not is_comb
             else ast.CombComponent(
                 name,
-                attributes=[],
+                attributes=set(),
                 inputs=[],
                 outputs=[],
                 structs=list(),
@@ -134,26 +133,26 @@ class ComponentBuilder:
 
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
-        self.component.attributes.append(ast.CompAttribute(name, value))
+        self.component.attributes.add(ast.CompAttribute(name, value))
 
     def _port_with_attributes(
         self,
         name: str,
         size: int,
         is_input: bool,
-        attribute_literals: List[RawPortAttr],
+        attribute_literals: set[RawPortAttr],
     ) -> ExprBuilder:
         """Should not be called directly.
         Declare a port on the component with attributes.
 
         Returns an expression builder for the port.
         """
-        attributes = []
+        attributes = set()
         for attr in attribute_literals:
             if isinstance(attr, str):
-                attributes.append(ast.PortAttribute(attr))
+                attributes.add(ast.PortAttribute(attr))
             elif isinstance(attr, tuple):
-                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+                attributes.add(ast.PortAttribute(attr[0], attr[1]))
             else:
                 raise ValueError(
                     f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
@@ -1206,11 +1205,9 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             (
                 k[3:],
                 (
-                    (
-                        const(try_infer_width(k[3:]), v).expr
-                        if isinstance(v, int)
-                        else ExprBuilder.unwrap(v)
-                    )
+                    const(try_infer_width(k[3:]), v).expr
+                    if isinstance(v, int)
+                    else ExprBuilder.unwrap(v)
                 ),
             )
             for (k, v) in kwargs.items()

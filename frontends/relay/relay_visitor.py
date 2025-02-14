@@ -27,6 +27,11 @@ from calyx.utils import float_to_fixed_point
 from calyx import numeric_types
 from dahlia_impl import emit_components
 
+# Calyx-py soureinfo should emit paths relative to the script's directory
+import calyx.py_ast as ast
+import os
+ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+
 calyx_keywords_list = ["input"]
 
 
@@ -276,7 +281,7 @@ class Relay2Calyx(ExprFunctor):
             invoke = ru.emit_invoke_control(
                 comp_decl, dest, value.args, old_args=old_func_args, old_dest=old_dest
             )
-            invoke.attributes.append(("pos", self.pos_count))
+            invoke.attributes.add(("pos", self.pos_count))
             self.controls.append(invoke)
 
             tag = self.pos_count
@@ -384,6 +389,7 @@ class Relay2Calyx(ExprFunctor):
                 outputs=[],
                 structs=self.wires + list(self.id_to_cell.values()),
                 controls=SeqComp(self.controls),
+                attributes=set()
             ),
             self.func_defs,
         )

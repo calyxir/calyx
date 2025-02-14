@@ -1,32 +1,45 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main() -> () {
+component main<"pos"={6}>() -> () {
   cells {
-    lt = std_lt(32);
-    x = std_reg(32);
+    @pos{0} lt = std_lt(32);
+    @pos{1} x = std_reg(32);
   }
   wires {
-    group cond {
+    group cond<"pos"={2}> {
       lt.left = 32'd0;
       lt.right = 32'd1;
       cond[done] = 1'd1;
     }
-    group true {
+    group true<"pos"={3}> {
       x.in = 32'd1;
       x.write_en = 1'd1;
       true[done] = x.done;
     }
-    group false {
+    group false<"pos"={4}> {
       x.in = 32'd0;
       x.write_en = 1'd1;
       false[done] = x.done;
     }
   }
   control {
-    if lt.out with cond {
-      true;
+    @pos{5} if lt.out with cond {
+      @pos{5} true;
     } else {
-      false;
+      @pos{5} false;
     }
   }
 }
+
+sourceinfo #{
+FILES 
+  0: if.py
+POSITIONS 
+  0: 0 10
+  1: 0 11
+  2: 0 19
+  3: 0 27
+  4: 0 37
+  5: 0 49
+  6: 0 51
+}#

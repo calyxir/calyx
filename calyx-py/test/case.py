@@ -1,4 +1,5 @@
 from calyx.builder import Builder, invoke
+import os
 
 
 # Creates a component the has a case statement.
@@ -19,7 +20,7 @@ def add_case(prog):
 
 
 def build():
-    prog = Builder()
+    prog = Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     add_case(prog)
     return prog.program
 

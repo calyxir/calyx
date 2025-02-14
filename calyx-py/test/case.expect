@@ -1,13 +1,13 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component my_comp(in_1: 8) -> (out_1: 16) {
+component my_comp<"pos"={0}>(in_1: 8) -> (out_1: 16) {
   cells {
-    comp_reg = std_reg(1);
-    in_1_eq_2_1 = std_eq(8);
-    in_1_eq_1_2 = std_eq(8);
+    @pos{1} comp_reg = std_reg(1);
+    @pos{4} in_1_eq_2_1 = std_eq(8);
+    @pos{4} in_1_eq_1_2 = std_eq(8);
   }
   wires {
-    group my_group {
+    group my_group<"pos"={2}> {
 
     }
     in_1_eq_2_1.left = in_1;
@@ -16,12 +16,23 @@ component my_comp(in_1: 8) -> (out_1: 16) {
     in_1_eq_1_2.right = 8'd1;
   }
   control {
-    if in_1_eq_1_2.out {
-      my_group;
+    @pos{4} if in_1_eq_1_2.out {
+      @pos{4} my_group;
     } else {
-      if in_1_eq_2_1.out {
-        invoke comp_reg(in=1'd1)();
+      @pos{4} if in_1_eq_2_1.out {
+        @pos{3} invoke comp_reg(in=1'd1)();
       }
     }
   }
 }
+
+sourceinfo #{
+FILES 
+  0: case.py
+POSITIONS 
+  0: 0 8
+  1: 0 9
+  2: 0 13
+  3: 0 17
+  4: 0 18
+}#
