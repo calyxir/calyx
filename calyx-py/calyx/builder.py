@@ -27,12 +27,13 @@ class MalformedGroupError(Exception):
 class Builder:
     """The entry-point builder for top-level Calyx programs."""
 
-    def __init__(self, fileinfo_base_path=None):
+    def __init__(self, fileinfo_base_path=None, emit_sourceloc=True):
         self.program = ast.Program(imports=[], components=[])
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
         ast.FILEINFO_BASE_PATH = fileinfo_base_path
+        ast.EMIT_SOURCELOC = emit_sourceloc
 
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""

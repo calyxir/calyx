@@ -10,6 +10,11 @@ The base path that fileinfos will be relative with respect to. If None, absolute
 """
 FILEINFO_BASE_PATH = None
 
+"""
+Determines if sourceinfo and @pos attributes should be emitted or not.
+"""
+EMIT_SOURCELOC = True
+
 
 @dataclass
 class Emittable:
@@ -47,6 +52,9 @@ class PosTable:
     @staticmethod
     def determine_source_loc() -> Optional[int]:
         """Inspects the call stack to determine the first call site outside the calyx-py library."""
+        if not EMIT_SOURCELOC:
+            return None
+
         stacktrace = inspect.stack()
 
         # inspect top frame to determine the path to the calyx-py library
@@ -116,7 +124,7 @@ class Program(Emittable):
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
             out += "}#"
-        if len(FileTable.table) > 0 and len(PosTable.table) > 0:
+        if EMIT_SOURCELOC and len(FileTable.table) > 0 and len(PosTable.table) > 0:
             out += "\n\nsourceinfo #{\n"
             out += FileTable.emit_fileinfo_metadata()
             out += PosTable.emit_fileinfo_metadata()
@@ -209,6 +217,7 @@ class CombComponent:
     outputs: list[PortDef]
     wires: list[Structure]
     cells: list[Cell]
+    loc: Optional[int]
 
     def __init__(
         self,
@@ -222,6 +231,7 @@ class CombComponent:
         self.attributes = attributes
         self.inputs = inputs
         self.outputs = outputs
+        self.loc = PosTable.determine_source_loc()
 
         # Partition cells and wires.
         def is_cell(x):
