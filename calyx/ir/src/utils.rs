@@ -35,6 +35,7 @@ pub enum MemoryType {
 
 /// Parameters for std memories
 pub struct MemInfo {
+    pub name: String,
     pub memory_type: MemoryType,
     pub data_width: u64,
     pub dimensions: u64,
@@ -85,6 +86,7 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                     };
                   let total_size = dimension_sizes.clone().iter().product();
                   MemInfo {
+                      name: mem.name().to_string(),
                       memory_type: mem_type,
                       data_width: mem.get_parameter("WIDTH").unwrap(),
                       dimensions,

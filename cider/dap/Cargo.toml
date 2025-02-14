@@ -7,17 +7,16 @@ edition = "2021"
 
 [dependencies]
 dap = { git = "https://github.com/sztomi/dap-rs", tag = "v0.4.1-alpha1" }
-thiserror = "1.*"
-serde_json = "1.0"
-serde.workspace = true
-owo-colors = "^3.5"
-argh = "0.1"
-slog = "2.7.0"
-slog-term = "2.8.0"
-slog-async = "2.7.0"
+argh.workspace = true
 baa.workspace = true
-
-cider = { path = "../cider" }
+cider.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+slog.workspace = true
+slog-term.workspace = true
+slog-async.workspace = true
+owo-colors = "^3.5"
 
 [[bin]]
 name = "cider-dap"

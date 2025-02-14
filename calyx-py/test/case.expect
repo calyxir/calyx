@@ -3,24 +3,23 @@ import "primitives/binary_operators.futil";
 component my_comp<"pos"={0}>(in_1: 8) -> (out_1: 16) {
   cells {
     @pos{1} comp_reg = std_reg(1);
-    @pos{4} in_1_eq_1_1 = std_eq(8);
-    @pos{4} in_1_eq_2_2 = std_eq(8);
+    @pos{4} in_1_eq_2_1 = std_eq(8);
+    @pos{4} in_1_eq_1_2 = std_eq(8);
   }
   wires {
     group my_group<"pos"={2}> {
 
     }
-    in_1_eq_1_1.left = in_1;
-    in_1_eq_1_1.right = 8'd1;
-    in_1_eq_2_2.left = in_1;
-    in_1_eq_2_2.right = 8'd2;
+    in_1_eq_2_1.left = in_1;
+    in_1_eq_2_1.right = 8'd2;
+    in_1_eq_1_2.left = in_1;
+    in_1_eq_1_2.right = 8'd1;
   }
   control {
-    @pos{4} par {
-      @pos{4} if in_1_eq_1_1.out {
-        @pos{4} my_group;
-      }
-      @pos{4} if in_1_eq_2_2.out {
+    @pos{4} if in_1_eq_1_2.out {
+      @pos{4} my_group;
+    } else {
+      @pos{4} if in_1_eq_2_1.out {
         @pos{3} invoke comp_reg(in=1'd1)();
       }
     }
