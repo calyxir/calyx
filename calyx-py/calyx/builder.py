@@ -4,7 +4,6 @@ import threading
 from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
-import os
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!

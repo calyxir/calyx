@@ -47,7 +47,7 @@ class FileTable:
 
 class PosTable:
     counter: int = 0
-    table: Dict[(int, int), int] = {}  # (fileid, linenum) -> positionId
+    table: Dict[Tuple[int, int], int] = {}  # contents: (fileid, linenum) -> positionId
 
     @staticmethod
     def determine_source_loc() -> Optional[int]:
