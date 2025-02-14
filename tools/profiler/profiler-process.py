@@ -366,12 +366,12 @@ def read_component_cell_names_json(json_file):
     build_components_to_cells(
         full_main_component, main_component, cells_to_components, components_to_cells
     )
-    full_cell_names_to_components = {}
+    full_cell_names_to_components = {} # fully_qualified_cell_name --> component name (of cell)
     for component in components_to_cells:
         for cell in components_to_cells[component]:
             full_cell_names_to_components[cell] = component
 
-    return full_main_component, full_cell_names_to_components
+    return full_main_component, full_cell_names_to_components, components_to_cells
 
 
 """
@@ -906,12 +906,18 @@ def convert_trace(trace, adl_mapping_file):
 
     return adl_only_trace, mixed_trace
 
+def read_fsm_file(fsm_json_file, components_to_cells):
+    json_data = json.load(open(fsm_json_file))
+    
+    return
 
-def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out):
+
+def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out):
     print(f"Start time: {datetime.now()}")
-    main_component, cells_to_components = read_component_cell_names_json(
+    main_component, cells_to_components, components_to_cells = read_component_cell_names_json(
         cells_json_file
     )
+    fsms = read_fsm_file(fsm_json_file, components_to_cells)
     print(f"Start reading VCD: {datetime.now()}")
     converter = VCDConverter(main_component, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
@@ -957,17 +963,18 @@ def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 4:
+    if len(sys.argv) > 5:
         vcd_filename = sys.argv[1]
         cells_json = sys.argv[2]
-        out_dir = sys.argv[3]
-        flame_out = sys.argv[4]
-        if len(sys.argv) > 5:
-            adl_mapping_file = sys.argv[5]
+        fsms_json = sys.argv[3]
+        out_dir = sys.argv[4]
+        flame_out = sys.argv[5]
+        if len(sys.argv) > 6:
+            adl_mapping_file = sys.argv[6]
         else:
             adl_mapping_file = None
         print(adl_mapping_file)
-        main(vcd_filename, cells_json, adl_mapping_file, out_dir, flame_out)
+        main(vcd_filename, cells_json, fsms_json, adl_mapping_file, out_dir, flame_out)
     else:
         args_desc = [
             "VCD_FILE",
