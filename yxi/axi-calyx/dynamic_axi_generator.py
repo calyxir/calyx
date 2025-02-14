@@ -766,7 +766,7 @@ def clog2_or_1(x):
 
 
 def build():
-    prog = Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
+    prog = Builder(emit_sourceloc=False)
     check_mems_wellformed(mems)
     for mem in mems:
         add_arread_channel(prog, mem)

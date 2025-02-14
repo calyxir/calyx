@@ -663,7 +663,7 @@ def clog2_or_1(x):
 
 
 def build():
-    prog = Builder(os.path.dirname(os.path.realpath(__file__)))
+    prog = Builder(emit_sourceloc=False)
     check_mems_welformed(mems)
     add_arread_channel(prog, mems[0])
     add_awwrite_channel(prog, mems[0])
