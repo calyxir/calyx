@@ -1,6 +1,7 @@
 import calyx.builder as cb
 import os
 
+
 def insert_identity_component(prog):
     identity = prog.component("identity")
     r = identity.reg(32, "r")
