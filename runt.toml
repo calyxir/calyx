@@ -247,6 +247,26 @@ fud2 --from calyx --to jq \
 timeout = 120
 
 [[tests]]
+name = "correctness dynamic infer fsms"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil",
+  "tests/correctness/static-interface/*.futil",
+]
+cmd = """
+fud2 --from calyx --to jq \
+     --through icarus \
+     -s calyx.exec='./target/debug/calyx' \
+     -s calyx.flags='-x tdcc:infer-fsms -d static-promotion' \
+     -s verilog.cycle_limit=500 \
+     -s sim.data={}.data \
+     -s jq.expr=".memories" \
+     {} -q
+"""
+timeout = 120
+
+[[tests]]
 name = "correctness dynamic fsm register duplication"
 paths = [
   "tests/correctness/*.futil",

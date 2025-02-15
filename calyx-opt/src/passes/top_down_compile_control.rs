@@ -731,7 +731,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     None => vec![],
                     Some(assigns) => assigns.clone(),
                 };
-
                 // self-loop if all other guards are not met;
                 // should be at the end of the conditional destinations vec!
                 cond_dsts.push((ir::Guard::True, state));
