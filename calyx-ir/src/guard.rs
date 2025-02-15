@@ -1,7 +1,7 @@
-use crate::Printer;
-
 use super::{NumAttr, Port, RRC};
+use crate::Printer;
 use calyx_utils::Error;
+use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
@@ -480,6 +480,36 @@ impl Guard<StaticTiming> {
     /// updates self -> self & interval
     pub fn add_interval(&mut self, timing_interval: StaticTiming) {
         self.update(|g| g.and(Guard::Info(timing_interval)));
+    }
+
+    /// Take a static assignment guard and the latency of the group in which the assignment
+    /// exists, and provide a list of states, relative to the group's latency, in which
+    /// the static assignment should be valid.
+    pub fn compute_live_states(&self, group_latency: u64) -> HashSet<u64> {
+        match self {
+            Self::True => (0..group_latency).collect(),
+            Self::And(l, r) => l
+                .compute_live_states(group_latency)
+                .intersection(&r.compute_live_states(group_latency))
+                .cloned()
+                .collect(),
+            Self::Or(l, r) => l
+                .compute_live_states(group_latency)
+                .union(&r.compute_live_states(group_latency))
+                .cloned()
+                .collect(),
+            Self::Not(g) => {
+                let dont_include = g.compute_live_states(group_latency);
+                (0..group_latency)
+                    .filter(|state| dont_include.contains(state))
+                    .collect()
+            }
+            Self::Info(static_timing) => {
+                let (b, e) = static_timing.interval;
+                (b..=e).collect()
+            }
+            Self::CompOp(..) | Self::Port(_) => HashSet::new(),
+        }
     }
 }
 
