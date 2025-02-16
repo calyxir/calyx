@@ -7,9 +7,9 @@ use crate::passes::{
     DefaultAssigns, DynamicFSMAllocation, Externalize, GoInsertion,
     GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
-    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
-    WellFormed, WireInliner, WrapMain,
+    SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
+    StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
+    UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -45,6 +45,7 @@ impl PassManager {
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
+        pm.register_pass::<StaticFSMAllocation>()?;
         pm.register_pass::<StaticFSMOpts>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
@@ -111,6 +112,8 @@ impl PassManager {
                 CollapseControl,
             ]
         );
+        // this path should be used instead of `pre-opt --> compile`, not with it
+        register_alias!(pm, "fsm-opt", [StaticFSMAllocation]);
         register_alias!(
             pm,
             "compile",

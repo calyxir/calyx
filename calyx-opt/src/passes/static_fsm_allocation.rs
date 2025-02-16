@@ -1,6 +1,8 @@
-use crate::traversal::{Named, Visitor};
-use calyx_ir::{self as ir, build_assignments, Nothing, StaticTiming};
+use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
+use calyx_ir::{self as ir, build_assignments};
+use calyx_utils::CalyxResult;
 use core::ops::Not;
+use itertools::Itertools;
 use std::collections::HashMap;
 pub struct StaticFSMAllocation {}
 
@@ -11,6 +13,13 @@ impl Named for StaticFSMAllocation {
     fn description() -> &'static str {
         "compiles a static schedule into an FSM construct"
     }
+}
+
+impl ConstructVisitor for StaticFSMAllocation {
+    fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
+        Ok(StaticFSMAllocation {})
+    }
+    fn clear_data(&mut self) {}
 }
 
 /// An instance of `StaticSchedule` is constrainted to live at least as long as
@@ -44,7 +53,7 @@ impl<'a> StaticSchedule<'a> {
     fn construct_schedule(
         &mut self,
         scon: &ir::StaticControl,
-        guard_opt: Option<ir::Guard<Nothing>>,
+        guard_opt: Option<ir::Guard<ir::Nothing>>,
     ) {
         match scon {
             ir::StaticControl::Empty(_) | ir::StaticControl::Invoke(_) => (),
@@ -151,6 +160,7 @@ impl<'a> StaticSchedule<'a> {
         ) = self
             .state2assigns
             .drain()
+            .sorted_by(|(s1, _), (s2, _)| s1.cmp(s2))
             .map(|(state, assigns)| {
                 (assigns, ir::Transition::new_uncond(state + 2))
             })
@@ -179,4 +189,16 @@ impl<'a> StaticSchedule<'a> {
     }
 }
 
-impl Visitor for StaticFSMAllocation {}
+impl Visitor for StaticFSMAllocation {
+    fn start_static_control(
+        &mut self,
+        s: &mut calyx_ir::StaticControl,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        let mut ssch = StaticSchedule::from(ir::Builder::new(comp, sigs));
+        ssch.construct_schedule(s, None);
+        Ok(Action::change(ir::Control::fsm_enable(ssch.realize_fsm())))
+    }
+}
