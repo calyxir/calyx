@@ -1,5 +1,5 @@
 use crate::traversal::{Named, Visitor};
-use calyx_ir::{self as ir, build_assignments, StaticTiming};
+use calyx_ir::{self as ir, build_assignments, Nothing, StaticTiming};
 use core::ops::Not;
 use std::collections::HashMap;
 pub struct StaticFSMAllocation {}
@@ -21,7 +21,7 @@ struct StaticSchedule<'a> {
     /// Number of cycles to which the static schedule should count up
     latency: u64,
     /// Maps every FSM state to assignments that should be active in that state
-    state2assigns: HashMap<u64, Vec<ir::Assignment<StaticTiming>>>,
+    state2assigns: HashMap<u64, Vec<ir::Assignment<ir::Nothing>>>,
 }
 
 impl<'a> From<ir::Builder<'a>> for StaticSchedule<'a> {
@@ -44,7 +44,7 @@ impl<'a> StaticSchedule<'a> {
     fn construct_schedule(
         &mut self,
         scon: &ir::StaticControl,
-        guard_opt: Option<ir::Guard<StaticTiming>>,
+        guard_opt: Option<ir::Guard<Nothing>>,
     ) {
         match scon {
             ir::StaticControl::Empty(_) | ir::StaticControl::Invoke(_) => (),
@@ -56,14 +56,19 @@ impl<'a> StaticSchedule<'a> {
                         .compute_live_states(sen.group.borrow().latency)
                         .into_iter()
                         .for_each(|offset| {
-                            let mut sassign_copy = sassign.clone();
-                            sassign_copy.and_guard(guard_opt.clone());
+                            // conver the static assignment to a normal one
+                            let mut assign: ir::Assignment<ir::Nothing> =
+                                ir::Assignment::from(sassign.clone());
+                            // "and" the assignment's guard with argument guard
+                            assign.and_guard(guard_opt.clone());
+                            // add this assignment to the list of assignments
+                            // that are supposed to be valid at this state
                             self.state2assigns
                                 .entry(base + offset)
                                 .and_modify(|other_assigns| {
-                                    other_assigns.push(sassign_copy.clone())
+                                    other_assigns.push(assign.clone())
                                 })
-                                .or_insert(vec![sassign_copy]);
+                                .or_insert(vec![assign]);
                         })
                 });
                 self.latency += sen.group.borrow().latency;
@@ -140,16 +145,21 @@ impl<'a> StaticSchedule<'a> {
             self.state2assigns.entry(state).or_insert(Vec::new());
         });
 
-        let (calc_state_transitions, calc_state_assignments): (
+        let (calc_state_assignments, calc_state_transitions): (
+            Vec<Vec<ir::Assignment<ir::Nothing>>>,
             Vec<ir::Transition>,
-            Vec<Vec<ir::Assignment<ir::StaticTiming>>>,
         ) = self
             .state2assigns
             .drain()
             .map(|(state, assigns)| {
-                (ir::Transition::new_uncond(state + 2), assigns)
+                (assigns, ir::Transition::new_uncond(state + 2))
             })
             .unzip();
+
+        // insert unconditional transitions to form a cycle counter, and insert
+        // assignments that depend on the current cycle
+        assignments.extend(calc_state_assignments);
+        transitions.extend(calc_state_transitions);
 
         // insert transition from final calc state to `done` state
         let signal_on = self.builder.add_constant(1, 1);

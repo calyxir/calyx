@@ -516,10 +516,74 @@ impl Guard<StaticTiming> {
     /// of the guard. This is useful when we know the cycles `c` at which the assignment
     /// will be active, and we can separately construct the assignment guard
     /// like `dst = c ? src` instead of `dst = beg <= c <= end ? src`.
-    fn remove_static_timing_info(&mut self) {
+    pub fn remove_static_timing_info(&mut self) {
         match self {
-            Self::Port(_) | Self::CompOp(..) => (),
-            _ => (),
+            Self::Port(_) | Self::CompOp(..) | Self::True => (),
+            Self::Info(_) => {
+                self.update(|_| Self::True);
+            }
+            Self::Not(g) => match g.as_mut() {
+                Self::Info(_) => self.update(|_| Self::True),
+                _ => g.remove_static_timing_info(),
+            },
+            Self::And(l, r) => match (l.as_mut(), r.as_mut()) {
+                (Self::Info(_), Self::Info(_)) => self.update(|_| Self::True),
+                (Self::Info(_), _) => {
+                    r.remove_static_timing_info();
+                    l.update(|_| Self::True);
+                }
+                (_, Self::Info(_)) => {
+                    l.remove_static_timing_info();
+                    r.update(|_| Self::True);
+                }
+                _ => {
+                    l.remove_static_timing_info();
+                    r.remove_static_timing_info();
+                }
+            },
+            Self::Or(l, r) => match (l.as_mut(), r.as_mut()) {
+                (Self::Info(_), Self::Info(_)) => self.update(|_| Self::True),
+                (Self::Info(_), _) => {
+                    r.remove_static_timing_info();
+                    l.update(|_| Self::not(Self::True))
+                }
+                (_, Self::Info(_)) => {
+                    l.remove_static_timing_info();
+                    r.update(|_| Self::not(Self::True))
+                }
+                _ => {
+                    l.remove_static_timing_info();
+                    r.remove_static_timing_info();
+                }
+            },
+        }
+    }
+}
+
+impl From<Guard<StaticTiming>> for Guard<Nothing> {
+    fn from(guard: Guard<StaticTiming>) -> Guard<Nothing> {
+        match guard {
+            Guard::True => Guard::True,
+            Guard::Port(p) => Guard::Port(p),
+            Guard::CompOp(cmp, p1, p2) => Guard::CompOp(cmp, p1, p2),
+
+            Guard::And(l, r) => {
+                let l_new = Guard::from(*l);
+                let r_new = Guard::from(*r);
+                Guard::And(Box::new(l_new), Box::new(r_new))
+            }
+            Guard::Or(l, r) => {
+                let l_new = Guard::from(*l);
+                let r_new = Guard::from(*r);
+                Guard::Or(Box::new(l_new), Box::new(r_new))
+            }
+            Guard::Not(g) => {
+                let g_new = Guard::from(*g);
+                Guard::Not(Box::new(g_new))
+            }
+            Guard::Info(_) => {
+                unreachable!("Guard should not contain any `info` nodes;")
+            }
         }
     }
 }
