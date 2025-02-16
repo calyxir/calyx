@@ -511,6 +511,17 @@ impl Guard<StaticTiming> {
             Self::CompOp(..) | Self::Port(_) => HashSet::new(),
         }
     }
+
+    /// Take a static assignment guard and get rid of all static timing portions
+    /// of the guard. This is useful when we know the cycles `c` at which the assignment
+    /// will be active, and we can separately construct the assignment guard
+    /// like `dst = c ? src` instead of `dst = beg <= c <= end ? src`.
+    fn remove_static_timing_info(&mut self) {
+        match self {
+            Self::Port(_) | Self::CompOp(..) => (),
+            _ => (),
+        }
+    }
 }
 
 /// Construct guards from ports
