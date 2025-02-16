@@ -560,6 +560,15 @@ impl<T> Assignment<T> {
             .chain(std::iter::once(Rc::clone(&self.dst)))
             .chain(std::iter::once(Rc::clone(&self.src)))
     }
+
+    pub fn and_guard(&mut self, addition_opt: Option<Guard<T>>)
+    where
+        T: Eq,
+    {
+        if let Some(addition) = addition_opt {
+            self.guard.update(|g| g.and(addition));
+        }
+    }
 }
 
 impl From<Assignment<Nothing>> for Assignment<StaticTiming> {
