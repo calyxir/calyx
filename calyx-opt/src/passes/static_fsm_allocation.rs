@@ -2,8 +2,8 @@ use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
 use calyx_ir::{self as ir, build_assignments};
 use calyx_utils::CalyxResult;
 use core::ops::Not;
-use itertools::Itertools;
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
+
 pub struct StaticFSMAllocation {}
 
 impl Named for StaticFSMAllocation {
@@ -65,7 +65,7 @@ impl<'a> StaticSchedule<'a> {
                         .compute_live_states(sen.group.borrow().latency)
                         .into_iter()
                         .for_each(|offset| {
-                            // conver the static assignment to a normal one
+                            // convert the static assignment to a normal one
                             let mut assign: ir::Assignment<ir::Nothing> =
                                 ir::Assignment::from(sassign.clone());
                             // "and" the assignment's guard with argument guard
@@ -149,37 +149,60 @@ impl<'a> StaticSchedule<'a> {
             (ir::Guard::True, 0),
         ])];
 
-        // Fill in the gaps for any missing state-mappings
-        (0..self.latency).for_each(|state: u64| {
-            self.state2assigns.entry(state).or_insert(Vec::new());
+        // Map each state to the state wire that is high exactly
+        // when the FSM is in that state
+        let mut state2wires: Vec<ir::RRC<ir::Cell>> =
+            Vec::with_capacity(self.latency as usize);
+
+        // Fill in the FSM construct to contain unconditional transitions from n
+        // to n+1 at each cycle, and to hold the corresponding state-wire high
+        // at the right cycle.
+        let signal_on = self.builder.add_constant(1, 1);
+        (1..=self.latency).for_each(|state: u64| {
+            // construct a wire to represent this state
+            let state_wire: ir::RRC<ir::Cell> = self.builder.add_primitive(
+                format!("{}_{state}", fsm.borrow().name().to_string()),
+                "std_wire",
+                &[1],
+            );
+            // add it to the mapping
+            state2wires.push(Rc::clone(&state_wire));
+
+            // let the FSM assign to it in the right state
+            assignments.push(vec![self.builder.build_assignment(
+                state_wire.borrow().get("in"),
+                signal_on.borrow().get("out"),
+                ir::Guard::True,
+            )]);
+            transitions.push(ir::Transition::Unconditional(state + 1))
         });
 
-        let (calc_state_assignments, calc_state_transitions): (
-            Vec<Vec<ir::Assignment<ir::Nothing>>>,
-            Vec<ir::Transition>,
-        ) = self
-            .state2assigns
-            .drain()
-            .sorted_by(|(s1, _), (s2, _)| s1.cmp(s2))
-            .map(|(state, assigns)| {
-                (assigns, ir::Transition::new_uncond(state + 2))
-            })
-            .unzip();
-
-        // insert unconditional transitions to form a cycle counter, and insert
-        // assignments that depend on the current cycle
-        assignments.extend(calc_state_assignments);
-        transitions.extend(calc_state_transitions);
-
-        // insert transition from final calc state to `done` state
-        let signal_on = self.builder.add_constant(1, 1);
-        let true_guard = ir::Guard::True;
-        assignments.push(
-            build_assignments!(self.builder;
-                fsm["done"] = true_guard ? signal_on["out"];
-            )
-            .to_vec(),
+        // Transform all the state-dependent assignments within the static schedule
+        // into continuous assignments, guarded by the value of their corresponding
+        // state wires (constructed above)
+        self.builder.add_continuous_assignments(
+            self.state2assigns
+                .drain()
+                .flat_map(|(state, mut assigns)| {
+                    assigns.iter_mut().for_each(|assign| {
+                        assign.and_guard(Some(ir::Guard::port(
+                            state2wires
+                                .get(state as usize)
+                                .unwrap()
+                                .borrow()
+                                .get("out"),
+                        )));
+                    });
+                    assigns
+                })
+                .collect(),
         );
+
+        let true_guard = ir::Guard::True;
+        let assign = build_assignments!(self.builder;
+            fsm["done"] = true_guard ? signal_on["out"];
+        );
+        assignments.push(assign.to_vec());
         transitions.push(ir::Transition::Unconditional(0));
 
         // Instantiate the FSM with the assignments and transitions we built
