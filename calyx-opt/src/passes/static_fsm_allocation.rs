@@ -3,7 +3,7 @@ use calyx_ir::{self as ir, build_assignments};
 use calyx_utils::CalyxResult;
 use core::ops::Not;
 use itertools::MultiUnzip;
-use std::collections::HashMap;
+use std::{collections::HashMap, mem};
 
 pub struct StaticFSMAllocation {}
 
@@ -191,12 +191,35 @@ impl<'a> StaticSchedule<'a> {
             })
             .multiunzip();
 
-        // If the component is static, then one FSM will be allocated for the entire
-        // component. In only this case, we do not need to assign `fsm[done]`. In
-        // any other case, we need to ensure `fsm[done]` is assigned to.
-        if !(self.builder.component.is_static()) {
-            // change the transition destination of the previous state from 0 to DONE
-            let loopback = std::mem::replace(
+        if self.builder.component.is_static() {
+            // If the component is fully static, there will be exactly one
+            // FSM allocated to it. We will get rid of the FSMEnable node from the
+            // control in this case, so we need to manually add fsm[start] = comp[go]
+            // because wire-inliner will not get to it.
+
+            // (We get rid of the FSMEnable node because the FSM will not have a
+            // DONE state, and hence no way to terminate the control. )
+            let assign_fsm_start = self.builder.build_assignment(
+                fsm.borrow().get("start"),
+                self.builder
+                    .component
+                    .signature
+                    .borrow()
+                    .find_unique_with_attr(ir::NumAttr::Go)
+                    .unwrap()
+                    .unwrap(),
+                true_guard,
+            );
+            self.builder
+                .add_continuous_assignments(vec![assign_fsm_start]);
+        } else {
+            // If the component is not static (i.e. this static schedule is just
+            // a static island), then we need to make sure that fsm[done] is
+            // assigned to. There are almost certainly other parts of this component's
+            // schedule that require the [done] signal out of a static-island FSM.
+
+            // Change the transition destination of the previous state from 0 to DONE
+            let loopback = mem::replace(
                 transitions.last_mut().unwrap(),
                 ir::Transition::Unconditional(self.latency),
             );
