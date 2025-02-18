@@ -2,7 +2,8 @@ use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
 use calyx_ir::{self as ir, build_assignments};
 use calyx_utils::CalyxResult;
 use core::ops::Not;
-use std::{collections::HashMap, rc::Rc};
+use itertools::MultiUnzip;
+use std::collections::HashMap;
 
 pub struct StaticFSMAllocation {}
 
@@ -94,19 +95,22 @@ impl<'a> StaticSchedule<'a> {
             }
             ir::StaticControl::If(sif) => {
                 // construct a guard on the static assignments in the each branch
-                let build_branch_guard = |is_true_branch: bool| {
-                    (match guard_opt.clone() {
-                        None => ir::Guard::True,
-                        Some(existing_guard) => existing_guard,
-                    })
-                    .and({
-                        if is_true_branch {
-                            ir::Guard::port(sif.port.clone())
-                        } else {
-                            ir::Guard::not(ir::Guard::port(sif.port.clone()))
-                        }
-                    })
-                };
+                let build_branch_guard =
+                    |is_true_branch: bool| -> ir::Guard<ir::Nothing> {
+                        (match guard_opt.clone() {
+                            None => ir::Guard::True,
+                            Some(existing_guard) => existing_guard,
+                        })
+                        .and({
+                            if is_true_branch {
+                                ir::Guard::port(sif.port.clone())
+                            } else {
+                                ir::Guard::not(ir::Guard::port(
+                                    sif.port.clone(),
+                                ))
+                            }
+                        })
+                    };
                 // Construct the schedule based on the true branch.
                 // Since this construction will progress the schedule's latency,
                 // we need to bring the baseline back to its original value before
@@ -126,6 +130,8 @@ impl<'a> StaticSchedule<'a> {
                 self.latency += sif.latency;
             }
             ir::StaticControl::Par(spar) => {
+                // for each par thread, construct the schedule and reset
+                // the baseline latency to correctly compile the next par thread
                 spar.stmts.iter().for_each(|stmt| {
                     self.construct_schedule(stmt, guard_opt.clone());
                     self.latency -= stmt.get_latency();
@@ -138,44 +144,72 @@ impl<'a> StaticSchedule<'a> {
     /// Given a filled-out static schedule, construct an FSM based on the state mappings
     /// in `state2assigns`.
     fn realize_fsm(&mut self) -> ir::RRC<ir::FSM> {
+        let true_guard = ir::Guard::True;
+        let signal_on = self.builder.add_constant(1, 1);
+
         // Declare the FSM
         let fsm = self.builder.add_fsm("fsm");
 
-        // Construct the assignments and transitions that we'll eventually
-        // put into the FSM declared above.
-        let mut assignments = vec![Vec::new()];
-        let mut transitions = vec![ir::Transition::Conditional(vec![
-            (ir::guard!(fsm["start"]), 1),
-            (ir::Guard::True, 0),
-        ])];
-
-        // Map each state to the state wire that is high exactly
-        // when the FSM is in that state
-        let mut state2wires: Vec<ir::RRC<ir::Cell>> =
-            Vec::with_capacity(self.latency as usize);
-
         // Fill in the FSM construct to contain unconditional transitions from n
-        // to n+1 at each cycle, and to hold the corresponding state-wire high
-        // at the right cycle.
-        let signal_on = self.builder.add_constant(1, 1);
-        (1..=self.latency).for_each(|state: u64| {
-            // construct a wire to represent this state
-            let state_wire: ir::RRC<ir::Cell> = self.builder.add_primitive(
-                format!("{}_{state}", fsm.borrow().name().to_string()),
-                "std_wire",
-                &[1],
-            );
-            // add it to the mapping
-            state2wires.push(Rc::clone(&state_wire));
+        // to n+1 at each cycle (except for loopback at final state), and to
+        // hold the corresponding state-wire high at the right cycle.
+        let (mut assignments, mut transitions, state2wires): (
+            Vec<Vec<ir::Assignment<ir::Nothing>>>,
+            Vec<ir::Transition>,
+            Vec<ir::RRC<ir::Cell>>,
+        ) = (0..self.latency)
+            .map(|state: u64| {
+                // construct a wire to represent this state
+                let state_wire: ir::RRC<ir::Cell> = self.builder.add_primitive(
+                    format!("{}_{state}", fsm.borrow().name().to_string()),
+                    "std_wire",
+                    &[1],
+                );
+                // build assignment to indicate that we're in this state
+                let mut state_assign: ir::Assignment<ir::Nothing> =
+                    self.builder.build_assignment(
+                        state_wire.borrow().get("in"),
+                        signal_on.borrow().get("out"),
+                        ir::Guard::True,
+                    );
 
-            // let the FSM assign to it in the right state
-            assignments.push(vec![self.builder.build_assignment(
-                state_wire.borrow().get("in"),
-                signal_on.borrow().get("out"),
-                ir::Guard::True,
-            )]);
-            transitions.push(ir::Transition::Unconditional(state + 1))
-        });
+                // merge first "calc" state with first "idle" state
+                if state == 0 {
+                    state_assign.and_guard(Some(ir::guard!(fsm["start"])));
+                }
+
+                // loopback to start at final state, and increment state otherwise
+                let uncond_trans = ir::Transition::Unconditional(
+                    if state + 1 == self.latency {
+                        0
+                    } else {
+                        state + 1
+                    },
+                );
+
+                (vec![state_assign], uncond_trans, state_wire)
+            })
+            .multiunzip();
+
+        // If the component is static, then one FSM will be allocated for the entire
+        // component. In only this case, we do not need to assign `fsm[done]`. In
+        // any other case, we need to ensure `fsm[done]` is assigned to.
+        if !(self.builder.component.is_static()) {
+            // change the transition destination of the previous state from 0 to DONE
+            let loopback = std::mem::replace(
+                transitions.last_mut().unwrap(),
+                ir::Transition::Unconditional(self.latency),
+            );
+
+            // place done condition assignment and transition back to 0
+            assignments.push(
+                build_assignments!(self.builder;
+                    fsm["done"] = true_guard ? signal_on["out"];
+                )
+                .to_vec(),
+            );
+            transitions.push(loopback);
+        }
 
         // Transform all the state-dependent assignments within the static schedule
         // into continuous assignments, guarded by the value of their corresponding
@@ -198,13 +232,6 @@ impl<'a> StaticSchedule<'a> {
                 .collect(),
         );
 
-        let true_guard = ir::Guard::True;
-        let assign = build_assignments!(self.builder;
-            fsm["done"] = true_guard ? signal_on["out"];
-        );
-        assignments.push(assign.to_vec());
-        transitions.push(ir::Transition::Unconditional(0));
-
         // Instantiate the FSM with the assignments and transitions we built
         fsm.borrow_mut().assignments.extend(assignments);
         fsm.borrow_mut().transitions.extend(transitions);
@@ -223,5 +250,21 @@ impl Visitor for StaticFSMAllocation {
         let mut ssch = StaticSchedule::from(ir::Builder::new(comp, sigs));
         ssch.construct_schedule(s, None);
         Ok(Action::change(ir::Control::fsm_enable(ssch.realize_fsm())))
+    }
+    fn finish(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> crate::traversal::VisResult {
+        // If the component is static, get rid of all control components;
+        // all assignments should already exist in the `wires` section
+        if comp.is_static() {
+            Ok(Action::Change(Box::new(ir::Control::Empty(ir::Empty {
+                attributes: comp.attributes.clone(),
+            }))))
+        } else {
+            Ok(Action::Continue)
+        }
     }
 }

@@ -124,6 +124,10 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             attributes.insert(NODE_ID, cur_state);
             cur_state + 1
         }
+        ir::Control::FSMEnable(ir::FSMEnable{attributes, ..}) => {
+            attributes.insert(NODE_ID, cur_state);
+            cur_state + 1
+        }
         ir::Control::Par(ir::Par { stmts, attributes }) => {
             attributes.insert(NODE_ID, cur_state);
             stmts.iter_mut().for_each(|stmt| {
@@ -209,7 +213,6 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
                 body_nxt
             }
         }
-        ir::Control::FSMEnable(_) => todo!("should not encounter fsm nodes"),
         ir::Control::Empty(_) => cur_state,
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
@@ -1368,19 +1371,25 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut con = comp.control.borrow_mut();
-        if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
-            if let Some(enable_info) =
-                extract_single_enable(&mut con, comp.name)
-            {
-                self.fsm_groups
-                    .insert(ProfilingInfo::SingleEnable(enable_info));
+        match *con {
+            // If there's one top-level FSM at the beginning of the traversal,
+            // the control tree is likely entirely static and has already been compiled.
+            // In that case, just move on without wrapping that FSM in another dynamic FSM.
+            ir::Control::FSMEnable(_) => Ok(Action::Stop),
+            ir::Control::Empty(_) | ir::Control::Enable(_) => {
+                if let Some(enable_info) =
+                    extract_single_enable(&mut con, comp.name)
+                {
+                    self.fsm_groups
+                        .insert(ProfilingInfo::SingleEnable(enable_info));
+                }
+                Ok(Action::Stop)
             }
-            return Ok(Action::Stop);
+            _ => {
+                compute_unique_ids(&mut con, 0);
+                Ok(Action::Continue)
+            }
         }
-
-        compute_unique_ids(&mut con, 0);
-        // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
-        Ok(Action::Continue)
     }
 
     fn finish_seq(

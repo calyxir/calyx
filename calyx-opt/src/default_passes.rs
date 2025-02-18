@@ -112,8 +112,26 @@ impl PassManager {
                 CollapseControl,
             ]
         );
-        // this path should be used instead of `pre-opt --> compile`, not with it
-        register_alias!(pm, "fsm-opt", [StaticFSMAllocation]);
+        // this path should be used instead of `pre-opt --> compile`, never with it
+        register_alias!(
+            pm,
+            "fsm-opt",
+            [
+                CollapseControl,
+                DeadAssignmentRemoval,
+                CombProp,
+                DeadCellRemoval,
+                CellShare,
+                SimplifyWithControl,
+                CompileInvoke,
+                StaticInference,
+                StaticPromotion,
+                StaticFSMAllocation,
+                DeadGroupRemoval,
+                MergeAssign,
+                TopDownCompileControl,
+            ]
+        );
         register_alias!(
             pm,
             "compile",
