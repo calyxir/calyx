@@ -106,13 +106,14 @@ def create_cycle_trace(
 
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
-    def __init__(self, main_component, cells_to_components):
+    def __init__(self, main_component, cells_to_components, fsms):
         super().__init__()
         self.main_component = main_component
         self.cells_to_components = cells_to_components
         # Documenting other fields for reference
         # signal_id_to_names
         self.timestamps_to_events = {}
+        self.fsms = fsms
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -142,6 +143,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
+            for fsm in self.fsms:
+                if name.startswith(f"{fsm}.out["):
+                    signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {
@@ -184,6 +188,18 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.cell_to_active_cycles = (
             {}
         )  # cell --> [{"start": X, "end": Y, "length": Y - X}].
+
+        # self.partial_fsm_events = { fsm : [] for fsm in self.fsms } # fsm --> [ partially filled in events ].
+        self.partial_fsm_events = { cell : {} for cell in self.cells_to_components }
+        for fsm in self.fsms: # initialize
+            cell_name = ".".join(fsm.split(".")[:-1])
+            self.partial_fsm_events[cell_name][fsm] = [{ "name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
+
+        fsm_events_count = 0 # FIXME: for debugging; delete later
+
+        # The events are "partial" because we don't know yet what the tid and pid would be.
+        # (Will be filled in during create_timelines(); specifically in TimelineCell.register_fsms())
+        fsm_current = {fsm : 0 for fsm in self.fsms } # fsm --> value
 
         probe_labels_to_sets = {
             "group_probe_out": group_active,
@@ -243,6 +259,19 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     current_segment = self.cell_to_active_cycles[cell][-1]
                     current_segment["end"] = clock_cycles
                     current_segment["length"] = clock_cycles - current_segment["start"]
+                # process fsms
+                if ".out[" in signal_name:
+                    fsm_name = signal_name.split(".out[")[0]
+                    cell_name = ".".join(fsm_name.split(".")[:-1])
+                    if fsm_current[fsm_name] != value:
+                        # record the (partial) end event of the previous value and begin event of the current value
+                        partial_end_event = { "name": str(fsm_current[fsm_name]), "cat": "fsm", "ph": "E", "ts": clock_cycles * ts_multiplier}
+                        partial_begin_event = { "name": str(value), "cat": "fsm", "ph": "B", "ts": clock_cycles * ts_multiplier}
+                        self.partial_fsm_events[cell_name][fsm_name].append(partial_end_event)
+                        self.partial_fsm_events[cell_name][fsm_name].append(partial_begin_event)
+                        # update value
+                        fsm_current[fsm_name] = value
+                        fsm_events_count += 2
                 # process all probes.
                 for probe_label in probe_labels_to_sets:
                     cutoff = f"_{probe_label}"
@@ -321,6 +350,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.clock_cycles = (
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
+
+        print(f"Total fsm events: {fsm_events_count}")
 
 
 # Generates a list of all of the components to potential cell names
@@ -684,12 +715,22 @@ def dump_trace(trace, out_dir):
 
 class TimelineCell:
     # bookkeeping for forming cells and their groups
-    def __init__(self, name, pid):
+    def __init__(self, name, pid, cell_to_fsm_events):
         self.name = name
         self.pid = pid
         self.tid = 1  # the cell itself gets tid 1, and any groups that come out of the cell get tid 2+
-        self.tid_acc = 2
+        self.tid_acc = 2 # skip all of the fsms
         self.groups_to_tid = {}  # contents: group --> tid
+        self.register_fsms(cell_to_fsm_events)
+
+    # fill in the rest of the FSM info
+    def register_fsms(self, cell_to_fsm_events):
+        for fsm in cell_to_fsm_events[self.name]:
+            fsm_events = cell_to_fsm_events[self.name][fsm]
+            for event in fsm_events:
+                event["pid"] = self.pid
+                event["tid"] = self.tid_acc
+            self.tid_acc += 1
 
     def get_group_tid(self, group_name):
         if group_name not in self.groups_to_tid:
@@ -698,10 +739,10 @@ class TimelineCell:
         return self.groups_to_tid[group_name]
 
 
-def compute_timeline(trace, main_component, out_dir):
+def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
     events = []  # try to save space by recording on the fly when things start and end.
     # each cell has its own pid. each group in the cell has its own tid. (TODO: try to squash this later for a nicer visualization.)
-    cell_to_info = {main_component: TimelineCell(main_component, 1)}
+    cell_to_info = {main_component: TimelineCell(main_component, 1, partial_fsm_events)}
     group_to_parent_cell = {}
     pid_acc = 2
     currently_active = set()
@@ -718,7 +759,7 @@ def compute_timeline(trace, main_component, out_dir):
                     name = stack_acc
                     current_cell = name
                     if name not in cell_to_info:  # cell is not registered yet
-                        cell_to_info[name] = TimelineCell(name, pid_acc)
+                        cell_to_info[name] = TimelineCell(name, pid_acc, partial_fsm_events)
                         pid_acc += 1
                 elif "(primitive)" in stack_elem:  # ignore primitives for now.
                     continue
@@ -757,6 +798,11 @@ def compute_timeline(trace, main_component, out_dir):
             still_active_element, len(trace), "E", cell_to_info, group_to_parent_cell
         )
         events.append(end_event)
+
+    # add all fsms
+    for cell in partial_fsm_events:
+        for fsm in partial_fsm_events[cell]:
+            events += partial_fsm_events[cell][fsm]
 
     # write to file
     out_path = os.path.join(out_dir, "timeline-dump.json")
@@ -906,10 +952,28 @@ def convert_trace(trace, adl_mapping_file):
 
     return adl_only_trace, mixed_trace
 
+"""
+# Returns { cell --> fsm fully qualified names }
+Returns a set of all fsms with fully qualified fsm names
+"""
 def read_fsm_file(fsm_json_file, components_to_cells):
     json_data = json.load(open(fsm_json_file))
-    
-    return
+    # cell_to_fsms = {} # cell --> fully qualified fsm names
+    fully_qualified_fsms = set()
+    for json_entry in json_data:
+        if "Fsm" in json_entry:
+            entry = json_entry["Fsm"]
+            fsm_name = entry["fsm"]
+            component = entry["component"]
+            for cell in components_to_cells[component]:
+                fully_qualified_fsm = ".".join((cell, fsm_name))
+                fully_qualified_fsms.add(fully_qualified_fsm)
+                # if cell not in cell_to_fsms:
+                #     cell_to_fsms[cell] = [fully_qualified_fsm]
+                # else:
+                #     cell_to_fsms[cell].append(fully_qualified_fsm)
+        
+    return fully_qualified_fsms
 
 
 def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out):
@@ -917,9 +981,13 @@ def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir
     main_component, cells_to_components, components_to_cells = read_component_cell_names_json(
         cells_json_file
     )
-    fsms = read_fsm_file(fsm_json_file, components_to_cells)
+    fully_qualified_fsms = read_fsm_file(fsm_json_file, components_to_cells)
+    i = 0
+    for f in fully_qualified_fsms:
+        print(f"{i}: {f}")
+        i += 1
     print(f"Start reading VCD: {datetime.now()}")
-    converter = VCDConverter(main_component, cells_to_components)
+    converter = VCDConverter(main_component, cells_to_components, fully_qualified_fsms)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     print(f"Start Postprocessing VCD: {datetime.now()}")
     converter.postprocess()
@@ -940,7 +1008,8 @@ def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir
         converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir
     )
     create_flame_groups(converter.trace, flame_out, out_dir)
-    compute_timeline(converter.trace, main_component, out_dir)
+    print(f"Creating timeline; length of partial_fsm_events: {len(converter.partial_fsm_events)}")
+    compute_timeline(converter.trace, converter.partial_fsm_events, main_component, out_dir)
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
@@ -973,7 +1042,7 @@ if __name__ == "__main__":
             adl_mapping_file = sys.argv[6]
         else:
             adl_mapping_file = None
-        print(adl_mapping_file)
+        print(f"ADL mapping file: {adl_mapping_file}")
         main(vcd_filename, cells_json, fsms_json, adl_mapping_file, out_dir, flame_out)
     else:
         args_desc = [
