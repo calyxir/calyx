@@ -190,10 +190,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         )  # cell --> [{"start": X, "end": Y, "length": Y - X}].
 
         # self.partial_fsm_events = { fsm : [] for fsm in self.fsms } # fsm --> [ partially filled in events ].
-        self.partial_fsm_events = { cell : {} for cell in self.cells_to_components }
-        for fsm in self.fsms: # initialize
-            cell_name = ".".join(fsm.split(".")[:-1])
-            self.partial_fsm_events[cell_name][fsm] = [{ "name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
+        # self.partial_fsm_events = { cell : {} for cell in self.cells_to_components }
+        self.partial_fsm_events = { fsm: [{ "name": str(0), "cat": "fsm", "ph": "B", "ts": 0}] for fsm in self.fsms}
+        # for fsm in self.fsms: # initialize
+        #     cell_name = ".".join(fsm.split(".")[:-1])
+        #     self.partial_fsm_events[cell_name][fsm] = [{ "name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
 
         fsm_events_count = 0 # FIXME: for debugging; delete later
 
@@ -267,8 +268,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         # record the (partial) end event of the previous value and begin event of the current value
                         partial_end_event = { "name": str(fsm_current[fsm_name]), "cat": "fsm", "ph": "E", "ts": clock_cycles * ts_multiplier}
                         partial_begin_event = { "name": str(value), "cat": "fsm", "ph": "B", "ts": clock_cycles * ts_multiplier}
-                        self.partial_fsm_events[cell_name][fsm_name].append(partial_end_event)
-                        self.partial_fsm_events[cell_name][fsm_name].append(partial_begin_event)
+                        self.partial_fsm_events[fsm_name].append(partial_end_event)
+                        self.partial_fsm_events[fsm_name].append(partial_begin_event)
                         # update value
                         fsm_current[fsm_name] = value
                         fsm_events_count += 2
@@ -715,22 +716,23 @@ def dump_trace(trace, out_dir):
 
 class TimelineCell:
     # bookkeeping for forming cells and their groups
-    def __init__(self, name, pid, cell_to_fsm_events):
+    def __init__(self, name, pid, all_fsm_events):
         self.name = name
         self.pid = pid
         self.tid = 1  # the cell itself gets tid 1, and any groups that come out of the cell get tid 2+
         self.tid_acc = 2 # skip all of the fsms
         self.groups_to_tid = {}  # contents: group --> tid
-        self.register_fsms(cell_to_fsm_events)
+        self.register_fsms(all_fsm_events)
 
     # fill in the rest of the FSM info
-    def register_fsms(self, cell_to_fsm_events):
-        for fsm in cell_to_fsm_events[self.name]:
-            fsm_events = cell_to_fsm_events[self.name][fsm]
-            for event in fsm_events:
-                event["pid"] = self.pid
-                event["tid"] = self.tid_acc
-            self.tid_acc += 1
+    def register_fsm(self, all_fsm_events):
+        for fsm in all_fsm_events:
+            fsm_cell = ".".join(fsm.split(".")[:-1])
+            if self.name == fsm_cell:
+                for event in all_fsm_events[fsm]:
+                    event["pid"] = self.pid
+                    event["tid"] = self.tid_acc
+                self.tid_acc += 1
 
     def get_group_tid(self, group_name):
         if group_name not in self.groups_to_tid:
@@ -799,10 +801,12 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
         )
         events.append(end_event)
 
-    # add all fsms
-    for cell in partial_fsm_events:
-        for fsm in partial_fsm_events[cell]:
-            events += partial_fsm_events[cell][fsm]
+    # print("hello")
+    # # add all fsms
+    # for fsm in list(partial_fsm_events.keys()):
+    #     events += partial_fsm_events[fsm]
+    #     del partial_fsm_events[fsm]
+    print(f"number of events: {len(events)}")
 
     # write to file
     out_path = os.path.join(out_dir, "timeline-dump.json")
