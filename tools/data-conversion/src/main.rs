@@ -135,6 +135,14 @@ struct Arguments {
     #[argh(option, default = "0")]
     width: usize,
 
+    /// optional for use with to_binary and from_binary
+    #[argh(option, default = "0")]
+    exp_width: usize,
+
+    /// optional for use with to_binary and from_binary
+    #[argh(option, default = "0")]
+    mant_width: usize,
+
     /// optional flag to force the inter-rep path
     #[argh(switch, short = 'i')]
     inter: bool,
@@ -147,19 +155,7 @@ struct Arguments {
 fn main() {
     let args: Arguments = argh::from_env();
 
-    convert(
-        &args.from,
-        &args.to,
-        args.fromnum,
-        args.fromfile,
-        args.tonum,
-        args.tofile,
-        args.exp,
-        args.bits,
-        args.width,
-        args.inter,
-        args.twos,
-    );
+    convert(&args);
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
@@ -179,25 +175,102 @@ fn main() {
 ///
 /// Returns `Ok(())` if the conversion and file writing operations are successful,
 /// or an `Err` if an I/O error occurs during the process.
-fn convert(
-    filepath_get: &String,
-    filepath_send: &Option<String>,
-    fromnum: NumType,
-    fromfile: FileType,
-    tonum: NumType,
-    tofile: FileType,
-    exponent: i64,
-    bits: bool,
-    width: usize,
-    inter: bool,
-    twos: bool,
-) {
+fn convert(args: &Arguments) {
+    // Use `args` to access all the required fields
+    let filepath_get = &args.from;
+    let filepath_send = &args.to;
+    let fromnum = args.fromnum;
+    let fromfile = args.fromfile;
+    let tonum = args.tonum;
+    let tofile = args.tofile;
+    let exponent = args.exp;
+    let bits = args.bits;
+    let width = args.width;
+    let inter = args.inter;
+    let twos = args.twos;
+    let exp_width = args.exp_width;
+    let mant_width = args.mant_width;
     // Create the output file if filepath_send is Some
     let mut converted: Option<File> = filepath_send
         .as_ref()
         .map(|path| File::create(path).expect("creation failed"));
 
     match (fromnum, tonum) {
+        (NumType::Fixed, NumType::Fixed) => match (fromfile, tofile) {
+            (FileType::Decimal, FileType::Binary) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY
+                        && !inter
+                    {
+                        fast_track::fixed_to_binary(
+                            line,
+                            &mut converted,
+                            exponent,
+                        )
+                        .expect("Failed to write binary to file");
+                    } else {
+                        ir::to_binary(
+                            ir::from_float(line),
+                            &mut converted,
+                            width,
+                        )
+                        .expect("Failed to write binary to file");
+                    }
+                }
+            }
+            (FileType::Binary, FileType::Decimal) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY
+                        && !inter
+                    {
+                        fast_track::binary_to_fixed(
+                            line,
+                            &mut converted,
+                            exponent,
+                        )
+                        .expect("Failed to write binary to file");
+                    } else if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY
+                        && bits
+                    {
+                        fast_track::binary_to_fixed_bit_slice(
+                            line,
+                            &mut converted,
+                            exponent,
+                        )
+                        .expect("Failed to write binary to file");
+                    } else {
+                        ir::to_float(
+                            ir::from_binary(line, width, twos),
+                            &mut converted,
+                        )
+                        .expect("Failed to write binary to file");
+                    }
+                }
+            }
+            (FileType::Binary, FileType::Hex) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    let u8vec = u8vector::binary_to_u8_vec(line)
+                        .expect("Failed to write hex to file");
+                    let ir_input =
+                        u8vector::u8_to_ir_fixed(Ok(u8vec), exponent, twos);
+                    ir::to_hex(ir_input, &mut converted)
+                        .expect("Failed to write binary to file");
+                }
+            }
+            (FileType::Hex, FileType::Binary) => {
+                for line in read_to_string(filepath_get).unwrap().lines() {
+                    let u8vec = u8vector::hex_to_u8_vec(line)
+                        .expect("Failed to write hex to file");
+                    let ir_input =
+                        u8vector::u8_to_ir_fixed(Ok(u8vec), exponent, twos);
+                    ir::to_binary(ir_input, &mut converted, width)
+                        .expect("Failed to write binary to file");
+                }
+            }
+            (_, _) => {
+                panic!("Invalid Conversion of File Types")
+            }
+        },
         (NumType::Float, NumType::Float) => match (fromfile, tofile) {
             (FileType::Hex, FileType::Binary) => {
                 for line in read_to_string(filepath_get).unwrap().lines() {
@@ -242,12 +315,16 @@ fn convert(
                         fast_track::binary_to_hex(line, &mut converted)
                             .expect("Failed to write hex to file");
                     } else {
-                        print!("used intermediate");
-                        ir::to_hex(
-                            ir::from_binary(line, width, twos),
-                            &mut converted,
-                        )
-                        .expect("Failed to write binary to file");
+                        let u8vec = u8vector::binary_to_u8_vec(line)
+                            .expect("Failed to write hex to file");
+                        let ir_input = u8vector::u8_to_ir_float(
+                            Ok(u8vec),
+                            exp_width.try_into().unwrap(),
+                            mant_width.try_into().unwrap(),
+                            twos,
+                        );
+                        ir::to_hex(ir_input, &mut converted)
+                            .expect("Failed to write binary to file");
                     }
                 }
             }

@@ -235,21 +235,21 @@ pub fn to_float(
 /// # Panics
 ///
 /// This function will panic if the input string cannot be parsed as a number.
-pub fn from_fixed(
-    fixed_string: &str,
-    exp_int: i64,
-) -> IntermediateRepresentation {
-    let sign = !fixed_string.starts_with('-');
-    let fixed_trimmed = fixed_string.trim_start_matches('-');
+// pub fn from_fixed(
+//     fixed_string: &str,
+//     exp_int: i64,
+// ) -> IntermediateRepresentation {
+//     let sign = !fixed_string.starts_with('-');
+//     let fixed_trimmed = fixed_string.trim_start_matches('-');
 
-    let mantissa_string = fixed_trimmed.to_string();
+//     let mantissa_string = fixed_trimmed.to_string();
 
-    IntermediateRepresentation {
-        sign,
-        mantissa: BigUint::from_str(&mantissa_string).expect("Invalid number"),
-        exponent: exp_int,
-    }
-}
+//     IntermediateRepresentation {
+//         sign,
+//         mantissa: BigUint::from_str(&mantissa_string).expect("Invalid number"),
+//         exponent: exp_int,
+//     }
+// }
 
 /// Converts the intermediate representation to a fixed-point number string and writes it to a file or stdout.
 ///
@@ -268,62 +268,62 @@ pub fn from_fixed(
 ///
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
-pub fn to_fixed(
-    inter_rep: IntermediateRepresentation,
-    filepath_send: &mut Option<File>,
-) -> io::Result<()> {
-    // Negate exp
-    let neg_exponent = -inter_rep.exponent;
+// pub fn to_fixed(
+//     inter_rep: IntermediateRepresentation,
+//     filepath_send: &mut Option<File>,
+// ) -> io::Result<()> {
+//     // Negate exp
+//     let neg_exponent = -inter_rep.exponent;
 
-    // 10^-exp
-    let scale_factor = BigInt::from(10).pow(neg_exponent as u32);
+//     // 10^-exp
+//     let scale_factor = BigInt::from(10).pow(neg_exponent as u32);
 
-    // Convert mantissa to BigInt
-    let mantissa_bigint = BigInt::from(inter_rep.mantissa);
+//     // Convert mantissa to BigInt
+//     let mantissa_bigint = BigInt::from(inter_rep.mantissa);
 
-    let mantissa_mult = mantissa_bigint * scale_factor;
+//     let mantissa_mult = mantissa_bigint * scale_factor;
 
-    // Apply the sign
-    let signed_value = if inter_rep.sign {
-        mantissa_mult
-    } else {
-        -mantissa_mult
-    };
+//     // Apply the sign
+//     let signed_value = if inter_rep.sign {
+//         mantissa_mult
+//     } else {
+//         -mantissa_mult
+//     };
 
-    // Handle placement of decimal point
-    let mantissa_str = signed_value.to_string();
-    let mantissa_len = mantissa_str.len();
-    let adjusted_exponent = inter_rep.exponent + mantissa_len as i64;
+//     // Handle placement of decimal point
+//     let mantissa_str = signed_value.to_string();
+//     let mantissa_len = mantissa_str.len();
+//     let adjusted_exponent = inter_rep.exponent + mantissa_len as i64;
 
-    let string = if adjusted_exponent <= 0 {
-        // Handle case where the exponent indicates a number less than 1
-        let zero_padding = "0".repeat(-adjusted_exponent as usize);
-        format!("0.{}{}", zero_padding, mantissa_str)
-    } else if adjusted_exponent as usize >= mantissa_len {
-        // Handle case where the exponent is larger than the length of the mantissa
-        format!(
-            "{}{}",
-            mantissa_str,
-            "0".repeat(adjusted_exponent as usize - mantissa_len)
-        )
-    } else {
-        // Normal case
-        let integer_part = &mantissa_str[..adjusted_exponent as usize];
-        let fractional_part = &mantissa_str[adjusted_exponent as usize..];
-        format!("{}.{}", integer_part, fractional_part)
-    };
+//     let string = if adjusted_exponent <= 0 {
+//         // Handle case where the exponent indicates a number less than 1
+//         let zero_padding = "0".repeat(-adjusted_exponent as usize);
+//         format!("0.{}{}", zero_padding, mantissa_str)
+//     } else if adjusted_exponent as usize >= mantissa_len {
+//         // Handle case where the exponent is larger than the length of the mantissa
+//         format!(
+//             "{}{}",
+//             mantissa_str,
+//             "0".repeat(adjusted_exponent as usize - mantissa_len)
+//         )
+//     } else {
+//         // Normal case
+//         let integer_part = &mantissa_str[..adjusted_exponent as usize];
+//         let fractional_part = &mantissa_str[adjusted_exponent as usize..];
+//         format!("{}.{}", integer_part, fractional_part)
+//     };
 
-    // Write the result to the file or stdout
-    if let Some(file) = filepath_send.as_mut() {
-        file.write_all(string.as_bytes())?;
-        file.write_all(b"\n")?;
-    } else {
-        io::stdout().write_all(string.as_bytes())?;
-        io::stdout().write_all(b"\n")?;
-    }
+//     // Write the result to the file or stdout
+//     if let Some(file) = filepath_send.as_mut() {
+//         file.write_all(string.as_bytes())?;
+//         file.write_all(b"\n")?;
+//     } else {
+//         io::stdout().write_all(string.as_bytes())?;
+//         io::stdout().write_all(b"\n")?;
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 /// Converts a string representation of a hexadecimal number to the intermediate representation.
 ///
