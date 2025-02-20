@@ -1003,7 +1003,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         control_id = children[child as usize];
                     }
                     _ => {
-                        // Do nothing! use same control_id! Something wrong here...
+                        // Do nothing! use same control_id!
                     }
                 },
             }
@@ -1026,14 +1026,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let path = parse_path(&string_path).unwrap();
 
             let control_idx = self.path_idx(component, path);
-
-            // For debugging:
-            // let printer = Printer::new(ctx);
-            // let format = printer.format_control(component, control_idx, 4);
-            // let format2 =
-            //     printer.format_control(component, node.control_node_idx, 4);
-            // println!("What we got: {}", format);
-            // println!("What we want: {}", format2);
 
             assert!(control_idx == node.control_node_idx);
         }

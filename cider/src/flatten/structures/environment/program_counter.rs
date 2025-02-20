@@ -81,34 +81,15 @@ impl ControlPoint {
 
         let mut string_path = String::new();
 
-        // Maybe parameterize prefix?
+        // Maybe parameterize prefix so we know which group we are on?
         string_path.push('0');
         string_path.push('.');
 
-        // special conditions
-        let mut body = false;
-        let mut branch = false;
-        // let mut count = 0;
-        let mut branch_tracker = None;
-
         // Remove first index
-        let control_idx = path_vec.remove(0).node;
-        let control_node = &control_map.get(control_idx).unwrap().control;
-
-        let mut children = match control_node {
-            Control::Seq(struc) => struc.stms(),
-            Control::Par(struc) => struc.stms(),
-            Control::If(struc) => {
-                branch = true;
-                branch_tracker = Some(struc);
-                &[]
-            }
-            Control::While(_) => {
-                body = true;
-                &[]
-            }
-            _ => &[],
-        };
+        let node = path_vec.remove(0);
+        let control_idx = node.node;
+        let mut prev_control_node =
+            &control_map.get(control_idx).unwrap().control;
 
         for search_node in path_vec {
             // The control_idx should exist in the map, so we shouldn't worry about it
@@ -118,73 +99,43 @@ impl ControlPoint {
 
             // we are onto the next iteration and in the body... if Seq or Par is present save their children
             // essentially skip iteration
-            if body {
-                body = false;
-                string_path += "-b";
-                // what happens if double while loop?
-                children = match control_node {
-                    Control::Seq(struc) => struc.stms(),
-                    Control::Par(struc) => struc.stms(),
-                    Control::While(_) => {
-                        body = true;
-                        &[]
-                    }
-                    Control::If(struc) => {
-                        branch = true;
-                        branch_tracker = Some(&struc);
-                        &[]
-                    }
-                    _ => &[],
-                };
-            } else if branch {
-                branch = false;
-                children = match control_node {
-                    Control::Seq(struc) => struc.stms(),
-                    Control::Par(struc) => struc.stms(),
-                    Control::While(_) => {
-                        body = true;
-                        &[]
-                    }
-                    Control::If(struc) => {
-                        branch = true;
-                        branch_tracker = Some(&struc);
-                        &[]
-                    }
-                    _ => &[],
-                };
-                let append = if branch_tracker.unwrap().tbranch() == control_idx
-                {
-                    "-t"
-                } else {
-                    "-f"
-                };
-                string_path += append;
-            } else {
-                let count = children
-                    .iter()
-                    .position(|&idx| idx == control_idx)
-                    .unwrap();
-                match control_node {
-                    Control::If(if_node) => {
-                        branch_tracker = Some(&if_node);
-                        branch = true;
-                    }
-                    Control::While(_) | Control::Repeat(_) => {
-                        body = true;
-                    }
-                    Control::Seq(struc) => {
-                        // Keep track for next iteration
-                        children = struc.stms();
-                    }
-                    Control::Par(struc) => {
-                        children = struc.stms();
-                    }
-                    _ => {}
-                };
+            match prev_control_node {
+                Control::While(_) => {
+                    string_path += "-b";
+                }
+                Control::If(struc) => {
+                    let append = if struc.tbranch() == control_idx {
+                        "-t"
+                    } else {
+                        "-f"
+                    };
 
-                let control_type = String::from("-") + &count.to_string();
-                string_path = string_path + &control_type;
+                    string_path += append;
+                }
+                Control::Par(struc) => {
+                    let children = struc.stms();
+                    let count = children
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
+
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path = string_path + &control_type;
+                }
+                Control::Seq(struc) => {
+                    let children = struc.stms();
+                    let count = children
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
+
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path += &control_type;
+                }
+                _ => { // must be a terminal node
+                }
             }
+            prev_control_node = control_node;
         }
         string_path
     }
