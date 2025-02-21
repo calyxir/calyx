@@ -1,7 +1,6 @@
 //! This module contains the core data structures and commands used by the debugger
 
 use itertools::{self, Itertools};
-use owo_colors::OwoColorize;
 use std::{
     fmt::{Display, Write},
     marker::PhantomData,
@@ -14,6 +13,7 @@ use crate::{
             context::Context,
             environment::{Environment, Path},
         },
+        text_utils::Color,
     },
     serialization::PrintCode,
 };
@@ -268,8 +268,8 @@ impl PrintTuple {
             string,
             "{}",
             match self.2 {
-                PrintMode::State => "print-state".green(),
-                PrintMode::Port => "print".green(),
+                PrintMode::State => "print-state",
+                PrintMode::Port => "print",
             }
         )
         .unwrap();
@@ -278,7 +278,7 @@ impl PrintTuple {
             " {}",
             match &self.1 {
                 Some(s) => format!("{}", s),
-                None => "".red().to_string(),
+                None => "".to_string(),
             }
         )
         .unwrap();
@@ -405,8 +405,31 @@ impl Command {
             ..
         } in get_command_info().iter()
         {
-            writeln!(out, "    {: <30}{}", names.join(", "), message.green())
-                .unwrap();
+            // this whole rigamarole is necessary because the standard
+            // formatting strings won't create the proper spacing in the
+            // presence of color codes
+            let mut char_count = 0;
+            let names_str = names
+                .iter()
+                .map(|x| {
+                    char_count += x.chars().count();
+                    x.stylize_command()
+                })
+                .join(", ");
+
+            // add the comma and space for multi-name commands
+            char_count += 2 * (names.len() - 1);
+
+            let padding = 20 - char_count;
+
+            writeln!(
+                out,
+                "    {}{} {}",
+                names_str,
+                " ".repeat(padding),
+                message.stylize_command_description()
+            )
+            .unwrap();
         }
 
         out
@@ -424,12 +447,18 @@ impl Command {
             .filter(|x| !x.usage_example.is_empty())
         {
             writeln!(out).unwrap();
-            writeln!(out, "{}", invocation.join(", ")).unwrap();
-            writeln!(out, "   {}", description).unwrap();
+            writeln!(
+                out,
+                "{}",
+                invocation.iter().map(|x| x.stylize_command()).join(", ")
+            )
+            .unwrap();
+            writeln!(out, "   {}", description.stylize_command_description())
+                .unwrap();
             writeln!(
                 out,
                 "     {}",
-                usage_example.join("\n     ").blue().italic()
+                usage_example.join("\n     ").stylize_usage_example()
             )
             .unwrap();
         }

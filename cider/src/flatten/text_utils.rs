@@ -33,59 +33,75 @@ pub fn indent<S: AsRef<str>>(target: S, indent_count: usize) -> String {
 pub const ASSIGN_STYLE: Style = Style::new().yellow();
 
 pub trait Color: OwoColorize + Display {
-    fn stylize_assignment<'a>(
-        &'a self,
-    ) -> owo_colors::SupportsColorsDisplay<
-        '_,
-        Self,
-        owo_colors::Styled<&Self>,
-        impl Fn(&'a Self) -> owo_colors::Styled<&Self>,
-    > {
+    fn stylize_assignment(&self) -> impl Display {
         self.if_supports_color(Stdout, |text| text.style(ASSIGN_STYLE))
     }
 
-    fn stylize_usage_example<'a>(
-        &'a self,
-    ) -> owo_colors::SupportsColorsDisplay<
-        '_,
-        Self,
-        owo_colors::Styled<&Self>,
-        impl Fn(&'a Self) -> owo_colors::Styled<&Self>,
-    > {
+    fn stylize_usage_example(&self) -> impl Display {
         // this cannot be a const due to reasons
         let style = Style::new().blue().italic();
         self.if_supports_color(Stdout, move |text| text.style(style))
     }
 
-    fn stylize_name<'a>(
-        &'a self,
-    ) -> owo_colors::SupportsColorsDisplay<
-        '_,
-        Self,
-        owo_colors::styles::UnderlineDisplay<'_, Self>,
-        impl Fn(&'a Self) -> owo_colors::styles::UnderlineDisplay<'_, Self>,
-    > {
+    fn stylize_name(&self) -> impl Display {
         self.if_supports_color(Stdout, move |text| text.underline())
     }
 
-    fn stylize_error<'a>(
-        &'a self,
-    ) -> owo_colors::SupportsColorsDisplay<
-        '_,
-        Self,
-        owo_colors::FgColorDisplay<'_, owo_colors::colors::Red, Self>,
-        impl Fn(
-            &'a Self,
-        )
-            -> owo_colors::FgColorDisplay<'_, owo_colors::colors::Red, Self>,
-    > {
-        self.if_supports_color(Stdout, |text| text.red())
+    fn stylize_error(&self) -> impl Display {
+        let style = Style::new().red().bold();
+        self.if_supports_color(Stdout, move |text| text.style(style))
     }
 
-    fn stylize_debugger_missing(&self) -> Box<dyn Display + '_> {
+    fn stylize_debugger_missing(&self) -> impl Display {
         let style = Style::new().red().bold().strikethrough();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_print_code(&self) -> impl Display {
+        let style = Style::new().cyan().underline();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_warning(&self) -> impl Display {
+        let style = Style::new().yellow().italic();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_command(&self) -> impl Display {
+        let style = Style::new().yellow().bold().underline();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_breakpoint(&self) -> impl Display {
+        let style = Style::new().yellow().underline();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_command_description(&self) -> impl Display {
+        let style = Style::new().yellow();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_breakpoint_enabled(&self) -> impl Display {
+        let style = Style::new().green();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_breakpoint_disabled(&self) -> impl Display {
+        let style = Style::new().red();
         Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
     }
 }
 
 impl<T: OwoColorize + Display> Color for T {}
+
+pub fn print_debugger_welcome() {
+    println!(
+        "==== {}: The {}alyx {}nterpreter and {}bugge{} ====",
+        "Cider".bold(),
+        "C".underline(),
+        "I".underline(),
+        "De".underline(),
+        "r".underline()
+    );
+}

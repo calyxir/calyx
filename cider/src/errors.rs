@@ -11,13 +11,13 @@ use crate::{
             clock::{ClockError, ClockErrorWithCell},
             Environment,
         },
+        text_utils::Color,
     },
     serialization::Shape,
 };
 use baa::BitVecOps;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
 use itertools::Itertools;
-use owo_colors::OwoColorize;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -355,9 +355,9 @@ impl RuntimeError {
             RuntimeError::UndefinedGuardError(v) => {
                 let mut message = String::from("Some guards contained undefined values after convergence:\n");
                 for (cell, assign, ports) in v {
-                    writeln!(message, "({}) in assignment {}", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign).bold()).unwrap();
+                    writeln!(message, "({}) in assignment {}", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign).stylize_assignment()).unwrap();
                     for port in ports {
-                        writeln!(message, "    {} is undefined", env.get_full_name(port).yellow()).unwrap();
+                        writeln!(message, "    {} is undefined", env.get_full_name(port).stylize_assignment()).unwrap();
                     }
                     writeln!(message).unwrap()
                 }

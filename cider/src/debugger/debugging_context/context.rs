@@ -13,7 +13,6 @@ use crate::{
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cider_idx::maps::IndexedMap;
 use itertools::Itertools;
-use owo_colors::OwoColorize;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Display;
 
@@ -28,8 +27,12 @@ enum PointStatus {
 impl Display for PointStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PointStatus::Enabled => write!(f, "{}", "enabled".green()),
-            PointStatus::Disabled => write!(f, "{}", "disabled".red()),
+            PointStatus::Enabled => {
+                write!(f, "{}", "enabled".stylize_breakpoint_enabled())
+            }
+            PointStatus::Disabled => {
+                write!(f, "{}", "disabled".stylize_breakpoint_disabled())
+            }
         }
     }
 }
@@ -504,9 +507,10 @@ impl DebuggingContext {
             }
         } else if matches!(target, BreakpointID::Name(_)) {
             let name = target.as_name().unwrap();
+            let name = format!("{:?}", name);
             println!(
-                "Error: There is no breakpoint named '{:?}'",
-                name.red().bold().strikethrough()
+                "Error: There is no breakpoint named '{}'",
+                name.stylize_debugger_missing()
             )
         } else {
             let num = target.as_number().unwrap();
@@ -596,7 +600,7 @@ impl DebuggingContext {
                 } else {
                     println!(
                         "Error: There is no watchpoint numbered {}",
-                        num.red().bold().strikethrough()
+                        num.stylize_debugger_missing()
                     )
                 }
             }
@@ -707,7 +711,7 @@ impl DebuggingContext {
             if indicies.get_before().is_some() {
                 println!(
                     "{outer_spacing}Before {}:",
-                    group_name.magenta().bold()
+                    group_name.stylize_breakpoint()
                 );
             }
             for watchpoint_idx in indicies
@@ -727,7 +731,7 @@ impl DebuggingContext {
             if indicies.get_after().is_some() {
                 println!(
                     "{outer_spacing}After {}:",
-                    group_name.magenta().bold()
+                    group_name.stylize_breakpoint()
                 );
             }
 
