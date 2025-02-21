@@ -106,7 +106,7 @@ def create_cycle_trace(
 
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
-    def __init__(self, main_component, cells_to_components, fsms):
+    def __init__(self, main_component, cells_to_components, fsms, trace, fsm_events):
         super().__init__()
         self.main_component = main_component
         self.cells_to_components = cells_to_components
@@ -114,6 +114,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # signal_id_to_names
         self.timestamps_to_events = {}
         self.fsms = fsms
+        self.trace = trace
+        self.partial_fsm_events = fsm_events
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -191,7 +193,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         # self.partial_fsm_events = { fsm : [] for fsm in self.fsms } # fsm --> [ partially filled in events ].
         # self.partial_fsm_events = { cell : {} for cell in self.cells_to_components }
-        self.partial_fsm_events = { fsm: [{ "name": str(0), "cat": "fsm", "ph": "B", "ts": 0}] for fsm in self.fsms}
         # for fsm in self.fsms: # initialize
         #     cell_name = ".".join(fsm.split(".")[:-1])
         #     self.partial_fsm_events[cell_name][fsm] = [{ "name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
@@ -208,8 +209,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             "cell_probe_out": cell_enable_active,
             "primitive_probe_out": primitive_enable,
         }
-
-        self.trace = {}  # dict contents: cycle number --> list of stacks
 
         main_done = False  # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
@@ -983,6 +982,7 @@ def read_fsm_file(fsm_json_file, components_to_cells):
         
     return fully_qualified_fsms
 
+@profile
 def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out):
     print(f"Start time: {datetime.now()}")
     main_component, cells_to_components, components_to_cells = read_component_cell_names_json(
@@ -994,35 +994,39 @@ def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir
         print(f"{i}: {f}")
         i += 1
     print(f"Start reading VCD: {datetime.now()}")
-    converter = VCDConverter(main_component, cells_to_components, fully_qualified_fsms)
+    # moving output info out of the converter
+    trace = {} # dict contents: cycle number --> list of stacks
+    fsm_events = { fsm: [{ "name": str(0), "cat": "fsm", "ph": "B", "ts": 0}] for fsm in fully_qualified_fsms } # won't be fully filled in until create_timeline()
+    converter = VCDConverter(main_component, cells_to_components, fully_qualified_fsms, trace, fsm_events)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     print(f"Start Postprocessing VCD: {datetime.now()}")
     converter.postprocess()
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
+    write_cell_stats(converter.cell_to_active_cycles, out_dir)
+    del converter
 
-    if len(converter.trace) < 100:
-        for i in converter.trace:
+    if len(trace) < 100:
+        for i in trace:
             print(i)
-            for stack in converter.trace[i]:
+            for stack in trace[i]:
                 print(f"\t{stack}")
 
-    tree_dict, path_dict = create_tree(converter.trace)
+    tree_dict, path_dict = create_tree(trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
-    create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
+    create_aggregate_tree(trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(
-        converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir
+        trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir
     )
-    create_flame_groups(converter.trace, flame_out, out_dir)
-    print(f"Creating timeline; length of partial_fsm_events: {len(converter.partial_fsm_events)}")
-    compute_timeline(converter.trace, converter.partial_fsm_events, main_component, out_dir)
+    create_flame_groups(trace, flame_out, out_dir)
+    print(f"Creating timeline; length of partial_fsm_events: {len(fsm_events)}")
+    compute_timeline(trace, fsm_events, main_component, out_dir)
     print("finished creating timeline")
-    write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
-        adl_trace, mixed_trace = convert_trace(converter.trace, adl_mapping_file)
+        adl_trace, mixed_trace = convert_trace(trace, adl_mapping_file)
         adl_flat_flame = os.path.join(out_dir, f"adl-flat-flame.folded")
         adl_scaled_flame = os.path.join(out_dir, f"adl-scaled-flame.folded")
         create_flame_groups(
