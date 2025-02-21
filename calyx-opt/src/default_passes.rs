@@ -112,7 +112,7 @@ impl PassManager {
                 CollapseControl,
             ]
         );
-        // this path should be used instead of `pre-opt --> compile`, never with it
+        // this path should be used alone
         register_alias!(
             pm,
             "fsm-opt",

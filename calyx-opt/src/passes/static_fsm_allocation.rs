@@ -1,11 +1,13 @@
 use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
-use calyx_ir::{self as ir, build_assignments};
+use calyx_ir::{self as ir, build_assignments, guard};
 use calyx_utils::CalyxResult;
 use core::ops::Not;
 use itertools::MultiUnzip;
-use std::{collections::HashMap, mem};
+use std::collections::HashMap;
 
-pub struct StaticFSMAllocation {}
+pub struct StaticFSMAllocation {
+    non_promoted_static_component: bool,
+}
 
 impl Named for StaticFSMAllocation {
     fn name() -> &'static str {
@@ -18,9 +20,13 @@ impl Named for StaticFSMAllocation {
 
 impl ConstructVisitor for StaticFSMAllocation {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
-        Ok(StaticFSMAllocation {})
+        Ok(StaticFSMAllocation {
+            non_promoted_static_component: false,
+        })
     }
-    fn clear_data(&mut self) {}
+    fn clear_data(&mut self) {
+        self.non_promoted_static_component = false
+    }
 }
 
 /// An instance of `StaticSchedule` is constrainted to live at least as long as
@@ -143,7 +149,10 @@ impl<'a> StaticSchedule<'a> {
 
     /// Given a filled-out static schedule, construct an FSM based on the state mappings
     /// in `state2assigns`.
-    fn realize_fsm(&mut self) -> ir::RRC<ir::FSM> {
+    fn realize_fsm(
+        &mut self,
+        non_promoted_static_component: bool,
+    ) -> ir::RRC<ir::FSM> {
         let true_guard = ir::Guard::True;
         let signal_on = self.builder.add_constant(1, 1);
 
@@ -173,25 +182,31 @@ impl<'a> StaticSchedule<'a> {
                         ir::Guard::True,
                     );
 
-                // merge first "calc" state with first "idle" state
-                if state == 0 {
+                let transition = if state == 0 {
+                    // merge first "calc" state with first "idle" state
                     state_assign.and_guard(Some(ir::guard!(fsm["start"])));
-                }
 
-                // loopback to start at final state, and increment state otherwise
-                let uncond_trans = ir::Transition::Unconditional(
-                    if state + 1 == self.latency {
-                        0
-                    } else {
-                        state + 1
-                    },
-                );
+                    // set transition out of first state, which is conditional on reading fsm[start]
+                    ir::Transition::Conditional(vec![
+                        (guard!(fsm["start"]), 1 % self.latency),
+                        (true_guard.clone(), 0),
+                    ])
+                } else {
+                    // loopback to start at final state, and increment state otherwise
+                    ir::Transition::Unconditional(
+                        if state + 1 == self.latency {
+                            0
+                        } else {
+                            state + 1
+                        },
+                    )
+                };
 
-                (vec![state_assign], uncond_trans, state_wire)
+                (vec![state_assign], transition, state_wire)
             })
             .multiunzip();
 
-        if self.builder.component.is_static() {
+        if non_promoted_static_component {
             // If the component is fully static, there will be exactly one
             // FSM allocated to it. We will get rid of the FSMEnable node from the
             // control in this case, so we need to manually add fsm[start] = comp[go]
@@ -217,12 +232,18 @@ impl<'a> StaticSchedule<'a> {
             // a static island), then we need to make sure that fsm[done] is
             // assigned to. There are almost certainly other parts of this component's
             // schedule that require the [done] signal out of a static-island FSM.
-
-            // Change the transition destination of the previous state from 0 to DONE
-            let loopback = mem::replace(
-                transitions.last_mut().unwrap(),
-                ir::Transition::Unconditional(self.latency),
-            );
+            match transitions.last_mut().unwrap() {
+                // if latency > 1, you'll have an unconditional transition to 0;
+                // just change this to point to the new final state
+                ir::Transition::Unconditional(state) => {
+                    *state = self.latency;
+                }
+                // if latency = 1, you'll have a conditional transition back to 0;
+                // also change this to point to the final state
+                ir::Transition::Conditional(guarded_state) => {
+                    guarded_state.first_mut().unwrap().1 += 1;
+                }
+            }
 
             // place done condition assignment and transition back to 0
             assignments.push(
@@ -231,7 +252,7 @@ impl<'a> StaticSchedule<'a> {
                 )
                 .to_vec(),
             );
-            transitions.push(loopback);
+            transitions.push(ir::Transition::Unconditional(0));
         }
 
         // Transform all the state-dependent assignments within the static schedule
@@ -270,22 +291,26 @@ impl Visitor for StaticFSMAllocation {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
+        self.non_promoted_static_component = comp.is_static()
+            && !(comp
+                .attributes
+                .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
         let mut ssch = StaticSchedule::from(ir::Builder::new(comp, sigs));
         ssch.construct_schedule(s, None);
-        Ok(Action::change(ir::Control::fsm_enable(ssch.realize_fsm())))
+        Ok(Action::change(ir::Control::fsm_enable(
+            ssch.realize_fsm(self.non_promoted_static_component),
+        )))
     }
     fn finish(
         &mut self,
-        comp: &mut ir::Component,
+        _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> crate::traversal::VisResult {
         // If the component is static, get rid of all control components;
         // all assignments should already exist in the `wires` section
-        if comp.is_static() {
-            Ok(Action::Change(Box::new(ir::Control::Empty(ir::Empty {
-                attributes: comp.attributes.clone(),
-            }))))
+        if self.non_promoted_static_component {
+            Ok(Action::Change(Box::new(ir::Control::empty())))
         } else {
             Ok(Action::Continue)
         }
