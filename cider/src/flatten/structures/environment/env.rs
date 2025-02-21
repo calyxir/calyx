@@ -2342,13 +2342,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         let child_clock_idx =
                             self.env.thread_map.unwrap_clock_id(child_thread);
 
-                        let child_clock = std::mem::take(
-                            &mut self.env.clocks[child_clock_idx],
-                        );
+                        let (parent_clock, child_clock) = self
+                            .env
+                            .clocks
+                            .split_mut_indices(parent_clock, child_clock_idx)
+                            .unwrap();
 
-                        self.env.clocks[parent_clock].sync(&child_clock);
-
-                        self.env.clocks[child_clock_idx] = child_clock;
+                        parent_clock.sync(child_clock);
                     }
 
                     *node_thread = Some(parent);

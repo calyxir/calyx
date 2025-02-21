@@ -16,6 +16,7 @@ use crate::{
 };
 use baa::BitVecOps;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
@@ -326,51 +327,28 @@ impl RuntimeError {
             RuntimeError::UndefinedWriteAddr(c) => CiderError::GenericError(format!("Attempted to write to an undefined memory address in memory named \"{}\"", env.get_full_name(c))),
             RuntimeError::UndefinedReadAddr(c) => CiderError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
             RuntimeError::ClockError(ClockErrorWithCell { error, cell, entry_number }) => {
-                if let Some(num) = entry_number {
-                    // memory
-                    match error {
-                        ClockError::ReadAfterWrite { write, read } => {
-                            CiderError::GenericError(format!("Concurrent read & write to the same memory {} at entry {num}\n  {}\n  {}", env.get_full_name(cell).underline(), write.format(env), read.format(env)))
-                        },
-                        ClockError::WriteAfterWrite { write1, write2 } => {
-                            CiderError::GenericError(format!("Concurrent writes to the same memory {} at entry {num}\n  1. {}\n  2. {}", env.get_full_name(cell).underline(), write1.format(env), write2.format(env)))
-                        },
-                        ClockError::WriteAfterRead { write } => {
-                            CiderError::GenericError(format!("Concurrent read and write to the same memory {} at entry {num}\n  1. {}\n  read <UNAVAILABLE>", env.get_full_name(cell).underline(), write.format(env)))
-                        },
-                    }
+                let race_location = if let Some(num) = entry_number {
+                    format!("memory {} at entry {num}", env.get_full_name(cell))
                 } else {
                     // register
-                    match error {
-                        ClockError::ReadAfterWrite { write, read } => {
-                            CiderError::GenericError(format!("Concurrent read & write to the same register {}\n  {}\n  {}", env.get_full_name(cell).underline(), write.format(env), read.format(env)))
-                        },
-                        ClockError::WriteAfterWrite { write1, write2 } => {
-                            CiderError::GenericError(format!("Concurrent writes to the same register {}\n  1. {}\n  2. {}", env.get_full_name(cell).underline(), write1.format(env), write2.format(env)))
-                        },
-                        ClockError::WriteAfterRead { write } => {
-                            CiderError::GenericError(format!("Concurrent read & write to the same register {}\n  {}\n  read <UNAVAILABLE>", env.get_full_name(cell).underline(), write.format(env)))
-                        },
-                    }
+                    format!("register {}", env.get_full_name(cell))
+                };
+
+                match error {
+                    ClockError::ReadAfterWrite { write, read } => {
+                        CiderError::GenericError(format!("Concurrent read & write to the same {race_location}\n  {}\n  {}", write.format(env), read.format(env)))
+                    },
+                    ClockError::WriteAfterWrite { write1, write2 } => {
+                        CiderError::GenericError(format!("Concurrent writes to the same {race_location}\n  {}\n  {}", write1.format(env), write2.format(env)))
+                    },
+                    ClockError::WriteAfterRead { write , reads} => {
+                        let plural_reads = reads.len() > 1;
+                        let read_s = if plural_reads {"s"} else {""};
+                        let formatted_reads = reads.iter().map(|r| r.format(env)).join("\n  ");
+
+                        CiderError::GenericError(format!("Concurrent read{read_s} and write to the same {race_location}\n  {}\n  {formatted_reads}", write.format(env)))
+                    },
                 }
-
-
-
-                //     ClockError::ReadWrite(c, num) => {
-                //         if let Some(entry_number) = num {
-                //             CiderError::GenericError(format!("Concurrent read & write to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
-                //         } else {
-                //             CiderError::GenericError(format!("Concurrent read & write to the same register {}", env.get_full_name(c).underline()))
-                //         }
-                // },
-                //     ClockError::WriteWrite(c, num) => {
-                //         if let Some(entry_number) = num {
-                //             CiderError::GenericError(format!("Concurrent writes to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
-                //         } else {
-                //             CiderError::GenericError(format!("Concurrent writes to the same register {}", env.get_full_name(c).underline()))
-                //         }
-                //     },
-                //     c => CiderError::GenericError(format!("Unexpected clock error: {c:?}")),
 
             }
             RuntimeError::UndefiningDefinedPort(p) => CiderError::GenericError(format!("Attempted to undefine a defined port \"{}\"", env.get_full_name(p))),

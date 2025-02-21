@@ -8,7 +8,7 @@ use std::{
 
 use crate::flatten::{
     flat_ir::{
-        base::{AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx},
+        base::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
         component::AssignmentDefinitionLocation,
         prelude::ControlIdx,
     },
@@ -16,6 +16,7 @@ use crate::flatten::{
         context::Context,
         thread::{ThreadIdx, ThreadMap},
     },
+    text_utils::Color,
 };
 
 use baa::BitVecValue;
@@ -24,12 +25,11 @@ use cider_idx::{
     maps::{IndexedMap, SecondarySparseMap},
 };
 use itertools::Itertools;
-use owo_colors::OwoColorize;
 use thiserror::Error;
 
 use super::Environment;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ClockIdx(NonZeroU32);
 impl_index_nonzero!(ClockIdx);
 
@@ -50,13 +50,88 @@ pub struct WriteInfo {
     pub assignment: AssignmentWinner,
 }
 
+#[derive(Debug, Clone)]
 pub struct ReadList {
     pub map: SecondarySparseMap<ThreadIdx, ReadInfo>,
 }
 
+impl ReadList {
+    pub fn new() -> Self {
+        Self {
+            map: SecondarySparseMap::new(),
+        }
+    }
+
+    pub fn get_last_read(&self, thread: ThreadIdx) -> Option<&ReadInfo> {
+        self.map.get(thread)
+    }
+    pub fn set_last_read(&mut self, thread: ThreadIdx, info: ReadInfo) {
+        self.map.insert_value(thread, info);
+    }
+}
+
+impl Default for ReadList {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum ReadWriteInfo {
     Write(WriteInfo),
     Read(ReadList),
+}
+
+impl ReadWriteInfo {
+    #[must_use]
+    pub fn as_write(&self) -> Option<&WriteInfo> {
+        if let Self::Write(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_write_mut(&mut self) -> Option<&mut WriteInfo> {
+        if let Self::Write(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_read(&self) -> Option<&ReadList> {
+        if let Self::Read(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_read_mut(&mut self) -> Option<&mut ReadList> {
+        if let Self::Read(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn unwrap_read(&self) -> &ReadList {
+        self.as_read().unwrap()
+    }
+
+    pub fn unwrap_read_mut(&mut self) -> &mut ReadList {
+        self.as_read_mut().unwrap()
+    }
+
+    pub fn unwrap_write(&self) -> &WriteInfo {
+        self.as_write().unwrap()
+    }
+    pub fn unwrap_write_mut(&mut self) -> &mut WriteInfo {
+        self.as_write_mut().unwrap()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -71,61 +146,77 @@ pub enum ReadSource {
 
 #[derive(Debug, Clone)]
 pub struct ReadInfo {
-    // this is technically redundant info but it makes things a bit easier to
-    // deal with
-    pub thread: ThreadIdx,
     pub source: ReadSource,
     pub cell: GlobalCellIdx,
 }
 
 impl ReadInfo {
-    pub fn new(
-        thread: ThreadIdx,
-        source: ReadSource,
-        cell: GlobalCellIdx,
-    ) -> Self {
-        Self {
-            thread,
-            source,
-            cell,
-        }
+    pub fn new(source: ReadSource, cell: GlobalCellIdx) -> Self {
+        Self { source, cell }
     }
 
+    pub fn add_thread(self, thread: ThreadIdx) -> ReadInfoWithThread {
+        ReadInfoWithThread {
+            read_info: self,
+            thread,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ReadInfoWithThread {
+    read_info: ReadInfo,
+    thread: ThreadIdx,
+}
+
+impl ReadInfoWithThread {
     pub fn format<C: AsRef<Context> + Clone>(
         &self,
         env: &Environment<C>,
     ) -> String {
         let ctx = env.ctx();
-        let read_string = match self.source {
+        let read_string = match self.read_info.source {
             ReadSource::Assignment(assignment_idx) => {
                 let (comp, assign_src) =
                     ctx.find_assignment_definition(assignment_idx);
-                let location_str =
-                    format_assignment_location(ctx, comp, assign_src);
+                let location_str = format_assignment_location(
+                    env,
+                    comp,
+                    assign_src,
+                    self.read_info.cell,
+                );
                 format!(
                     "RHS from assignment {} in {}",
                     ctx.printer()
                         .print_assignment(comp, assignment_idx)
-                        .yellow(),
+                        .stylize_assignment(),
                     location_str
                 )
             }
             ReadSource::Guard(assignment_idx) => {
                 let (comp, assign_src) =
                     ctx.find_assignment_definition(assignment_idx);
-                let location_str =
-                    format_assignment_location(ctx, comp, assign_src);
+                let location_str = format_assignment_location(
+                    env,
+                    comp,
+                    assign_src,
+                    self.read_info.cell,
+                );
                 format!(
                     "guard of assignment {} in {}",
-                    ctx.printer().print_assignment(comp, assignment_idx),
+                    ctx.printer()
+                        .print_assignment(comp, assignment_idx)
+                        .stylize_assignment(),
                     location_str
                 )
             }
             ReadSource::Conditional(control_idx) => {
                 let comp = ctx.lookup_control_definition(control_idx);
+                let name = env.get_full_name(self.read_info.cell);
+                let name = name.stylize_name();
                 format!(
-                    "conditional evaluation: \n {}",
-                    ctx.printer().format_control(comp, control_idx, 4)
+                    "conditional evaluation in {name}: \n {}",
+                    ctx.printer().format_control(comp, control_idx, 1)
                 )
             }
         };
@@ -152,15 +243,19 @@ impl WriteInfo {
                     .lookup_assignment_definition(assignment_idx, comp_idx)
                     .unwrap();
 
-                let location_str =
-                    format_assignment_location(ctx, comp_idx, assign_def);
+                let location_str = format_assignment_location(
+                    env,
+                    comp_idx,
+                    assign_def,
+                    global_cell_idx,
+                );
 
                 format!(
                     "write in thread {:?} from assignment {} in {}",
                     self.thread,
                     ctx.printer()
                         .print_assignment(comp_idx, assignment_idx)
-                        .yellow(),
+                        .stylize_assignment(),
                     location_str
                 )
             }
@@ -168,25 +263,37 @@ impl WriteInfo {
     }
 }
 
-fn format_assignment_location(
-    ctx: &Context,
+fn format_assignment_location<C: Clone + AsRef<Context>>(
+    env: &Environment<C>,
     comp_idx: crate::flatten::flat_ir::prelude::ComponentIdx,
     assign_def: AssignmentDefinitionLocation,
+    cell: GlobalCellIdx,
 ) -> String {
     match assign_def {
         AssignmentDefinitionLocation::CombGroup(comb_group_idx) => {
-            format!("comb group {}", ctx.lookup_name(comb_group_idx))
+            format!(
+                "comb group {}::{}",
+                env.get_full_name(cell),
+                env.ctx().lookup_name(comb_group_idx).stylize_name(),
+            )
         }
         AssignmentDefinitionLocation::Group(group_idx) => {
-            format!("group {}", ctx.lookup_name(group_idx).underline())
+            format!(
+                "group {}::{}",
+                env.get_full_name(cell),
+                env.ctx().lookup_name(group_idx).stylize_name()
+            )
         }
         AssignmentDefinitionLocation::ContinuousAssignment => {
-            "continuous logic".to_string()
+            format!(
+                "continuous logic in {}",
+                env.get_full_name(cell).stylize_name()
+            )
         }
         AssignmentDefinitionLocation::Invoke(control_idx) => {
             format!(
                 "invoke statement: {}",
-                ctx.printer().format_control(comp_idx, control_idx, 0)
+                env.ctx().printer().format_control(comp_idx, control_idx, 0)
             )
         }
     }
@@ -196,7 +303,7 @@ fn format_assignment_location(
 pub struct ClockMap {
     clocks: IndexedMap<ClockIdx, VectorClock<ThreadIdx>>,
     reverse_map: HashMap<ClockPair, ClockPairInfo>,
-    extra_info: SecondarySparseMap<ClockIdx, WriteInfo>,
+    extra_info: SecondarySparseMap<ClockIdx, ReadWriteInfo>,
 }
 
 impl ClockMap {
@@ -240,10 +347,50 @@ impl ClockMap {
     }
 
     pub fn log_write(&mut self, clock: ClockIdx, info: WriteInfo) {
-        self.extra_info.insert_value(clock, info);
+        self.extra_info
+            .insert_value(clock, ReadWriteInfo::Write(info));
     }
     pub fn get_logged_write(&mut self, clock: ClockIdx) -> Option<&WriteInfo> {
-        self.extra_info.get(clock)
+        self.extra_info.get(clock).map(|x| x.unwrap_write())
+    }
+
+    pub fn log_read(
+        &mut self,
+        reading_thread: ThreadIdx,
+        clock: ClockIdx,
+        read: ReadInfo,
+    ) {
+        let entry = if let Some(entries) = self.extra_info.get_mut(clock) {
+            entries.unwrap_read_mut()
+        } else {
+            self.extra_info
+                .insert_value(clock, ReadWriteInfo::Read(ReadList::new()));
+            self.extra_info.get_mut(clock).unwrap().unwrap_read_mut()
+        };
+        entry.set_last_read(reading_thread, read);
+    }
+
+    pub fn get_logged_reads<'a, I>(
+        &'a self,
+        read_clock: ClockIdx,
+        threads: I,
+    ) -> impl Iterator<Item = ReadInfoWithThread> + '_
+    where
+        I: IntoIterator<Item = ThreadIdx> + 'a,
+    {
+        let read_log = self.extra_info.get(read_clock).unwrap().unwrap_read();
+        threads
+            .into_iter()
+            .map(|t| read_log.get_last_read(t).unwrap().clone().add_thread(t))
+    }
+
+    pub fn split_mut_indices(
+        &mut self,
+        idx1: ClockIdx,
+        idx2: ClockIdx,
+    ) -> Option<(&mut VectorClock<ThreadIdx>, &mut VectorClock<ThreadIdx>)>
+    {
+        self.clocks.split_mut_indices(idx1, idx2)
     }
 }
 
@@ -452,6 +599,25 @@ where
     pub fn set_thread_clock(&mut self, thread_id: I, clock: C) {
         self.map.insert(thread_id, clock);
     }
+
+    /// Returns an iterator over ids in the `other` vector clock which are
+    /// strictly greater than in `self`
+    pub fn get_strictly_greater<'a>(
+        &'a self,
+        other: &'a Self,
+    ) -> impl Iterator<Item = &I> + '_ {
+        other.map.iter().filter_map(|(key, other_count)| {
+            if let Some(count) = self.get(key) {
+                if other_count > count {
+                    Some(key)
+                } else {
+                    None
+                }
+            } else {
+                Some(key)
+            }
+        })
+    }
 }
 
 impl<I, C> Default for VectorClock<I, C>
@@ -596,14 +762,25 @@ impl ClockPair {
         cell: GlobalCellIdx,
         clock_map: &mut ClockMap,
     ) -> Result<(), ClockError> {
-        self.check_read((thread, reading_clock), clock_map)
-            .map_err(|_| ClockError::ReadAfterWrite {
-                write: clock_map
-                    .get_logged_write(self.write_clock)
-                    .unwrap()
-                    .clone(),
-                read: ReadInfo::new(thread, source, cell),
-            })
+        let res =
+            self.check_read((thread, reading_clock), clock_map)
+                .map_err(|_| ClockError::ReadAfterWrite {
+                    write: clock_map
+                        .get_logged_write(self.write_clock)
+                        .unwrap()
+                        .clone(),
+                    read: ReadInfo::new(source.clone(), cell)
+                        .add_thread(thread),
+                });
+
+        if res.is_ok() {
+            clock_map.log_read(
+                thread,
+                self.read_clock,
+                ReadInfo::new(source, cell),
+            )
+        }
+        res
     }
 
     fn check_write(
@@ -622,7 +799,12 @@ impl ClockPair {
                 .is_none()
         {
             // dbg!(&clock_map[writing_clock], &clock_map[self.read_clock]);
-            Err(WriteError::WriteRead)
+            Err(WriteError::write_read(
+                clock_map[writing_clock]
+                    .get_strictly_greater(&clock_map[self.read_clock])
+                    .copied()
+                    .collect(),
+            ))
         } else if clock_map[writing_clock]
             .partial_cmp(&clock_map[self.write_clock])
             .is_none()
@@ -662,9 +844,16 @@ impl ClockPair {
                         .clone(),
                     write2: WriteInfo::new(thread, winner.clone()),
                 }),
-                WriteError::WriteRead => Err(ClockError::WriteAfterRead {
-                    write: WriteInfo::new(thread, winner.clone()),
-                }),
+                WriteError::WriteRead(threads) => {
+                    let reads = clock_map
+                        .get_logged_reads(self.read_clock, threads)
+                        .collect();
+
+                    Err(ClockError::WriteAfterRead {
+                        write: WriteInfo::new(thread, winner.clone()),
+                        reads,
+                    })
+                }
             },
         }
     }
@@ -675,7 +864,14 @@ pub enum WriteError {
     #[error("concurrent writes to same value")]
     WriteWrite,
     #[error("concurrent write and read to same value")]
-    WriteRead,
+    WriteRead(Box<[ThreadIdx]>),
+}
+
+impl WriteError {
+    fn write_read(threads: Box<[ThreadIdx]>) -> Self {
+        assert!(!threads.is_empty());
+        Self::WriteRead(threads)
+    }
 }
 
 #[derive(Debug, Clone, Error)]
@@ -687,15 +883,21 @@ pub struct ReadError;
 
 #[derive(Debug, Clone, Error)]
 pub enum ClockError {
-    #[error("Concurrent read & write to the same register/memory")]
-    ReadAfterWrite { write: WriteInfo, read: ReadInfo },
-    #[error("Concurrent writes to the same register/memory")]
+    #[error("Concurrent read & write to the same register/memory. This text should never be seen")]
+    ReadAfterWrite {
+        write: WriteInfo,
+        read: ReadInfoWithThread,
+    },
+    #[error("Concurrent writes to the same register/memory. This text should never be seen")]
     WriteAfterWrite {
         write1: WriteInfo,
         write2: WriteInfo,
     },
-    #[error("Concurrent writes to the same register/memory")]
-    WriteAfterRead { write: WriteInfo },
+    #[error("Concurrent writes to the same register/memory. This text should never be seen")]
+    WriteAfterRead {
+        write: WriteInfo,
+        reads: Box<[ReadInfoWithThread]>,
+    },
 }
 
 #[derive(Debug, Clone, Error)]
