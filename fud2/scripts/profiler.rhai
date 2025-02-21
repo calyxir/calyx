@@ -57,7 +57,7 @@ fn edsl_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json");
+    e.arg("args", "-p static-inline -p compile-static -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -96,7 +96,7 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json");
+    e.arg("args", "-p static-inline -p compile-static -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()

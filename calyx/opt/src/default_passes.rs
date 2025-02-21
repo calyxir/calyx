@@ -163,7 +163,6 @@ impl PassManager {
             [
                 StaticInliner,
                 CompileStatic,
-                CompileRepeat,
                 CompileInvoke,
                 ProfilerInstrumentation,
                 "all"
