@@ -719,29 +719,55 @@ class TimelineCell:
         self.name = name
         self.pid = pid
         self.tid = 1  # the cell itself gets tid 1, and any groups that come out of the cell get tid 2+
-        self.tid_acc = 2 # skip all of the fsms
-        self.children_to_tid = {}  # contents: group/fsm --> tid
+        self.tid_acc = 2
+        self.fsm_to_tid = {}  # contents: group/fsm --> tid
+        self.currently_active_group_to_tid = {}
+        self.queued_tids = []
 
-    def get_child_pid_tid(self, child_name):
-        if child_name not in self.children_to_tid:
-            self.children_to_tid[child_name] = self.tid_acc
+    def get_fsm_pid_tid(self, fsm_name):
+        if fsm_name not in self.fsm_to_tid:
+            self.fsm_to_tid[fsm_name] = self.tid_acc
             self.tid_acc += 1
-        return (self.pid, self.children_to_tid[child_name])
+        return (self.pid, self.fsm_to_tid[fsm_name])
+    
+    def get_group_pid_tid(self, group_name):
+        return (self.pid, self.currently_active_group_to_tid[group_name])
+
+    def add_group(self, group_name):
+        if group_name in self.currently_active_group_to_tid: # no-op since the group is already registered.
+            return self.currently_active_group_to_tid[group_name]
+        if len(self.queued_tids) > 0:
+            group_tid = min(self.queued_tids)
+            self.queued_tids.remove(group_tid)
+        else:
+            group_tid = self.tid_acc
+            self.tid_acc += 1
+        self.currently_active_group_to_tid[group_name] = group_tid
+        return (self.pid, group_tid)
+    
+    def remove_group(self, group_name):
+        group_tid = self.currently_active_group_to_tid[group_name]
+        self.queued_tids.append(group_tid)
+        del self.currently_active_group_to_tid[group_name]
+        return (self.pid, group_tid)
+
+def port_fsm_events(partial_fsm_events, events, cell_to_info, name):
+    for fsm_name in list(partial_fsm_events.keys()):
+        fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
+        if fsm_cell_name == name:
+            (fsm_pid, fsm_tid) = cell_to_info[name].get_fsm_pid_tid(fsm_name)
+            for entry in partial_fsm_events[fsm_name]:
+                entry["pid"] = fsm_pid
+                entry["tid"] = fsm_tid
+                events.append(entry)
+            del partial_fsm_events[fsm_name]
 
 def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
     events = []  # try to save space by recording on the fly when things start and end.
     # each cell has its own pid. each group in the cell has its own tid. (TODO: try to squash this later for a nicer visualization.)
     cell_to_info = {main_component: TimelineCell(main_component, 1)}
     # port all FSM events
-    for fsm_name in list(partial_fsm_events.keys()):
-        fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
-        if fsm_cell_name == main_component:
-            (fsm_pid, fsm_tid) = cell_to_info[main_component].get_child_pid_tid(fsm_name)
-            for entry in partial_fsm_events[fsm_name]:
-                entry["pid"] = fsm_pid
-                entry["tid"] = fsm_tid
-                events.append(entry)
-            del partial_fsm_events[fsm_name]
+    port_fsm_events(partial_fsm_events, events, cell_to_info, main_component)
     group_to_parent_cell = {}
     pid_acc = 2
     currently_active = set()
@@ -760,15 +786,7 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
                     if name not in cell_to_info:  # cell is not registered yet
                         cell_to_info[name] = TimelineCell(name, pid_acc)
                         # port all FSM events
-                        for fsm_name in list(partial_fsm_events.keys()):
-                            fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
-                            if fsm_cell_name == name:
-                                (fsm_pid, fsm_tid) = cell_to_info[name].get_child_pid_tid(fsm_name)
-                                for entry in partial_fsm_events[fsm_name]:
-                                    entry["pid"] = fsm_pid
-                                    entry["tid"] = fsm_tid
-                                    events.append(entry)
-                                del partial_fsm_events[fsm_name]
+                        port_fsm_events(partial_fsm_events, events, cell_to_info, name)
                         pid_acc += 1
                 elif "(primitive)" in stack_elem:  # ignore primitives for now.
                     continue
@@ -815,7 +833,6 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
     with open(out_path, "w", encoding="utf-8") as out_file:
         out_file.write(json.dumps({"traceEvents": events}, indent=4))
 
-
 """
 Creates a JSON entry for traceEvents.
 element_name: fully qualified name of cell/group
@@ -839,7 +856,10 @@ def create_timeline_event(
     else:  # group; need to extract the cell name to obtain tid and pid.
         cell_name = group_to_parent_cell[element_name]
         cell_info = cell_to_info[cell_name]
-        (pid, tid) = cell_info.get_child_pid_tid(element_name)
+        if event_type == "B":
+            (pid, tid) = cell_info.add_group(element_name)
+        else:
+            (pid, tid) = cell_info.remove_group(element_name)
         event = {
             "name": element_name,
             "cat": "group",
@@ -982,7 +1002,7 @@ def read_fsm_file(fsm_json_file, components_to_cells):
         
     return fully_qualified_fsms
 
-@profile
+# @profile
 def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out):
     print(f"Start time: {datetime.now()}")
     main_component, cells_to_components, components_to_cells = read_component_cell_names_json(
