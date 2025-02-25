@@ -610,9 +610,37 @@ def create_edge_dict(path_dict):
     return path_to_edges, list(sorted(all_edges))
 
 
-# create a tree where we divide cycles via par arms
-def compute_scaled_flame(trace):
-    stacks = {}
+def write_flame_maps(flat_flame_map, scaled_flame_map, flames_out_dir, flame_out_file, scaled_flame_out_file=None):
+    if not os.path.exists(flames_out_dir):
+        os.mkdir(flames_out_dir)
+
+    # write flat flame map
+    with open(flame_out_file, "w") as flame_out:
+        for stack in flat_flame_map:
+            flame_out.write(f"{stack} {flat_flame_map[stack]}\n")
+
+    # write scaled flame map
+    if scaled_flame_out_file is None:
+        scaled_flame_out_file = os.path.join(flames_out_dir, "scaled-flame.folded")
+    with open(scaled_flame_out_file, "w") as div_flame_out:
+        for stack in scaled_flame_map:
+            div_flame_out.write(f"{stack} {scaled_flame_map[stack]}\n")
+
+def create_flame_groups(
+    trace
+):
+    # flat flame graph; each par arm is counted for 1 cycle
+    flat_flame_map = {}  # stack to number of cycles
+    for i in trace:
+        for stack_list in trace[i]:
+            stack_id = ";".join(stack_list)
+            if stack_id not in flat_flame_map:
+                flat_flame_map[stack_id] = 1
+            else:
+                flat_flame_map[stack_id] += 1
+
+    # scaled flame graph; each cycle is divided by the number of par arms that are concurrently active.
+    scaled_flame_map = {}
     for i in trace:
         num_stacks = len(trace[i])
         cycle_slice = round(1 / num_stacks, 3)
@@ -621,41 +649,13 @@ def compute_scaled_flame(trace):
         for stack_list in trace[i]:
             stack_id = ";".join(stack_list)
             slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
-            if stack_id not in stacks:
-                stacks[stack_id] = slice_to_add * SCALED_FLAME_MULTIPLIER
+            if stack_id not in scaled_flame_map:
+                scaled_flame_map[stack_id] = slice_to_add * SCALED_FLAME_MULTIPLIER
             else:
-                stacks[stack_id] += slice_to_add * SCALED_FLAME_MULTIPLIER
+                scaled_flame_map[stack_id] += slice_to_add * SCALED_FLAME_MULTIPLIER
             acc += 1
-
-    return stacks
-
-
-def create_flame_groups(
-    trace, flame_out_file, flames_out_dir, scaled_flame_out_file=None
-):
-    if not os.path.exists(flames_out_dir):
-        os.mkdir(flames_out_dir)
-
-    # make flame graph folded file
-    stacks = {}  # stack to number of cycles
-    for i in trace:
-        for stack_list in trace[i]:
-            stack_id = ";".join(stack_list)
-            if stack_id not in stacks:
-                stacks[stack_id] = 1
-            else:
-                stacks[stack_id] += 1
-
-    with open(flame_out_file, "w") as flame_out:
-        for stack in stacks:
-            flame_out.write(f"{stack} {stacks[stack]}\n")
-
-    scaled_stacks = compute_scaled_flame(trace)
-    if scaled_flame_out_file is None:
-        scaled_flame_out_file = os.path.join(flames_out_dir, "scaled-flame.folded")
-    with open(scaled_flame_out_file, "w") as div_flame_out:
-        for stack in scaled_stacks:
-            div_flame_out.write(f"{stack} {scaled_stacks[stack]}\n")
+    
+    return flat_flame_map, scaled_flame_map
 
 
 def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
@@ -819,11 +819,9 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
             )
             write_timeline_event(end_event, out_file)
         for newly_active_element in active_this_cycle.difference(currently_active):
-            # print(f"newly active element: {newly_active_element}")
             begin_event = create_timeline_event(
                 newly_active_element, i, "B", cell_to_info, group_to_parent_cell
             )
-            # print(f"writing begin event: {begin_event}")
             write_timeline_event(begin_event, out_file)
         currently_active = active_this_cycle
 
@@ -934,6 +932,63 @@ def read_adl_mapping_file(adl_mapping_file):
             group_mappings[component_name][group_dict["name"]] = SourceLoc(group_dict)
     return component_mappings, cell_mappings, group_mappings
 
+def convert_flame_map(flame_map, adl_mapping_file):
+    component_map, cell_map, group_map = read_adl_mapping_file(adl_mapping_file)
+    adl_flame_map = {}
+    mixed_flame_map = {}
+
+    for stack in sorted(flame_map.keys()):
+        cycles = flame_map[stack]
+        adl_stack = []
+        mixed_stack = []
+        curr_component = None
+        for stack_elem in stack.split(";"):
+            # going to start by assuming "main" is the entrypoint.
+            if stack_elem == "main":
+                curr_component = stack_elem
+                sourceloc = component_map[stack_elem]
+                mixed_stack_elem = f"main {{{sourceloc}}}"
+                adl_stack_elem = mixed_stack_elem
+            elif "[" in stack_elem:  # invocation of component cell
+                cell = stack_elem.split("[")[0].strip()
+                cell_sourceloc = cell_map[curr_component][cell]
+                cell_component = stack_elem.split("[")[1].split("]")[0]
+                cell_component_sourceloc = component_map[cell_component]
+                mixed_stack_elem = f"{cell} {{{cell_sourceloc}}} [{cell_component} {{{cell_component_sourceloc}}}]"
+                adl_stack_elem = f"{cell_sourceloc.varname} {{{cell_sourceloc}}} [{cell_component_sourceloc.varname} {{{cell_component_sourceloc}}}]"
+                curr_component = cell_component
+            elif "(primitive)" in stack_elem:  # primitive
+                primitive = stack_elem.split("(primitive)")[0].strip()
+                primitive_sourceloc = cell_map[curr_component][primitive]
+                mixed_stack_elem = f"{stack_elem} {{{primitive_sourceloc}}}"
+                adl_stack_elem = (
+                    f"{primitive_sourceloc.varname} {{{primitive_sourceloc}}}"
+                )
+            else:  # group
+                # ignore compiler-generated groups (invokes) for now...
+                if stack_elem in group_map[curr_component]:
+                    sourceloc = group_map[curr_component][stack_elem]
+                    adl_stack_elem = f"{sourceloc.varname} {{{sourceloc}}}"
+                else:
+                    sourceloc = "compiler-generated"
+                    adl_stack_elem = sourceloc
+                mixed_stack_elem = f"{stack_elem} {{{sourceloc}}}"
+            adl_stack.append(adl_stack_elem)
+            mixed_stack.append(mixed_stack_elem)
+
+        # multiple Calyx stacks might have the same ADL stack (same source). If the ADL/mixed stack already exists in the map, we add the cycles from this Calyx stack.
+        adl_stack_str = ";".join(adl_stack)
+        mixed_stack_str = ";".join(mixed_stack)
+        if adl_stack_str in adl_flame_map:
+            adl_flame_map[adl_stack_str] += cycles
+        else:
+            adl_flame_map[adl_stack_str] = cycles
+        if mixed_stack_str in mixed_flame_map:
+            mixed_flame_map[mixed_stack_str] += cycles
+        else:
+            mixed_flame_map[mixed_stack_str] = cycles        
+
+    return adl_flame_map, mixed_flame_map
 
 def convert_trace(trace, adl_mapping_file):
     component_map, cell_map, group_map = read_adl_mapping_file(adl_mapping_file)
@@ -944,7 +999,6 @@ def convert_trace(trace, adl_mapping_file):
         i: [] for i in trace
     }  # contains only the ADL source location (NOTE: would be nice to have the construct name within the ADL?)
 
-    # trace should probably be more principled than this... lol
     for i in trace:
         for stack in trace[i]:
             adl_only_stack = []
@@ -1050,27 +1104,25 @@ def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir
     create_tree_rankings(
         trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir
     )
-    create_flame_groups(trace, flame_out, out_dir)
+    flat_flame_map, scaled_flame_map = create_flame_groups(trace)
+    write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
+
     print(f"Creating timeline; length of partial_fsm_events: {len(fsm_events)}")
     compute_timeline(trace, fsm_events, main_component, out_dir)
     print("finished creating timeline")
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
-        adl_trace, mixed_trace = convert_trace(trace, adl_mapping_file)
-        adl_flat_flame = os.path.join(out_dir, f"adl-flat-flame.folded")
-        adl_scaled_flame = os.path.join(out_dir, f"adl-scaled-flame.folded")
-        create_flame_groups(
-            adl_trace, adl_flat_flame, out_dir, scaled_flame_out_file=adl_scaled_flame
-        )
-        mixed_flat_flame = os.path.join(out_dir, f"mixed-flat-flame.folded")
-        mixed_scaled_flame = os.path.join(out_dir, f"mixed-scaled-flame.folded")
-        create_flame_groups(
-            mixed_trace,
-            mixed_flat_flame,
-            out_dir,
-            scaled_flame_out_file=mixed_scaled_flame,
-        )
+        adl_flat_flame, mixed_flat_flame = convert_flame_map(flat_flame_map, adl_mapping_file)
+        adl_scaled_flame, mixed_scaled_flame = convert_flame_map(scaled_flame_map, adl_mapping_file)
+        adl_flat_flame_file = os.path.join(out_dir, f"adl-flat-flame.folded")
+        adl_scaled_flame_file = os.path.join(out_dir, f"adl-scaled-flame.folded")
+        write_flame_maps(adl_flat_flame, adl_scaled_flame, out_dir, adl_flat_flame_file, adl_scaled_flame_file)
+        
+        mixed_flat_flame_file = os.path.join(out_dir, f"mixed-flat-flame.folded")
+        mixed_scaled_flame_file = os.path.join(out_dir, f"mixed-scaled-flame.folded")
+        write_flame_maps(mixed_flat_flame, mixed_scaled_flame, out_dir, mixed_flat_flame_file, mixed_scaled_flame_file)
+
     print(f"End time: {datetime.now()}")
 
 
