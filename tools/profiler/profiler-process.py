@@ -557,8 +557,6 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
                 leaves_this_cycle.add(leaf_node)
 
     # write the tree
-    if not os.path.exists(out_dir):
-        os.mkdir(out_dir)
     with open(os.path.join(out_dir, "aggregate.dot"), "w") as f:
         f.write("digraph aggregate {\n")
         # declare nodes
@@ -1023,6 +1021,8 @@ def main(vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir
     converter.postprocess()
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
     del converter
 
