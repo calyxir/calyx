@@ -13,7 +13,8 @@ ACTIVE_PRIMITIVE_COLOR = "orange"
 TREE_PICTURE_LIMIT = 300
 SCALED_FLAME_MULTIPLIER = 1000  # multiplier so scaled flame graph will not round up.
 ts_multiplier = 1  # ms on perfetto UI that resembles a single cycle
-
+JSON_INDENT = "    " # hardcode how much to indent
+num_timeline_events = 0
 
 def remove_size_from_name(name: str) -> str:
     """changes e.g. "state[2:0]" to "state" """
@@ -749,7 +750,15 @@ class TimelineCell:
         del self.currently_active_group_to_tid[group_name]
         return (self.pid, group_tid)
 
-def port_fsm_events(partial_fsm_events, events, cell_to_info, name):
+def write_timeline_event(event, out_file):
+    global num_timeline_events
+    if num_timeline_events == 0: # shouldn't prepend a comma on the first entry
+        out_file.write(f"\n{JSON_INDENT}{json.dumps(event)}")
+    else:
+        out_file.write(f",\n{JSON_INDENT}{json.dumps(event)}")
+    num_timeline_events += 1
+
+def port_fsm_events(partial_fsm_events, cell_to_info, name, out_file):
     for fsm_name in list(partial_fsm_events.keys()):
         fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
         if fsm_cell_name == name:
@@ -757,15 +766,19 @@ def port_fsm_events(partial_fsm_events, events, cell_to_info, name):
             for entry in partial_fsm_events[fsm_name]:
                 entry["pid"] = fsm_pid
                 entry["tid"] = fsm_tid
-                events.append(entry)
+                write_timeline_event(entry, out_file)
             del partial_fsm_events[fsm_name]
 
 def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
-    events = []  # try to save space by recording on the fly when things start and end.
+    # Generate the JSON on the fly instead of storing everything in a list.
+    out_path = os.path.join(out_dir, "timeline-dump.json")
+    out_file = open(out_path, "w", encoding="utf-8")
+    # start the file
+    out_file.write(f'{{\n{JSON_INDENT}"traceEvents": [')
     # each cell has its own pid. each group in the cell has its own tid. (TODO: try to squash this later for a nicer visualization.)
     cell_to_info = {main_component: TimelineCell(main_component, 1)}
     # port all FSM events
-    port_fsm_events(partial_fsm_events, events, cell_to_info, main_component)
+    port_fsm_events(partial_fsm_events, cell_to_info, main_component, out_file)
     group_to_parent_cell = {}
     pid_acc = 2
     currently_active = set()
@@ -784,7 +797,7 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
                     if name not in cell_to_info:  # cell is not registered yet
                         cell_to_info[name] = TimelineCell(name, pid_acc)
                         # port all FSM events
-                        port_fsm_events(partial_fsm_events, events, cell_to_info, name)
+                        port_fsm_events(partial_fsm_events, cell_to_info, name, out_file)
                         pid_acc += 1
                 elif "(primitive)" in stack_elem:  # ignore primitives for now.
                     continue
@@ -804,14 +817,14 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
             end_event = create_timeline_event(
                 nonactive_element, i, "E", cell_to_info, group_to_parent_cell
             )
-            events.append(end_event)
+            write_timeline_event(end_event, out_file)
         for newly_active_element in active_this_cycle.difference(currently_active):
             # print(f"newly active element: {newly_active_element}")
             begin_event = create_timeline_event(
                 newly_active_element, i, "B", cell_to_info, group_to_parent_cell
             )
             # print(f"writing begin event: {begin_event}")
-            events.append(begin_event)
+            write_timeline_event(begin_event, out_file)
         currently_active = active_this_cycle
 
     for (
@@ -822,14 +835,12 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
         end_event = create_timeline_event(
             still_active_element, len(trace), "E", cell_to_info, group_to_parent_cell
         )
-        events.append(end_event)
+        write_timeline_event(end_event, out_file)
 
-    print(f"number of events: {len(events)}")
+    # close off the json
+    out_file.write("\t\t]\n}")
 
-    # write to file
-    out_path = os.path.join(out_dir, "timeline-dump.json")
-    with open(out_path, "w", encoding="utf-8") as out_file:
-        out_file.write(json.dumps({"traceEvents": events}, indent=4))
+    out_file.close()
 
 """
 Creates a JSON entry for traceEvents.
