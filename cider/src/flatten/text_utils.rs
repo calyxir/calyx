@@ -105,3 +105,13 @@ pub fn print_debugger_welcome() {
         "r".underline()
     );
 }
+
+pub(crate) fn force_color(force_color: bool) {
+    if force_color {
+        owo_colors::set_override(true);
+    }
+    // Allow inference of color if not forced rather than forcing no colors
+    else {
+        owo_colors::unset_override();
+    }
+}

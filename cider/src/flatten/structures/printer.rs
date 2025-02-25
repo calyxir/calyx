@@ -184,10 +184,7 @@ impl<'a> Printer<'a> {
 
             // TODO Griffin: refactor into shared function rather than copy-paste?
             Control::Seq(s) => {
-                let mut seq = text_utils::indent(
-                    format!("seq {{  ({:?})\n", control),
-                    indent,
-                );
+                let mut seq = text_utils::indent("seq {\n", indent);
                 for stmt in s.stms() {
                     let child = self.format_control(parent, *stmt, indent + 1);
                     seq += &child;

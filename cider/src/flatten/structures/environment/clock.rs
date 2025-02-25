@@ -186,7 +186,7 @@ impl ReadInfoWithThread {
                     self.read_info.cell,
                 );
                 format!(
-                    "RHS from assignment {} in {}",
+                    "RHS in assignment {} in {}",
                     ctx.printer()
                         .print_assignment(comp, assignment_idx)
                         .stylize_assignment(),
