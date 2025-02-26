@@ -276,7 +276,11 @@ def relu(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
     data, res = fd.args[0], fd.dest
     num_dims = get_dims(data.comp)
-    _args = data.comp.args
+    args = data.comp.args
+
+    [
+        
+    ]
 
     indices = ""
     var_name = CHARACTER_I
