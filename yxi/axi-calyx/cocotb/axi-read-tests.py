@@ -112,7 +112,7 @@ async def read_axi_test_helper(
         mmap_size = len(data_vec) * 4
     # anonymous mmep for now to back axiram
     memmap = mmap.mmap(-1, mmap_size)
-    axi_ram_read = AxiRamRead(
+    _axi_ram_read = AxiRamRead(
         # NOTE: prefix should not contain the final "_"
         AxiReadBus.from_prefix(module, "m"),
         module.clk,

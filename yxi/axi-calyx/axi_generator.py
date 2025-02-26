@@ -456,7 +456,7 @@ def add_main_comp(prog, mems):
     ref_mem_kwargs = {}
 
     # Create single main cell
-    main_compute = wrapper_comp.comp_instance(
+    _main_compute = wrapper_comp.comp_instance(
         "main_compute", "main", check_undeclared=False
     )
     # Naming the clock signal `ap_clk` ensures Xilinx tool compatability
@@ -614,9 +614,11 @@ def add_main_comp(prog, mems):
         curr_addr_axi_par.append(curr_addr_axi_invoke)
         curr_addr_internal_par.append(curr_addr_internal_invoke)
         reads_par.append([ar_channel_invoke, read_channel_invoke])
-        writes_par.append(
-            [aw_channel_invoke, write_channel_invoke, bresp_channel_invoke]
-        )
+        writes_par.append([
+            aw_channel_invoke,
+            write_channel_invoke,
+            bresp_channel_invoke,
+        ])
         # Creates `<mem_name> = internal_mem_<mem_name>` as refs in invocation of `main_compute`
         ref_mem_kwargs[f"ref_{mem_name}"] = internal_mem
 
@@ -694,7 +696,7 @@ if __name__ == "__main__":
             yxifilename = sys.argv[1]
             if not yxifilename.endswith(".yxi"):
                 raise Exception("axi generator requires an yxi file")
-        except:
+        except Exception:
             pass  # no arg passed
     with open(yxifilename, "r", encoding="utf-8") as yxifile:
         yxifile = open(yxifilename)

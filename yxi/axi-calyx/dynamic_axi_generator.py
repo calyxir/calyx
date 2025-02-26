@@ -805,7 +805,7 @@ if __name__ == "__main__":
             yxi_filename = sys.argv[1]
             if not yxi_filename.endswith(".yxi"):
                 raise Exception("axi generator requires an yxi file")
-        except Exception as _e:
+        except Exception:
             pass  # no arg passed
     with open(yxi_filename, "r", encoding="utf-8") as yxifile:
         yxifile = open(yxi_filename)
