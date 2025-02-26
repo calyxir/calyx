@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: Concurrent writes to the same register main.r1
+  write in thread ThreadIdx(4) from assignment r1.write_en = 1'd1; in group main::write_r1_5
+  write in thread ThreadIdx(3) from assignment r1.write_en = 1'd1; in group main::write_r1_10

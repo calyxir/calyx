@@ -1,4 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: Concurrent read & write to the same memory [4mmain.cond_mem[0m in slot 0
+Error: Concurrent read and write to the same memory main.cond_mem at entry 0
+  write in thread ThreadIdx(5) from assignment cond_mem.write_en = 1'd1; in group main::write_cond
+  read in thread ThreadIdx(3) from RHS in assignment cond_reg.in = cond_mem.read_data; in group main::read_cond
