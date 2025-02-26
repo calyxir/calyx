@@ -549,7 +549,7 @@ def add_axi_dyn_mem(prog, mem):
     read_controller = axi_dyn_mem.cell(
         f"read_controller_{name}", prog.get_component(f"read_controller_{name}")
     )
-    write_controller = axi_dyn_mem.cell(
+    _write_controller = axi_dyn_mem.cell(
         f"write_controller_{name}", prog.get_component(f"write_controller_{name}")
     )
 
@@ -623,7 +623,7 @@ def add_main_comp(prog, mems):
     ref_mem_kwargs = {}
 
     # Create single main cell
-    main_compute = wrapper_comp.comp_instance(
+    _main_compute = wrapper_comp.comp_instance(
         "main_compute", "main", check_undeclared=False
     )
     # Naming the clock signal `ap_clk` ensures Xilinx tool compatability
@@ -805,7 +805,7 @@ if __name__ == "__main__":
             yxi_filename = sys.argv[1]
             if not yxi_filename.endswith(".yxi"):
                 raise Exception("axi generator requires an yxi file")
-        except:
+        except Exception as _e:
             pass  # no arg passed
     with open(yxi_filename, "r", encoding="utf-8") as yxifile:
         yxifile = open(yxi_filename)
