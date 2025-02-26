@@ -7,13 +7,17 @@ use crate::{
             },
             prelude::AssignedValue,
         },
-        structures::environment::{clock::ClockError, Environment},
+        structures::environment::{
+            clock::{ClockError, ClockErrorWithCell},
+            Environment,
+        },
+        text_utils::Color,
     },
     serialization::Shape,
 };
 use baa::BitVecOps;
 use calyx_utils::{Error as CalyxError, MultiError as CalyxMultiError};
-use owo_colors::OwoColorize;
+use itertools::Itertools;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -180,7 +184,7 @@ pub struct ConflictingAssignments {
 #[derive(Error, Debug)]
 pub enum RuntimeError {
     #[error(transparent)]
-    ClockError(#[from] ClockError),
+    ClockError(#[from] ClockErrorWithCell),
 
     #[error("Some guards are undefined: {0:?}")]
     UndefinedGuardError(
@@ -322,32 +326,38 @@ impl RuntimeError {
             RuntimeError::UndefinedWrite(c) => CiderError::GenericError(format!("Attempted to write an undefined value to register or memory named \"{}\"", env.get_full_name(c))),
             RuntimeError::UndefinedWriteAddr(c) => CiderError::GenericError(format!("Attempted to write to an undefined memory address in memory named \"{}\"", env.get_full_name(c))),
             RuntimeError::UndefinedReadAddr(c) => CiderError::GenericError(format!("Attempted to read from an undefined memory address from memory named \"{}\"", env.get_full_name(c))),
-            RuntimeError::ClockError(clk) => {
-                match clk {
-                    ClockError::ReadWrite(c, num) => {
-                        if let Some(entry_number) = num {
-                            CiderError::GenericError(format!("Concurrent read & write to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
-                        } else {
-                            CiderError::GenericError(format!("Concurrent read & write to the same register {}", env.get_full_name(c).underline()))
-                        }
-                },
-                    ClockError::WriteWrite(c, num) => {
-                        if let Some(entry_number) = num {
-                            CiderError::GenericError(format!("Concurrent writes to the same memory {} in slot {}", env.get_full_name(c).underline(), entry_number))
-                        } else {
-                            CiderError::GenericError(format!("Concurrent writes to the same register {}", env.get_full_name(c).underline()))
-                        }
+            RuntimeError::ClockError(ClockErrorWithCell { error, cell, entry_number }) => {
+                let race_location = if let Some(num) = entry_number {
+                    format!("memory {} at entry {num}", env.get_full_name(cell))
+                } else {
+                    // register
+                    format!("register {}", env.get_full_name(cell))
+                };
+
+                match error {
+                    ClockError::ReadAfterWrite { write, read } => {
+                        CiderError::GenericError(format!("Concurrent read & write to the same {race_location}\n  {}\n  {}", write.format(env), read.format(env)))
                     },
-                    c => CiderError::GenericError(format!("Unexpected clock error: {c:?}")),
+                    ClockError::WriteAfterWrite { write1, write2 } => {
+                        CiderError::GenericError(format!("Concurrent writes to the same {race_location}\n  {}\n  {}", write1.format(env), write2.format(env)))
+                    },
+                    ClockError::WriteAfterRead { write , reads} => {
+                        let plural_reads = reads.len() > 1;
+                        let read_s = if plural_reads {"s"} else {""};
+                        let formatted_reads = reads.iter().map(|r| r.format(env)).join("\n  ");
+
+                        CiderError::GenericError(format!("Concurrent read{read_s} and write to the same {race_location}\n  {}\n  {formatted_reads}", write.format(env)))
+                    },
                 }
+
             }
             RuntimeError::UndefiningDefinedPort(p) => CiderError::GenericError(format!("Attempted to undefine a defined port \"{}\"", env.get_full_name(p))),
             RuntimeError::UndefinedGuardError(v) => {
                 let mut message = String::from("Some guards contained undefined values after convergence:\n");
                 for (cell, assign, ports) in v {
-                    writeln!(message, "({}) in assignment {}", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign).bold()).unwrap();
+                    writeln!(message, "({}) in assignment {}", env.get_full_name(cell), env.ctx().printer().print_assignment(env.get_component_idx(cell).unwrap(), assign).stylize_assignment()).unwrap();
                     for port in ports {
-                        writeln!(message, "    {} is undefined", env.get_full_name(port).yellow()).unwrap();
+                        writeln!(message, "    {} is undefined", env.get_full_name(port).stylize_assignment()).unwrap();
                     }
                     writeln!(message).unwrap()
                 }

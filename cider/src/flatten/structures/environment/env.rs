@@ -1,7 +1,7 @@
 use super::{
     super::context::Context,
     assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::ClockMap,
+    clock::{ClockMap, ReadSource},
     program_counter::{
         ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
     },
@@ -34,6 +34,7 @@ use crate::{
             },
             thread::{ThreadIdx, ThreadMap},
         },
+        text_utils::Color,
     },
     logging,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
@@ -355,7 +356,7 @@ impl PinnedPorts {
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
-    ports: PortMap,
+    pub(super) ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
     pub(super) cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
@@ -909,7 +910,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     println!(
                         "{}::{}{}",
                         self.get_full_name(point.comp),
-                        ctx.lookup_name(x.group()).underline(),
+                        ctx.lookup_name(x.group()).stylize_name(),
                         if self.ports[go].as_bool().unwrap_or_default() {
                             ""
                         } else {
@@ -938,7 +939,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     println!(
                         "{}: invoke {}",
                         self.get_full_name(point.comp),
-                        invoked_name.underline()
+                        invoked_name.stylize_name()
                     );
                 }
                 _ => unreachable!(),
@@ -1569,7 +1570,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     slog::error!(
                         self.base.env().logger,
                         "Program execution failed with error: {}",
-                        e.red()
+                        e.stylize_error()
                     );
                 }
                 Err(e)
@@ -1917,17 +1918,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             }
         }
 
-        let (mut vecs, par_map, mut with_map, repeat_map) =
+        let (vecs, par_map, mut with_map, repeat_map) =
             self.env.pc.take_fields();
-
-        // For thread propagation during race detection we need to iterate in
-        // containment order. This probably isn't necessary for normal execution
-        // and could be guarded by the `check_data_race` flag. Will leave it for
-        // the moment though and see if we need to change it down the line. In
-        // expectation, the program counter should almost always be already
-        // sorted as the only thing which causes nodes to be added or removed
-        // are par nodes
-        vecs.sort_by_key(|x| x.1.comp);
 
         // for mutability reasons, this should be a cheap clone, either an RC in
         // the owned case or a simple reference clone
@@ -2053,10 +2045,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                     // transitive reads, we will check them at
                                     // the cycle boundary and attribute the read
                                     // to the continuous thread
+                                    let (assign_idx, cell) =
+                                        val.winner().as_assign().unwrap();
                                     self.check_read(
                                         ThreadMap::continuous_thread(),
                                         port,
                                         &mut clock_map,
+                                        ReadSource::Assignment(assign_idx),
+                                        cell,
                                     )
                                     .map_err(|e| {
                                         e.prettify_message(&self.env)
@@ -2124,7 +2120,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 }
             }
         }
+        let removed_empty = removed.is_empty();
 
+        // should consider if swap remove is the right choice hre since it
+        // breaks the list ordering which we then have to fix. Possibly a
+        // standard remove would make more sense here? Or maybe an approach with
+        // tombstones
         for i in removed.into_iter().rev() {
             vecs.swap_remove(i);
         }
@@ -2133,8 +2134,19 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             .pc
             .restore_fields((vecs, par_map, with_map, repeat_map));
 
+        let new_nodes_empty = new_nodes.is_empty();
+
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
+
+        // For thread propagation during race detection we need to iterate in
+        // containment order. This probably isn't necessary for normal execution
+        // and could be guarded by the `check_data_race` flag.
+        //
+        // If we altered the node list, we need to restore the order invariant
+        if !removed_empty || !new_nodes_empty {
+            self.env.pc.vec_mut().sort_by_key(|x| x.1.comp);
+        }
 
         Ok(())
     }
@@ -2330,13 +2342,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         let child_clock_idx =
                             self.env.thread_map.unwrap_clock_id(child_thread);
 
-                        let child_clock = std::mem::take(
-                            &mut self.env.clocks[child_clock_idx],
-                        );
+                        let (parent_clock, child_clock) = self
+                            .env
+                            .clocks
+                            .split_mut_indices(parent_clock, child_clock_idx)
+                            .unwrap();
 
-                        self.env.clocks[parent_clock].sync(&child_clock);
-
-                        self.env.clocks[child_clock_idx] = child_clock;
+                        parent_clock.sync(child_clock);
                     }
 
                     *node_thread = Some(parent);
@@ -2421,6 +2433,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 w.cond_port(),
                 node.comp,
                 &mut clock_map,
+                ReadSource::Conditional(node.control_node_idx),
             )?;
 
             self.env.clocks = clock_map;
@@ -2471,7 +2484,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if self.conf.check_data_race {
                 let mut clock_map = std::mem::take(&mut self.env.clocks);
 
-                self.check_read(thread.unwrap(), idx, &mut clock_map)?;
+                self.check_read(
+                    thread.unwrap(),
+                    idx,
+                    &mut clock_map,
+                    ReadSource::Conditional(node.control_node_idx),
+                    node.comp,
+                )?;
 
                 self.env.clocks = clock_map;
             }
@@ -2865,6 +2884,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             assign.src,
                             *active_cell,
                             &mut clock_map,
+                            ReadSource::Assignment(assign_idx),
                         )?;
                     }
 
@@ -2883,6 +2903,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 *port,
                                 *active_cell,
                                 &mut clock_map,
+                                ReadSource::Guard(assign_idx),
                             )?;
                         }
                     }
@@ -3098,9 +3119,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         port: PortRef,
         active_cell: GlobalCellIdx,
         clock_map: &mut ClockMap,
+        source: ReadSource,
     ) -> Result<(), BoxedRuntimeError> {
         let global_port = self.get_global_port_idx(&port, active_cell);
-        self.check_read(thread, global_port, clock_map)
+        self.check_read(thread, global_port, clock_map, source, active_cell)
     }
 
     fn check_read(
@@ -3108,6 +3130,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         thread: ThreadIdx,
         global_port: GlobalPortIdx,
         clock_map: &mut ClockMap,
+        source: ReadSource,
+        cell: GlobalCellIdx,
     ) -> Result<(), BoxedRuntimeError> {
         let val = &self.env.ports[global_port];
         let thread_clock = self.env.thread_map.unwrap_clock_id(thread);
@@ -3116,23 +3140,30 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             // TODO griffin: Sort this out
             panic!("Value has both direct clock and transitive clock. This shouldn't happen?")
         } else if let Some(clocks) = val.clocks() {
-            let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
-            clocks.check_read_w_cell(
-                (thread, thread_clock),
-                clock_map,
-                info.attached_cell,
-                info.entry_number,
-            )?
+            clocks
+                .check_read_with_ascription(
+                    (thread, thread_clock),
+                    source,
+                    cell,
+                    clock_map,
+                )
+                .map_err(|e| {
+                    let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
+                    e.add_cell_info(info.attached_cell, info.entry_number)
+                })?
         } else if let Some(transitive_clocks) = val.transitive_clocks() {
             for clock_pair in transitive_clocks {
-                let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
-
-                clock_pair.check_read_w_cell(
-                    (thread, thread_clock),
-                    clock_map,
-                    info.attached_cell,
-                    info.entry_number,
-                )?
+                clock_pair
+                    .check_read_with_ascription(
+                        (thread, thread_clock),
+                        source.clone(),
+                        cell,
+                        clock_map,
+                    )
+                    .map_err(|e| {
+                        let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
+                        e.add_cell_info(info.attached_cell, info.entry_number)
+                    })?
             }
         }
 

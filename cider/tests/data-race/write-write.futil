@@ -1,0 +1,47 @@
+import "primitives/core.futil";
+
+component main() -> () {
+    cells {
+        r1 = std_reg(32);
+        delay_r = std_reg(1);
+        const = std_const(32, 1);
+        cond_wire = std_wire(1);
+    }
+
+    wires {
+        group write_r1_5 {
+            r1.in = 32'd5;
+            r1.write_en = 1'd1;
+            write_r1_5[done] = r1.done;
+        }
+
+         group write_r1_10 {
+            r1.in = 32'd10;
+            r1.write_en = 1'd1;
+            write_r1_10[done] = r1.done;
+        }
+
+        group delay {
+            delay_r.in = 1'd0;
+            delay_r.write_en = 1'd1;
+            delay[done] = delay_r.done;
+        }
+
+        comb group true {
+            cond_wire.in = 1'd1;
+        }
+
+    }
+
+    control {
+        par {
+            if cond_wire.out with true {
+                seq {
+                    delay;
+                    write_r1_10;
+                }
+            }
+            write_r1_5;
+        }
+    }
+}

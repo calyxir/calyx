@@ -19,6 +19,43 @@ where
 
 impl<K, D> IndexedMap<K, D>
 where
+    K: IndexRef + Ord + Eq,
+{
+    /// Returns two mutable accesses to the given indices in the order they were
+    /// given. The indices must be valid and must not be the same index
+    /// otherwise this function will return None
+    pub fn split_mut_indices(
+        &mut self,
+        idx1: K,
+        idx2: K,
+    ) -> Option<(&mut D, &mut D)> {
+        if idx1 == idx2
+            || idx1.index() >= self.data.len()
+            || idx2.index() >= self.data.len()
+        {
+            None
+        } else if idx1 < idx2 {
+            let split_point = idx1.index() + 1;
+            let (slice_1, slice_2) = self.data.split_at_mut(split_point);
+            Some((
+                slice_1.last_mut().unwrap(),
+                &mut slice_2[idx2.index() - split_point],
+            ))
+        }
+        // idx2 is smaller
+        else {
+            let split_point = idx2.index() + 1;
+            let (slice_2, slice_1) = self.data.split_at_mut(split_point);
+            Some((
+                &mut slice_1[idx1.index() - split_point],
+                slice_2.last_mut().unwrap(),
+            ))
+        }
+    }
+}
+
+impl<K, D> IndexedMap<K, D>
+where
     K: IndexRef + PartialOrd,
 {
     /// Produces a range containing all the keys in the input map. This is
@@ -292,5 +329,51 @@ where
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{impl_index, maps::IndexedMap};
+
+    #[test]
+    fn test_split_mut() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        struct MyIdx(u32);
+        impl_index!(MyIdx);
+
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct MyData {
+            number: usize,
+        }
+
+        let mut data_map: IndexedMap<MyIdx, MyData> = IndexedMap::new();
+
+        for i in 0_usize..4000 {
+            data_map.push(MyData { number: i });
+        }
+
+        let first_idx = MyIdx::from(1234_usize);
+        let second_idx = MyIdx::from(3210_usize);
+
+        let (first_mut, second_mut) =
+            data_map.split_mut_indices(first_idx, second_idx).unwrap();
+
+        assert_eq!(first_mut.number, 1234);
+        assert_eq!(second_mut.number, 3210);
+
+        let raw_1 = first_mut as *mut MyData;
+        let raw_2 = second_mut as *mut MyData;
+
+        first_mut.number = 7001;
+        second_mut.number = 7002;
+        let (second_mut, first_mut) =
+            data_map.split_mut_indices(second_idx, first_idx).unwrap();
+
+        assert_eq!(raw_1, first_mut as *mut MyData);
+        assert_eq!(raw_2, second_mut as *mut MyData);
+
+        assert_eq!(first_mut.number, 7001);
+        assert_eq!(second_mut.number, 7002);
     }
 }

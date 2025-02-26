@@ -403,9 +403,9 @@ pub enum AssignmentWinner {
 
 impl AssignmentWinner {
     #[must_use]
-    pub fn as_assign(&self) -> Option<&AssignmentIdx> {
-        if let Self::Assign(v, _c) = self {
-            Some(v)
+    pub fn as_assign(&self) -> Option<(AssignmentIdx, GlobalCellIdx)> {
+        if let Self::Assign(v, c) = self {
+            Some((*v, *c))
         } else {
             None
         }
