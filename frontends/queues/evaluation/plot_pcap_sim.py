@@ -82,7 +82,7 @@ def draw(packets, name):
         color = pkt.color()
         if pkt.punch_out is not None:
             treetime = pkt.punch_out - pkt.punch_in
-            handle = ax.broken_barh(
+            _handle = ax.broken_barh(
                 [(pkt.punch_in, treetime)], (i, 1), facecolors=color
             )
 
