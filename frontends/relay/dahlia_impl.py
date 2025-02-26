@@ -1,6 +1,15 @@
 from typing import List
-from calyx.py_ast import *
-from dahlia_utils import *
+
+# from calyx.py_ast import *
+from dahlia_utils import (
+    CHARACTER_I,
+    DahliaFuncDef,
+    dahlia_to_calyx,
+    emit_dahlia_definition,
+    emit_dahlia_loop,
+    get_dims,
+    next_character,
+)
 from calyx.gen_exp import generate_exp_taylor_series_approximation, generate_fp_pow_full
 from calyx.utils import float_to_fixed_point
 from calyx.builder import Builder
@@ -164,7 +173,7 @@ def batch_flatten(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.batch_flatten"""
     data, res = fd.args[0], fd.dest
     var_name = CHARACTER_I
-    args = data.comp.args
+    _args = data.comp.args
     data_indices = ""
     res_indices = f"[__{var_name}]"
     num_dims = get_dims(data.comp)
@@ -203,8 +212,8 @@ def bias_add(fd: DahliaFuncDef) -> str:
     args = data.comp.args
     for i in range(num_dims):
         # Determine loop body indices based on `axis` provided.
-        size = args[i + 1]
-        index_size = args[i + 1 + num_dims]
+        _size = args[i + 1]
+        _index_size = args[i + 1 + num_dims]
         index = f"[__{var_name}]"
         if axis == i:
             # Determine which `var_name` is
@@ -228,9 +237,8 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert layout == "NCHW", f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`."""
-    assert ceil_mode == False, (
-        "`ceil_mode` is not currently supported for nn.max_pool2d"
-    )
+    if not ceil_mode:
+        raise AssertionError("`ceil_mode` is not currently supported for nn.max_pool2d")
 
     args = res.comp.args
     width = args[0]
@@ -268,7 +276,7 @@ def relu(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.relu"""
     data, res = fd.args[0], fd.dest
     num_dims = get_dims(data.comp)
-    args = data.comp.args
+    _args = data.comp.args
 
     indices = ""
     var_name = CHARACTER_I
@@ -290,7 +298,7 @@ def sqrt(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/index.html#tvm.relay.sqrt"""
     data, res = fd.args[0], fd.dest
     num_dims = get_dims(data.comp)
-    args = data.comp.args
+    _args = data.comp.args
 
     sqrt_op = "fp_sqrt" if "fix" in fd.data_type else "sqrt"
 
@@ -408,11 +416,11 @@ def conv2d(fd: DahliaFuncDef) -> str:
         prepend_rows = padding[0]
         # might want to use this value to check when out of bounds on the high end
         # currently if index is too high, it just deafults to a 0 value.
-        append_rows = padding[1]
+        _append_rows = padding[1]
         prepend_cols = padding[2]
         # might want to use this value to check when out of bounds on the high end
         # currently when index is too high, it just defaults to 0 value
-        append_cols = padding[3]
+        _append_cols = padding[3]
 
     # can generalize these numbers based on padding if necessary
     dim2_lowest = prepend_rows
@@ -506,7 +514,7 @@ def reshape(fd: DahliaFuncDef) -> str:
         [Actual] newshape[0]: {newshape[0]},newshape[1]: {newshape[1]}, rdims: {rdims}
         """
 
-    data_indices, res_indices = "", ""
+    data_indices, _res_indices = "", ""
     var_name = CHARACTER_I
 
     if newshape[0] == -1 or newshape[1] == -1 or newshape[0] == 1:
@@ -666,9 +674,8 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert layout == "NCHW", f"""Layout \'{layout}\' is not currently supported for
         nn.avg_pool2d; please use `NCHW`."""
-    assert ceil_mode == False, (
-        "`ceil_mode` is not currently supported for nn.avg_pool2d"
-    )
+    if not ceil_mode:
+        raise AssertionError("`ceil_mode` is not currently supported for nn.avg_pool2d")
 
     args = res.comp.args
     width = args[0]

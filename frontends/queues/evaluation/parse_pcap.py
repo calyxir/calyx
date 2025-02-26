@@ -157,7 +157,7 @@ def parse_pcap(pcap_file):
     pcap = dpkt.pcap.Reader(pcap_file)
 
     # first pass over PCAP
-    star_ts = None
+    _star_ts = None
     end_ts = None
     total_size = 0
     make_addr_map = ADDR2INT is None

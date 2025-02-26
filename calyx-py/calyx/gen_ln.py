@@ -265,7 +265,7 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
     comp.output("out", width)
 
     # this is unused for some reason
-    and1 = comp.cell("and1", Stdlib.op("and", width, signed=False))
+    _and1 = comp.cell("and1", Stdlib.op("and", width, signed=False))
 
     n = comp.reg(width, "n")
     div_pipe = comp.cell(
@@ -298,9 +298,9 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
     res_reg = comp.reg(width, "res_reg")
     msb = comp.comp_instance("msb", "msb_calc", check_undeclared=False)
     # these 3 appear unused, not sure why
-    slice0 = comp.cell("slice0", Stdlib.slice(width, int_width))
-    rsh = comp.cell("rsh", Stdlib.op("rsh", width, is_signed))
-    shift_amount = comp.const("shift_amount", width, int_width)
+    _slice0 = comp.cell("slice0", Stdlib.slice(width, int_width))
+    _rsh = comp.cell("rsh", Stdlib.op("rsh", width, is_signed))
+    _shift_amount = comp.const("shift_amount", width, int_width)
 
     with comp.group("get_n") as get_n:
         n.write_en = HI
