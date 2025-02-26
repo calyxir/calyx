@@ -614,11 +614,13 @@ def add_main_comp(prog, mems):
         curr_addr_axi_par.append(curr_addr_axi_invoke)
         curr_addr_internal_par.append(curr_addr_internal_invoke)
         reads_par.append([ar_channel_invoke, read_channel_invoke])
-        writes_par.append([
-            aw_channel_invoke,
-            write_channel_invoke,
-            bresp_channel_invoke,
-        ])
+        writes_par.append(
+            [
+                aw_channel_invoke,
+                write_channel_invoke,
+                bresp_channel_invoke,
+            ]
+        )
         # Creates `<mem_name> = internal_mem_<mem_name>` as refs in invocation of `main_compute`
         ref_mem_kwargs[f"ref_{mem_name}"] = internal_mem
 
