@@ -237,7 +237,7 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert layout == "NCHW", f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`."""
-    if not ceil_mode:
+    if ceil_mode:
         raise AssertionError("`ceil_mode` is not currently supported for nn.max_pool2d")
 
     args = res.comp.args
@@ -674,7 +674,7 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
     ceil_mode = fd.attributes.get_int("ceil_mode")
     assert layout == "NCHW", f"""Layout \'{layout}\' is not currently supported for
         nn.avg_pool2d; please use `NCHW`."""
-    if not ceil_mode:
+    if ceil_mode:
         raise AssertionError("`ceil_mode` is not currently supported for nn.avg_pool2d")
 
     args = res.comp.args
