@@ -278,10 +278,6 @@ def relu(fd: DahliaFuncDef) -> str:
     num_dims = get_dims(data.comp)
     args = data.comp.args
 
-    [
-        
-    ]
-
     indices = ""
     var_name = CHARACTER_I
     for _ in range(num_dims):
