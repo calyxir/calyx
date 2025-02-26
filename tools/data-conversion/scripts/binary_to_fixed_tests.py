@@ -57,7 +57,7 @@ def run_rust_function(input_file, output_file, exponent):
     rust_command = f"../../target/debug/data-conversion --from {input_file} --to {output_file} --ftype 'binary' --totype 'fixed' --exp {exponent}"
     result = subprocess.run(rust_command, shell=True, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"Can't run rust function")
+        print("Can't run rust function")
     return result.returncode == 0
 
 

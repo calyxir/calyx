@@ -83,7 +83,7 @@ def gen_xml(yxi):
                 "id": f"{i}",
                 "port": f"m_axi_{mem['name']}",
                 # XRT expects AXI manager interfaces that are 64 bits wide
-                "size": f"0x8",
+                "size": "0x8",
                 "offset": f"{hex(args_addr + (i * 8))}",
                 # NOTE(nathaniel): Calyx is agnostic to the bit interpretation, so hardcoded `int*` makes sure XRT treats ecerything as a "bag of bits."
                 # https://github.com/calyxir/calyx/pull/2229#discussion_r1694310099

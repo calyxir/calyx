@@ -13,7 +13,6 @@ from calyx.builder import (
 from typing import Literal
 from math import log2, ceil
 import json
-import os
 import sys
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.

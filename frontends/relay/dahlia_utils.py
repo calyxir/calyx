@@ -1,8 +1,7 @@
 import subprocess
-import os
 
 from typing import List
-from tempfile import NamedTemporaryFile, TemporaryFile
+from tempfile import NamedTemporaryFile
 
 from calyx.py_ast import *
 from calyx.utils import block

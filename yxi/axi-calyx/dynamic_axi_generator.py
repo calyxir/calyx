@@ -4,9 +4,8 @@
 
 from calyx.builder import Builder, add_comp_ports, invoke, par, while_, if_
 from typing import Literal
-from math import log2, ceil
+from math import log2
 import json
-import os
 import sys
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
@@ -36,7 +35,7 @@ def add_address_translator(prog, mem):
     address_mult = address_translator.const_mult(
         64, width_in_bytes(data_width), f"mul_{name}"
     )
-    pad_input_addr = address_translator.pad(address_width, 64, f"pad_input_addr")
+    pad_input_addr = address_translator.pad(address_width, 64, "pad_input_addr")
 
     # Assignment
     with address_translator.continuous:
@@ -352,24 +351,24 @@ def add_read_controller(prog, mem):
     # Inputs/Outputs
     read_controller_inputs = [
         ("axi_address", 64),
-        (f"ARESETn", 1),
-        (f"ARREADY", 1),
-        (f"RVALID", 1),
-        (f"RLAST", 1),
-        (f"RDATA", data_width),
-        (f"RRESP", 2),
+        ("ARESETn", 1),
+        ("ARREADY", 1),
+        ("RVALID", 1),
+        ("RLAST", 1),
+        ("RDATA", data_width),
+        ("RRESP", 2),
     ]
 
     read_controller_outputs = [
-        (f"ARVALID", 1),
-        (f"ARADDR", 64),
-        (f"ARSIZE", 3),
-        (f"ARLEN", 8),
-        (f"ARBURST", 2),
-        (f"ARPROT", 3),
-        (f"RREADY", 1),
+        ("ARVALID", 1),
+        ("ARADDR", 64),
+        ("ARSIZE", 3),
+        ("ARLEN", 8),
+        ("ARBURST", 2),
+        ("ARPROT", 3),
+        ("RREADY", 1),
         # sent out to axi_dyn_mem
-        (f"read_data", data_width),
+        ("read_data", data_width),
     ]
 
     add_comp_ports(read_controller, read_controller_inputs, read_controller_outputs)
@@ -426,23 +425,23 @@ def add_write_controller(prog, mem):
     write_controller_inputs = [
         ("axi_address", 64),
         ("write_data", data_width),
-        (f"ARESETn", 1),
-        (f"AWREADY", 1),
-        (f"WREADY", 1),
-        (f"BVALID", 1),
+        ("ARESETn", 1),
+        ("AWREADY", 1),
+        ("WREADY", 1),
+        ("BVALID", 1),
     ]
 
     write_controller_outputs = [
-        (f"AWVALID", 1),
-        (f"AWADDR", 64),
-        (f"AWSIZE", 3),
-        (f"AWLEN", 8),
-        (f"AWBURST", 2),
-        (f"AWPROT", 3),
-        (f"WVALID", 1),
-        (f"WLAST", 1),
-        (f"WDATA", data_width),
-        (f"BREADY", 1),
+        ("AWVALID", 1),
+        ("AWADDR", 64),
+        ("AWSIZE", 3),
+        ("AWLEN", 8),
+        ("AWBURST", 2),
+        ("AWPROT", 3),
+        ("WVALID", 1),
+        ("WLAST", 1),
+        ("WDATA", data_width),
+        ("BREADY", 1),
     ]
 
     add_comp_ports(write_controller, write_controller_inputs, write_controller_outputs)
@@ -509,37 +508,37 @@ def add_axi_dyn_mem(prog, mem):
         ("content_en", 1, [("write_together", 1), ("go", 1)]),
         ("write_en", 1, [("write_together", 2)]),
         ("write_data", data_width, [("write_together", 2), "data"]),
-        (f"ARESETn", 1),
-        (f"ARREADY", 1),
-        (f"RVALID", 1),
-        (f"RLAST", 1),
-        (f"RDATA", mem[width_key]),
-        (f"RRESP", 2),
-        (f"AWREADY", 1),
-        (f"WREADY", 1),
-        (f"BVALID", 1),
+        ("ARESETn", 1),
+        ("ARREADY", 1),
+        ("RVALID", 1),
+        ("RLAST", 1),
+        ("RDATA", mem[width_key]),
+        ("RRESP", 2),
+        ("AWREADY", 1),
+        ("WREADY", 1),
+        ("BVALID", 1),
         # Only used for waveform tracing, not sent anywhere
-        (f"BRESP", 2),
+        ("BRESP", 2),
     ]
     dyn_mem_outputs = [
         ("read_data", data_width, ["stable"]),
-        (f"ARVALID", 1),
-        (f"ARADDR", 64),
-        (f"ARSIZE", 3),
-        (f"ARLEN", 8),
-        (f"ARBURST", 2),
-        (f"ARPROT", 3),
-        (f"RREADY", 1),
-        (f"AWVALID", 1),
-        (f"AWADDR", 64),
-        (f"AWSIZE", 3),
-        (f"AWLEN", 8),
-        (f"AWBURST", 2),
-        (f"AWPROT", 3),
-        (f"WVALID", 1),
-        (f"WLAST", 1),
-        (f"WDATA", mem[width_key]),
-        (f"BREADY", 1),
+        ("ARVALID", 1),
+        ("ARADDR", 64),
+        ("ARSIZE", 3),
+        ("ARLEN", 8),
+        ("ARBURST", 2),
+        ("ARPROT", 3),
+        ("RREADY", 1),
+        ("AWVALID", 1),
+        ("AWADDR", 64),
+        ("AWSIZE", 3),
+        ("AWLEN", 8),
+        ("AWBURST", 2),
+        ("AWPROT", 3),
+        ("WVALID", 1),
+        ("WLAST", 1),
+        ("WDATA", mem[width_key]),
+        ("BREADY", 1),
     ]
     add_comp_ports(axi_dyn_mem, dyn_mem_inputs, dyn_mem_outputs)
 
@@ -565,20 +564,20 @@ def add_axi_dyn_mem(prog, mem):
     read_controller_invoke = invoke(
         axi_dyn_mem.get_cell(f"read_controller_{name}"),
         in_axi_address=address_translator.axi_address,
-        in_ARESETn=this_component[f"ARESETn"],
-        in_ARREADY=this_component[f"ARREADY"],
-        in_RVALID=this_component[f"RVALID"],
-        in_RLAST=this_component[f"RLAST"],
-        in_RDATA=this_component[f"RDATA"],
-        in_RRESP=this_component[f"RRESP"],
-        out_ARVALID=this_component[f"ARVALID"],
-        out_ARADDR=this_component[f"ARADDR"],
-        out_ARSIZE=this_component[f"ARSIZE"],
-        out_ARLEN=this_component[f"ARLEN"],
-        out_ARBURST=this_component[f"ARBURST"],
-        out_ARPROT=this_component[f"ARPROT"],
-        out_RREADY=this_component[f"RREADY"],
-        out_read_data=this_component[f"read_data"],
+        in_ARESETn=this_component["ARESETn"],
+        in_ARREADY=this_component["ARREADY"],
+        in_RVALID=this_component["RVALID"],
+        in_RLAST=this_component["RLAST"],
+        in_RDATA=this_component["RDATA"],
+        in_RRESP=this_component["RRESP"],
+        out_ARVALID=this_component["ARVALID"],
+        out_ARADDR=this_component["ARADDR"],
+        out_ARSIZE=this_component["ARSIZE"],
+        out_ARLEN=this_component["ARLEN"],
+        out_ARBURST=this_component["ARBURST"],
+        out_ARPROT=this_component["ARPROT"],
+        out_RREADY=this_component["RREADY"],
+        out_read_data=this_component["read_data"],
     )
 
     write_controller_invoke = invoke(
@@ -594,7 +593,7 @@ def add_axi_dyn_mem(prog, mem):
         out_AWSIZE=this_component["AWSIZE"],
         out_AWLEN=this_component["AWLEN"],
         out_AWBURST=this_component["AWBURST"],
-        out_AWPROT=this_component[f"AWPROT"],
+        out_AWPROT=this_component["AWPROT"],
         out_WVALID=this_component["WVALID"],
         out_WLAST=this_component["WLAST"],
         out_WDATA=this_component["WDATA"],

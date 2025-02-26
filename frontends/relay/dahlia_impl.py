@@ -745,7 +745,7 @@ def lrn(fd: DahliaFuncDef) -> str:
 
     axis = fd.attributes.get_str("axis")
 
-    assert axis == 1, f"""currently can only support lrn along axis 1"""
+    assert axis == 1, """currently can only support lrn along axis 1"""
 
     size = fd.attributes.get_str("size")
 
@@ -760,7 +760,7 @@ def lrn(fd: DahliaFuncDef) -> str:
     size0, size1, size2, size3 = data_args[1:5]
 
     assert size0 == 1, (
-        f"""currently only supports lrn if the first dimension of the tensor has size of 1"""
+        """currently only supports lrn if the first dimension of the tensor has size of 1"""
     )
 
     return emit_dahlia_definition(

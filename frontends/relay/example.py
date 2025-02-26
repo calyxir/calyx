@@ -122,7 +122,7 @@ def run_example():
     input = sys.argv[1:]
     if "-h" in input or not input:
         print(
-            f"""
+            """
 help  -h    Displays available functions to play with.
 relay -r    Displays the Relay IR. Displays Calyx otherwise.
 

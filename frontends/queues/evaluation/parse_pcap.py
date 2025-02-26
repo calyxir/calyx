@@ -35,11 +35,9 @@
 #   python3 parse_pcap.py example.pcap example.data --start 10 --end 20 --num-flows 3
 
 import sys
-import random
 import json
 import dpkt
 import argparse
-from contextlib import nullcontext
 from calyx.utils import bits_needed
 
 CMD_PUSH = 1

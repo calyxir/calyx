@@ -884,13 +884,13 @@ def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out):
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
         adl_trace, mixed_trace = convert_trace(converter.trace, adl_mapping_file)
-        adl_flat_flame = os.path.join(out_dir, f"adl-flat-flame.folded")
-        adl_scaled_flame = os.path.join(out_dir, f"adl-scaled-flame.folded")
+        adl_flat_flame = os.path.join(out_dir, "adl-flat-flame.folded")
+        adl_scaled_flame = os.path.join(out_dir, "adl-scaled-flame.folded")
         create_flame_groups(
             adl_trace, adl_flat_flame, out_dir, scaled_flame_out_file=adl_scaled_flame
         )
-        mixed_flat_flame = os.path.join(out_dir, f"mixed-flat-flame.folded")
-        mixed_scaled_flame = os.path.join(out_dir, f"mixed-scaled-flame.folded")
+        mixed_flat_flame = os.path.join(out_dir, "mixed-flat-flame.folded")
+        mixed_scaled_flame = os.path.join(out_dir, "mixed-scaled-flame.folded")
         create_flame_groups(
             mixed_trace,
             mixed_flat_flame,

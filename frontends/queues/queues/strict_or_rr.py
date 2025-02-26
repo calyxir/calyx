@@ -2,8 +2,6 @@
 import calyx.builder as cb
 import calyx.py_ast as ast
 from calyx.utils import bits_needed
-import queues.fifo as fifo
-import queues.flow_inference as fi
 
 # This determines the maximum possible length of the queue:
 # The max length of the queue will be 2^QUEUE_LEN_FACTOR.
