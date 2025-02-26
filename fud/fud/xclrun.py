@@ -28,6 +28,7 @@ invocation of xclrun looks something like this::
 .. _PYNQ: https://github.com/xilinx/pynq
 .. _pyxrt: https://github.com/Xilinx/XRT/blob/master/src/python/pybind11/src/pyxrt.cpp
 """
+
 import argparse
 import pynq
 import numpy as np

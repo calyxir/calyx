@@ -105,9 +105,9 @@ def dahlia_to_calyx(imports: List[str], definitions: List[str]) -> str:
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
 
         components_or_error = tf1.read().decode()
-        assert (
-            "STDERR" not in components_or_error
-        ), f"Failed to lower Dahlia to Calyx: {components_or_error}. Offending Dahlia program: {dahlia_program}"
+        assert "STDERR" not in components_or_error, (
+            f"Failed to lower Dahlia to Calyx: {components_or_error}. Offending Dahlia program: {dahlia_program}"
+        )
 
         # Don't double-import the primitives library.
         begin = components_or_error.find("component")

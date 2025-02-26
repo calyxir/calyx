@@ -432,9 +432,9 @@ class Cell(Structure):
     loc: Optional[int] = field(default_factory=PosTable.determine_source_loc)
 
     def doc(self) -> str:
-        assert not (
-            self.is_ref and self.is_external
-        ), "Cell cannot be both a ref and external"
+        assert not (self.is_ref and self.is_external), (
+            "Cell cannot be both a ref and external"
+        )
         if self.is_external:
             self.attributes.add(CellAttribute("external"))
         if self.loc is not None:

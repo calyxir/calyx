@@ -141,9 +141,7 @@ def insert_queue(
             ),
             len_decr,
             (
-                pifo.reg_store(hot, og_hot.out)
-                if not is_round_robin
-                else ast.Empty
+                pifo.reg_store(hot, og_hot.out) if not is_round_robin else ast.Empty
                 # If we are not generating a round-robin PIFO,
                 # we are generating a strict PIFO.
                 # We need to restore `hot` to its original value.

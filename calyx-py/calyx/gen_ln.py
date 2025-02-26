@@ -160,10 +160,10 @@ def generate_pade_groups(comp: ComponentBuilder):
     Generates groups for pade approximant componenet
     """
 
-    multiply_cells(comp, "get_x_sq", "mult_pipe", "x_reg", "x_reg"),
-    multiply_cells(comp, "num_term1", "n_mult_pipe1", "mult_pipe", "n1"),
-    multiply_cells(comp, "num_term2", "n_mult_pipe2", "x_reg", "n2"),
-    multiply_cells(comp, "den_term2", "d_mult_pipe2", "x_reg", "d2"),
+    (multiply_cells(comp, "get_x_sq", "mult_pipe", "x_reg", "x_reg"),)
+    (multiply_cells(comp, "num_term1", "n_mult_pipe1", "mult_pipe", "n1"),)
+    (multiply_cells(comp, "num_term2", "n_mult_pipe2", "x_reg", "n2"),)
+    (multiply_cells(comp, "den_term2", "d_mult_pipe2", "x_reg", "d2"),)
 
     x_reg = comp.get_cell("x_reg")
     add1 = comp.get_cell("add1")

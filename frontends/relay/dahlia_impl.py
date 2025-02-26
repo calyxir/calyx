@@ -226,13 +226,11 @@ def max_pool2d(fd: DahliaFuncDef) -> str:
     pool_size = fd.attributes.get_int_tuple("pool_size")
     layout = fd.attributes.get_str("layout")
     ceil_mode = fd.attributes.get_int("ceil_mode")
-    assert (
-        layout == "NCHW"
-    ), f"""Layout \'{layout}\' is not currently supported for
+    assert layout == "NCHW", f"""Layout \'{layout}\' is not currently supported for
         nn.max_pool2d; please use `NCHW`."""
-    assert (
-        ceil_mode == False
-    ), "`ceil_mode` is not currently supported for nn.max_pool2d"
+    assert ceil_mode == False, (
+        "`ceil_mode` is not currently supported for nn.max_pool2d"
+    )
 
     args = res.comp.args
     width = args[0]
@@ -279,7 +277,7 @@ def relu(fd: DahliaFuncDef) -> str:
         var_name = next_character(var_name)
 
     data_type = fd.data_type
-    zero = f'({"0.0" if "fix" in data_type else "0"} as {data_type})'
+    zero = f"({'0.0' if 'fix' in data_type else '0'} as {data_type})"
     input = f"{data.id.name}{indices}"
     result = f"{res.id.name}{indices}"
     loop_body = f"""if ({input} > {zero}) {{ {result} := {input}; }}
@@ -355,7 +353,8 @@ def dense(fd: DahliaFuncDef, save_mem=True) -> str:
     M2_size0, M2_size1, M2_index_size0, M2_index_size1 = b.comp.args[1:5]
     units = fd.attributes.get_int("units")
     assert units is None or units == res.comp.args[2], (
-        "parameter for `units` should be the same as the second dimension of the result")
+        "parameter for `units` should be the same as the second dimension of the result"
+    )
     if save_mem:
         # don't generate internal `transpose` memory
         return emit_dahlia_definition(
@@ -405,8 +404,7 @@ def conv2d(fd: DahliaFuncDef) -> str:
         prepend_rows = 0
         prepend_cols = 0
     else:
-        assert len(
-            padding) == 4, "Can only handle when we're given 4 padding values"
+        assert len(padding) == 4, "Can only handle when we're given 4 padding values"
         prepend_rows = padding[0]
         # might want to use this value to check when out of bounds on the high end
         # currently if index is too high, it just deafults to a 0 value.
@@ -427,7 +425,7 @@ def conv2d(fd: DahliaFuncDef) -> str:
     # to be more general if necessary.
     assign_tensor_val = (
         f"""// our code is "simulating" the padding of the input array
-                      let __padded_tensor_val: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+                      let __padded_tensor_val: {data_type} = {"0.0" if "fix" in data_type else "0"};
                       ---
                       if (__kernel_y >= {dim2_lowest} && __kernel_y < {dim2_limit} && __kernel_x >= {dim3_lowest} && __kernel_x < {dim3_limit}) {{
                         __padded_tensor_val := {data.id.name}[__b][__k][__kernel_y - {prepend_rows}][__kernel_x - {prepend_cols}];
@@ -448,7 +446,7 @@ def conv2d(fd: DahliaFuncDef) -> str:
           for (let __c: ubit<32> = 0..{output_channels}) {{
             for (let __y: ubit<32> = 0..{size2}) {{
               for (let __x: ubit<32> = 0..{size3}) {{
-                let __sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+                let __sum: {data_type} = {"0.0" if "fix" in data_type else "0"};
                 for (let __k: ubit<32> = 0..{input_channels}) {{
                   for (let __dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
                     for (let __dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
@@ -537,8 +535,7 @@ def softmax(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
     data, res = fd.args[0], fd.dest
     axis = fd.attributes.get_int("axis")
-    assert axis == - \
-        1 or axis == 1, f"nn.softmax with axis = {axis} is not supported."
+    assert axis == -1 or axis == 1, f"nn.softmax with axis = {axis} is not supported."
 
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
@@ -553,7 +550,7 @@ def softmax(fd: DahliaFuncDef) -> str:
           }}
         }}
         for (let __i: ubit<{index_size0}> = 0..{size0}) {{
-          let __exp_sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+          let __exp_sum: {data_type} = {"0.0" if "fix" in data_type else "0"};
           for (let __j: ubit<{index_size1}> = 0..{size1}) {{
             let __t0 = {data.id.name}[__i][__j] - __max;
             let __t1 = exp(__t0);
@@ -667,13 +664,11 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
     pool_size = fd.attributes.get_int_tuple("pool_size")
     layout = fd.attributes.get_str("layout")
     ceil_mode = fd.attributes.get_int("ceil_mode")
-    assert (
-        layout == "NCHW"
-    ), f"""Layout \'{layout}\' is not currently supported for
+    assert layout == "NCHW", f"""Layout \'{layout}\' is not currently supported for
         nn.avg_pool2d; please use `NCHW`."""
-    assert (
-        ceil_mode == False
-    ), "`ceil_mode` is not currently supported for nn.avg_pool2d"
+    assert ceil_mode == False, (
+        "`ceil_mode` is not currently supported for nn.avg_pool2d"
+    )
 
     args = res.comp.args
     width = args[0]
@@ -690,7 +685,7 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
                 let __stride_y: ubit<{width}> = __y * {strides[0]}/*strides[0]*/;
                 let __stride_x: ubit<{width}> = __x * {strides[1]}/*strides[1]*/;
 
-                let __total: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+                let __total: {data_type} = {"0.0" if "fix" in data_type else "0"};
                 for (let __m: ubit<{width}> = 0..{pool_size[0]}/*pool_size[0]*/) {{
                   for (let __n: ubit<{width}> = 0..{pool_size[1]}/*pool_size[1]*/) {{
                     let __pool_y: ubit<{width}> = __stride_y + __m;
@@ -715,9 +710,7 @@ def global_avg_pool2d(fd: DahliaFuncDef) -> str:
     """
     data, res = fd.args[0], fd.dest
     layout = fd.attributes.get_str("layout")
-    assert (
-        layout == "NCHW"
-    ), f"""Layout \'{layout}\' is not currently supported for
+    assert layout == "NCHW", f"""Layout \'{layout}\' is not currently supported for
         nn.global_avg_pool2d; please use `NCHW`."""
 
     args = res.comp.args
@@ -730,7 +723,7 @@ def global_avg_pool2d(fd: DahliaFuncDef) -> str:
         f"""let __area: {data_type} = ({size2} as {data_type}) * ({size3} as {data_type});
         for (let __b: ubit<{width}> = 0..{size0}) {{
           for (let __c: ubit<{width}> = 0..{size1}) {{
-            let __total: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+            let __total: {data_type} = {"0.0" if "fix" in data_type else "0"};
             for (let __m: ubit<{width}> = 0..{size2}) {{
               for (let __n: ubit<{width}> = 0..{size3}) {{
                  __total := __total + {data.id.name}[__b][__c][__m][__n];
@@ -745,14 +738,14 @@ def global_avg_pool2d(fd: DahliaFuncDef) -> str:
 
 
 def lrn(fd: DahliaFuncDef) -> str:
-    '''
+    """
     https://tvm.apache.org/docs/reference/api/python/relay/nn.html
-    '''
+    """
     data, res = fd.args[0], fd.dest
 
     axis = fd.attributes.get_str("axis")
 
-    assert (axis == 1), f"""currently can only support lrn along axis 1"""
+    assert axis == 1, f"""currently can only support lrn along axis 1"""
 
     size = fd.attributes.get_str("size")
 
@@ -766,7 +759,9 @@ def lrn(fd: DahliaFuncDef) -> str:
     data_type = fd.data_type
     size0, size1, size2, size3 = data_args[1:5]
 
-    assert size0 == 1, f"""currently only supports lrn if the first dimension of the tensor has size of 1"""
+    assert size0 == 1, (
+        f"""currently only supports lrn if the first dimension of the tensor has size of 1"""
+    )
 
     return emit_dahlia_definition(
         fd,
@@ -774,9 +769,9 @@ def lrn(fd: DahliaFuncDef) -> str:
           for (let __c: ubit<{width}> = 0..{size1}) {{
             for (let __h: ubit<{width}> = 0..{size2}) {{
               for (let __w: ubit<{width}> = 0..{size3}) {{
-                let __sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
-                for (let __i: ubit<{width}> = 0..{size-1}){{
-                  let __c_index: ubit<{width}> = __c - (({size-1} as ubit<{width}>)/(2 as ubit<{width}>)) + __i;
+                let __sum: {data_type} = {"0.0" if "fix" in data_type else "0"};
+                for (let __i: ubit<{width}> = 0..{size - 1}){{
+                  let __c_index: ubit<{width}> = __c - (({size - 1} as ubit<{width}>)/(2 as ubit<{width}>)) + __i;
                   if (__c_index >=0 && __c_index < {size1}){{
                       __sum := __sum + {data.id.name}[__n][__c_index][__h][__w];
                   }}
@@ -829,9 +824,9 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
     dahlia_definitions = []
     for func_def in func_defs:
         id = func_def.function_id
-        assert (
-            id in RelayCallNodes or id in BinaryOps
-        ), f"{id} not supported for lowering."
+        assert id in RelayCallNodes or id in BinaryOps, (
+            f"{id} not supported for lowering."
+        )
 
         # If the function is a binary operation, use broadcasting.
         # Otherwise, use the associated Relay function.
@@ -856,10 +851,12 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
     if any(f.function_id == "lrn" for f in func_defs):
         # Import `exp` operator for softmax.
         sep = type.find(",")
-        width = int(type[type.find("<") + 1: sep])
-        int_width = int(type[sep + 1: type.find(">")])
+        width = int(type[type.find("<") + 1 : sep])
+        int_width = int(type[sep + 1 : type.find(">")])
         exp_components = generate_fp_pow_full(
-            builder=Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__))),
+            builder=Builder(
+                fileinfo_base_path=os.path.dirname(os.path.realpath(__file__))
+            ),
             degree=8,
             width=width,
             int_width=int_width,
@@ -871,10 +868,12 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
     elif any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax.
         sep = type.find(",")
-        width = int(type[type.find("<") + 1: sep])
-        int_width = int(type[sep + 1: type.find(">")])
+        width = int(type[type.find("<") + 1 : sep])
+        int_width = int(type[sep + 1 : type.find(">")])
         exp_components = generate_exp_taylor_series_approximation(
-            builder=Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__))),
+            builder=Builder(
+                fileinfo_base_path=os.path.dirname(os.path.realpath(__file__))
+            ),
             degree=8,
             width=width,
             int_width=int_width,

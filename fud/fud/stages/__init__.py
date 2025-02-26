@@ -421,9 +421,9 @@ class ComputationGraph:
                 # make sure that the args are convertible to expected input
                 # types
                 for arg, inp in zip(args, input_types):
-                    assert isinstance(
-                        arg, Source
-                    ), f"Argument type is not source: ${type(arg)}"
+                    assert isinstance(arg, Source), (
+                        f"Argument type is not source: ${type(arg)}"
+                    )
                     if arg.typ != inp and not arg.is_convertible_to(inp):
                         raise Exception(
                             f"Type mismatch: can't convert {arg.typ} to {inp}"

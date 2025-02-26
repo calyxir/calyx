@@ -24,7 +24,7 @@ def write_input_files(tests, input_dir):
     input_paths = []
 
     for idx, binary_string in enumerate(tests):
-        input_path = os.path.join(input_dir, f"test_{idx+1}.in")
+        input_path = os.path.join(input_dir, f"test_{idx + 1}.in")
         with open(input_path, "w") as f:
             f.write(f"{binary_string}")
         input_paths.append(input_path)
@@ -37,7 +37,7 @@ def write_expect_files(tests, expect_dir):
     expect_paths = []
 
     for idx, binary_string in enumerate(tests):
-        expect_path = os.path.join(expect_dir, f"test_{idx+1}.expect")
+        expect_path = os.path.join(expect_dir, f"test_{idx + 1}.expect")
         with open(expect_path, "w") as f:
             f.write(f"{binary_string}")
         expect_paths.append(expect_path)
@@ -47,7 +47,7 @@ def convert_binary_to_fixed(binary_string, exponent):
     """Convert binary string to a fixed-point number."""
     binary_value = int(binary_string, 2)  # Convert binary string to integer
     fixed_point_number = binary_value * (
-        2 ** exponent
+        2**exponent
     )  # Calculate the fixed-point number
     formatted = "{:.8e}".format(fixed_point_number)
     return formatted + "\n"
@@ -97,16 +97,16 @@ if __name__ == "__main__":
     # Run Tests and Compare Outputs
     for idx, test_file in enumerate(input_paths):
         input_file = test_file
-        output_file = os.path.join(output_dir, f"test_{idx+1}.out")
-        expect_file = os.path.join(expect_dir, f"test_{idx+1}.expect")
+        output_file = os.path.join(output_dir, f"test_{idx + 1}.out")
+        expect_file = os.path.join(expect_dir, f"test_{idx + 1}.expect")
 
         if run_rust_function(input_file, output_file, exponent):
             if compare_files(output_file, expect_file):
-                print(f"Test {idx+1} passed.")
+                print(f"Test {idx + 1} passed.")
             else:
-                print(f"Test {idx+1} failed: output does not match expected.")
+                print(f"Test {idx + 1} failed: output does not match expected.")
         else:
-            print(f"Test {idx+1} failed to run.")
+            print(f"Test {idx + 1} failed to run.")
 
     print(f"Input files are located in {input_dir}/.")
     print(f"Expected output files are located in {expect_dir}/.")

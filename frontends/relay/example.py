@@ -108,7 +108,7 @@ def pretty_print_functions():
     """Pretty prints the available functions."""
     half = len(FUNCTIONS) // 2
     keys = list(FUNCTIONS.keys())
-    for (f1, f2) in zip(keys[:half], keys[half:]):
+    for f1, f2 in zip(keys[:half], keys[half:]):
         whitespace = (16 - len(f1)) * " "
         print(f"- {f1}{whitespace} - {f2}")
 
