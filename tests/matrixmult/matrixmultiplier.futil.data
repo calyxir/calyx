@@ -1,0 +1,53 @@
+{
+    "in1_mem": {
+        "data": [
+            [
+                1,
+                2
+            ],
+            [
+                3,
+                4
+            ]
+        ],
+        "format": {
+            "numeric_type": "bitnum",
+            "is_signed": false,
+            "width": 32
+        }
+    },
+    "in2_mem": {
+        "data": [
+            [
+                1,
+                2
+            ],
+            [
+                3,
+                4
+            ]
+        ],
+        "format": {
+            "numeric_type": "bitnum",
+            "is_signed": false,
+            "width": 32
+        }
+    },
+    "out_mem": {
+        "data": [
+            [
+                0,
+                0
+            ],
+            [
+                0,
+                0
+            ]
+        ],
+        "format": {
+            "numeric_type": "bitnum",
+            "is_signed": false,
+            "width": 32
+        }
+    }
+}
