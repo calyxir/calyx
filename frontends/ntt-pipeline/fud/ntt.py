@@ -1,3 +1,4 @@
+import importlib.util
 from fud import errors
 from fud.stages import Stage, SourceType
 from fud.utils import shell
@@ -23,7 +24,7 @@ class NTTStage(Stage):
     @staticmethod
     def pre_install():
         try:
-            import prettytable
+            importlib.util.find_spec("prettytable")
         except ImportError:
             raise errors.FudRegisterError(
                 "ntt",

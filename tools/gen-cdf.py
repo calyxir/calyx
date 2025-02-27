@@ -1,22 +1,23 @@
 import json
 import sys
 import matplotlib.pyplot as plt
-'''
+
+"""
 Takes in a pdf of sharing frequences and plots the corresponding cdf graph.
 Usually, you will generate the json by passing `-x cell-share:print-share-freqs=file-name`
 as a flag.
-'''
+"""
 
 
 def update_k_v(dic, k, v):
-    '''
+    """
     Updates dic such that k's corresponding value is increased by v.
-    '''
+    """
     dic[k] = dic.get(k, 0) + v
 
 
 if __name__ == "__main__":
-    assert (len(sys.argv) == 3), "please provide an input json file name and a cell_type"
+    assert len(sys.argv) == 3, "please provide an input json file name and a cell_type"
     # should contain the data we're interested in
     json_file = sys.argv[1]
     # should contain the cell type that we want to build a cdf for
@@ -55,17 +56,18 @@ if __name__ == "__main__":
                 # in the main component. we don't currently take into account
                 # subcomponents shared in other subcomponents
                 comp_map = main_data[comp_name]
-                for (in_component_shared, in_component_num_cells) in freq_map.items():
-                    for (component_shared, component_num_cells) in comp_map.items():
+                for in_component_shared, in_component_num_cells in freq_map.items():
+                    for component_shared, component_num_cells in comp_map.items():
                         new_shared = in_component_shared * component_shared
                         new_num_cells = in_component_num_cells * component_num_cells
-                        new_data[new_shared] = new_data.get(
-                            new_shared, 0) + new_num_cells
+                        new_data[new_shared] = (
+                            new_data.get(new_shared, 0) + new_num_cells
+                        )
             else:
                 # otherwise, we can just use the freq_map as is
                 new_data = freq_map
             # updating total_data with the `new_data` we just collected
-            for (k, v) in new_data.items():
+            for k, v in new_data.items():
                 total_data[k] = total_data.get(k, 0) + v
 
     # given a sharing frequencies, we need cumulative frequencies to build a cdf
@@ -80,7 +82,7 @@ if __name__ == "__main__":
         y_axis.append(cumulative_val)
 
     # scale so that reuslts are between 0 and 1
-    y_axis = [v/cumulative_val for v in y_axis]
+    y_axis = [v / cumulative_val for v in y_axis]
 
     plt.bar(x_axis, y_axis, width=1, align="edge")
     plt.show()

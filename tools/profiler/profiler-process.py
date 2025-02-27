@@ -7,31 +7,51 @@ import vcdvcd
 
 DELIMITER = "___"
 INVISIBLE = "gray"
-ACTIVE_CELL_COLOR="pink"
-ACTIVE_GROUP_COLOR="mediumspringgreen"
-ACTIVE_PRIMITIVE_COLOR="orange"
-TREE_PICTURE_LIMIT=300
-SCALED_FLAME_MULTIPLIER=1000 # multiplier so scaled flame graph will not round up.
-ts_multiplier = 1 #ms on perfetto UI that resembles a single cycle
+ACTIVE_CELL_COLOR = "pink"
+ACTIVE_GROUP_COLOR = "mediumspringgreen"
+ACTIVE_PRIMITIVE_COLOR = "orange"
+TREE_PICTURE_LIMIT = 300
+SCALED_FLAME_MULTIPLIER = 1000  # multiplier so scaled flame graph will not round up.
+ts_multiplier = 1  # ms on perfetto UI that resembles a single cycle
+
 
 def remove_size_from_name(name: str) -> str:
-    """ changes e.g. "state[2:0]" to "state" """
-    return name.split('[')[0]
+    """changes e.g. "state[2:0]" to "state" """
+    return name.split("[")[0]
 
-def create_cycle_trace(info_this_cycle, cells_to_components, main_component, include_primitives):
+
+def create_cycle_trace(
+    info_this_cycle, cells_to_components, main_component, include_primitives
+):
     stacks_this_cycle = []
-    parents = set() # keeping track of entities that are parents of other entities
-    i_mapping = {} # each unique group inv mapping to its stack. the "group" should be the last item on each stack
+    parents = set()  # keeping track of entities that are parents of other entities
+    i_mapping = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
     i_mapping[main_component] = [main_component.split(".")[-1]]
     cell_worklist = [main_component]
     while len(cell_worklist) > 0:
         current_cell = cell_worklist.pop()
-        covered_units_in_component = set() # collect all of the units we've covered.
+        covered_units_in_component = set()  # collect all of the units we've covered.
         # catch all active units that are groups in this component.
-        units_to_cover = info_this_cycle["group-active"][current_cell] if current_cell in info_this_cycle["group-active"] else set()
-        structural_enables = info_this_cycle["structural-enable"][current_cell] if current_cell in info_this_cycle["structural-enable"] else set()
-        primitive_enables = info_this_cycle["primitive-enable"][current_cell] if current_cell in info_this_cycle["primitive-enable"] else set()
-        cell_invokes = info_this_cycle["cell-invoke"][current_cell] if current_cell in info_this_cycle["cell-invoke"] else set()
+        units_to_cover = (
+            info_this_cycle["group-active"][current_cell]
+            if current_cell in info_this_cycle["group-active"]
+            else set()
+        )
+        structural_enables = (
+            info_this_cycle["structural-enable"][current_cell]
+            if current_cell in info_this_cycle["structural-enable"]
+            else set()
+        )
+        primitive_enables = (
+            info_this_cycle["primitive-enable"][current_cell]
+            if current_cell in info_this_cycle["primitive-enable"]
+            else set()
+        )
+        cell_invokes = (
+            info_this_cycle["cell-invoke"][current_cell]
+            if current_cell in info_this_cycle["cell-invoke"]
+            else set()
+        )
         # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
         for active_unit in units_to_cover:
             shortname = active_unit.split(".")[-1]
@@ -58,7 +78,9 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                 for primitive_name in primitive_enables[primitive_parent_group]:
                     primitive_parent = f"{current_cell}.{primitive_parent_group}"
                     primitive_shortname = primitive_name.split(".")[-1]
-                    i_mapping[primitive_name] = i_mapping[primitive_parent] + [f"{primitive_shortname} (primitive)"]
+                    i_mapping[primitive_name] = i_mapping[primitive_parent] + [
+                        f"{primitive_shortname} (primitive)"
+                    ]
                     parents.add(primitive_parent)
         # by this point, we should have covered all groups in the same component...
         # now we need to construct stacks for any cells that are called from a group in the current component.
@@ -69,7 +91,9 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
                     cell_worklist.append(invoked_cell)
                     cell_component = cells_to_components[invoked_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
-                    i_mapping[invoked_cell] = i_mapping[parent] + [f"{cell_shortname} [{cell_component}]"]
+                    i_mapping[invoked_cell] = i_mapping[parent] + [
+                        f"{cell_shortname} [{cell_component}]"
+                    ]
                     parents.add(parent)
     # Only retain paths that lead to leaf nodes.
     for elem in i_mapping:
@@ -77,6 +101,7 @@ def create_cycle_trace(info_this_cycle, cells_to_components, main_component, inc
             stacks_this_cycle.append(i_mapping[elem])
 
     return stacks_this_cycle
+
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components):
@@ -92,7 +117,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         refs = [(k, v) for k, v in vcd.references_to_ids.items()]
         refs = sorted(refs, key=lambda e: e[0])
         names = [remove_size_from_name(e[0]) for e in refs]
-        signal_id_dict = {sid : [] for sid in vcd.references_to_ids.values()} # one id can map to multiple signal names since wires are connected
+        signal_id_dict = {
+            sid: [] for sid in vcd.references_to_ids.values()
+        }  # one id can map to multiple signal names since wires are connected
 
         clock_name = f"{self.main_component}.clk"
         if clock_name not in names:
@@ -115,25 +142,29 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
-        self.signal_id_to_names = {k:v for k,v in signal_id_dict.items() if len(v) > 0}
-    
+        self.signal_id_to_names = {
+            k: v for k, v in signal_id_dict.items() if len(v) > 0
+        }
+
     def value(self, vcd, time, value, identifier_code, cur_sig_vals):
         # ignore all signals we don't care about
         if identifier_code not in self.signal_id_to_names:
             return
-        
+
         signal_names = self.signal_id_to_names[identifier_code]
         int_value = int(value, 2)
 
         for signal_name in signal_names:
-            if signal_name == f"{self.main_component}.clk" and int_value == 0: # ignore falling edges
+            if (
+                signal_name == f"{self.main_component}.clk" and int_value == 0
+            ):  # ignore falling edges
                 continue
             event = {"signal": signal_name, "value": int_value}
             if time not in self.timestamps_to_events:
                 self.timestamps_to_events[time] = [event]
             else:
                 self.timestamps_to_events[time].append(event)
-    
+
     # Postprocess data mapping timestamps to events (signal changes)
     # We have to postprocess instead of processing signals in a stream because
     # signal changes that happen at the same time as a clock tick might be recorded
@@ -141,24 +172,33 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     # everything within a stream if we wanted to be precise)
     def postprocess(self):
         clock_name = f"{self.main_component}.clk"
-        clock_cycles = -1 # will be 0 on the 0th cycle
+        clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
         cell_active = set()
         group_active = set()
         structural_enable_active = set()
         cell_enable_active = set()
         primitive_enable = set()
-        self.cell_to_active_cycles = {} # cell --> [{"start": X, "end": Y, "length": Y - X}].
+        self.cell_to_active_cycles = {}  # cell --> [{"start": X, "end": Y, "length": Y - X}].
 
-        probe_labels_to_sets = {"group_probe_out": group_active, "se_probe_out": structural_enable_active, "cell_probe_out": cell_enable_active, "primitive_probe_out" : primitive_enable}
+        probe_labels_to_sets = {
+            "group_probe_out": group_active,
+            "se_probe_out": structural_enable_active,
+            "cell_probe_out": cell_enable_active,
+            "primitive_probe_out": primitive_enable,
+        }
 
-        self.trace = {} # dict contents: cycle number --> list of stacks
+        self.trace = {}  # dict contents: cycle number --> list of stacks
 
-        main_done = False # Prevent creating a trace entry for the cycle where main.done is set high.
+        main_done = False  # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
-            started = started or [x for x in events if x["signal"] == f"{self.main_component}.go" and x["value"] == 1]
-            if not started: # only start counting when main component is on.
+            started = started or [
+                x
+                for x in events
+                if x["signal"] == f"{self.main_component}.go" and x["value"] == 1
+            ]
+            if not started:  # only start counting when main component is on.
                 continue
             # checking whether the timestamp has a rising edge
             if {"signal": clock_name, "value": 1} in events:
@@ -169,12 +209,20 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # structural-enable: cell --> { child --> (parents) }
             # cell-invoke: parent_cell --> { parent --> (cells) }
             # primitive-enable: cell --> { parent --> (primitives) }
-            info_this_cycle = {"group-active" : {}, "cell-active": set(), "structural-enable": {}, "cell-invoke": {}, "primitive-enable": {}}
+            info_this_cycle = {
+                "group-active": {},
+                "cell-active": set(),
+                "structural-enable": {},
+                "cell-invoke": {},
+                "primitive-enable": {},
+            }
             for event in events:
                 # check probe and cell signals to update currently active entities.
                 signal_name = event["signal"]
                 value = event["value"]
-                if signal_name.endswith(".go") and value == 1: # cells have .go and .done
+                if (
+                    signal_name.endswith(".go") and value == 1
+                ):  # cells have .go and .done
                     cell = signal_name.split(".go")[0]
                     cell_active.add(cell)
                     if cell not in self.cell_to_active_cycles:
@@ -183,7 +231,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         self.cell_to_active_cycles[cell].append({"start": clock_cycles})
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
-                    if cell == self.main_component: # if main is done, we shouldn't compute a "trace" for this cycle. set flag to True.
+                    if (
+                        cell == self.main_component
+                    ):  # if main is done, we shouldn't compute a "trace" for this cycle. set flag to True.
                         main_done = True
                     cell_active.remove(cell)
                     current_segment = self.cell_to_active_cycles[cell][-1]
@@ -195,7 +245,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     if cutoff in signal_name:
                         # record cell name instead of component name.
                         split = signal_name.split(cutoff)[0].split(DELIMITER)[:-1]
-                        cell_name = ".".join(signal_name.split(cutoff)[0].split(".")[:-1])
+                        cell_name = ".".join(
+                            signal_name.split(cutoff)[0].split(".")[:-1]
+                        )
                         split.append(cell_name)
                         probe_info = tuple(split)
                         if value == 1:
@@ -205,46 +257,86 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             if not main_done:
                 # add all probe information
                 info_this_cycle["cell-active"] = cell_active.copy()
-                for (group, cell_name) in group_active:
+                for group, cell_name in group_active:
                     if cell_name in info_this_cycle["group-active"]:
                         info_this_cycle["group-active"][cell_name].add(group)
                     else:
                         info_this_cycle["group-active"][cell_name] = {group}
-                for (child_group, parent_group, cell_name) in structural_enable_active:
+                for child_group, parent_group, cell_name in structural_enable_active:
                     if cell_name not in info_this_cycle["structural-enable"]:
-                        info_this_cycle["structural-enable"][cell_name] = {child_group: {parent_group}}
-                    elif child_group not in info_this_cycle["structural-enable"][cell_name]:
-                        info_this_cycle["structural-enable"][cell_name][child_group] = {parent_group}
+                        info_this_cycle["structural-enable"][cell_name] = {
+                            child_group: {parent_group}
+                        }
+                    elif (
+                        child_group
+                        not in info_this_cycle["structural-enable"][cell_name]
+                    ):
+                        info_this_cycle["structural-enable"][cell_name][child_group] = {
+                            parent_group
+                        }
                     else:
-                        info_this_cycle["structural-enable"][cell_name][child_group].add(parent_group)
-                for (cell_name, parent_group, parent_cell_name) in cell_enable_active:
+                        info_this_cycle["structural-enable"][cell_name][
+                            child_group
+                        ].add(parent_group)
+                for cell_name, parent_group, parent_cell_name in cell_enable_active:
                     if parent_cell_name not in info_this_cycle["cell-invoke"]:
-                        info_this_cycle["cell-invoke"][parent_cell_name] = {parent_group : {cell_name}}
-                    elif parent_group not in info_this_cycle["cell-invoke"][parent_cell_name]:
-                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group] = {cell_name}
+                        info_this_cycle["cell-invoke"][parent_cell_name] = {
+                            parent_group: {cell_name}
+                        }
+                    elif (
+                        parent_group
+                        not in info_this_cycle["cell-invoke"][parent_cell_name]
+                    ):
+                        info_this_cycle["cell-invoke"][parent_cell_name][
+                            parent_group
+                        ] = {cell_name}
                     else:
-                        info_this_cycle["cell-invoke"][parent_cell_name][parent_group].add(cell_name)
-                for (primitive_name, parent_group, cell_name) in primitive_enable:
+                        info_this_cycle["cell-invoke"][parent_cell_name][
+                            parent_group
+                        ].add(cell_name)
+                for primitive_name, parent_group, cell_name in primitive_enable:
                     if cell_name not in info_this_cycle["primitive-enable"]:
-                        info_this_cycle["primitive-enable"][cell_name] = {parent_group: {primitive_name}}
-                    elif parent_group not in info_this_cycle["primitive-enable"][cell_name]:
-                        info_this_cycle["primitive-enable"][cell_name][parent_group] = {primitive_name}
+                        info_this_cycle["primitive-enable"][cell_name] = {
+                            parent_group: {primitive_name}
+                        }
+                    elif (
+                        parent_group
+                        not in info_this_cycle["primitive-enable"][cell_name]
+                    ):
+                        info_this_cycle["primitive-enable"][cell_name][parent_group] = {
+                            primitive_name
+                        }
                     else:
-                        info_this_cycle["primitive-enable"][cell_name][parent_group].add(primitive_name)
-                self.trace[clock_cycles] = create_cycle_trace(info_this_cycle, self.cells_to_components, self.main_component, True) # True to track primitives
+                        info_this_cycle["primitive-enable"][cell_name][
+                            parent_group
+                        ].add(primitive_name)
+                self.trace[clock_cycles] = create_cycle_trace(
+                    info_this_cycle, self.cells_to_components, self.main_component, True
+                )  # True to track primitives
 
-        self.clock_cycles = clock_cycles # last rising edge does not count as a full cycle (probably)
+        self.clock_cycles = (
+            clock_cycles  # last rising edge does not count as a full cycle (probably)
+        )
+
 
 # Generates a list of all of the components to potential cell names
 # `prefix` is the cell's "path" (ex. for a cell "my_cell" defined in "main", the prefix would be "TOP.toplevel.main")
 # The initial value of curr_component should be the top level/main component
-def build_components_to_cells(prefix, curr_component, cells_to_components, components_to_cells):
-    for (cell, cell_component) in cells_to_components[curr_component].items():
+def build_components_to_cells(
+    prefix, curr_component, cells_to_components, components_to_cells
+):
+    for cell, cell_component in cells_to_components[curr_component].items():
         if cell_component not in components_to_cells:
             components_to_cells[cell_component] = [f"{prefix}.{cell}"]
         else:
             components_to_cells[cell_component].append(f"{prefix}.{cell}")
-        build_components_to_cells(prefix + f".{cell}", cell_component, cells_to_components, components_to_cells)
+        build_components_to_cells(
+            prefix + f".{cell}",
+            cell_component,
+            cells_to_components,
+            components_to_cells,
+        )
+
 
 # Reads json generated by component-cells backend to produce a mapping from all components
 # to cell names they could have.
@@ -255,15 +347,19 @@ def read_component_cell_names_json(json_file):
     cells_to_components = {}
     main_component = ""
     for curr_component_entry in cell_json:
-        cell_map = {} # mapping cell names to component names for all cells in the current component
+        cell_map = {}  # mapping cell names to component names for all cells in the current component
         if curr_component_entry["is_main_component"]:
             main_component = curr_component_entry["component"]
         for cell_info in curr_component_entry["cell_info"]:
             cell_map[cell_info["cell_name"]] = cell_info["component_name"]
         cells_to_components[curr_component_entry["component"]] = cell_map
     full_main_component = f"TOP.toplevel.{main_component}"
-    components_to_cells = {main_component : [full_main_component]} # come up with a better name for this
-    build_components_to_cells(full_main_component, main_component, cells_to_components, components_to_cells)
+    components_to_cells = {
+        main_component: [full_main_component]
+    }  # come up with a better name for this
+    build_components_to_cells(
+        full_main_component, main_component, cells_to_components, components_to_cells
+    )
     full_cell_names_to_components = {}
     for component in components_to_cells:
         for cell in components_to_cells[component]:
@@ -271,14 +367,17 @@ def read_component_cell_names_json(json_file):
 
     return full_main_component, full_cell_names_to_components
 
+
 """
 Creates a tree that encapsulates all stacks that occur within the program.
 """
+
+
 def create_tree(timeline_map):
     node_id_acc = 0
-    tree_dict = {} # node id --> node name
-    path_dict = {} # stack list string --> list of node ids
-    path_prefixes_dict = {} # stack list string --> list of node ids
+    tree_dict = {}  # node id --> node name
+    path_dict = {}  # stack list string --> list of node ids
+    path_prefixes_dict = {}  # stack list string --> list of node ids
     stack_list = []
     # collect all of the stacks from the list. (i.e. "flatten" the timeline map values.)
     for sl in timeline_map.values():
@@ -291,15 +390,15 @@ def create_tree(timeline_map):
         id_path_list = []
         prefix = ""
         # obtain the longest prefix of the current stack. Everything after the prefix is a new stack element.
-        for i in range(1, stack_len+1):
-            attempted_prefix = ";".join(stack[0:stack_len-i])
+        for i in range(1, stack_len + 1):
+            attempted_prefix = ";".join(stack[0 : stack_len - i])
             if attempted_prefix in path_prefixes_dict:
                 prefix = attempted_prefix
                 id_path_list = list(path_prefixes_dict[prefix])
                 break
         # create nodes
         if prefix != "":
-            new_nodes = stack[stack_len - i:]
+            new_nodes = stack[stack_len - i :]
             new_prefix = prefix
         else:
             new_nodes = stack
@@ -317,7 +416,10 @@ def create_tree(timeline_map):
 
     return tree_dict, path_dict
 
-def create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir):
+
+def create_tree_rankings(
+    trace, tree_dict, path_dict, path_to_edges, all_edges, dot_out_dir
+):
     stack_list_str_to_used_nodes = {}
     stack_list_str_to_used_edges = {}
     stack_list_str_to_cycles = {}
@@ -342,11 +444,13 @@ def create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, 
         stack_list_str_to_used_nodes[stack_list_str] = used_nodes
         stack_list_str_to_used_edges[stack_list_str] = used_edges
 
-    sorted_stack_list_items = sorted(stack_list_str_to_cycles.items(), key=(lambda item : len(item[1])), reverse=True)
+    sorted_stack_list_items = sorted(
+        stack_list_str_to_cycles.items(), key=(lambda item: len(item[1])), reverse=True
+    )
     acc = 0
     rankings_out = open(os.path.join(dot_out_dir, "rankings.csv"), "w")
     rankings_out.write("Rank,#Cycles,Cycles-list\n")
-    for (stack_list_str, cycles) in sorted_stack_list_items:
+    for stack_list_str, cycles in sorted_stack_list_items:
         if acc == 5:
             break
         acc += 1
@@ -359,11 +463,13 @@ def create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, 
                 if node in stack_list_str_to_used_nodes[stack_list_str]:
                     f.write(f'\t{node} [label="{tree_dict[node]}"];\n')
                 else:
-                    f.write(f'\t{node} [label="{tree_dict[node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
+                    f.write(
+                        f'\t{node} [label="{tree_dict[node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n'
+                    )
             # write all edges.
             for edge in all_edges:
                 if edge in stack_list_str_to_used_edges[stack_list_str]:
-                    f.write(f'\t{edge} ; \n')
+                    f.write(f"\t{edge} ; \n")
                 else:
                     f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
             f.write("}")
@@ -376,13 +482,15 @@ def create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, 
 def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
-    leaf_nodes_dict = {node_id: 0 for node_id in tree_dict} # how many times was this node a leaf?
-    edges_dict = {} # how many times was this edge active?
+    leaf_nodes_dict = {
+        node_id: 0 for node_id in tree_dict
+    }  # how many times was this node a leaf?
+    edges_dict = {}  # how many times was this edge active?
 
     for stack_list in timeline_map.values():
         edges_this_cycle = set()
         leaves_this_cycle = set()
-        stacks_this_cycle = set(map(lambda stack : ";".join(stack), stack_list))
+        stacks_this_cycle = set(map(lambda stack: ";".join(stack), stack_list))
         for stack in stack_list:
             stack_id = ";".join(stack)
             for edge in path_to_edges[stack_id]:
@@ -403,12 +511,12 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
                     if other_stack != stack_id and leaf_id in other_stack:
                         contained = True
                         break
-                if contained: # this is not actually a leaf node, so we should move onto the next leaf node.
+                if contained:  # this is not actually a leaf node, so we should move onto the next leaf node.
                     continue
             if leaf_node not in leaves_this_cycle:
                 leaf_nodes_dict[leaf_node] += 1
                 leaves_this_cycle.add(leaf_node)
-    
+
     # write the tree
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
@@ -417,43 +525,52 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
         # declare nodes
         for node in leaf_nodes_dict:
             if "primitive" in tree_dict[node]:
-                f.write(f'\t{node} [label="{tree_dict[node]}", style=filled, color="{ACTIVE_PRIMITIVE_COLOR}"];\n')
+                f.write(
+                    f'\t{node} [label="{tree_dict[node]}", style=filled, color="{ACTIVE_PRIMITIVE_COLOR}"];\n'
+                )
             elif "[" in tree_dict[node] or "main" == tree_dict[node]:
-                f.write(f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})", style=filled, color="{ACTIVE_CELL_COLOR}"];\n')
+                f.write(
+                    f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})", style=filled, color="{ACTIVE_CELL_COLOR}"];\n'
+                )
             else:
-                f.write(f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})", style=filled, color="{ACTIVE_GROUP_COLOR}"];\n')
+                f.write(
+                    f'\t{node} [label="{tree_dict[node]} ({leaf_nodes_dict[node]})", style=filled, color="{ACTIVE_GROUP_COLOR}"];\n'
+                )
         # write edges with labels
         for edge in edges_dict:
             f.write(f'\t{edge} [label="{edges_dict[edge]}"]; \n')
         f.write("}")
 
+
 def create_path_dot_str_dict(path_dict):
-    path_to_dot_str = {} # stack list string --> stack path representation on dot file.
+    path_to_dot_str = {}  # stack list string --> stack path representation on dot file.
 
     for path_id in path_dict:
         path = path_dict[path_id]
         path_acc = ""
         for node_id in path[0:-1]:
-            path_acc += f'{node_id} -> '
-        path_acc += f'{path[-1]}'
+            path_acc += f"{node_id} -> "
+        path_acc += f"{path[-1]}"
         path_to_dot_str[path_id] = path_acc
 
     return path_to_dot_str
 
+
 def create_edge_dict(path_dict):
-    path_to_edges = {} # stack list string --> [edge string representation]
+    path_to_edges = {}  # stack list string --> [edge string representation]
     all_edges = set()
 
     for path_id in path_dict:
         path = path_dict[path_id]
         edge_set = []
-        for i in range(len(path)-1):
-            edge = f"{path[i]} -> {path[i+1]}"
+        for i in range(len(path) - 1):
+            edge = f"{path[i]} -> {path[i + 1]}"
             edge_set.append(edge)
             all_edges.add(edge)
         path_to_edges[path_id] = edge_set
 
     return path_to_edges, list(sorted(all_edges))
+
 
 # create a tree where we divide cycles via par arms
 def compute_scaled_flame(trace):
@@ -471,15 +588,18 @@ def compute_scaled_flame(trace):
             else:
                 stacks[stack_id] += slice_to_add * SCALED_FLAME_MULTIPLIER
             acc += 1
-            
+
     return stacks
 
-def create_flame_groups(trace, flame_out_file, flames_out_dir, scaled_flame_out_file=None):
+
+def create_flame_groups(
+    trace, flame_out_file, flames_out_dir, scaled_flame_out_file=None
+):
     if not os.path.exists(flames_out_dir):
         os.mkdir(flames_out_dir)
-    
+
     # make flame graph folded file
-    stacks = {} # stack to number of cycles
+    stacks = {}  # stack to number of cycles
     for i in trace:
         for stack_list in trace[i]:
             stack_id = ";".join(stack_list)
@@ -487,7 +607,7 @@ def create_flame_groups(trace, flame_out_file, flames_out_dir, scaled_flame_out_
                 stacks[stack_id] = 1
             else:
                 stacks[stack_id] += 1
-    
+
     with open(flame_out_file, "w") as flame_out:
         for stack in stacks:
             flame_out.write(f"{stack} {stacks[stack]}\n")
@@ -499,8 +619,8 @@ def create_flame_groups(trace, flame_out_file, flames_out_dir, scaled_flame_out_
         for stack in scaled_stacks:
             div_flame_out.write(f"{stack} {scaled_stacks[stack]}\n")
 
-def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
 
+def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
     if not os.path.exists(dot_out_dir):
         os.mkdir(dot_out_dir)
 
@@ -536,24 +656,28 @@ def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_d
                 if node in used_nodes:
                     f.write(f'\t{node} [label="{tree_dict[node]}"];\n')
                 else:
-                    f.write(f'\t{node} [label="{tree_dict[node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n')
+                    f.write(
+                        f'\t{node} [label="{tree_dict[node]}",color="{INVISIBLE}",fontcolor="{INVISIBLE}"];\n'
+                    )
             # write all edges.
             for edge in all_edges:
                 if edge in used_edges.keys():
-                    f.write(f'\t{edge} ; \n')
+                    f.write(f"\t{edge} ; \n")
                 else:
                     f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
             f.write("}")
 
+
 def dump_trace(trace, out_dir):
     with open(os.path.join(out_dir, "trace.json"), "w") as json_out:
-        json.dump(trace, json_out, indent = 2)
+        json.dump(trace, json_out, indent=2)
+
 
 def compute_timeline(trace, cells_to_components, main_component, out_dir):
     cells_to_curr_active = {}
-    cells_to_closed_segments = {} # cell --> [{start: X, end: Y}]. Think [X, Y)
+    cells_to_closed_segments = {}  # cell --> [{start: X, end: Y}]. Think [X, Y)
     # creating a timeline for all cells in the program.
-    for cell in sorted(cells_to_components.keys(), key=(lambda x : x.count("."))):
+    for cell in sorted(cells_to_components.keys(), key=(lambda x: x.count("."))):
         if cell != main_component:
             cells_to_curr_active[cell] = -1
             cells_to_closed_segments[cell] = []
@@ -563,28 +687,48 @@ def compute_timeline(trace, cells_to_components, main_component, out_dir):
         for stack in trace[i]:
             stack_acc = main_component
             for stack_elem in stack:
-                if " [" in stack_elem: # cell
+                if " [" in stack_elem:  # cell
                     stack_acc += "." + stack_elem.split(" [")[0]
-                if stack_acc in cells_to_curr_active: # this is a cell we care about!
+                if stack_acc in cells_to_curr_active:  # this is a cell we care about!
                     active_this_cycle.add(stack_acc)
-        for nonactive in currently_active.difference(active_this_cycle): # cell that was previously active but no longer is
+        for nonactive in currently_active.difference(
+            active_this_cycle
+        ):  # cell that was previously active but no longer is
             start_cycle = cells_to_curr_active[nonactive]
             cells_to_closed_segments[nonactive].append({"start": start_cycle, "end": i})
             cells_to_curr_active[nonactive] = -1
         for newly_active in active_this_cycle.difference(currently_active):
             cells_to_curr_active[newly_active] = i
-        currently_active = active_this_cycle # retain the current one for next cycle.
-    for cell in currently_active: # need to close
+        currently_active = active_this_cycle  # retain the current one for next cycle.
+    for cell in currently_active:  # need to close
         start_cycle = cells_to_curr_active[cell]
         cells_to_closed_segments[cell].append({"start": start_cycle, "end": len(trace)})
     events = []
     # add main on process + thread 1 so we get the full picture.
-    events.append({"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0})
-    events.append({"name": main_component, "cat": "main", "ph": "E", "pid": 1, "tid": 1, "ts": len(trace) * ts_multiplier})
+    events.append(
+        {"name": main_component, "cat": "main", "ph": "B", "pid": 1, "tid": 1, "ts": 0}
+    )
+    events.append(
+        {
+            "name": main_component,
+            "cat": "main",
+            "ph": "E",
+            "pid": 1,
+            "tid": 1,
+            "ts": len(trace) * ts_multiplier,
+        }
+    )
     pt_id = 2
     for cell in cells_to_closed_segments:
         for closed_segment in cells_to_closed_segments[cell]:
-            start_event = {"name": cell, "cat": "cell", "ph": "B", "pid" : 1, "tid": pt_id, "ts": closed_segment["start"] * ts_multiplier} # , "sf" : cell_stackframe
+            start_event = {
+                "name": cell,
+                "cat": "cell",
+                "ph": "B",
+                "pid": 1,
+                "tid": pt_id,
+                "ts": closed_segment["start"] * ts_multiplier,
+            }  # , "sf" : cell_stackframe
             events.append(start_event)
             end_event = start_event.copy()
             end_event["ph"] = "E"
@@ -595,7 +739,8 @@ def compute_timeline(trace, cells_to_components, main_component, out_dir):
     # write to file
     out_path = os.path.join(out_dir, "timeline-dump.json")
     with open(out_path, "w", encoding="utf-8") as out_file:
-        out_file.write(json.dumps({"traceEvents" : events}, indent=4))
+        out_file.write(json.dumps({"traceEvents": events}, indent=4))
+
 
 def write_cell_stats(cell_to_active_cycles, out_dir):
     # cell-name,total-cycles,times-active,avg
@@ -606,16 +751,23 @@ def write_cell_stats(cell_to_active_cycles, out_dir):
         for elem in cell_to_active_cycles[cell]:
             total_cycles += elem["length"]
         avg_cycles = round(total_cycles / times_active, 2)
-        stats.append({"cell-name" : cell, "total-cycles": total_cycles, "times-active": times_active, "avg" : avg_cycles})
-    stats.sort(key=lambda e : e["total-cycles"], reverse=True)
+        stats.append(
+            {
+                "cell-name": cell,
+                "total-cycles": total_cycles,
+                "times-active": times_active,
+                "avg": avg_cycles,
+            }
+        )
+    stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     fieldnames = ["cell-name", "total-cycles", "times-active", "avg"]
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(stats)
 
-class SourceLoc:
 
+class SourceLoc:
     def __init__(self, json_dict):
         self.filename = os.path.basename(json_dict["filename"])
         self.linenum = json_dict["linenum"]
@@ -624,10 +776,11 @@ class SourceLoc:
     def __repr__(self):
         return f"{self.filename}: {self.linenum}"
 
+
 def read_adl_mapping_file(adl_mapping_file):
-    component_mappings = {} # component --> (filename, linenum)
-    cell_mappings = {} # component --> {cell --> (filename, linenum)}
-    group_mappings = {} # component --> {group --> (filename, linenum)}
+    component_mappings = {}  # component --> (filename, linenum)
+    cell_mappings = {}  # component --> {cell --> (filename, linenum)}
+    group_mappings = {}  # component --> {group --> (filename, linenum)}
     with open(adl_mapping_file, "r") as json_file:
         json_data = json.load(json_file)
     for component_dict in json_data:
@@ -642,10 +795,15 @@ def read_adl_mapping_file(adl_mapping_file):
             group_mappings[component_name][group_dict["name"]] = SourceLoc(group_dict)
     return component_mappings, cell_mappings, group_mappings
 
+
 def convert_trace(trace, adl_mapping_file):
     component_map, cell_map, group_map = read_adl_mapping_file(adl_mapping_file)
-    mixed_trace = {i : [] for i in trace} # contains both calyx group/cell/component name and ADL source location.
-    adl_only_trace = {i: [] for i in trace} # contains only the ADL source location (NOTE: would be nice to have the construct name within the ADL?)
+    mixed_trace = {
+        i: [] for i in trace
+    }  # contains both calyx group/cell/component name and ADL source location.
+    adl_only_trace = {
+        i: [] for i in trace
+    }  # contains only the ADL source location (NOTE: would be nice to have the construct name within the ADL?)
 
     # trace should probably be more principled than this... lol
     for i in trace:
@@ -660,20 +818,22 @@ def convert_trace(trace, adl_mapping_file):
                     sourceloc = component_map[stack_elem]
                     mixed_stack_elem = f"main {{{sourceloc}}}"
                     adl_stack_elem = mixed_stack_elem
-                elif "[" in stack_elem: # invocation of component cell
+                elif "[" in stack_elem:  # invocation of component cell
                     cell = stack_elem.split("[")[0].strip()
                     cell_sourceloc = cell_map[curr_component][cell]
                     cell_component = stack_elem.split("[")[1].split("]")[0]
                     cell_component_sourceloc = component_map[cell_component]
                     mixed_stack_elem = f"{cell} {{{cell_sourceloc}}} [{cell_component} {{{cell_component_sourceloc}}}]"
-                    adl_stack_elem = f"{cell_sourceloc.varname} {{{cell_sourceloc}}} [{cell_component_sourceloc.varname} {{{cell_component_sourceloc}}}]" 
+                    adl_stack_elem = f"{cell_sourceloc.varname} {{{cell_sourceloc}}} [{cell_component_sourceloc.varname} {{{cell_component_sourceloc}}}]"
                     curr_component = cell_component
-                elif "(primitive)" in stack_elem: # primitive
+                elif "(primitive)" in stack_elem:  # primitive
                     primitive = stack_elem.split("(primitive)")[0].strip()
                     primitive_sourceloc = cell_map[curr_component][primitive]
                     mixed_stack_elem = f"{stack_elem} {{{primitive_sourceloc}}}"
-                    adl_stack_elem = f"{primitive_sourceloc.varname} {{{primitive_sourceloc}}}"
-                else: # group
+                    adl_stack_elem = (
+                        f"{primitive_sourceloc.varname} {{{primitive_sourceloc}}}"
+                    )
+                else:  # group
                     # ignore compiler-generated groups (invokes) for now...
                     if stack_elem in group_map[curr_component]:
                         sourceloc = group_map[curr_component][stack_elem]
@@ -689,9 +849,12 @@ def convert_trace(trace, adl_mapping_file):
 
     return adl_only_trace, mixed_trace
 
+
 def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out):
     print(f"Start time: {datetime.now()}")
-    main_component, cells_to_components = read_component_cell_names_json(cells_json_file)
+    main_component, cells_to_components = read_component_cell_names_json(
+        cells_json_file
+    )
     print(f"Start reading VCD: {datetime.now()}")
     converter = VCDConverter(main_component, cells_to_components)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
@@ -710,21 +873,31 @@ def main(vcd_filename, cells_json_file, adl_mapping_file, out_dir, flame_out):
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
     create_aggregate_tree(converter.trace, out_dir, tree_dict, path_dict)
-    create_tree_rankings(converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
+    create_tree_rankings(
+        converter.trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir
+    )
     create_flame_groups(converter.trace, flame_out, out_dir)
     compute_timeline(converter.trace, cells_to_components, main_component, out_dir)
     print(f"End time: {datetime.now()}")
     write_cell_stats(converter.cell_to_active_cycles, out_dir)
 
-    if adl_mapping_file is not None: # emit ADL flame graphs.
+    if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
         adl_trace, mixed_trace = convert_trace(converter.trace, adl_mapping_file)
-        adl_flat_flame = os.path.join(out_dir, f"adl-flat-flame.folded")
-        adl_scaled_flame = os.path.join(out_dir, f"adl-scaled-flame.folded")
-        create_flame_groups(adl_trace, adl_flat_flame, out_dir, scaled_flame_out_file=adl_scaled_flame)
-        mixed_flat_flame = os.path.join(out_dir, f"mixed-flat-flame.folded")
-        mixed_scaled_flame = os.path.join(out_dir, f"mixed-scaled-flame.folded")
-        create_flame_groups(mixed_trace, mixed_flat_flame, out_dir, scaled_flame_out_file=mixed_scaled_flame)        
+        adl_flat_flame = os.path.join(out_dir, "adl-flat-flame.folded")
+        adl_scaled_flame = os.path.join(out_dir, "adl-scaled-flame.folded")
+        create_flame_groups(
+            adl_trace, adl_flat_flame, out_dir, scaled_flame_out_file=adl_scaled_flame
+        )
+        mixed_flat_flame = os.path.join(out_dir, "mixed-flat-flame.folded")
+        mixed_scaled_flame = os.path.join(out_dir, "mixed-scaled-flame.folded")
+        create_flame_groups(
+            mixed_trace,
+            mixed_flat_flame,
+            out_dir,
+            scaled_flame_out_file=mixed_scaled_flame,
+        )
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 4:
@@ -744,7 +917,7 @@ if __name__ == "__main__":
             "CELLS_JSON",
             "OUT_DIR",
             "FLATTENED_FLAME_OUT",
-            "[ADL_MAP_JSON]"
+            "[ADL_MAP_JSON]",
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         print("CELLS_JSON: Run the `component_cells` tool")
