@@ -302,9 +302,7 @@ fn emit_component<F: io::Write>(
     }
 
     // Emit FSMs
-    for fsm in comp.fsms.iter() {
-        emit_fsm(fsm, comp.name, f)?;
-    }
+    emit_fsms(comp.fsms.iter().map(ir::RRC::clone).collect(), comp.name, f)?;
 
     // Flatten all the guard expressions.
     let mut pool = ir::GuardPool::new();
@@ -458,7 +456,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// Generates an inlined register representing the FSM, along with an always
 /// block to transition the FSM and drive assignments that read from the FSM
 /// register
-fn emit_fsm<F: io::Write>(
+fn _emit_fsm<F: io::Write>(
     fsm: &RRC<ir::FSM>,
     comp_name: ir::Id,
     f: &mut F,
@@ -483,12 +481,125 @@ fn emit_fsm<F: io::Write>(
     writeln!(f, ");")?;
 
     // Dump all assignments dependent on FSM state
-    emit_fsm_assignments(fsm, f)?;
+    _emit_fsm_assignments(fsm, f)?;
 
     io::Result::Ok(())
 }
 
-fn emit_fsm_assignments<F: io::Write>(
+/// Instantiates one of the previously-defined FSM modules inside the component
+/// itself. Generates one-hot wires for each state and attaches exposes them to
+/// the component.
+fn init_fsm<F: io::Write>(
+    fsm: &RRC<ir::FSM>,
+    comp_name: ir::Id,
+    f: &mut F,
+) -> io::Result<()> {
+    // Initialize wires representing FSM internal state
+    let num_states = fsm.borrow().assignments.len();
+    let fsm_state_wires = (0..num_states)
+        .map(|st| format!("{}_s{st}_out", fsm.borrow().name()))
+        .collect_vec();
+
+    for state_wire in fsm_state_wires.iter() {
+        writeln!(f, "logic {state_wire};")?;
+    }
+
+    // Instantiate an FSM module from the definition above
+    let fsm_name = fsm.borrow().name();
+    writeln!(f, "{fsm_name}_{comp_name}_def {fsm_name} (")?;
+    for (case, st_wire) in fsm_state_wires.into_iter().enumerate() {
+        writeln!(f, "  .s{case}_out({st_wire}),")?;
+    }
+    writeln!(f, "  .*")?;
+    writeln!(f, ");")?;
+
+    io::Result::Ok(())
+}
+
+fn emit_fsms<F: io::Write>(
+    fsms: Vec<RRC<ir::FSM>>,
+    comp_name: ir::Id,
+    f: &mut F,
+) -> io::Result<()> {
+    // generate fsm instantiations from fsm defs
+    for fsm in fsms.iter() {
+        init_fsm(fsm, comp_name, f)?;
+    }
+
+    // merge assignments across fsms, since multiple fsms can write to the same
+    // destination
+    let mut dest2mergedassigns: HashMap<
+        ir::Canonical,
+        Vec<(ir::Id, usize, ir::Assignment<Nothing>)>,
+    > = HashMap::new();
+    fsms.iter().for_each(|fsm: &RRC<ir::FSM>| {
+        fsm.borrow().merge_assignments().into_iter().for_each(
+            |collection: Vec<(usize, ir::Assignment<Nothing>)>| {
+                collection.into_iter().for_each(|(state, assignment)| {
+                    let assign_dest = assignment.dst.borrow().canonical();
+                    dest2mergedassigns
+                        .entry(assign_dest)
+                        .and_modify(|merged_assigns| {
+                            merged_assigns.push((
+                                fsm.borrow().name(),
+                                state,
+                                assignment.clone(),
+                            ));
+                        })
+                        .or_insert(vec![(
+                            fsm.borrow().name(),
+                            state,
+                            assignment,
+                        )]);
+                })
+            },
+        );
+    });
+
+    // dump all assignments dependent on fsm state
+    for collection in dest2mergedassigns.into_values() {
+        let num_merged_assigns = collection.len();
+        let destination = ir::RRC::clone(&collection.first().unwrap().2.dst);
+        writeln!(f, "assign {} =", VerilogPortRef(&destination))?;
+        for (i, (fsm_id, state, assignment)) in
+            collection.into_iter().enumerate()
+        {
+            // string representing the new guard on the assignment
+            let case_guard = format!("{}_s{state}_out", fsm_id);
+            let case_guarded_assign_guard = if assignment.guard.is_true() {
+                case_guard
+            } else {
+                format!(
+                    "({case_guard} & ({}))",
+                    unflattened_guard(&assignment.guard)
+                )
+            };
+
+            // value for the wire to take if either fsm is not in relevant state
+            // or if the assignment's original condition is not met
+            let guard_unmet_value = if is_data_port(&destination) {
+                "'x".to_string()
+            } else {
+                format!("{}'d0", destination.borrow().width)
+            };
+
+            writeln!(
+                f,
+                " {} ? {} :",
+                case_guarded_assign_guard,
+                VerilogPortRef(&assignment.src)
+            )?;
+
+            if i + 1 == num_merged_assigns {
+                writeln!(f, " {guard_unmet_value};")?;
+            }
+        }
+    }
+
+    io::Result::Ok(())
+}
+
+fn _emit_fsm_assignments<F: io::Write>(
     fsm: &RRC<ir::FSM>,
     f: &mut F,
 ) -> io::Result<()> {
