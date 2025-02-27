@@ -712,7 +712,7 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
 ##### Matrix Multiplication Tests ######
 [[tests]]
 name = "Matrix multiplication"
-paths = ["tests/matrixmult/matrixmultiplier.futil"]
+paths = ["tests/matrixmult/*.futil"]
 cmd = """
 fud2 {} --to dat --through icarus -s sim.data={}.data
 """
