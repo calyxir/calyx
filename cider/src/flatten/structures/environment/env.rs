@@ -33,8 +33,6 @@ use crate::{
             environment::{
                 program_counter::ControlPoint, traverser::Traverser,
             },
-            // index_trait::IndexRef,
-            // printer::Printer,
             thread::{ThreadIdx, ThreadMap},
         },
     },
@@ -966,7 +964,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         let mut control_id = component_node.control().unwrap();
 
-        let mut control_node = &control_map.get(control_id).unwrap().control;
+        let mut control_node = &control_map[control_id].control;
         for parse_node in path_nodes {
             match parse_node {
                 ParseNodes::Body => match control_node {
@@ -1007,7 +1005,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     }
                 },
             }
-            control_node = control_map.get(control_id).unwrap();
+            control_node = &control_map[control_id].control;
         }
         control_id
     }
@@ -1015,7 +1013,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn print_pc_string(&self) {
         let ctx = self.ctx.as_ref();
         for node in self.pc_iter() {
-            let string_path = node.string_path(ctx);
+            let string_path =
+                node.string_path(ctx, self.get_full_name(node.comp));
             println!("{}: {}", self.get_full_name(node.comp), string_path);
 
             // Debug assert:
@@ -1027,7 +1026,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
             let control_idx = self.path_idx(component, path);
 
-            assert!(control_idx == node.control_node_idx);
+            debug_assert_eq!(control_idx, node.control_node_idx);
         }
     }
 

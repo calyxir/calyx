@@ -27,8 +27,12 @@ impl PathParser {
         Ok(())
     }
 
-    fn seperator(_input: Node) -> ParseResult<()> {
+    fn separator(_input: Node) -> ParseResult<()> {
         Ok(())
+    }
+
+    fn name(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_owned())
     }
 
     fn num(input: Node) -> ParseResult<u32> {
@@ -46,15 +50,15 @@ impl PathParser {
 
     fn clause(input: Node) -> ParseResult<ParseNodes> {
         Ok(match_nodes!(input.into_children();
-            [seperator(_), num(n)] => ParseNodes::Offset(n),
-            [seperator(_), body(_)] => ParseNodes::Body,
-            [seperator(_), branch(b)] => ParseNodes::If(b)
+            [separator(_), num(n)] => ParseNodes::Offset(n),
+            [separator(_), body(_)] => ParseNodes::Body,
+            [separator(_), branch(b)] => ParseNodes::If(b)
         ))
     }
 
     fn path(input: Node) -> ParseResult<ParsePath> {
         Ok(match_nodes!(input.into_children();
-            [num(n), root(_), clause(c).., EOI(_)] => ParsePath::from_iter(c,n),
+            [name(n), root(_), clause(c).., EOI(_)] => ParsePath::from_iter(c,n),
         ))
     }
 }
@@ -71,7 +75,7 @@ pub fn parse_path(input_str: &str) -> Result<ParsePath, Box<Error<Rule>>> {
 #[cfg(test)]
 #[test]
 fn root() {
-    let path = parse_path("32.").unwrap();
+    let path = parse_path("32: .").unwrap();
     dbg!(path.get_path());
     assert_eq!(path.get_path(), Vec::new());
     assert_eq!(path.get_name(), "32");
@@ -79,7 +83,7 @@ fn root() {
 
 #[test]
 fn body() {
-    let path = parse_path("0.-b").unwrap();
+    let path = parse_path("0: .-b").unwrap();
     dbg!(path.get_path());
     assert_eq!(path.get_path(), vec![ParseNodes::Body]);
     assert_eq!(path.get_name(), "0");
@@ -87,7 +91,7 @@ fn body() {
 
 #[test]
 fn branch() {
-    let path = parse_path("0.-f").unwrap();
+    let path = parse_path("0: .-f").unwrap();
     dbg!(path.get_path());
     assert_eq!(path.get_path(), vec![ParseNodes::If(false)]);
     assert_eq!(path.get_name(), "0");
@@ -95,7 +99,7 @@ fn branch() {
 
 #[test]
 fn offset() {
-    let path = parse_path("0.-0-1").unwrap();
+    let path = parse_path("0: .-0-1").unwrap();
     dbg!(path.get_path());
     assert_eq!(
         path.get_path(),
@@ -106,7 +110,7 @@ fn offset() {
 
 #[test]
 fn multiple() {
-    let path = parse_path("10.-0-1-b-t").unwrap();
+    let path = parse_path("heLl.o123: .-0-1-b-t").unwrap();
     dbg!(path.get_path());
     assert_eq!(
         path.get_path(),
@@ -117,5 +121,5 @@ fn multiple() {
             ParseNodes::If(true)
         ]
     );
-    assert_eq!(path.get_name(), "10");
+    assert_eq!(path.get_name(), "heLl.o123");
 }

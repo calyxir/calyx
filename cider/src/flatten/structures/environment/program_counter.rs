@@ -74,24 +74,25 @@ impl ControlPoint {
 
     /// Returns a string showing the path from the root node to input node. This
     /// path is displayed in the minimal metadata path syntax.
-    pub fn string_path(&self, ctx: &Context) -> String {
+    pub fn string_path(&self, ctx: &Context, name: String) -> String {
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
         let control_map = &ctx.primary.control;
-        let mut path_vec = path.path;
+        let path_vec = path.path;
 
-        let mut string_path = String::new();
+        let mut string_path = name;
 
-        // Maybe parameterize prefix so we know which group we are on?
-        string_path.push('0');
+        string_path.push(':');
+        string_path.push(' ');
         string_path.push('.');
 
         // Remove first index
-        let node = path_vec.remove(0);
+        let mut iter = path_vec.iter();
+        let node = iter.next().unwrap();
         let control_idx = node.node;
         let mut prev_control_node =
             &control_map.get(control_idx).unwrap().control;
 
-        for search_node in path_vec {
+        for search_node in iter {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
             let control_idx = search_node.node;

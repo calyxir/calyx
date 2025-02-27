@@ -311,12 +311,15 @@ pub enum ParseNodes {
 }
 pub struct ParsePath {
     nodes: Vec<ParseNodes>,
-    name: String,
+    component_name: String,
 }
 
 impl ParsePath {
     pub fn new(nodes: Vec<ParseNodes>, name: String) -> ParsePath {
-        ParsePath { nodes, name }
+        ParsePath {
+            nodes,
+            component_name: name,
+        }
     }
 
     pub fn get_path(&self) -> Vec<ParseNodes> {
@@ -324,14 +327,14 @@ impl ParsePath {
     }
 
     pub fn get_name(&self) -> &str {
-        &self.name
+        &self.component_name
     }
 
-    pub fn from_iter<I>(iter: I, name: u32) -> ParsePath
+    pub fn from_iter<I>(iter: I, component_name: String) -> ParsePath
     where
         I: IntoIterator<Item = ParseNodes>,
     {
-        ParsePath::new(iter.into_iter().collect(), name.to_string())
+        ParsePath::new(iter.into_iter().collect(), component_name)
     }
 }
 

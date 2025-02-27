@@ -1,6 +1,5 @@
-root = { "." }
-
-seperator = { "-" }
+root      = { ": ." }
+separator = { "-" }
 
 body = { "b" }
 
@@ -8,6 +7,8 @@ num = { ASCII_DIGIT+ }
 
 branch = { "t" | "f" }
 
-clause = { seperator ~ (body | num | branch) }
+clause = { separator ~ (body | num | branch) }
 
-path = { SOI ~ num ~ root ~ clause* ~ EOI }
+name = { (ASCII_ALPHA | ASCII_DIGIT | ".")* }
+
+path = { SOI ~ name ~ root ~ clause* ~ EOI }
