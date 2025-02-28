@@ -143,7 +143,7 @@ impl Document {
         &'a self,
         node: ts::Node<'node>,
         pattern: &str,
-    ) -> HashMap<String, Vec<ts::Node>> {
+    ) -> HashMap<String, Vec<ts::Node<'a>>> {
         // create the struct that manages query state
         let mut cursor = ts::QueryCursor::new();
         // create the query from the passed in pattern

@@ -55,11 +55,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
 
     // helper to check if a guard has holes
     let has_holes = |guard: &ir::Guard<Nothing>| {
-        guard
-            .all_ports()
-            .iter()
-            .map(|p| p.borrow().is_hole())
-            .any(|e| e)
+        guard.all_ports().iter().any(|p| p.borrow().is_hole())
     };
 
     // initialize the worklist to have guards that have no holes

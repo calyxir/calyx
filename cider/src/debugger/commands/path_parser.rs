@@ -10,7 +10,6 @@ const _GRAMMAR: &str = include_str!("path_parser.pest");
 
 #[derive(Parser)]
 #[grammar = "debugger/commands/path_parser.pest"]
-
 pub struct PathParser;
 
 #[pest_consume::parser]

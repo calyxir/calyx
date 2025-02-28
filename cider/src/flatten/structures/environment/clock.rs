@@ -374,7 +374,7 @@ impl ClockMap {
         &'a self,
         read_clock: ClockIdx,
         threads: I,
-    ) -> impl Iterator<Item = ReadInfoWithThread> + '_
+    ) -> impl Iterator<Item = ReadInfoWithThread> + 'a
     where
         I: IntoIterator<Item = ThreadIdx> + 'a,
     {
@@ -605,14 +605,10 @@ where
     pub fn get_strictly_greater<'a>(
         &'a self,
         other: &'a Self,
-    ) -> impl Iterator<Item = &I> + '_ {
+    ) -> impl Iterator<Item = &'a I> + 'a {
         other.map.iter().filter_map(|(key, other_count)| {
             if let Some(count) = self.get(key) {
-                if other_count > count {
-                    Some(key)
-                } else {
-                    None
-                }
+                if other_count > count { Some(key) } else { None }
             } else {
                 Some(key)
             }

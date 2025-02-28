@@ -335,7 +335,7 @@ impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
     }
 }
 
-impl<'b, 'a> Schedule<'b, 'a> {
+impl Schedule<'_, '_> {
     /// Validate that all states are reachable in the transition graph.
     fn validate(&self) {
         let graph = DiGraph::<(), u32>::from_edges(
