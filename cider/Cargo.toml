@@ -2,7 +2,7 @@
 name = "cider"
 version = "0.1.1"
 authors = ["The Calyx authors"]
-edition = "2021"
+edition.workspace = true
 rust-version.workspace = true
 
 [[bin]]
