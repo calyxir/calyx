@@ -1,14 +1,16 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::source_info::{FileId, LineNum, PositionId, SourceInfoTable};
 use calyx_ir::Id;
 use calyx_utils::WithPos;
 use linked_hash_map::LinkedHashMap;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Metadata stores a Map between each group name and data used in the metadata table (specified in PR #2022)
 #[derive(Default)]
 pub struct Metadata {
     groups: LinkedHashMap<(Id, Id), ((usize, usize), PathBuf)>,
+    src_table: SourceInfoTable,
 }
 
 impl Metadata {
@@ -30,6 +32,14 @@ impl Metadata {
             panic!("Two of same group name found")
         }
     }
+    /// Add a position entry
+    fn add_position(&mut self, file: FileId, line: LineNum) {
+        self.src_table.push_position(file, line);
+    }
+    /// Add a new file entry
+    fn add_file(&mut self, path: PathBuf) {
+        self.src_table.push_file(path);
+    }
 }
 
 impl fmt::Display for Metadata {
@@ -41,6 +51,8 @@ impl fmt::Display for Metadata {
 
             writeln!(f, "{comp}.{name}: {file} {start}-{end}")?;
         }
+
+        // display source info table
 
         Ok(())
     }
@@ -71,11 +83,34 @@ impl Visitor for Metadata {
                         grp.name(),
                         span,
                         PathBuf::from(file),
-                    ); //hm may need to actually use the full name of the group
+                    );
+                    // hm may need to actually use the full name of the group
                 }
 
                 ctx.metadata = Some(table.to_string());
             }
+            // to generate the table:
+            let mut src_table: SourceInfoTable = match &ctx.source_info_table {
+                None => SourceInfoTable::new_empty(),
+                Some(s) => s.clone(),
+            };
+
+            // add this file to the table
+            // longass train of calls that inlines what i do above to get file name from component span
+            let temp0 = &ctx.components[0]
+                .groups
+                .into_iter()
+                .next()
+                .unwrap()
+                .borrow_mut()
+                .attributes
+                .copy_span();
+            let (file, _span) = temp0.get_line_num();
+            let id = src_table.push_file(PathBuf::from(file));
+            // push all positions in the file to the pos table - use id
+
+            //update this -> table needs its own to_string
+            // may need to add display method to source info table (source_info.rs)
         }
         Ok(Action::Stop)
     }

@@ -44,9 +44,9 @@ pub use structure::{
 
 // Re-export types from the frontend.
 pub use calyx_frontend::{
-    Attribute, Attributes, BoolAttr, Direction, GetAttributes, InternalAttr,
-    LibrarySignatures, NumAttr, PortDef, Primitive, PrimitiveInfo, Width,
-    DEPRECATED_ATTRIBUTES,
+    source_info, Attribute, Attributes, BoolAttr, Direction, GetAttributes,
+    InternalAttr, LibrarySignatures, NumAttr, PortDef, Primitive,
+    PrimitiveInfo, Width, DEPRECATED_ATTRIBUTES,
 };
 
 /// Module to transform AST programs into IR.
