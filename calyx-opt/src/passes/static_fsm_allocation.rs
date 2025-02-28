@@ -207,7 +207,7 @@ impl<'a> StaticSchedule<'a> {
             .multiunzip();
 
         if non_promoted_static_component {
-            // If the component is fully static, there will be exactly one
+            // If the component is static by design, there will be exactly one
             // FSM allocated to it. We will get rid of the FSMEnable node from the
             // control in this case, so we need to manually add fsm[start] = comp[go]
             // because wire-inliner will not get to it.
@@ -227,9 +227,50 @@ impl<'a> StaticSchedule<'a> {
             );
             self.builder
                 .add_continuous_assignments(vec![assign_fsm_start]);
+        } else if self.builder.component.is_static() {
+            // In this case, either the component is a promoted static component.
+            // This means we want to wire fsm[done] in maintain the dynamic interface.
+            // We will assert [done] in state 0.
+
+            // register to store whether the FSM has been run exactly one time when
+            // we return to state 0
+            let looped_once: ir::RRC<ir::Cell> =
+                self.builder.add_primitive("looped_once", "std_reg", &[1]);
+
+            looped_once
+                .borrow_mut()
+                .add_attribute(ir::BoolAttr::FSMControl, 1);
+
+            let (assign_looped_once, assign_looped_once_we, fsm_done): (
+                ir::Assignment<ir::Nothing>,
+                ir::Assignment<ir::Nothing>,
+                ir::Assignment<ir::Nothing>,
+            ) = (
+                self.builder.build_assignment(
+                    looped_once.borrow().get("in"),
+                    signal_on.borrow().get("out"),
+                    ir::guard!(fsm["start"]),
+                ),
+                self.builder.build_assignment(
+                    looped_once.borrow().get("write_en"),
+                    signal_on.borrow().get("out"),
+                    ir::Guard::True,
+                ),
+                self.builder.build_assignment(
+                    fsm.borrow().get("done"),
+                    looped_once.borrow().get("out"),
+                    ir::Guard::True,
+                ),
+            );
+
+            assignments.first_mut().unwrap().extend(vec![
+                assign_looped_once,
+                assign_looped_once_we,
+                fsm_done,
+            ]);
         } else {
             // If the component is not static (i.e. this static schedule is just
-            // a static island), then we need to make sure that fsm[done] is
+            // a static island), then we also need to make sure that fsm[done] is
             // assigned to. There are almost certainly other parts of this component's
             // schedule that require the [done] signal out of a static-island FSM.
             match transitions.last_mut().unwrap() {

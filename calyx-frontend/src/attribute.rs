@@ -79,6 +79,9 @@ pub enum BoolAttr {
     #[strum(serialize = "protected")]
     /// Indicate that the cell should not be removed or shared during optimization.
     Protected,
+    #[strum(serialize = "fsm_control")]
+    /// Protects a cell controlling an FSM from being removed
+    FSMControl,
 }
 
 impl From<BoolAttr> for Attribute {

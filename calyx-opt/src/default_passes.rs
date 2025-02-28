@@ -115,8 +115,30 @@ impl PassManager {
         // this path should be used alone
         register_alias!(
             pm,
+            "fsm-opt2",
+            [
+                GroupToInvoke,
+                CollapseControl,
+                DeadAssignmentRemoval,
+                CombProp,
+                DeadCellRemoval,
+                CellShare,
+                SimplifyWithControl,
+                CompileInvoke,
+                StaticInference,
+                StaticPromotion,
+                StaticFSMAllocation,
+                DeadGroupRemoval,
+                MergeAssign,
+                TopDownCompileControl,
+            ]
+        );
+        // this path should be used alone
+        register_alias!(
+            pm,
             "fsm-opt",
             [
+                GroupToInvoke,
                 CollapseControl,
                 DeadAssignmentRemoval,
                 CombProp,
