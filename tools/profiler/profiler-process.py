@@ -114,8 +114,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         super().__init__()
         self.main_component = main_component
         self.cells_to_components = cells_to_components
-        # Documenting other fields for reference
-        # signal_id_to_names
         self.timestamps_to_events = {}
         self.fsms = fsms
         self.trace = trace
@@ -177,11 +175,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             else:
                 self.timestamps_to_events[time].append(event)
 
-    # Postprocess data mapping timestamps to events (signal changes)
-    # We have to postprocess instead of processing signals in a stream because
-    # signal changes that happen at the same time as a clock tick might be recorded
-    # *before* or *after* the clock change on the VCD file (hence why we can't process
-    # everything within a stream if we wanted to be precise)
+    """
+    Postprocess data mapping timestamps to events (signal changes)
+    We have to postprocess instead of processing signals in a stream because
+    signal changes that happen at the same time as a clock tick might be recorded
+    *before* or *after* the clock change on the VCD file (hence why we can't process
+    everything within a stream if we wanted to be precise)
+    """
+
     def postprocess(self):
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1  # will be 0 on the 0th cycle
@@ -524,7 +525,6 @@ def create_tree_rankings(
                     f.write(f'\t{edge} [color="{INVISIBLE}"]; \n')
             f.write("}")
 
-        # should write to a txt file what
         rankings_out.write(f"{acc},{len(cycles)},{';'.join(str(c) for c in cycles)}\n")
 
 
@@ -645,7 +645,10 @@ def write_flame_maps(
             div_flame_out.write(f"{stack} {scaled_flame_map[stack]}\n")
 
 
-def create_flame_groups(trace):
+"""
+Creates flat and scaled flame maps from a trace.
+"""
+def create_flame_maps(trace):
     # flat flame graph; each par arm is counted for 1 cycle
     flat_flame_map = {}  # stack to number of cycles
     for i in trace:
@@ -680,9 +683,9 @@ def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_d
     if not os.path.exists(dot_out_dir):
         os.mkdir(dot_out_dir)
 
-    # probably wise to not have a billion dot files.
+    # only produce trees for every cycle if we don't exceed TREE_PICTURE_LIMIT
     if len(timeline_map) > TREE_PICTURE_LIMIT:
-        print(f"Simulation exceeds {TREE_PICTURE_LIMIT} cycles, skipping trees...")
+        print(f"Simulation exceeds {TREE_PICTURE_LIMIT} cycles, skipping slideshow trees for every cycle...")
         return
     tree_dict, path_dict = create_tree(timeline_map)
     path_to_edges, all_edges = create_edge_dict(path_dict)
@@ -1090,7 +1093,7 @@ def main(
 
     create_aggregate_tree(trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
-    flat_flame_map, scaled_flame_map = create_flame_groups(trace)
+    flat_flame_map, scaled_flame_map = create_flame_maps(trace)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
 
     compute_timeline(trace, fsm_events, main_component, out_dir)
