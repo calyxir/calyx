@@ -420,7 +420,7 @@ impl<T: GetName> IdList<T> {
 
     /// Removes all elements from the collection and returns an iterator over
     /// the owned elements.
-    pub fn drain(&mut self) -> impl Iterator<Item = RRC<T>> {
+    pub fn drain(&mut self) -> impl Iterator<Item = RRC<T>> + use<T> {
         let drain = std::mem::take(&mut self.0);
 
         drain.into_iter().map(|(_, cell)| cell)
