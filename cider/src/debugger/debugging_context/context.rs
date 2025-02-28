@@ -13,7 +13,7 @@ use crate::{
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cider_idx::maps::IndexedMap;
 use itertools::Itertools;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]

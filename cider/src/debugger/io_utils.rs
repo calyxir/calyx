@@ -1,5 +1,5 @@
-use super::commands::parse_command;
 use super::commands::Command;
+use super::commands::parse_command;
 use crate::errors::{BoxedCiderError, CiderResult};
 use rustyline::{DefaultEditor, Editor};
 

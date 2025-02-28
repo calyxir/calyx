@@ -1,8 +1,8 @@
 //use std::env;
 use argh::FromArgs;
 use std::fmt;
-use std::fs::read_to_string;
 use std::fs::File;
+use std::fs::read_to_string;
 use std::io::stdout;
 use std::io::{self, Write};
 use std::str::FromStr;
