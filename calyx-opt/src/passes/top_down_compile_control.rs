@@ -1497,7 +1497,7 @@ impl Visitor for TopDownCompileControl {
     }
 
     /// Compile each child in `par` block separately so each child can make
-    /// progress indepdendently.
+    /// progress independently.
     fn finish_par(
         &mut self,
         s: &mut ir::Par,
@@ -1519,43 +1519,65 @@ impl Visitor for TopDownCompileControl {
 
         // For each child, build the enabling logic.
         for con in &s.stmts {
-            let group = match con {
-                // Do not compile enables
-                ir::Control::Enable(ir::Enable { group, .. }) => {
-                    self.fsm_groups.insert(ProfilingInfo::SingleEnable(
-                        SingleEnableInfo {
-                            group: group.borrow().name(),
-                            component: builder.component.name,
-                        },
-                    ));
-                    Rc::clone(group)
-                }
-                // Compile complex schedule and return the group.
-                _ => {
-                    let mut sch = Schedule::from(&mut builder);
-                    sch.calculate_states(con, self.early_transitions)?;
-                    let fsm_impl = self.get_representation(&sch, &s.attributes);
-                    sch.realize_schedule(
-                        self.dump_fsm,
-                        &mut self.fsm_groups,
-                        fsm_impl,
-                    )
-                }
-            };
-
             // Build circuitry to enable and disable this group.
             structure!(builder;
                 let pd = prim std_reg(1);
             );
-            let group_go = !(guard!(pd["out"] | group["done"]));
-            let group_done = guard!(group["done"]);
 
-            // Save the done condition in a register.
-            let assigns = build_assignments!(builder;
-                group["go"] = group_go ? signal_on["out"];
-                pd["in"] = group_done ? signal_on["out"];
-                pd["write_en"] = group_done ? signal_on["out"];
-            );
+            let assigns = if self.infer_fsms {
+                let fsm = {
+                    let mut sch = Schedule::from(&mut builder);
+                    sch.calculate_states(con, self.early_transitions)?;
+                    sch.realize_fsm(self.dump_fsm)
+                };
+                let fsm_start = !(guard!(pd["out"] | fsm["done"]));
+                let fsm_done = guard!(fsm["done"]);
+
+                // Save the done condition of fsm in `pd`.
+                let assigns = build_assignments!(builder;
+                    fsm["start"] = fsm_start ? signal_on["out"];
+                    pd["in"] = fsm_done ? signal_on["out"];
+                    pd["write_en"] = fsm_done ? signal_on["out"];
+                );
+                assigns
+            } else {
+                let group = match con {
+                    // Do not compile enables
+                    ir::Control::Enable(ir::Enable { group, .. }) => {
+                        self.fsm_groups.insert(ProfilingInfo::SingleEnable(
+                            SingleEnableInfo {
+                                group: group.borrow().name(),
+                                component: builder.component.name,
+                            },
+                        ));
+                        Rc::clone(group)
+                    }
+                    // Compile complex schedule and return the group.
+                    _ => {
+                        let mut sch = Schedule::from(&mut builder);
+                        sch.calculate_states(con, self.early_transitions)?;
+                        let fsm_impl =
+                            self.get_representation(&sch, &s.attributes);
+                        sch.realize_schedule(
+                            self.dump_fsm,
+                            &mut self.fsm_groups,
+                            fsm_impl,
+                        )
+                    }
+                };
+
+                let group_go = !(guard!(pd["out"] | group["done"]));
+                let group_done = guard!(group["done"]);
+
+                // Save the done condition of group in `pd`.
+                let assigns = build_assignments!(builder;
+                    group["go"] = group_go ? signal_on["out"];
+                    pd["in"] = group_done ? signal_on["out"];
+                    pd["write_en"] = group_done ? signal_on["out"];
+                );
+                assigns
+            };
+
             par_group.borrow_mut().assignments.extend(assigns);
             done_regs.push(pd)
         }

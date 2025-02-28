@@ -36,8 +36,9 @@ impl DeadCellRemoval {
             true
         } else {
             let parent = &dst.get_parent_name();
-            let out =
-                self.all_reads.contains(parent) || wire_reads.contains(parent);
+            let out = self.all_reads.contains(parent)
+                || wire_reads.contains(parent)
+                || asgn.dst.borrow().parent_is_fsm();
             if !out {
                 log::debug!(
                     "`{}' because `{}' is unused",
