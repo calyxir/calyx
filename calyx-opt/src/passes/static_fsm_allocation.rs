@@ -241,11 +241,7 @@ impl<'a> StaticSchedule<'a> {
                 .borrow_mut()
                 .add_attribute(ir::BoolAttr::FSMControl, 1);
 
-            let (assign_looped_once, assign_looped_once_we, fsm_done): (
-                ir::Assignment<ir::Nothing>,
-                ir::Assignment<ir::Nothing>,
-                ir::Assignment<ir::Nothing>,
-            ) = (
+            let (assign_looped_once, assign_looped_once_we, fsm_done) = (
                 self.builder.build_assignment(
                     looped_once.borrow().get("in"),
                     signal_on.borrow().get("out"),

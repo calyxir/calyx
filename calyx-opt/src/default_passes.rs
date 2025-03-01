@@ -1,4 +1,6 @@
 //! Defines the default passes available to [PassManager].
+use petgraph::visit::Data;
+
 use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
@@ -112,35 +114,18 @@ impl PassManager {
                 CollapseControl,
             ]
         );
-        // this path should be used alone
-        register_alias!(
-            pm,
-            "fsm-opt2",
-            [
-                GroupToInvoke,
-                CollapseControl,
-                DeadAssignmentRemoval,
-                CombProp,
-                DeadCellRemoval,
-                CellShare,
-                SimplifyWithControl,
-                CompileInvoke,
-                StaticInference,
-                StaticPromotion,
-                StaticFSMAllocation,
-                DeadGroupRemoval,
-                MergeAssign,
-                TopDownCompileControl,
-            ]
-        );
-        // this path should be used alone
+
         register_alias!(
             pm,
             "fsm-opt",
             [
-                GroupToInvoke,
+                DataPathInfer,
                 CollapseControl,
+                CompileSyncWithoutSyncReg,
+                GroupToSeq,
                 DeadAssignmentRemoval,
+                GroupToInvoke,
+                ComponentInliner,
                 CombProp,
                 DeadCellRemoval,
                 CellShare,
@@ -154,6 +139,7 @@ impl PassManager {
                 TopDownCompileControl,
             ]
         );
+
         register_alias!(
             pm,
             "compile",
