@@ -24,11 +24,9 @@ fn get_go_port(cell_ref: ir::RRC<ir::Cell>) -> CalyxResult<ir::RRC<ir::Port>> {
         Ok(None) => Err(Error::malformed_control(format!(
             "Invoked component `{name}` does not define a @go signal. Cannot compile the invoke",
         ))),
-        Err(_) => {
-            Err(Error::malformed_control(format!(
-                "Invoked component `{name}` defines multiple @go signals. Cannot compile the invoke",
-            )))
-        }
+        Err(_) => Err(Error::malformed_control(format!(
+            "Invoked component `{name}` defines multiple @go signals. Cannot compile the invoke",
+        ))),
     }
 }
 
@@ -135,7 +133,6 @@ impl CompileInvoke {
     ///
     /// Since this pass eliminates all ref cells in post order, we expect that
     /// invoked component already had all of its ref cells removed.
-
     fn ref_cells_to_ports_assignments<T>(
         &mut self,
         inv_cell: RRC<ir::Cell>,
@@ -156,7 +153,10 @@ impl CompileInvoke {
             // i.e. ref_reg.in -> ref_reg_in
             // These have name of ref cell, not the cell passed in as an arugment
             let Some(comp_ports) = self.port_names.get(&inv_comp_id) else {
-                unreachable!("component `{}` invoked but not already visited by the pass", inv_comp_id)
+                unreachable!(
+                    "component `{}` invoked but not already visited by the pass",
+                    inv_comp_id
+                )
             };
 
             // tracks ports used in assigments of the invoked component
@@ -175,7 +175,8 @@ impl CompileInvoke {
             // If the `invoked_comp` passed to the function is `None`,
             // then the component being invoked is a primitive.
             } else {
-                unreachable!("Primitives should not have ref cells passed into them at invocation. However ref cells were found at the invocation of {}.",
+                unreachable!(
+                    "Primitives should not have ref cells passed into them at invocation. However ref cells were found at the invocation of {}.",
                     inv_comp_id
                 );
             }
@@ -218,10 +219,15 @@ impl CompileInvoke {
                 }
 
                 let Some(comp_port) = comp_ports.get(ref_cell_canon) else {
-                    unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
+                    unreachable!(
+                        "port `{}` not found in the signature of {}. Known ports are: {}",
                         ref_cell_canon,
                         inv_comp_id,
-                        comp_ports.keys().map(|c| c.port.as_ref()).collect_vec().join(", ")
+                        comp_ports
+                            .keys()
+                            .map(|c| c.port.as_ref())
+                            .collect_vec()
+                            .join(", ")
                     )
                 };
                 // Get the port on the new cell with the same name as ref_port
