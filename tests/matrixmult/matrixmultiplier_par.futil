@@ -1,0 +1,262 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+import "primitives/memories/comb.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external in1_mem = comb_mem_d2(32, 2, 2, 32, 32);
+    @external in2_mem = comb_mem_d2(32, 2, 2, 32, 32);
+    @external out_mem = comb_mem_d2(32, 2, 2, 32, 32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    add4 = std_add(32);
+    mult1 = pipelined_mult(32);
+    mult2 = pipelined_mult(32);
+    mult3 = pipelined_mult(32);
+    mult4 = pipelined_mult(32);
+    mult5 = pipelined_mult(32);
+    mult6 = pipelined_mult(32);
+    mult7 = pipelined_mult(32);
+    mult8 = pipelined_mult(32);
+    a00_reg = std_reg(32);
+    a01_reg = std_reg(32);
+    a10_reg = std_reg(32);
+    a11_reg = std_reg(32);
+    b00_reg = std_reg(32);
+    b01_reg = std_reg(32);
+    b10_reg = std_reg(32);
+    b11_reg = std_reg(32);
+    c00_reg = std_reg(32);
+    c01_reg = std_reg(32);
+    c10_reg = std_reg(32);
+    c11_reg = std_reg(32);
+    p1_reg = std_reg(32);
+    p2_reg = std_reg(32);
+    p3_reg = std_reg(32);
+    p4_reg = std_reg(32);
+    p5_reg = std_reg(32);
+    p6_reg = std_reg(32);
+    p7_reg = std_reg(32);
+    p8_reg = std_reg(32);
+  }
+
+  wires {
+    group loada00 {
+      in1_mem.addr0 = 32'd0;
+      in1_mem.addr1 = 32'd0;
+      a00_reg.in = in1_mem.read_data;
+      a00_reg.write_en = 1'b1;
+      loada00[done] = a00_reg.done;
+    }
+
+    group loada01 {
+      in1_mem.addr0 = 32'd0;
+      in1_mem.addr1 = 32'd1;
+      a01_reg.in = in1_mem.read_data;
+      a01_reg.write_en = 1'b1;
+      loada01[done] = a01_reg.done;
+    }
+
+    group loada10 {
+      in1_mem.addr0 = 32'd1;
+      in1_mem.addr1 = 32'd0;
+      a10_reg.in = in1_mem.read_data;
+      a10_reg.write_en = 1'b1;
+      loada10[done] = a10_reg.done;
+    }
+
+    group loada11 {
+      in1_mem.addr0 = 32'd1;
+      in1_mem.addr1 = 32'd1;
+      a11_reg.in = in1_mem.read_data;
+      a11_reg.write_en = 1'b1;
+      loada11[done] = a11_reg.done;
+    }
+
+    group loadb00 {
+      in2_mem.addr0 = 32'd0;
+      in2_mem.addr1 = 32'd0;
+      b00_reg.in = in2_mem.read_data;
+      b00_reg.write_en = 1'b1;
+      loadb00[done] = b00_reg.done;
+    }
+
+    group loadb01 {
+      in2_mem.addr0 = 32'd0;
+      in2_mem.addr1 = 32'd1;
+      b01_reg.in = in2_mem.read_data;
+      b01_reg.write_en = 1'b1;
+      loadb01[done] = b01_reg.done;
+    }
+
+    group loadb10 {
+      in2_mem.addr0 = 32'd1;
+      in2_mem.addr1 = 32'd0;
+      b10_reg.in = in2_mem.read_data;
+      b10_reg.write_en = 1'b1;
+      loadb10[done] = b10_reg.done;
+    }
+
+    group loadb11 {
+      in2_mem.addr0 = 32'd1;
+      in2_mem.addr1 = 32'd1;
+      b11_reg.in = in2_mem.read_data;
+      b11_reg.write_en = 1'b1;
+      loadb11[done] = b11_reg.done;
+    }
+
+    static<5> group multp1 {
+      mult1.left = a00_reg.out;
+      mult1.right = b00_reg.out;
+      p1_reg.in = mult1.out;
+      p1_reg.write_en = 1'b1;
+    }
+
+    static<5> group multp2 {
+      mult2.left = a01_reg.out;
+      mult2.right = b10_reg.out;
+      p2_reg.in = mult2.out;
+      p2_reg.write_en = 1'b1;
+    }
+
+    static<5> group multp3 {
+      mult3.left = a00_reg.out;
+      mult3.right = b01_reg.out;
+      p3_reg.in = mult3.out;
+      p3_reg.write_en = 1'b1;
+    }
+
+    static<5> group multp4 {
+      mult4.left = a01_reg.out;
+      mult4.right = b11_reg.out;
+      p4_reg.in = mult4.out;
+      p4_reg.write_en = 1'b1;
+    }
+
+    static<5> group multp5 {
+      mult5.left = a10_reg.out;
+      mult5.right = b00_reg.out;
+      p5_reg.in = mult5.out;
+      p5_reg.write_en = 1'b1;
+    }
+
+    static<5> group multp6 {
+      mult6.left = a11_reg.out;
+      mult6.right = b10_reg.out;
+      p6_reg.in = mult6.out;
+      p6_reg.write_en = 1'b1;
+    }
+
+    static<5> group multp7 {
+      mult7.left = a10_reg.out;
+      mult7.right = b01_reg.out;
+      p7_reg.in = mult7.out;
+      p7_reg.write_en = 1'b1;
+    }
+
+    static<5> group multp8 {
+      mult8.left = a11_reg.out;
+      mult8.right = b11_reg.out;
+      p8_reg.in = mult8.out;
+      p8_reg.write_en = 1'b1;
+    }
+
+    group sumc00 {
+      add1.left = p1_reg.out;
+      add1.right = p2_reg.out;
+      c00_reg.in = add1.out;
+      c00_reg.write_en = 1'b1;
+      sumc00[done] = c00_reg.done;
+    }
+
+    group sumc01 {
+      add2.left = p3_reg.out;
+      add2.right = p4_reg.out;
+      c01_reg.in = add2.out;
+      c01_reg.write_en = 1'b1;
+      sumc01[done] = c01_reg.done;
+    }
+
+    group sumc10 {
+      add3.left = p5_reg.out;
+      add3.right = p6_reg.out;
+      c10_reg.in = add3.out;
+      c10_reg.write_en = 1'b1;
+      sumc10[done] = c10_reg.done;
+    }
+
+    group sumc11 {
+      add4.left = p7_reg.out;
+      add4.right = p8_reg.out;
+      c11_reg.in = add4.out;
+      c11_reg.write_en = 1'b1;
+      sumc11[done] = c11_reg.done;
+    }
+
+    group writec00 {
+      out_mem.addr0 = 32'd0;
+      out_mem.addr1 = 32'd0;
+      out_mem.write_data = c00_reg.out;
+      out_mem.write_en = 1'b1;
+      writec00[done] = out_mem.done;
+    }
+
+    group writec01 {
+      out_mem.addr0 = 32'd0;
+      out_mem.addr1 = 32'd1;
+      out_mem.write_data = c01_reg.out;
+      out_mem.write_en = 1'b1;
+      writec01[done] = out_mem.done;
+    }
+
+    group writec10 {
+      out_mem.addr0 = 32'd1;
+      out_mem.addr1 = 32'd0;
+      out_mem.write_data = c10_reg.out;
+      out_mem.write_en = 1'b1;
+      writec10[done] = out_mem.done;
+    }
+
+    group writec11 {
+      out_mem.addr0 = 32'd1;
+      out_mem.addr1 = 32'd1;
+      out_mem.write_data = c11_reg.out;
+      out_mem.write_en = 1'b1;
+      writec11[done] = out_mem.done;
+    }
+  }
+
+  control {
+    seq {
+      loada00;
+      loada01;
+      loada10;
+      loada11;
+      loadb00;
+      loadb01;
+      loadb10;
+      loadb11;
+      par {
+        multp1;
+        multp2;
+        multp3;
+        multp4;
+        multp5;
+        multp6;
+        multp7;
+        multp8;
+      }
+      par {
+        sumc00;
+        sumc01;
+        sumc10;
+        sumc11;
+      }
+      writec00;
+      writec01;
+      writec10;
+      writec11;
+    }
+  }
+}
