@@ -1,6 +1,6 @@
 //! Abstract Syntax Tree for Calyx
 use super::parser;
-use crate::{source_info::SourceInfoTable, Attributes, PortDef, Primitive};
+use crate::{Attributes, PortDef, Primitive, source_info::SourceInfoTable};
 use atty::Stream;
 use calyx_utils::{CalyxResult, Error, GPosIdx, Id, PosString};
 use std::{num::NonZeroU64, path::PathBuf};

@@ -9,7 +9,7 @@ use crate::{
     serialization::PrintCode,
 };
 use baa::{BitVecOps, BitVecValue};
-use cider_idx::{impl_index, impl_index_nonzero, iter::IndexRange, IndexRef};
+use cider_idx::{IndexRef, impl_index, impl_index_nonzero, iter::IndexRange};
 use std::collections::HashSet;
 
 // making these all u32 for now, can give the macro an optional type as the
