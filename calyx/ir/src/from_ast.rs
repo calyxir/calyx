@@ -733,9 +733,7 @@ fn build_static_par(
     {
         Some(s) => s.get_latency(),
         None => {
-            return Err(Error::malformed_control(
-                "empty par block".to_string(),
-            ));
+            return Err(Error::malformed_control("empty par block".to_string()));
         }
     };
     assert_latencies_eq(latency, inferred_latency);
