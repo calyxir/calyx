@@ -104,7 +104,7 @@ impl Named for StaticPromotion {
                 "Whether to perform compaction.  True by Default ",
                 ParseVal::Bool(true),
                 PassOpt::parse_bool,
-            )
+            ),
         ]
     }
 }

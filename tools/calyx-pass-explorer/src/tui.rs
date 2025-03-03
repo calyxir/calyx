@@ -143,21 +143,21 @@ impl<'a> PassExplorerTUI<'a> {
             "Calyx Pass Explorer".underlined()
         )?;
         writeln!(
-        self.scrollback_buffer,
-        "Usage:\n  1. Explore: {} {}, {} {}, {} {}, {} {}\n  2. Movement: {} {}, {} {}, up/down arrows, scroll",
-        ACCEPT.to_string().green(),
-        "accept".dark_green(),
-        SKIP,
-        "skip",
-        QUIT.to_string().red(),
-        "quit".dark_red(),
-        UNDO.to_string().cyan(),
-        "undo".dark_cyan(),
-        JUMP_FWD.to_string().magenta(),
-        "forward".dark_magenta(),
-        JUMP_BCK.to_string().magenta(),
-        "back".dark_magenta(),
-    )?;
+            self.scrollback_buffer,
+            "Usage:\n  1. Explore: {} {}, {} {}, {} {}, {} {}\n  2. Movement: {} {}, {} {}, up/down arrows, scroll",
+            ACCEPT.to_string().green(),
+            "accept".dark_green(),
+            SKIP,
+            "skip",
+            QUIT.to_string().red(),
+            "quit".dark_red(),
+            UNDO.to_string().cyan(),
+            "undo".dark_cyan(),
+            JUMP_FWD.to_string().magenta(),
+            "forward".dark_magenta(),
+            JUMP_BCK.to_string().magenta(),
+            "back".dark_magenta(),
+        )?;
 
         let current_pass_application =
             self.pass_explorer.current_pass_application();

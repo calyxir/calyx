@@ -2,7 +2,7 @@
 //! need to transform, lower, an emit a program.
 //! Passes usually have transform/analyze the components in the IR.
 use super::{Component, Id};
-use calyx_frontend::{source_info::SourceInfoTable, LibrarySignatures};
+use calyx_frontend::{LibrarySignatures, source_info::SourceInfoTable};
 
 /// Configuration information for the backends.
 #[derive(Default)]
