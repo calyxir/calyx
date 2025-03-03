@@ -243,10 +243,10 @@ impl GraphAnalysis {
 
         graph_copy.retain_nodes(|_g, n_idx| {
             let node = graph[n_idx].borrow();
-            return *num_neighbors
+            *num_neighbors
                 .get(&(node.get_parent_name(), node.name))
                 .unwrap()
-                > 0;
+                > 0
         });
 
         // retain_nodes breaks existing `NodeIndex`s, so repopulate nodes.
