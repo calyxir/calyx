@@ -1,6 +1,6 @@
 use figment::{
-    Figment,
     providers::{Format, Serialized, Toml},
+    Figment,
 };
 use serde::{Deserialize, Serialize};
 use std::{env, path::Path};

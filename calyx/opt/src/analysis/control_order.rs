@@ -140,10 +140,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     })
                     .join("\n");
             }
-            Err(Error::misc(format!(
-                "No possible sequential ordering. Control programs exhibit data race:\n{}",
-                msg
-            )))
+            Err(Error::misc(format!("No possible sequential ordering. Control programs exhibit data race:\n{}", msg)))
         }
     }
 

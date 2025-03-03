@@ -1,10 +1,10 @@
 use super::{
     Assignment, Attribute, Attributes, BoolAttr, Builder, Cell, CellType,
-    CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef, RRC,
-    StaticGroup,
+    CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef,
+    StaticGroup, RRC,
 };
-use crate::Nothing;
 use crate::guard::StaticTiming;
+use crate::Nothing;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;

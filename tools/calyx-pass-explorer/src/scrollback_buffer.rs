@@ -1,4 +1,4 @@
-use crossterm::{ExecutableCommand, QueueableCommand, cursor, style, terminal};
+use crossterm::{cursor, style, terminal, ExecutableCommand, QueueableCommand};
 use std::cmp::min;
 
 /// Implements a scrollback buffer.

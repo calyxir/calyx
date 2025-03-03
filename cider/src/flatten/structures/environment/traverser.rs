@@ -8,7 +8,7 @@ use crate::flatten::{
     },
     structures::context::Context,
 };
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
 
 use super::Environment;
@@ -261,9 +261,7 @@ impl Traverser {
                                     });
                                 }
                             }
-                            unreachable!(
-                                "port exists on cell but not in signature. Internal structure is in an inconsistent state. This is an error please report it"
-                            );
+                            unreachable!("port exists on cell but not in signature. Internal structure is in an inconsistent state. This is an error please report it");
                         } else if env.ctx().lookup_name(name) == target.as_ref()
                         {
                             return Ok(Path::AbstractPort {

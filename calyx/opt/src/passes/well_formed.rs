@@ -21,7 +21,7 @@ fn port_is_static_prim(port: &ir::Port) -> bool {
     let parent_cell = match &port.parent {
         ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
         ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => {
-            return false;
+            return false
         }
     };
     // if celltype is this component/constant, then obviously not static
@@ -296,9 +296,11 @@ fn check_fast_seq_invariant(seq: &Seq) -> CalyxResult<()> {
         .is_static();
     for stmt in seq.stmts.iter().skip(1) {
         if stmt.is_static() == last_is_static {
-            return Err(Error::malformed_control(
-                "`seq` marked `@fast` does not contain alternating static-dynamic control children (see #1828)",
-            ));
+            return Err(
+                Error::malformed_control(
+                    "`seq` marked `@fast` does not contain alternating static-dynamic control children (see #1828)"
+                )
+            );
         }
         last_is_static = stmt.is_static();
     }

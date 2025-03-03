@@ -3,7 +3,7 @@ use cider::serialization::*;
 use itertools::Itertools;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_rational::BigRational;
-use num_traits::{Num, ToPrimitive, sign::Signed};
+use num_traits::{sign::Signed, Num, ToPrimitive};
 use serde_json::Number;
 use std::{collections::HashMap, iter::repeat, str::FromStr};
 
@@ -153,7 +153,11 @@ fn float_to_rational(float: f64) -> BigRational {
     let denom = BigInt::from(10).pow(string[1].len() as u32);
 
     let result = BigRational::from_integer(int) + BigRational::new(frac, denom);
-    if is_neg { -result } else { result }
+    if is_neg {
+        -result
+    } else {
+        result
+    }
 }
 
 fn unroll_float(
@@ -166,76 +170,68 @@ fn unroll_float(
             signed,
             int_width,
             frac_width,
-        } => {
-            let rational = float_to_rational(val);
+        } =>
+            {
+                let rational = float_to_rational(val);
 
-            let frac_part = rational.fract().abs();
-            let frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
+                let frac_part = rational.fract().abs();
+                let frac_log = log2_exact(&frac_part.denom().to_biguint().unwrap());
 
-            let number = if frac_log.is_none() && round_float {
-                let w = BigInt::from(1) << frac_width;
-                let new = (val * w.to_f64().unwrap()).round();
-                new.to_bigint().unwrap()
-            } else if frac_log.is_none() {
-                panic!(
-                    "Number {val} cannot be represented as a fixed-point number. If you want to approximate the number, set the `round_float` flag to true."
-                );
-            } else {
-                let int_part = rational.to_integer();
+                let number = if frac_log.is_none() && round_float {
+                    let w = BigInt::from(1) << frac_width;
+                    let new = (val * w.to_f64().unwrap()).round();
+                    new.to_bigint().unwrap()
+                } else if frac_log.is_none() {
+                    panic!("Number {val} cannot be represented as a fixed-point number. If you want to approximate the number, set the `round_float` flag to true.");
+                } else {
+                    let int_part = rational.to_integer();
 
-                let frac_log = frac_log.unwrap_or_else(|| panic!("unable to round the given value to a value representable with {frac_width} fractional bits"));
-                if frac_log > frac_width {
-                    panic!(
-                        "cannot represent value with {frac_width} fractional bits, requires at least {frac_log} bits"
-                    );
+                    let frac_log = frac_log.unwrap_or_else(|| panic!("unable to round the given value to a value representable with {frac_width} fractional bits"));
+                    if frac_log > frac_width {
+                        panic!("cannot represent value with {frac_width} fractional bits, requires at least {frac_log} bits");
+                    }
+
+                    let mut int_log =
+                        log2_round_down(&int_part.abs().to_biguint().unwrap());
+                    if (BigInt::from(1) << int_log) <= int_part.abs() {
+                        int_log += 1;
+                    }
+                    if signed {
+                        int_log += 1;
+                    }
+
+                    if int_log > int_width {
+                        let signed_str = if signed { "signed " } else { "" };
+
+                        panic!("cannot represent {signed_str}value of {val} with {int_width} integer bits, requires at least {int_log} bits");
+                    }
+
+                    rational.numer() << (frac_width - frac_log)
+                };
+
+                let bit_count = number.bits() + if signed { 1 } else { 0 };
+
+                if bit_count > (frac_width + int_width) as u64 {
+                    let difference = bit_count - frac_width as u64;
+                    panic!("The approximation of the number {val} cannot be represented with {frac_width} fractional bits and {int_width} integer bits. Requires at least {difference} integer bits.");
                 }
 
-                let mut int_log =
-                    log2_round_down(&int_part.abs().to_biguint().unwrap());
-                if (BigInt::from(1) << int_log) <= int_part.abs() {
-                    int_log += 1;
-                }
-                if signed {
-                    int_log += 1;
-                }
-
-                if int_log > int_width {
-                    let signed_str = if signed { "signed " } else { "" };
-
-                    panic!(
-                        "cannot represent {signed_str}value of {val} with {int_width} integer bits, requires at least {int_log} bits"
-                    );
-                }
-
-                rational.numer() << (frac_width - frac_log)
-            };
-
-            let bit_count = number.bits() + if signed { 1 } else { 0 };
-
-            if bit_count > (frac_width + int_width) as u64 {
-                let difference = bit_count - frac_width as u64;
-                panic!(
-                    "The approximation of the number {val} cannot be represented with {frac_width} fractional bits and {int_width} integer bits. Requires at least {difference} integer bits."
-                );
+                sign_extend_vec(
+                    number.to_signed_bytes_le(),
+                    frac_width + int_width,
+                    signed,
+                )
+                    .into_iter()
+                    .take((frac_width + int_width).div_ceil(8) as usize)
+                    .collect::<Vec<_>>()
             }
-
-            sign_extend_vec(
-                number.to_signed_bytes_le(),
-                frac_width + int_width,
-                signed,
-            )
-            .into_iter()
-            .take((frac_width + int_width).div_ceil(8) as usize)
-            .collect::<Vec<_>>()
+        cider::serialization::FormatInfo::IEEFloat { width, .. } => {
+            match width {
+                32 => Vec::from((val as f32).to_le_bytes().as_slice()),
+                64 => Vec::from(val.to_le_bytes().as_slice()),
+                _ => unreachable!("Unsupported width {width}. Only 32 and 64 bit floats are supported.")
+            }
         }
-        cider::serialization::FormatInfo::IEEFloat { width, .. } => match width
-        {
-            32 => Vec::from((val as f32).to_le_bytes().as_slice()),
-            64 => Vec::from(val.to_le_bytes().as_slice()),
-            _ => unreachable!(
-                "Unsupported width {width}. Only 32 and 64 bit floats are supported."
-            ),
-        },
         _ => panic!("Called unroll_float on a non-fixed point type"),
     }
 }
@@ -458,8 +454,8 @@ mod tests {
         }
     }
 
-    fn format_info_generator()
-    -> impl Strategy<Value = crate::json_data::FormatInfo> {
+    fn format_info_generator(
+    ) -> impl Strategy<Value = crate::json_data::FormatInfo> {
         prop_oneof![arb_format_info_bitnum(), arb_format_info_fixed()]
     }
 

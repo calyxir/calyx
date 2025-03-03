@@ -1,6 +1,6 @@
-use super::{ParsePath, core::ParseNodes};
+use super::{core::ParseNodes, ParsePath};
 
-use pest_consume::{Error, Parser, match_nodes};
+use pest_consume::{match_nodes, Error, Parser};
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;

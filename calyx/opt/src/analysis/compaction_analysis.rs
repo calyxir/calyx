@@ -182,12 +182,7 @@ impl CompactionAnalysis {
             // Double checking that we have built the static par correctly.
             let max: Option<u64> =
                 par_control_threads.iter().map(|c| c.get_latency()).max();
-            assert!(
-                max.unwrap() == total_time,
-                "The schedule expects latency {}. The static par that was built has latency {}",
-                total_time,
-                max.unwrap()
-            );
+            assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
 
             let mut s_par = ir::StaticControl::Par(ir::StaticPar {
                 stmts: par_control_threads,

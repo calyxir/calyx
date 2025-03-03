@@ -12,10 +12,10 @@ use error::MyAdapterError;
 use dap::prelude::*;
 use error::AdapterResult;
 use responses::VariablesResponse;
-use slog::{Drain, info};
+use slog::{info, Drain};
 //use std::default;
 use std::fs::OpenOptions;
-use std::io::{BufReader, BufWriter, Read, Write, stdin, stdout};
+use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 

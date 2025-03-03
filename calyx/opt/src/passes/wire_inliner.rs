@@ -1,6 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use ir::{LibrarySignatures, build_assignments, guard, structure};
+use ir::{build_assignments, guard, structure, LibrarySignatures};
 use ir::{Nothing, RRC};
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};

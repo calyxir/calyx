@@ -101,9 +101,7 @@ impl PyenvCommand {
         let pyenv = data_dir.join("venv");
 
         if !pyenv.exists() {
-            anyhow::bail!(
-                "You need to run `fud2 env init` before you can activate the venv"
-            )
+            anyhow::bail!("You need to run `fud2 env init` before you can activate the venv")
         }
 
         println!("{}", pyenv.join("bin").join("activate").to_str().unwrap());

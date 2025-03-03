@@ -4,7 +4,7 @@ use crate::analysis::reaching_defns::{
     GroupOrInvoke, ReachingDefinitionAnalysis,
 };
 use crate::traversal::{Action, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, Builder, LibrarySignatures, rewriter};
+use calyx_ir::{self as ir, rewriter, Builder, LibrarySignatures};
 use std::collections::HashMap;
 
 /// Unsharing registers reduces the amount of multiplexers used in the final design, trading them

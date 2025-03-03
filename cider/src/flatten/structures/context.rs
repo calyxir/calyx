@@ -3,9 +3,9 @@ use std::ops::Index;
 use calyx_frontend::source_info::SourceInfoTable;
 use calyx_ir::Direction;
 use cider_idx::{
-    IndexRef,
     iter::IndexRange,
     maps::{IndexedMap, SecondaryMap, SecondarySparseMap},
+    IndexRef,
 };
 
 use crate::flatten::flat_ir::{

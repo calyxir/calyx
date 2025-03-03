@@ -6,10 +6,10 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{self as ir};
-use calyx_ir::{BoolAttr, rewriter};
+use calyx_ir::{rewriter, BoolAttr};
 use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 
 // function to turn cell types to string when we are building the json for
@@ -136,26 +136,26 @@ impl Named for CellShare {
                 "print-share-freqs",
                 "print sharing frequencies",
                 ParseVal::OutStream(OutputFile::Null),
-                PassOpt::parse_outstream,
+                PassOpt::parse_outstream
             ),
             PassOpt::new(
                 "bounds",
                 "maximum amount of sharing for combinational components, registers, and other components. Negative valye means no bound",
                 ParseVal::List(vec![]),
-                PassOpt::parse_num_list,
+                PassOpt::parse_num_list
             ),
             PassOpt::new(
                 "print-par-timing",
                 "print timing information for `par` blocks",
                 ParseVal::OutStream(OutputFile::Null),
-                PassOpt::parse_outstream,
+                PassOpt::parse_outstream
             ),
             PassOpt::new(
                 "calyx-2020",
                 "share using the Calyx 2020 settings: no component sharing, only share registers/combinational components",
                 ParseVal::Bool(false),
-                PassOpt::parse_bool,
-            ),
+                PassOpt::parse_bool
+            )
         ]
     }
 }
@@ -414,7 +414,11 @@ impl Visitor for CellShare {
                     // otherwise, look at the actual self.bounds values to
                     // get the bounds
                     if self.calyx_2020 {
-                        if is_comb || is_reg { &None } else { &Some(1) }
+                        if is_comb || is_reg {
+                            &None
+                        } else {
+                            &Some(1)
+                        }
                     } else if is_comb {
                         comb_bound
                     } else if is_reg {

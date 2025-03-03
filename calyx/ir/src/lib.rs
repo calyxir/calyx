@@ -24,7 +24,7 @@ pub mod rewriter;
 // Re-export types at the module level.
 pub use builder::Builder;
 pub use calyx_utils::{GetName, Id};
-pub use common::{RRC, WRC, rrc};
+pub use common::{rrc, RRC, WRC};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context};
 pub use control::{
@@ -44,9 +44,9 @@ pub use structure::{
 
 // Re-export types from the frontend.
 pub use calyx_frontend::{
-    Attribute, Attributes, BoolAttr, DEPRECATED_ATTRIBUTES, Direction,
-    GetAttributes, InternalAttr, LibrarySignatures, NumAttr, PortDef,
-    Primitive, PrimitiveInfo, Width,
+    Attribute, Attributes, BoolAttr, Direction, GetAttributes, InternalAttr,
+    LibrarySignatures, NumAttr, PortDef, Primitive, PrimitiveInfo, Width,
+    DEPRECATED_ATTRIBUTES,
 };
 
 /// Module to transform AST programs into IR.

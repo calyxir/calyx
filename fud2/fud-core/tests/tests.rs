@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
 use fud_core::{
-    DriverBuilder,
     exec::plan::{EnumeratePlanner, FindPlan},
+    DriverBuilder,
 };
 use rand::SeedableRng as _;
 

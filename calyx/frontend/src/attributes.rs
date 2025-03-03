@@ -1,5 +1,5 @@
 use super::Attribute;
-use crate::{InlineAttributes, attribute::SetAttribute};
+use crate::{attribute::SetAttribute, InlineAttributes};
 use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;

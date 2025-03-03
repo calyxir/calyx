@@ -10,19 +10,13 @@ pub struct PromotionAnalysis {
 
 impl PromotionAnalysis {
     fn check_latencies_match(actual: u64, inferred: u64) {
-        assert_eq!(
-            actual, inferred,
-            "Inferred and Annotated Latencies do not match. Latency: {}. Inferred: {}",
-            actual, inferred
-        );
+        assert_eq!(actual, inferred, "Inferred and Annotated Latencies do not match. Latency: {}. Inferred: {}", actual, inferred);
     }
 
     pub fn get_inferred_latency(c: &ir::Control) -> u64 {
         let ir::Control::Static(sc) = c else {
             let Some(latency) = c.get_attribute(ir::NumAttr::Promotable) else {
-                unreachable!(
-                    "Called get_latency on control that is neither static nor promotable"
-                )
+                unreachable!("Called get_latency on control that is neither static nor promotable")
             };
             return latency;
         };

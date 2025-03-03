@@ -1,5 +1,5 @@
 use ahash::{HashMap, HashMapExt};
-use cider_idx::{IndexRef, impl_index};
+use cider_idx::{impl_index, IndexRef};
 use std::hash::Hash;
 
 /// An index type corresponding to a string.

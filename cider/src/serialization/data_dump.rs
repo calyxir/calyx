@@ -474,12 +474,10 @@ mod tests {
                     *bytes.last_mut().unwrap() &= mask;
                 }
 
-                assert!(
-                    header_data[cursor..cursor + mem.byte_count()]
-                        .chunks_exact(bytes_per_val)
-                        .remainder()
-                        .is_empty()
-                );
+                assert!(header_data[cursor..cursor + mem.byte_count()]
+                    .chunks_exact(bytes_per_val)
+                    .remainder()
+                    .is_empty());
                 cursor += mem.byte_count();
             }
 

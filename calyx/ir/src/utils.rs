@@ -117,9 +117,6 @@ fn dimension_count(mem_id: Id) -> u64 {
     } else if mem_name.contains("d4") {
         4
     } else {
-        panic!(
-            "Cell {} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive.",
-            mem_name
-        );
+        panic!("Cell {} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive.", mem_name);
     }
 }

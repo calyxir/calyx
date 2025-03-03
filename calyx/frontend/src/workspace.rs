@@ -2,7 +2,7 @@ use super::{
     ast::{ComponentDef, NamespaceDef},
     parser,
 };
-use crate::{LibrarySignatures, source_info::SourceInfoTable};
+use crate::{source_info::SourceInfoTable, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error, WithPos};
 use std::{
     collections::HashSet,

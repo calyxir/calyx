@@ -4,10 +4,10 @@ use tower_lsp::lsp_types as lspt;
 use tree_sitter as ts;
 
 use crate::{
-    Config,
     convert::Range,
     document::{Document, Things},
     query_result::QueryResult,
+    Config,
 };
 
 #[derive(Clone, Debug)]

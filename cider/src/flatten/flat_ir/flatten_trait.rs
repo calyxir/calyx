@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use cider_idx::{IndexRef, maps::IndexedMap};
+use cider_idx::{maps::IndexedMap, IndexRef};
 
 /// A handle bundling a queue of nodes to be processed and a vector of nodes that
 /// have already been processed. The vec itself is not owned by the handle.

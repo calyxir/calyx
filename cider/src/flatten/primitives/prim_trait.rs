@@ -3,7 +3,7 @@ use crate::{
     flatten::{
         flat_ir::base::GlobalPortIdx,
         structures::{
-            environment::{PortMap, clock::ClockMap},
+            environment::{clock::ClockMap, PortMap},
             thread::ThreadMap,
         },
     },

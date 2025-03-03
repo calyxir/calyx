@@ -292,10 +292,10 @@ impl GroupToInvoke {
                     return;
                 } else if !assign.guard.is_true() {
                     log::info!(
-                        "Cannot transform `{}` due to guarded write to @go port: {}",
-                        group_name,
-                        ir::Printer::assignment_to_str(assign)
-                    );
+                            "Cannot transform `{}` due to guarded write to @go port: {}",
+                            group_name,
+                            ir::Printer::assignment_to_str(assign)
+                        );
                     return;
                 } else if assign.src.borrow().is_constant(1, 1) {
                     go_wr_cnt += 1;
@@ -310,16 +310,16 @@ impl GroupToInvoke {
             if assign.src == done_port {
                 if done_wr_cnt > 0 {
                     log::info!(
-                        "Cannot transform `{}` due to multiple writes to @done port",
-                        group_name,
-                    );
+                            "Cannot transform `{}` due to multiple writes to @done port",
+                            group_name,
+                        );
                     return;
                 } else if !assign.guard.is_true() {
                     log::info!(
-                        "Cannot transform `{}` due to guarded write to @done port: {}",
-                        group_name,
-                        ir::Printer::assignment_to_str(assign)
-                    );
+                            "Cannot transform `{}` due to guarded write to @done port: {}",
+                            group_name,
+                            ir::Printer::assignment_to_str(assign)
+                        );
                     return;
                 } else if assign.dst == *group_done_port {
                     done_wr_cnt += 1;
@@ -339,10 +339,7 @@ impl GroupToInvoke {
             );
             return;
         } else if done_wr_cnt != 1 {
-            log::info!(
-                "Cannot transform `{}` because there are no writes to @done port",
-                group_name
-            );
+            log::info!("Cannot transform `{}` because there are no writes to @done port", group_name);
             return;
         }
 

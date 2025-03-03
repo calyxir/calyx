@@ -190,12 +190,7 @@ impl Visitor for Papercut {
                 {
                     // If the cell is combinational and not driven by continuous assignments
                     if *is_comb && !self.cont_cells.contains(&cell.name()) {
-                        let msg = format!(
-                            "Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.",
-                            cell.name(),
-                            port.name,
-                            prim_name
-                        );
+                        let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
                         self.diag
                             .err(Error::papercut(msg).with_pos(&s.attributes));
@@ -226,12 +221,7 @@ impl Visitor for Papercut {
                 {
                     // If the cell is combinational and not driven by continuous assignments
                     if *is_comb && !self.cont_cells.contains(&cell.name()) {
-                        let msg = format!(
-                            "Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.",
-                            cell.name(),
-                            port.name,
-                            prim_name
-                        );
+                        let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
                         self.diag
                             .err(Error::papercut(msg).with_pos(&s.attributes));
@@ -276,12 +266,14 @@ impl Papercut {
                             .sorted()
                             .map(|port| format!("{}.{}", inst.clone(), port))
                             .join(", ");
-                        let msg = format!(
-                            "Required signal not driven inside the group.\
+                        let msg =
+                            format!("Required signal not driven inside the group.\
                                         \nWhen reading the port `{}.{}', the ports [{}] must be written to.\
                                         \nThe primitive type `{}' requires this invariant.",
-                            inst, read, missing, comp_type
-                        );
+                                    inst,
+                                    read,
+                                    missing,
+                                    comp_type);
                         self.diag.err(Error::papercut(msg).with_pos(pos));
                     }
                 }
@@ -309,12 +301,14 @@ impl Papercut {
                         .sorted()
                         .map(|port| format!("{}.{}", inst, port))
                         .join(", ");
-                    let msg = format!(
-                        "Required signal not driven inside the group. \
+                    let msg =
+                        format!("Required signal not driven inside the group. \
                                  When writing to the port `{}.{}', the ports [{}] must also be written to. \
                                  The primitive type `{}' specifies this using a @write_together spec.",
-                        inst, first, missing, comp_type
-                    );
+                                inst,
+                                first,
+                                missing,
+                                comp_type);
                     self.diag.err(Error::papercut(msg).with_pos(pos));
                 }
             }

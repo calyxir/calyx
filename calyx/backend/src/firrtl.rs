@@ -3,7 +3,7 @@
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid FIRRTL program.
 
-use crate::{VerilogBackend, traits::Backend};
+use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, Binding, RRC};
 use calyx_utils::{CalyxResult, Id, OutputFile};
 use ir::Port;
@@ -305,9 +305,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
             }
         }
         _ => {
-            unreachable!(
-                "Groups should not be parents as this backend takes place after compiler passes."
-            )
+            unreachable!("Groups should not be parents as this backend takes place after compiler passes.")
         }
     }
 }

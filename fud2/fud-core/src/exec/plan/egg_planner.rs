@@ -59,7 +59,7 @@ use super::{
 };
 use cranelift_entity::PrimaryMap;
 use egg::{
-    Id, Pattern, PatternAst, RecExpr, Rewrite, Runner, define_language, rewrite,
+    define_language, rewrite, Id, Pattern, PatternAst, RecExpr, Rewrite, Runner,
 };
 
 #[derive(Debug, Default)]

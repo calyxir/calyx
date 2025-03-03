@@ -3,7 +3,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
 };
-use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, RRC, rewriter};
+use calyx_ir::{self as ir, rewriter, GetAttributes, LibrarySignatures, RRC};
 use calyx_utils::Error;
 use ir::Nothing;
 use itertools::Itertools;
@@ -426,13 +426,13 @@ impl Visitor for ComponentInliner {
                         )
                     })
                     .join("\n");
-                return Err(Error::pass_assumption(
-                    Self::name(),
-                    format!(
-                        "Instance `{}.{instance}` invoked with multiple parameters (currently unsupported):\n{bindings_str}",
-                        comp.name,
-                    ),
-                ));
+                return Err(
+                    Error::pass_assumption(
+                        Self::name(),
+                        format!(
+                            "Instance `{}.{instance}` invoked with multiple parameters (currently unsupported):\n{bindings_str}",
+                            comp.name,
+                        )));
             }
         }
 

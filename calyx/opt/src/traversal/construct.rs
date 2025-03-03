@@ -44,7 +44,11 @@ impl ParseVal {
 
     pub fn pos_num(&self) -> Option<u64> {
         let n = self.num();
-        if n < 0 { None } else { Some(n as u64) }
+        if n < 0 {
+            None
+        } else {
+            Some(n as u64)
+        }
     }
 
     pub fn num_list(&self) -> Vec<i64> {

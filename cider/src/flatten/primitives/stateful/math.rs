@@ -5,7 +5,7 @@ use crate::{
         primitives::{
             declare_ports, ports,
             prim_trait::*,
-            utils::{ShiftBuffer, floored_division, int_sqrt},
+            utils::{floored_division, int_sqrt, ShiftBuffer},
         },
         structures::environment::PortMap,
     },

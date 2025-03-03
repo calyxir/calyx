@@ -1,4 +1,4 @@
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -321,10 +321,7 @@ where
                 last.set_end(I::new(last.end.index() + 1));
                 return;
             } else {
-                assert!(
-                    last.end < value,
-                    "Inserted value must not be less than end of the prior range"
-                );
+                assert!(last.end < value, "Inserted value must not be less than end of the prior range");
             }
         }
         self.0

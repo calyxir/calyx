@@ -2,8 +2,8 @@ use crate::analysis::GraphColoring;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::LibrarySignatures;
 use calyx_ir::structure;
+use calyx_ir::LibrarySignatures;
 use calyx_ir::{self as ir, StaticTiming};
 use calyx_utils::CalyxResult;
 use ir::build_assignments;
@@ -389,10 +389,7 @@ impl StaticInliner {
                         // first recursively call each stmt in par, and turn each stmt
                         // into static group g.
                         let g = self.inline_static_control(stmt, builder);
-                        assert!(
-                            g.borrow().get_latency() == stmt_latency,
-                            "static group latency doesn't match static stmt latency"
-                        );
+                        assert!(g.borrow().get_latency() == stmt_latency, "static group latency doesn't match static stmt latency");
                         // get the assignments from g
                         let mut g_assigns: Vec<
                             ir::Assignment<ir::StaticTiming>,
@@ -593,10 +590,7 @@ impl StaticInliner {
                 let fbranch_latency = fbranch.get_latency();
                 let max_latency =
                     std::cmp::max(tbranch_latency, fbranch_latency);
-                assert_eq!(
-                    max_latency, *latency,
-                    "if group latency and max of the if branch latencies do not match"
-                );
+                assert_eq!(max_latency, *latency, "if group latency and max of the if branch latencies do not match");
 
                 // Inline assignments in tbranch and fbranch, and get resulting
                 // tgroup_assigns and fgroup_assigns
@@ -615,11 +609,7 @@ impl StaticInliner {
                         _ => {
                             let fgroup =
                                 self.inline_static_control(fbranch, builder);
-                            assert_eq!(
-                                fbranch_latency,
-                                fgroup.borrow().get_latency(),
-                                "false branch and false branch group latency do not match"
-                            );
+                            assert_eq!(fbranch_latency, fgroup.borrow().get_latency(), "false branch and false branch group latency do not match");
                             let fgroup_assigns: Vec<
                                 ir::Assignment<ir::StaticTiming>,
                             > = fgroup.borrow_mut().assignments.clone();
@@ -720,11 +710,7 @@ impl StaticInliner {
                     builder.add_static_group("static_repeat", *latency);
                 // turn body into a group body_group by recursively calling inline_static_control
                 let body_group = self.inline_static_control(body, builder);
-                assert_eq!(
-                    *latency,
-                    (num_repeats * body_group.borrow().get_latency()),
-                    "latency of static repeat is not equal to num_repeats * latency of body"
-                );
+                assert_eq!(*latency, (num_repeats * body_group.borrow().get_latency()), "latency of static repeat is not equal to num_repeats * latency of body");
                 // the assignments in the repeat group should simply trigger the
                 // body group. So the static group will literally look like:
                 // static group static_repeat <num_repeats * body_latency> {body[go] = 1'd1;}

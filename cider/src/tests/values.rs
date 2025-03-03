@@ -174,33 +174,27 @@ mod signed_fixed_point_tests {
     #[test]
     fn test_mixed_bits_set() {
         assert_eq!(
-            BitVecValue::from_u64(
-                /*value=*/ 0b10110101, /*width=*/ 8
-            )
-            .to_signed_fixed_point(/*fractional_width=*/ 3)
-            .unwrap(),
+            BitVecValue::from_u64(/*value=*/ 0b10110101, /*width=*/ 8)
+                .to_signed_fixed_point(/*fractional_width=*/ 3)
+                .unwrap(),
             -Fraction::new(75u32, 8u32)
         );
     }
     #[test]
     fn test_mixed_bits_set2() {
         assert_eq!(
-            BitVecValue::from_u64(
-                /*value=*/ 0b10100011, /*width=*/ 8
-            )
-            .to_signed_fixed_point(/*fractional_width=*/ 4)
-            .unwrap(),
+            BitVecValue::from_u64(/*value=*/ 0b10100011, /*width=*/ 8)
+                .to_signed_fixed_point(/*fractional_width=*/ 4)
+                .unwrap(),
             -Fraction::new(93u32, 16u32)
         );
     }
     #[test]
     fn test_mixed_bits_set3() {
         assert_eq!(
-            BitVecValue::from_u64(
-                /*value=*/ 0b11111101, /*width=*/ 8
-            )
-            .to_signed_fixed_point(/*fractional_width=*/ 4)
-            .unwrap(),
+            BitVecValue::from_u64(/*value=*/ 0b11111101, /*width=*/ 8)
+                .to_signed_fixed_point(/*fractional_width=*/ 4)
+                .unwrap(),
             -Fraction::new(3u32, 16u32)
         );
     }

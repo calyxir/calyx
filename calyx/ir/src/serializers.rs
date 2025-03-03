@@ -4,8 +4,8 @@ use crate::{Cell, Context, Control, IdList, PortParent, RRC};
 use calyx_utils::GetName;
 #[cfg(feature = "serialize")]
 use serde::{
-    Serialize, Serializer,
     ser::{SerializeSeq, SerializeStruct},
+    Serialize, Serializer,
 };
 #[cfg(feature = "serialize")]
 use serde_with::SerializeAs;

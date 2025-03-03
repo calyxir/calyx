@@ -436,10 +436,9 @@ impl DataVec {
 
                 // Check that sizes are the same across each dimension
                 assert!(v1.iter().all(|v2| { v2.len() == v1_0_size }));
-                assert!(
-                    v1.iter()
-                        .all(|v2| v2.iter().all(|v3| v3.len() == v1_0_0_size))
-                );
+                assert!(v1
+                    .iter()
+                    .all(|v2| v2.iter().all(|v3| v3.len() == v1_0_0_size)));
                 v1.len() * v1_0_size * v1_0_0_size
             }
             DataVec::Id4(v1) => {
@@ -448,16 +447,12 @@ impl DataVec {
                 let v1_0_0_0_size = v1[0][0][0].len();
                 // Check that sizes are the same across each dimension
                 assert!(v1.iter().all(|v2| { v2.len() == v1_0_size }));
-                assert!(
-                    v1.iter().all(|v2| {
-                        v2.iter().all(|v3| v3.len() == v1_0_0_size)
-                    })
-                );
-                assert!(
-                    v1.iter().all(|v2| v2.iter().all(|v3| v3
-                        .iter()
-                        .all(|v4| v4.len() == v1_0_0_0_size)))
-                );
+                assert!(v1
+                    .iter()
+                    .all(|v2| { v2.iter().all(|v3| v3.len() == v1_0_0_size) }));
+                assert!(v1.iter().all(|v2| v2
+                    .iter()
+                    .all(|v3| v3.iter().all(|v4| v4.len() == v1_0_0_0_size))));
 
                 v1.len() * v1_0_size * v1_0_0_size * v1_0_0_0_size
             }
@@ -475,10 +470,9 @@ impl DataVec {
 
                 // Check that sizes are the same across each dimension
                 assert!(v1.iter().all(|v2| { v2.len() == v1_0_size }));
-                assert!(
-                    v1.iter()
-                        .all(|v2| v2.iter().all(|v3| v3.len() == v1_0_0_size))
-                );
+                assert!(v1
+                    .iter()
+                    .all(|v2| v2.iter().all(|v3| v3.len() == v1_0_0_size)));
                 v1.len() * v1_0_size * v1_0_0_size
             }
             DataVec::Fd4(v1) => {
@@ -487,16 +481,12 @@ impl DataVec {
                 let v1_0_0_0_size = v1[0][0][0].len();
                 // Check that sizes are the same across each dimension
                 assert!(v1.iter().all(|v2| { v2.len() == v1_0_size }));
-                assert!(
-                    v1.iter().all(|v2| {
-                        v2.iter().all(|v3| v3.len() == v1_0_0_size)
-                    })
-                );
-                assert!(
-                    v1.iter().all(|v2| v2.iter().all(|v3| v3
-                        .iter()
-                        .all(|v4| v4.len() == v1_0_0_0_size)))
-                );
+                assert!(v1
+                    .iter()
+                    .all(|v2| { v2.iter().all(|v3| v3.len() == v1_0_0_size) }));
+                assert!(v1.iter().all(|v2| v2
+                    .iter()
+                    .all(|v3| v3.iter().all(|v4| v4.len() == v1_0_0_0_size))));
 
                 v1.len() * v1_0_size * v1_0_0_size * v1_0_0_0_size
             }

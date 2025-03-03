@@ -20,7 +20,7 @@ use crate::{
             context::Context,
             environment::{Path as ParsePath, PathError, Simulator},
         },
-        text_utils::{Color, print_debugger_welcome},
+        text_utils::{print_debugger_welcome, Color},
     },
     serialization::PrintCode,
 };
@@ -430,9 +430,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                             }
 
                             if !printed_position {
-                                println!(
-                                    "Source info unavailable, falling back to Calyx"
-                                );
+                                println!("Source info unavailable, falling back to Calyx");
                                 self.interpreter.print_pc();
                             }
                         } else {
@@ -461,9 +459,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
         }
 
-        println!(
-            "Main component has finished executing. Debugger is now in inspection mode."
-        );
+        println!("Main component has finished executing. Debugger is now in inspection mode.");
 
         loop {
             let comm = input_stream.next_command();
@@ -597,13 +593,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             unwrap_error_message!(target);
 
             if self.interpreter.is_group_running(target) {
-                println!(
-                    "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
-                    self.program_context
-                        .as_ref()
-                        .lookup_name(target)
-                        .stylize_warning()
-                )
+                println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
+                        self.program_context.as_ref().lookup_name(target).stylize_warning())
             }
 
             self.debugging_context.add_breakpoint(target);

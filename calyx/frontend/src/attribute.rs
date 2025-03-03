@@ -237,10 +237,7 @@ impl FromStr for SetAttribute {
         } else {
             // Reject attributes that all caps since those are reserved for internal attributes
             if s.to_uppercase() == s {
-                return Err(Error::misc(format!(
-                    "Invalid attribute: {}. All caps attributes are reserved for internal use.",
-                    s
-                )));
+                return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));
             }
             Ok(SetAttribute::Unknown(s.into()))
         }
@@ -280,23 +277,16 @@ impl FromStr for Attribute {
             Ok(Attribute::Num(n))
         } else {
             if DEPRECATED_ATTRIBUTES.contains(&s) {
-                log::warn!(
-                    "The attribute @{s} is deprecated and will be ignored by the compiler."
-                );
+                log::warn!("The attribute @{s} is deprecated and will be ignored by the compiler.");
             }
 
             if let Ok(SetAttribute::Set(_)) = SetAttribute::from_str(s) {
-                log::warn!(
-                    "Set attribute {s} incorrectly written as a standard attribute, i.e. '@{s}(..)' or '\"{s}\" = ..'. This will be ignored by the compiler. Instead write '@{s}{{..}}' or '\"{s}\" = {{..}}'."
-                );
+                log::warn!("Set attribute {s} incorrectly written as a standard attribute, i.e. '@{s}(..)' or '\"{s}\" = ..'. This will be ignored by the compiler. Instead write '@{s}{{..}}' or '\"{s}\" = {{..}}'.");
             }
 
             // Reject attributes that all caps since those are reserved for internal attributes
             if s.to_uppercase() == s {
-                return Err(Error::misc(format!(
-                    "Invalid attribute: {}. All caps attributes are reserved for internal use.",
-                    s
-                )));
+                return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));
             }
             Ok(Attribute::Unknown(s.into()))
         }

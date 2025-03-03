@@ -28,8 +28,8 @@ pub fn parse(rep: u64, width: u64, fl: String) -> CalyxResult<u64> {
         }
         r => {
             return Err(Error::misc(format!(
-                "Unsupported floating point width: {r}. Supported values: 32, 64"
-            )));
+            "Unsupported floating point width: {r}. Supported values: 32, 64"
+        )))
         }
     };
 

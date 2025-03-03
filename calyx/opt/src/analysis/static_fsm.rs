@@ -1,6 +1,6 @@
 use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir};
-use calyx_ir::{Nothing, build_assignments};
+use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
 use std::collections::HashMap;
 use std::rc::Rc;

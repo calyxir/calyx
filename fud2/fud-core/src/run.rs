@@ -694,8 +694,8 @@ fn ninja_cmd_io_error(e: std::io::Error) -> std::io::Error {
         std::io::ErrorKind::NotFound => std::io::Error::new(
             e.kind(),
             format!(
-                "Unable to run ninja \"{e}\"\nHint: Is ninja installed correctly?",
-            ),
+            "Unable to run ninja \"{e}\"\nHint: Is ninja installed correctly?",
+        ),
         ),
         _ => e,
     }

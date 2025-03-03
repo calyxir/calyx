@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use itertools::{Itertools, multizip};
+use itertools::{multizip, Itertools};
 use regex::Regex;
 use resolve_path::PathResolveExt;
 use tower_lsp::lsp_types as lspt;
@@ -12,7 +12,7 @@ use tree_sitter as ts;
 use crate::convert::{Contains, Point, Range};
 use crate::log;
 use crate::ts_utils::ParentUntil;
-use crate::{Config, tree_sitter_calyx};
+use crate::{tree_sitter_calyx, Config};
 
 pub struct Document {
     pub url: lspt::Url,

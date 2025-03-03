@@ -1,4 +1,4 @@
-use cider_idx::{IndexRef, iter::SplitIndexRange, maps::IndexedMap};
+use cider_idx::{iter::SplitIndexRange, maps::IndexedMap, IndexRef};
 use itertools::Itertools;
 
 use crate::{
@@ -9,15 +9,15 @@ use crate::{
             prelude::{AssignedValue, GlobalPortIdx, PortValue},
         },
         primitives::{
-            Primitive, declare_ports, declare_ports_no_signature, make_getters,
-            ports,
+            declare_ports, declare_ports_no_signature, make_getters, ports,
             prim_trait::{RaceDetectionPrimitive, UpdateResult, UpdateStatus},
             utils::infer_thread_id,
+            Primitive,
         },
         structures::{
             environment::{
+                clock::{new_clock_pair, ClockMap, ReadSource, ValueWithClock},
                 PortMap,
-                clock::{ClockMap, ReadSource, ValueWithClock, new_clock_pair},
             },
             thread::{ThreadIdx, ThreadMap},
         },
@@ -499,11 +499,10 @@ impl CombMem {
             .collect_vec();
 
         assert_eq!(internal_state.len(), size.size());
-        assert!(
-            data.chunks_exact(byte_count as usize)
-                .remainder()
-                .is_empty()
-        );
+        assert!(data
+            .chunks_exact(byte_count as usize)
+            .remainder()
+            .is_empty());
 
         Self {
             base_port,
@@ -830,11 +829,10 @@ impl SeqMem {
             .collect_vec();
 
         assert_eq!(internal_state.len(), size.size());
-        assert!(
-            data.chunks_exact(byte_count as usize)
-                .remainder()
-                .is_empty()
-        );
+        assert!(data
+            .chunks_exact(byte_count as usize)
+            .remainder()
+            .is_empty());
 
         Self {
             base_port,

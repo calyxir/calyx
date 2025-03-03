@@ -23,8 +23,9 @@ use crate::{
             wires::guards::Guard,
         },
         primitives::{
-            self, Primitive,
+            self,
             prim_trait::{RaceDetectionPrimitive, UpdateStatus},
+            Primitive,
         },
         structures::{
             context::{LookupName, PortDefinitionInfo},
@@ -47,11 +48,11 @@ use ahash::HashSetExt;
 use ahash::{HashMap, HashMapExt};
 use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
-use cider_idx::{IndexRef, iter::IndexRange, maps::IndexedMap};
+use cider_idx::{iter::IndexRange, maps::IndexedMap, IndexRef};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
-use slog::{Logger, info, warn};
+use slog::{info, warn, Logger};
 use std::fmt::Write;
 use std::{convert::Into, fmt::Debug};
 
@@ -702,11 +703,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             for dec in data.header.memories.iter() {
                 if !memories_initialized.contains(&dec.name) {
                     // TODO griffin: maybe make this an error?
-                    warn!(
-                        self.logger,
-                        "Initialization was provided for memory {} but no such memory exists in the entrypoint component.",
-                        dec.name
-                    );
+                    warn!(self.logger, "Initialization was provided for memory {} but no such memory exists in the entrypoint component.", dec.name);
                 }
             }
         }
@@ -2330,14 +2327,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if par_entry.child_count() == 0 {
                 let par_entry = par_map.remove(node).unwrap();
                 if self.conf.check_data_race {
-                    assert!(
-                        par_entry
-                            .iter_finished_threads()
-                            .map(|thread| {
-                                self.env.thread_map[thread].parent().unwrap()
-                            })
-                            .all_equal()
-                    );
+                    assert!(par_entry
+                        .iter_finished_threads()
+                        .map(|thread| {
+                            self.env.thread_map[thread].parent().unwrap()
+                        })
+                        .all_equal());
                     let parent =
                         self.env.thread_map[thread.unwrap()].parent().unwrap();
                     let parent_clock =
@@ -2753,18 +2748,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 && !(self.env.control_ports.contains_key(&dest)
                                     && self.env.ports[dest].is_zero().unwrap())
                             {
-                                todo!(
-                                    "Raise an error here since this assignment is undefining things: {}. Port currently has value: {}",
-                                    self.env
-                                        .ctx
-                                        .as_ref()
-                                        .printer()
-                                        .print_assignment(
-                                            ledger.comp_id,
-                                            assign_idx
-                                        ),
-                                    &self.env.ports[dest]
-                                )
+                                todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
                             }
                         }
                     }
@@ -3154,9 +3138,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         if val.clocks().is_some() && val.transitive_clocks().is_some() {
             // TODO griffin: Sort this out
-            panic!(
-                "Value has both direct clock and transitive clock. This shouldn't happen?"
-            )
+            panic!("Value has both direct clock and transitive clock. This shouldn't happen?")
         } else if let Some(clocks) = val.clocks() {
             clocks
                 .check_read_with_ascription(

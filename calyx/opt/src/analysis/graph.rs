@@ -1,9 +1,9 @@
 use calyx_ir::{self as ir, Id, PortIterator, RRC};
 use petgraph::{
-    Direction::{Incoming, Outgoing},
     algo,
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
+    Direction::{Incoming, Outgoing},
 };
 use std::fmt::{Display, Write};
 use std::{collections::HashMap, rc::Rc};
@@ -130,7 +130,7 @@ impl GraphAnalysis {
                                 Rc::clone(&self.graph[node_idx])
                             },
                         ),
-                    ));
+                    ))
                 }
                 ir::Direction::Output => (),
             }

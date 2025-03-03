@@ -102,8 +102,7 @@ where
     pub fn add_node(&mut self, node: T) {
         debug_assert!(
             !self.index_map.contains_key(&node),
-            "Attempted to add pre-existing node to WeightGraph. Client code should ensure that this never happens."
-        );
+            "Attempted to add pre-existing node to WeightGraph. Client code should ensure that this never happens.");
         let idx = self.graph.add_node(());
         self.index_map.insert(node, idx);
     }
