@@ -55,7 +55,7 @@ cycle-limit = 500000000
 build $cells: component-cells /input.ext
 build instrumented.sv: calyx /input.ext
   backend = verilog
-  args = -p validate -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json
+  args = -p validate -p static-inline -p compile-static -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel
