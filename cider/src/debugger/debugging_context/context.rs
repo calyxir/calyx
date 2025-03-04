@@ -6,7 +6,7 @@ use crate::flatten::text_utils::Color;
 use crate::{
     debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::prelude::{Control, ControlIdx, GroupIdx},
         structures::{context::Context, environment::Environment},
     },
 };
@@ -39,7 +39,7 @@ impl Display for PointStatus {
 
 #[derive(Clone, Debug)]
 pub struct BreakPoint {
-    group: GroupIdx,
+    control: ControlIdx,
     state: PointStatus,
 }
 
@@ -61,11 +61,20 @@ impl BreakPoint {
     }
 
     pub fn format(&self, ctx: &Context) -> String {
-        let parent_comp = ctx.get_component_from_group(self.group);
-        let parent_name = ctx.lookup_name(parent_comp);
+        let control = &ctx.primary.control[self.control].control;
+        match control {
+            Control::Enable(enable) => {
+                let parent_comp = ctx.get_component_from_group(self.group);
+                let parent_name = ctx.lookup_name(parent_comp);
 
-        let group_name = ctx.lookup_name(self.group);
-        format!("{parent_name}::{group_name}: {}", self.state)
+                let group_name = ctx.lookup_name(self.group);
+                format!("{parent_name}::{group_name}: {}", self.state)
+            }
+            _ => {
+                // PRINT NODE STRING AS IN NOTES
+                format!("{}", self.state)
+            }
+        }
     }
 }
 
@@ -152,7 +161,7 @@ enum PointAction {
 
 #[derive(Debug)]
 struct BreakpointMap {
-    group_idx_map: HashMap<GroupIdx, BreakpointIdx>,
+    control_idx_map: HashMap<ControlIdx, BreakpointIdx>,
     breakpoints: HashMap<BreakpointIdx, BreakPoint>,
     breakpoint_counter: IndexedMap<BreakpointIdx, ()>,
 }
@@ -160,7 +169,7 @@ struct BreakpointMap {
 impl BreakpointMap {
     fn new() -> Self {
         Self {
-            group_idx_map: HashMap::new(),
+            control_idx_map: HashMap::new(),
             breakpoints: HashMap::new(),
             breakpoint_counter: IndexedMap::new(),
         }
@@ -168,23 +177,28 @@ impl BreakpointMap {
 
     fn insert(&mut self, breakpoint: BreakPoint) {
         let idx = self.breakpoint_counter.next_key();
-        self.group_idx_map.insert(breakpoint.group, idx);
+        self.control_idx_map.insert(breakpoint.control, idx);
         self.breakpoints.insert(idx, breakpoint);
+
+        // ADD FOR GROUP RIGHT NOW FOR ENABLES
     }
 
     fn get_by_idx(&self, idx: BreakpointIdx) -> Option<&BreakPoint> {
         self.breakpoints.get(&idx)
     }
 
-    fn get_by_group(&self, group: GroupIdx) -> Option<&BreakPoint> {
-        self.group_idx_map
-            .get(&group)
+    fn get_by_control(&self, control: ControlIdx) -> Option<&BreakPoint> {
+        self.control_idx_map
+            .get(&control)
             .and_then(|idx| self.get_by_idx(*idx))
     }
 
-    fn get_by_group_mut(&mut self, group: GroupIdx) -> Option<&mut BreakPoint> {
-        self.group_idx_map
-            .get(&group)
+    fn get_by_group_mut(
+        &mut self,
+        control: ControlIdx,
+    ) -> Option<&mut BreakPoint> {
+        self.control_idx_map
+            .get(&control)
             .and_then(|idx| self.breakpoints.get_mut(idx))
     }
 
@@ -195,21 +209,22 @@ impl BreakpointMap {
         self.breakpoints.get_mut(&idx)
     }
 
-    fn breakpoint_exists(&self, group: GroupIdx) -> bool {
-        self.group_idx_map.contains_key(&group)
+    fn breakpoint_exists(&self, control: ControlIdx) -> bool {
+        self.control_idx_map.contains_key(&control)
     }
 
     fn delete_by_idx(&mut self, idx: BreakpointIdx) {
         let br = self.breakpoints.remove(&idx);
         if let Some(br) = br {
-            self.group_idx_map.remove(&br.group);
+            self.control_idx_map.remove(&br.control);
         }
     }
 
-    fn delete_by_group(&mut self, group: GroupIdx) {
-        if let Some(idx) = self.group_idx_map.remove(&group) {
+    fn delete_by_group(&mut self, control: ControlIdx) {
+        if let Some(idx) = self.control_idx_map.remove(&control) {
             self.breakpoints.remove(&idx);
         }
+        // TODO ADD FUNCTIONALITY TO DELETE BY GROUPS RIGHT NOW DELETES BY COMPONENT
     }
 
     fn iter(&self) -> impl Iterator<Item = (&BreakpointIdx, &BreakPoint)> {
@@ -452,10 +467,10 @@ impl DebuggingContext {
         }
     }
 
-    pub fn add_breakpoint(&mut self, target: GroupIdx) {
+    pub fn add_breakpoint(&mut self, target: ControlIdx) {
         if !self.breakpoints.breakpoint_exists(target) {
             let br = BreakPoint {
-                group: target,
+                control: target,
                 state: PointStatus::Enabled,
             };
             self.breakpoints.insert(br)
@@ -620,11 +635,13 @@ impl DebuggingContext {
             .groups_new_on()
             .filter(|&&x| {
                 self.breakpoints
-                    .get_by_group(x)
+                    .get_by_control(x)
                     .map(|x| x.is_enabled())
                     .unwrap_or_default()
             })
             .copied()
+
+        // aADD
     }
 
     pub fn set_current_time<I: Iterator<Item = GroupIdx>>(

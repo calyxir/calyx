@@ -617,6 +617,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         &mut self,
         targets: Vec<super::commands::ParsedGroupName>,
     ) {
+        // TODO: THIS DOES IN TERMS OF GROUPS, MUST EXPAND FUNCTIONALITY FOR SPECIFIC ENABLES
         for target in targets {
             let target = target.lookup_group(self.program_context.as_ref());
             unwrap_error_message!(target);

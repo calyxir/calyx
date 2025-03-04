@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     flatten::{
-        flat_ir::prelude::GroupIdx,
+        flat_ir::prelude::{ControlIdx, GroupIdx},
         structures::{
             context::Context,
             environment::{Environment, Path},
@@ -70,7 +70,10 @@ impl ParsedGroupName {
 
     /// Attempts to look up the group of the given name in the context. If the
     /// group lacks a component, it is assumed to be the entry point.
-    pub fn lookup_group(&self, context: &Context) -> Result<GroupIdx, String> {
+    pub fn lookup_group(
+        &self,
+        context: &Context,
+    ) -> Result<ControlIdx, String> {
         let comp = if let Some(c) = &self.component {
             context
                 .lookup_comp_by_name(c.as_ref())
@@ -144,7 +147,7 @@ impl From<ParsedGroupName> for ParsedBreakPointID {
 pub enum BreakpointID {
     /// A breakpoint on the given group. This does not guarantee that there is
     /// such a breakpoint, but it does guarantee that the group exists.
-    Name(GroupIdx),
+    Name(ControlIdx),
     /// A breakpoint on the given ID. This does not guarantee that there is a
     /// breakpoint by the given ID. In such cases, operations on the breakpoint
     /// will produce an error.
@@ -164,7 +167,7 @@ impl BreakpointID {
 
     /// Attempts to get the breakpoint ID as a group.
     #[must_use]
-    pub fn as_name(&self) -> Option<&GroupIdx> {
+    pub fn as_name(&self) -> Option<&ControlIdx> {
         if let Self::Name(v) = self {
             Some(v)
         } else {
