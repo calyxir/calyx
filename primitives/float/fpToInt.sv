@@ -7,7 +7,7 @@
     `define HARD_FLOAT_CONTROL `flControl_tininessAfterRounding
 `endif
 
-module std_fpToInt #(parameter expWidth = 8, parameter sigWidth = 23, parameter floatWidth = 32,  parameter intWidth = 32)
+module std_fpToInt #(parameter expWidth = 8, parameter sigWidth = 24, parameter floatWidth = 32,  parameter intWidth = 32)
 (
     input clk,
     input reset,
