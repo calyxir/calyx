@@ -1094,8 +1094,8 @@ def main(
         adl_scaled_flame, mixed_scaled_flame = convert_flame_map(
             scaled_flame_map, adl_mapping_file
         )
-        adl_flat_flame_file = os.path.join(out_dir, f"adl-flat-flame.folded")
-        adl_scaled_flame_file = os.path.join(out_dir, f"adl-scaled-flame.folded")
+        adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
+        adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
         write_flame_maps(
             adl_flat_flame,
             adl_scaled_flame,
@@ -1104,8 +1104,8 @@ def main(
             adl_scaled_flame_file,
         )
 
-        mixed_flat_flame_file = os.path.join(out_dir, f"mixed-flat-flame.folded")
-        mixed_scaled_flame_file = os.path.join(out_dir, f"mixed-scaled-flame.folded")
+        mixed_flat_flame_file = os.path.join(out_dir, "mixed-flat-flame.folded")
+        mixed_scaled_flame_file = os.path.join(out_dir, "mixed-scaled-flame.folded")
         write_flame_maps(
             mixed_flat_flame,
             mixed_scaled_flame,
