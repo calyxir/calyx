@@ -74,15 +74,13 @@ impl ControlPoint {
 
     /// Returns a string showing the path from the root node to input node. This
     /// path is displayed in the minimal metadata path syntax.
-    pub fn string_path(&self, ctx: &Context, name: String) -> String {
+    pub fn string_path(&self, ctx: &Context, name: &String) -> String {
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
         let control_map = &ctx.primary.control;
         let path_vec = path.path;
 
-        let mut string_path = name;
+        let mut string_path = name.clone();
 
-        string_path.push(':');
-        string_path.push(' ');
         string_path.push('.');
 
         // Remove first index

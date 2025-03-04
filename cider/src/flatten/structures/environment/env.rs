@@ -1013,14 +1013,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn print_pc_string(&self) {
         let ctx = self.ctx.as_ref();
         for node in self.pc_iter() {
-            let string_path =
-                node.string_path(ctx, self.get_full_name(node.comp));
-            println!("{}: {}", self.get_full_name(node.comp), string_path);
-
-            // Debug assert:
             let ledger = self.cells.get(node.comp).unwrap();
             let comp_ledger = ledger.as_comp().unwrap();
             let component = comp_ledger.comp_id;
+            let string_path = node.string_path(ctx, component.lookup_name(ctx));
+            println!("{}: {}", self.get_full_name(node.comp), string_path);
 
             let path = parse_path(&string_path).unwrap();
 
