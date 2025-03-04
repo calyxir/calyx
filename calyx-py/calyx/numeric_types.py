@@ -132,7 +132,7 @@ class Bitnum(NumericType):
 
     def pretty_print(self):
         print(
-            f"""{'Signed' if self.is_signed else ''} Bitnum: {self.string_repr}
+            f"""{"Signed" if self.is_signed else ""} Bitnum: {self.string_repr}
 ------------------
 Width: {self.width}
 Bit String: 0b{self.bit_string_repr}
@@ -218,8 +218,8 @@ class FixedPoint(NumericType):
     Integer width: {self.int_width}
     Fractional width: {self.frac_width}
 has led to overflow.
-{'Required int width: {}'.format(required_int_width) if int_overflow else ''}
-{'Required fractional width: {}'.format(required_frac_width) if frac_overflow else ''}
+{"Required int width: {}".format(required_int_width) if int_overflow else ""}
+{"Required fractional width: {}".format(required_frac_width) if frac_overflow else ""}
 """
             )
 
@@ -318,7 +318,7 @@ has led to overflow.
 
     def pretty_print(self):
         print(
-            f"""{'Signed' if self.is_signed else ''} Fixed Point: {self.string_repr}
+            f"""{"Signed" if self.is_signed else ""} Fixed Point: {self.string_repr}
 ------------------
 Width: {self.width}, IntWidth: {self.int_width}, FracWidth: {self.frac_width}
 Decimal Class: {self.decimal_repr}

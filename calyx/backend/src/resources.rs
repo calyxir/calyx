@@ -161,8 +161,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    params[1].1, params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    params[1].1,
+                    params[0].1
+                );
             }
             "comb_mem_d2" => {
                 add_size(
@@ -173,8 +176,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    (params[1].1 * params[2].1), params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    (params[1].1 * params[2].1),
+                    params[0].1
+                );
             }
             "comb_mem_d3" => {
                 add_size(
@@ -185,8 +191,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    (params[1].1 * params[2].1 * params[3].1), params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    (params[1].1 * params[2].1 * params[3].1),
+                    params[0].1
+                );
             }
             "comb_mem_d4" => {
                 add_size(
@@ -197,8 +206,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    (params[1].1 * params[2].1 * params[3].1 * params[4].1),
+                    params[0].1
+                );
             }
             "seq_mem_d1" => {
                 add_size(
@@ -209,8 +221,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    params[1].1, params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    params[1].1,
+                    params[0].1
+                );
             }
             "seq_mem_d2" => {
                 add_size(
@@ -221,8 +236,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    (params[1].1 * params[2].1), params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    (params[1].1 * params[2].1),
+                    params[0].1
+                );
             }
             "seq_mem_d3" => {
                 add_size(
@@ -233,8 +251,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    (params[1].1 * params[2].1 * params[3].1), params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    (params[1].1 * params[2].1 * params[3].1),
+                    params[0].1
+                );
             }
             "seq_mem_d4" => {
                 add_size(
@@ -245,8 +266,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                 );
                 eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
-                    count, externalize_name(name, is_external),
-                    (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
+                    count,
+                    externalize_name(name, is_external),
+                    (params[1].1 * params[2].1 * params[3].1 * params[4].1),
+                    params[0].1
+                );
             }
             _ => (),
         }

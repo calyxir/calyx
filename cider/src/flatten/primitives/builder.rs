@@ -1,8 +1,8 @@
 use ahash::HashSet;
 
 use super::{
-    combinational::*, prim_trait::RaceDetectionPrimitive, stateful::*,
-    Primitive,
+    Primitive, combinational::*, prim_trait::RaceDetectionPrimitive,
+    stateful::*,
 };
 use crate::{
     flatten::{
@@ -16,7 +16,7 @@ use crate::{
         },
         structures::{
             context::Context,
-            environment::{clock::ClockMap, CellLedger},
+            environment::{CellLedger, clock::ClockMap},
         },
     },
     serialization::DataDump,

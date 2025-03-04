@@ -12,7 +12,7 @@ def data2interp(in_file):
     round_float_to_fixed = True
     with open(in_file) as f:
         convert_to_json(
-            '.',
+            ".",
             simplejson.load(f, use_decimal=True),
             round_float_to_fixed,
         )
@@ -35,9 +35,9 @@ def interp2data(in_file, orig_file):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == '--to-interp':
+    if sys.argv[1] == "--to-interp":
         data2interp(*sys.argv[2:])
-    elif sys.argv[1] == '--from-interp':
+    elif sys.argv[1] == "--from-interp":
         interp2data(*sys.argv[2:])
     else:
         print("specify --to-interp or --from-interp", file=sys.stderr)

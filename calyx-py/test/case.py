@@ -8,7 +8,7 @@ def add_case(prog):
     my_comp = prog.component("my_comp")
     comp_reg = my_comp.reg(1, "comp_reg")
     in_1 = my_comp.input("in_1", 8)
-    out_1 = my_comp.output("out_1", 16)
+    _out_1 = my_comp.output("out_1", 16)
 
     with my_comp.group("my_group") as my_group:
         # Some assignments

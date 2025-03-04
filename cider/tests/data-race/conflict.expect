@@ -1,4 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: Concurrent read & write to the same register [4mmain.count[0m
+Error: Concurrent read and write to the same register main.count
+  write in thread ThreadIdx(4) from assignment count.write_en = 1'd1; in group main::incr_count
+  read in thread ThreadIdx(3) from RHS in assignment useless_wire.in = my_wire.out; in group main::do_mul

@@ -1,12 +1,12 @@
 use nom::{
+    IResult,
     branch::alt,
     bytes::complete::{tag, take_while_m_n},
     character::complete::{anychar, line_ending, multispace0},
     combinator::{eof, map_res, opt},
     error::Error,
-    multi::{many1, many_till},
+    multi::{many_till, many1},
     sequence::{preceded, tuple},
-    IResult,
 };
 
 fn is_hex_digit(c: char) -> bool {

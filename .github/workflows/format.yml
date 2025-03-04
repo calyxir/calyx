@@ -39,33 +39,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Fud Formatting check
-        uses: psf/black@stable
+      - name: Formatting check
+        uses: astral-sh/ruff-action@v3
         with:
-          options: "--line-length 88 --check"
-          src: 'fud'
-      - name: Calyx-Py Formatting check
-        uses: psf/black@stable
+          args: "format --check"
+      - name: Linting check
+        uses: astral-sh/ruff-action@v3
         with:
-          options: "--line-length 88 --check"
-          src: 'calyx-py'
-      - name: Systolic Array Formatting check
-        uses: psf/black@stable
-        with:
-          options: "--line-length 88 --check"
-          src: 'frontends/systolic-lang'
-      - name: Queues Formatting check
-        uses: psf/black@stable
-        with:
-          options: "--line-length 88 --check"
-          src: 'frontends/queues'
-      - name: Fud Linting check
-        uses: TrueBrain/actions-flake8@master
-        with:
-          max_line_length: 88
-          path: 'fud'
-      - name: Systolic Array Linting check
-        uses: TrueBrain/actions-flake8@master
-        with:
-          max_line_length: 88
-          path: 'frontends/systolic-lang'
+          args: "check"

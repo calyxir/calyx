@@ -102,9 +102,9 @@ impl Prop {
     /// Defines the dataflow transfer function.
     /// We use the standard definition for liveness:
     /// `(alive - kill) + gen`
-    fn transfer(&mut self, gen: Prop, kill: Prop) {
+    fn transfer(&mut self, r#gen: Prop, kill: Prop) {
         self.sub(kill);
-        self.or(gen);
+        self.or(r#gen);
     }
 
     fn insert(&mut self, (cell_type, cell_name): (ir::CellType, ir::Id)) {
@@ -113,9 +113,9 @@ impl Prop {
 
     /// Defines the data_flow transfer function. `(alive - kill) + gen`.
     /// However, this is for when gen and kill are sets, and self is a map.
-    fn transfer_set(&mut self, gen: TypeNameSet, kill: TypeNameSet) {
+    fn transfer_set(&mut self, r#gen: TypeNameSet, kill: TypeNameSet) {
         self.sub_set(kill);
-        self.or_set(gen);
+        self.or_set(r#gen);
     }
 
     // The or operation, but when the self is a map and rhs is a set of tuples.
@@ -1131,7 +1131,7 @@ impl LiveRangeAnalysis {
                     .fold(
                         (Prop::default(), Prop::default(), Prop::default()),
                         |(mut acc_alive, mut acc_gen, mut acc_kill),
-                         (alive, gen, kill)| {
+                         (alive, r#gen, kill)| {
                             (
                                 // Doing in place operations saves time
                                 {
@@ -1139,7 +1139,7 @@ impl LiveRangeAnalysis {
                                     acc_alive
                                 },
                                 {
-                                    acc_gen.or(gen);
+                                    acc_gen.or(r#gen);
                                     acc_gen
                                 },
                                 {
@@ -1327,7 +1327,7 @@ impl LiveRangeAnalysis {
                     .fold(
                         (Prop::default(), Prop::default(), Prop::default()),
                         |(mut acc_alive, mut acc_gen, mut acc_kill),
-                         (alive, gen, kill)| {
+                         (alive, r#gen, kill)| {
                             (
                                 // Doing in place operations saves time
                                 {
@@ -1335,7 +1335,7 @@ impl LiveRangeAnalysis {
                                     acc_alive
                                 },
                                 {
-                                    acc_gen.or(gen);
+                                    acc_gen.or(r#gen);
                                     acc_gen
                                 },
                                 {

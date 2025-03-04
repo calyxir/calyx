@@ -29,9 +29,7 @@ def create_cycle_trace(
 ):
     stacks_this_cycle = []
     parents = set()  # keeping track of entities that are parents of other entities
-    i_mapping = (
-        {}
-    )  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
+    i_mapping = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
     i_mapping[main_component] = [main_component.split(".")[-1]]
     cell_worklist = [main_component]
     while len(cell_worklist) > 0:
@@ -192,9 +190,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         structural_enable_active = set()
         cell_enable_active = set()
         primitive_enable = set()
-        self.cell_to_active_cycles = (
-            {}
-        )  # cell --> [{"start": X, "end": Y, "length": Y - X}].
+        self.cell_to_active_cycles = {}  # cell --> [{"start": X, "end": Y, "length": Y - X}].
 
         # The events are "partial" because we don't know yet what the tid and pid would be.
         # (Will be filled in during create_timelines(); specifically in port_fsm_events())
@@ -352,7 +348,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 self.trace[clock_cycles] = create_cycle_trace(
                     info_this_cycle, self.cells_to_components, self.main_component, True
                 )  # True to track primitives
-
         self.clock_cycles = (
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
@@ -394,9 +389,7 @@ def read_component_cell_names_json(json_file):
     cells_to_components = {}
     main_component = ""
     for curr_component_entry in cell_json:
-        cell_map = (
-            {}
-        )  # mapping cell names to component names for all cells in the current component
+        cell_map = {}  # mapping cell names to component names for all cells in the current component
         if curr_component_entry["is_main_component"]:
             main_component = curr_component_entry["component"]
         for cell_info in curr_component_entry["cell_info"]:
@@ -409,9 +402,7 @@ def read_component_cell_names_json(json_file):
     build_components_to_cells(
         full_main_component, main_component, cells_to_components, components_to_cells
     )
-    full_cell_names_to_components = (
-        {}
-    )  # fully_qualified_cell_name --> component name (of cell)
+    full_cell_names_to_components = {}  # fully_qualified_cell_name --> component name (of cell)
     for component in components_to_cells:
         for cell in components_to_cells[component]:
             full_cell_names_to_components[cell] = component
@@ -561,9 +552,7 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
                     if other_stack != stack_id and leaf_id in other_stack:
                         contained = True
                         break
-                if (
-                    contained
-                ):  # this is not actually a leaf node, so we should move onto the next leaf node.
+                if contained:  # this is not actually a leaf node, so we should move onto the next leaf node.
                     continue
             if leaf_node not in leaves_this_cycle:
                 leaf_nodes_dict[leaf_node] += 1
@@ -614,7 +603,7 @@ def create_edge_dict(path_dict):
         path = path_dict[path_id]
         edge_set = []
         for i in range(len(path) - 1):
-            edge = f"{path[i]} -> {path[i+1]}"
+            edge = f"{path[i]} -> {path[i + 1]}"
             edge_set.append(edge)
             all_edges.add(edge)
         path_to_edges[path_id] = edge_set
@@ -648,6 +637,8 @@ def write_flame_maps(
 """
 Creates flat and scaled flame maps from a trace.
 """
+
+
 def create_flame_maps(trace):
     # flat flame graph; each par arm is counted for 1 cycle
     flat_flame_map = {}  # stack to number of cycles
@@ -679,13 +670,14 @@ def create_flame_maps(trace):
 
 
 def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
-
     if not os.path.exists(dot_out_dir):
         os.mkdir(dot_out_dir)
 
     # only produce trees for every cycle if we don't exceed TREE_PICTURE_LIMIT
     if len(timeline_map) > TREE_PICTURE_LIMIT:
-        print(f"Simulation exceeds {TREE_PICTURE_LIMIT} cycles, skipping slideshow trees for every cycle...")
+        print(
+            f"Simulation exceeds {TREE_PICTURE_LIMIT} cycles, skipping slideshow trees for every cycle..."
+        )
         return
     tree_dict, path_dict = create_tree(timeline_map)
     path_to_edges, all_edges = create_edge_dict(path_dict)
@@ -855,9 +847,7 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
             write_timeline_event(begin_event, out_file)
         currently_active = active_this_cycle
 
-    for (
-        still_active_element
-    ) in (
+    for still_active_element in (
         currently_active
     ):  # need to close any elements that are still active at the end of the simulation
         end_event = create_timeline_event(
@@ -934,7 +924,6 @@ def write_cell_stats(cell_to_active_cycles, out_dir):
 
 
 class SourceLoc:
-
     def __init__(self, json_dict):
         self.filename = os.path.basename(json_dict["filename"])
         self.linenum = json_dict["linenum"]
@@ -1011,7 +1000,6 @@ def convert_flame_map(flame_map, adl_mapping_file):
                 mixed_stack_elem = f"{stack_elem} {{{sourceloc}}}"
             adl_stack.append(adl_stack_elem)
             mixed_stack.append(mixed_stack_elem)
-
         # multiple Calyx stacks might have the same ADL stack (same source). If the ADL/mixed stack already exists in the map, we add the cycles from this Calyx stack.
         adl_stack_str = ";".join(adl_stack)
         mixed_stack_str = ";".join(mixed_stack)
