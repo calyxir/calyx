@@ -5,26 +5,28 @@ import "primitives/unsynthesizable.futil";
 
 // Modified from pass-in-register.futil
 component multiply_and_add(
-  reg_done: 1,
-  reg_out: 32,
-  a: 32,
-  b: 32
-) -> (reg_in: 32, reg_write_en: 1) {
+  // a: 32,
+  // b: 32
+) -> () {
   cells {
+    ref acc = std_reg(32);
+    ref loaded_val_a = std_reg(32);
+    ref loaded_val_b = std_reg(32);
     add = std_add(32);
-    mult = std_unsyn_mult(32);
+    mult = std_mult_pipe(32);
   }
   wires {
     group do_mul_and_add {
-      mult.left = a;
-      mult.right = b;
+      mult.left = loaded_val_a.out;
+      mult.right = loaded_val_b.out;
+      mult.go = !mult.done ? 1'd1;
 
-      add.left = reg_out;
+      add.left = acc.out;
       add.right = mult.out;
 
-      reg_in = add.out;
-      reg_write_en = 1'd1;
-      do_mul_and_add[done] = reg_done;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_mul_and_add[done] = acc.done;
     }
   }
   control {
@@ -37,7 +39,7 @@ component main() -> () {
     // 4×4 matrix memories
     @external arr_1 = comb_mem_d2(32, 4, 4, 4, 4);
     @external arr_2 = comb_mem_d2(32, 4, 4, 4, 4);
-    mem_output = comb_mem_d2(32, 4, 4, 4, 4);
+    @external mem_output = comb_mem_d2(32, 4, 4, 4, 4);
 
     // Constants
     const0 = std_const(32,3);
@@ -49,6 +51,8 @@ component main() -> () {
     j = std_reg(32);
     k = std_reg(32);
     acc = std_reg(32);
+    val_a = std_reg(32);
+    val_b = std_reg(32);
 
     // Multiply-and-accumulate unit
     mul_add = multiply_and_add();
@@ -105,22 +109,41 @@ component main() -> () {
       begin_acc[done] = acc.done;
     }
 
-    // Matrix Multiplication Update
-    group update_acc {
-      mul_add.reg_done = 1'd1;
-      mul_add.reg_out = acc.out;
+    group read_data {
       slice0.in = i.out;
       slice1.in = k.out;
       arr_1.addr0 = slice0.out; 
       arr_1.addr1 = slice1.out;
       arr_2.addr0 = slice1.out; 
       arr_2.addr1 = slice0.out;
-      mul_add.a = arr_1.read_data;
-      mul_add.b = arr_2.read_data;
-      acc.in = mul_add.reg_in;
-      acc.write_en = mul_add.reg_write_en;
-      update_acc[done] = acc.done;
+
+      val_a.in = arr_1.read_data;
+      val_a.write_en = 1'd1;
+      val_b.in = arr_2.read_data;
+      val_b.write_en = 1'd1;
+      read_data[done] = val_b.done;
     }
+
+    // group update_output {
+      
+    // }
+
+    // Matrix Multiplication Update
+    // group update_acc {
+    //   // mul_add.reg_done = 1'd1;
+    //   // mul_add.reg_out = acc.out;
+    //   slice0.in = i.out;
+    //   slice1.in = k.out;
+    //   arr_1.addr0 = slice0.out; 
+    //   arr_1.addr1 = slice1.out;
+    //   arr_2.addr0 = slice1.out; 
+    //   arr_2.addr1 = slice0.out;
+    //   // mul_add.a = arr_1.read_data;
+    //   // mul_add.b = arr_2.read_data;
+    //   acc.in = mul_add.reg_in;
+    //   acc.write_en = mul_add.reg_write_en;
+    //   update_acc[done] = acc.done;
+    // }
 
     // Writing results
     group write_result {
@@ -188,7 +211,11 @@ component main() -> () {
               begin_acc; // Reset accumulator
               while le2.out with cond2 {
                 seq { 
-                  update_acc; 
+                  // update_acc; 
+                  // group for reading data from the memories
+                  read_data;
+                  invoke mul_add[acc=acc, loaded_val_a=val_a, loaded_val_b=val_b]()();
+                  // update output memory with computed value
                   updK; 
                 }
               }
