@@ -45,10 +45,10 @@ impl Primitive {
     ) -> CalyxResult<(SmallVec<[(Id, u64); 5]>, Vec<PortDef<u64>>)> {
         if self.params.len() != parameters.len() {
             let msg = format!(
-               "primitive `{}` requires {} parameters but instantiation provides {} parameters",
-               self.name.clone(),
-               self.params.len(),
-               parameters.len(),
+                "primitive `{}` requires {} parameters but instantiation provides {} parameters",
+                self.name.clone(),
+                self.params.len(),
+                parameters.len(),
             );
             return Err(Error::malformed_structure(msg));
         }

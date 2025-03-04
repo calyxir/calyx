@@ -148,20 +148,53 @@ impl<'a> Printer<'a> {
         let parent = self.ctx.find_parent_cell(comp, target);
 
         match (port, parent) {
-            (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.ctx.secondary[c].name, self.ctx.secondary[l].name),
+            (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => {
+                CanonicalIdentifier::interface_port(
+                    self.ctx.secondary[c].name,
+                    self.ctx.secondary[l].name,
+                )
+            }
             (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => {
-                if let CellPrototype::Constant { value, width, c_type }= &self.ctx.secondary[c].prototype {
+                if let CellPrototype::Constant {
+                    value,
+                    width,
+                    c_type,
+                } = &self.ctx.secondary[c].prototype
+                {
                     match c_type {
-                        ConstantType::Literal => CanonicalIdentifier::literal((*width).into(), *value),
-                        ConstantType::Primitive => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l].name),
+                        ConstantType::Literal => CanonicalIdentifier::literal(
+                            (*width).into(),
+                            *value,
+                        ),
+                        ConstantType::Primitive => {
+                            CanonicalIdentifier::cell_port(
+                                self.ctx.secondary[c].name,
+                                self.ctx.secondary[l].name,
+                            )
+                        }
                     }
                 } else {
-                    CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l].name)
+                    CanonicalIdentifier::cell_port(
+                        self.ctx.secondary[c].name,
+                        self.ctx.secondary[l].name,
+                    )
                 }
-            },
-            (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => CanonicalIdentifier::group_port( self.ctx.primary[g].name(), self.ctx.secondary[l].name),
-            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.ctx.secondary[rc].name, self.ctx.secondary[rp]),
-            _ => unreachable!("Inconsistent port definition and parent. This should never happen"),
+            }
+            (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => {
+                CanonicalIdentifier::group_port(
+                    self.ctx.primary[g].name(),
+                    self.ctx.secondary[l].name,
+                )
+            }
+            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => {
+                CanonicalIdentifier::cell_port(
+                    self.ctx.secondary[rc].name,
+                    self.ctx.secondary[rp],
+                )
+            }
+            _ => unreachable!(
+                "Inconsistent port definition and parent. This should never happen"
+            ),
         }
     }
 

@@ -1,5 +1,5 @@
 use std::{
-    cmp::{max, Ordering},
+    cmp::{Ordering, max},
     collections::HashMap,
     hash::Hash,
     num::NonZeroU32,
@@ -879,17 +879,23 @@ pub struct ReadError;
 
 #[derive(Debug, Clone, Error)]
 pub enum ClockError {
-    #[error("Concurrent read & write to the same register/memory. This text should never be seen")]
+    #[error(
+        "Concurrent read & write to the same register/memory. This text should never be seen"
+    )]
     ReadAfterWrite {
         write: WriteInfo,
         read: ReadInfoWithThread,
     },
-    #[error("Concurrent writes to the same register/memory. This text should never be seen")]
+    #[error(
+        "Concurrent writes to the same register/memory. This text should never be seen"
+    )]
     WriteAfterWrite {
         write1: WriteInfo,
         write2: WriteInfo,
     },
-    #[error("Concurrent writes to the same register/memory. This text should never be seen")]
+    #[error(
+        "Concurrent writes to the same register/memory. This text should never be seen"
+    )]
     WriteAfterRead {
         write: WriteInfo,
         reads: Box<[ReadInfoWithThread]>,

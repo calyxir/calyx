@@ -34,7 +34,9 @@ fn main() -> std::io::Result<()> {
         println!(" - Focus a component");
         println!(" - Set breakpoints");
         println!();
-        println!("See more at https://github.com/calyxir/calyx/blob/calyx-pass/tools/calyx-pass/README.md");
+        println!(
+            "See more at https://github.com/calyxir/calyx/blob/calyx-pass/tools/calyx-pass/README.md"
+        );
         return Ok(());
     }
 
@@ -55,26 +57,42 @@ fn main() -> std::io::Result<()> {
 
     if !args.disable.is_empty() && args.breakpoint.is_none() {
         fail("Invalid command line flags.", || {
-            println!("Using the disable pass option (`-d`) requires a breakpoint to be set. You can set one with `-b`.");
+            println!(
+                "Using the disable pass option (`-d`) requires a breakpoint to be set. You can set one with `-b`."
+            );
         });
     }
 
-    assert!(!args.calyx_exec.is_empty(), "We just assigned it a non-empty value if it was empty (unless fud somehow set the calyx executable as empty...");
+    assert!(
+        !args.calyx_exec.is_empty(),
+        "We just assigned it a non-empty value if it was empty (unless fud somehow set the calyx executable as empty..."
+    );
 
     if util::capture_command_stdout(&args.calyx_exec, &["--version"], true)
         .is_err()
     {
-        fail("Failed to determine or repair calyx executable path automatically.", || {
+        fail(
+            "Failed to determine or repair calyx executable path automatically.",
+            || {
                 println!("{}", "Here's how to fix it:".bold());
-                println!("Option 1. Setup your fud config so that 'stages.calyx.exec' yields a valid path to the calyx executable");
-                println!("Option 2. Determine the path manually and pass it to the `-e` or `--calyx-exec` option");
-                println!("Option 3. Run this tool from the repository directory after calling `cargo build`");
-            });
+                println!(
+                    "Option 1. Setup your fud config so that 'stages.calyx.exec' yields a valid path to the calyx executable"
+                );
+                println!(
+                    "Option 2. Determine the path manually and pass it to the `-e` or `--calyx-exec` option"
+                );
+                println!(
+                    "Option 3. Run this tool from the repository directory after calling `cargo build`"
+                );
+            },
+        );
     }
 
     if args.input_file.is_none() {
         fail("Invalid command line arguments.", || {
-            println!("You must pass a single calyx program as input. However, when the version is requested through `--version`, this input file is not required and will be ignored.");
+            println!(
+                "You must pass a single calyx program as input. However, when the version is requested through `--version`, this input file is not required and will be ignored."
+            );
         });
     }
 
