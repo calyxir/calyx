@@ -8,8 +8,8 @@ export const flamegraph = state("flamegraph", ["svg"]);
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
 
-    // series of passes after instrumentation?
-    e.config_var_or("passes", "profiler.compilation-passes", "-p all"); // set passes="-p no-opt" to run without optimizations
+    // series of passes after validation and instrumentation
+    e.config_var_or("passes", "profiler.compilation-passes", "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
 
     // eDSL python file arguments
     e.config_var_or("edsl-args", "profiler.edsl-args", "");
@@ -56,7 +56,7 @@ fn edsl_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
+    e.arg("args", "-p validate -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -95,7 +95,7 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
+    e.arg("args", "-p validate -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
