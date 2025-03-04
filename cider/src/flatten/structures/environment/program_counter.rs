@@ -79,7 +79,7 @@ impl ControlPoint {
         let control_map = &ctx.primary.control;
         let path_vec = path.path;
 
-        let mut string_path = name.clone();
+        let mut string_path = name.to_owned();
 
         string_path.push('.');
 
