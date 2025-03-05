@@ -1,0 +1,85 @@
+{
+  "cycles": 949,
+  "memories": {
+    "arr_1": [
+      [
+        5,
+        3,
+        2,
+        6
+      ],
+      [
+        4,
+        9,
+        2,
+        1
+      ],
+      [
+        3,
+        7,
+        2,
+        6
+      ],
+      [
+        6,
+        1,
+        4,
+        2
+      ]
+    ],
+    "arr_2": [
+      [
+        8,
+        3,
+        7,
+        2
+      ],
+      [
+        9,
+        8,
+        4,
+        5
+      ],
+      [
+        3,
+        6,
+        1,
+        2
+      ],
+      [
+        5,
+        6,
+        9,
+        2
+      ]
+    ],
+    "mem_output": [
+      [
+        103,
+        87,
+        103,
+        41
+      ],
+      [
+        124,
+        102,
+        75,
+        59
+      ],
+      [
+        123,
+        113,
+        105,
+        57
+      ],
+      [
+        79,
+        62,
+        68,
+        29
+      ]
+    ]
+  }
+}
+---STDERR---
+⠋ calyx.run_futil⠙ calyx.run_futil⠹ icarus-verilog.json_to_dat⠸ icarus-verilog.simulate⠼ icarus-verilog.simulate⠴ icarus-verilog.simulate⠦ icarus-verilog.simulate
