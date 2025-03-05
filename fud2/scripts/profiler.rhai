@@ -7,6 +7,7 @@ export const flamegraph = state("flamegraph", ["svg"]);
 
 fn profiling_setup(e) {
     e.var_("cells", "cells.json");
+    e.var_("fsm-json", "fsm.json");
 
     // series of passes after validation and instrumentation
     e.config_var_or("passes", "profiler.compilation-passes", "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
@@ -23,7 +24,7 @@ fn profiling_setup(e) {
 
     // script to process vcd and produce folded representation of flame graph
     e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells profiler-out $out");
+    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells $fsm-json profiler-out $out");
 
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
@@ -39,7 +40,7 @@ fn profiling_setup(e) {
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
 
-    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells profiler-out $out $metadata-mapping-json");
+    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cells $fsm-json profiler-out $out $metadata-mapping-json");
 }
 
 // TODO: merge with calyx_to_flamegraph
@@ -56,7 +57,7 @@ fn edsl_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [calyx], []);
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p validate -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
+    e.arg("args", "-p validate -p static-inline -p compile-static -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -95,7 +96,7 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd(["$cells"], "component-cells", [input], []);
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
-    e.arg("args", "-p validate -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes");
+    e.arg("args", "-p validate -p static-inline -p compile-static -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
