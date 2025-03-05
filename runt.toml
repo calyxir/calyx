@@ -701,3 +701,12 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   rm -f results.xml
 
 """
+
+[[tests]]
+name = "Matrix_multiply correctness tests"
+paths = [
+  "tests/matrix_multiply_tests/*.futil"
+]
+cmd = """
+fud e --to dat --through icarus-verilog {} -s verilog.data {}.data
+"""
