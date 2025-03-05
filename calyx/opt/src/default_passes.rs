@@ -97,6 +97,7 @@ impl PassManager {
                 GroupToSeq,
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
+                ProcessInvokeWith, // should be after GroupToInvoke
                 InferShare,
                 ComponentInliner,
                 CombProp,

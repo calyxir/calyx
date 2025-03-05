@@ -112,7 +112,6 @@ impl Visitor for ProcessInvokeWith {
             let mut comb_group = comb_group_ref.borrow_mut();
             let comb_group_name = comb_group.name();
             if self.comb_groups_to_modify.contains_key(&comb_group_name) {
-                println!("{comb_group_name}");
                 let cell_name =
                     self.comb_groups_to_modify.get(&comb_group_name).unwrap();
                 let mut modified_asgns = comb_group.assignments.clone();
