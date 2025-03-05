@@ -101,18 +101,11 @@ impl Visitor for ProcessInvokeWith {
         sigs: &LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
-        for (cg, c) in self.comb_groups_to_modify.iter() {
-            println!("{}, {}", cg, c);
-        }
         let mut builder = ir::Builder::new(comp, sigs);
         let one = builder.add_constant(1, 1);
         // first, drop any comb groups we've seen
         for used_comb_group in &self.comb_groups_seen_elsewhere {
             self.comb_groups_to_modify.remove(&used_comb_group);
-        }
-        println!("yo what the heck");
-        for (cg, c) in self.comb_groups_to_modify.iter() {
-            println!("{}, {}", cg, c);
         }
         // modify assignments of any remaining comb groups
         for comb_group_ref in comp.comb_groups.iter() {
