@@ -13,7 +13,7 @@ use crate::passes::{
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
-    HoleInliner, Metadata, ParToSeq, RegisterUnsharing,
+    HoleInliner, Metadata, ParToSeq, ProcessInvokeWith, RegisterUnsharing,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -78,6 +78,7 @@ impl PassManager {
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
+        pm.register_pass::<ProcessInvokeWith>()?;
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
