@@ -114,9 +114,9 @@ async def write_axi_test_helper(
     # ), f"Internal memory is not {expected}, instead is {cocotb_mem_to_ints(module.vec1_data)}"
 
     axi_ram_mem_ints = bytes_to_int(axi_ram_write.read(0x0000, mmap_size))
-    assert (
-        axi_ram_mem_ints == expected
-    ), f"The AXI ram: {axi_ram_mem_ints} does not contain the data in expected: {expected}."
+    assert axi_ram_mem_ints == expected, (
+        f"The AXI ram: {axi_ram_mem_ints} does not contain the data in expected: {expected}."
+    )
 
 
 # TODO(nathanielnrn): Decide between these and xilinx cocotb tests, refactor out
@@ -155,7 +155,7 @@ def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
 
     if type(input_list) is bytes:
         assert len(input_list) % 4 == 0, "input_list length not divisble by 4."
-        frmt += f"{len(input_list)//4}"
+        frmt += f"{len(input_list) // 4}"
     elif type(input_list[0]) is int:
         frmt += f"{len(input_list)}"
 

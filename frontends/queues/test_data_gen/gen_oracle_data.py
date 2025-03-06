@@ -59,9 +59,9 @@ def no_err_cmds_list(queue_size, num_cmds):
     commands += (num_cmds - len(commands)) * [0]
     # The above command will add either zero or one `pop` commands to the end.
 
-    assert (
-        len(commands) == num_cmds
-    ), f"Length of commands list was {len(commands)}, expected {num_cmds}"
+    assert len(commands) == num_cmds, (
+        f"Length of commands list was {len(commands)}, expected {num_cmds}"
+    )
     return commands
 
 

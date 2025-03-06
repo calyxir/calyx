@@ -1,8 +1,8 @@
 pub use crate::cli_ext::{CliExt, FakeCli, FromArgFn, RedactArgFn};
 use crate::config;
-use crate::exec::{plan, Driver, Request, StateRef};
+use crate::exec::{Driver, Request, StateRef, plan};
 use crate::run::Run;
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use argh::FromArgs;
 use camino::Utf8PathBuf;
 use figment::providers::Serialized;

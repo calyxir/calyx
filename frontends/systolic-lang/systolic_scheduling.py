@@ -15,7 +15,7 @@ class CalyxAdd:
         self.const = const
 
     def __eq__(self, other):
-        if type(other) != CalyxAdd:
+        if type(other) is not CalyxAdd:
             return False
         return (
             cb.ExprBuilder.unwrap(self.port) == cb.ExprBuilder.unwrap(other.port)
@@ -78,16 +78,16 @@ class Schedule:
     def __instantiate_calyx_adds(self, comp) -> list:
         """ """
         for schedule_instance in self.instances.keys():
-            if type(schedule_instance.i1) == CalyxAdd:
+            if type(schedule_instance.i1) is CalyxAdd:
                 schedule_instance.i1.implement_add(comp)
-            if type(schedule_instance.i2) == CalyxAdd:
+            if type(schedule_instance.i2) is CalyxAdd:
                 schedule_instance.i2.implement_add(comp)
 
     def __check_idx_eq(self, comp: cb.ComponentBuilder, idx_reg: cb.CellBuilder, eq):
         """
         Creates assignments to test if idx >= lo
         """
-        if type(eq) == CalyxAdd:
+        if type(eq) is CalyxAdd:
             eq_value = comp.get_cell(str(eq)).port("out")
         else:
             eq_value = eq
@@ -102,9 +102,9 @@ class Schedule:
         """
         Creates assignments to test if idx >= lo
         """
-        if type(lo) == int and lo == 0:
+        if type(lo) is int and lo == 0:
             return
-        if type(lo) == CalyxAdd:
+        if type(lo) is CalyxAdd:
             lo_value = comp.get_cell(str(lo)).port("out")
         else:
             lo_value = lo
@@ -119,7 +119,7 @@ class Schedule:
         """
         Creates assignments to test if idx < hi
         """
-        if type(hi) == CalyxAdd:
+        if type(hi) is CalyxAdd:
             hi_value = comp.get_cell(str(hi)).port("out")
         else:
             hi_value = hi
@@ -138,7 +138,7 @@ class Schedule:
         idx_between_str = f"idx_between_{lo}_{hi}_comb"
         lt = comp.get_cell(f"index_lt_{hi}")
         # if lo == 0, then only need to check if reg < hi
-        if type(lo) == int and lo == 0:
+        if type(lo) is int and lo == 0:
             # In this case, the `wire` cell is the cell checking the condition.
             wire = comp.wire(idx_between_str, 1)
             with comp.continuous:

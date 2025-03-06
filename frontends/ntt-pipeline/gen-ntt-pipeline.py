@@ -7,6 +7,7 @@ import calyx.builder as cb
 from calyx.utils import bits_needed
 import os
 
+
 def reduce_parallel_control_pass(component: ast.Component, N: int, input_size: int):
     """Reduces the amount of fan-out by reducing
     parallelization in the execution flow
@@ -26,9 +27,9 @@ def reduce_parallel_control_pass(component: ast.Component, N: int, input_size: i
     par { s0_r2_op_mod; s0_r3_op_mod; }
     ...
     """
-    assert (
-        N and 0 < N < input_size and (not (N & (N - 1)))
-    ), f"""N: {N} should be a power of two within bounds (0, {input_size})."""
+    assert N and 0 < N < input_size and (not (N & (N - 1))), (
+        f"""N: {N} should be a power of two within bounds (0, {input_size})."""
+    )
 
     reduced_controls = []
     for control in component.controls.stmts:

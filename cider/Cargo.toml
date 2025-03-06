@@ -2,7 +2,7 @@
 name = "cider"
 version = "0.1.1"
 authors = ["The Calyx authors"]
-edition = "2021"
+edition.workspace = true
 rust-version.workspace = true
 
 [[bin]]
@@ -32,7 +32,7 @@ baa.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 
-owo-colors = "^3.5"
+owo-colors = { version = "4.1", features = ["supports-colors"] }
 rustyline = "=15.0.0"
 fraction = { version = "0.15.3", features = ["with-serde-support"] }
 num-bigint = "0.4.6"

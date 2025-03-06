@@ -27,7 +27,9 @@ enum CiderDataConverterError {
     #[error("Failed to parse \"to\" argument: {0}")]
     BadToArgument(String),
 
-    #[error("Unable to guess the conversion target. Please specify the target using the \"--to\" argument")]
+    #[error(
+        "Unable to guess the conversion target. Please specify the target using the \"--to\" argument"
+    )]
     UnknownTarget,
 
     #[error(transparent)]
@@ -116,22 +118,22 @@ fn main() -> Result<(), CiderDataConverterError> {
     if opts.action.is_none()
         // input is .json
         && (opts.input_path.as_ref().is_some_and(|x| {
-            x.extension().map_or(false, |y| y == JSON_EXTENSION)
+            x.extension().is_some_and(|y| y == JSON_EXTENSION)
         })
         // output is .dump
         || opts.output_path.as_ref().is_some_and(|x| {
-            x.extension().map_or(false, |y| y == CIDER_EXTENSION)
+            x.extension().is_some_and(|y| y == CIDER_EXTENSION)
         }))
     {
         opts.action = Some(Target::DataDump);
     } else if opts.action.is_none()
         // output is .json
         && (opts.output_path.as_ref().is_some_and(|x| {
-            x.extension().map_or(false, |x| x == JSON_EXTENSION)
+            x.extension().is_some_and(|x| x == JSON_EXTENSION)
         })
         // input is .dump
         || opts.input_path.as_ref().is_some_and(|x| {
-            x.extension().map_or(false, |x| x == CIDER_EXTENSION)
+            x.extension().is_some_and(|x| x == CIDER_EXTENSION)
         })
         // input is a directory (suggesting a deserialization from dat)
         || opts.input_path.as_ref().is_some_and(|x| x.is_dir()))

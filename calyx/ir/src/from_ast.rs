@@ -1,11 +1,11 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, Cell, CellType, Component,
     Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
-    LibrarySignatures, Port, PortDef, StaticControl, StaticInvoke,
-    RESERVED_NAMES, RRC,
+    LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC, StaticControl,
+    StaticInvoke,
 };
 use crate::{Nothing, PortComp, StaticTiming};
-use calyx_frontend::{ast, BoolAttr, NumAttr, Workspace};
+use calyx_frontend::{BoolAttr, NumAttr, Workspace, ast};
 use calyx_utils::{CalyxResult, Error, GPosIdx, WithPos};
 use itertools::Itertools;
 
@@ -733,7 +733,9 @@ fn build_static_par(
     {
         Some(s) => s.get_latency(),
         None => {
-            return Err(Error::malformed_control("empty par block".to_string()))
+            return Err(Error::malformed_control(
+                "empty par block".to_string(),
+            ));
         }
     };
     assert_latencies_eq(latency, inferred_latency);
@@ -913,7 +915,7 @@ fn build_static_control(
         } => {
             return build_static_seq(
                 stmts, attributes, latency, builder, sig_ctx,
-            )
+            );
         }
         ast::Control::StaticPar {
             stmts,
@@ -922,7 +924,7 @@ fn build_static_control(
         } => {
             return build_static_par(
                 stmts, attributes, latency, builder, sig_ctx,
-            )
+            );
         }
         ast::Control::StaticIf {
             port,
@@ -933,7 +935,7 @@ fn build_static_control(
         } => {
             return build_static_if(
                 port, *tbranch, *fbranch, attributes, latency, builder, sig_ctx,
-            )
+            );
         }
         ast::Control::StaticRepeat {
             attributes,
@@ -946,7 +948,7 @@ fn build_static_control(
                 builder,
                 attributes,
                 sig_ctx,
-            )
+            );
         }
         ast::Control::Par { .. }
         | ast::Control::If { .. }

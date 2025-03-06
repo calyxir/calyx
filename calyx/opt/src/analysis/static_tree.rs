@@ -1,6 +1,6 @@
 use super::{FSMEncoding, StaticFSM};
 use calyx_ir::{self as ir};
-use calyx_ir::{build_assignments, Nothing};
+use calyx_ir::{Nothing, build_assignments};
 use calyx_ir::{guard, structure};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};

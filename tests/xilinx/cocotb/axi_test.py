@@ -15,9 +15,9 @@ class KernelTB:
     def __init__(self, toplevel, data_path: Path):
         self.toplevel = toplevel
         self.data_path = data_path
-        assert os.path.isfile(
-            self.data_path
-        ), "data_path must be a data path to a valid file"
+        assert os.path.isfile(self.data_path), (
+            "data_path must be a data path to a valid file"
+        )
         # self.expect_path = expect_path
         # assert os.path.isfile(
         #    self.expect_path

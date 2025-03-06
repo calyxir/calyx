@@ -209,14 +209,14 @@ class Pieo:
         """Check that an element is 'ripe' - i.e. its ready time has passed"""
         return element["time"] <= time
 
-    def binsert(self, val, time, rank, l, r):
+    def binsert(self, val, time, rank, left, r):
         """Inserts element into list such that rank ordering is preserved
         Uses variant of binary search algorithm.
         """
-        if l == r:
-            return self.data.insert(l, {"val": val, "time": time, "rank": rank})
+        if left == r:
+            return self.data.insert(left, {"val": val, "time": time, "rank": rank})
 
-        mid = (l + r) // 2
+        mid = (left + r) // 2
 
         if rank == self.data[mid]["rank"]:
             return self.data.insert(mid, {"val": val, "time": time, "rank": rank})
@@ -225,7 +225,7 @@ class Pieo:
             return self.binsert(val, time, rank, mid + 1, r)
 
         if rank < self.data[mid]["rank"]:
-            return self.binsert(val, time, rank, l, mid)
+            return self.binsert(val, time, rank, left, mid)
 
     def push(self, val, rank=0, time=0, insertion_count=None) -> None:
         """Pushes to a PIEO.

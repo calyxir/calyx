@@ -260,14 +260,14 @@ impl SourceInfoTable {
 
         // write file table
         writeln!(f, "FILES")?;
-        for (file, path) in self.file_map.iter().sorted_by_key(|(&k, _)| k) {
+        for (file, path) in self.file_map.iter().sorted_by_key(|(k, _)| **k) {
             writeln!(f, "{file}: {}", path.display())?;
         }
 
         // write the position table
         writeln!(f, "POSITIONS")?;
         for (position, SourceLocation { line, file }) in
-            self.position_map.iter().sorted_by_key(|(&k, _)| k)
+            self.position_map.iter().sorted_by_key(|(k, _)| **k)
         {
             writeln!(f, "{position}: {file} {line}")?;
         }

@@ -88,7 +88,7 @@ impl Range {
     }
 }
 
-impl<'a> From<ts::Node<'a>> for Range {
+impl From<ts::Node<'_>> for Range {
     fn from(value: ts::Node) -> Self {
         Range {
             start: value.start_position().into(),
@@ -131,7 +131,7 @@ impl Contains<&Point> for Range {
     }
 }
 
-impl<'a> Contains<&Point> for Vec<ts::Node<'a>> {
+impl Contains<&Point> for Vec<ts::Node<'_>> {
     fn contains(&self, other: &Point) -> bool {
         self.iter().any(|n| Range::from(*n).contains(other))
     }

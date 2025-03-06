@@ -1,12 +1,12 @@
 use figment::providers::Format as _;
 use fud_core::{
+    Driver, DriverBuilder,
     config::default_config,
     exec::{
+        IO, Plan, Request,
         plan::{EnumeratePlanner, FindPlan, LegacyPlanner},
-        Plan, Request, IO,
     },
     run::Run,
-    Driver, DriverBuilder,
 };
 use itertools::Itertools;
 

@@ -28,7 +28,6 @@ use std::rc::Rc;
 ///       wait_*;
 ///       wait_restore_*;
 ///     }
-
 pub struct CompileSync {
     barriers: BarrierMap,
 }

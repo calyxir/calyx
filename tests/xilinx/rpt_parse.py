@@ -3,7 +3,7 @@
 # Test RPT parsing in fud
 import argparse
 import os
-from pathlib import Path, PurePath
+from pathlib import Path
 from fud.stages.vivado.extract import place_and_route_extract
 
 # import json

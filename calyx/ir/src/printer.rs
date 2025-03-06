@@ -2,7 +2,7 @@
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
 use crate::{self as ir, RRC};
-use calyx_frontend::{source_info::SourceInfoTable, PrimitiveInfo};
+use calyx_frontend::{PrimitiveInfo, source_info::SourceInfoTable};
 use calyx_utils::float;
 use itertools::Itertools;
 use std::io;

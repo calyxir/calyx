@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pest_consume::{match_nodes, Error, Parser};
+use pest_consume::{Error, Parser, match_nodes};
 
 use crate::errors::CiderResult;
 

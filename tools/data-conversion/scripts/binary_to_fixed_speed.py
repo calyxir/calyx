@@ -1,6 +1,5 @@
 import random
 import os
-import subprocess
 
 
 def generate_binary_string(length):
@@ -24,7 +23,7 @@ def write_input_files(tests, input_dir):
     input_paths = []
 
     for binary_string in tests:
-        input_path = os.path.join(input_dir, f"speed_test.in")
+        input_path = os.path.join(input_dir, "speed_test.in")
         with open(input_path, "a") as f:
             f.write(f"{binary_string}\n")
         input_paths.append(input_path)

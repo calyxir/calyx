@@ -108,7 +108,7 @@ def pretty_print_functions():
     """Pretty prints the available functions."""
     half = len(FUNCTIONS) // 2
     keys = list(FUNCTIONS.keys())
-    for (f1, f2) in zip(keys[:half], keys[half:]):
+    for f1, f2 in zip(keys[:half], keys[half:]):
         whitespace = (16 - len(f1)) * " "
         print(f"- {f1}{whitespace} - {f2}")
 
@@ -122,7 +122,7 @@ def run_example():
     input = sys.argv[1:]
     if "-h" in input or not input:
         print(
-            f"""
+            """
 help  -h    Displays available functions to play with.
 relay -r    Displays the Relay IR. Displays Calyx otherwise.
 

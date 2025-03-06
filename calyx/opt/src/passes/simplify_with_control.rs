@@ -1,6 +1,6 @@
 use crate::analysis;
 use crate::traversal::{Action, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, structure, GetAttributes, LibrarySignatures, RRC};
+use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, RRC, structure};
 use calyx_utils::{CalyxResult, Error};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -253,8 +253,10 @@ impl Visitor for SimplifyWithControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         if comp.is_static() {
-            let msg =
-                format!("Static Component {} has combinational groups which is not supported", comp.name);
+            let msg = format!(
+                "Static Component {} has combinational groups which is not supported",
+                comp.name
+            );
             return Err(Error::pass_assumption(Self::name(), msg)
                 .with_pos(&comp.attributes));
         }

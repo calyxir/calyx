@@ -1,7 +1,7 @@
 use argh::FromArgs;
 use calyx_frontend::{
-    self as frontend, source_info::PositionId, source_info::SourceInfoTable,
-    source_info::SourceLocation, SetAttr, SetAttribute,
+    self as frontend, SetAttr, SetAttribute, source_info::PositionId,
+    source_info::SourceInfoTable, source_info::SourceLocation,
 };
 use calyx_ir::{self as ir, Id};
 use calyx_utils::{CalyxResult, OutputFile};

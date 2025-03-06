@@ -982,7 +982,7 @@ impl std::fmt::Display for VerilogGuardRef {
 /// Similarly, a little wrapper for PortRefs that makes it easy to format them as Verilog variables.
 struct VerilogPortRef<'a>(&'a RRC<ir::Port>);
 
-impl<'a> std::fmt::Display for VerilogPortRef<'a> {
+impl std::fmt::Display for VerilogPortRef<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let port = self.0.borrow();
         match &port.parent {

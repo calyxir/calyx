@@ -151,6 +151,10 @@ where
     pub fn get(&self, key: K) -> Option<&D> {
         self.data.get(&key)
     }
+
+    pub fn get_mut(&mut self, key: K) -> Option<&mut D> {
+        self.data.get_mut(&key)
+    }
 }
 
 impl<K, D> Default for SecondarySparseMap<K, D>

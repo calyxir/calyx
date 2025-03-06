@@ -2,8 +2,8 @@ use crate::exec::State;
 
 use super::{
     super::{OpRef, Operation, StateRef},
-    planner::Step,
     FindPlan,
+    planner::Step,
 };
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 

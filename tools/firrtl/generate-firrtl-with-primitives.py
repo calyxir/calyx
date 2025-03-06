@@ -9,6 +9,7 @@ import math
 import os
 import sys
 
+
 # Generates a map where `key` should be replaced with `value`
 def generate_replacement_map(inst):
     replacement_map = {}
@@ -17,9 +18,13 @@ def generate_replacement_map(inst):
 
     # Special primitives that have a value dependent on their parameters.
     if inst["name"] == "std_pad":
-        replacement_map["DIFF"] = replacement_map["OUT_WIDTH"] - replacement_map["IN_WIDTH"]
+        replacement_map["DIFF"] = (
+            replacement_map["OUT_WIDTH"] - replacement_map["IN_WIDTH"]
+        )
     elif inst["name"] == "std_slice":
-        replacement_map["DIFF"] = replacement_map["IN_WIDTH"] - replacement_map["OUT_WIDTH"]
+        replacement_map["DIFF"] = (
+            replacement_map["IN_WIDTH"] - replacement_map["OUT_WIDTH"]
+        )
     elif inst["name"] == "std_lsh":
         width = replacement_map["WIDTH"]
         replacement_map["BITS"] = math.ceil(math.log(width, 2)) + 1
@@ -29,16 +34,19 @@ def generate_replacement_map(inst):
         replacement_map["HIGH"] = width - 1
         replacement_map["LOW"] = 0
 
-
     return replacement_map
+
 
 # Retrieves the appropriate template file for the given primitive
 def retrieve_firrtl_template(primitive_name):
     firrtl_file_path = os.path.join(sys.path[0], "templates", primitive_name + ".fir")
-    if not(os.path.isfile(firrtl_file_path)):
-        print(f"{sys.argv[0]}: FIRRTL template file for primitive {primitive_name} does not exist! Exiting...")
+    if not (os.path.isfile(firrtl_file_path)):
+        print(
+            f"{sys.argv[0]}: FIRRTL template file for primitive {primitive_name} does not exist! Exiting..."
+        )
         sys.exit(1)
     return firrtl_file_path
+
 
 # Generates a primitive definition from the provided JSON data of a unique primitive use
 def generate_primitive_definition(inst):
@@ -50,7 +58,8 @@ def generate_primitive_definition(inst):
             for key in replacement_map:
                 line = line.replace(key, str(replacement_map[key]))
             print(line.rstrip())
-    print() # whitespace to buffer between modules
+    print()  # whitespace to buffer between modules
+
 
 # Generates a complete FIRRTL program with primitives.
 def generate(firrtl_filename, primitive_uses_filename):
@@ -67,15 +76,14 @@ def generate(firrtl_filename, primitive_uses_filename):
     for line in firrtl_file.readlines():
         print(line.rstrip())
 
+
 def main():
     if len(sys.argv) != 3:
-        args_desc = [                                                                                                                                                                   
-            "FIRRTL_FILE",
-            "PRIMITIVE_USES_JSON"
-        ]
-        print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")                                                                                                                           
+        args_desc = ["FIRRTL_FILE", "PRIMITIVE_USES_JSON"]
+        print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
         return 1
     generate(sys.argv[1], sys.argv[2])
 
-if __name__ == '__main__':
-        main()
+
+if __name__ == "__main__":
+    main()

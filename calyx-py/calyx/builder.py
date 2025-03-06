@@ -1101,9 +1101,9 @@ def as_control(obj):
             "GroupBuilder represents continuous assignments and"
             " cannot be used as a control statement"
         )
-        assert not isinstance(
-            gl, ast.CombGroup
-        ), "Cannot use combinational group as control statement"
+        assert not isinstance(gl, ast.CombGroup), (
+            "Cannot use combinational group as control statement"
+        )
         return ast.Enable(gl.id.name)
     if isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
@@ -1162,9 +1162,9 @@ def if_with(port_comb: CellAndGroup, body, else_body=None) -> ast.If:
     cond = port_comb.group
     else_body = else_body or ast.Empty()
 
-    assert isinstance(
-        cond.group_like, ast.CombGroup
-    ), "if condition must be a combinational group"
+    assert isinstance(cond.group_like, ast.CombGroup), (
+        "if condition must be a combinational group"
+    )
     return ast.If(
         port.expr, cond.group_like.id, as_control(body), as_control(else_body)
     )
@@ -1177,9 +1177,9 @@ def while_with(port_comb: CellAndGroup, body) -> ast.While:
 
     port = port_comb.cell.out
     cond = port_comb.group
-    assert isinstance(
-        cond.group_like, ast.CombGroup
-    ), "while condition must be a combinational group"
+    assert isinstance(cond.group_like, ast.CombGroup), (
+        "while condition must be a combinational group"
+    )
     return ast.While(port.expr, cond.group_like.id, as_control(body))
 
 
@@ -1632,9 +1632,9 @@ class GroupBuilder:
             "GroupLikeBuilder represents continuous assignments"
             " and does not have a done hole"
         )
-        assert not isinstance(
-            self.group_like, ast.CombGroup
-        ), "done hole not available for comb group"
+        assert not isinstance(self.group_like, ast.CombGroup), (
+            "done hole not available for comb group"
+        )
 
         return ExprBuilder(ast.HolePort(ast.CompVar(self.group_like.id.name), "done"))
 

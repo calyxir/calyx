@@ -1,6 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use crate::{analysis::GraphAnalysis, passes::TopDownCompileControl};
-use calyx_ir::{self as ir, structure, LibrarySignatures, RRC};
+use calyx_ir::{self as ir, LibrarySignatures, RRC, structure};
 use calyx_utils::Error;
 use ir::Nothing;
 use std::{collections::HashMap, rc::Rc};
@@ -55,11 +55,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
 
     // helper to check if a guard has holes
     let has_holes = |guard: &ir::Guard<Nothing>| {
-        guard
-            .all_ports()
-            .iter()
-            .map(|p| p.borrow().is_hole())
-            .any(|e| e)
+        guard.all_ports().iter().any(|p| p.borrow().is_hole())
     };
 
     // initialize the worklist to have guards that have no holes
@@ -109,11 +105,13 @@ impl Visitor for HoleInliner {
         let top_level = match &*comp.control.borrow() {
             ir::Control::Empty(_) => return Ok(Action::Stop),
             ir::Control::Enable(en) => Rc::clone(&en.group),
-            _ => return Err(Error::malformed_control(format!(
+            _ => {
+                return Err(Error::malformed_control(format!(
                     "{}: Control shoudl be a single enable. Try running `{}` before inlining.",
                     Self::name(),
-                    TopDownCompileControl::name()))
-            )
+                    TopDownCompileControl::name()
+                )));
+            }
         };
 
         let this_comp = Rc::clone(&comp.signature);

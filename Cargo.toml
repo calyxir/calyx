@@ -43,9 +43,9 @@ readme = "README.md"
 description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
-edition = "2021"
+edition = "2024"
 version = "0.7.1"
-rust-version = "1.80"
+rust-version = "1.85"
 
 [workspace.dependencies]
 # Internal crates

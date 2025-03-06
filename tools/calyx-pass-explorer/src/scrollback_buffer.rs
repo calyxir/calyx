@@ -1,4 +1,4 @@
-use crossterm::{cursor, style, terminal, ExecutableCommand, QueueableCommand};
+use crossterm::{ExecutableCommand, QueueableCommand, cursor, style, terminal};
 use std::cmp::min;
 
 /// Implements a scrollback buffer.
@@ -138,7 +138,7 @@ impl<'a> ScrollbackBuffer<'a> {
     }
 }
 
-impl<'a> std::io::Write for ScrollbackBuffer<'a> {
+impl std::io::Write for ScrollbackBuffer<'_> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if self.lines.is_empty() {
             self.lines.push("".into());

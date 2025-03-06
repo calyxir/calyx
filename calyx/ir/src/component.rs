@@ -1,10 +1,10 @@
 use super::{
     Assignment, Attribute, Attributes, BoolAttr, Builder, Cell, CellType,
-    CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef,
-    StaticGroup, RRC,
+    CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef, RRC,
+    StaticGroup,
 };
-use crate::guard::StaticTiming;
 use crate::Nothing;
+use crate::guard::StaticTiming;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -420,7 +420,7 @@ impl<T: GetName> IdList<T> {
 
     /// Removes all elements from the collection and returns an iterator over
     /// the owned elements.
-    pub fn drain(&mut self) -> impl Iterator<Item = RRC<T>> {
+    pub fn drain(&mut self) -> impl Iterator<Item = RRC<T>> + use<T> {
         let drain = std::mem::take(&mut self.0);
 
         drain.into_iter().map(|(_, cell)| cell)

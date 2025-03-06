@@ -18,8 +18,8 @@ use attribute::InlineAttributes;
 
 pub use ast::NamespaceDef;
 pub use attribute::{
-    Attribute, BoolAttr, InternalAttr, NumAttr, SetAttr, SetAttribute,
-    DEPRECATED_ATTRIBUTES,
+    Attribute, BoolAttr, DEPRECATED_ATTRIBUTES, InternalAttr, NumAttr, SetAttr,
+    SetAttribute,
 };
 pub use attributes::{Attributes, GetAttributes};
 pub use common::{Direction, PortDef, Primitive, Width};

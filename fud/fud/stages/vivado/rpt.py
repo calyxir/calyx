@@ -22,9 +22,9 @@ class RPTParser:
 
     @staticmethod
     def _parse_simple_header(line):
-        assert re.search(
-            r"\s*\|", line
-        ), "Simple header line should have | as first non-whitespace character"
+        assert re.search(r"\s*\|", line), (
+            "Simple header line should have | as first non-whitespace character"
+        )
         return RPTParser._clean_and_strip(line.split("|"))
 
     @staticmethod

@@ -121,8 +121,8 @@ impl CliExt for () {
         vec![]
     }
 
-    fn inner_redact_arg_values(
-    ) -> Vec<(&'static str, crate::cli_ext::RedactArgFn)> {
+    fn inner_redact_arg_values()
+    -> Vec<(&'static str, crate::cli_ext::RedactArgFn)> {
         vec![]
     }
 

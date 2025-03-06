@@ -1,8 +1,8 @@
 use rhai::{Dynamic, ImmutableString, ParseError, Position};
 
 use crate::{
-    exec::{SetupRef, StateRef},
     DriverBuilder,
+    exec::{SetupRef, StateRef},
 };
 use std::{
     cell::{RefCell, RefMut},
@@ -13,7 +13,7 @@ use std::{
 
 use super::{
     error::RhaiSystemError,
-    exec_scripts::{to_rhai_err, to_str_slice, RhaiResult, RhaiSetupCtx},
+    exec_scripts::{RhaiResult, RhaiSetupCtx, to_rhai_err, to_str_slice},
     report::RhaiReport,
     resolver::Resolver,
 };
@@ -479,7 +479,7 @@ impl ScriptRunner {
                         "{} in {}",
                         e,
                         f.to_str().unwrap()
-                    ))
+                    ));
                 }
                 Ok(ast) => ast,
             };

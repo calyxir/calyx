@@ -4,7 +4,7 @@ use calyx_ir as ir;
 use calyx_ir::utils::GetMemInfo;
 use calyx_utils::CalyxResult;
 use rand::Rng;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use ahash::{HashMap, HashMapExt};
-use calyx_frontend::{source_info::PositionId, SetAttr};
+use calyx_frontend::{SetAttr, source_info::PositionId};
 use calyx_ir::GetAttributes;
 use calyx_ir::{self as cir, NumAttr, RRC};
 use cider_idx::iter::IndexRange;
@@ -17,7 +17,7 @@ use crate::{
                 AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
                 PrimaryComponentInfo,
             },
-            flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
+            flatten_trait::{FlattenTree, SingleHandle, flatten_tree},
             prelude::{
                 Assignment, AssignmentIdx, CellRef, CombGroup, CombGroupIdx,
                 ComponentIdx, GroupIdx, GuardIdx, PortRef,
@@ -260,11 +260,14 @@ fn translate_component(
     let ctrl_idx_end = taken_control.peek_next_idx();
 
     // unwrap all the stuff packed into the argument tuple
-    let (_, layout, mut taken_ctx, auxiliary_component_info) = argument_tuple;
+    let (_, layout, mut taken_ctx, mut auxiliary_component_info) =
+        argument_tuple;
 
     // put stuff back
     taken_ctx.primary.control = taken_control;
     *ctx = taken_ctx;
+
+    auxiliary_component_info.set_control_range(ctrl_idx_start, ctrl_idx_end);
 
     for node in IndexRange::new(ctrl_idx_start, ctrl_idx_end).iter() {
         if let Control::Invoke(i) = &mut ctx.primary.control[node].control {
@@ -524,7 +527,9 @@ fn compute_local_layout(
             };
             aux.skip_offsets(skips);
         } else {
-            unreachable!("Component cell isn't a component?. This shouldn't be possible please report this.")
+            unreachable!(
+                "Component cell isn't a component?. This shouldn't be possible please report this."
+            )
         }
     }
 
@@ -697,8 +702,8 @@ impl FlattenTree for cir::Control {
 
                 let ref_cells = inv.ref_cells.iter().map(|(ref_cell_id, realizing_cell)| {
                         let invoked_comp = invoked_comp.as_component().expect("cannot invoke a non-component with ref cells");
-                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(_idx, &def_idx)| {
-                            let def = &ctx.secondary[def_idx];
+                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(_idx, def_idx)| {
+                            let def = &ctx.secondary[**def_idx];
                             def.name == resolve_id(ref_cell_id)
                         }).map(|(t, _)| t).expect("Unable to find the given ref cell in the invoked component");
                         (*target, layout.cell_map[&realizing_cell.as_raw()])
@@ -723,7 +728,10 @@ impl FlattenTree for cir::Control {
                     .borrow()
                     .find_all_with_attr(NumAttr::Go)
                     .collect_vec();
-                assert!(go.len() == 1, "cannot handle multiple go ports yet or the invoked cell has none");
+                assert!(
+                    go.len() == 1,
+                    "cannot handle multiple go ports yet or the invoked cell has none"
+                );
                 let comp_go = layout.port_map[&go[0].as_raw()];
                 let done = inv
                     .comp
