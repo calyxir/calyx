@@ -54,7 +54,10 @@ impl ConstructVisitor for DiscoverExternal {
             if spl == Some("default") {
                 let Some(val) = splits.next().and_then(|v| v.parse().ok())
                 else {
-                    log::warn!("Failed to parse default value. Please specify using -x {}:default=<n>", n);
+                    log::warn!(
+                        "Failed to parse default value. Please specify using -x {}:default=<n>",
+                        n
+                    );
                     continue;
                 };
                 log::info!("Setting default value to {}", val);
@@ -64,7 +67,10 @@ impl ConstructVisitor for DiscoverExternal {
             // Search for "strip-suffix=<str>" option
             else if spl == Some("strip-suffix") {
                 let Some(suff) = splits.next() else {
-                    log::warn!("Failed to parse suffix. Please specify using -x {}:strip-suffix=<str>", n);
+                    log::warn!(
+                        "Failed to parse suffix. Please specify using -x {}:strip-suffix=<str>",
+                        n
+                    );
                     continue;
                 };
                 log::info!("Setting suffix to {}", suff);

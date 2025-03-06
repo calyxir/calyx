@@ -1,5 +1,7 @@
 use bon::Builder;
 
+use crate::flatten::text_utils;
+
 // this can be a copy type because it's just a bunch of bools
 #[derive(Debug, Default, Clone, Copy, Builder)]
 /// Configuration struct which controls runtime behavior
@@ -35,6 +37,10 @@ impl RuntimeConfig {
             quiet: self.quiet,
             debug_logging: self.debug_logging,
         }
+    }
+
+    pub fn set_force_color(self, force_color: bool) {
+        text_utils::force_color(force_color);
     }
 }
 

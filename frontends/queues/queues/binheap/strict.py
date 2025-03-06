@@ -2,7 +2,6 @@
 import calyx.builder as cb
 from calyx.utils import bits_needed
 from queues.binheap.stable_binheap import insert_stable_binheap
-from queues.flow_inference import insert_boundary_flow_inference
 
 FACTOR = 4
 

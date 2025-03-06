@@ -118,9 +118,9 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str, save_mem=Tr
             intrp = relay.build_module.create_executor("graph", mod, tvm.cpu(0))
 
         # Execute the ONNX model with the given parameters.
-        assert isinstance(
-            data, np.ndarray
-        ), f"The input type, {type(data)}, should be `class '<numpy.ndarray>'`."
+        assert isinstance(data, np.ndarray), (
+            f"The input type, {type(data)}, should be `class '<numpy.ndarray>'`."
+        )
         tvm_output = intrp.evaluate()(tvm.nd.array(data.astype("float32")), **params)
 
         np.set_printoptions(suppress=True, precision=16)

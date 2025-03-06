@@ -4,6 +4,7 @@ Use the machinery from "old fud" to convert a JSON data file into a
 directory of flat hex-encoded files, suitable for loading into a
 hardware simulator, and back again.
 """
+
 from fud.stages.verilator.json_to_dat import convert2dat, convert2json
 import simplejson
 import sys
@@ -41,14 +42,14 @@ def dat2json(out_file, in_dir, sim_log=None):
     else:
         out = mem
 
-    with open(out_file, 'w') as f:
+    with open(out_file, "w") as f:
         simplejson.dump(out, f, indent=2, sort_keys=True, use_decimal=True)
 
 
-if __name__ == '__main__':
-    if sys.argv[1] == '--from-json':
+if __name__ == "__main__":
+    if sys.argv[1] == "--from-json":
         json2dat(*sys.argv[2:])
-    elif sys.argv[1] == '--to-json':
+    elif sys.argv[1] == "--to-json":
         dat2json(*sys.argv[2:])
     else:
         print("specify --from-json or --to-json", file=sys.stderr)

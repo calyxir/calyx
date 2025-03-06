@@ -114,7 +114,10 @@ impl Display for RhaiSystemError {
                 write!(f, "Unable to construct StateRef: `{v:?}`")
             }
             RhaiSystemErrorKind::BeganOp(old_name, new_name) => {
-                write!(f, "Unable to build two ops at once: trying to build `{new_name:?}` but already building `{old_name:?}`")
+                write!(
+                    f,
+                    "Unable to build two ops at once: trying to build `{new_name:?}` but already building `{old_name:?}`"
+                )
             }
             RhaiSystemErrorKind::NoOp => {
                 write!(
@@ -123,22 +126,37 @@ impl Display for RhaiSystemError {
                 )
             }
             RhaiSystemErrorKind::NoDep(dep) => {
-                write!(f, "Unable to find dep: `{dep:?}`. A call to `shell` with `{dep:?}` as an output must occur prior to this call.")
+                write!(
+                    f,
+                    "Unable to find dep: `{dep:?}`. A call to `shell` with `{dep:?}` as an output must occur prior to this call."
+                )
             }
             RhaiSystemErrorKind::ExpectedString(v) => {
                 write!(f, "Expected string, got: `{v:?}`.")
             }
             RhaiSystemErrorKind::DupTarget(target) => {
-                write!(f, "Duplicate target: `{target:?}`. Consider removing a shell command generating `{target:?}`.")
+                write!(
+                    f,
+                    "Duplicate target: `{target:?}`. Consider removing a shell command generating `{target:?}`."
+                )
             }
             RhaiSystemErrorKind::ExpectedShell => {
-                write!(f, "Expected `shell`, got `shell_deps`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
+                write!(
+                    f,
+                    "Expected `shell`, got `shell_deps`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both"
+                )
             }
             RhaiSystemErrorKind::ExpectedShellDeps => {
-                write!(f, "Expected `shell_deps`, got `shell`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both")
+                write!(
+                    f,
+                    "Expected `shell_deps`, got `shell`. Ops may contain only one of `shell` or `shell_deps` calls, not calls to both"
+                )
             }
             RhaiSystemErrorKind::EmptyOp => {
-                write!(f, "Error: Op must contain at least one call to `shell` or `shell_deps`.")
+                write!(
+                    f,
+                    "Error: Op must contain at least one call to `shell` or `shell_deps`."
+                )
             }
         }
     }

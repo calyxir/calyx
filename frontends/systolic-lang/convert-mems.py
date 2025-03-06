@@ -31,10 +31,10 @@ if __name__ == "__main__":
     signed = args.signed
     json_file = args.json_file
 
-    assert (
-        bit_width == frac_width + int_width
-    ), f"Bitwidth {bit_width} should equal: frac_width {frac_width} \
+    assert bit_width == frac_width + int_width, (
+        f"Bitwidth {bit_width} should equal: frac_width {frac_width} \
     + int_width {int_width}"
+    )
 
     json_data = json.load(open(json_file))
 

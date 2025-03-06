@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{document::Document, Config};
+use crate::{Config, document::Document};
 
 /// Describes the result of document queries that potentially need to access other
 /// documents. For example, to jump to definitions of imported primitives, we need

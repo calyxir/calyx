@@ -1,4 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: Concurrent read & write to the same register [4mmain.val[0m
+Error: Concurrent read & write to the same register main.val
+  write in thread ThreadIdx(2) from assignment val.write_en = 1'd1; in continuous logic in main
+  read in thread ThreadIdx(1) from RHS in assignment mem.write_data = val.out; in group main::store

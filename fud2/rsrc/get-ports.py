@@ -9,4 +9,4 @@ def get_ports(kernel_xml):
 
 
 if __name__ == "__main__":
-    print(' '.join(get_ports(sys.argv[1])))
+    print(" ".join(get_ports(sys.argv[1])))

@@ -3,9 +3,9 @@ use argh::FromArgs;
 #[cfg(feature = "serialize")]
 use calyx_backend::SexpBackend;
 use calyx_backend::{
-    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
     Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
     ResourcesBackend, VerilogBackend,
+    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -127,7 +127,10 @@ impl FromStr for CompileMode {
         match s {
             "file" => Ok(CompileMode::File),
             "project" => Ok(CompileMode::Project),
-            s => Err(format!("Unknown compilation mode: {}. Valid options are `file` or `project`", s))
+            s => Err(format!(
+                "Unknown compilation mode: {}. Valid options are `file` or `project`",
+                s
+            )),
         }
     }
 }
