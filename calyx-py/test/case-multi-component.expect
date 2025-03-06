@@ -1,30 +1,30 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
-component main() -> () {
+component main<"pos"={0}>() -> () {
   cells {
-    @external mem = comb_mem_d1(32, 1, 1);
-    r = std_reg(32);
-    ans = std_reg(32);
-    id_1 = identity();
-    id_2 = identity();
-    id_3 = identity();
-    id_4 = identity();
-    id_5 = identity();
-    r_out_eq_4_1 = std_eq(32);
-    r_out_eq_3_2 = std_eq(32);
-    r_out_eq_2_3 = std_eq(32);
-    r_out_eq_1_4 = std_eq(32);
-    r_out_eq_0_5 = std_eq(32);
+    @external @pos{1} mem = comb_mem_d1(32, 1, 1);
+    @pos{2} r = std_reg(32);
+    @pos{3} ans = std_reg(32);
+    @pos{8} id_1 = identity();
+    @pos{8} id_2 = identity();
+    @pos{8} id_3 = identity();
+    @pos{8} id_4 = identity();
+    @pos{8} id_5 = identity();
+    @pos{13} r_out_eq_4_1 = std_eq(32);
+    @pos{13} r_out_eq_3_2 = std_eq(32);
+    @pos{13} r_out_eq_2_3 = std_eq(32);
+    @pos{13} r_out_eq_1_4 = std_eq(32);
+    @pos{13} r_out_eq_0_5 = std_eq(32);
   }
   wires {
-    group read {
+    group read<"pos"={9}> {
       mem.addr0 = 1'd0;
       r.in = mem.read_data;
       r.write_en = 1'd1;
       read[done] = r.done;
     }
-    group write {
+    group write<"pos"={10}> {
       mem.addr0 = 1'd0;
       mem.write_en = 1'd1;
       mem.write_data = r.out;
@@ -42,37 +42,37 @@ component main() -> () {
     r_out_eq_0_5.right = 32'd0;
   }
   control {
-    seq {
-      read;
-      if r_out_eq_0_5.out {
-        invoke id_1(in_1=r.out)(out=ans.in);
+    @pos{14} seq {
+      @pos{11} read;
+      @pos{13} if r_out_eq_0_5.out {
+        @pos{12} invoke id_1(in_1=r.out)(out=ans.in);
       } else {
-        if r_out_eq_1_4.out {
-          invoke id_2(in_1=r.out)(out=ans.in);
+        @pos{13} if r_out_eq_1_4.out {
+          @pos{12} invoke id_2(in_1=r.out)(out=ans.in);
         } else {
-          if r_out_eq_2_3.out {
-            invoke id_3(in_1=r.out)(out=ans.in);
+          @pos{13} if r_out_eq_2_3.out {
+            @pos{12} invoke id_3(in_1=r.out)(out=ans.in);
           } else {
-            if r_out_eq_3_2.out {
-              invoke id_4(in_1=r.out)(out=ans.in);
+            @pos{13} if r_out_eq_3_2.out {
+              @pos{12} invoke id_4(in_1=r.out)(out=ans.in);
             } else {
-              if r_out_eq_4_1.out {
-                invoke id_5(in_1=r.out)(out=ans.in);
+              @pos{13} if r_out_eq_4_1.out {
+                @pos{12} invoke id_5(in_1=r.out)(out=ans.in);
               }
             }
           }
         }
       }
-      write;
+      @pos{14} write;
     }
   }
 }
-component identity(in_1: 32) -> (out: 32) {
+component identity<"pos"={4}>(in_1: 32) -> (out: 32) {
   cells {
-    r = std_reg(32);
+    @pos{5} r = std_reg(32);
   }
   wires {
-    group save {
+    group save<"pos"={6}> {
       r.in = in_1;
       r.write_en = 1'd1;
       save[done] = r.done;
@@ -80,6 +80,27 @@ component identity(in_1: 32) -> (out: 32) {
     out = r.out;
   }
   control {
-    save;
+    @pos{7} save;
   }
 }
+
+sourceinfo #{
+FILES 
+  0: case-multi-component.py
+POSITIONS 
+  0: 0 25
+  1: 0 26
+  2: 0 27
+  3: 0 28
+  4: 0 6
+  5: 0 7
+  6: 0 11
+  7: 0 19
+  8: 0 34
+  9: 0 37
+  10: 0 43
+  11: 0 49
+  12: 0 53
+  13: 0 50
+  14: 0 57
+}#

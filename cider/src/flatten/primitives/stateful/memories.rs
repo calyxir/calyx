@@ -1,4 +1,4 @@
-use cider_idx::{iter::SplitIndexRange, maps::IndexedMap, IndexRef};
+use cider_idx::{IndexRef, iter::SplitIndexRange, maps::IndexedMap};
 use itertools::Itertools;
 
 use crate::{
@@ -9,15 +9,15 @@ use crate::{
             prelude::{AssignedValue, GlobalPortIdx, PortValue},
         },
         primitives::{
-            declare_ports, declare_ports_no_signature, make_getters, ports,
+            Primitive, declare_ports, declare_ports_no_signature, make_getters,
+            ports,
             prim_trait::{RaceDetectionPrimitive, UpdateResult, UpdateStatus},
             utils::infer_thread_id,
-            Primitive,
         },
         structures::{
             environment::{
-                clock::{new_clock_pair, ClockMap, ValueWithClock},
                 PortMap,
+                clock::{ClockMap, ReadSource, ValueWithClock, new_clock_pair},
             },
             thread::{ThreadIdx, ThreadMap},
         },
@@ -180,10 +180,14 @@ impl RaceDetectionPrimitive for StdReg {
             )
             .expect("Could not infer thread id for reg");
 
-            let current_clock_idx = thread_map.unwrap_clock_id(thread);
             self.internal_state
                 .clocks
-                .check_write(current_clock_idx, clock_map)
+                .check_write_with_ascription(
+                    thread,
+                    thread_map,
+                    clock_map,
+                    port_map[write_en].winner().unwrap(),
+                )
                 .map_err(|e| e.add_cell_info(self.global_idx, None))?;
         }
 
@@ -495,10 +499,11 @@ impl CombMem {
             .collect_vec();
 
         assert_eq!(internal_state.len(), size.size());
-        assert!(data
-            .chunks_exact(byte_count as usize)
-            .remainder()
-            .is_empty());
+        assert!(
+            data.chunks_exact(byte_count as usize)
+                .remainder()
+                .is_empty()
+        );
 
         Self {
             base_port,
@@ -688,13 +693,16 @@ impl RaceDetectionPrimitive for CombMem {
         )? {
             if addr < self.internal_state.len() {
                 if let Some(thread) = thread {
-                    let thread_clock = thread_map.unwrap_clock_id(thread);
-
                     let val = &self.internal_state[addr];
 
                     if port_map[self.write_en()].as_bool().unwrap_or_default() {
                         val.clocks
-                            .check_write(thread_clock, clock_map)
+                            .check_write_with_ascription(
+                                thread,
+                                thread_map,
+                                clock_map,
+                                port_map[self.write_en()].winner().unwrap(),
+                            )
                             .map_err(|e| {
                                 e.add_cell_info(
                                     self.global_idx,
@@ -822,10 +830,11 @@ impl SeqMem {
             .collect_vec();
 
         assert_eq!(internal_state.len(), size.size());
-        assert!(data
-            .chunks_exact(byte_count as usize)
-            .remainder()
-            .is_empty());
+        assert!(
+            data.chunks_exact(byte_count as usize)
+                .remainder()
+                .is_empty()
+        );
 
         Self {
             base_port,
@@ -1050,11 +1059,13 @@ impl RaceDetectionPrimitive for SeqMem {
                         .unwrap_or_default()
                 {
                     val.clocks
-                        .check_write(
-                            thread_clock.expect(
+                        .check_write_with_ascription(
+                            thread.expect(
                                 "unable to determine thread for seq mem",
                             ),
+                            thread_map,
                             clock_map,
+                            port_map[self.write_enable()].winner().unwrap(),
                         )
                         .map_err(|e| {
                             e.add_cell_info(
@@ -1066,14 +1077,22 @@ impl RaceDetectionPrimitive for SeqMem {
                     .as_bool()
                     .unwrap_or_default()
                 {
+                    let (assignment_idx, cell) = port_map
+                        [self.content_enable()]
+                    .winner()
+                    .unwrap()
+                    .as_assign()
+                    .unwrap();
                     val.clocks
-                        .check_read(
+                        .check_read_with_ascription(
                             (
                                 thread.expect(
                                     "unable to determine thread for seq mem",
                                 ),
                                 thread_clock.unwrap(),
                             ),
+                            ReadSource::Assignment(assignment_idx),
+                            cell,
                             clock_map,
                         )
                         .map_err(|e| {

@@ -1,23 +1,23 @@
 #![allow(clippy::upper_case_acronyms)]
 
 //! Parser for Calyx programs.
+use super::Attributes;
 use super::ast::{
     self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
 };
-use super::Attributes;
 use crate::{
+    Attribute, Direction, PortDef, Primitive, Width,
     attribute::SetAttribute,
     attributes::ParseAttributeWrapper,
     source_info::{
         FileId as MetadataFileId, LineNum, PositionId, SourceInfoResult,
         SourceInfoTable,
     },
-    Attribute, Direction, PortDef, Primitive, Width,
 };
-use calyx_utils::{self, float, CalyxResult, Id, PosString};
+use calyx_utils::{self, CalyxResult, Id, PosString, float};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
-use pest_consume::{match_nodes, Error, Parser};
+use pest_consume::{Error, Parser, match_nodes};
 use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;

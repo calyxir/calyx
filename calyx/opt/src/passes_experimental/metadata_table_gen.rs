@@ -103,6 +103,9 @@ mod tests {
         );
         data.add_entry(Id::from("main"), Id::from("group_2"), (23, 28), path);
         let test_string = data.to_string();
-        assert_eq!(test_string, "main.group_1: /temp/path/for/testing.futil 12-16\nmain.group_2: /temp/path/for/testing.futil 23-28\n")
+        assert_eq!(
+            test_string,
+            "main.group_1: /temp/path/for/testing.futil 12-16\nmain.group_2: /temp/path/for/testing.futil 23-28\n"
+        )
     }
 }

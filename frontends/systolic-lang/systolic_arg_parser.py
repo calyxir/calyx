@@ -88,9 +88,9 @@ class SystolicConfiguration:
         """
         Returns the contraction dimension
         """
-        assert (
-            self.left_depth == self.top_depth
-        ), "left_depth and top_depth should be same"
+        assert self.left_depth == self.top_depth, (
+            "left_depth and top_depth should be same"
+        )
         # Could have also returend self.top_depth
         return self.left_depth
 

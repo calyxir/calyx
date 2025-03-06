@@ -15,11 +15,11 @@ class KernelTB:
     def __init__(self, toplevel, data_path: Path):
         self.toplevel = toplevel
         self.data_path = data_path
-        assert os.path.isfile(
-            self.data_path
-        ), "data_path must be a data path to a valid file"
+        assert os.path.isfile(self.data_path), (
+            "data_path must be a data path to a valid file"
+        )
 
-    #Go through each mem, create an AxiRam, write data to it
+    # Go through each mem, create an AxiRam, write data to it
     async def setup_rams(self, data: Mapping[str, Any]):
         # Create cocotb AxiRams
         rams = {}
@@ -35,13 +35,18 @@ class KernelTB:
             rams[mem] = AxiRam(
                 AxiBus.from_prefix(self.toplevel, f"{mem}"),
                 self.toplevel.ap_clk,
-                reset = self.toplevel.reset,
+                reset=self.toplevel.reset,
                 # self.toplevel.ap_rst_n,
                 size=size,
             )
 
             # NOTE: This defaults to little endian to match AxiRam defaults
-            data_in_bytes = encode(data[mem]["data"], width, byteorder="little", signed = bool(data[mem]["format"]["is_signed"]))
+            data_in_bytes = encode(
+                data[mem]["data"],
+                width,
+                byteorder="little",
+                signed=bool(data[mem]["format"]["is_signed"]),
+            )
             addr = 0x0000
             rams[mem].write(addr, data_in_bytes)
 
@@ -66,21 +71,18 @@ async def run_kernel_test(toplevel, data_path: str):
         f.close()
     assert data_map is not None
     await tb.setup_rams(data_map)
-    #print(data_map)
+    # print(data_map)
 
-    
     # set up clock of 2ns period, simulator default timestep is 1ps
     cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
     await tb.init_toplevel()
     await Timer(100, "ns")
     await FallingEdge(toplevel.ap_clk)
 
-
     # Finish when ap_done is high or 100 us of simulation have passed.
     timeout = 5000
     await with_timeout(RisingEdge(toplevel.done), timeout, "us")
 
-    
     # Get data from ram
     mems: list[str] = list(data_map.keys())
     rams = tb.get_rams()
@@ -91,11 +93,11 @@ async def run_kernel_test(toplevel, data_path: str):
         post_execution = rams[mem].read(addr, size)
         width = data_width_in_bytes(mem, data_map)
         post_execution = decode(post_execution, width)
-        post.update({mem:{"data" : post_execution}})
+        post.update({mem: {"data": post_execution}})
         post[mem]["format"] = data_map[mem]["format"]
     # post = {"memories": post}
 
-    print("Output:\n" + json.dumps(post, indent = 2))
+    print("Output:\n" + json.dumps(post, indent=2))
 
 
 def mem_size_in_bytes(mem: str, data):
@@ -140,8 +142,7 @@ def encode(
     lst: List[int],
     width,
     byteorder: Union[Literal["little"], Literal["big"]] = "little",
-    signed: bool = False
+    signed: bool = False,
 ) -> bytes:
-
     """Return the `width`-wide byte representation of lst with byteorder"""
-    return b''.join(i.to_bytes(width, byteorder, signed=signed) for i in lst)
+    return b"".join(i.to_bytes(width, byteorder, signed=signed) for i in lst)

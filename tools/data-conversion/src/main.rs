@@ -1,8 +1,8 @@
 //use std::env;
 use argh::FromArgs;
 use std::fmt;
-use std::fs::read_to_string;
 use std::fs::File;
+use std::fs::read_to_string;
 use std::io::stdout;
 use std::io::{self, Write};
 use std::str::FromStr;
@@ -98,7 +98,7 @@ fn main() {
 
 /// Converts [filepath_get] from type [convert_from] to type
 /// [convert_to] in [filepath_send]
-
+///
 /// # Arguments
 ///
 /// * `filepath_get` - A reference to a `String` representing the path to the input file

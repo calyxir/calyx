@@ -3,9 +3,9 @@ use std::ops::Index;
 use calyx_frontend::source_info::SourceInfoTable;
 use calyx_ir::Direction;
 use cider_idx::{
+    IndexRef,
     iter::IndexRange,
     maps::{IndexedMap, SecondaryMap, SecondarySparseMap},
-    IndexRef,
 };
 
 use crate::flatten::flat_ir::{
@@ -395,6 +395,19 @@ impl Context {
             .unwrap()
     }
 
+    pub fn lookup_control_definition(
+        &self,
+        target: ControlIdx,
+    ) -> ComponentIdx {
+        self.secondary
+            .comp_aux_info
+            .iter()
+            .find_map(|(id, info)| info.contains_control(target).then_some(id))
+            .expect(
+                "No component defines this control node. This shouldn't happen",
+            )
+    }
+
     /// This is a wildly inefficient search, only used for debugging right now.
     /// TODO Griffin: if relevant, replace with something more efficient.
     pub(crate) fn find_parent_cell(
@@ -462,6 +475,18 @@ impl Context {
             }
         }
         unreachable!("Assignment does not belong to any component");
+    }
+
+    /// Returns the assignment definition information, if it exists. This
+    /// requires the component that the assignment is defined in. If the
+    /// component is not readily available use
+    /// [Self::find_assignment_definition] instead
+    pub fn lookup_assignment_definition(
+        &self,
+        target: AssignmentIdx,
+        comp: ComponentIdx,
+    ) -> Option<AssignmentDefinitionLocation> {
+        self.primary.components[comp].contains_assignment(self, target)
     }
 }
 

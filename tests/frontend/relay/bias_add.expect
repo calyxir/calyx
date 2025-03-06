@@ -165,22 +165,34 @@ component bias_add_1x64x512x256() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
-    @external x = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    @external bias = seq_mem_d1(32, 64, 7);
-    @external x1 = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    bias_add_1x64x512x256_ = bias_add_1x64x512x256();
+    @external @pos{0} x = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external @pos{0} bias = seq_mem_d1(32, 64, 7);
+    @external @pos{0} x1 = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @pos{1} bias_add_1x64x512x256_ = bias_add_1x64x512x256();
   }
   wires {
 
   }
   control {
-    seq {
-      @pos(0) invoke bias_add_1x64x512x256_[x=x, bias=bias, x1=x1]()();
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke bias_add_1x64x512x256_[x=x, bias=bias, x1=x1]()();
     }
   }
 }
 metadata #{
 0: let %x1: Tensor[(1, 64, 512, 256), float32] /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:4:3 */ = nn.bias_add(%x, %bias) /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:3:49 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 277
+  2: 0 117
+  3: 1 394
+  4: 1 389
 }#

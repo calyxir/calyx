@@ -1,7 +1,7 @@
 use std::{collections::hash_map::Entry, num::NonZeroU32};
 
 use ahash::{HashMap, HashMapExt};
-use cider_idx::{impl_index_nonzero, iter::IndexRange, IndexRef};
+use cider_idx::{IndexRef, impl_index_nonzero, iter::IndexRange};
 use smallvec::SmallVec;
 
 use super::super::context::Context;
@@ -266,7 +266,9 @@ impl SearchPath {
                     Control::Invoke(_)
                     | Control::Empty(_)
                     | Control::Enable(_) => {
-                        unreachable!("SearchPath is malformed. This is an error and should be reported")
+                        unreachable!(
+                            "SearchPath is malformed. This is an error and should be reported"
+                        )
                     }
                 }
             }
@@ -405,7 +407,7 @@ impl SearchPath {
             .iter()
             .fold_while(ControlIdx::new(0), |current_root, (_, comp_info)| {
                 if let Some(index) = comp_info.control() {
-                    if index >= current_root && index < target {
+                    if index >= current_root && index <= target {
                         FoldWhile::Continue(index)
                     } else {
                         FoldWhile::Done(current_root)

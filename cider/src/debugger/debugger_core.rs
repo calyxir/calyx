@@ -24,6 +24,7 @@ use crate::{
             context::Context,
             environment::{Path, PathError, Simulator},
         },
+        text_utils::{Color, print_debugger_welcome},
     },
     serialization::PrintCode,
 };
@@ -31,7 +32,6 @@ use crate::{
 use std::{collections::HashSet, path::PathBuf, rc::Rc};
 
 use itertools::Itertools;
-use owo_colors::OwoColorize;
 use std::path::Path as FilePath;
 
 /// Constant amount of space used for debugger messages
@@ -250,7 +250,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         print_tuple.print_code(),
                         *print_tuple.print_mode(),
                     ) {
-                        println!("{}", e.red().bold());
+                        println!("{}", e.stylize_error());
                     };
                 }
             }
@@ -265,8 +265,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     self.program_context
                         .as_ref()
                         .lookup_name(group)
-                        .bright_purple()
-                        .underline()
+                        .stylize_breakpoint()
                 );
             }
             self.interpreter.converge()?;
@@ -296,14 +295,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         let mut input_stream =
             input_stream.map(Ok).unwrap_or_else(Input::new)?;
 
-        println!(
-            "==== {}: The {}alyx {}nterpreter and {}bugge{} ====",
-            "Cider".bold(),
-            "C".underline(),
-            "I".underline(),
-            "De".underline(),
-            "r".underline()
-        );
+        print_debugger_welcome();
 
         let mut err_count = 0_u8;
 
@@ -318,13 +310,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     CiderError::InvalidCommand(_)
                     | CiderError::UnknownCommand(_)
                     | CiderError::ParseError(_) => {
-                        println!("Error: {}", e.red().bold());
+                        println!("Error: {}", e.stylize_error());
                         err_count += 1;
                         if err_count == 3 {
                             println!(
                                 "Type {} for a list of commands or {} for usage examples.",
-                                "help".yellow().bold().underline(),
-                                "explain".yellow().bold().underline()
+                                "help".stylize_command(),
+                                "explain".stylize_command()
                             );
                             err_count = 0;
                         }
@@ -348,7 +340,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     for target in print_lists {
                         if let Err(e) = self.do_print(&target, code, print_mode)
                         {
-                            println!("{}", e.red().bold());
+                            println!("{}", e.stylize_error());
                         };
                     }
                 }
@@ -442,7 +434,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                             }
 
                             if !printed_position {
-                                println!("Source info unavailable, falling back to Calyx");
+                                println!(
+                                    "Source info unavailable, falling back to Calyx"
+                                );
                                 self.interpreter.print_pc();
                             }
                         } else {
@@ -471,7 +465,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
         }
 
-        println!("Main component has finished executing. Debugger is now in inspection mode.");
+        println!(
+            "Main component has finished executing. Debugger is now in inspection mode."
+        );
 
         loop {
             let comm = input_stream.next_command();
@@ -481,7 +477,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     CiderError::InvalidCommand(_)
                     | CiderError::UnknownCommand(_)
                     | CiderError::ParseError(_) => {
-                        println!("Error: {}", e.red().bold());
+                        println!("Error: {}", e.stylize_error());
                         continue;
                     }
                     _ => return Err(e),
@@ -497,7 +493,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     for target in print_lists {
                         if let Err(e) = self.do_print(&target, code, print_mode)
                         {
-                            println!("{}", e.red().bold());
+                            println!("{}", e.stylize_error());
                         };
                     }
                 }
@@ -546,14 +542,14 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
                 Err(e) => {
                     error_occurred = true;
-                    println!("{}", e.red().bold());
+                    println!("{}", e.stylize_error());
                     continue;
                 }
             }
         }
 
         if error_occurred {
-            println!("{}", "No watchpoints have been added.".red());
+            println!("{}", "No watchpoints have been added.".stylize_error());
             return;
         }
 
@@ -561,7 +557,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             match group.lookup_group(self.program_context.as_ref()) {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("Error: {}", e.red());
+                    println!("Error: {}", e.stylize_error());
                     return;
                 }
             };
@@ -580,7 +576,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         let target = match target.lookup_group(self.program_context.as_ref()) {
             Ok(v) => v,
             Err(e) => {
-                println!("Error: {}", e.red());
+                println!("Error: {}", e.stylize_error());
                 return Ok(());
             }
         };
@@ -605,8 +601,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             unwrap_error_message!(target);
 
             if self.interpreter.is_group_running(target) {
-                println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
-                        self.program_context.as_ref().lookup_name(target).yellow().italic())
+                println!(
+                    "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
+                    self.program_context
+                        .as_ref()
+                        .lookup_name(target)
+                        .stylize_warning()
+                )
             }
 
             self.debugging_context.add_breakpoint(target);
@@ -655,7 +656,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         println!("{}", state);
                         return Ok(());
                     } else {
-                        println!("{}","Target cell has no internal state, printing port information instead".red());
+                        println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());
                     }
                 }
 
