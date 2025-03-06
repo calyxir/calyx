@@ -74,61 +74,67 @@ impl ControlPoint {
 
     /// Returns a string showing the path from the root node to input node. This
     /// path is displayed in the minimal metadata path syntax.
-    pub fn string_path(&self, ctx: &Context) -> String {
+    pub fn string_path(&self, ctx: &Context, name: &String) -> String {
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
-        let mut path_vec = path.path;
-
-        // Remove first element since we know it is a root
-        path_vec.remove(0);
-        let mut string_path = String::new();
-        string_path.push('.');
         let control_map = &ctx.primary.control;
-        let mut count = -1;
-        let mut body = false;
-        let mut if_branches: HashMap<ControlIdx, String> = HashMap::new();
-        for search_node in path_vec {
+        let path_vec = path.path;
+
+        let mut string_path = name.to_owned();
+
+        string_path.push('.');
+
+        // Remove first index
+        let mut iter = path_vec.iter();
+        let node = iter.next().unwrap();
+        let control_idx = node.node;
+        let mut prev_control_node =
+            &control_map.get(control_idx).unwrap().control;
+
+        for search_node in iter {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
             let control_idx = search_node.node;
             let control_node = &control_map.get(control_idx).unwrap().control;
-            match control_node {
-                // These are terminal nodes
-                // ControlNode::Empty(_) => "empty",
-                // ControlNode::Invoke(_) => "invoke",
-                // ControlNode::Enable(_) => "enable",
 
-                // These have unbounded children
-                // ControlNode::Seq(_) => "seq",
-                // ControlNode::Par(_) => "par",
-
-                // Special cases
-                Control::If(if_node) => {
-                    if_branches.insert(if_node.tbranch(), String::from("t"));
-                    if_branches.insert(if_node.tbranch(), String::from("f"));
-                }
+            // we are onto the next iteration and in the body... if Seq or Par is present save their children
+            // essentially skip iteration
+            match prev_control_node {
                 Control::While(_) => {
-                    body = true;
+                    string_path += "-b";
                 }
-                Control::Repeat(_) => {
-                    body = true;
+                Control::If(struc) => {
+                    let append = if struc.tbranch() == control_idx {
+                        "-t"
+                    } else {
+                        "-f"
+                    };
+
+                    string_path += append;
                 }
-                _ => {}
-            };
+                Control::Par(struc) => {
+                    let children = struc.stms();
+                    let count = children
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
 
-            let control_type = if body {
-                body = false;
-                count = -1;
-                String::from("b")
-            } else if if_branches.contains_key(&control_idx) {
-                let (_, branch) =
-                    if_branches.get_key_value(&control_idx).unwrap();
-                branch.clone()
-            } else {
-                count += 1;
-                count.to_string()
-            };
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path = string_path + &control_type;
+                }
+                Control::Seq(struc) => {
+                    let children = struc.stms();
+                    let count = children
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
 
-            string_path = string_path + "-" + &control_type;
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path += &control_type;
+                }
+                _ => { // must be a terminal node
+                }
+            }
+            prev_control_node = control_node;
         }
         string_path
     }
