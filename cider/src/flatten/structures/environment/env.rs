@@ -9,7 +9,10 @@ use super::{
 };
 use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
-    debugger::commands::{path_parser::parse_path, ParseNodes, ParsePath},
+    debugger::{
+        self,
+        commands::{ParseNodes, ParsePath},
+    },
     errors::{
         BoxedCiderError, BoxedRuntimeError, CiderResult, ConflictingAssignments,
     },
@@ -1019,7 +1022,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let string_path = node.string_path(ctx, component.lookup_name(ctx));
             println!("{}: {}", self.get_full_name(node.comp), string_path);
 
-            let path = parse_path(&string_path).unwrap();
+            let path =
+                debugger::commands::path_parser::parse_path(&string_path)
+                    .unwrap();
 
             let control_idx = self.path_idx(component, path);
 
