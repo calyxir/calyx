@@ -15,20 +15,16 @@ component main() -> () {
     mul2 = std_mult_pipe(32);
 
     @control @generated @protected mul_active = std_wire(1);
-    @control @generated @protected mul2_active = std_wire(1);
   }
   wires {
     comb group comb_invoke {
       mul_active.in = !mul.done ? 1'd1;
     }
-    comb group comb_invoke1 {
-      mul2_active.in = !mul2.done ? 1'd1;
-    }
    }
   control {
     seq {
       invoke mul(left = x.out, right = y.out)() with comb_invoke;
-      invoke mul2(left = x2.out, right = y2.out)() with comb_invoke1;
+      invoke mul2(left = x2.out, right = y2.out)() with comb_invoke;
      }
   }
 }

@@ -29,6 +29,7 @@ component main() -> () {
     seq {
       invoke mul(left = x.out, right = y.out)() with comb_invoke;
       invoke mul2(left = x2.out, right = y2.out)() with comb_invoke1;
+      invoke mul(left = x.out, right = y.out)() with comb_invoke;      
      }
   }
 }
