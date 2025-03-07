@@ -3,22 +3,43 @@ use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use std::collections::{HashMap, HashSet};
 
-/// Documentation
-pub struct ProcessInvokeWith {
+/// Finds redundant uses of cell `done` ports within combinational groups,
+/// and replaces them with zero.
+///
+/// # Example
+/// ```
+/// wires {
+///     comb group comb_group {
+///       wire.in = !invoked_cell.done ? 1'd1;
+///     }
+/// }
+/// control {
+///     invoke invoked_cell[]()() with comb_group;
+/// }
+/// ```
+/// In `comb_group` above, the use of `invoked_cell.done` is unnecessary, since
+/// `comb_group` is only active during the invocation of `invoked_cell`. So, we can
+/// replace the use of `invoked_cell.done` with zero.
+///
+/// NOTE: This is only true if `comb_group` is *only* used by the invocation of `invoked_cell`.
+/// So, the pass goes through all uses of combinational groups (invoke/while/if) and checks for
+/// multiple uses of the same comb group.
+pub struct SimplifyInvokeWith {
     // name of comb group -> name of cell being invoked
     comb_groups_to_modify: HashMap<ir::Id, ir::Id>,
-    // comb groups seen in while/if blocks
-    // this needs to be in a separate set because we may process whiles/ifs before invokes.
-    comb_groups_seen_elsewhere: HashSet<ir::Id>,
+    // comb groups used in while/if blocks, or used in multiple invokes
+    // used to filter out comb groups that we *shouldn't* modify
+    // NOTE: This needs to be in a separate set because we may process whiles/ifs before invokes.
+    comb_groups_used_elsewhere: HashSet<ir::Id>,
 }
 
-impl Named for ProcessInvokeWith {
+impl Named for SimplifyInvokeWith {
     fn name() -> &'static str {
-        "process-invoke-with"
+        "simplify-invoke-with"
     }
 
     fn description() -> &'static str {
-        "Transform `par` blocks to `seq`"
+        "When a comb group is attached to a singular invoke, removes uses of the invoke cell's done port"
     }
 
     fn opts() -> Vec<crate::traversal::PassOpt> {
@@ -26,25 +47,21 @@ impl Named for ProcessInvokeWith {
     }
 }
 
-impl ConstructVisitor for ProcessInvokeWith {
+impl ConstructVisitor for SimplifyInvokeWith {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized + Named,
     {
-        // let opts = Self::get_opts(ctx);
-
-        Ok(ProcessInvokeWith {
+        Ok(SimplifyInvokeWith {
             comb_groups_to_modify: HashMap::new(),
-            comb_groups_seen_elsewhere: HashSet::new(),
+            comb_groups_used_elsewhere: HashSet::new(),
         })
     }
 
-    fn clear_data(&mut self) {
-        /* All data can be transferred between components */
-    }
+    fn clear_data(&mut self) {}
 }
 
-impl Visitor for ProcessInvokeWith {
+impl Visitor for SimplifyInvokeWith {
     fn invoke(
         &mut self,
         s: &mut calyx_ir::Invoke,
@@ -52,16 +69,17 @@ impl Visitor for ProcessInvokeWith {
         _sigs: &LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
-        // if there is a combinational group associated with the group...
         if let Some(cg) = &s.comb_group {
             let cg_name = cg.borrow().name();
-            if self.comb_groups_to_modify.contains_key(&cg_name) {
-                // there is a different invoke that is using the same comb group
-                self.comb_groups_seen_elsewhere.insert(cg_name);
-            } else {
-                // there are no previous invokes that are using this comb group
+            if let std::collections::hash_map::Entry::Vacant(_) =
+                self.comb_groups_to_modify.entry(cg_name)
+            {
+                // no invokes have used this comb group so far
                 self.comb_groups_to_modify
                     .insert(cg_name, s.comp.borrow().name());
+            } else {
+                // there is a different invoke that is using the same comb group
+                self.comb_groups_used_elsewhere.insert(cg_name);
             }
         }
         Ok(Action::Continue)
@@ -75,7 +93,7 @@ impl Visitor for ProcessInvokeWith {
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
         if let Some(comb_group) = &s.cond {
-            self.comb_groups_seen_elsewhere
+            self.comb_groups_used_elsewhere
                 .insert(comb_group.borrow().name());
         }
         Ok(Action::Continue)
@@ -89,7 +107,7 @@ impl Visitor for ProcessInvokeWith {
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
         if let Some(comb_group) = &s.cond {
-            self.comb_groups_seen_elsewhere
+            self.comb_groups_used_elsewhere
                 .insert(comb_group.borrow().name());
         }
         Ok(Action::Continue)
@@ -102,10 +120,10 @@ impl Visitor for ProcessInvokeWith {
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        let one = builder.add_constant(1, 1);
-        // first, drop any comb groups we've seen
-        for used_comb_group in &self.comb_groups_seen_elsewhere {
-            self.comb_groups_to_modify.remove(&used_comb_group);
+        let zero = builder.add_constant(0, 1);
+        // first, drop any comb groups that are used in while/ifs and in multiple invokes
+        for used_comb_group in &self.comb_groups_used_elsewhere {
+            self.comb_groups_to_modify.remove(used_comb_group);
         }
         // modify assignments of any remaining comb groups
         for comb_group_ref in comp.comb_groups.iter() {
@@ -115,7 +133,7 @@ impl Visitor for ProcessInvokeWith {
                 let cell_name =
                     self.comb_groups_to_modify.get(&comb_group_name).unwrap();
                 let mut modified_asgns = comb_group.assignments.clone();
-                for mut asgn in &mut modified_asgns {
+                for asgn in &mut modified_asgns {
                     asgn.for_each_port(|port_ref| {
                         let mut res = None;
                         let port = port_ref.borrow();
@@ -123,7 +141,7 @@ impl Visitor for ProcessInvokeWith {
                             if cell_wref.upgrade().borrow().name() == cell_name
                                 && port.name == "done"
                             {
-                                res = Some(one.borrow().get("out"));
+                                res = Some(zero.borrow().get("out"));
                             }
                         }
                         res
