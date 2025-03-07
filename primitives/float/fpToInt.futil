@@ -1,0 +1,17 @@
+extern "fpToInt.sv" {
+    primitive std_fpToInt[
+        expWidth,
+        sigWidth,
+        floatWidth,
+        intWidth
+    ](
+        @clk clk: 1,
+        @reset reset: 1,
+        @go go: 1,
+        signedOut: 1,
+        in: floatWidth
+    ) -> (
+        out: intWidth,
+        @done done: 1
+    );
+}
