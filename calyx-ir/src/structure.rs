@@ -569,11 +569,11 @@ impl<T> Assignment<T> {
             .chain(std::iter::once(Rc::clone(&self.src)))
     }
 
-    pub fn and_guard(&mut self, addition_opt: Option<Guard<T>>)
+    pub fn and_guard(&mut self, addition: Guard<T>)
     where
         T: Eq,
     {
-        if let Some(addition) = addition_opt {
+        if !(addition.is_true()) {
             self.guard.update(|g| g.and(addition));
         }
     }
@@ -616,7 +616,7 @@ impl<StaticTiming> Assignment<StaticTiming> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Transition {
     Unconditional(u64),
@@ -831,7 +831,6 @@ impl CombGroup {
 pub struct FSM {
     /// Name of this construct
     pub(super) name: Id,
-
     /// Attributes for this FSM
     pub attributes: Attributes,
     /// State indexes into assignments that are supposed to be enabled at that state
@@ -881,6 +880,18 @@ impl FSM {
         })
     }
 
+    /// Extend the FSM with new transitions and assignments. Will panic if
+    /// the lengths are not consistent.
+    pub fn extend_fsm<A, T>(&mut self, assigns: A, transitions: T)
+    where
+        A: IntoIterator<Item = Vec<Assignment<Nothing>>>,
+        T: IntoIterator<Item = Transition>,
+    {
+        self.assignments.extend(assigns);
+        self.transitions.extend(transitions);
+    }
+
+    /// Extend the assignments that are supposed to be active at a given state.
     pub fn extend_state_assignments<I>(&mut self, state: u64, assigns: I)
     where
         I: IntoIterator<Item = Assignment<Nothing>>,

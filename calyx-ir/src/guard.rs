@@ -506,7 +506,7 @@ impl Guard<StaticTiming> {
             }
             Self::Info(static_timing) => {
                 let (b, e) = static_timing.interval;
-                (b..=e).collect()
+                (b..e).collect()
             }
             Self::CompOp(..) | Self::Port(_) => HashSet::new(),
         }

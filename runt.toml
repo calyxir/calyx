@@ -258,7 +258,7 @@ cmd = """
 fud exec --from calyx --to jq \
          --through dat \
          --through icarus-verilog \
-         -s calyx.flags "-p fsm-opt2 -x tdcc:infer-fsms -p lower" \
+         -s calyx.flags "-p fsm-opt -x tdcc:infer-fsms -p lower" \
          -s verilog.cycle_limit 550 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \
@@ -280,7 +280,7 @@ cmd = """
 fud exec --from calyx --to jq \
          --through dat \
          --through icarus-verilog \
-         -s calyx.flags "-p fsm-opt2 -x tdcc:infer-fsms -p lower" \
+         -s calyx.flags "-p fsm-opt -x tdcc:infer-fsms -p lower" \
          -s verilog.cycle_limit 550 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \
