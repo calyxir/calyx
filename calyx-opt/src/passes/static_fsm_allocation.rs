@@ -1,8 +1,8 @@
 use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
 use calyx_ir::{self as ir, build_assignments, guard};
 use calyx_utils::CalyxResult;
-use core::{num, ops::Not};
-use itertools::Itertools;
+use core::ops::Not;
+use itertools::MultiUnzip;
 use std::collections::HashMap;
 
 pub struct StaticFSMAllocation {
@@ -29,207 +29,9 @@ impl ConstructVisitor for StaticFSMAllocation {
     }
 }
 
-struct StaticSchedule<'a> {
-    /// Builder construct to add hardware to the component it's built from
-    builder: ir::Builder<'a>,
-    /// Maps every FSM state to assignments that should be active in that state
-    state2assigns: HashMap<u64, Vec<ir::Assignment<ir::Nothing>>>,
-    /// Maps every FSM state to transitions out of that state
-    state2trans: HashMap<u64, Vec<ir::Transition>>,
-}
-
-impl<'a> StaticSchedule<'a> {
-    /// Given a list of distinct previous states, a new state, and guards transitioning
-    /// to the new state, push ir::Transition objects to the `state2trans` map kept by
-    /// StaticSchedule
-    fn register_predecessors(
-        &mut self,
-        preds: &Vec<(u64, ir::Guard<ir::Nothing>)>,
-        start_state: u64,
-    ) {
-        // add any transitions from previous parts of the schedule
-        preds.iter().for_each(|(pred_state, trans_guard)| {
-            let trans_to_current = if trans_guard.is_true() {
-                ir::Transition::Unconditional(start_state)
-            } else {
-                ir::Transition::Conditional(vec![(
-                    trans_guard.clone(),
-                    start_state,
-                )])
-            };
-            self.state2trans
-                .entry(*pred_state)
-                .and_modify(|other_trans| {
-                    other_trans.push(trans_to_current.clone())
-                })
-                .or_insert(vec![trans_to_current]);
-        });
-    }
-
-    /// Given a static control schedule, mutably insert into the `state2assigns`
-    /// and `state2trans` fields of `self` to construct the schedule. Returns
-    /// the number of states added to the schedule after one function call.
-    fn construct_schedule_aux(
-        &mut self,
-        sc: &ir::StaticControl,
-        start_state: u64,
-        preds: Vec<(u64, ir::Guard<ir::Nothing>)>,
-        guard_from_parent: ir::Guard<ir::Nothing>,
-    ) -> (u64, Vec<(u64, ir::Guard<ir::Nothing>)>) {
-        match sc {
-            ir::StaticControl::Empty(_) => (0, preds),
-            ir::StaticControl::Enable(sen) => {
-                // add any transitions from previous parts of the schedule
-                self.register_predecessors(&preds, start_state);
-
-                // add assignments to be activated at states
-                sen.group.borrow().assignments.iter().for_each(|sassign| {
-                    sassign
-                        .guard
-                        .compute_live_states(sen.group.borrow().latency)
-                        .into_iter()
-                        .for_each(|offset| {
-                            // convert the static assignment to a normal one
-                            let mut assign: ir::Assignment<ir::Nothing> =
-                                ir::Assignment::from(sassign.clone());
-                            // "and" the assignment's guard with argument guard
-                            assign.and_guard(guard_from_parent.clone());
-                            let this_state = start_state + offset;
-
-                            // add this assignment to the list of assignments
-                            // that are supposed to be valid at this state
-                            self.state2assigns
-                                .entry(this_state)
-                                .and_modify(|other_assigns| {
-                                    other_assigns.push(assign.clone())
-                                })
-                                .or_insert(vec![assign]);
-                        })
-                });
-
-                // unconditionally transition to incremental states
-                let group_latency = sen.group.borrow().latency;
-                (0..(group_latency - 1)).for_each(|offset| {
-                    let this_state = start_state + offset;
-                    // unconditionally count up for static enables
-                    self.state2trans
-                        .entry(this_state)
-                        .and_modify(|other_trans| {
-                            other_trans.push(ir::Transition::Unconditional(
-                                this_state + 1,
-                            ))
-                        })
-                        .or_insert(vec![ir::Transition::Unconditional(
-                            this_state + 1,
-                        )]);
-                });
-
-                (
-                    // here, the latency is exactly the number of states we added.
-                    group_latency,
-                    vec![(start_state + group_latency - 1, ir::Guard::True)],
-                )
-            }
-            ir::StaticControl::Seq(sseq) => {
-                let (preds_from_seq, new_start_state) = sseq.stmts.iter().fold(
-                    (preds, start_state),
-                    |(stmt_preds, stmt_start_state), stmt| {
-                        self.register_predecessors(&stmt_preds, start_state);
-                        let (stmt_states_added, preds_from_stmt) = self
-                            .construct_schedule_aux(
-                                stmt,
-                                stmt_start_state,
-                                stmt_preds,
-                                guard_from_parent.clone(),
-                            );
-                        (preds_from_stmt, stmt_start_state + stmt_states_added)
-                    },
-                );
-
-                (new_start_state - start_state, preds_from_seq)
-            }
-            ir::StaticControl::If(sif) => {
-                self.register_predecessors(&preds, start_state);
-
-                // construct a guard on the static assignments in the each branch
-                let build_branch_guard =
-                    |is_true_branch: bool| -> ir::Guard<ir::Nothing> {
-                        guard_from_parent.clone().and({
-                            if is_true_branch {
-                                ir::Guard::port(sif.port.clone())
-                            } else {
-                                ir::Guard::not(ir::Guard::port(
-                                    sif.port.clone(),
-                                ))
-                            }
-                        })
-                    };
-                let (tbranch_num_states_added, trans_from_tbranch) = self
-                    .construct_schedule_aux(
-                        &sif.tbranch,
-                        start_state,
-                        preds.clone(),
-                        build_branch_guard(true),
-                    );
-                let (fbranch_num_states_added, trans_from_fbranch) = self
-                    .construct_schedule_aux(
-                        &sif.fbranch,
-                        start_state,
-                        preds,
-                        build_branch_guard(false),
-                    );
-
-                // register transitions from the branches of the if
-                // to the node following the if block. the number of states
-                // added by the if block is the max of its individual branches
-                (
-                    u64::max(
-                        tbranch_num_states_added,
-                        fbranch_num_states_added,
-                    ),
-                    trans_from_tbranch
-                        .into_iter()
-                        .chain(trans_from_fbranch.into_iter())
-                        .sorted_by(|(s1, _), (s2, _)| s1.cmp(s2))
-                        .dedup()
-                        .collect(),
-                )
-            }
-            ir::StaticControl::Invoke(_) => {
-                unreachable!("`invoke` static control node should have been compiled away.")
-            }
-            ir::StaticControl::Par(_) => {
-                unreachable!(
-                    "`par` control nodes should not exist in this schedule. \
-                    Only call this function on schedules where `par`s and `repeat`s \
-                    do not exist."
-                )
-            }
-            ir::StaticControl::Repeat(_) => {
-                unreachable!(
-                    "`repeat` control nodes should not exist in this schedule.
-                    Only call this function on schedules where `par`s and `repeat`s \
-                    do not exist."
-                )
-            }
-        }
-    }
-
-    /// Entry point for an empty static schedule object. Returns the number of
-    /// states in the schedule, given an `ir::StaticControl` node.
-    fn construct_schedule(&mut self, sc: &ir::StaticControl) -> u64 {
-        // fill out schedule on static control node
-        let (num_states, loopback_transitions) =
-            self.construct_schedule_aux(sc, 0, vec![], ir::Guard::True);
-        // register transitions from final states to first state
-        self.register_predecessors(&loopback_transitions, 0);
-        num_states
-    }
-}
-
 /// An instance of `StaticSchedule` is constrainted to live at least as long as
 /// the component in which the static island that it represents lives.
-struct StaticSchedule2<'a> {
+struct StaticSchedule<'a> {
     /// Builder construct to add hardware to the component it's built from
     builder: ir::Builder<'a>,
     /// Number of cycles to which the static schedule should count up
@@ -238,9 +40,9 @@ struct StaticSchedule2<'a> {
     state2assigns: HashMap<u64, Vec<ir::Assignment<ir::Nothing>>>,
 }
 
-impl<'a> From<ir::Builder<'a>> for StaticSchedule2<'a> {
+impl<'a> From<ir::Builder<'a>> for StaticSchedule<'a> {
     fn from(builder: ir::Builder<'a>) -> Self {
-        StaticSchedule2 {
+        StaticSchedule {
             builder,
             latency: 0,
             state2assigns: HashMap::new(),
@@ -248,26 +50,12 @@ impl<'a> From<ir::Builder<'a>> for StaticSchedule2<'a> {
     }
 }
 
-impl<'a> StaticSchedule2<'a> {
-    fn _print_state2assigns(&self) -> () {
-        for (state, assigns) in self.state2assigns.iter() {
-            println!("{state}:");
-            for assign in assigns.iter() {
-                println!(
-                    "    dst: {}, src: {}",
-                    assign.dst.borrow().canonical(),
-                    assign.src.borrow().canonical()
-                )
-            }
-        }
-    }
-
+impl<'a> StaticSchedule<'a> {
     /// Provided a static control node, calling this method on an empty `StaticSchedule`
     /// `sch` will build out the `latency` and `state2assigns` fields of `sch`, in
     /// preparation to replace the `StaticControl` node with an instance of `ir::FSM`.
-    /// If the argument `guard_opt` is `Some(guard)`, then every static assignment
-    /// collected into `state2assigns` will have its existing guard "anded" with `guard`.
-    /// If it is `None`, then the assignment remains as is.
+    /// Every static assignment collected into `state2assigns` will have its existing guard
+    /// "anded" with `guard`.
     fn construct_schedule(
         &mut self,
         scon: &ir::StaticControl,
@@ -298,7 +86,6 @@ impl<'a> StaticSchedule2<'a> {
                                 .or_insert(vec![assign]);
                         })
                 });
-
                 self.latency += sen.group.borrow().latency;
             }
             ir::StaticControl::Seq(sseq) => {
@@ -367,10 +154,10 @@ impl<'a> StaticSchedule2<'a> {
         // Fill in the FSM construct to contain unconditional transitions from n
         // to n+1 at each cycle (except for loopback at final state), and to
         // hold the corresponding state-wire high at the right cycle.
-        let mut state2wires: Vec<ir::RRC<ir::Cell>> = vec![];
-        let (mut assignments, mut transitions): (
+        let (mut assignments, mut transitions, state2wires): (
             Vec<Vec<ir::Assignment<ir::Nothing>>>,
             Vec<ir::Transition>,
+            Vec<ir::RRC<ir::Cell>>,
         ) = (0..self.latency)
             .map(|state: u64| {
                 // construct a wire to represent this state
@@ -406,10 +193,10 @@ impl<'a> StaticSchedule2<'a> {
                         },
                     )
                 };
-                state2wires.push(state_wire);
-                (vec![state_assign], transition)
+
+                (vec![state_assign], transition, state_wire)
             })
-            .unzip();
+            .multiunzip();
 
         if non_promoted_static_component {
             // If the component is static by design, there will be exactly one
@@ -433,7 +220,7 @@ impl<'a> StaticSchedule2<'a> {
             self.builder
                 .add_continuous_assignments(vec![assign_fsm_start]);
         } else if self.builder.component.is_static() {
-            // In this case, the component is a promoted static component.
+            // In this case, either the component is a promoted static component.
             // This means we want to wire fsm[done] in maintain the dynamic interface.
             // We will assert [done] in state 0.
 
@@ -537,7 +324,7 @@ impl Visitor for StaticFSMAllocation {
             && !(comp
                 .attributes
                 .has(ir::Attribute::Bool(ir::BoolAttr::Promoted)));
-        let mut ssch = StaticSchedule2::from(ir::Builder::new(comp, sigs));
+        let mut ssch = StaticSchedule::from(ir::Builder::new(comp, sigs));
         ssch.construct_schedule(s, ir::Guard::True);
         Ok(Action::change(ir::Control::fsm_enable(
             ssch.realize_fsm(self.non_promoted_static_component),

@@ -82,6 +82,9 @@ pub enum BoolAttr {
     #[strum(serialize = "fsm_control")]
     /// Protects a cell controlling an FSM from being removed
     FSMControl,
+    #[strum(serialize = "one_state")]
+    /// Indicates that a StaticEnable should be allocated only one state in an FSM
+    OneState,
 }
 
 impl From<BoolAttr> for Attribute {

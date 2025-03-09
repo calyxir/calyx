@@ -29,6 +29,7 @@ mod static_fsm_opts;
 mod static_inference;
 mod static_inliner;
 mod static_promotion;
+mod static_repeat_fsm_allocation;
 // mod simplify_guards;
 mod add_guard;
 mod data_path_infer;
@@ -57,6 +58,7 @@ pub use dead_cell_removal::DeadCellRemoval;
 pub use dead_group_removal::DeadGroupRemoval;
 pub use dump_ports::DumpResults;
 pub use static_fsm_allocation::StaticFSMAllocation;
+pub use static_repeat_fsm_allocation::StaticRepeatFSMAllocation;
 
 pub use externalize::Externalize;
 pub use go_insertion::GoInsertion;
