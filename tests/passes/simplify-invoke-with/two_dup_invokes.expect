@@ -16,7 +16,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     comb group comb_invoke {
-      mul_active.in = !mul.done ? 1'd1;
+      mul_active.in = !1'd0 ? 1'd1;
     }
     comb group comb_invoke1 {
       mul2_active.in = !1'd0 ? 1'd1;

@@ -71,15 +71,22 @@ impl Visitor for SimplifyInvokeWith {
     ) -> VisResult {
         if let Some(cg) = &s.comb_group {
             let cg_name = cg.borrow().name();
-            if let std::collections::hash_map::Entry::Vacant(_) =
-                self.comb_groups_to_modify.entry(cg_name)
-            {
-                // no invokes have used this comb group so far
-                self.comb_groups_to_modify
-                    .insert(cg_name, s.comp.borrow().name());
-            } else {
-                // there is a different invoke that is using the same comb group
-                self.comb_groups_used_elsewhere.insert(cg_name);
+            let cell_name = s.comp.borrow().name();
+            let entry = self.comb_groups_to_modify.entry(cg_name);
+            match entry {
+                std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                    // if the two invokes involve the same cell and comb group, then ignore
+                    if !(*occupied_entry.key() == cg_name
+                        && *occupied_entry.get() == cell_name)
+                    {
+                        // there is a different invoke that is using the same comb group
+                        self.comb_groups_used_elsewhere.insert(cg_name);
+                    }
+                }
+                std::collections::hash_map::Entry::Vacant(_) => {
+                    // no invokes have used this comb group so far
+                    self.comb_groups_to_modify.insert(cg_name, cell_name);
+                }
             }
         }
         Ok(Action::Continue)
