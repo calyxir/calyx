@@ -3,11 +3,11 @@ use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use std::collections::{HashMap, HashSet};
 
-/// Finds redundant uses of cell `done` ports within combinational groups,
-/// and replaces them with zero.
+/// Finds redundant uses of cell `done` ports within combinational groups associated
+/// with a single invoke, and replaces them with zero.
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// wires {
 ///     comb group comb_group {
 ///       wire.in = !invoked_cell.done ? 1'd1;
