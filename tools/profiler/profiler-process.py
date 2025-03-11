@@ -110,7 +110,8 @@ def create_cycle_trace(
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components, fsms, trace, fsm_events):
         super().__init__()
-        self.main_component = main_component
+        self.main_shorthand = main_component
+        # self.main_component = main_component
         self.cells_to_components = cells_to_components
         self.timestamps_to_events = {}
         self.fsms = fsms
@@ -125,15 +126,22 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_id_dict = {
             sid: [] for sid in vcd.references_to_ids.values()
         }  # one id can map to multiple signal names since wires are connected
-
-        clock_name = f"{self.main_component}.clk"
-        if clock_name not in names:
+        
+        clock_filter = list(filter(lambda x: x.endswith(f"{self.main_shorthand}.clk"), names))
+        if len(clock_filter) > 1:
+            print(f"Found multiple clocks: {clock_filter} Exiting...")
+            sys.exit(1)
+        elif len(clock_filter) == 0:
             print("Can't find the clock? Exiting...")
             sys.exit(1)
+        clock_name = clock_filter[0]
+        self.signal_prefix = clock_name.split(f".{self.main_shorthand}")[0]
+        self.main_component = f"{self.signal_prefix}.{self.main_shorthand}"
         signal_id_dict[vcd.references_to_ids[clock_name]] = [clock_name]
 
         # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
-        for cell in self.cells_to_components.keys():
+        for cell_suffix in list(self.cells_to_components.keys()):
+            cell = f"{self.signal_prefix}.{cell_suffix}"
             cell_go = cell + ".go"
             cell_done = cell + ".done"
             if cell_go not in vcd.references_to_ids:
@@ -141,6 +149,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 continue
             signal_id_dict[vcd.references_to_ids[cell_go]].append(cell_go)
             signal_id_dict[vcd.references_to_ids[cell_done]].append(cell_done)
+            # replace the old key (cell_suffix) with the fully qualified cell name
+            self.cells_to_components[cell] = self.cells_to_components[cell_suffix]
+            del self.cells_to_components[cell_suffix]
+        
 
         for name, sid in refs:
             if "probe_out" in name:
@@ -395,19 +407,21 @@ def read_component_cell_names_json(json_file):
         for cell_info in curr_component_entry["cell_info"]:
             cell_map[cell_info["cell_name"]] = cell_info["component_name"]
         cells_to_components[curr_component_entry["component"]] = cell_map
-    full_main_component = f"TOP.toplevel.{main_component}"
     components_to_cells = {
-        main_component: [full_main_component]
+        main_component: [main_component]
     }  # come up with a better name for this
     build_components_to_cells(
-        full_main_component, main_component, cells_to_components, components_to_cells
+        main_component, main_component, cells_to_components, components_to_cells
     )
-    full_cell_names_to_components = {}  # fully_qualified_cell_name --> component name (of cell)
+    # semi-fully_qualified_cell_name --> component name (of cell)
+    # I say semi-here because the prefix depends on the simulator + OS
+    # (ex. "TOP.toplevel" for Verilator on ubuntu)
+    cell_names_to_components = {}
     for component in components_to_cells:
         for cell in components_to_cells[component]:
-            full_cell_names_to_components[cell] = component
+            cell_names_to_components[cell] = component
 
-    return full_main_component, full_cell_names_to_components, components_to_cells
+    return main_component, cell_names_to_components, components_to_cells
 
 
 """
