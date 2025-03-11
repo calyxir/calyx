@@ -137,6 +137,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             print("Can't find the clock? Exiting...")
             sys.exit(1)
         clock_name = clock_filter[0]
+        # Depending on the simulator + OS, we may get different prefixes before the name
+        # of the main component.
         self.signal_prefix = clock_name.split(f".{self.main_shorthand}")[0]
         self.main_component = f"{self.signal_prefix}.{self.main_shorthand}"
         signal_id_dict[vcd.references_to_ids[clock_name]] = [clock_name]

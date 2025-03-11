@@ -8,6 +8,7 @@ Profilers can help you analyze performance information to find places you can op
 
 In order to run the profiler, you need:
 - [fud2](./fud2/index.html)
+- Internal tools within the Calyx repository; run `cargo build --all` to build all of them.
 - The Python [`vcdvcd` library](https://github.com/cirosantilli/vcdvcd). Running `fud2 env init` should install this for you.
 - A clone of Brendan Gregg's Flamegraph repository: [https://github.com/brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph)
 
