@@ -126,8 +126,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_id_dict = {
             sid: [] for sid in vcd.references_to_ids.values()
         }  # one id can map to multiple signal names since wires are connected
-        
-        clock_filter = list(filter(lambda x: x.endswith(f"{self.main_shorthand}.clk"), names))
+
+        clock_filter = list(
+            filter(lambda x: x.endswith(f"{self.main_shorthand}.clk"), names)
+        )
         if len(clock_filter) > 1:
             print(f"Found multiple clocks: {clock_filter} Exiting...")
             sys.exit(1)
@@ -152,7 +154,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # replace the old key (cell_suffix) with the fully qualified cell name
             self.cells_to_components[cell] = self.cells_to_components[cell_suffix]
             del self.cells_to_components[cell_suffix]
-        
 
         for name, sid in refs:
             if "probe_out" in name:
