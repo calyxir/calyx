@@ -2,7 +2,7 @@ use super::super::{
     commands::{PrintTuple, WatchPosition},
     debugger_core::SPACING,
 };
-use crate::flatten::text_utils::Color;
+use crate::{debugger, flatten::text_utils::Color};
 use crate::{
     debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
     flatten::{
@@ -62,17 +62,22 @@ impl BreakPoint {
 
     pub fn format(&self, ctx: &Context) -> String {
         let control = &ctx.primary.control[self.control].control;
-        match control {
-            Control::Enable(enable) => {
-                let parent_comp = ctx.get_component_from_group(self.group);
-                let parent_name = ctx.lookup_name(parent_comp);
 
-                let group_name = ctx.lookup_name(self.group);
+        // Get parent
+        let parent_comp = ctx.lookup_control_definition(self.control);
+        let parent_name = ctx.lookup_name(parent_comp);
+
+        match control {
+            // Group
+            Control::Enable(enable) => {
+                let group = enable.group();
+                let group_name = ctx.lookup_name(group);
                 format!("{parent_name}::{group_name}: {}", self.state)
             }
             _ => {
-                // PRINT NODE STRING AS IN NOTES
-                format!("{}", self.state)
+                // TODO: STRING PATH
+                // let string_path = self.control.string_path(ctx,);
+                format!("{parent_name}: {}", self.state)
             }
         }
     }
@@ -187,9 +192,10 @@ impl BreakpointMap {
         self.breakpoints.get(&idx)
     }
 
-    fn get_by_control(&self, control: ControlIdx) -> Option<&BreakPoint> {
+    fn get_by_control(&self, group: ControlIdx) -> Option<&BreakPoint> {
+        // ASK HOW TO GET GROUP
         self.control_idx_map
-            .get(&control)
+            .get(&group)
             .and_then(|idx| self.get_by_idx(*idx))
     }
 
@@ -220,7 +226,7 @@ impl BreakpointMap {
         }
     }
 
-    fn delete_by_group(&mut self, control: ControlIdx) {
+    fn delete_by_control(&mut self, control: ControlIdx) {
         if let Some(idx) = self.control_idx_map.remove(&control) {
             self.breakpoints.remove(&idx);
         }
@@ -544,7 +550,9 @@ impl DebuggingContext {
     }
     pub fn remove_breakpoint(&mut self, target: BreakpointID) {
         match target {
-            BreakpointID::Name(name) => self.breakpoints.delete_by_group(name),
+            BreakpointID::Name(name) => {
+                self.breakpoints.delete_by_control(name)
+            }
             BreakpointID::Number(num) => self.breakpoints.delete_by_idx(num),
         }
     }
@@ -640,8 +648,6 @@ impl DebuggingContext {
                     .unwrap_or_default()
             })
             .copied()
-
-        // aADD
     }
 
     pub fn set_current_time<I: Iterator<Item = GroupIdx>>(
