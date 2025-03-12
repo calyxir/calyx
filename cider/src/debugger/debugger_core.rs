@@ -29,7 +29,7 @@ use crate::{
     serialization::PrintCode,
 };
 
-use std::{collections::HashSet, path::PathBuf, rc::Rc};
+use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
 
 use itertools::Itertools;
 use std::path::Path as FilePath;
@@ -328,8 +328,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
             match comm {
                 Command::Step(n) => self.do_step(n)?,
-                Command::StepOver(target) => {
-                    self.do_step_over(target)?;
+                Command::StepOver(target, bound) => {
+                    self.do_step_over(target, bound)?;
                 }
                 Command::Continue => self.do_continue()?,
                 Command::Empty => {}
@@ -572,6 +572,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     fn do_step_over(
         &mut self,
         target: super::commands::ParsedGroupName,
+        bound: Option<NonZeroU32>,
     ) -> Result<(), crate::errors::BoxedCiderError> {
         let target = match target.lookup_group(self.program_context.as_ref()) {
             Ok(v) => v,
@@ -581,10 +582,21 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
         };
 
+        let mut bound: Option<u32> = bound.map(|x| x.into());
+
         if !self.interpreter.is_group_running(target) {
             println!("Group is not currently running")
         } else {
             while self.interpreter.is_group_running(target) {
+                if let Some(current_count) = bound.as_mut() {
+                    if *current_count == 0 {
+                        println!("Bound reached, group is still running.");
+                        break;
+                    } else {
+                        *current_count -= 1;
+                    }
+                }
+
                 self.interpreter.step()?;
             }
             self.interpreter.converge()?;
