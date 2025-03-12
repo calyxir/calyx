@@ -24,12 +24,13 @@ use std::collections::{HashMap, HashSet};
 /// NOTE: This is only true if `comb_group` is *only* used by the invocation of `invoked_cell`.
 /// So, the pass goes through all uses of combinational groups (invoke/while/if) and checks for
 /// multiple uses of the same comb group.
+#[derive(Debug)]
 pub struct SimplifyInvokeWith {
-    // name of comb group -> name of cell being invoked
+    /// name of comb group -> name of cell being invoked
     comb_groups_to_modify: HashMap<ir::Id, ir::Id>,
-    // comb groups used in while/if blocks, or used in multiple invokes
-    // used to filter out comb groups that we *shouldn't* modify
-    // NOTE: This needs to be in a separate set because we may process whiles/ifs before invokes.
+    /// comb groups used in while/if blocks, or used in multiple invokes
+    /// used to filter out comb groups that we *shouldn't* modify
+    /// NOTE: This needs to be in a separate set because we may process whiles/ifs before invokes.
     comb_groups_used_elsewhere: HashSet<ir::Id>,
 }
 
@@ -40,10 +41,6 @@ impl Named for SimplifyInvokeWith {
 
     fn description() -> &'static str {
         "When a comb group is attached to a singular invoke, removes uses of the invoke cell's done port"
-    }
-
-    fn opts() -> Vec<crate::traversal::PassOpt> {
-        vec![]
     }
 }
 
@@ -139,7 +136,8 @@ impl Visitor for SimplifyInvokeWith {
             if self.comb_groups_to_modify.contains_key(&comb_group_name) {
                 let cell_name =
                     self.comb_groups_to_modify.get(&comb_group_name).unwrap();
-                let mut modified_asgns = comb_group.assignments.clone();
+                let mut modified_asgns =
+                    std::mem::take(&mut comb_group.assignments);
                 for asgn in &mut modified_asgns {
                     asgn.for_each_port(|port_ref| {
                         let mut res = None;
