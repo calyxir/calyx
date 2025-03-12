@@ -1,6 +1,6 @@
 use super::{
     commands::{
-        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedGroupName,
+        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedControlName,
         PrintMode,
     },
     debugging_context::context::DebuggingContext,
@@ -191,11 +191,11 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
-    pub fn set_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
+    pub fn set_breakpoints(&mut self, breakpoints: Vec<ParsedControlName>) {
         self.create_breakpoints(breakpoints)
     }
 
-    pub fn delete_breakpoints(&mut self, breakpoints: Vec<ParsedGroupName>) {
+    pub fn delete_breakpoints(&mut self, breakpoints: Vec<ParsedControlName>) {
         let parsed_bp_ids: Vec<ParsedBreakPointID> = breakpoints
             .into_iter()
             .map(ParsedBreakPointID::from)
@@ -539,7 +539,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         print_target: Vec<Vec<String>>,
         print_code: Option<PrintCode>,
         print_mode: PrintMode,
-        group: super::commands::ParsedGroupName,
+        group: super::commands::ParsedControlName,
         watch_pos: super::commands::WatchPosition,
     ) {
         let mut error_occurred = false;
@@ -563,7 +563,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
 
         let watch_target =
-            match group.lookup_group(self.program_context.as_ref()) {
+            match group.lookup_group_watch(self.program_context.as_ref()) {
                 Ok(v) => v,
                 Err(e) => {
                     println!("Error: {}", e.stylize_error());
@@ -580,7 +580,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_step_over(
         &mut self,
-        target: super::commands::ParsedGroupName,
+        target: super::commands::ParsedControlName,
         bound: Option<NonZeroU32>,
     ) -> Result<(), crate::errors::BoxedCiderError> {
         let target = match target.lookup_group(self.program_context.as_ref()) {
@@ -615,7 +615,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn create_breakpoints(
         &mut self,
-        targets: Vec<super::commands::ParsedGroupName>,
+        targets: Vec<super::commands::ParsedControlName>,
     ) {
         // TODO: THIS DOES IN TERMS OF GROUPS, MUST EXPAND FUNCTIONALITY FOR SPECIFIC ENABLES
         for target in targets {

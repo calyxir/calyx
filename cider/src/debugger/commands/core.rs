@@ -43,37 +43,36 @@ impl Display for WatchpointIdx {
     }
 }
 
-/// The name of a group taken from user input. The component may be elided in
+/// The name of a controlidx taken from user input. The component may be elided in
 /// which case it is generally assumed to be the entry point.
 #[derive(Debug)]
-pub struct ParsedGroupName {
+pub struct ParsedControlName {
+    // enum: name and group 2) name and path
     component: Option<String>,
-    group: String,
+    control: String,
 }
 
-impl ParsedGroupName {
+impl ParsedControlName {
     /// Create a new [ParsedGroupName] from just a group name.
-    pub fn from_group_name(group: String) -> Self {
+    pub fn from_control_name(control: String) -> Self {
         Self {
             component: None,
-            group,
+            control,
         }
     }
 
     /// Create a new [ParsedGroupName] from a component and group name.
-    pub fn from_comp_and_group(component: String, group: String) -> Self {
+    pub fn from_comp_and_control(component: String, control: String) -> Self {
         Self {
             component: Some(component),
-            group,
+            control,
         }
     }
 
     /// Attempts to look up the group of the given name in the context. If the
     /// group lacks a component, it is assumed to be the entry point.
-    pub fn lookup_group(
-        &self,
-        context: &Context,
-    ) -> Result<ControlIdx, String> {
+    pub fn lookup_group(&self, context: &Context) -> Result<GroupIdx, String> {
+        // if given name map back to group idx
         let comp = if let Some(c) = &self.component {
             context
                 .lookup_comp_by_name(c.as_ref())
@@ -83,8 +82,25 @@ impl ParsedGroupName {
         };
 
         context
-            .lookup_group_by_name(self.group.as_ref(), comp)
-            .ok_or(format!("No group named {} in component", self.group))
+            .lookup_group_by_name(self.control.as_ref(), comp)
+            .ok_or(format!("No group named {} in component", self.control))
+    }
+
+    pub fn lookup_group_watch(
+        &self,
+        context: &Context,
+    ) -> Result<GroupIdx, String> {
+        let comp = if let Some(c) = &self.component {
+            context
+                .lookup_comp_by_name(c.as_ref())
+                .ok_or(format!("No component named {c}"))?
+        } else {
+            context.entry_point
+        };
+
+        context
+            .lookup_group_by_name(self.control.as_ref(), comp)
+            .ok_or(format!("No group named {} in component", self.control))
     }
 }
 
@@ -92,7 +108,7 @@ impl ParsedGroupName {
 /// may not be valid.
 pub enum ParsedBreakPointID {
     /// A breakpoint given by the group name.
-    Name(ParsedGroupName),
+    Name(ParsedControlName),
     /// A breakpoint given by the identifying number.
     Number(u32),
 }
@@ -121,7 +137,7 @@ impl ParsedBreakPointID {
     ) -> Result<WatchID, String> {
         match self {
             ParsedBreakPointID::Name(v) => {
-                let group = v.lookup_group(context)?;
+                let group = v.lookup_group_watch(context)?;
                 Ok(WatchID::Name(group))
             }
             ParsedBreakPointID::Number(v) => {
@@ -137,8 +153,8 @@ impl From<u32> for ParsedBreakPointID {
     }
 }
 
-impl From<ParsedGroupName> for ParsedBreakPointID {
-    fn from(v: ParsedGroupName) -> Self {
+impl From<ParsedControlName> for ParsedBreakPointID {
+    fn from(v: ParsedControlName) -> Self {
         Self::Name(v)
     }
 }
@@ -363,7 +379,7 @@ pub enum Command {
     /// different modes and print formats.
     Print(Vec<Vec<String>>, Option<PrintCode>, PrintMode),
     /// Create a breakpoint on the given groups.
-    Break(Vec<ParsedGroupName>),
+    Break(Vec<ParsedControlName>),
     /// Display the help message.
     Help,
     /// Exit the debugger.
@@ -385,10 +401,10 @@ pub enum Command {
     /// Delete the given watchpoints.
     DeleteWatch(Vec<ParsedBreakPointID>),
     /// Advance the execution until the given group is no longer running.
-    StepOver(ParsedGroupName, Option<NonZeroU32>),
+    StepOver(ParsedControlName, Option<NonZeroU32>),
     /// Create a watchpoint
     Watch(
-        ParsedGroupName,
+        ParsedControlName,
         WatchPosition,
         Vec<Vec<String>>,
         Option<PrintCode>,

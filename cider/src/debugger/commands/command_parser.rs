@@ -3,7 +3,8 @@ use std::num::NonZeroU32;
 use super::{
     PrintCommand,
     core::{
-        Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
+        Command, ParsedBreakPointID, ParsedControlName, PrintMode,
+        WatchPosition,
     },
 };
 use baa::WidthInt;
@@ -130,10 +131,10 @@ impl CommandParser {
         Ok(input.as_str().to_owned())
     }
 
-    fn group(input: Node) -> ParseResult<ParsedGroupName> {
+    fn group(input: Node) -> ParseResult<ParsedControlName> {
         Ok(match_nodes!(input.into_children();
-            [identifier(i)] => ParsedGroupName::from_group_name(i),
-            [identifier(comp), identifier(group)] => ParsedGroupName::from_comp_and_group(comp, group)
+            [identifier(i)] => ParsedControlName::from_control_name(i),
+            [identifier(comp), identifier(group)] => ParsedControlName::from_comp_and_control(comp, group)
         ))
     }
 
