@@ -43,6 +43,12 @@ impl Display for WatchpointIdx {
     }
 }
 
+// TODO Elias: Fill the rest in
+pub enum BreakTarget {
+    Name(ParsedControlName),
+    Path(ParsePath),
+}
+
 /// The name of a controlidx taken from user input. The component may be elided in
 /// which case it is generally assumed to be the entry point.
 #[derive(Debug)]

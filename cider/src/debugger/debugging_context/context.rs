@@ -149,11 +149,11 @@ impl<T: std::cmp::Eq + std::hash::Hash> GroupExecutionInfo<T> {
         self.current.contains(key)
     }
 
-    fn groups_new_off(&self) -> impl Iterator<Item = &T> {
+    fn ctrl_nodes_off(&self) -> impl Iterator<Item = &T> {
         self.previous.difference(&self.current)
     }
 
-    fn groups_new_on(&self) -> impl Iterator<Item = &T> {
+    fn ctrl_nodes_on(&self) -> impl Iterator<Item = &T> {
         self.current.difference(&self.previous)
     }
 }
@@ -456,20 +456,22 @@ impl WatchpointMap {
 }
 
 #[derive(Debug)]
-pub(crate) struct DebuggingContext {
+pub(crate) struct DebuggingContext<C: AsRef<Context> + Clone> {
     breakpoints: BreakpointMap,
     watchpoints: WatchpointMap,
     // Emulating the original behavior for the time being, but this could be
     // shifted to use individual control points or full control nodes instead.
-    group_info: GroupExecutionInfo<GroupIdx>,
+    group_info: GroupExecutionInfo<ControlIdx>,
+    context: C,
 }
 
-impl DebuggingContext {
-    pub fn new() -> Self {
+impl<C: AsRef<Context> + Clone> DebuggingContext<C> {
+    pub fn new(context: C) -> Self {
         Self {
             group_info: GroupExecutionInfo::new(),
             breakpoints: BreakpointMap::new(),
             watchpoints: WatchpointMap::new(),
+            context,
         }
     }
 
@@ -638,9 +640,9 @@ impl DebuggingContext {
         self.act_watchpoint(target, PointAction::Disable)
     }
 
-    pub fn hit_breakpoints(&self) -> impl Iterator<Item = GroupIdx> {
+    pub fn hit_breakpoints(&self) -> impl Iterator<Item = ControlIdx> + '_ {
         self.group_info
-            .groups_new_on()
+            .ctrl_nodes_on()
             .filter(|&&x| {
                 self.breakpoints
                     .get_by_control(x)
@@ -650,7 +652,7 @@ impl DebuggingContext {
             .copied()
     }
 
-    pub fn set_current_time<I: Iterator<Item = GroupIdx>>(
+    pub fn set_current_time<I: Iterator<Item = ControlIdx>>(
         &mut self,
         groups: I,
     ) {
@@ -659,7 +661,7 @@ impl DebuggingContext {
         self.group_info.shift_current(group_map);
     }
 
-    pub fn advance_time<I: Iterator<Item = GroupIdx>>(&mut self, groups: I) {
+    pub fn advance_time<I: Iterator<Item = ControlIdx>>(&mut self, groups: I) {
         let group_map: HashSet<_> = groups.collect();
         self.group_info.shift_current(group_map);
     }
@@ -669,33 +671,43 @@ impl DebuggingContext {
     ) -> impl Iterator<Item = (WatchpointIdx, &WatchPoint)> {
         let before_iter = self
             .group_info
-            .groups_new_on()
-            .filter(|x| self.watchpoints.get_by_group(**x).is_some())
-            .flat_map(|&x| {
-                let watchpoint_indicies =
-                    self.watchpoints.get_by_group(x).unwrap();
-                match watchpoint_indicies {
-                    WatchPointIndices::Before(x) => x.iter(),
-                    WatchPointIndices::Both { before, .. } => before.iter(),
-                    // this is stupid but works
-                    _ => [].iter(),
+            .ctrl_nodes_on()
+            .filter_map(|x| {
+                if let Some(watchpoint_indices) =
+                    extract_group(self.context.as_ref(), *x)
+                        .and_then(|x| self.watchpoints.get_by_group(x))
+                {
+                    Some(match watchpoint_indices {
+                        WatchPointIndices::Before(x) => x.iter(),
+                        WatchPointIndices::Both { before, .. } => before.iter(),
+                        // this is stupid but works
+                        _ => [].iter(),
+                    })
+                } else {
+                    None
                 }
-            });
+            })
+            .flatten();
 
         let after_iter = self
             .group_info
-            .groups_new_off()
-            .filter(|x| self.watchpoints.get_by_group(**x).is_some())
-            .flat_map(|&x| {
-                let watchpoint_indicies =
-                    self.watchpoints.get_by_group(x).unwrap();
-                match watchpoint_indicies {
-                    WatchPointIndices::After(x) => x.iter(),
-                    WatchPointIndices::Both { after, .. } => after.iter(),
-                    // this is stupid but works
-                    _ => [].iter(),
+            .ctrl_nodes_off()
+            .filter_map(|x| {
+                if let Some(watchpoint_indices) =
+                    extract_group(self.context.as_ref(), *x)
+                        .and_then(|x| self.watchpoints.get_by_group(x))
+                {
+                    Some(match watchpoint_indices {
+                        WatchPointIndices::After(x) => x.iter(),
+                        WatchPointIndices::Both { after, .. } => after.iter(),
+                        // this is stupid but works
+                        _ => [].iter(),
+                    })
+                } else {
+                    None
                 }
-            });
+            })
+            .flatten();
 
         before_iter.chain(after_iter).filter_map(|watchpoint_idx| {
             let watchpoint =
@@ -720,10 +732,7 @@ impl DebuggingContext {
         }
     }
 
-    pub fn print_watchpoints<C: AsRef<Context> + Clone>(
-        &self,
-        env: &Environment<C>,
-    ) {
+    pub fn print_watchpoints(&self, env: &Environment<C>) {
         println!("{}Current watchpoints:", SPACING);
         let inner_spacing = SPACING.to_string() + "    ";
         let outer_spacing = SPACING.to_string() + "  ";
@@ -775,8 +784,10 @@ impl DebuggingContext {
     }
 }
 
-impl Default for DebuggingContext {
-    fn default() -> Self {
-        Self::new()
+fn extract_group(ctx: &Context, control: ControlIdx) -> Option<GroupIdx> {
+    if let Control::Enable(enable) = &ctx.primary[control].control {
+        Some(enable.group())
+    } else {
+        None
     }
 }

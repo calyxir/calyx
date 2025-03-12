@@ -62,15 +62,15 @@ impl ProgramStatus {
 /// An opaque wrapper type for internal debugging information. This can only be
 /// obtained by calling [Debugger::main_loop] and receiving a [DebuggerReturnStatus::Restart] return
 /// value.
-pub struct DebuggerInfo {
-    ctx: DebuggingContext,
+pub struct DebuggerInfo<C: AsRef<Context> + Clone> {
+    ctx: DebuggingContext<C>,
     input_stream: Input,
 }
 /// An enum indicating the non-error return status of the debugger
-pub enum DebuggerReturnStatus {
+pub enum DebuggerReturnStatus<C: AsRef<Context> + Clone> {
     /// Debugger exited with a restart command and should be reinitialized with
     /// the returned information. Comes from [Command::Restart].
-    Restart(Box<DebuggerInfo>),
+    Restart(Box<DebuggerInfo<C>>),
     /// Debugger exited normally with an exit command. Comes from [Command::Exit].
     Exit,
 }
@@ -88,7 +88,7 @@ pub struct Debugger<C: AsRef<Context> + Clone> {
     interpreter: Simulator<C>,
     // this is technically redundant but is here for mutability reasons
     program_context: C,
-    debugging_context: DebuggingContext,
+    debugging_context: DebuggingContext<C>,
     _source_map: Option<SourceMap>,
 }
 
@@ -134,8 +134,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
         Ok(Self {
             interpreter,
-            program_context,
-            debugging_context: DebuggingContext::new(),
+            program_context: program_context.clone(),
+            debugging_context: DebuggingContext::new(program_context),
             _source_map: None,
         })
     }
@@ -208,7 +208,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         let bps = self
             .debugging_context
             .hit_breakpoints()
-            .map(|x| self.grp_idx_to_name(x))
+            .filter_map(|x| {
+                if let Control::Enable(e) =
+                    &self.program_context.as_ref().primary[x].control
+                {
+                    Some(self.grp_idx_to_name(e.group()))
+                } else {
+                    None
+                }
+            })
             .collect_vec();
         if self.interpreter.is_done() {
             Ok(StoppedReason::Done)
@@ -230,16 +238,16 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_continue(&mut self) -> CiderResult<()> {
         self.debugging_context
-            .set_current_time(self.interpreter.get_currently_running_groups());
+            .set_current_time(self.interpreter.get_currently_running_nodes());
 
-        let mut breakpoints: Vec<GroupIdx> = vec![];
+        let mut breakpoints: Vec<ControlIdx> = vec![];
 
         while breakpoints.is_empty() && !self.interpreter.is_done() {
             self.interpreter.step()?;
             // TODO griffin: figure out how to skip this convergence
             self.interpreter.converge()?;
             self.debugging_context
-                .advance_time(self.interpreter.get_currently_running_groups());
+                .advance_time(self.interpreter.get_currently_running_nodes());
 
             for (_idx, watch) in self.debugging_context.hit_watchpoints() {
                 let print_tuple = watch.print_details();
@@ -282,8 +290,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     /// a fresh context and input stream will be used instead.
     pub fn main_loop(
         mut self,
-        info: Option<DebuggerInfo>,
-    ) -> CiderResult<DebuggerReturnStatus> {
+        info: Option<DebuggerInfo<C>>,
+    ) -> CiderResult<DebuggerReturnStatus<C>> {
         let (input_stream, dbg_ctx) = info
             .map(|x| (Some(x.input_stream), Some(x.ctx)))
             .unwrap_or_else(|| (None, None));
