@@ -786,6 +786,19 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         })
     }
 
+    pub fn get_currently_running_nodes(
+        &self,
+    ) -> impl Iterator<Item = ControlIdx> + '_ {
+        self.pc.iter().filter_map(|(_, point)| {
+            let comp_go = self.get_comp_go(point.comp).unwrap();
+            if self.ports[comp_go].as_bool().unwrap_or_default() {
+                Some(point.control_node_idx)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Given a cell idx, return the component definition that this cell is an
     /// instance of. Return None if the cell is not a component instance.
     pub fn get_component_idx(
@@ -1667,6 +1680,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn print_pc_string(&self) {
         self.base.print_pc_string()
     }
+
+    pub fn get_currently_running_nodes(
+        &self,
+    ) -> impl Iterator<Item = ControlIdx> + '_ {
+        self.base.get_currently_running_nodes()
+    }
 }
 
 impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
@@ -1750,6 +1769,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         port: &String,
     ) -> Option<BitVecValue> {
         self.env.lookup_port_from_string(port)
+    }
+
+    pub fn get_currently_running_nodes(
+        &self,
+    ) -> impl Iterator<Item = ControlIdx> + '_ {
+        self.env.get_currently_running_nodes()
     }
 }
 
