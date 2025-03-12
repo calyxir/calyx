@@ -14,7 +14,7 @@ pc_s       = { ^"s" }
 pc_ufx     = { ^"u." ~ num }
 pc_sfx     = { ^"s." ~ num }
 code_calyx = { ^"calyx" }
-code_nodes = {^"nodes"}
+code_nodes = { ^"nodes" }
 
 print_code =  {
     "\\" ~ (pc_ufx | pc_sfx | pc_s | pc_un)
@@ -40,7 +40,7 @@ watch = {
     (^"watch " | ^"w ") ~ (watch_position)? ~ group ~ (^"with")? ~ (print_state | print)
 }
 
-step_over = { ^"step-over" ~ group }
+step_over = { ^"step-over" ~ group ~ num? }
 
 step       = { (^"step" | ^"s") ~ num? }
 cont       = {
