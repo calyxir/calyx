@@ -55,31 +55,29 @@
     ],
     "mem_output": [
       [
-        103,
+        73,
+        81,
+        85,
+        83
+      ],
+      [
+        131,
+        101,
+        72,
+        66
+      ],
+      [
+        95,
+        107,
         87,
-        103,
-        41
+        99
       ],
       [
-        124,
-        102,
-        75,
-        59
-      ],
-      [
-        123,
-        113,
-        105,
-        57
-      ],
-      [
-        79,
+        81,
+        60,
         62,
-        68,
-        29
+        43
       ]
     ]
   }
 }
----STDERR---
-⠋ calyx.run_futil⠙ calyx.run_futil⠹ icarus-verilog.json_to_dat⠸ icarus-verilog.simulate⠼ icarus-verilog.simulate⠴ icarus-verilog.simulate⠦ icarus-verilog.simulate

@@ -708,5 +708,5 @@ paths = [
   "tests/matrix_multiply_tests/*.futil"
 ]
 cmd = """
-fud e --to dat --through icarus-verilog {} -s verilog.data {}.data
+fud e --to dat --through icarus-verilog {} -s verilog.data {}.data -q
 """

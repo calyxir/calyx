@@ -1,13 +1,10 @@
 import "primitives/core.futil";
-import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 import "primitives/unsynthesizable.futil";
 
 // Modified from pass-in-register.futil
-component multiply_and_add(
-  // a: 32,
-  // b: 32
-) -> () {
+component multiply_and_add() -> () {
   cells {
     ref acc = std_reg(32);
     ref loaded_val_a = std_reg(32);
@@ -37,9 +34,9 @@ component multiply_and_add(
 component main() -> () {
   cells {
     // 4×4 matrix memories
-    @external arr_1 = comb_mem_d2(32, 4, 4, 4, 4);
-    @external arr_2 = comb_mem_d2(32, 4, 4, 4, 4);
-    @external mem_output = comb_mem_d2(32, 4, 4, 4, 4);
+    @external arr_1 = seq_mem_d2(32, 4, 4, 4, 4);
+    @external arr_2 = seq_mem_d2(32, 4, 4, 4, 4);
+    @external mem_output = seq_mem_d2(32, 4, 4, 4, 4);
 
     // Constants
     const0 = std_const(32,3);
@@ -116,8 +113,11 @@ component main() -> () {
       slice2.in = j.out;
       arr_1.addr0 = slice0.out; 
       arr_1.addr1 = slice1.out;
+      arr_1.content_en = 1'd1;
+
       arr_2.addr0 = slice1.out; 
       arr_2.addr1 = slice2.out;
+      arr_2.content_en = 1'd1;
 
       val_a.in = arr_1.read_data;
       val_a.write_en = 1'd1;
@@ -126,74 +126,54 @@ component main() -> () {
       read_data[done] = val_b.done;
     }
 
-    // group update_output {
-      
-    // }
-
-    // Matrix Multiplication Update
-    // group update_acc {
-    //   // mul_add.reg_done = 1'd1;
-    //   // mul_add.reg_out = acc.out;
-    //   slice0.in = i.out;
-    //   slice1.in = k.out;
-    //   arr_1.addr0 = slice0.out; 
-    //   arr_1.addr1 = slice1.out;
-    //   arr_2.addr0 = slice1.out; 
-    //   arr_2.addr1 = slice0.out;
-    //   // mul_add.a = arr_1.read_data;
-    //   // mul_add.b = arr_2.read_data;
-    //   acc.in = mul_add.reg_in;
-    //   acc.write_en = mul_add.reg_write_en;
-    //   update_acc[done] = acc.done;
-    // }
-
     // Writing results
     group write_result {
       slice0.in = i.out;
       slice1.in = j.out;
       mem_output.addr0 = slice0.out;
       mem_output.addr1 = slice1.out;
+      mem_output.content_en = 1'd1;
       mem_output.write_data = acc.out;
       mem_output.write_en = 1'd1;
       write_result[done] = mem_output.done;
     }
 
     // Loop Increment
-    group updI<"promotable"=1> { 
+    group upd_i<"promotable"=1> { 
       add.left = i.out; 
       add.right = const2.out; 
       i.in = add.out; 
       i.write_en = 1'd1; 
-      updI[done] = i.done; 
+      upd_i[done] = i.done; 
     }
-    group updJ<"promotable"=1> { 
+    group upd_j<"promotable"=1> { 
       add.left = j.out; 
       add.right = const2.out; 
       j.in = add.out; 
       j.write_en = 1'd1; 
-      updJ[done] = j.done; 
+      upd_j[done] = j.done; 
     }
-    group updK<"promotable"=1> { 
+    group upd_k<"promotable"=1> { 
       add.left = k.out; 
       add.right = const2.out; 
       k.in = add.out; 
       k.write_en = 1'd1; 
-      updK[done] = k.done; 
+      upd_k[done] = k.done; 
     }
-    group resetI {
+    group reset_i {
       i.in = const1.out;
       i.write_en = 1'd1;
-      resetI[done] = i.done;
+      reset_i[done] = i.done;
     }
-    group resetJ {
+    group reset_j {
       j.in = const1.out;
       j.write_en = 1'd1;
-      resetJ[done] = j.done;
+      reset_j[done] = j.done;
     }
-    group resetK {
+    group reset_k {
       k.in = const1.out;
       k.write_en = 1'd1;
-      resetK[done] = k.done;
+      reset_k[done] = k.done;
     }
   }
 
@@ -203,28 +183,26 @@ component main() -> () {
       let0; 
       let1; 
       let2;
-      resetI;
+      reset_i;
       while le0.out with cond0 {
         seq {
-          resetJ;
+          reset_j;
           while le1.out with cond1 {
             seq {
-              resetK;
-              begin_acc; // Reset accumulator
+              reset_k;
+              begin_acc;
               while le2.out with cond2 {
                 seq { 
-                  // update_acc; 
-                  // group for reading data from the memories
                   read_data;
                   invoke mul_add[acc=acc, loaded_val_a=val_a, loaded_val_b=val_b]()();
-                  updK; 
+                  upd_k; 
                 }
               }
               write_result;
-              updJ;
+              upd_j;
             }
           }
-          updI;
+          upd_i;
         }
       }
     }
