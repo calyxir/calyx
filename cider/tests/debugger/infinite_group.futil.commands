@@ -1,0 +1,7 @@
+pc
+s
+pc
+s 10
+pc
+step-over write_reg1 4000
+pc
