@@ -39,9 +39,9 @@ impl IncompleteTransition {
 
 /// An instance of `StaticSchedule` is constrainted to live at least as long as
 /// the component in which the static island that it represents lives.
-struct StaticSchedule<'a> {
+struct StaticSchedule<'b, 'a: 'b> {
     /// Builder construct to add hardware to the component it's built from
-    builder: ir::Builder<'a>,
+    builder: &'b mut ir::Builder<'a>,
     /// Number of cycles to which the static schedule should count up
     state: u64,
     /// Maps every FSM state to assignments that should be active in that state
@@ -52,10 +52,10 @@ struct StaticSchedule<'a> {
     state2trans: HashMap<u64, ir::Transition>,
 }
 
-impl<'a> From<ir::Builder<'a>> for StaticSchedule<'a> {
-    fn from(builder: ir::Builder<'a>) -> Self {
+impl<'b, 'a> From<&'b mut ir::Builder<'a>> for StaticSchedule<'b, 'a> {
+    fn from(builder: &'b mut ir::Builder<'a>) -> Self {
         StaticSchedule {
-            builder,
+            builder: builder,
             state: 0,
             state2assigns: HashMap::new(),
             state2trans: HashMap::new(),
@@ -63,9 +63,10 @@ impl<'a> From<ir::Builder<'a>> for StaticSchedule<'a> {
     }
 }
 
-impl<'a> StaticSchedule<'a> {
+impl<'b, 'a> StaticSchedule<'b, 'a> {
     fn register_transitions(
         &mut self,
+        curr_state: u64,
         transitions_to_curr: &mut Vec<IncompleteTransition>,
         and_guard: ir::Guard<ir::Nothing>,
     ) {
@@ -74,18 +75,18 @@ impl<'a> StaticSchedule<'a> {
                 let complete_transition =
                     match (guard, &and_guard) {
                         (ir::Guard::True, ir::Guard::True) => {
-                            ir::Transition::Unconditional(self.state)
+                            ir::Transition::Unconditional(curr_state)
                         }
                         (ir::Guard::True, _) => ir::Transition::Conditional(
-                            vec![(and_guard.clone(), self.state)],
+                            vec![(and_guard.clone(), curr_state)],
                         ),
                         (guard, ir::Guard::True) => {
                             ir::Transition::Conditional(vec![(
-                                guard, self.state,
+                                guard, curr_state,
                             )])
                         }
                         (guard, and_guard) => ir::Transition::Conditional(
-                            vec![(guard.and(and_guard.clone()), self.state)],
+                            vec![(guard.and(and_guard.clone()), curr_state)],
                         ),
                     };
 
@@ -126,6 +127,7 @@ impl<'a> StaticSchedule<'a> {
                 // for all parts of the FSM that want to transition to this enable,
                 // register their transitions in self.state2trans
                 self.register_transitions(
+                    self.state,
                     &mut transitions_to_curr,
                     guard.clone(),
                 );
@@ -328,212 +330,25 @@ impl<'a> StaticSchedule<'a> {
         }
     }
 
-    /// Provided a static control node, calling this method on an empty `StaticSchedule`
-    /// `sch` will build out the `latency` and `state2assigns` fields of `sch`, in
-    /// preparation to replace the `StaticControl` node with an instance of `ir::FSM`.
-    /// Every static assignment collected into `state2assigns` will have its existing guard
-    /// "anded" with `guard`.
-    fn construct_schedule(
-        &mut self,
-        scon: &ir::StaticControl,
-        guard: ir::Guard<ir::Nothing>,
-    ) {
-        match scon {
-            ir::StaticControl::Empty(_) => (),
-            ir::StaticControl::Enable(sen) => {
-                if sen.attributes.has(BoolAttr::OneState) {
-                    let signal_on = self.builder.add_constant(1, 1);
-                    let group_latency = sen.group.borrow().get_latency();
+    /// Returns the FSM implementing the given control node, as well as the buidler
+    /// object from which it was built.
+    fn build_fsm(&mut self, control: &ir::StaticControl) -> ir::RRC<ir::FSM> {
+        let fsm = self.builder.add_fsm("fsm");
 
-                    // instantiate a local counter register
-                    let width = get_bit_width_from(group_latency);
-                    let zero = self.builder.add_constant(0, 1);
-                    let counter = self.builder.add_primitive(
-                        "repeat_counter",
-                        "std_reg",
-                        &[width],
-                    );
+        let mut remaining_assignments =
+            self.build_abstract_fsm(control, ir::Guard::True, vec![]);
 
-                    // transform all assignments in the static group to read
-                    // from the local counter
-                    let mut assigns = sen
-                        .group
-                        .borrow_mut()
-                        .assignments
-                        .clone()
-                        .drain(..)
-                        .map(|mut sassign| {
-                            sassign.guard.update(|static_guard| {
-                                static_guard
-                                    .compute_live_states(group_latency)
-                                    .into_iter()
-                                    // gauge state against register
-                                    .map(|offset| {
-                                        let state_const = self
-                                            .builder
-                                            .add_constant(offset, width);
-                                        let g = ir::Guard::CompOp(
-                                            ir::PortComp::Eq,
-                                            counter.borrow().get("out"),
-                                            state_const.borrow().get("out"),
-                                        );
-                                        g
-                                    })
-                                    // combine register reads with ||
-                                    .fold(
-                                        ir::Guard::port(
-                                            zero.borrow().get("out"),
-                                        ),
-                                        ir::Guard::or,
-                                    )
-                            });
-                            let mut assign = ir::Assignment::from(sassign);
-                            assign.and_guard(guard.clone());
-                            assign
-                        })
-                        .collect_vec();
-
-                    // guard reprsenting if counter is in final state
-                    let final_state = {
-                        let final_state =
-                            self.builder.add_constant(group_latency - 1, width);
-                        let g = ir::Guard::CompOp(
-                            ir::PortComp::Eq,
-                            counter.borrow().get("out"),
-                            final_state.borrow().get("out"),
-                        );
-                        g
-                    };
-                    let not_final_state = final_state.clone().not();
-
-                    // build assignments to increment / reset the counter
-                    let adder = self.builder.add_primitive(
-                        "adder",
-                        "std_add",
-                        &[width],
-                    );
-                    let const_one = self.builder.add_constant(1, width);
-                    let const_zero = self.builder.add_constant(0, width);
-                    let incr_counter_assigns = build_assignments!(self.builder;
-                        adder["left"] = ? counter["out"];
-                        adder["right"] = ? const_one["out"];
-                        counter["write_en"] = ? signal_on["out"];
-                        counter["in"] = final_state ? const_zero["out"];
-                        counter["in"] = not_final_state ? adder["out"];
-                    );
-
-                    assigns.extend(incr_counter_assigns.to_vec());
-
-                    // push these assignments into the one state allocated for this
-                    // enable
-                    self.state2assigns
-                        .entry(self.state)
-                        .and_modify(|other_assigns| {
-                            other_assigns.extend(assigns.clone());
-                        })
-                        .or_insert(assigns);
-
-                    self.state2trans.insert(
-                        self.state,
-                        ir::Transition::Conditional(vec![
-                            (final_state, self.state + 1),
-                            (ir::Guard::True, self.state),
-                        ]),
-                    );
-
-                    self.state += 1;
-                } else {
-                    sen.group.borrow().assignments.iter().for_each(|sassign| {
-                        sassign
-                            .guard
-                            .compute_live_states(sen.group.borrow().latency)
-                            .into_iter()
-                            .for_each(|offset| {
-                                // convert the static assignment to a normal one
-                                let mut assign: ir::Assignment<ir::Nothing> =
-                                    ir::Assignment::from(sassign.clone());
-                                // "and" the assignment's guard with argument guard
-                                assign.and_guard(guard.clone());
-                                // add this assignment to the list of assignments
-                                // that are supposed to be valid at this state
-                                self.state2assigns
-                                    .entry(self.state + offset)
-                                    .and_modify(|other_assigns| {
-                                        other_assigns.push(assign.clone())
-                                    })
-                                    .or_insert(vec![assign]);
-                            })
-                    });
-                    self.state += sen.group.borrow().latency;
-                }
-            }
-            ir::StaticControl::Seq(sseq) => {
-                sseq.stmts.iter().for_each(|stmt| {
-                    self.construct_schedule(stmt, guard.clone());
-                });
-            }
-
-            ir::StaticControl::If(sif) => {
-                // construct a guard on the static assignments in the each branch
-                let build_branch_guard =
-                    |is_true_branch: bool| -> ir::Guard<ir::Nothing> {
-                        guard.clone().and({
-                            if is_true_branch {
-                                ir::Guard::port(sif.port.clone())
-                            } else {
-                                ir::Guard::not(ir::Guard::port(
-                                    sif.port.clone(),
-                                ))
-                            }
-                        })
-                    };
-                // Construct the schedule based on the true branch.
-                // Since this construction will progress the schedule's latency,
-                // we need to bring the baseline back to its original value before
-                // doing the same for the false branch.
-                self.construct_schedule(&sif.tbranch, build_branch_guard(true));
-                self.state -= sif.tbranch.get_latency();
-                self.construct_schedule(
-                    &sif.fbranch,
-                    build_branch_guard(false),
-                );
-                self.state -= sif.fbranch.get_latency();
-                // Finally, just progress the latency by the maximum of the
-                // branches' latencies
-                self.state += sif.latency;
-            }
-            ir::StaticControl::Par(spar) => {
-                // for each par thread, construct the schedule and reset
-                // the baseline latency to correctly compile the next par thread
-                spar.stmts.iter().for_each(|stmt| {
-                    self.construct_schedule(stmt, guard.clone());
-                    self.state -= stmt.get_latency();
-                });
-                self.state += spar.latency;
-            }
-            ir::StaticControl::Repeat(srep) => {
-                // unroll an encountered repeat loop
-                for _ in 0..srep.num_repeats {
-                    self.construct_schedule(&srep.body, guard.clone());
-                }
-            }
-            ir::StaticControl::Invoke(_) => {
-                unreachable!(
-                    "`construct_schedule` encountered a `static_invoke` node. \
-              Should have been compiled away."
-                )
-            }
-        }
-    }
-
-    /// Given a filled-out static schedule, construct an FSM based on the state mappings
-    /// in `state2assigns`.
-    fn realize_static_repeat_fsm(&mut self, fsm: &mut ir::RRC<ir::FSM>) {
+        // add loopback transitions to first state
+        self.register_transitions(
+            0,
+            &mut remaining_assignments,
+            ir::Guard::True,
+        );
         let (assignments, transitions): (
             Vec<Vec<ir::Assignment<ir::Nothing>>>,
             Vec<ir::Transition>,
         ) = (0..self.state)
-            .map(|state: u64| {
+            .map(|state| {
                 let assigns_at_state = match self.state2assigns.remove(&state) {
                     None => vec![],
                     Some(mut assigns) => {
@@ -576,63 +391,134 @@ impl<'a> StaticSchedule<'a> {
             })
             .unzip();
 
-        // Instantiate the FSM with the assignments and transitions we built
         fsm.borrow_mut().extend_fsm(assignments, transitions);
+        fsm
+    }
+}
+
+fn one_state_exists(scon: &ir::StaticControl) -> bool {
+    match scon {
+        ir::StaticControl::Empty(_) => false,
+        ir::StaticControl::Enable(sen) => {
+            sen.get_attributes().has(ir::BoolAttr::OneState)
+        }
+        ir::StaticControl::Seq(sseq) => sseq
+            .stmts
+            .iter()
+            .fold(false, |exists, stmt| exists || (one_state_exists(stmt))),
+        ir::StaticControl::If(sif) => {
+            one_state_exists(&sif.tbranch) || one_state_exists(&sif.fbranch)
+        }
+        ir::StaticControl::Repeat(srep) => one_state_exists(&srep.body),
+        ir::StaticControl::Invoke(_) | ir::StaticControl::Par(_) => {
+            unreachable!()
+        }
     }
 }
 
 impl Visitor for StaticRepeatFSMAllocation {
-    fn finish_static_repeat(
+    fn finish_static_if(
         &mut self,
-        s: &mut calyx_ir::StaticRepeat,
+        s: &mut calyx_ir::StaticIf,
         comp: &mut calyx_ir::Component,
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        let replacement_group = builder.add_static_group("repeat", s.latency);
 
-        // trigger fsm[start] dependent on the [go] of the group that will
-        // replace this StaticRepeat node
-        let mut fsm = builder.add_fsm("fsm");
-        let mut start_fsm = builder.build_assignment(
-            fsm.borrow().get("start"),
-            replacement_group.borrow().get("go"),
-            ir::Guard::True,
-        );
+        // generate FSM for true branch
+        let mut sch_constructor_true = StaticSchedule::from(&mut builder);
+        let true_branch_fsm = sch_constructor_true.build_fsm(&s.tbranch);
 
-        // replace the static repeat node with a dummy node so we can actually own
-        // the &mut StaticRepeat this function provides; we need it to build a
-        // StaticControl instance to pass into `construct_schedule`
-        let dummy_repeat = ir::StaticRepeat {
+        // generate FSM for false branch
+        let mut sch_constructor_false = StaticSchedule::from(&mut builder);
+        let false_branch_fsm = sch_constructor_false.build_fsm(&s.fbranch);
+
+        // group to active each FSM conditionally
+        let if_group = builder.add_static_group("if", s.latency);
+        let true_guard: ir::Guard<ir::StaticTiming> =
+            ir::Guard::port(ir::RRC::clone(&s.port));
+        let false_guard = ir::Guard::not(true_guard.clone());
+
+        // assignments to active each FSM
+        let mut trigger_fsms = vec![
+            builder.build_assignment(
+                true_branch_fsm.borrow().get("start"),
+                if_group.borrow().get("go"),
+                true_guard,
+            ),
+            builder.build_assignment(
+                false_branch_fsm.borrow().get("start"),
+                if_group.borrow().get("go"),
+                false_guard,
+            ),
+        ];
+
+        // make sure [start] for each FSM is pulsed at most once, at the first
+        // cycle
+        trigger_fsms.iter_mut().for_each(|assign| {
+            assign.guard.add_interval(ir::StaticTiming::new((0, 1)))
+        });
+
+        if_group.borrow_mut().assignments.extend(trigger_fsms);
+
+        // ensure this group only gets one state in the parent FSM, and only
+        // transitions out when the latency counter has completed
+        let mut enable = ir::StaticControl::Enable(ir::StaticEnable {
+            group: if_group,
             attributes: ir::Attributes::default(),
-            body: Box::new(ir::StaticControl::empty()),
-            num_repeats: 0,
-            latency: 0,
-        };
-        let repeat_node = std::mem::replace(s, dummy_repeat);
-        let sc_wrapper = ir::StaticControl::Repeat(repeat_node);
-        let mut ssch = StaticSchedule::from(builder);
-
-        // build out the above-constructed fsm for the schedule
-        ssch.construct_schedule(&sc_wrapper, ir::Guard::True);
-        ssch.realize_static_repeat_fsm(&mut fsm);
-
-        // pulse fsm[start] at first cycle of this group
-        start_fsm.guard.add_interval(ir::StaticTiming::new((0, 1)));
-        replacement_group.borrow_mut().assignments.push(start_fsm);
-
-        // make sure only one state gets allocated for this group (i.e. avoid
-        // inlining the entire latency into the FSM)
-        let mut static_en = ir::StaticEnable {
-            group: replacement_group,
-            attributes: ir::Attributes::default(),
-        };
-
-        static_en
+        });
+        enable
             .get_mut_attributes()
             .insert(ir::BoolAttr::OneState, 1);
 
-        Ok(Action::static_change(ir::StaticControl::Enable(static_en)))
+        Ok(Action::static_change(enable))
+    }
+
+    fn finish_static_par(
+        &mut self,
+        s: &mut calyx_ir::StaticPar,
+        comp: &mut calyx_ir::Component,
+        sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        let mut builder = ir::Builder::new(comp, sigs);
+        let par_group = builder.add_static_group("par", s.latency);
+        par_group
+            .borrow_mut()
+            .assignments
+            .extend(s.stmts.iter().map(|thread: &ir::StaticControl| {
+                let mut sch_generator = StaticSchedule::from(&mut builder);
+                let thread_fsm = sch_generator.build_fsm(thread);
+                let mut trigger_thread = builder.build_assignment(
+                    thread_fsm.borrow().get("start"),
+                    par_group.borrow().get("go"),
+                    ir::Guard::True,
+                );
+                trigger_thread
+                    .guard
+                    .add_interval(ir::StaticTiming::new((0, 1)));
+                trigger_thread
+            }));
+
+        let mut enable = ir::StaticControl::Enable(ir::StaticEnable {
+            group: par_group,
+            attributes: ir::Attributes::default(),
+        });
+        enable
+            .get_mut_attributes()
+            .insert(ir::BoolAttr::OneState, 1);
+
+        Ok(Action::static_change(enable))
+    }
+
+    fn finish_static_repeat(
+        &mut self,
+        _s: &mut calyx_ir::StaticRepeat,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> crate::traversal::VisResult {
+        Ok(Action::Continue)
     }
 }
