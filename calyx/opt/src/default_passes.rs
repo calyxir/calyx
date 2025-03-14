@@ -6,10 +6,10 @@ use crate::passes::{
     DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
     DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
     InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation,
-    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
-    StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    RemoveIds, ResetInsertion, SimplifyInvokeWith, SimplifyStaticGuards,
+    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -78,6 +78,7 @@ impl PassManager {
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
+        pm.register_pass::<SimplifyInvokeWith>()?;
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
@@ -96,6 +97,7 @@ impl PassManager {
                 GroupToSeq,
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
+                SimplifyInvokeWith,
                 InferShare,
                 ComponentInliner,
                 CombProp,
