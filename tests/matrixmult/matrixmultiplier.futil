@@ -1,12 +1,12 @@
 import "primitives/core.futil";
 import "primitives/pipelined.futil";
-import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
 
 component main(@go go: 1) -> (@done done: 1) {
   cells {
-    @external in1_mem = comb_mem_d2(32, 2, 2, 32, 32);
-    @external in2_mem = comb_mem_d2(32, 2, 2, 32, 32);
-    @external out_mem = comb_mem_d2(32, 2, 2, 32, 32);
+    @external in1_mem = seq_mem_d2(32, 2, 2, 32, 32);
+    @external in2_mem = seq_mem_d2(32, 2, 2, 32, 32);
+    @external out_mem = seq_mem_d2(32, 2, 2, 32, 32);
     add = std_add(32);
     mult = pipelined_mult(32);
     lt1 = std_lt(32);
@@ -48,6 +48,7 @@ component main(@go go: 1) -> (@done done: 1) {
     group load_a {
       in1_mem.addr0 = i_reg.out;
       in1_mem.addr1 = k_reg.out;
+      in1_mem.content_en = 1'b1;
       a_reg.in = in1_mem.read_data;
       a_reg.write_en = 1'b1;
       load_a[done] = a_reg.done;
@@ -56,6 +57,7 @@ component main(@go go: 1) -> (@done done: 1) {
     group load_b {
       in2_mem.addr0 = k_reg.out;
       in2_mem.addr1 = j_reg.out;
+      in2_mem.content_en = 1'b1;
       b_reg.in = in2_mem.read_data;
       b_reg.write_en = 1'b1;
       load_b[done] = b_reg.done;
@@ -103,6 +105,7 @@ component main(@go go: 1) -> (@done done: 1) {
     group update_mem {
       out_mem.addr0 = i_reg.out;
       out_mem.addr1 = j_reg.out;
+      out_mem.content_en = 1'b1;
       out_mem.write_data = sum_reg.out;
       out_mem.write_en = 1'b1;
       update_mem[done] = out_mem.done;
