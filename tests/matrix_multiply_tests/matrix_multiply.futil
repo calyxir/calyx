@@ -1,7 +1,6 @@
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
-import "primitives/unsynthesizable.futil";
 
 // Modified from pass-in-register.futil
 component multiply_and_add() -> () {
