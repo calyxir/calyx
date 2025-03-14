@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use super::{
     PrintCommand,
     core::{
@@ -185,7 +187,10 @@ impl CommandParser {
 
     fn step_over(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [group(g)] => Command::StepOver(g)
+            [group(g)] => Command::StepOver(g, None),
+            [group(g), num(n)] => {
+               Command::StepOver(g, NonZeroU32::new(n))
+            }
         ))
     }
 

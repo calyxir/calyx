@@ -4,6 +4,7 @@ use itertools::{self, Itertools};
 use std::{
     fmt::{Display, Write},
     marker::PhantomData,
+    num::NonZeroU32,
 };
 
 use crate::{
@@ -381,7 +382,7 @@ pub enum Command {
     /// Delete the given watchpoints.
     DeleteWatch(Vec<ParsedBreakPointID>),
     /// Advance the execution until the given group is no longer running.
-    StepOver(ParsedGroupName),
+    StepOver(ParsedGroupName, Option<NonZeroU32>),
     /// Create a watchpoint
     Watch(
         ParsedGroupName,
@@ -489,8 +490,10 @@ static COMMAND_INFO: LazyLock<Box<[CommandInfo]>> = LazyLock::new(|| {
                 .usage("> s").usage("> s 5").build(),
             // step-over
             CIBuilder::new().invocation("step-over")
-                .description("Advance the execution over a given group.")
-                .usage("> step-over this_group").build(),
+                .description("Advance the execution over a given group. Takes an optional number of cycles after which control should be returned even if the group is still running.")
+                .usage("> step-over this_group")
+                .usage("> step-over infinite_group 50")
+                .build(),
             // continue
             CIBuilder::new().invocation("continue")
                 .invocation("c")
