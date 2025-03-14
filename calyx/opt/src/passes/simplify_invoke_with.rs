@@ -57,7 +57,7 @@ impl Visitor for SimplifyInvokeWith {
             if let Some(registered_cell_name) =
                 self.comb_groups_to_modify.get(&cg_name)
             {
-                if !(*registered_cell_name == cell_name) {
+                if *registered_cell_name != cell_name {
                     // there is a different invoke that is using the same comb group
                     self.comb_groups_used_elsewhere.insert(cg_name);
                 }
