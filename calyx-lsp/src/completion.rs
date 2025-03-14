@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
-use itertools::{multizip, Itertools};
+use itertools::{Itertools, multizip};
 use tower_lsp::lsp_types as lspt;
 
 use crate::{
+    Config,
     convert::Point,
     document::{Context, Document},
     query_result::QueryResult,
-    Config,
 };
 
 #[derive(Clone, Debug)]

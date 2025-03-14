@@ -1,6 +1,5 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-from calyx.utils import bits_needed
 
 
 def insert_tree(prog, name, root, children, flow_infer):

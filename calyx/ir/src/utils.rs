@@ -35,6 +35,7 @@ pub enum MemoryType {
 
 /// Parameters for std memories
 pub struct MemInfo {
+    pub name: String,
     pub memory_type: MemoryType,
     pub data_width: u64,
     pub dimensions: u64,
@@ -85,6 +86,7 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                     };
                   let total_size = dimension_sizes.clone().iter().product();
                   MemInfo {
+                      name: mem.name().to_string(),
                       memory_type: mem_type,
                       data_width: mem.get_parameter("WIDTH").unwrap(),
                       dimensions,
@@ -115,6 +117,9 @@ fn dimension_count(mem_id: Id) -> u64 {
     } else if mem_name.contains("d4") {
         4
     } else {
-        panic!("Cell {} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive.", mem_name);
+        panic!(
+            "Cell {} does not seem to be a memory primitive. Memory primitives are expected to have 1-4 dimensions inclusive.",
+            mem_name
+        );
     }
 }

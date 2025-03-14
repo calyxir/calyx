@@ -164,14 +164,18 @@ impl IntoStatic for ir::Seq {
         let mut latency = 0;
         for stmt in self.stmts.iter() {
             if !matches!(stmt, ir::Control::Static(_)) {
-                log::debug!("Cannot build `static seq`. Control statement inside `seq` is not static");
+                log::debug!(
+                    "Cannot build `static seq`. Control statement inside `seq` is not static"
+                );
                 return None;
             }
         }
 
         for stmt in self.stmts.drain(..) {
             let ir::Control::Static(sc) = stmt else {
-                unreachable!("We have already checked that all control statements are static")
+                unreachable!(
+                    "We have already checked that all control statements are static"
+                )
             };
             latency += sc.get_latency();
             static_stmts.push(sc);
@@ -191,14 +195,18 @@ impl IntoStatic for ir::Par {
         let mut latency = 0;
         for stmt in self.stmts.iter() {
             if !matches!(stmt, ir::Control::Static(_)) {
-                log::debug!("Cannot build `static seq`. Control statement inside `seq` is not static");
+                log::debug!(
+                    "Cannot build `static seq`. Control statement inside `seq` is not static"
+                );
                 return None;
             }
         }
 
         for stmt in self.stmts.drain(..) {
             let ir::Control::Static(sc) = stmt else {
-                unreachable!("We have already checked that all control statements are static")
+                unreachable!(
+                    "We have already checked that all control statements are static"
+                )
             };
             latency = std::cmp::max(latency, sc.get_latency());
             static_stmts.push(sc);

@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
@@ -83,7 +82,7 @@ def draw(packets, name):
         color = pkt.color()
         if pkt.punch_out is not None:
             treetime = pkt.punch_out - pkt.punch_in
-            handle = ax.broken_barh(
+            _handle = ax.broken_barh(
                 [(pkt.punch_in, treetime)], (i, 1), facecolors=color
             )
 

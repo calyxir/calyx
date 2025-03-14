@@ -107,7 +107,7 @@ def build(static=False):
 
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
-    controller = insert_controller(prog, "controller", stats_component)
+    _controller = insert_controller(prog, "controller", stats_component)
 
     fifo_queue = fifo.insert_fifo(prog, "fifo")
 

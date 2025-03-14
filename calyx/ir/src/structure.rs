@@ -1,7 +1,7 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 
-use crate::guard::StaticTiming;
 use crate::Nothing;
+use crate::guard::StaticTiming;
 
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
@@ -9,7 +9,7 @@ use super::{
 use calyx_frontend::{Attribute, BoolAttr};
 use calyx_utils::{CalyxResult, Error, GetName};
 use itertools::Itertools;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::hash::Hash;
 use std::rc::Rc;
 

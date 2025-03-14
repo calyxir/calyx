@@ -41,7 +41,10 @@ impl Visitor for AddGuard {
                         assign.guard = Box::new(new_g);
                     }
                 } else {
-                    unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+                    unreachable!(
+                        "Non-Enable Static Control should have been compiled away. Run {} to do this",
+                        crate::passes::StaticInliner::name()
+                    );
                 }
             }
         }

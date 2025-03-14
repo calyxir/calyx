@@ -1,14 +1,14 @@
 use crate::flatten::{
     flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
     primitives::{
-        all_defined, comb_primitive, declare_ports, ports,
-        prim_trait::UpdateStatus, utils::floored_division, Primitive,
+        Primitive, all_defined, comb_primitive, declare_ports, ports,
+        prim_trait::UpdateStatus, utils::floored_division,
     },
     structures::environment::PortMap,
 };
 
 use baa::{BitVecOps, BitVecValue};
-use cider_idx::{iter::SplitIndexRange, IndexRef};
+use cider_idx::{IndexRef, iter::SplitIndexRange};
 
 use super::prim_trait::UpdateResult;
 

@@ -49,12 +49,8 @@ impl PrimitiveInfo {
     /// Mark this primitive as a source primitive
     pub fn set_source(&mut self) {
         match self {
-            PrimitiveInfo::Extern {
-                ref mut is_source, ..
-            } => *is_source = true,
-            PrimitiveInfo::Inline {
-                ref mut is_source, ..
-            } => *is_source = true,
+            PrimitiveInfo::Extern { is_source, .. } => *is_source = true,
+            PrimitiveInfo::Inline { is_source, .. } => *is_source = true,
         }
     }
 }

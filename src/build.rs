@@ -93,7 +93,9 @@ fn create_primitives() -> Result<path::PathBuf> {
         }
         Err(e) => {
             // Move the old primitives back
-            println!("cargo:warning=Failed to write primitives directory. Restoring old directory: {e}");
+            println!(
+                "cargo:warning=Failed to write primitives directory. Restoring old directory: {e}"
+            );
             if let Some(old) = old_prims {
                 fs::rename(old, &prims)?;
             }

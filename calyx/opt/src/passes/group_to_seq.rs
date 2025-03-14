@@ -292,7 +292,11 @@ where
                         self.snd_asmts.push(asmt);
                     } else {
                         // assert that we're writing to a combinational component
-                        assert!(cell_ref.borrow().is_comb_cell(), "writes to more than 2 stateful cells: {first_cell_name}, {second_cell_name}, {}", cell_ref.borrow().name());
+                        assert!(
+                            cell_ref.borrow().is_comb_cell(),
+                            "writes to more than 2 stateful cells: {first_cell_name}, {second_cell_name}, {}",
+                            cell_ref.borrow().name()
+                        );
                         self.comb_asmts.push(asmt);
                     }
                 }

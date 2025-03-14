@@ -51,8 +51,8 @@ results.xml
 .fud2-*/
 
 
-!cider-dap/calyxDebug/package.json
-!cider-dap/calyxDebug/tsconfig.json
+!cider/dap/calyxDebug/package.json
+!cider/dap/calyxDebug/tsconfig.json
 
 # btor2i ignore
 tools/btor2/btor2i/build/
@@ -63,6 +63,7 @@ tools/profiler/meta-logs
 tools/profiler/fg-tmp
 *.svg
 *.folded
+fud2-runs
 
 temp/
 

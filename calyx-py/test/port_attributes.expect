@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component foo(in_1: 1, @data in_2: 2, @data @write_together(1) in_3: 2) -> (out_1: 1, @data out_2: 1, @data @done(1) out_3: 1) {
+component foo<"pos"={0}>(in_1: 1, @data in_2: 2, @data @write_together(1) in_3: 2) -> (out_1: 1, @data out_2: 1, @data @done(1) out_3: 1) {
   cells {
 
   }
@@ -10,3 +10,10 @@ component foo(in_1: 1, @data in_2: 2, @data @write_together(1) in_3: 2) -> (out_
 
   }
 }
+
+sourceinfo #{
+FILES 
+  0: port_attributes.py
+POSITIONS 
+  0: 0 6
+}#

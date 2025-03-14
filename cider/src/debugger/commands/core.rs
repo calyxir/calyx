@@ -1,10 +1,10 @@
 //! This module contains the core data structures and commands used by the debugger
 
 use itertools::{self, Itertools};
-use owo_colors::OwoColorize;
 use std::{
     fmt::{Display, Write},
     marker::PhantomData,
+    num::NonZeroU32,
 };
 
 use crate::{
@@ -14,6 +14,7 @@ use crate::{
             context::Context,
             environment::{Environment, Path},
         },
+        text_utils::Color,
     },
     serialization::PrintCode,
 };
@@ -268,8 +269,8 @@ impl PrintTuple {
             string,
             "{}",
             match self.2 {
-                PrintMode::State => "print-state".green(),
-                PrintMode::Port => "print".green(),
+                PrintMode::State => "print-state",
+                PrintMode::Port => "print",
             }
         )
         .unwrap();
@@ -278,7 +279,7 @@ impl PrintTuple {
             " {}",
             match &self.1 {
                 Some(s) => format!("{}", s),
-                None => "".red().to_string(),
+                None => "".to_string(),
             }
         )
         .unwrap();
@@ -298,7 +299,6 @@ impl From<(Vec<Path>, Option<PrintCode>, PrintMode)> for PrintTuple {
         PrintTuple(val.0, val.1, val.2)
     }
 }
-
 /// ParseNodes enum is used to represent what child to traverse with respect to
 /// the current ControlIdx.
 /// Body defines that we should go into the body of a while or repeat.
@@ -312,21 +312,30 @@ pub enum ParseNodes {
 }
 pub struct ParsePath {
     nodes: Vec<ParseNodes>,
+    component_name: String,
 }
 
 impl ParsePath {
-    pub fn new(nodes: Vec<ParseNodes>) -> ParsePath {
-        ParsePath { nodes }
+    pub fn new(nodes: Vec<ParseNodes>, name: String) -> ParsePath {
+        ParsePath {
+            nodes,
+            component_name: name,
+        }
     }
 
     pub fn get_path(&self) -> Vec<ParseNodes> {
         self.nodes.clone()
     }
-}
 
-impl FromIterator<ParseNodes> for ParsePath {
-    fn from_iter<I: IntoIterator<Item = ParseNodes>>(iter: I) -> Self {
-        ParsePath::new(iter.into_iter().collect())
+    pub fn get_name(&self) -> &str {
+        &self.component_name
+    }
+
+    pub fn from_iter<I>(iter: I, component_name: String) -> ParsePath
+    where
+        I: IntoIterator<Item = ParseNodes>,
+    {
+        ParsePath::new(iter.into_iter().collect(), component_name)
     }
 }
 
@@ -373,7 +382,7 @@ pub enum Command {
     /// Delete the given watchpoints.
     DeleteWatch(Vec<ParsedBreakPointID>),
     /// Advance the execution until the given group is no longer running.
-    StepOver(ParsedGroupName),
+    StepOver(ParsedGroupName, Option<NonZeroU32>),
     /// Create a watchpoint
     Watch(
         ParsedGroupName,
@@ -405,8 +414,31 @@ impl Command {
             ..
         } in get_command_info().iter()
         {
-            writeln!(out, "    {: <30}{}", names.join(", "), message.green())
-                .unwrap();
+            // this whole rigamarole is necessary because the standard
+            // formatting strings won't create the proper spacing in the
+            // presence of color codes
+            let mut char_count = 0;
+            let names_str = names
+                .iter()
+                .map(|x| {
+                    char_count += x.chars().count();
+                    x.stylize_command()
+                })
+                .join(", ");
+
+            // add the comma and space for multi-name commands
+            char_count += 2 * (names.len() - 1);
+
+            let padding = 20 - char_count;
+
+            writeln!(
+                out,
+                "    {}{} {}",
+                names_str,
+                " ".repeat(padding),
+                message.stylize_command_description()
+            )
+            .unwrap();
         }
 
         out
@@ -424,12 +456,18 @@ impl Command {
             .filter(|x| !x.usage_example.is_empty())
         {
             writeln!(out).unwrap();
-            writeln!(out, "{}", invocation.join(", ")).unwrap();
-            writeln!(out, "   {}", description).unwrap();
+            writeln!(
+                out,
+                "{}",
+                invocation.iter().map(|x| x.stylize_command()).join(", ")
+            )
+            .unwrap();
+            writeln!(out, "   {}", description.stylize_command_description())
+                .unwrap();
             writeln!(
                 out,
                 "     {}",
-                usage_example.join("\n     ").blue().italic()
+                usage_example.join("\n     ").stylize_usage_example()
             )
             .unwrap();
         }
@@ -452,8 +490,10 @@ static COMMAND_INFO: LazyLock<Box<[CommandInfo]>> = LazyLock::new(|| {
                 .usage("> s").usage("> s 5").build(),
             // step-over
             CIBuilder::new().invocation("step-over")
-                .description("Advance the execution over a given group.")
-                .usage("> step-over this_group").build(),
+                .description("Advance the execution over a given group. Takes an optional number of cycles after which control should be returned even if the group is still running.")
+                .usage("> step-over this_group")
+                .usage("> step-over infinite_group 50")
+                .build(),
             // continue
             CIBuilder::new().invocation("continue")
                 .invocation("c")

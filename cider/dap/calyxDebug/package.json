@@ -1,0 +1,79 @@
+{
+    "name": "cider-dap",
+    "displayName": "Cider DAP",
+    "version": "0.0.1",
+    "publisher": "Capra @ Cornell",
+    "description": "A debug adapter for Calyx files",
+    "author": {
+        "name": "...",
+        "email": "..."
+    },
+    "engines": {
+        "vscode": "^1.54.0"
+    },
+    "icon": "",
+    "categories": [
+        "Debuggers"
+    ],
+    "main": "./built/extension.js",
+    "contributes": {
+        "breakpoints": [
+            {
+                "language": "calyx"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "cider-dap",
+                "label": "Cider Debug",
+                "configurationAttributes": {}
+            }
+        ],
+        "configuration": {
+            "title": "cider-dap",
+            "properties": {
+                "cider-dap.path": {
+                    "type": "string",
+                    "scope": "machine",
+                    "default": "cider-dap",
+                    "description": "Cider Binary Path"
+                },
+                "cider-dap.std_lib": {
+                    "type": "string",
+                    "scope": "machine",
+                    "default": "",
+                    "description": "Calyx std_lib Path"
+                },
+                "cider-dap.port": {
+                    "type": "number",
+                    "scope": "machine",
+                    "default": 8888,
+                    "description": "Port number"
+                },
+                "cider-dap.sessionType": {
+                    "type": "string",
+                    "default": "Single-Session",
+                    "enum": [
+                        "Single-Session",
+                        "Multi-Session"
+                    ],
+                    "enumDescriptions": [
+                        "Runs the debugger in single-session",
+                        "Runs the debugger in multi-session"
+                    ]
+                }
+            }
+        }
+    },
+    "activationEvents": [
+        "onDebug",
+        "onLanguage:calyx"
+    ],
+    "scripts": {
+        "vscode:prepublish": "npx tsc"
+    },
+    "devDependencies": {
+        "@types/node": "^20.12.7",
+        "@types/vscode": "^1.54.0"
+    }
+}

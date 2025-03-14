@@ -92,9 +92,9 @@ def gen_reduce_impl(
     (port, cond) = cond_group(comp, idx, arr_size, f"{s_idx}")
 
     # Perform the computation
-    assert (
-        len(stmt.binds) == 1
-    ), "Reduce statements with multiple bind clauses are not supported"
+    assert len(stmt.binds) == 1, (
+        "Reduce statements with multiple bind clauses are not supported"
+    )
 
     # Split up the accumulator and the array element
     bind = stmt.binds[0]

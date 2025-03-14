@@ -1,11 +1,13 @@
+use std::num::NonZeroU32;
+
 use super::{
+    PrintCommand,
     core::{
         Command, ParsedBreakPointID, ParsedGroupName, PrintMode, WatchPosition,
     },
-    PrintCommand,
 };
 use baa::WidthInt;
-use pest_consume::{match_nodes, Error, Parser};
+use pest_consume::{Error, Parser, match_nodes};
 
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
@@ -185,7 +187,10 @@ impl CommandParser {
 
     fn step_over(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [group(g)] => Command::StepOver(g)
+            [group(g)] => Command::StepOver(g, None),
+            [group(g), num(n)] => {
+               Command::StepOver(g, NonZeroU32::new(n))
+            }
         ))
     }
 

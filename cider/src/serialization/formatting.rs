@@ -3,7 +3,9 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::fmt::{Debug, Display};
 
-use crate::flatten::flat_ir::cell_prototype::MemoryDimensions;
+use crate::flatten::{
+    flat_ir::cell_prototype::MemoryDimensions, text_utils::Color,
+};
 use baa::{BitVecOps, BitVecValue, WidthInt};
 
 /// An enum wrapping over a tuple representing the shape of a multi-dimensional
@@ -192,14 +194,13 @@ impl Display for PrintCode {
             f,
             "{}",
             match self {
-                PrintCode::Binary =>
-                    owo_colors::OwoColorize::cyan(&"\\b").to_string(),
-                PrintCode::Unsigned =>
-                    owo_colors::OwoColorize::blue(&"\\u").to_string(),
-                PrintCode::Signed =>
-                    owo_colors::OwoColorize::yellow(&"\\s").to_string(),
-                PrintCode::UFixed(n) => format!("\\u.{}", n),
-                PrintCode::SFixed(n) => format!("\\s.{}", n),
+                PrintCode::Binary => "\\b".stylize_print_code().to_string(),
+                PrintCode::Unsigned => "\\u".stylize_print_code().to_string(),
+                PrintCode::Signed => "\\s".stylize_print_code().to_string(),
+                PrintCode::UFixed(n) =>
+                    format!("\\u.{}", n).stylize_print_code().to_string(),
+                PrintCode::SFixed(n) =>
+                    format!("\\s.{}", n).stylize_print_code().to_string(),
             }
         )
     }

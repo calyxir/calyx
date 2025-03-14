@@ -26,14 +26,13 @@ class MalformedGroupError(Exception):
 class Builder:
     """The entry-point builder for top-level Calyx programs."""
 
-    def __init__(self):
-        self.program = ast.Program(
-            imports=[],
-            components=[],
-        )
+    def __init__(self, fileinfo_base_path=None, emit_sourceloc=True):
+        self.program = ast.Program(imports=[], components=[])
         self.imported = set()
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
+        ast.FILEINFO_BASE_PATH = fileinfo_base_path
+        ast.EMIT_SOURCELOC = emit_sourceloc
 
     def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
@@ -81,7 +80,7 @@ class ComponentBuilder:
         self.component: Union[ast.Component, ast.CombComponent] = (
             ast.Component(
                 name,
-                attributes=[],
+                attributes=set(),
                 inputs=[],
                 outputs=[],
                 structs=list(),
@@ -91,7 +90,7 @@ class ComponentBuilder:
             if not is_comb
             else ast.CombComponent(
                 name,
-                attributes=[],
+                attributes=set(),
                 inputs=[],
                 outputs=[],
                 structs=list(),
@@ -134,26 +133,26 @@ class ComponentBuilder:
 
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
-        self.component.attributes.append(ast.CompAttribute(name, value))
+        self.component.attributes.add(ast.CompAttribute(name, value))
 
     def _port_with_attributes(
         self,
         name: str,
         size: int,
         is_input: bool,
-        attribute_literals: List[RawPortAttr],
+        attribute_literals: set[RawPortAttr],
     ) -> ExprBuilder:
         """Should not be called directly.
         Declare a port on the component with attributes.
 
         Returns an expression builder for the port.
         """
-        attributes = []
+        attributes = set()
         for attr in attribute_literals:
             if isinstance(attr, str):
-                attributes.append(ast.PortAttribute(attr))
+                attributes.add(ast.PortAttribute(attr))
             elif isinstance(attr, tuple):
-                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+                attributes.add(ast.PortAttribute(attr[0], attr[1]))
             else:
                 raise ValueError(
                     f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
@@ -207,8 +206,9 @@ class ComponentBuilder:
         Branches are implemented via mutually exclusive `if` statements in the
         component's `control` block."""
         width = self.infer_width(signal)
-        ifs = []
-        for branch, controllable in cases.items():
+        curr_case = ast.Empty()
+        for branch, controllable in reversed(cases.items()):
+            prev_case = curr_case
             std_eq = self.eq(
                 width, self.generate_name(f"{signal.name}_eq_{branch}"), signed
             )
@@ -216,9 +216,9 @@ class ComponentBuilder:
             with self.continuous:
                 std_eq.left = signal
                 std_eq.right = const(width, branch)
-            ifs.append(if_(std_eq["out"], controllable))
+            curr_case = if_(std_eq["out"], controllable, prev_case)
 
-        return par(*ifs)
+        return curr_case
 
     def port_width(self, port: ExprBuilder) -> int:
         """Get the width of an expression, which may be a port of this component."""
@@ -1101,9 +1101,9 @@ def as_control(obj):
             "GroupBuilder represents continuous assignments and"
             " cannot be used as a control statement"
         )
-        assert not isinstance(
-            gl, ast.CombGroup
-        ), "Cannot use combinational group as control statement"
+        assert not isinstance(gl, ast.CombGroup), (
+            "Cannot use combinational group as control statement"
+        )
         return ast.Enable(gl.id.name)
     if isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
@@ -1162,9 +1162,9 @@ def if_with(port_comb: CellAndGroup, body, else_body=None) -> ast.If:
     cond = port_comb.group
     else_body = else_body or ast.Empty()
 
-    assert isinstance(
-        cond.group_like, ast.CombGroup
-    ), "if condition must be a combinational group"
+    assert isinstance(cond.group_like, ast.CombGroup), (
+        "if condition must be a combinational group"
+    )
     return ast.If(
         port.expr, cond.group_like.id, as_control(body), as_control(else_body)
     )
@@ -1177,9 +1177,9 @@ def while_with(port_comb: CellAndGroup, body) -> ast.While:
 
     port = port_comb.cell.out
     cond = port_comb.group
-    assert isinstance(
-        cond.group_like, ast.CombGroup
-    ), "while condition must be a combinational group"
+    assert isinstance(cond.group_like, ast.CombGroup), (
+        "while condition must be a combinational group"
+    )
     return ast.While(port.expr, cond.group_like.id, as_control(body))
 
 
@@ -1205,11 +1205,9 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             (
                 k[3:],
                 (
-                    (
-                        const(try_infer_width(k[3:]), v).expr
-                        if isinstance(v, int)
-                        else ExprBuilder.unwrap(v)
-                    )
+                    const(try_infer_width(k[3:]), v).expr
+                    if isinstance(v, int)
+                    else ExprBuilder.unwrap(v)
                 ),
             )
             for (k, v) in kwargs.items()
@@ -1634,9 +1632,9 @@ class GroupBuilder:
             "GroupLikeBuilder represents continuous assignments"
             " and does not have a done hole"
         )
-        assert not isinstance(
-            self.group_like, ast.CombGroup
-        ), "done hole not available for comb group"
+        assert not isinstance(self.group_like, ast.CombGroup), (
+            "done hole not available for comb group"
+        )
 
         return ExprBuilder(ast.HolePort(ast.CompVar(self.group_like.id.name), "done"))
 
