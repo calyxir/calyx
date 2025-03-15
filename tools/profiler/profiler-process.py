@@ -164,14 +164,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             self.partial_fsm_events[fully_qualified_name] = self.partial_fsm_events[fsm]
             del self.partial_fsm_events[fsm]
         self.fsms = fully_qualified_fsms
-        print(self.partial_fsm_events)
 
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
-                    print(name)
                     signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
@@ -918,7 +916,9 @@ def create_timeline_event(
         else:
             (pid, tid) = cell_info.remove_group(element_name)
         event = {
-            "name": element_name.split(".")[-1], # take only the group name for easier visibility
+            "name": element_name.split(".")[
+                -1
+            ],  # take only the group name for easier visibility
             "cat": "group",
             "ph": event_type,
             "pid": pid,
@@ -1070,6 +1070,7 @@ def read_fsm_file(fsm_json_file, components_to_cells):
 
     return fully_qualified_fsms
 
+
 def main(
     vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out
 ):
@@ -1078,7 +1079,6 @@ def main(
         read_component_cell_names_json(cells_json_file)
     )
     fully_qualified_fsms = read_fsm_file(fsm_json_file, components_to_cells)
-    print(fully_qualified_fsms)
     print(f"Start reading VCD: {datetime.now()}")
     # moving output info out of the converter
     trace = {}  # dict contents: cycle number --> list of stacks
