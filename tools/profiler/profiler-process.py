@@ -156,12 +156,22 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # replace the old key (cell_suffix) with the fully qualified cell name
             self.cells_to_components[cell] = self.cells_to_components[cell_suffix]
             del self.cells_to_components[cell_suffix]
+        # update fsms with fully qualified names
+        fully_qualified_fsms = set()
+        for fsm in list(self.fsms):
+            fully_qualified_name = f"{self.signal_prefix}.{fsm}"
+            fully_qualified_fsms.add(fully_qualified_name)
+            self.partial_fsm_events[fully_qualified_name] = self.partial_fsm_events[fsm]
+            del self.partial_fsm_events[fsm]
+        self.fsms = fully_qualified_fsms
+        print(self.partial_fsm_events)
 
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
+                    print(name)
                     signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
@@ -1060,8 +1070,6 @@ def read_fsm_file(fsm_json_file, components_to_cells):
 
     return fully_qualified_fsms
 
-
-# @profile
 def main(
     vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out
 ):
@@ -1070,6 +1078,7 @@ def main(
         read_component_cell_names_json(cells_json_file)
     )
     fully_qualified_fsms = read_fsm_file(fsm_json_file, components_to_cells)
+    print(fully_qualified_fsms)
     print(f"Start reading VCD: {datetime.now()}")
     # moving output info out of the converter
     trace = {}  # dict contents: cycle number --> list of stacks
@@ -1081,6 +1090,7 @@ def main(
         main_shortname, cells_to_components, fully_qualified_fsms, trace, fsm_events
     )
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
+    main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
     converter.postprocess()
     print(f"End Postprocessing VCD: {datetime.now()}")
@@ -1104,7 +1114,7 @@ def main(
     flat_flame_map, scaled_flame_map = create_flame_maps(trace)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
 
-    compute_timeline(trace, fsm_events, main_shortname, out_dir)
+    compute_timeline(trace, fsm_events, main_fullname, out_dir)
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
