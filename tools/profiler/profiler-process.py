@@ -908,7 +908,7 @@ def create_timeline_event(
         else:
             (pid, tid) = cell_info.remove_group(element_name)
         event = {
-            "name": element_name,
+            "name": element_name.split(".")[-1], # take only the group name for easier visibility
             "cat": "group",
             "ph": event_type,
             "pid": pid,
