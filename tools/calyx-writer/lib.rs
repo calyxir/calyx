@@ -198,7 +198,7 @@ type Attributes = Vec<Attribute>;
 /// Abstracts attribute functionality. This trait doesn't actually do anything,
 /// but it ties together all the implementations via the type system to make
 /// them more maintainable in response to API changes.
-trait AttributeProvider {
+pub trait AttributeProvider {
     fn add_attribute(&mut self, attr: Attribute);
 
     fn with_attribute(mut self, attr: Attribute) -> Self
@@ -311,6 +311,7 @@ pub trait PortProvider {
 }
 
 /// See `calyx_ir::Cell`.
+#[derive(PartialEq, Eq, Debug)]
 pub struct Cell {
     is_ref: bool,
     attributes: Vec<Attribute>,
@@ -498,6 +499,54 @@ impl CalyxWriter for Group {
     }
 }
 
+/// A connection between ports during an `invoke`.
+#[derive(PartialEq, Eq, Debug)]
+pub struct Connection {
+    lhs: Port,
+    rhs: Port,
+}
+
+impl Connection {
+    /// Constructs a new connection between `lhs` and `rhs`.
+    ///
+    /// Requires: the connection is well-formed.
+    pub fn new(lhs: Port, rhs: Port) -> Self {
+        if !lhs.has_inferred_width() && !rhs.has_inferred_width() {
+            assert!(lhs.width == rhs.width, "port width mismatch");
+        }
+        Self { lhs, rhs }
+    }
+}
+
+impl CalyxWriter for Connection {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
+        write!(f, "{} = {}", self.lhs.name, self.rhs)
+    }
+}
+
+/// A binding for a ref cell.
+#[derive(PartialEq, Eq, Debug)]
+pub struct CellBinding {
+    lhs: RRC<Cell>,
+    rhs: RRC<Cell>,
+}
+
+impl CellBinding {
+    /// Constructs a new binding between `lhs` and `rhs`.
+    ///
+    /// Requires: `lhs` is a ref cell.
+    pub fn new(lhs: RRC<Cell>, rhs: RRC<Cell>) -> Self {
+        assert!(lhs.borrow().is_ref());
+        Self { lhs, rhs }
+    }
+}
+
+impl CalyxWriter for CellBinding {
+    fn write(&self, f: &mut IndentFormatter<'_, '_>) -> fmt::Result {
+        write!(f, "{} = {}", self.lhs.borrow().name, self.rhs.borrow().name)
+    }
+}
+
 /// Helper variant with [`Control`].
 #[derive(PartialEq, Eq, Debug)]
 enum ControlValue {
@@ -507,6 +556,13 @@ enum ControlValue {
     Par(Vec<Control>),
     While(Port, Option<RRC<Group>>, Vec<Control>),
     If(Port, Option<RRC<Group>>, Vec<Control>, Vec<Control>),
+    Invoke {
+        comp: RRC<Cell>,
+        refs: Vec<CellBinding>,
+        inputs: Vec<Connection>,
+        outputs: Vec<Connection>,
+        group: Option<RRC<Group>>,
+    },
 }
 
 /// Structured calyx control with attributes.
@@ -575,6 +631,27 @@ impl Control {
         Control {
             attributes: Attributes::new(),
             value: ControlValue::If(port, group, then_controls, else_controls),
+        }
+    }
+
+    /// Constructs a control node that invokes `comp`, running its control
+    /// program to completion.
+    pub fn invoke(
+        comp: RRC<Cell>,
+        refs: Vec<CellBinding>,
+        inputs: Vec<Connection>,
+        outputs: Vec<Connection>,
+        group: Option<RRC<Group>>,
+    ) -> Self {
+        Control {
+            attributes: Attributes::new(),
+            value: ControlValue::Invoke {
+                comp,
+                refs,
+                inputs,
+                outputs,
+                group,
+            },
         }
     }
 }
@@ -652,6 +729,50 @@ impl CalyxWriter for Control {
                 }
                 f.decrease_indent();
                 write!(f, "}}")?;
+            }
+            ControlValue::Invoke {
+                comp,
+                refs,
+                inputs,
+                outputs,
+                group,
+            } => {
+                write!(f, "invoke {}", comp.borrow().name)?;
+                if !refs.is_empty() {
+                    write!(f, "[")?;
+                    for (i, binding) in refs.iter().enumerate() {
+                        if i != 0 {
+                            write!(f, ", ")?;
+                        }
+                        binding.write(f)?;
+                    }
+                    write!(f, "]")?;
+                }
+                for connections in [inputs, outputs] {
+                    write!(f, "(")?;
+                    if !connections.is_empty() {
+                        writeln!(f)?;
+                        f.increase_indent();
+                        for (i, connection) in connections.iter().enumerate() {
+                            if i != 0 {
+                                writeln!(f, ",")?;
+                            }
+                            connection.write(f)?;
+                        }
+                        f.decrease_indent();
+                        writeln!(f)?;
+                    }
+                    write!(f, ")")?;
+                }
+                write!(
+                    f,
+                    "{};",
+                    if let Some(group) = group {
+                        format!(" with {}", group.borrow().name)
+                    } else {
+                        "".into()
+                    }
+                )?;
             }
         }
         Ok(())
@@ -937,37 +1058,37 @@ macro_rules! const_assert {
 }
 
 /// Constructs static and dynamic assertions for the given primitive, if a
-/// verification case exists. Due to limiations (https://github.com/rust-lang/rust/issues/85077)
+/// verification case exists. Due to limitations (https://github.com/rust-lang/rust/issues/85077)
 /// we have to add a dummy value to the beginning of the input array, so the
 /// logic must be modified accordingly (and annoyingly).
 #[macro_export]
 macro_rules! _validate_primitive {
     (std_reg($arg_arr:expr)) => {
-        const_assert!(
+        $crate::const_assert!(
             $arg_arr.len() - 1 == 1,
             "Invalid std_reg instantiation: std_reg takes 1 argument"
         );
     };
     (std_add($arg_arr:expr)) => {
-        const_assert!(
+        $crate::const_assert!(
             $arg_arr.len() - 1 == 1,
             "Invalid std_add instantiation: std_add takes 1 argument"
         );
     };
     (comb_mem_d1($arg_arr:expr)) => {
-        const_assert!(
+        $crate::const_assert!(
             $arg_arr.len() - 1 == 3,
             "Invalid comb_mem_d1 instantiation: comb_mem_d1 takes 3 arguments"
         );
     };
     (seq_mem_d1($arg_arr:expr)) => {
-        const_assert!(
+        $crate::const_assert!(
             $arg_arr.len() - 1 == 3,
             "Invalid seq_mem_d1 instantiation: seq_mem_d1 takes 3 arguments"
         );
     };
     (std_bit_slice($arg_arr:expr)) => {
-        const_assert!(
+        $crate::const_assert!(
             $arg_arr.len() - 1 == 4,
             "Invalid std_bit_slice instantiation: std_bit_slice takes 4 arguments"
         );
@@ -988,12 +1109,12 @@ macro_rules! _validate_primitive {
 #[macro_export]
 macro_rules! build_cells {
     ($comp:ident; ref $name:ident = $cell:ident($($args:expr),*); $($rest:tt)*) => {
-        _validate_primitive!($cell([0 as u64, $($args as u64),*]));
+        $crate::_validate_primitive!($cell([0 as u64, $($args as u64),*]));
         let $name = $comp.borrow_mut().cell(true, stringify!($name), stringify!($cell), vec![$($args as u64),*]);
         build_cells!($comp; $($rest)*);
     };
     ($comp:ident; $name:ident = $cell:ident($($args:expr),*); $($rest:tt)*) => {
-        _validate_primitive!($cell([0 as u64, $($args as u64),*]));
+        $crate::_validate_primitive!($cell([0 as u64, $($args as u64),*]));
         let $name = $comp.borrow_mut().cell(false, stringify!($name), stringify!($cell), vec![$($args as u64),*]);
         build_cells!($comp; $($rest)*);
     };
@@ -1036,10 +1157,26 @@ macro_rules! build_group {
     ($group:expr; $($lhs:ident.$lhs_port:ident = $rhs:ident.$rhs_port:ident;)*) => {
         $(
             $group.borrow_mut().assign(
-                $lhs.borrow().get(stringify!($lhs_port).to_string()),
-                $rhs.borrow().get(stringify!($rhs_port).to_string()),
+                $lhs.borrow().get_port(stringify!($lhs_port).to_string()),
+                $rhs.borrow().get_port(stringify!($rhs_port).to_string()),
             );
-    )*
+        )*
+    };
+}
+
+/// Constructs connections to ports on a cell. For example,
+/// ```
+/// _build_connections!(cell; left = a.out, right = b.out)
+/// ```
+#[macro_export]
+macro_rules! _build_connections {
+    ($comp:expr; $($lhs_port:ident = $rhs:ident.$rhs_port:ident),* $(,)?) => {
+        vec![$(
+            $crate::Connection::new(
+                $comp.borrow().get_port(stringify!($lhs_port).to_string()),
+                $rhs.borrow().get_port(stringify!($rhs_port).to_string()),
+            )
+        ),*]
     };
 }
 
@@ -1069,28 +1206,40 @@ macro_rules! build_control {
     (($c:expr)) => {
         $c
     };
-    ([seq { $($x:tt),+ }]) => {
+    ([seq { $($x:tt),+ $(,)? }]) => {
         $crate::Control::seq(vec![$(build_control!($x)),*])
     };
-    ([par { $($x:tt),+ }]) => {
+    ([par { $($x:tt),+ $(,)? }]) => {
         $crate::Control::par(vec![$(build_control!($x)),*])
     };
-    ([while $cond:ident.$port:ident { $($x:tt),* }]) => {
-        $crate::Control::while_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x)),*])
+    ([while $cond:ident.$port:ident { $($x:tt),* $(,)? }]) => {
+        $crate::Control::while_($cond.borrow().get_port(stringify!($port).into()), None, vec![$(build_control!($x)),*])
     };
-    ([while $cond:ident.$port:ident with $comb_group:ident { $($x:tt),* }]) => {
-        $crate::Control::while_($cond.borrow().get(stringify!($port).into()), Some($comb_group), vec![$(build_control!($x)),*])
+    ([while $cond:ident.$port:ident with $comb_group:ident { $($x:tt),* $(,)? }]) => {
+        $crate::Control::while_($cond.borrow().get_port(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x)),*])
     };
-    ([if $cond:ident.$port:ident { $($x_true:tt),* }]) => {
-        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![])
+    ([if $cond:ident.$port:ident { $($x_true:tt),* $(,)?}]) => {
+        $crate::Control::if_($cond.borrow().get_port(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![])
     };
-    ([if $cond:ident.$port:ident { $($x_true:tt),* } else { $($x_false:tt),* }]) => {
-        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
+    ([if $cond:ident.$port:ident { $($x_true:tt),* $(,)? } else { $($x_false:tt),* $(,)? }]) => {
+        $crate::Control::if_($cond.borrow().get_port(stringify!($port).into()), None, vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
     };
-    ([if $cond:ident.$port:ident with $comb_group:ident { $($x_true:tt),* }=]) => {
-        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![])
+    ([if $cond:ident.$port:ident with $comb_group:ident { $($x_true:tt),* $(,)? }]) => {
+        $crate::Control::if_($cond.borrow().get_port(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![])
     };
-    ([if $cond:ident.$port:ident with $comb_group:ident { $($x_true:tt),* } else { $($x_false:tt),* }]) => {
-        $crate::Control::if_($cond.borrow().get(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
+    ([if $cond:ident.$port:ident with $comb_group:ident { $($x_true:tt),* $(,)? } else { $($x_false:tt),* $(,)? }]) => {
+        $crate::Control::if_($cond.borrow().get_port(stringify!($port).into()), Some($comb_group.clone()), vec![$(build_control!($x_true)),*], vec![$(build_control!($x_false)),*])
+    };
+    ([invoke $comp:ident( $($inputs:tt)* )( $($outputs:tt)* )]) => {
+        $crate::Control::invoke($comp.clone(), vec![], $crate::_build_connections!($comp; $($inputs)*), $crate::_build_connections!($comp; $($outputs)*), None)
+    };
+    ([invoke $comp:ident( $($inputs:tt)* )( $($outputs:tt)* ) with $comb_group:ident]) => {
+        $crate::Control::invoke($comp.clone(), vec![], $crate::_build_connections!($comp; $($inputs)*), $crate::_build_connections!($comp; $($outputs)*), Some($comb_group.clone()))
+    };
+    ([invoke $comp:ident[ $($lhs:ident = $rhs:ident),* $(,)? ]( $($inputs:tt)* )( $($outputs:tt)* )]) => {
+        $crate::Control::invoke($comp.clone(), vec![$($crate::CellBinding::new($lhs.clone(), $rhs.clone())),*], $crate::_build_connections!($comp; $($inputs)*), $crate::_build_connections!($comp; $($outputs)*), None)
+    };
+    ([invoke $comp:ident[ $($lhs:ident = $rhs:ident),* $(,)? ]( $($inputs:tt)* )( $($outputs:tt)* ) with $comb_group:ident]) => {
+        $crate::Control::invoke($comp.clone(), vec![$($crate::CellBinding::new($lhs.clone(), $rhs.clone())),*], $crate::_build_connections!($comp; $($inputs)*), $crate::_build_connections!($comp; $($outputs)*), Some($comb_group.clone()))
     };
 }
