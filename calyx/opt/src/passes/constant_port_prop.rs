@@ -2,8 +2,12 @@ use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use std::collections::{HashMap, HashSet};
 
-/// Finds redundant uses of cell `done` ports within combinational groups associated
-/// with a single invoke, and replaces them with zero.
+/// Replaces ports with constants when we can infer the value of the port.
+///
+/// Currently, the pass deals with a single case: If a combinational group
+/// is *only* associated with invoke(s) of a single cell, then uses of the
+/// cell's `go` and `done` ports in the comb group can be replaced with
+/// 1 and 0 respectively.
 ///
 /// # Example
 /// ```no_run
@@ -17,14 +21,10 @@ use std::collections::{HashMap, HashSet};
 /// }
 /// ```
 /// In `comb_group` above, the use of `invoked_cell.done` is unnecessary, since
-/// `comb_group` is only active during the invocation of `invoked_cell`. So, we can
-/// replace the use of `invoked_cell.done` with zero.
-///
-/// NOTE: This is only true if `comb_group` is *only* used by the invocation of `invoked_cell`.
-/// So, the pass goes through all uses of combinational groups (invoke/while/if) and checks for
-/// multiple uses of the same comb group.
+/// `comb_group` is only active during the invocation of `invoked_cell`. So,
+/// the pass replaces the use of `invoked_cell.done` with zero.
 #[derive(Debug, Default)]
-pub struct SimplifyInvokeWith {
+pub struct ConstantPortProp {
     /// name of comb group -> name of cell being invoked
     comb_groups_to_modify: HashMap<ir::Id, ir::Id>,
     /// comb groups used in while/if blocks, or used in multiple invokes
@@ -33,17 +33,17 @@ pub struct SimplifyInvokeWith {
     comb_groups_used_elsewhere: HashSet<ir::Id>,
 }
 
-impl Named for SimplifyInvokeWith {
+impl Named for ConstantPortProp {
     fn name() -> &'static str {
-        "simplify-invoke-with"
+        "constant-port-prop"
     }
 
     fn description() -> &'static str {
-        "When a comb group is attached to a singular invoke, removes uses of the invoke cell's done port"
+        "propagates constants when port values can be inferred"
     }
 }
 
-impl Visitor for SimplifyInvokeWith {
+impl Visitor for ConstantPortProp {
     fn invoke(
         &mut self,
         s: &mut calyx_ir::Invoke,
@@ -104,6 +104,7 @@ impl Visitor for SimplifyInvokeWith {
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
+        let one = builder.add_constant(1, 1);
         let zero = builder.add_constant(0, 1);
         // first, drop any comb groups that are used in while/ifs and in multiple invokes
         for used_comb_group in &self.comb_groups_used_elsewhere {
@@ -126,7 +127,14 @@ impl Visitor for SimplifyInvokeWith {
                             if cell_wref.upgrade().borrow().name() == cell_name
                                 && port.name == "done"
                             {
+                                // replace cell.done with 0
                                 res = Some(zero.borrow().get("out"));
+                            } else if cell_wref.upgrade().borrow().name()
+                                == cell_name
+                                && port.name == "go"
+                            {
+                                // replace cell.done with 1
+                                res = Some(one.borrow().get("out"));
                             }
                         }
                         res

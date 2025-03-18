@@ -3,10 +3,10 @@ use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
-    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
-    DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
-    InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation,
-    RemoveIds, ResetInsertion, SimplifyInvokeWith, SimplifyStaticGuards,
+    ConstantPortProp, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
+    DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
+    GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
+    ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
     StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
     WellFormed, WireInliner, WrapMain,
@@ -78,7 +78,7 @@ impl PassManager {
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
-        pm.register_pass::<SimplifyInvokeWith>()?;
+        pm.register_pass::<ConstantPortProp>()?;
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
@@ -97,7 +97,7 @@ impl PassManager {
                 GroupToSeq,
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
-                SimplifyInvokeWith,
+                ConstantPortProp,
                 InferShare,
                 ComponentInliner,
                 CombProp,

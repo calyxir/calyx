@@ -1,4 +1,4 @@
-// -p simplify-invoke-with
+// -p constant-port-prop
 
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
