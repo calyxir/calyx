@@ -97,10 +97,10 @@ impl PassManager {
                 GroupToSeq,
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
-                ConstantPortProp,
                 InferShare,
                 ComponentInliner,
                 CombProp,
+                ConstantPortProp,
                 DeadCellRemoval, // Clean up dead wires left by CombProp
                 CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
