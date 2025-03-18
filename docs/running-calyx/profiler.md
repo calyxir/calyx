@@ -8,8 +8,10 @@ Profilers can help you analyze performance information to find places you can op
 
 In order to run the profiler, you need:
 - [fud2](./fud2/index.html)
+- Internal tools within the Calyx repository; run `cargo build --all` to build all of them.
 - The Python [`vcdvcd` library](https://github.com/cirosantilli/vcdvcd). Running `fud2 env init` should install this for you.
 - A clone of Brendan Gregg's Flamegraph repository: [https://github.com/brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph)
+- [Graphviz](https://graphviz.org/download/)
 
 Then, you need to edit your fud2 configuration file to specify the location of `flamegraph.pl` within the `Flamegraph` repository:
 
@@ -33,5 +35,6 @@ The produced flame graph is "flattened", which means that each parallel arm gets
 If you retain the fud2 build directory with the `--keep` option or the `--dir` option, you will find additional profiler output files in `<FUD2_BUILD_DIRECTORY>/profiler-out`:
 
   - `scaled-flame.svg`: A scaled flame graph, where a cycle is divided between the parallel arms in execution. So, if arm A and arm B were executing on a single cycle, the flame graph would account for 0.5 cycles in arm A and 0.5 cycles in arm B.
+  - `timeline-dump.json`: A JSON file in the [Google Trace Event Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview?tab=t.0#heading=h.yr4qxyxotyw). Inputting this file into [Perfetto UI](https://ui.perfetto.dev/) can help visualize a timeline of your Calyx/ADL program's simulation.
   - `aggregate.dot.png`: A tree summary of the execution of the program. Nodes (groups and cells) are labeled with the number of times the node was a leaf, and edges are labeled with the number of cycles that edge was activated.
   - `rank{i}.dot.png`: A tree representation of the `i`th most active stack picture. `rankings.csv` lists the specific cycles that each ranked tree was active for.
