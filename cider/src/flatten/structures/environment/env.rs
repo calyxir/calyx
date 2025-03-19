@@ -1,6 +1,6 @@
 use super::{
     super::context::Context,
-    assignments::{GroupInterfacePorts, ScheduledAssignments},
+    assignments::{AssignType, GroupInterfacePorts, ScheduledAssignments},
     clock::{ClockMap, ReadSource},
     program_counter::{
         ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
@@ -212,6 +212,13 @@ impl ComponentLedger {
             CellRef::Local(l) => (&self.index_bases + l).into(),
             CellRef::Ref(r) => (&self.index_bases + r).into(),
         }
+    }
+
+    pub fn signature_ports(&self, ctx: &Context) -> IndexRange<GlobalPortIdx> {
+        let sig = ctx.secondary[self.comp_id].signature();
+        let beginning = &self.index_bases + sig.start();
+        let end = &self.index_bases + sig.end();
+        IndexRange::new(beginning, end)
     }
 }
 
@@ -1496,6 +1503,26 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             })
             .flatten()
     }
+
+    pub fn get_parent_from_port(
+        &self,
+        port: GlobalPortIdx,
+    ) -> Option<GlobalCellIdx> {
+        self.cells
+            .iter()
+            .find(|(_, ledger)| match ledger {
+                CellLedger::Primitive { cell_dyn } => {
+                    cell_dyn.get_ports().contains(port)
+                }
+                CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                    cell_dyn.get_ports().contains(port)
+                }
+                CellLedger::Component(component_ledger) => {
+                    component_ledger.signature_ports(self.ctx()).contains(port)
+                }
+            })
+            .map(|(idx, _)| idx)
+    }
 }
 
 enum ControlNodeEval {
@@ -1667,6 +1694,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
     pub fn print_pc_string(&self) {
         self.base.print_pc_string()
     }
+
+    pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx> {
+        self.base.iter_active_cells()
+    }
 }
 
 impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
@@ -1750,6 +1781,63 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         port: &String,
     ) -> Option<BitVecValue> {
         self.env.lookup_port_from_string(port)
+    }
+
+    /// Return an iterator over all cells that are in scope for the current set
+    /// of assignments.
+    pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx> {
+        let assigns_bundle = self.get_assignments(self.env.pc.node_slice());
+
+        let mut referenced_cells: HashSet<GlobalCellIdx> = HashSet::new();
+
+        for ScheduledAssignments {
+            active_cell,
+            assignments,
+            interface_ports,
+            assign_type,
+            ..
+        } in assigns_bundle
+        {
+            referenced_cells.insert(active_cell);
+            let ledger = self.env.cells[active_cell].as_comp().unwrap();
+            let group_go =
+                interface_ports.as_ref().map(|x| &ledger.index_bases + x.go);
+            let comp_go = self.env.get_comp_go(active_cell);
+
+            if self.is_assign_bundle_active(assign_type, group_go, comp_go) {
+                for assign in assignments.iter() {
+                    let assignment = &self.ctx().primary[assign];
+                    let src =
+                        self.get_global_port_idx(&assignment.src, active_cell);
+                    let dst =
+                        self.get_global_port_idx(&assignment.dst, active_cell);
+
+                    if let Some(src) = self.env.get_parent_from_port(src) {
+                        referenced_cells.insert(src);
+                    }
+
+                    if let Some(dst) = self.env.get_parent_from_port(dst) {
+                        referenced_cells.insert(dst);
+                    }
+
+                    if let Some(ports) =
+                        self.ctx().primary.guard_read_map.get(assignment.guard)
+                    {
+                        for port in ports.iter() {
+                            let port =
+                                self.get_global_port_idx(port, active_cell);
+                            if let Some(parent) =
+                                self.env.get_parent_from_port(port)
+                            {
+                                referenced_cells.insert(parent);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        referenced_cells.into_iter().sorted()
     }
 }
 
@@ -2688,7 +2776,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             } in assigns_bundle.iter()
             {
                 let ledger = self.env.cells[*active_cell].as_comp().unwrap();
-                let go = interface_ports
+                let group_go = interface_ports
                     .as_ref()
                     .map(|x| &ledger.index_bases + x.go);
                 let done = interface_ports
@@ -2696,30 +2784,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     .map(|x| &ledger.index_bases + x.done);
 
                 let comp_go = self.env.get_comp_go(*active_cell);
-                let thread = self.compute_thread(comp_go, thread, go);
+                let thread = self.compute_thread(comp_go, thread, group_go);
 
-                // the go for the group is high
-                if go
-                    .as_ref()
-                    // the group must have its go signal high and the go
-                    // signal of the component must also be high
-                    .map(|g| {
-                        self.env.ports[*g].as_bool().unwrap_or_default()
-                            && self.env.ports[comp_go.unwrap()]
-                                .as_bool()
-                                .unwrap_or_default()
-                    })
-                    .unwrap_or_else(|| {
-                        // if there is no go signal, then we want to run the
-                        // continuous assignments but not comb group assignments
-                        if assign_type.is_continuous() {
-                            true
-                        } else {
-                            self.env.ports[comp_go.unwrap()]
-                                .as_bool()
-                                .unwrap_or_default()
-                        }
-                    })
+                if self.is_assign_bundle_active(*assign_type, group_go, comp_go)
                 {
                     for assign_idx in assignments {
                         let assign = &self.env.ctx.as_ref().primary[assign_idx];
@@ -2896,6 +2963,35 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
 
         Ok(())
+    }
+
+    fn is_assign_bundle_active(
+        &self,
+        assign_type: AssignType,
+        group_go: Option<GlobalPortIdx>,
+        comp_go: Option<GlobalPortIdx>,
+    ) -> bool {
+        group_go
+            .as_ref()
+            // the group must have its go signal high and the go
+            // signal of the component must also be high
+            .map(|g| {
+                self.env.ports[*g].as_bool().unwrap_or_default()
+                    && self.env.ports[comp_go.unwrap()]
+                        .as_bool()
+                        .unwrap_or_default()
+            })
+            .unwrap_or_else(|| {
+                // if there is no go signal, then we want to run the
+                // continuous assignments but not comb group assignments
+                if assign_type.is_continuous() {
+                    true
+                } else {
+                    self.env.ports[comp_go.unwrap()]
+                        .as_bool()
+                        .unwrap_or_default()
+                }
+            })
     }
 
     /// For all groups in the given assignments, set the go port to zero if the
@@ -3422,16 +3518,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         let mut buf = String::new();
 
         if let Some(name_override) = name {
-            writeln!(buf, "{name_override}:").unwrap();
+            writeln!(buf, "{}:", name_override.stylize_name()).unwrap();
         } else {
-            writeln!(buf, "{}:", self.get_full_name(cell_idx)).unwrap();
+            writeln!(buf, "{}:", self.get_full_name(cell_idx).stylize_name())
+                .unwrap();
         }
         for (identifier, port_idx) in self.env.get_ports_from_cell(cell_idx) {
             writeln!(
                 buf,
                 "  {}: {}",
-                self.ctx().lookup_name(identifier),
-                self.format_port_value(port_idx, print_code)
+                self.ctx().lookup_name(identifier).stylize_port_name(),
+                self.format_port_value(port_idx, print_code).stylize_value()
             )
             .unwrap();
         }

@@ -1,5 +1,3 @@
-use calyx_ir::PortComp;
-
 use crate::flatten::flat_ir::{
     cell_prototype::{CellPrototype, ConstantType},
     identifier::{CanonicalIdentifier, IdMap},
@@ -385,17 +383,6 @@ impl<'a> Printer<'a> {
         parent: ComponentIdx,
         guard: GuardIdx,
     ) -> String {
-        fn op_to_str(op: &PortComp) -> String {
-            match op {
-                PortComp::Eq => String::from("=="),
-                PortComp::Neq => String::from("!="),
-                PortComp::Gt => String::from(">"),
-                PortComp::Lt => String::from("<"),
-                PortComp::Geq => String::from(">="),
-                PortComp::Leq => String::from("<="),
-            }
-        }
-
         match &self.ctx.primary.guards[guard] {
             Guard::True => String::new(),
             Guard::Or(l, r) => {
