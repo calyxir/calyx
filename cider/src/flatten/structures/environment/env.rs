@@ -24,7 +24,7 @@ use crate::{
             },
             cell_prototype::{CellPrototype, SingleWidthType},
             prelude::*,
-            wires::guards::Guard,
+            wires::guards::{Guard, PortComp},
         },
         primitives::{
             self, Primitive,
@@ -2640,12 +2640,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 let a_val = self.env.ports[a].val()?;
                 let b_val = self.env.ports[b].val()?;
                 match c {
-                    calyx_ir::PortComp::Eq => a_val == b_val,
-                    calyx_ir::PortComp::Neq => a_val != b_val,
-                    calyx_ir::PortComp::Gt => a_val.is_greater(b_val),
-                    calyx_ir::PortComp::Lt => a_val.is_less(b_val),
-                    calyx_ir::PortComp::Geq => a_val.is_greater_or_equal(b_val),
-                    calyx_ir::PortComp::Leq => a_val.is_less_or_equal(b_val),
+                    PortComp::Eq => a_val == b_val,
+                    PortComp::Neq => a_val != b_val,
+                    PortComp::Gt => a_val.is_greater(b_val),
+                    PortComp::Lt => a_val.is_less(b_val),
+                    PortComp::Geq => a_val.is_greater_or_equal(b_val),
+                    PortComp::Leq => a_val.is_less_or_equal(b_val),
                 }
                 .into()
             }

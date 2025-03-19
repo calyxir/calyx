@@ -418,7 +418,7 @@ impl<'a> Printer<'a> {
                 format!(
                     "{} {} {}",
                     l.format_name(&self.ctx.secondary.string_table),
-                    op_to_str(op),
+                    op.to_str(),
                     r.format_name(&self.ctx.secondary.string_table)
                 )
             }
