@@ -10,23 +10,46 @@ component multiply_and_add() -> () {
     ref loaded_val_b = std_reg(32);
     add = std_add(32);
     mult = std_mult_pipe(32);
+    result = std_reg(32);
   }
   wires {
-    group do_mul_and_add {
+    group do_mul {
       mult.left = loaded_val_a.out;
       mult.right = loaded_val_b.out;
-      mult.go = !mult.done ? 1'd1;
+      mult.go = 1'd1;
+      result.in = mult.out;
+      result.write_en = mult.done;
+      do_mul[done] = result.done;
+    }
+
+    group do_add {
+      acc.write_en = 1'd1;
 
       add.left = acc.out;
-      add.right = mult.out;
-
+      add.right = result.out;
       acc.in = add.out;
-      acc.write_en = mult.done;
-      do_mul_and_add[done] = acc.done;
+      do_add[done] = acc.done;
     }
+
+    // group do_mul_and_add {
+    //   mult.left = loaded_val_a.out;
+    //   mult.right = loaded_val_b.out;
+    //   mult.go = !mult.done ? 1'd1;
+
+    //   add.left = acc.out;
+    //   add.right = mult.out;
+
+    //   acc.in = add.out;
+    //   acc.write_en = mult.done;
+    //   do_mul_and_add[done] = acc.done;
+    // }
   }
   control {
-    seq { do_mul_and_add; }
+    seq { 
+      do_mul;
+      do_add;
+      // do_mul_and_add; 
+    }
   }
 }
 
@@ -119,9 +142,9 @@ component main() -> () {
       arr_2.content_en = 1'd1;
 
       val_a.in = arr_1.read_data;
-      val_a.write_en = 1'd1;
+      val_a.write_en = arr_1.done ? 1'd1;
       val_b.in = arr_2.read_data;
-      val_b.write_en = 1'd1;
+      val_b.write_en = arr_2.done ? 1'd1;
       read_data[done] = val_b.done;
     }
 
