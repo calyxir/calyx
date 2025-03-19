@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, BoolAttr, Guard, Id, Nothing, NumAttr};
+use calyx_ir::{
+    self as ir, BoolAttr, Guard, Id, Nothing, NumAttr, StaticTiming,
+};
 use calyx_utils::CalyxResult;
 
 /// Adds probe wires to each group to detect when a group is active.
@@ -60,7 +62,12 @@ impl Visitor for ProfilerInstrumentation {
             .iter()
             .map(|group| group.borrow().name())
             .collect::<Vec<_>>();
-        // iterate and check for structural enables and for cell invokes
+        let static_group_names = comp
+            .static_groups
+            .iter()
+            .map(|group| group.borrow().name())
+            .collect::<Vec<_>>();
+        // Dynamic groups: iterate and check for structural enables and for cell invokes
         for group_ref in comp.groups.iter() {
             let group = &group_ref.borrow();
             let mut primitive_vec: Vec<(Id, ir::Guard<Nothing>)> = Vec::new();
@@ -134,12 +141,39 @@ impl Visitor for ProfilerInstrumentation {
             primitive_invoke_map
                 .insert(group_ref.borrow().name(), primitive_vec);
         }
-        // build probe and assignments for every group + all structural invokes
+        // build probe and assignments for every group (dynamic and static) + all structural invokes
         let mut builder = ir::Builder::new(comp, sigs);
         let one = builder.add_constant(1, 1);
         let mut group_name_assign_and_cell = Vec::with_capacity(acc);
+        let mut static_group_name_assign_and_cell =
+            Vec::with_capacity(static_group_names.len()); // TODO: adjust when we figure out how to get primitives w/in static groups
         {
-            // probe and assignments for group (this group is currently active)
+            // Static: probe and assignments for group (this group is currently active)
+            for static_group_name in static_group_names.into_iter() {
+                // store group and component name (differentiate between groups of the same name under different components)
+                let name = format!(
+                    "{}{}{}_group_probe",
+                    static_group_name, delimiter, comp_name
+                );
+                let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
+                let probe_asgn: ir::Assignment<StaticTiming> = builder
+                    .build_assignment(
+                        probe_cell.borrow().get("in"),
+                        one.borrow().get("out"),
+                        Guard::True,
+                    );
+                // the probes should be @control because they should have value 0 whenever the corresponding group is not active.
+                probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
+                probe_cell
+                    .borrow_mut()
+                    .add_attribute(BoolAttr::Protected, 1);
+                static_group_name_assign_and_cell.push((
+                    static_group_name,
+                    probe_asgn,
+                    probe_cell,
+                ));
+            }
+            // Dynamic: probe and assignments for group (this group is currently active)
             for group_name in group_names.into_iter() {
                 // store group and component name (differentiate between groups of the same name under different components)
                 let name = format!(
@@ -261,11 +295,22 @@ impl Visitor for ProfilerInstrumentation {
                 }
             }
         }
-        // ugh so ugly
+        // Dynamic: Add created assignments to each group
         for group in comp.groups.iter() {
             for (group_name, asgn, cell) in group_name_assign_and_cell.iter() {
                 if group.borrow().name() == group_name {
                     group.borrow_mut().assignments.push(asgn.clone());
+                    comp.cells.add(cell.to_owned());
+                }
+            }
+        }
+        // Static: Add created assignments to each group
+        for static_group in comp.static_groups.iter() {
+            for (static_group_name, asgn, cell) in
+                static_group_name_assign_and_cell.iter()
+            {
+                if static_group.borrow().name() == static_group_name {
+                    static_group.borrow_mut().assignments.push(asgn.clone());
                     comp.cells.add(cell.to_owned());
                 }
             }
