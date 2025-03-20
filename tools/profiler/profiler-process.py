@@ -226,8 +226,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     Must run after postprocess
     """
     def postprocess_control(self):
-        m = { c : {} for c in self.cells_to_components}
-        # m = {c : [] for c in self.cells_to_components} # cell name --> [(reg_name, new_value, cycle_count)]
+        control_updates = { c : [] for c in self.cells_to_components } # cell name --> (clock_cycle, updates)
 
         for ts in self.timestamps_to_control_reg_changes:
             if ts in self.timestamps_to_clock_cycles:
@@ -235,6 +234,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 print(clock_cycle)
                 print(self.timestamps_to_control_reg_changes[ts])
                 events = self.timestamps_to_control_reg_changes[ts]
+                cell_to_val_changes = {}
                 # we only care about registers when their write_enables are fired.
                 for write_en in filter(lambda e: e.endswith("write_en") and events[e] == 1, events.keys()):
                     write_en_split = write_en.split(".")
@@ -244,13 +244,15 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     reg_new_value = events[in_signal] if in_signal in events else 0
                     # HACK: ignoring when pd values are 0 bc we only care about them turning 1
                     if not (".pd" in reg_name and reg_new_value == 0):
-                        m[cell_name].append((reg_name, reg_new_value, clock_cycle))
-
-        print()
-        for c in m:
-            print(c)
-            print(m[c])
-        return m
+                        upd = f"{write_en_split[-2]}:{reg_new_value}"
+                        if cell_name in cell_to_val_changes:
+                            cell_to_val_changes[cell_name] += f", {upd}"
+                        else:
+                            cell_to_val_changes[cell_name] = upd
+                        # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
+                for cell in cell_to_val_changes:
+                    control_updates[cell].append((clock_cycle, cell_to_val_changes[cell]))
+        return control_updates
 
     """
     Postprocess data mapping timestamps to events (signal changes)
@@ -859,19 +861,41 @@ def write_timeline_event(event, out_file):
     num_timeline_events += 1
 
 
-def port_fsm_events(partial_fsm_events, cell_to_info, name, out_file):
+def port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_info, cell_name, out_file):
     for fsm_name in list(partial_fsm_events.keys()):
         fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
-        if fsm_cell_name == name:
-            (fsm_pid, fsm_tid) = cell_to_info[name].get_fsm_pid_tid(fsm_name)
+        if fsm_cell_name == cell_name:
+            (fsm_pid, fsm_tid) = cell_to_info[cell_name].get_fsm_pid_tid(fsm_name)
             for entry in partial_fsm_events[fsm_name]:
                 entry["pid"] = fsm_pid
                 entry["tid"] = fsm_tid
                 write_timeline_event(entry, out_file)
             del partial_fsm_events[fsm_name]
+    for (cycle, update) in control_updates[cell_name]:
+        # FIXME: rename the function
+        (control_pid, control_tid) = cell_to_info[cell_name].get_fsm_pid_tid("CTRL")
+        begin_event = {
+            "name": update,
+            "cat": "CTRL",
+            "ph": "B",
+            "ts": cycle * ts_multiplier,
+            "pid": control_pid,
+            "tid": control_tid
+        }
+        end_event = {
+            "name": update,
+            "cat": "CTRL",
+            "ph": "E",
+            "ts": (cycle + 1) * ts_multiplier,
+            "pid": control_pid,
+            "tid": control_tid
+        }
+        write_timeline_event(begin_event, out_file)
+        write_timeline_event(end_event, out_file)
+    del control_updates[cell_name]
 
 
-def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
+def compute_timeline(trace, partial_fsm_events, control_updates, main_component, out_dir):
     # generate the JSON on the fly instead of storing everything in a list to save memory
     out_path = os.path.join(out_dir, "timeline-dump.json")
     out_file = open(out_path, "w", encoding="utf-8")
@@ -881,7 +905,7 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
     # main component gets pid 1
     cell_to_info = {main_component: TimelineCell(main_component, 1)}
     # generate JSON for all FSM events in main
-    port_fsm_events(partial_fsm_events, cell_to_info, main_component, out_file)
+    port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_info, main_component, out_file)
     group_to_parent_cell = {}
     pid_acc = 2
     currently_active = set()
@@ -900,8 +924,8 @@ def compute_timeline(trace, partial_fsm_events, main_component, out_dir):
                     if name not in cell_to_info:  # cell is not registered yet
                         cell_to_info[name] = TimelineCell(name, pid_acc)
                         # generate JSON for all FSM events in this cell
-                        port_fsm_events(
-                            partial_fsm_events, cell_to_info, name, out_file
+                        port_fsm_and_control_events(
+                            partial_fsm_events, control_updates, cell_to_info, name, out_file
                         )
                         pid_acc += 1
                 elif "(primitive)" in stack_elem:  # ignore primitives for now.
@@ -1150,8 +1174,7 @@ def main(
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
     converter.postprocess()
-    converter.postprocess_control()
-    sys.exit(1)
+    control_updates = converter.postprocess_control()
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
     if not os.path.exists(out_dir):
@@ -1173,7 +1196,7 @@ def main(
     flat_flame_map, scaled_flame_map = create_flame_maps(trace)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
 
-    compute_timeline(trace, fsm_events, main_fullname, out_dir)
+    compute_timeline(trace, fsm_events, control_updates, main_fullname, out_dir)
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
