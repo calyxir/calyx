@@ -114,9 +114,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # self.main_component = main_component
         self.cells_to_components = cells_to_components
         self.timestamps_to_events = {}
+        self.timestamps_to_clock_cycles = {}
+        self.timestamps_to_control_reg_changes = {}
         self.fsms = fsms
         self.trace = trace
         self.partial_fsm_events = fsm_events
+        self.control_registers = set()
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -126,6 +129,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_id_dict = {
             sid: [] for sid in vcd.references_to_ids.values()
         }  # one id can map to multiple signal names since wires are connected
+        control_signal_id_dict = {
+            sid: [] for sid in vcd.references_to_ids.values()
+        } # same as signal_id_dict, but just the values pertaining to control
 
         clock_filter = list(
             filter(lambda x: x.endswith(f"{self.main_shortname}.clk"), names)
@@ -163,38 +169,88 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             fully_qualified_fsms.add(fully_qualified_name)
             self.partial_fsm_events[fully_qualified_name] = self.partial_fsm_events[fsm]
             del self.partial_fsm_events[fsm]
+            self.control_registers.add(fsm)
         self.fsms = fully_qualified_fsms
 
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
+            if ".pd" in name and (".write_en" in name or ".in" in name): # FIXME: read a list of par done registers from a file instead of doing this hack
+                control_signal_id_dict[sid].append(name)
+                register_name = ".".join(remove_size_from_name(name).split(".")[:-1])
+                self.control_registers.add(register_name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
+                if name.startswith(f"{fsm}.write_en") or name.startswith(f"{fsm}.in"):
+                    control_signal_id_dict[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {
             k: v for k, v in signal_id_dict.items() if len(v) > 0
         }
+        self.control_signal_id_to_names = {
+            k: v for k, v in control_signal_id_dict.items() if len(v) > 0
+        }
+        print("CONTROL REGISTERS")
+        print(self.control_registers)
 
     def value(self, vcd, time, value, identifier_code, cur_sig_vals):
-        # ignore all signals we don't care about
-        if identifier_code not in self.signal_id_to_names:
-            return
+        if identifier_code in self.signal_id_to_names:
+            signal_names = self.signal_id_to_names[identifier_code]
+            int_value = int(value, 2)
 
-        signal_names = self.signal_id_to_names[identifier_code]
-        int_value = int(value, 2)
+            for signal_name in signal_names:
+                if (
+                    signal_name == f"{self.main_component}.clk" and int_value == 0
+                ):  # ignore falling edges
+                    continue
+                event = {"signal": signal_name, "value": int_value}
+                if time not in self.timestamps_to_events:
+                    self.timestamps_to_events[time] = [event]
+                else:
+                    self.timestamps_to_events[time].append(event)
+        if identifier_code in self.control_signal_id_to_names:
+            signal_names = self.control_signal_id_to_names[identifier_code]
+            int_value = int(value, 2)
 
-        for signal_name in signal_names:
-            if (
-                signal_name == f"{self.main_component}.clk" and int_value == 0
-            ):  # ignore falling edges
-                continue
-            event = {"signal": signal_name, "value": int_value}
-            if time not in self.timestamps_to_events:
-                self.timestamps_to_events[time] = [event]
-            else:
-                self.timestamps_to_events[time].append(event)
+            for signal_name in signal_names:
+                clean_signal_name = remove_size_from_name(signal_name)
+                print(clean_signal_name)
+                if time not in self.timestamps_to_control_reg_changes:
+                    self.timestamps_to_control_reg_changes[time] = {clean_signal_name: int_value}
+                else:
+                    self.timestamps_to_control_reg_changes[time][clean_signal_name] = int_value
+
+    """
+    Must run after postprocess
+    """
+    def postprocess_control(self):
+        m = { c : {} for c in self.cells_to_components}
+        # m = {c : [] for c in self.cells_to_components} # cell name --> [(reg_name, new_value, cycle_count)]
+
+        for ts in self.timestamps_to_control_reg_changes:
+            if ts in self.timestamps_to_clock_cycles:
+                clock_cycle = self.timestamps_to_clock_cycles[ts]
+                print(clock_cycle)
+                print(self.timestamps_to_control_reg_changes[ts])
+                events = self.timestamps_to_control_reg_changes[ts]
+                # we only care about registers when their write_enables are fired.
+                for write_en in filter(lambda e: e.endswith("write_en") and events[e] == 1, events.keys()):
+                    write_en_split = write_en.split(".")
+                    reg_name = ".".join(write_en_split[:-1])
+                    cell_name = ".".join(write_en_split[:-2])
+                    in_signal = f"{reg_name}.in"
+                    reg_new_value = events[in_signal] if in_signal in events else 0
+                    # HACK: ignoring when pd values are 0 bc we only care about them turning 1
+                    if not (".pd" in reg_name and reg_new_value == 0):
+                        m[cell_name].append((reg_name, reg_new_value, clock_cycle))
+
+        print()
+        for c in m:
+            print(c)
+            print(m[c])
+        return m
 
     """
     Postprocess data mapping timestamps to events (signal changes)
@@ -239,6 +295,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # checking whether the timestamp has a rising edge
             if {"signal": clock_name, "value": 1} in events:
                 clock_cycles += 1
+                self.timestamps_to_clock_cycles[ts] = clock_cycles
             # Recording the data organization for every kind of probe so I don't forget. () is a set.
             # groups-active: cell --> (active groups)
             # cell-active: (cells)
@@ -1093,6 +1150,8 @@ def main(
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
     converter.postprocess()
+    converter.postprocess_control()
+    sys.exit(1)
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
     if not os.path.exists(out_dir):
