@@ -1,0 +1,33 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    x = std_reg(32);
+    y = std_reg(32);
+    mul = std_mult_pipe(32);
+    r2 = std_reg(32);
+    x2 = std_reg(32);
+    y2 = std_reg(32);
+    mul2 = std_mult_pipe(32);
+    @control @generated @protected mul_active = std_wire(1);
+  }
+  wires {
+    comb group comb_invoke {
+      mul_active.in = !mul.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      invoke mul(
+        left = x.out,
+        right = y.out
+      )() with comb_invoke;
+      invoke mul2(
+        left = x2.out,
+        right = y2.out
+      )() with comb_invoke;
+    }
+  }
+}

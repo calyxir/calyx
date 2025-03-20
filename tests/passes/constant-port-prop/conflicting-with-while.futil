@@ -1,0 +1,54 @@
+// -p constant-port-prop
+
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    x = std_reg(32);
+    y = std_reg(32);
+    mul = std_mult_pipe(32);
+    r2 = std_reg(32);
+    x2 = std_reg(32);
+    y2 = std_reg(32);
+    mul2 = std_mult_pipe(32);
+    lt = std_lt(32);
+    lt_reg = std_reg(1);
+
+
+    @control @generated @protected mul_active = std_wire(1);
+  }
+  wires {
+    comb group comb_group {
+      lt.left = r.out;
+      lt.right = 32'd25;
+      mul_active.in = !mul.done ? 1'd1;
+    }
+    group init_x {
+      x.in = 32'd3;
+      x.write_en = 1'd1;
+      init_x[done] = x.done;      
+    }
+    group init_y {
+      y.in = 32'd5;
+      y.write_en = 1'd1;
+      init_y[done] = y.done;
+    }
+    group write_r {
+      r.in = mul.out;
+      r.write_en = 1'd1;
+      write_r[done] = r.done;
+    }
+   }
+  control {
+    seq {
+      init_x;
+      init_y;
+      while lt.out with comb_group {
+        invoke mul(left = x.out, right = y.out)() with comb_group;
+	write_r;
+      }
+     }
+  }
+}
