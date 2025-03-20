@@ -108,7 +108,7 @@ def create_cycle_trace(
 
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
-    def __init__(self, main_component, cells_to_components, fsms, trace, fsm_events):
+    def __init__(self, main_component, cells_to_components, fsms, fsm_events):
         super().__init__()
         self.main_shortname = main_component
         # self.main_component = main_component
@@ -117,7 +117,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
         self.fsms = fsms
-        self.trace = trace
         self.partial_fsm_events = fsm_events
         self.control_registers = set()
 
@@ -271,6 +270,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         structural_enable_active = set()
         cell_enable_active = set()
         primitive_enable = set()
+        trace = {}
+        trace_classified = []
         self.cell_to_active_cycles = {}  # cell --> [{"start": X, "end": Y, "length": Y - X}].
 
         # The events are "partial" because we don't know yet what the tid and pid would be.
@@ -427,13 +428,28 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         info_this_cycle["primitive-enable"][cell_name][
                             parent_group
                         ].add(primitive_name)
-                self.trace[clock_cycles] = create_cycle_trace(
+                stacks_this_cycle = create_cycle_trace(
                     info_this_cycle, self.cells_to_components, self.main_component, True
                 )  # True to track primitives
+                trace[clock_cycles] = stacks_this_cycle
+                trace_classified.append(classify_stacks(stacks_this_cycle, self.main_shortname))
         self.clock_cycles = (
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
 
+        return trace, trace_classified
+
+
+def classify_stacks(stacks, main_shortname):
+    # True if something "useful" is happening this cycle (group or primitive)
+    for stack in stacks:
+        top = stack[-1]
+        if "(primitive)" in top:
+            return True
+        elif "[" not in top and top != main_shortname: # group
+            return True
+
+    return False
 
 """
 Generates a list of all of the components to potential cell names
@@ -1162,18 +1178,17 @@ def main(
     fully_qualified_fsms = read_fsm_file(fsm_json_file, components_to_cells)
     print(f"Start reading VCD: {datetime.now()}")
     # moving output info out of the converter
-    trace = {}  # dict contents: cycle number --> list of stacks
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
         for fsm in fully_qualified_fsms
     }  # won't be fully filled in until create_timeline()
     converter = VCDConverter(
-        main_shortname, cells_to_components, fully_qualified_fsms, trace, fsm_events
+        main_shortname, cells_to_components, fully_qualified_fsms, fsm_events
     )
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
-    converter.postprocess()
+    trace, trace_classified = converter.postprocess() # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> True/False
     control_updates = converter.postprocess_control()
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
@@ -1187,6 +1202,10 @@ def main(
             print(i)
             for stack in trace[i]:
                 print(f"\t{stack}")
+
+    num_useful_cycles = len(list(filter(lambda c: c, trace_classified)))
+    percent_useful_cycles = round(num_useful_cycles / len(trace_classified), 2)
+    print(f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}")
 
     tree_dict, path_dict = create_tree(trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
