@@ -501,7 +501,7 @@ static COMMAND_INFO: LazyLock<Box<[CommandInfo]>> = LazyLock::new(|| {
             // display
             CIBuilder::new().invocation("display")
                 .invocation("d")
-                .description("Display the full state of the main component").build(),
+                .description("Prints the ports for all cells that appear in the currently active groups").build(),
             // print
             CIBuilder::new().invocation("print")
                 .invocation("p")
