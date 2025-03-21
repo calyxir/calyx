@@ -111,14 +111,13 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, main_component, cells_to_components, fsms, fsm_events):
         super().__init__()
         self.main_shortname = main_component
-        # self.main_component = main_component
         self.cells_to_components = cells_to_components
-        self.timestamps_to_events = {}
+        self.timestamps_to_events = {} # timestamps to 
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
+        self.timestamps_to_control_group_events = {}
         self.fsms = fsms
         self.partial_fsm_events = fsm_events
-        self.control_registers = set()
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -128,9 +127,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         signal_id_dict = {
             sid: [] for sid in vcd.references_to_ids.values()
         }  # one id can map to multiple signal names since wires are connected
-        control_signal_id_dict = {
+        tdcc_signal_id_to_names = {
             sid: [] for sid in vcd.references_to_ids.values()
-        } # same as signal_id_dict, but just the values pertaining to control
+        } # same as signal_id_dict, but just the registers that manage control (fsm, pd)
+        control_signal_id_to_names = {
+            sid: [] for sid in vcd.references_to_ids.values()
+        } # same as signal_id_dict, but just groups that manage control (only par for now, can also consider tdcc)
 
         clock_filter = list(
             filter(lambda x: x.endswith(f"{self.main_shortname}.clk"), names)
@@ -168,36 +170,37 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             fully_qualified_fsms.add(fully_qualified_name)
             self.partial_fsm_events[fully_qualified_name] = self.partial_fsm_events[fsm]
             del self.partial_fsm_events[fsm]
-            self.control_registers.add(fsm)
         self.fsms = fully_qualified_fsms
 
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
             if ".pd" in name and (".write_en" in name or ".in" in name): # FIXME: read a list of par done registers from a file instead of doing this hack
-                control_signal_id_dict[sid].append(name)
-                register_name = ".".join(remove_size_from_name(name).split(".")[:-1])
-                self.control_registers.add(register_name)
+                tdcc_signal_id_to_names[sid].append(name)
+                # register_name = ".".join(remove_size_from_name(name).split(".")[:-1])
+            if ".par" in name and "go_out" in name:
+                control_signal_id_to_names[sid].append(name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
                 if name.startswith(f"{fsm}.write_en") or name.startswith(f"{fsm}.in"):
-                    control_signal_id_dict[sid].append(name)
+                    tdcc_signal_id_to_names[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {
             k: v for k, v in signal_id_dict.items() if len(v) > 0
         }
-        self.control_signal_id_to_names = {
-            k: v for k, v in control_signal_id_dict.items() if len(v) > 0
+        self.tdcc_signal_id_to_names = {
+            k: v for k, v in tdcc_signal_id_to_names.items() if len(v) > 0
         }
-        print("CONTROL REGISTERS")
-        print(self.control_registers)
+        self.control_signal_id_to_names = {
+            k: v for k, v in control_signal_id_to_names.items() if len(v) > 0
+        }
 
     def value(self, vcd, time, value, identifier_code, cur_sig_vals):
+        int_value = int(value, 2)
         if identifier_code in self.signal_id_to_names:
             signal_names = self.signal_id_to_names[identifier_code]
-            int_value = int(value, 2)
 
             for signal_name in signal_names:
                 if (
@@ -211,27 +214,51 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.timestamps_to_events[time].append(event)
         if identifier_code in self.control_signal_id_to_names:
             signal_names = self.control_signal_id_to_names[identifier_code]
-            int_value = int(value, 2)
+            for signal_name in signal_names:
+                clean_signal_name = remove_size_from_name(signal_name).split("_go_out")[0].replace(self.signal_prefix + ".", "")
+                event = {"group": clean_signal_name, "value": int_value}
+                if time not in self.timestamps_to_control_group_events:
+                    self.timestamps_to_control_group_events[time] = [event]
+                else:
+                    self.timestamps_to_control_group_events[time].append(event)
+        if identifier_code in self.tdcc_signal_id_to_names:
+            signal_names = self.tdcc_signal_id_to_names[identifier_code]
 
             for signal_name in signal_names:
                 clean_signal_name = remove_size_from_name(signal_name)
-                print(clean_signal_name)
                 if time not in self.timestamps_to_control_reg_changes:
                     self.timestamps_to_control_reg_changes[time] = {clean_signal_name: int_value}
                 else:
                     self.timestamps_to_control_reg_changes[time][clean_signal_name] = int_value
 
+
+
     """
     Must run after postprocess
     """
     def postprocess_control(self):
-        control_updates = { c : [] for c in self.cells_to_components } # cell name --> (clock_cycle, updates)
+        control_group_events = {} # cycle count --> [control groups that are active that cycle]
+        control_reg_updates = { c : [] for c in self.cells_to_components } # cell name --> (clock_cycle, updates)
+
+        control_group_start_cycles = {}
+        for ts in self.timestamps_to_control_group_events:
+            if ts in self.timestamps_to_clock_cycles:
+                clock_cycle = self.timestamps_to_clock_cycles[ts]
+                events = self.timestamps_to_control_group_events[ts]
+                for event in events:
+                    group_name = event["group"]
+                    if event["value"] == 1: # control group started
+                        control_group_start_cycles[group_name] = clock_cycle
+                    elif event["value"] == 0: # control group ended
+                        for i in range(control_group_start_cycles[group_name], clock_cycle):
+                            if i in control_group_events:
+                                control_group_events[i].add(group_name)
+                            else:
+                                control_group_events[i] = {group_name}
 
         for ts in self.timestamps_to_control_reg_changes:
             if ts in self.timestamps_to_clock_cycles:
                 clock_cycle = self.timestamps_to_clock_cycles[ts]
-                print(clock_cycle)
-                print(self.timestamps_to_control_reg_changes[ts])
                 events = self.timestamps_to_control_reg_changes[ts]
                 cell_to_val_changes = {}
                 # we only care about registers when their write_enables are fired.
@@ -250,8 +277,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             cell_to_val_changes[cell_name] = upd
                         # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
                 for cell in cell_to_val_changes:
-                    control_updates[cell].append((clock_cycle, cell_to_val_changes[cell]))
-        return control_updates
+                    control_reg_updates[cell].append((clock_cycle, cell_to_val_changes[cell]))
+        return control_group_events, control_reg_updates
 
     """
     Postprocess data mapping timestamps to events (signal changes)
@@ -442,14 +469,15 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
 def classify_stacks(stacks, main_shortname):
     # True if something "useful" is happening this cycle (group or primitive)
+    acc = 0
     for stack in stacks:
         top = stack[-1]
         if "(primitive)" in top:
-            return True
+            acc += 1
         elif "[" not in top and top != main_shortname: # group
-            return True
+            acc += 1
 
-    return False
+    return acc
 
 """
 Generates a list of all of the components to potential cell names
@@ -879,13 +907,14 @@ def write_timeline_event(event, out_file):
 
 def port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_info, cell_name, out_file):
     for fsm_name in list(partial_fsm_events.keys()):
-        fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
-        if fsm_cell_name == cell_name:
-            (fsm_pid, fsm_tid) = cell_to_info[cell_name].get_fsm_pid_tid(fsm_name)
-            for entry in partial_fsm_events[fsm_name]:
-                entry["pid"] = fsm_pid
-                entry["tid"] = fsm_tid
-                write_timeline_event(entry, out_file)
+        # NOTE: uncomment below to bring back FSM tracks to the timeline.
+        # fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
+        # if fsm_cell_name == cell_name:
+        #     (fsm_pid, fsm_tid) = cell_to_info[cell_name].get_fsm_pid_tid(fsm_name)
+        #     for entry in partial_fsm_events[fsm_name]:
+        #         entry["pid"] = fsm_pid
+        #         entry["tid"] = fsm_tid
+        #         write_timeline_event(entry, out_file)
             del partial_fsm_events[fsm_name]
     for (cycle, update) in control_updates[cell_name]:
         # FIXME: rename the function
@@ -1168,6 +1197,29 @@ def read_fsm_file(fsm_json_file, components_to_cells):
     return fully_qualified_fsms
 
 
+def add_par_to_trace(trace, par_trace):
+    new_trace = {i : [] for i in trace}
+    print(par_trace)
+    for i in trace:
+        if i in par_trace:
+            for par_group_active in par_trace[i]:
+                split = par_group_active.split(".")
+                # the par group string registered is *.cell-name.par-group-name
+                par_group_cell = split[-2]
+                par_group_name = split[-1] + " (ctrl)"
+                for events_stack in trace[i]:
+                    new_events_stack = []
+                    for construct in events_stack:
+                        new_events_stack.append(construct)
+                        if construct == par_group_cell:
+                            new_events_stack.append(par_group_name)
+                    new_trace[i].append(new_events_stack)
+        else:
+            print(i)
+            new_trace[i] = trace[i].copy()
+    return new_trace
+
+
 def main(
     vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out
 ):
@@ -1188,8 +1240,9 @@ def main(
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
-    trace, trace_classified = converter.postprocess() # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> True/False
-    control_updates = converter.postprocess_control()
+    trace, trace_classified = converter.postprocess() # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
+    control_groups_trace, control_reg_updates = converter.postprocess_control()
+    trace_with_pars = add_par_to_trace(trace, control_groups_trace)
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
     if not os.path.exists(out_dir):
@@ -1198,12 +1251,12 @@ def main(
     del converter
 
     if len(trace) < 100:
-        for i in trace:
+        for i in trace_with_pars:
             print(i)
-            for stack in trace[i]:
+            for stack in trace_with_pars[i]:
                 print(f"\t{stack}")
 
-    num_useful_cycles = len(list(filter(lambda c: c, trace_classified)))
+    num_useful_cycles = len(list(filter(lambda c: c > 0, trace_classified)))
     percent_useful_cycles = round(num_useful_cycles / len(trace_classified), 2)
     print(f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}")
 
@@ -1212,10 +1265,10 @@ def main(
 
     create_aggregate_tree(trace, out_dir, tree_dict, path_dict)
     create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
-    flat_flame_map, scaled_flame_map = create_flame_maps(trace)
+    flat_flame_map, scaled_flame_map = create_flame_maps(trace_with_pars)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
 
-    compute_timeline(trace, fsm_events, control_updates, main_fullname, out_dir)
+    compute_timeline(trace_with_pars, fsm_events, control_reg_updates, main_fullname, out_dir)
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
