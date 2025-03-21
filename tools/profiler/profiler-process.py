@@ -112,7 +112,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         super().__init__()
         self.main_shortname = main_component
         self.cells_to_components = cells_to_components
-        self.timestamps_to_events = {} # timestamps to 
+        self.timestamps_to_events = {}  # timestamps to
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
         self.timestamps_to_control_group_events = {}
@@ -129,10 +129,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         }  # one id can map to multiple signal names since wires are connected
         tdcc_signal_id_to_names = {
             sid: [] for sid in vcd.references_to_ids.values()
-        } # same as signal_id_dict, but just the registers that manage control (fsm, pd)
+        }  # same as signal_id_dict, but just the registers that manage control (fsm, pd)
         control_signal_id_to_names = {
             sid: [] for sid in vcd.references_to_ids.values()
-        } # same as signal_id_dict, but just groups that manage control (only par for now, can also consider tdcc)
+        }  # same as signal_id_dict, but just groups that manage control (only par for now, can also consider tdcc)
 
         clock_filter = list(
             filter(lambda x: x.endswith(f"{self.main_shortname}.clk"), names)
@@ -175,7 +175,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
-            if ".pd" in name and (".write_en" in name or ".in" in name): # FIXME: read a list of par done registers from a file instead of doing this hack
+            if (
+                ".pd" in name and (".write_en" in name or ".in" in name)
+            ):  # FIXME: read a list of par done registers from a file instead of doing this hack
                 tdcc_signal_id_to_names[sid].append(name)
                 # register_name = ".".join(remove_size_from_name(name).split(".")[:-1])
             if ".par" in name and "go_out" in name:
@@ -215,7 +217,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         if identifier_code in self.control_signal_id_to_names:
             signal_names = self.control_signal_id_to_names[identifier_code]
             for signal_name in signal_names:
-                clean_signal_name = remove_size_from_name(signal_name).split("_go_out")[0].replace(self.signal_prefix + ".", "")
+                clean_signal_name = (
+                    remove_size_from_name(signal_name)
+                    .split("_go_out")[0]
+                    .replace(self.signal_prefix + ".", "")
+                )
                 event = {"group": clean_signal_name, "value": int_value}
                 if time not in self.timestamps_to_control_group_events:
                     self.timestamps_to_control_group_events[time] = [event]
@@ -227,18 +233,23 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for signal_name in signal_names:
                 clean_signal_name = remove_size_from_name(signal_name)
                 if time not in self.timestamps_to_control_reg_changes:
-                    self.timestamps_to_control_reg_changes[time] = {clean_signal_name: int_value}
+                    self.timestamps_to_control_reg_changes[time] = {
+                        clean_signal_name: int_value
+                    }
                 else:
-                    self.timestamps_to_control_reg_changes[time][clean_signal_name] = int_value
-
-
+                    self.timestamps_to_control_reg_changes[time][clean_signal_name] = (
+                        int_value
+                    )
 
     """
     Must run after postprocess
     """
+
     def postprocess_control(self):
-        control_group_events = {} # cycle count --> [control groups that are active that cycle]
-        control_reg_updates = { c : [] for c in self.cells_to_components } # cell name --> (clock_cycle, updates)
+        control_group_events = {}  # cycle count --> [control groups that are active that cycle]
+        control_reg_updates = {
+            c: [] for c in self.cells_to_components
+        }  # cell name --> (clock_cycle, updates)
 
         control_group_start_cycles = {}
         for ts in self.timestamps_to_control_group_events:
@@ -247,10 +258,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 events = self.timestamps_to_control_group_events[ts]
                 for event in events:
                     group_name = event["group"]
-                    if event["value"] == 1: # control group started
+                    if event["value"] == 1:  # control group started
                         control_group_start_cycles[group_name] = clock_cycle
-                    elif event["value"] == 0: # control group ended
-                        for i in range(control_group_start_cycles[group_name], clock_cycle):
+                    elif event["value"] == 0:  # control group ended
+                        for i in range(
+                            control_group_start_cycles[group_name], clock_cycle
+                        ):
                             if i in control_group_events:
                                 control_group_events[i].add(group_name)
                             else:
@@ -262,7 +275,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 events = self.timestamps_to_control_reg_changes[ts]
                 cell_to_val_changes = {}
                 # we only care about registers when their write_enables are fired.
-                for write_en in filter(lambda e: e.endswith("write_en") and events[e] == 1, events.keys()):
+                for write_en in filter(
+                    lambda e: e.endswith("write_en") and events[e] == 1, events.keys()
+                ):
                     write_en_split = write_en.split(".")
                     reg_name = ".".join(write_en_split[:-1])
                     cell_name = ".".join(write_en_split[:-2])
@@ -277,7 +292,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             cell_to_val_changes[cell_name] = upd
                         # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
                 for cell in cell_to_val_changes:
-                    control_reg_updates[cell].append((clock_cycle, cell_to_val_changes[cell]))
+                    control_reg_updates[cell].append(
+                        (clock_cycle, cell_to_val_changes[cell])
+                    )
         return control_group_events, control_reg_updates
 
     """
@@ -459,7 +476,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     info_this_cycle, self.cells_to_components, self.main_component, True
                 )  # True to track primitives
                 trace[clock_cycles] = stacks_this_cycle
-                trace_classified.append(classify_stacks(stacks_this_cycle, self.main_shortname))
+                trace_classified.append(
+                    classify_stacks(stacks_this_cycle, self.main_shortname)
+                )
         self.clock_cycles = (
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
@@ -474,10 +493,11 @@ def classify_stacks(stacks, main_shortname):
         top = stack[-1]
         if "(primitive)" in top:
             acc += 1
-        elif "[" not in top and top != main_shortname: # group
+        elif "[" not in top and top != main_shortname:  # group
             acc += 1
 
     return acc
+
 
 """
 Generates a list of all of the components to potential cell names
@@ -905,7 +925,9 @@ def write_timeline_event(event, out_file):
     num_timeline_events += 1
 
 
-def port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_info, cell_name, out_file):
+def port_fsm_and_control_events(
+    partial_fsm_events, control_updates, cell_to_info, cell_name, out_file
+):
     for fsm_name in list(partial_fsm_events.keys()):
         # NOTE: uncomment below to bring back FSM tracks to the timeline.
         # fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
@@ -915,8 +937,8 @@ def port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_inf
         #         entry["pid"] = fsm_pid
         #         entry["tid"] = fsm_tid
         #         write_timeline_event(entry, out_file)
-            del partial_fsm_events[fsm_name]
-    for (cycle, update) in control_updates[cell_name]:
+        del partial_fsm_events[fsm_name]
+    for cycle, update in control_updates[cell_name]:
         # FIXME: rename the function
         (control_pid, control_tid) = cell_to_info[cell_name].get_fsm_pid_tid("CTRL")
         begin_event = {
@@ -925,7 +947,7 @@ def port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_inf
             "ph": "B",
             "ts": cycle * ts_multiplier,
             "pid": control_pid,
-            "tid": control_tid
+            "tid": control_tid,
         }
         end_event = {
             "name": update,
@@ -933,14 +955,16 @@ def port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_inf
             "ph": "E",
             "ts": (cycle + 1) * ts_multiplier,
             "pid": control_pid,
-            "tid": control_tid
+            "tid": control_tid,
         }
         write_timeline_event(begin_event, out_file)
         write_timeline_event(end_event, out_file)
     del control_updates[cell_name]
 
 
-def compute_timeline(trace, partial_fsm_events, control_updates, main_component, out_dir):
+def compute_timeline(
+    trace, partial_fsm_events, control_updates, main_component, out_dir
+):
     # generate the JSON on the fly instead of storing everything in a list to save memory
     out_path = os.path.join(out_dir, "timeline-dump.json")
     out_file = open(out_path, "w", encoding="utf-8")
@@ -950,7 +974,9 @@ def compute_timeline(trace, partial_fsm_events, control_updates, main_component,
     # main component gets pid 1
     cell_to_info = {main_component: TimelineCell(main_component, 1)}
     # generate JSON for all FSM events in main
-    port_fsm_and_control_events(partial_fsm_events, control_updates, cell_to_info, main_component, out_file)
+    port_fsm_and_control_events(
+        partial_fsm_events, control_updates, cell_to_info, main_component, out_file
+    )
     group_to_parent_cell = {}
     pid_acc = 2
     currently_active = set()
@@ -970,7 +996,11 @@ def compute_timeline(trace, partial_fsm_events, control_updates, main_component,
                         cell_to_info[name] = TimelineCell(name, pid_acc)
                         # generate JSON for all FSM events in this cell
                         port_fsm_and_control_events(
-                            partial_fsm_events, control_updates, cell_to_info, name, out_file
+                            partial_fsm_events,
+                            control_updates,
+                            cell_to_info,
+                            name,
+                            out_file,
                         )
                         pid_acc += 1
                 elif "(primitive)" in stack_elem:  # ignore primitives for now.
@@ -1198,7 +1228,7 @@ def read_fsm_file(fsm_json_file, components_to_cells):
 
 
 def add_par_to_trace(trace, par_trace):
-    new_trace = {i : [] for i in trace}
+    new_trace = {i: [] for i in trace}
     print(par_trace)
     for i in trace:
         if i in par_trace:
@@ -1240,7 +1270,9 @@ def main(
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
-    trace, trace_classified = converter.postprocess() # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
+    trace, trace_classified = (
+        converter.postprocess()
+    )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
     control_groups_trace, control_reg_updates = converter.postprocess_control()
     trace_with_pars = add_par_to_trace(trace, control_groups_trace)
     print(f"End Postprocessing VCD: {datetime.now()}")
@@ -1258,7 +1290,9 @@ def main(
 
     num_useful_cycles = len(list(filter(lambda c: c > 0, trace_classified)))
     percent_useful_cycles = round(num_useful_cycles / len(trace_classified), 2)
-    print(f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}")
+    print(
+        f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}"
+    )
 
     tree_dict, path_dict = create_tree(trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
@@ -1268,7 +1302,9 @@ def main(
     flat_flame_map, scaled_flame_map = create_flame_maps(trace_with_pars)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
 
-    compute_timeline(trace_with_pars, fsm_events, control_reg_updates, main_fullname, out_dir)
+    compute_timeline(
+        trace_with_pars, fsm_events, control_reg_updates, main_fullname, out_dir
+    )
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
