@@ -8,8 +8,9 @@ use crate::passes::{
     GroupToInvoke, GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
-    StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
-    UnrollBounded, WellFormed, WireInliner, WrapMain,
+    StaticInliner, StaticPromotion, StaticRepeatFSMAllocation,
+    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
+    WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -46,6 +47,7 @@ impl PassManager {
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
         pm.register_pass::<StaticFSMAllocation>()?;
+        pm.register_pass::<StaticRepeatFSMAllocation>()?;
         pm.register_pass::<StaticFSMOpts>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
@@ -131,8 +133,9 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                StaticRepeatFSMAllocation,
                 StaticFSMAllocation,
-                CompileRepeat,
+                // CompileRepeat,
                 DeadGroupRemoval,
                 MergeAssign,
                 TopDownCompileControl,

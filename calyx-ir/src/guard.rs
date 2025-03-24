@@ -1,4 +1,4 @@
-use super::{NumAttr, Port, RRC};
+use super::{Builder, Cell, NumAttr, Port, RRC};
 use crate::Printer;
 use calyx_utils::Error;
 use std::collections::HashSet;
@@ -508,7 +508,53 @@ impl Guard<StaticTiming> {
                 let (b, e) = static_timing.interval;
                 (b..e).collect()
             }
-            Self::CompOp(..) | Self::Port(_) => HashSet::new(),
+            Self::CompOp(..) | Self::Port(_) => {
+                HashSet::from_iter(0..group_latency)
+            }
+        }
+    }
+
+    /// Replace every interval `[a1, a_n]` in a static timing guard with
+    /// `counter.out == a_1 | counter.out == a_2 | ... | counter.out == a_{n-1}`
+    pub fn replace_static_timing(
+        &mut self,
+        builder: &mut Builder,
+        counter: &RRC<Cell>,
+        width: &u64,
+    ) {
+        match self {
+            Self::True | Self::CompOp(..) | Self::Port(..) => (),
+            Self::Not(g) => g.replace_static_timing(builder, counter, width),
+            Self::And(l, r) | Self::Or(l, r) => {
+                l.replace_static_timing(builder, counter, width);
+                r.replace_static_timing(builder, counter, width);
+            }
+            Self::Info(static_timing) => {
+                let (b, e) = static_timing.get_interval();
+                self.update(|_| {
+                    match (b..e).fold(None, |acc, state| {
+                        let state_const = builder.add_constant(state, *width);
+                        let state_guard = Self::CompOp(
+                            PortComp::Eq,
+                            counter.borrow().get("out"),
+                            state_const.borrow().get("out"),
+                        );
+                        match acc {
+                            None => Some(state_guard),
+                            Some(existing_guard) => {
+                                Some(existing_guard.or(state_guard))
+                            }
+                        }
+                    }) {
+                        Some(g) => g,
+                        None => {
+                            let zero = builder.add_constant(0, 1);
+                            let out_port = zero.borrow().get("out");
+                            Self::port(out_port)
+                        }
+                    }
+                });
+            }
         }
     }
 
