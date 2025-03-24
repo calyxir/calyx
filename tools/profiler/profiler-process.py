@@ -250,6 +250,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         control_reg_updates = {
             c: [] for c in self.cells_to_components
         }  # cell name --> (clock_cycle, updates)
+        control_reg_per_cycle = {} # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
+        # for now, control_reg_update_type will be one of "fsm", "par-done", "both"
 
         control_group_start_cycles = {}
         for ts in self.timestamps_to_control_group_events:
@@ -272,8 +274,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for ts in self.timestamps_to_control_reg_changes:
             if ts in self.timestamps_to_clock_cycles:
                 clock_cycle = self.timestamps_to_clock_cycles[ts]
+                # control_reg_per_cycle[clock_cycle] = []
                 events = self.timestamps_to_control_reg_changes[ts]
                 cell_to_val_changes = {}
+                cell_to_change_type = {}
                 # we only care about registers when their write_enables are fired.
                 for write_en in filter(
                     lambda e: e.endswith("write_en") and events[e] == 1, events.keys()
@@ -290,12 +294,24 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             cell_to_val_changes[cell_name] += f", {upd}"
                         else:
                             cell_to_val_changes[cell_name] = upd
+                        # update cell_to_change_type
+                        if ".pd" in reg_name and cell_name not in cell_to_change_type:
+                            cell_to_change_type[cell_name] = "par-done"
+                        elif ".pd" in reg_name and cell_to_change_type[cell_name] == "fsm":
+                            cell_to_change_type[cell_name] = "both"
+                        elif ".fsm" in reg_name and cell_name not in cell_to_change_type:
+                            cell_to_change_type[cell_name] = "fsm"
+                        elif ".fsm" in reg_name and cell_to_change_type[cell_name] == "par-done":
+                            cell_to_change_type[cell_name] = "both"
                         # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
                 for cell in cell_to_val_changes:
                     control_reg_updates[cell].append(
                         (clock_cycle, cell_to_val_changes[cell])
                     )
-        return control_group_events, control_reg_updates
+                if len(cell_to_change_type) > 0:
+                    leaf_cell = sorted(cell_to_change_type.keys(), key=(lambda k : k.count(".")))[-1]
+                    control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
+        return control_group_events, control_reg_updates, control_reg_per_cycle
 
     """
     Postprocess data mapping timestamps to events (signal changes)
@@ -761,6 +777,10 @@ def create_edge_dict(path_dict):
 
     return path_to_edges, list(sorted(all_edges))
 
+def write_flame_map(flame_map, flame_out_file):
+    with open(flame_out_file, "w") as flame_out:
+        for stack in flame_map:
+            flame_out.write(f"{stack} {flame_map[stack]}\n")
 
 def write_flame_maps(
     flat_flame_map,
@@ -773,17 +793,12 @@ def write_flame_maps(
         os.mkdir(flames_out_dir)
 
     # write flat flame map
-    with open(flame_out_file, "w") as flame_out:
-        for stack in flat_flame_map:
-            flame_out.write(f"{stack} {flat_flame_map[stack]}\n")
+    write_flame_map(flat_flame_map, flame_out_file)
 
     # write scaled flame map
     if scaled_flame_out_file is None:
         scaled_flame_out_file = os.path.join(flames_out_dir, "scaled-flame.folded")
-    with open(scaled_flame_out_file, "w") as div_flame_out:
-        for stack in scaled_flame_map:
-            div_flame_out.write(f"{stack} {scaled_flame_map[stack]}\n")
-
+    write_flame_map(scaled_flame_map, scaled_flame_out_file)
 
 """
 Creates flat and scaled flame maps from a trace.
@@ -1229,7 +1244,6 @@ def read_fsm_file(fsm_json_file, components_to_cells):
 
 def add_par_to_trace(trace, par_trace):
     new_trace = {i: [] for i in trace}
-    print(par_trace)
     for i in trace:
         if i in par_trace:
             for par_group_active in par_trace[i]:
@@ -1245,9 +1259,23 @@ def add_par_to_trace(trace, par_trace):
                             new_events_stack.append(par_group_name)
                     new_trace[i].append(new_events_stack)
         else:
-            print(i)
             new_trace[i] = trace[i].copy()
     return new_trace
+
+def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
+    flame_map = {"group/primitive": 0, "fsm": 0, "par-done": 0, "fsm + par-done": 0}
+    for i in range(len(classified_trace)):
+        if classified_trace[i] > 0:
+            flame_map["group/primitive"] += 1
+        elif control_reg_updates[i] == "both":
+            flame_map["fsm + par-done"] += 1
+        else:
+            flame_map[control_reg_updates[i]] += 1
+    # modify names to contain their cycles (for easier viewing)
+    for label in list(flame_map.keys()):
+        flame_map[f"{label} ({flame_map[label]})"] = flame_map[label]
+        del flame_map[label]
+    write_flame_map(flame_map, os.path.join(out_dir, "overview.folded"))
 
 
 def main(
@@ -1273,7 +1301,8 @@ def main(
     trace, trace_classified = (
         converter.postprocess()
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
-    control_groups_trace, control_reg_updates = converter.postprocess_control()
+    control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = converter.postprocess_control()
+    print(f"ctrl reg updates: {control_reg_updates_per_cycle}")
     trace_with_pars = add_par_to_trace(trace, control_groups_trace)
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
@@ -1301,6 +1330,7 @@ def main(
     create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     flat_flame_map, scaled_flame_map = create_flame_maps(trace_with_pars)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
+    create_simple_flame_graph(trace_classified, control_reg_updates_per_cycle, out_dir)
 
     compute_timeline(
         trace_with_pars, fsm_events, control_reg_updates, main_fullname, out_dir
