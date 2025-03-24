@@ -4,13 +4,15 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, Cell, GetAttributes, LibrarySignatures, Printer, RRC,
+    self as ir, BoolAttr, Cell, GetAttributes, IdList, LibrarySignatures,
+    Printer, RRC,
 };
 use calyx_ir::{Id, build_assignments, guard, structure};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use petgraph::adj::List;
 use petgraph::graph::DiGraph;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -289,6 +291,7 @@ struct Schedule<'b, 'a: 'b> {
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 enum ProfilingInfo {
     Fsm(FSMInfo),
+    Par(ParInfo),
     SingleEnable(SingleEnableInfo),
 }
 
@@ -300,6 +303,23 @@ struct SingleEnableInfo {
     pub component: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub group: Id,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct ParInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub component: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub par_group: Id,
+    pub child_groups: Vec<ParChildInfo>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct ParChildInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub group: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub register: Id,
 }
 
 /// Information to be serialized for a single FSM
@@ -1386,6 +1406,8 @@ impl Visitor for TopDownCompileControl {
         // Registers to save the done signal from each child.
         let mut done_regs = Vec::with_capacity(s.stmts.len());
 
+        let mut child_infos = Vec::with_capacity(s.stmts.len());
+
         // For each child, build the enabling logic.
         for con in &s.stmts {
             let group = match con {
@@ -1426,8 +1448,17 @@ impl Visitor for TopDownCompileControl {
                 pd["write_en"] = group_done ? signal_on["out"];
             );
             par_group.borrow_mut().assignments.extend(assigns);
-            done_regs.push(pd)
+            child_infos.push(ParChildInfo {
+                group: group.borrow().name(),
+                register: pd.borrow().name(),
+            });
+            done_regs.push(pd);
         }
+        self.fsm_groups.insert(ProfilingInfo::Par(ParInfo {
+            component: builder.component.name,
+            par_group: par_group.borrow().name(),
+            child_groups: child_infos,
+        }));
 
         // Done condition for this group
         let done_guard = done_regs
