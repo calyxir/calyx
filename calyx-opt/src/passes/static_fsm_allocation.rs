@@ -3,6 +3,7 @@ use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
 use calyx_ir::{self as ir, build_assignments, guard};
 use calyx_utils::CalyxResult;
 use core::ops::Not;
+use itertools::Itertools;
 use std::collections::HashMap;
 
 pub struct StaticFSMAllocation {
@@ -336,63 +337,108 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
             ir::Guard::True,
         );
 
-        let (mut assignments, transitions): (
+        let (mut assignments, transitions, state2wires): (
             Vec<Vec<ir::Assignment<ir::Nothing>>>,
             Vec<ir::Transition>,
+            Vec<ir::RRC<ir::Cell>>,
         ) = (0..self.state)
             .map(|state| {
-                let assigns_at_state = match self.state2assigns.remove(&state) {
-                    None => vec![],
-                    Some(mut assigns) => {
-                        // merge `idle` and first `calc` state
+                // construct a wire to represent this state
+                let state_wire: ir::RRC<ir::Cell> = self.builder.add_primitive(
+                    format!("{}_{state}", fsm.borrow().name().to_string()),
+                    "std_wire",
+                    &[1],
+                );
+                // build assignment to indicate that we're in this state
+                let mut state_assign: ir::Assignment<ir::Nothing> =
+                    self.builder.build_assignment(
+                        state_wire.borrow().get("in"),
+                        signal_on.borrow().get("out"),
+                        ir::Guard::True,
+                    );
+
+                // merge `idle` and first `calc` state
+                if state == 0 {
+                    state_assign.and_guard(ir::guard!(fsm["start"]));
+                }
+
+                // let assigns_at_state = match self.state2assigns.remove(&state) {
+                //     None => vec![],
+                //     Some(mut assigns) => {
+                //         // merge `idle` and first `calc` state
+                //         if state == 0 {
+                //             assigns.iter_mut().for_each(|assign| {
+                //                 assign.and_guard(guard!(fsm["start"]));
+                //             });
+                //         }
+                //         assigns
+                //     }
+                // };
+
+                let transition_from_state = match self
+                    .state2trans
+                    .remove(&state)
+                {
+                    Some(mut transition) => {
+                        // if in first state, transition conditioned on fsm[start]
+                        let transition_mut_ref = &mut transition;
                         if state == 0 {
-                            assigns.iter_mut().for_each(|assign| {
-                                assign.and_guard(guard!(fsm["start"]));
-                            });
+                            match transition_mut_ref {
+                                ir::Transition::Unconditional(next_state) => {
+                                    *transition_mut_ref =
+                                        ir::Transition::Conditional(vec![
+                                            (guard!(fsm["start"]), *next_state),
+                                            (ir::Guard::True, 0),
+                                        ]);
+                                }
+                                ir::Transition::Conditional(conditions) => {
+                                    conditions.iter_mut().for_each(
+                                        |(condition, _)| {
+                                            condition.update(|g| {
+                                                g.and(guard!(fsm["start"]))
+                                            });
+                                        },
+                                    );
+                                }
+                            }
                         }
-                        assigns
+
+                        // add a default self-loop for every conditional transition
+                        // if it doesn't already have it
+                        if let ir::Transition::Conditional(trans) =
+                            &mut transition
+                        {
+                            if !(trans.last_mut().unwrap().0.is_true()) {
+                                trans.push((ir::Guard::True, state))
+                            }
+                        }
+                        transition
+                    }
+                    None => {
+                        if state == 0 {
+                            // set transition out of first state, which is
+                            // conditional on reading fsm[start]
+                            ir::Transition::Conditional(vec![
+                                (guard!(fsm["start"]), 1 % self.state),
+                                (ir::Guard::True, 0),
+                            ])
+                        } else {
+                            // loopback to start at final state, and increment
+                            // state otherwise
+                            ir::Transition::Unconditional(
+                                if state + 1 == self.state {
+                                    0
+                                } else {
+                                    state + 1
+                                },
+                            )
+                        }
                     }
                 };
 
-                let transition_from_state =
-                    match self.state2trans.remove(&state) {
-                        Some(mut transition) => {
-                            // add a default self-loop for every conditional transition
-                            // if it doesn't already have it
-                            if let ir::Transition::Conditional(trans) =
-                                &mut transition
-                            {
-                                if !(trans.last_mut().unwrap().0.is_true()) {
-                                    trans.push((ir::Guard::True, state))
-                                }
-                            }
-                            transition
-                        }
-                        None => {
-                            if state == 0 {
-                                // set transition out of first state, which is
-                                // conditional on reading fsm[start]
-                                ir::Transition::Conditional(vec![
-                                    (guard!(fsm["start"]), 1 % self.state),
-                                    (ir::Guard::True, 0),
-                                ])
-                            } else {
-                                // loopback to start at final state, and increment
-                                // state otherwise
-                                ir::Transition::Unconditional(
-                                    if state + 1 == self.state {
-                                        0
-                                    } else {
-                                        state + 1
-                                    },
-                                )
-                            }
-                        }
-                    };
-
-                (assigns_at_state, transition_from_state)
+                (vec![state_assign], transition_from_state, state_wire)
             })
-            .unzip();
+            .multiunzip();
 
         if non_promoted_static_component {
             // If the component is static by design, there will be exactly one
@@ -454,6 +500,24 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                 fsm_done,
             ]);
         }
+
+        self.builder.add_continuous_assignments(
+            self.state2assigns
+                .drain()
+                .flat_map(|(state, mut assigns)| {
+                    assigns.iter_mut().for_each(|assign| {
+                        assign.and_guard(ir::Guard::port(
+                            state2wires
+                                .get(state as usize)
+                                .unwrap()
+                                .borrow()
+                                .get("out"),
+                        ));
+                    });
+                    assigns
+                })
+                .collect(),
+        );
 
         // Instantiate the FSM with the assignments and transitions we built
         fsm.borrow_mut().assignments.extend(assignments);
