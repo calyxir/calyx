@@ -126,9 +126,12 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
         scon: &ir::StaticControl,
         guard: ir::Guard<ir::Nothing>,
         mut transitions_to_curr: Vec<IncompleteTransition>,
-    ) -> Vec<IncompleteTransition> {
+        looped_once_guard: Option<ir::Guard<ir::Nothing>>,
+    ) -> (Vec<IncompleteTransition>, Option<ir::Guard<ir::Nothing>>) {
         match scon {
-            ir::StaticControl::Empty(_) => transitions_to_curr,
+            ir::StaticControl::Empty(_) => {
+                (transitions_to_curr, looped_once_guard)
+            }
             ir::StaticControl::Enable(sen) => {
                 // for all parts of the FSM that want to transition to this enable,
                 // register their transitions in self.state2trans
@@ -216,11 +219,18 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                         })
                         .or_insert(assigns);
 
+                    let new_looped_once_guard = match self.state {
+                        0 => Some(final_state_guard.clone()),
+                        _ => looped_once_guard,
+                    };
                     self.state += 1;
-                    vec![IncompleteTransition::new(
-                        self.state - 1,
-                        final_state_guard,
-                    )]
+                    (
+                        vec![IncompleteTransition::new(
+                            self.state - 1,
+                            final_state_guard,
+                        )],
+                        new_looped_once_guard,
+                    )
                 } else {
                     sen.group.borrow().assignments.iter().for_each(|sassign| {
                         sassign
@@ -247,62 +257,38 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                     // Don't know where to transition next; let the parent that called
                     // `build_abstract_fsm` deal with registering the transition from the state(s)
                     // we just built.
-                    vec![IncompleteTransition::new(
-                        self.state - 1,
-                        ir::Guard::True,
-                    )]
+                    (
+                        vec![IncompleteTransition::new(
+                            self.state - 1,
+                            ir::Guard::True,
+                        )],
+                        looped_once_guard,
+                    )
                 }
             }
             ir::StaticControl::Seq(sseq) => sseq.stmts.iter().fold(
-                transitions_to_curr,
-                |transitions_to_this_stmt, stmt| {
+                (transitions_to_curr, looped_once_guard),
+                |(transitions_to_this_stmt, looped_once_guard_this_stmt),
+                 stmt| {
                     self.build_abstract_fsm(
                         stmt,
                         guard.clone(),
                         transitions_to_this_stmt,
+                        looped_once_guard_this_stmt,
                     )
                 },
             ),
 
-            ir::StaticControl::If(sif) => {
-                // construct a guard on the static assignments in the each branch
-                let build_branch_guard =
-                    |is_true_branch: bool| -> ir::Guard<ir::Nothing> {
-                        guard.clone().and({
-                            if is_true_branch {
-                                ir::Guard::port(sif.port.clone())
-                            } else {
-                                ir::Guard::not(ir::Guard::port(
-                                    sif.port.clone(),
-                                ))
-                            }
-                        })
-                    };
-
-                self.build_abstract_fsm(
-                    &sif.tbranch,
-                    guard.clone().and(build_branch_guard(true)),
-                    transitions_to_curr.clone(),
+            ir::StaticControl::If(_) => {
+                unreachable!(
+                    "`construct_schedule` encountered a `static_if` node. \
+              Should have been compiled into a static group."
                 )
-                .into_iter()
-                .chain(self.build_abstract_fsm(
-                    &sif.fbranch,
-                    guard.clone().and(build_branch_guard(false)),
-                    transitions_to_curr.clone(),
-                ))
-                .collect()
             }
-            ir::StaticControl::Repeat(srep) => {
-                // unroll an encountered repeat loop. usually these are compiled away
-                (0..srep.num_repeats).into_iter().fold(
-                    transitions_to_curr,
-                    |transitions_to_this_body, _| {
-                        self.build_abstract_fsm(
-                            &srep.body,
-                            guard.clone(),
-                            transitions_to_this_body,
-                        )
-                    },
+            ir::StaticControl::Repeat(_) => {
+                unreachable!(
+                    "`construct_schedule` encountered a `static_repeat` node. \
+              Should have been compiled into a static group."
                 )
             }
             ir::StaticControl::Par(_) => {
@@ -333,8 +319,8 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
         // Declare the FSM
         let fsm = self.builder.add_fsm("fsm");
 
-        let mut remaining_assignments =
-            self.build_abstract_fsm(control, ir::Guard::True, vec![]);
+        let (mut remaining_assignments, additional_looped_once_guard) =
+            self.build_abstract_fsm(control, ir::Guard::True, vec![], None);
 
         // add loopback transitions to first state
         self.register_transitions(
@@ -486,7 +472,10 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                 self.builder.build_assignment(
                     looped_once.borrow().get("in"),
                     signal_on.borrow().get("out"),
-                    ir::guard!(fsm["start"]),
+                    match additional_looped_once_guard {
+                        None => ir::guard!(fsm["start"]),
+                        Some(g) => ir::guard!(fsm["start"]).and(g),
+                    },
                 ),
                 self.builder.build_assignment(
                     looped_once.borrow().get("write_en"),

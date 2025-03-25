@@ -660,7 +660,16 @@ fn emit_fsm_module<F: io::Write>(
             for (guard, _) in guards.iter() {
                 for port in guard.all_ports().iter() {
                     if used_port_names.insert(port.borrow().canonical()) {
-                        writeln!(f, "  input logic {},", VerilogPortRef(port))?;
+                        let wire_width = match port.borrow().width {
+                            1 => "".to_string(),
+                            n => format!("[{}:{}]", n - 1, 0),
+                        };
+                        writeln!(
+                            f,
+                            "  input logic {} {},",
+                            wire_width,
+                            VerilogPortRef(port)
+                        )?;
                     }
                 }
             }
