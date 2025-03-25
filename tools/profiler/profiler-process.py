@@ -108,7 +108,7 @@ def create_cycle_trace(
 
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
-    def __init__(self, main_component, cells_to_components, fsms, fsm_events):
+    def __init__(self, main_component, cells_to_components, fsms, fsm_events, par_done_regs):
         super().__init__()
         self.main_shortname = main_component
         self.cells_to_components = cells_to_components
@@ -118,6 +118,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.timestamps_to_control_group_events = {}
         self.fsms = fsms
         self.partial_fsm_events = fsm_events
+        self.par_done_regs = par_done_regs
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -171,21 +172,22 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             self.partial_fsm_events[fully_qualified_name] = self.partial_fsm_events[fsm]
             del self.partial_fsm_events[fsm]
         self.fsms = fully_qualified_fsms
+        # update par done registers with fully qualified names (to be consistent with fsms)
+        self.par_done_regs = {f"{self.signal_prefix}.{pd}" for pd in self.par_done_regs}
+        
 
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
-            if (
-                ".pd" in name and (".write_en" in name or ".in" in name)
-            ):  # FIXME: read a list of par done registers from a file instead of doing this hack
-                tdcc_signal_id_to_names[sid].append(name)
-                # register_name = ".".join(remove_size_from_name(name).split(".")[:-1])
             if ".par" in name and "go_out" in name:
                 control_signal_id_to_names[sid].append(name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
                 if name.startswith(f"{fsm}.write_en") or name.startswith(f"{fsm}.in"):
+                    tdcc_signal_id_to_names[sid].append(name)
+            for par_done_reg in self.par_done_regs:
+                if name.startswith(f"{par_done_reg}.in") or name == f"{par_done_reg}.write_en":
                     tdcc_signal_id_to_names[sid].append(name)
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
@@ -287,8 +289,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     cell_name = ".".join(write_en_split[:-2])
                     in_signal = f"{reg_name}.in"
                     reg_new_value = events[in_signal] if in_signal in events else 0
-                    # HACK: ignoring when pd values are 0 bc we only care about them turning 1
-                    if not (".pd" in reg_name and reg_new_value == 0):
+                    if not (reg_name in self.par_done_regs and reg_new_value == 0): # ignore when pd values turn 0 since they are only useful when they are high
                         upd = f"{write_en_split[-2]}:{reg_new_value}"
                         if cell_name in cell_to_val_changes:
                             cell_to_val_changes[cell_name] += f", {upd}"
@@ -1222,10 +1223,12 @@ Returns a set of all fsms with fully qualified fsm names
 """
 
 
-def read_fsm_file(fsm_json_file, components_to_cells):
+def read_tdcc_file(fsm_json_file, components_to_cells):
     json_data = json.load(open(fsm_json_file))
     # cell_to_fsms = {} # cell --> fully qualified fsm names
     fully_qualified_fsms = set()
+    par_info = {} # fully qualified par name --> [non-fully-qualified par children name]
+    par_done_regs = set()
     for json_entry in json_data:
         if "Fsm" in json_entry:
             entry = json_entry["Fsm"]
@@ -1238,8 +1241,23 @@ def read_fsm_file(fsm_json_file, components_to_cells):
                 #     cell_to_fsms[cell] = [fully_qualified_fsm]
                 # else:
                 #     cell_to_fsms[cell].append(fully_qualified_fsm)
+        if "Par" in json_entry:
+            entry = json_entry["Par"]
+            par = entry["par_group"]
+            component = entry["component"]
+            child_par_groups = []
+            for cell in components_to_cells[component]:
+                fully_qualified_par = ".".join((cell, par))
+                for child in entry["child_groups"]:
+                    if child["group"].startswith("par"): # FIXME: heuristic. might be best to filter later with list of pars
+                        child_par_groups.append(child["group"])
+                    # register
+                    child_pd_reg = child["register"]
+                    par_done_regs.add(".".join((cell, child_pd_reg)))
+                par_info[fully_qualified_par] = child_par_groups
+                    
 
-    return fully_qualified_fsms
+    return fully_qualified_fsms, par_info, par_done_regs
 
 
 def add_par_to_trace(trace, par_trace):
@@ -1279,21 +1297,22 @@ def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
 
 
 def main(
-    vcd_filename, cells_json_file, fsm_json_file, adl_mapping_file, out_dir, flame_out
+    vcd_filename, cells_json_file, tdcc_json_file, adl_mapping_file, out_dir, flame_out
 ):
     print(f"Start time: {datetime.now()}")
     main_shortname, cells_to_components, components_to_cells = (
         read_component_cell_names_json(cells_json_file)
     )
-    fully_qualified_fsms = read_fsm_file(fsm_json_file, components_to_cells)
-    print(f"Start reading VCD: {datetime.now()}")
+    fully_qualified_fsms, par_dep_info, par_done_regs = read_tdcc_file(tdcc_json_file, components_to_cells)
+    print(par_done_regs)
     # moving output info out of the converter
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
         for fsm in fully_qualified_fsms
     }  # won't be fully filled in until create_timeline()
+    print(f"Start reading VCD: {datetime.now()}")
     converter = VCDConverter(
-        main_shortname, cells_to_components, fully_qualified_fsms, fsm_events
+        main_shortname, cells_to_components, fully_qualified_fsms, fsm_events, par_done_regs
     )
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     main_fullname = converter.main_component
