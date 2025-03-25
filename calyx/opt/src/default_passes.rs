@@ -164,8 +164,6 @@ impl PassManager {
             "profiler",
             [
                 "validate",
-                StaticInliner,
-                CompileStatic,
                 CompileInvoke,
                 ProfilerInstrumentation,
                 "pre-opt",
