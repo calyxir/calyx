@@ -106,12 +106,13 @@ impl Visitor for ConstantPortProp {
         let mut builder = ir::Builder::new(comp, sigs);
         let one = builder.add_constant(1, 1);
         let zero = builder.add_constant(0, 1);
-        // first, drop any comb groups that are used in while/ifs and in multiple invokes
-        for used_comb_group in &self.comb_groups_used_elsewhere {
-            self.comb_groups_to_modify.remove(used_comb_group);
-        }
-        // modify assignments of any remaining comb groups
-        for comb_group_ref in comp.comb_groups.iter() {
+        // modify assignments of comb groups that aren't used in while/ifs and in multiple invokes
+        for comb_group_ref in comp.comb_groups.iter().filter(|item| {
+            !self
+                .comb_groups_used_elsewhere
+                .contains(&item.borrow().name())
+        }) {
+            // for comb_group_ref in comp.comb_groups.iter() {
             let mut comb_group = comb_group_ref.borrow_mut();
             let comb_group_name = comb_group.name();
             if let Some(cell_name) =
@@ -119,7 +120,7 @@ impl Visitor for ConstantPortProp {
             {
                 let mut modified_asgns =
                     std::mem::take(&mut comb_group.assignments);
-                for asgn in &mut modified_asgns {
+                for asgn in modified_asgns.iter_mut() {
                     asgn.for_each_port(|port_ref| {
                         let mut res = None;
                         let port = port_ref.borrow();
