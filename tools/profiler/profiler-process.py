@@ -1100,10 +1100,12 @@ def create_timeline_event(
     return event
 
 
-def write_cell_stats(cell_to_active_cycles, out_dir):
+def write_cell_stats(cell_to_active_cycles, cells_to_components, component_to_num_fsms, out_dir):
     # cell-name,total-cycles,times-active,avg
     stats = []
     for cell in cell_to_active_cycles:
+        component = cells_to_components[cell]
+        num_fsms = component_to_num_fsms[component]
         total_cycles = 0
         times_active = len(cell_to_active_cycles[cell])
         for elem in cell_to_active_cycles[cell]:
@@ -1111,14 +1113,15 @@ def write_cell_stats(cell_to_active_cycles, out_dir):
         avg_cycles = round(total_cycles / times_active, 2)
         stats.append(
             {
-                "cell-name": cell,
+                "cell-name": f"{cell} [{component}]",
+                "num-fsms": num_fsms,
                 "total-cycles": total_cycles,
                 "times-active": times_active,
                 "avg": avg_cycles,
             }
         )
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
-    fieldnames = ["cell-name", "total-cycles", "times-active", "avg"]
+    fieldnames = ["cell-name", "num-fsms", "total-cycles", "times-active", "avg"]
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
         writer.writeheader()
@@ -1229,11 +1232,13 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
     fully_qualified_fsms = set()
     par_info = {} # fully qualified par name --> [non-fully-qualified par children name]
     par_done_regs = set()
+    component_to_fsm_acc = {component: 0 for component in components_to_cells}
     for json_entry in json_data:
         if "Fsm" in json_entry:
             entry = json_entry["Fsm"]
             fsm_name = entry["fsm"]
             component = entry["component"]
+            component_to_fsm_acc[component] += 1
             for cell in components_to_cells[component]:
                 fully_qualified_fsm = ".".join((cell, fsm_name))
                 fully_qualified_fsms.add(fully_qualified_fsm)
@@ -1255,9 +1260,8 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
                     child_pd_reg = child["register"]
                     par_done_regs.add(".".join((cell, child_pd_reg)))
                 par_info[fully_qualified_par] = child_par_groups
-                    
 
-    return fully_qualified_fsms, par_info, par_done_regs
+    return fully_qualified_fsms, component_to_fsm_acc, par_info, par_done_regs
 
 
 def add_par_to_trace(trace, par_trace):
@@ -1281,20 +1285,21 @@ def add_par_to_trace(trace, par_trace):
     return new_trace
 
 def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
-    flame_map = {"group/primitive": 0, "fsm": 0, "par-done": 0, "fsm + par-done": 0}
+    flame_base_map = {"group/primitive": [], "fsm": [], "par-done": [], "fsm + par-done": []}
     for i in range(len(classified_trace)):
         if classified_trace[i] > 0:
-            flame_map["group/primitive"] += 1
+            flame_base_map["group/primitive"].append(i)
         elif control_reg_updates[i] == "both":
-            flame_map["fsm + par-done"] += 1
+            flame_base_map["fsm + par-done"].append(i)
         else:
-            flame_map[control_reg_updates[i]] += 1
+            flame_base_map[control_reg_updates[i]].append(i)
     # modify names to contain their cycles (for easier viewing)
+    flame_map = {key : len(flame_base_map[key]) for key in flame_base_map}
     for label in list(flame_map.keys()):
         flame_map[f"{label} ({flame_map[label]})"] = flame_map[label]
         del flame_map[label]
     write_flame_map(flame_map, os.path.join(out_dir, "overview.folded"))
-
+    return flame_base_map
 
 def main(
     vcd_filename, cells_json_file, tdcc_json_file, adl_mapping_file, out_dir, flame_out
@@ -1303,8 +1308,7 @@ def main(
     main_shortname, cells_to_components, components_to_cells = (
         read_component_cell_names_json(cells_json_file)
     )
-    fully_qualified_fsms, par_dep_info, par_done_regs = read_tdcc_file(tdcc_json_file, components_to_cells)
-    print(par_done_regs)
+    fully_qualified_fsms, component_to_num_fsms, par_dep_info, par_done_regs = read_tdcc_file(tdcc_json_file, components_to_cells)
     # moving output info out of the converter
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
@@ -1327,7 +1331,7 @@ def main(
     print(f"End reading VCD: {datetime.now()}")
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
-    write_cell_stats(converter.cell_to_active_cycles, out_dir)
+    write_cell_stats(converter.cell_to_active_cycles, cells_to_components, component_to_num_fsms, out_dir)
     del converter
 
     if len(trace) < 100:
@@ -1349,7 +1353,7 @@ def main(
     create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     flat_flame_map, scaled_flame_map = create_flame_maps(trace_with_pars)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
-    create_simple_flame_graph(trace_classified, control_reg_updates_per_cycle, out_dir)
+    cats_to_cycles = create_simple_flame_graph(trace_classified, control_reg_updates_per_cycle, out_dir)
 
     compute_timeline(
         trace_with_pars, fsm_events, control_reg_updates, main_fullname, out_dir
