@@ -24,26 +24,6 @@ impl ConstructVisitor for StaticRepeatFSMAllocation {
     fn clear_data(&mut self) {}
 }
 
-fn one_state_exists(scon: &ir::StaticControl) -> bool {
-    match scon {
-        ir::StaticControl::Empty(_) => false,
-        ir::StaticControl::Enable(sen) => {
-            sen.get_attributes().has(ir::BoolAttr::OneState)
-        }
-        ir::StaticControl::Seq(sseq) => sseq
-            .stmts
-            .iter()
-            .fold(false, |exists, stmt| exists || (one_state_exists(stmt))),
-        ir::StaticControl::If(sif) => {
-            one_state_exists(&sif.tbranch) || one_state_exists(&sif.fbranch)
-        }
-        ir::StaticControl::Repeat(srep) => one_state_exists(&srep.body),
-        ir::StaticControl::Invoke(_) | ir::StaticControl::Par(_) => {
-            unreachable!()
-        }
-    }
-}
-
 /// Represents an FSM transition that doesn't yet have a destination state.
 #[derive(Clone)]
 struct IncompleteTransition {
@@ -75,7 +55,7 @@ struct StaticSchedule<'b, 'a: 'b> {
 impl<'b, 'a> From<&'b mut ir::Builder<'a>> for StaticSchedule<'b, 'a> {
     fn from(builder: &'b mut ir::Builder<'a>) -> Self {
         StaticSchedule {
-            builder: builder,
+            builder,
             state: 0,
             state2assigns: HashMap::new(),
             state2trans: HashMap::new(),
@@ -195,17 +175,20 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                         .to_vec();
 
                     // guard reprsenting if counter is in final state
-                    let final_state = {
-                        let final_state =
-                            self.builder.add_constant(group_latency - 1, width);
-                        let g = ir::Guard::CompOp(
-                            ir::PortComp::Eq,
-                            counter.borrow().get("out"),
-                            final_state.borrow().get("out"),
+                    let final_state_const =
+                        self.builder.add_constant(group_latency - 1, width);
+                    let final_state_wire: ir::RRC<ir::Cell> =
+                        self.builder.add_primitive(
+                            format!("const{}_{}_", group_latency - 1, width),
+                            "std_wire",
+                            &[width],
                         );
-                        g
-                    };
-                    let not_final_state = final_state.clone().not();
+                    let final_state_guard = ir::Guard::CompOp(
+                        ir::PortComp::Eq,
+                        counter.borrow().get("out"),
+                        final_state_wire.borrow().get("out"),
+                    );
+                    let not_final_state_guard = final_state_guard.clone().not();
 
                     // build assignments to increment / reset the counter
                     let adder = self.builder.add_primitive(
@@ -216,12 +199,12 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                     let const_one = self.builder.add_constant(1, width);
                     let const_zero = self.builder.add_constant(0, width);
                     let incr_counter_assigns = build_assignments!(self.builder;
-
+                        final_state_wire["in"] = ? final_state_const["out"];
                         adder["left"] = ? counter["out"];
                         adder["right"] = ? const_one["out"];
                         counter["write_en"] = ? signal_on["out"];
-                        counter["in"] = final_state ? const_zero["out"];
-                        counter["in"] = not_final_state ? adder["out"];
+                        counter["in"] = final_state_guard ? const_zero["out"];
+                        counter["in"] = not_final_state_guard ? adder["out"];
                     );
 
                     assigns.extend(incr_counter_assigns.to_vec());
@@ -237,7 +220,10 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                         .or_insert(assigns);
 
                     self.state += 1;
-                    vec![IncompleteTransition::new(self.state - 1, final_state)]
+                    vec![IncompleteTransition::new(
+                        self.state - 1,
+                        final_state_guard,
+                    )]
                 } else {
                     sen.group.borrow().assignments.iter().for_each(|sassign| {
                         sassign

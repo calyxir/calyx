@@ -146,7 +146,6 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
 
                     // instantiate a local counter register
                     let width = get_bit_width_from(group_latency);
-                    let zero = self.builder.add_constant(0, 1);
                     let counter = self.builder.add_primitive(
                         "group_counter",
                         "std_reg",
@@ -174,17 +173,20 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                         .collect();
 
                     // guard reprsenting if counter is in final state
-                    let final_state = {
-                        let final_state =
-                            self.builder.add_constant(group_latency - 1, width);
-                        let g = ir::Guard::CompOp(
-                            ir::PortComp::Eq,
-                            counter.borrow().get("out"),
-                            final_state.borrow().get("out"),
+                    let final_state_const =
+                        self.builder.add_constant(group_latency - 1, width);
+                    let final_state_wire: ir::RRC<ir::Cell> =
+                        self.builder.add_primitive(
+                            format!("const{}_{}_", group_latency - 1, width),
+                            "std_wire",
+                            &[width],
                         );
-                        g
-                    };
-                    let not_final_state = final_state.clone().not();
+                    let final_state_guard = ir::Guard::CompOp(
+                        ir::PortComp::Eq,
+                        counter.borrow().get("out"),
+                        final_state_wire.borrow().get("out"),
+                    );
+                    let not_final_state_guard = final_state_guard.clone().not();
 
                     // build assignments to increment / reset the counter
                     let adder = self.builder.add_primitive(
@@ -195,11 +197,12 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                     let const_one = self.builder.add_constant(1, width);
                     let const_zero = self.builder.add_constant(0, width);
                     let incr_counter_assigns = build_assignments!(self.builder;
+                        final_state_wire["in"] = ? final_state_const["out"];
                         adder["left"] = ? counter["out"];
                         adder["right"] = ? const_one["out"];
                         counter["write_en"] = ? signal_on["out"];
-                        counter["in"] = final_state ? const_zero["out"];
-                        counter["in"] = not_final_state ? adder["out"];
+                        counter["in"] = final_state_guard ? const_zero["out"];
+                        counter["in"] = not_final_state_guard ? adder["out"];
                     );
 
                     assigns.extend(incr_counter_assigns.to_vec());
@@ -214,7 +217,10 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                         .or_insert(assigns);
 
                     self.state += 1;
-                    vec![IncompleteTransition::new(self.state - 1, final_state)]
+                    vec![IncompleteTransition::new(
+                        self.state - 1,
+                        final_state_guard,
+                    )]
                 } else {
                     sen.group.borrow().assignments.iter().for_each(|sassign| {
                         sassign
