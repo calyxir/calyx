@@ -108,7 +108,15 @@ def create_cycle_trace(
 
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
-    def __init__(self, main_component, cells_to_components, fsms, fsm_events, par_groups, par_done_regs):
+    def __init__(
+        self,
+        main_component,
+        cells_to_components,
+        fsms,
+        fsm_events,
+        par_groups,
+        par_done_regs,
+    ):
         super().__init__()
         self.main_shortname = main_component
         self.cells_to_components = cells_to_components
@@ -167,9 +175,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             del self.cells_to_components[cell_suffix]
         # update fsms, par done registers, par groups with fully qualified names
         self.fsms = {f"{self.signal_prefix}.{fsm}" for fsm in self.fsms}
-        self.partial_fsm_events = {f"{self.signal_prefix}.{fsm}": self.partial_fsm_events[fsm] for fsm in self.partial_fsm_events}
+        self.partial_fsm_events = {
+            f"{self.signal_prefix}.{fsm}": self.partial_fsm_events[fsm]
+            for fsm in self.partial_fsm_events
+        }
         self.par_done_regs = {f"{self.signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.par_groups = {f"{self.signal_prefix}.{par_group}" for par_group in self.par_groups}
+        self.par_groups = {
+            f"{self.signal_prefix}.{par_group}" for par_group in self.par_groups
+        }
 
         for name, sid in refs:
             if "probe_out" in name:
@@ -180,7 +193,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if name.startswith(f"{fsm}.write_en") or name.startswith(f"{fsm}.in"):
                     tdcc_signal_id_to_names[sid].append(name)
             for par_done_reg in self.par_done_regs:
-                if name.startswith(f"{par_done_reg}.in") or name == f"{par_done_reg}.write_en":
+                if (
+                    name.startswith(f"{par_done_reg}.in")
+                    or name == f"{par_done_reg}.write_en"
+                ):
                     tdcc_signal_id_to_names[sid].append(name)
             for par_group_name in self.par_groups:
                 if name == f"{par_group_name}_go_out":
@@ -249,7 +265,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         control_reg_updates = {
             c: [] for c in self.cells_to_components
         }  # cell name --> (clock_cycle, updates)
-        control_reg_per_cycle = {} # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
+        control_reg_per_cycle = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
         # for now, control_reg_update_type will be one of "fsm", "par-done", "both"
 
         control_group_start_cycles = {}
@@ -286,7 +302,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     cell_name = ".".join(write_en_split[:-2])
                     in_signal = f"{reg_name}.in"
                     reg_new_value = events[in_signal] if in_signal in events else 0
-                    if not (reg_name in self.par_done_regs and reg_new_value == 0): # ignore when pd values turn 0 since they are only useful when they are high
+                    if not (
+                        reg_name in self.par_done_regs and reg_new_value == 0
+                    ):  # ignore when pd values turn 0 since they are only useful when they are high
                         upd = f"{write_en_split[-2]}:{reg_new_value}"
                         if cell_name in cell_to_val_changes:
                             cell_to_val_changes[cell_name] += f", {upd}"
@@ -295,11 +313,19 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         # update cell_to_change_type
                         if ".pd" in reg_name and cell_name not in cell_to_change_type:
                             cell_to_change_type[cell_name] = "par-done"
-                        elif ".pd" in reg_name and cell_to_change_type[cell_name] == "fsm":
+                        elif (
+                            ".pd" in reg_name
+                            and cell_to_change_type[cell_name] == "fsm"
+                        ):
                             cell_to_change_type[cell_name] = "both"
-                        elif ".fsm" in reg_name and cell_name not in cell_to_change_type:
+                        elif (
+                            ".fsm" in reg_name and cell_name not in cell_to_change_type
+                        ):
                             cell_to_change_type[cell_name] = "fsm"
-                        elif ".fsm" in reg_name and cell_to_change_type[cell_name] == "par-done":
+                        elif (
+                            ".fsm" in reg_name
+                            and cell_to_change_type[cell_name] == "par-done"
+                        ):
                             cell_to_change_type[cell_name] = "both"
                         # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
                 for cell in cell_to_val_changes:
@@ -307,7 +333,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         (clock_cycle, cell_to_val_changes[cell])
                     )
                 if len(cell_to_change_type) > 0:
-                    leaf_cell = sorted(cell_to_change_type.keys(), key=(lambda k : k.count(".")))[-1]
+                    leaf_cell = sorted(
+                        cell_to_change_type.keys(), key=(lambda k: k.count("."))
+                    )[-1]
                     control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
         return control_group_events, control_reg_updates, control_reg_per_cycle
 
@@ -775,10 +803,12 @@ def create_edge_dict(path_dict):
 
     return path_to_edges, list(sorted(all_edges))
 
+
 def write_flame_map(flame_map, flame_out_file):
     with open(flame_out_file, "w") as flame_out:
         for stack in flame_map:
             flame_out.write(f"{stack} {flame_map[stack]}\n")
+
 
 def write_flame_maps(
     flat_flame_map,
@@ -797,6 +827,7 @@ def write_flame_maps(
     if scaled_flame_out_file is None:
         scaled_flame_out_file = os.path.join(flames_out_dir, "scaled-flame.folded")
     write_flame_map(scaled_flame_map, scaled_flame_out_file)
+
 
 """
 Creates flat and scaled flame maps from a trace.
@@ -1097,7 +1128,9 @@ def create_timeline_event(
     return event
 
 
-def write_cell_stats(cell_to_active_cycles, cells_to_components, component_to_num_fsms, out_dir):
+def write_cell_stats(
+    cell_to_active_cycles, cells_to_components, component_to_num_fsms, out_dir
+):
     # cell-name,total-cycles,times-active,avg
     stats = []
     for cell in cell_to_active_cycles:
@@ -1227,10 +1260,10 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
     json_data = json.load(open(fsm_json_file))
     # cell_to_fsms = {} # cell --> fully qualified fsm names
     fully_qualified_fsms = set()
-    par_info = {} # fully qualified par name --> [fully-qualified par children name]
-    reverse_par_info = {} # fully qualified par name --> [fully-qualified par parent name]
+    par_info = {}  # fully qualified par name --> [fully-qualified par children name]
+    reverse_par_info = {}  # fully qualified par name --> [fully-qualified par parent name]
     cell_to_pars = {}
-    cell_to_groups_to_par_parent = {} # cell --> { group --> name of par parent group}. Kind of like reverse_par_info but for normal groups
+    cell_to_groups_to_par_parent = {}  # cell --> { group --> name of par parent group}. Kind of like reverse_par_info but for normal groups
     # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
     par_done_regs = set()
     component_to_fsm_acc = {component: 0 for component in components_to_cells}
@@ -1260,14 +1293,20 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
                     cell_to_pars[cell] = {fully_qualified_par}
                 for child in entry["child_groups"]:
                     child_name = child["group"]
-                    if child_name.startswith("par"): # FIXME: heuristic. might be best to filter later with list of pars
+                    if child_name.startswith(
+                        "par"
+                    ):  # FIXME: heuristic. might be best to filter later with list of pars
                         fully_qualified_child_name = ".".join((cell, child_name))
                         child_par_groups.append(fully_qualified_child_name)
                         if fully_qualified_child_name in reverse_par_info:
-                            reverse_par_info[fully_qualified_child_name].append(fully_qualified_par)
+                            reverse_par_info[fully_qualified_child_name].append(
+                                fully_qualified_par
+                            )
                         else:
-                            reverse_par_info[fully_qualified_child_name] = [fully_qualified_par]
-                    else: # normal group
+                            reverse_par_info[fully_qualified_child_name] = [
+                                fully_qualified_par
+                            ]
+                    else:  # normal group
                         if cell in cell_to_groups_to_par_parent:
                             if child_name in cell_to_groups_to_par_parent[cell]:
                                 cell_to_groups_to_par_parent[cell][child_name].add(par)
@@ -1280,15 +1319,26 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
                     par_done_regs.add(".".join((cell, child_pd_reg)))
                 par_info[fully_qualified_par] = child_par_groups
 
-    return fully_qualified_fsms, component_to_fsm_acc, par_info, reverse_par_info, cell_to_pars, par_done_regs, cell_to_groups_to_par_parent
+    return (
+        fully_qualified_fsms,
+        component_to_fsm_acc,
+        par_info,
+        reverse_par_info,
+        cell_to_pars,
+        par_done_regs,
+        cell_to_groups_to_par_parent,
+    )
+
 
 """
 Give a partial ordering for pars
 (1) order based on cells
 (2) for pars in the same cell, order based on dependencies information
 """
+
+
 def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
-    ordered = {} # cell --> ordered par names
+    ordered = {}  # cell --> ordered par names
     print(rev_par_deps)
     for cell in sorted(cell_to_pars, key=(lambda c: c.count("."))):
         ordered[cell] = []
@@ -1298,12 +1348,19 @@ def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
         while len(worklist) > 0:
             par = worklist.pop(0)
             if par not in ordered:
-                ordered[cell].append(par) # f"{signal_prefix}.{par}"
+                ordered[cell].append(par)  # f"{signal_prefix}.{par}"
             # get all the children of this par
             worklist += par_deps[par]
     return ordered
 
-def add_par_to_trace(trace, par_trace, cells_to_ordered_pars, cell_to_groups_to_par_parent, main_shortname):
+
+def add_par_to_trace(
+    trace,
+    par_trace,
+    cells_to_ordered_pars,
+    cell_to_groups_to_par_parent,
+    main_shortname,
+):
     new_trace = {i: [] for i in trace}
     for i in trace:
         if i in par_trace:
@@ -1311,17 +1368,22 @@ def add_par_to_trace(trace, par_trace, cells_to_ordered_pars, cell_to_groups_to_
                 new_events_stack = []
                 for construct in events_stack:
                     new_events_stack.append(construct)
-                    if construct == main_shortname: # main
+                    if construct == main_shortname:  # main
                         current_cell = main_shortname
-                    elif " [" in construct: # cell detected
+                    elif " [" in construct:  # cell detected
                         current_cell += "." + construct.split(" [")[0]
-                    elif "(primitive)" not in construct: # group
+                    elif "(primitive)" not in construct:  # group
                         # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
                         # soooooooo ugly
                         if construct in cell_to_groups_to_par_parent[current_cell]:
-                            group_parents = cell_to_groups_to_par_parent[current_cell][construct]
+                            group_parents = cell_to_groups_to_par_parent[current_cell][
+                                construct
+                            ]
                             parent_found = False
-                            while len(new_events_stack) > 2 and "(ctrl)" in new_events_stack[-2]: # FIXME: this hack only works because par is the only ctrl element rn...
+                            while (
+                                len(new_events_stack) > 2
+                                and "(ctrl)" in new_events_stack[-2]
+                            ):  # FIXME: this hack only works because par is the only ctrl element rn...
                                 for parent in group_parents:
                                     if f"{parent} (ctrl)" == new_events_stack[-2]:
                                         parent_found = True
@@ -1333,8 +1395,13 @@ def add_par_to_trace(trace, par_trace, cells_to_ordered_pars, cell_to_groups_to_
                     else:
                         continue
                     # get all of the active pars from this cell
-                    active_from_cell = par_trace[i].intersection(cells_to_ordered_pars[current_cell])
-                    for par_group_active in sorted(active_from_cell, key=(lambda p: cells_to_ordered_pars[current_cell].index(p))):
+                    active_from_cell = par_trace[i].intersection(
+                        cells_to_ordered_pars[current_cell]
+                    )
+                    for par_group_active in sorted(
+                        active_from_cell,
+                        key=(lambda p: cells_to_ordered_pars[current_cell].index(p)),
+                    ):
                         par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
                         new_events_stack.append(par_group_name)
                 new_trace[i].append(new_events_stack)
@@ -1357,8 +1424,14 @@ def add_par_to_trace(trace, par_trace, cells_to_ordered_pars, cell_to_groups_to_
 
     return new_trace
 
+
 def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
-    flame_base_map = {"group/primitive": [], "fsm": [], "par-done": [], "fsm + par-done": []}
+    flame_base_map = {
+        "group/primitive": [],
+        "fsm": [],
+        "par-done": [],
+        "fsm + par-done": [],
+    }
     for i in range(len(classified_trace)):
         if classified_trace[i] > 0:
             flame_base_map["group/primitive"].append(i)
@@ -1367,12 +1440,13 @@ def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
         else:
             flame_base_map[control_reg_updates[i]].append(i)
     # modify names to contain their cycles (for easier viewing)
-    flame_map = {key : len(flame_base_map[key]) for key in flame_base_map}
+    flame_map = {key: len(flame_base_map[key]) for key in flame_base_map}
     for label in list(flame_map.keys()):
         flame_map[f"{label} ({flame_map[label]})"] = flame_map[label]
         del flame_map[label]
     write_flame_map(flame_map, os.path.join(out_dir, "overview.folded"))
     return flame_base_map
+
 
 def main(
     vcd_filename, cells_json_file, tdcc_json_file, adl_mapping_file, out_dir, flame_out
@@ -1381,7 +1455,15 @@ def main(
     main_shortname, cells_to_components, components_to_cells = (
         read_component_cell_names_json(cells_json_file)
     )
-    fully_qualified_fsms, component_to_num_fsms, par_dep_info, reverse_par_dep_info, cell_to_pars, par_done_regs, cell_to_groups_to_par_parent = read_tdcc_file(tdcc_json_file, components_to_cells)
+    (
+        fully_qualified_fsms,
+        component_to_num_fsms,
+        par_dep_info,
+        reverse_par_dep_info,
+        cell_to_pars,
+        par_done_regs,
+        cell_to_groups_to_par_parent,
+    ) = read_tdcc_file(tdcc_json_file, components_to_cells)
     # moving output info out of the converter
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
@@ -1389,7 +1471,12 @@ def main(
     }  # won't be fully filled in until create_timeline()
     print(f"Start reading VCD: {datetime.now()}")
     converter = VCDConverter(
-        main_shortname, cells_to_components, fully_qualified_fsms, fsm_events, set(par_dep_info.keys()), par_done_regs
+        main_shortname,
+        cells_to_components,
+        fully_qualified_fsms,
+        fsm_events,
+        set(par_dep_info.keys()),
+        par_done_regs,
     )
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
     signal_prefix = converter.signal_prefix
@@ -1398,15 +1485,30 @@ def main(
     trace, trace_classified = (
         converter.postprocess()
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
-    control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = converter.postprocess_control()
+    control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = (
+        converter.postprocess_control()
+    )
     print(f"ctrl reg updates: {control_reg_updates_per_cycle}")
-    cell_to_ordered_pars = order_pars(cell_to_pars, par_dep_info, reverse_par_dep_info, signal_prefix)
-    trace_with_pars = add_par_to_trace(trace, control_groups_trace, cell_to_ordered_pars, cell_to_groups_to_par_parent, main_shortname)
+    cell_to_ordered_pars = order_pars(
+        cell_to_pars, par_dep_info, reverse_par_dep_info, signal_prefix
+    )
+    trace_with_pars = add_par_to_trace(
+        trace,
+        control_groups_trace,
+        cell_to_ordered_pars,
+        cell_to_groups_to_par_parent,
+        main_shortname,
+    )
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
-    write_cell_stats(converter.cell_to_active_cycles, cells_to_components, component_to_num_fsms, out_dir)
+    write_cell_stats(
+        converter.cell_to_active_cycles,
+        cells_to_components,
+        component_to_num_fsms,
+        out_dir,
+    )
     del converter
 
     if len(trace) < 100:
@@ -1428,11 +1530,11 @@ def main(
     create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     flat_flame_map, scaled_flame_map = create_flame_maps(trace_with_pars)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
-    cats_to_cycles = create_simple_flame_graph(trace_classified, control_reg_updates_per_cycle, out_dir)
-
-    compute_timeline(
-        trace, fsm_events, control_reg_updates, main_fullname, out_dir
+    cats_to_cycles = create_simple_flame_graph(
+        trace_classified, control_reg_updates_per_cycle, out_dir
     )
+
+    compute_timeline(trace, fsm_events, control_reg_updates, main_fullname, out_dir)
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")
