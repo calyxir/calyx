@@ -1431,7 +1431,7 @@ def main(
     cats_to_cycles = create_simple_flame_graph(trace_classified, control_reg_updates_per_cycle, out_dir)
 
     compute_timeline(
-        trace_with_pars, fsm_events, control_reg_updates, main_fullname, out_dir
+        trace, fsm_events, control_reg_updates, main_fullname, out_dir
     )
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
