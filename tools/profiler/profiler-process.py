@@ -108,7 +108,7 @@ def create_cycle_trace(
 
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
-    def __init__(self, main_component, cells_to_components, fsms, fsm_events, par_done_regs):
+    def __init__(self, main_component, cells_to_components, fsms, fsm_events, par_groups, par_done_regs):
         super().__init__()
         self.main_shortname = main_component
         self.cells_to_components = cells_to_components
@@ -119,6 +119,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.fsms = fsms
         self.partial_fsm_events = fsm_events
         self.par_done_regs = par_done_regs
+        self.par_groups = par_groups
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -164,23 +165,15 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # replace the old key (cell_suffix) with the fully qualified cell name
             self.cells_to_components[cell] = self.cells_to_components[cell_suffix]
             del self.cells_to_components[cell_suffix]
-        # update fsms with fully qualified names
-        fully_qualified_fsms = set()
-        for fsm in list(self.fsms):
-            fully_qualified_name = f"{self.signal_prefix}.{fsm}"
-            fully_qualified_fsms.add(fully_qualified_name)
-            self.partial_fsm_events[fully_qualified_name] = self.partial_fsm_events[fsm]
-            del self.partial_fsm_events[fsm]
-        self.fsms = fully_qualified_fsms
-        # update par done registers with fully qualified names (to be consistent with fsms)
+        # update fsms, par done registers, par groups with fully qualified names
+        self.fsms = {f"{self.signal_prefix}.{fsm}" for fsm in self.fsms}
+        self.partial_fsm_events = {f"{self.signal_prefix}.{fsm}": self.partial_fsm_events[fsm] for fsm in self.partial_fsm_events}
         self.par_done_regs = {f"{self.signal_prefix}.{pd}" for pd in self.par_done_regs}
-        
+        self.par_groups = {f"{self.signal_prefix}.{par_group}" for par_group in self.par_groups}
 
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
-            if ".par" in name and "go_out" in name:
-                control_signal_id_to_names[sid].append(name)
             for fsm in self.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
@@ -189,6 +182,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for par_done_reg in self.par_done_regs:
                 if name.startswith(f"{par_done_reg}.in") or name == f"{par_done_reg}.write_en":
                     tdcc_signal_id_to_names[sid].append(name)
+            for par_group_name in self.par_groups:
+                if name == f"{par_group_name}_go_out":
+                    control_signal_id_to_names[sid].append(name)
+        del self.par_groups
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         self.signal_id_to_names = {
@@ -1230,7 +1227,9 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
     json_data = json.load(open(fsm_json_file))
     # cell_to_fsms = {} # cell --> fully qualified fsm names
     fully_qualified_fsms = set()
-    par_info = {} # fully qualified par name --> [non-fully-qualified par children name]
+    par_info = {} # fully qualified par name --> [fully-qualified par children name]
+    reverse_par_info = {} # fully qualified par name --> [fully-qualified par parent name]
+    cell_to_pars = {}
     par_done_regs = set()
     component_to_fsm_acc = {component: 0 for component in components_to_cells}
     for json_entry in json_data:
@@ -1253,22 +1252,61 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
             child_par_groups = []
             for cell in components_to_cells[component]:
                 fully_qualified_par = ".".join((cell, par))
+                if cell in cell_to_pars:
+                    cell_to_pars[cell].add(fully_qualified_par)
+                else:
+                    cell_to_pars[cell] = {fully_qualified_par}
                 for child in entry["child_groups"]:
-                    if child["group"].startswith("par"): # FIXME: heuristic. might be best to filter later with list of pars
-                        child_par_groups.append(child["group"])
+                    child_name = child["group"]
+                    if child_name.startswith("par"): # FIXME: heuristic. might be best to filter later with list of pars
+                        fully_qualified_child_name = ".".join((cell, child_name))
+                        child_par_groups.append(fully_qualified_child_name)
+                        if fully_qualified_child_name in reverse_par_info:
+                            reverse_par_info[fully_qualified_child_name].append(fully_qualified_par)
+                        else:
+                            reverse_par_info[fully_qualified_child_name] = [fully_qualified_par]
                     # register
                     child_pd_reg = child["register"]
                     par_done_regs.add(".".join((cell, child_pd_reg)))
                 par_info[fully_qualified_par] = child_par_groups
 
-    return fully_qualified_fsms, component_to_fsm_acc, par_info, par_done_regs
+    return fully_qualified_fsms, component_to_fsm_acc, par_info, reverse_par_info, cell_to_pars, par_done_regs
 
+"""
+Give a partial ordering for pars
+(1) order based on cells
+(2) for pars in the same cell, order based on dependencies information
+"""
+def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
+    ordered = {} # cell --> ordered par names
+    print(rev_par_deps)
+    for cell in sorted(cell_to_pars, key=(lambda c: c.count("."))):
+        ordered[cell] = []
+        pars = cell_to_pars[cell]
+        # start with pars with no parent
+        worklist = list(pars.difference(rev_par_deps))
+        while len(worklist) > 0:
+            par = worklist.pop(0)
+            if par not in ordered:
+                ordered[cell].append(f"{signal_prefix}.{par}")
+            # get all the children of this par
+            worklist += par_deps[par]
+    return ordered
 
-def add_par_to_trace(trace, par_trace):
+def add_par_to_trace(trace, par_trace, cells_to_ordered_pars, main_shortname):
     new_trace = {i: [] for i in trace}
     for i in trace:
         if i in par_trace:
-            for par_group_active in par_trace[i]:
+            for events_stack in trace[i]:
+                new_events_stack = []
+                current_cell = main_shortname
+                for construct in events_stack:
+                    new_events_stack.append(construct)
+                    
+
+
+            for par_group_active in sorted(par_trace[i], key=(lambda p: ordered_pars.index(p))):
+                print(par_group_active)
                 split = par_group_active.split(".")
                 # the par group string registered is *.cell-name.par-group-name
                 par_group_cell = split[-2]
@@ -1308,7 +1346,7 @@ def main(
     main_shortname, cells_to_components, components_to_cells = (
         read_component_cell_names_json(cells_json_file)
     )
-    fully_qualified_fsms, component_to_num_fsms, par_dep_info, par_done_regs = read_tdcc_file(tdcc_json_file, components_to_cells)
+    fully_qualified_fsms, component_to_num_fsms, par_dep_info, reverse_par_dep_info, cell_to_pars, par_done_regs = read_tdcc_file(tdcc_json_file, components_to_cells)
     # moving output info out of the converter
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
@@ -1316,9 +1354,10 @@ def main(
     }  # won't be fully filled in until create_timeline()
     print(f"Start reading VCD: {datetime.now()}")
     converter = VCDConverter(
-        main_shortname, cells_to_components, fully_qualified_fsms, fsm_events, par_done_regs
+        main_shortname, cells_to_components, fully_qualified_fsms, fsm_events, set(par_dep_info.keys()), par_done_regs
     )
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
+    signal_prefix = converter.signal_prefix
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
     trace, trace_classified = (
@@ -1326,7 +1365,8 @@ def main(
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
     control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = converter.postprocess_control()
     print(f"ctrl reg updates: {control_reg_updates_per_cycle}")
-    trace_with_pars = add_par_to_trace(trace, control_groups_trace)
+    cell_to_ordered_pars = order_pars(cell_to_pars, par_dep_info, reverse_par_dep_info, signal_prefix)
+    trace_with_pars = add_par_to_trace(trace, control_groups_trace, cell_to_ordered_pars, main_shortname)
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
     if not os.path.exists(out_dir):
