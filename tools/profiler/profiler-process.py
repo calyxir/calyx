@@ -1230,6 +1230,8 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
     par_info = {} # fully qualified par name --> [fully-qualified par children name]
     reverse_par_info = {} # fully qualified par name --> [fully-qualified par parent name]
     cell_to_pars = {}
+    cell_to_groups_to_par_parent = {} # cell --> { group --> name of par parent group}. Kind of like reverse_par_info but for normal groups
+    # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
     par_done_regs = set()
     component_to_fsm_acc = {component: 0 for component in components_to_cells}
     for json_entry in json_data:
@@ -1265,12 +1267,20 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
                             reverse_par_info[fully_qualified_child_name].append(fully_qualified_par)
                         else:
                             reverse_par_info[fully_qualified_child_name] = [fully_qualified_par]
+                    else: # normal group
+                        if cell in cell_to_groups_to_par_parent:
+                            if child_name in cell_to_groups_to_par_parent[cell]:
+                                cell_to_groups_to_par_parent[cell][child_name].add(par)
+                            else:
+                                cell_to_groups_to_par_parent[cell][child_name] = {par}
+                        else:
+                            cell_to_groups_to_par_parent[cell] = {child_name: {par}}
                     # register
                     child_pd_reg = child["register"]
                     par_done_regs.add(".".join((cell, child_pd_reg)))
                 par_info[fully_qualified_par] = child_par_groups
 
-    return fully_qualified_fsms, component_to_fsm_acc, par_info, reverse_par_info, cell_to_pars, par_done_regs
+    return fully_qualified_fsms, component_to_fsm_acc, par_info, reverse_par_info, cell_to_pars, par_done_regs, cell_to_groups_to_par_parent
 
 """
 Give a partial ordering for pars
@@ -1288,38 +1298,63 @@ def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
         while len(worklist) > 0:
             par = worklist.pop(0)
             if par not in ordered:
-                ordered[cell].append(f"{signal_prefix}.{par}")
+                ordered[cell].append(par) # f"{signal_prefix}.{par}"
             # get all the children of this par
             worklist += par_deps[par]
     return ordered
 
-def add_par_to_trace(trace, par_trace, cells_to_ordered_pars, main_shortname):
+def add_par_to_trace(trace, par_trace, cells_to_ordered_pars, cell_to_groups_to_par_parent, main_shortname):
     new_trace = {i: [] for i in trace}
     for i in trace:
         if i in par_trace:
             for events_stack in trace[i]:
                 new_events_stack = []
-                current_cell = main_shortname
                 for construct in events_stack:
                     new_events_stack.append(construct)
-                    
+                    if construct == main_shortname: # main
+                        current_cell = main_shortname
+                    elif " [" in construct: # cell detected
+                        current_cell += "." + construct.split(" [")[0]
+                    elif "(primitive)" not in construct: # group
+                        # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
+                        # soooooooo ugly
+                        if construct in cell_to_groups_to_par_parent[current_cell]:
+                            group_parents = cell_to_groups_to_par_parent[current_cell][construct]
+                            parent_found = False
+                            while len(new_events_stack) > 2 and "(ctrl)" in new_events_stack[-2]: # FIXME: this hack only works because par is the only ctrl element rn...
+                                for parent in group_parents:
+                                    if f"{parent} (ctrl)" == new_events_stack[-2]:
+                                        parent_found = True
+                                        break
+                                if parent_found:
+                                    break
+                                new_events_stack.pop(-2)
+                        continue
+                    else:
+                        continue
+                    # get all of the active pars from this cell
+                    active_from_cell = par_trace[i].intersection(cells_to_ordered_pars[current_cell])
+                    for par_group_active in sorted(active_from_cell, key=(lambda p: cells_to_ordered_pars[current_cell].index(p))):
+                        par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
+                        new_events_stack.append(par_group_name)
+                new_trace[i].append(new_events_stack)
 
-
-            for par_group_active in sorted(par_trace[i], key=(lambda p: ordered_pars.index(p))):
-                print(par_group_active)
-                split = par_group_active.split(".")
-                # the par group string registered is *.cell-name.par-group-name
-                par_group_cell = split[-2]
-                par_group_name = split[-1] + " (ctrl)"
-                for events_stack in trace[i]:
-                    new_events_stack = []
-                    for construct in events_stack:
-                        new_events_stack.append(construct)
-                        if construct == par_group_cell:
-                            new_events_stack.append(par_group_name)
-                    new_trace[i].append(new_events_stack)
+        #     for par_group_active in sorted(par_trace[i], key=(lambda p: ordered_pars.index(p))):
+        #         print(par_group_active)
+        #         split = par_group_active.split(".")
+        #         # the par group string registered is *.cell-name.par-group-name
+        #         par_group_cell = split[-2]
+        #         par_group_name = split[-1] + " (ctrl)"
+        #         for events_stack in trace[i]:
+        #             new_events_stack = []
+        #             for construct in events_stack:
+        #                 new_events_stack.append(construct)
+        #                 if construct == par_group_cell:
+        #                     new_events_stack.append(par_group_name)
+        #             new_trace[i].append(new_events_stack)
         else:
             new_trace[i] = trace[i].copy()
+
     return new_trace
 
 def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
@@ -1346,7 +1381,7 @@ def main(
     main_shortname, cells_to_components, components_to_cells = (
         read_component_cell_names_json(cells_json_file)
     )
-    fully_qualified_fsms, component_to_num_fsms, par_dep_info, reverse_par_dep_info, cell_to_pars, par_done_regs = read_tdcc_file(tdcc_json_file, components_to_cells)
+    fully_qualified_fsms, component_to_num_fsms, par_dep_info, reverse_par_dep_info, cell_to_pars, par_done_regs, cell_to_groups_to_par_parent = read_tdcc_file(tdcc_json_file, components_to_cells)
     # moving output info out of the converter
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
@@ -1366,7 +1401,7 @@ def main(
     control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = converter.postprocess_control()
     print(f"ctrl reg updates: {control_reg_updates_per_cycle}")
     cell_to_ordered_pars = order_pars(cell_to_pars, par_dep_info, reverse_par_dep_info, signal_prefix)
-    trace_with_pars = add_par_to_trace(trace, control_groups_trace, cell_to_ordered_pars, main_shortname)
+    trace_with_pars = add_par_to_trace(trace, control_groups_trace, cell_to_ordered_pars, cell_to_groups_to_par_parent, main_shortname)
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
     if not os.path.exists(out_dir):
