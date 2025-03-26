@@ -275,6 +275,9 @@ paths = [
   "tests/correctness/ref-cells/*.futil",
   "tests/correctness/skid-buffers/*.futil",
   "tests/correctness/static-interface/*.futil",
+  "tests/correctness/static-control/*.futil",
+  "tests/correctness/static-tree-edge/*.futil",
+  "tests/correctness/group-static-promotion/*.futil",
 ]
 cmd = """
 fud exec --from calyx --to jq \

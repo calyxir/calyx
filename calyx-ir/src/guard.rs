@@ -1,5 +1,6 @@
 use super::{Builder, Cell, NumAttr, Port, RRC};
 use crate::Printer;
+
 use calyx_utils::Error;
 use std::collections::HashSet;
 use std::fmt::{Debug, Display};
@@ -532,6 +533,68 @@ impl Guard<StaticTiming> {
             Self::Info(static_timing) => {
                 let (b, e) = static_timing.get_interval();
                 self.update(|_| {
+                    // let comparison_wires = build_assignments!(builder;
+                    //     ge["left"] = ? b_const["out"];
+                    //     ge["right"] = ? counter["out"];
+                    //     lt["left"] = ? counter["out"];
+                    //     lt["right"] = ? e_const["out"];
+                    // );
+
+                    // Self::port(ge.borrow().get("out"))
+                    //     .and(Self::port(lt.borrow().get("out")))
+
+                    // let lt = builder.add_primitive("lt", "std_lt", &[*width]);
+                    // let ge = builder.add_primitive("ge", "std_ge", &[*width]);
+
+                    // structure!( builder;
+                    //     let lt = prim std_lt(*width);
+                    //     let ge = prim std_ge(*width);
+                    // );
+
+                    // if b >= e {
+                    //     let zero = builder.add_constant(0, 1);
+                    //     let out_port = zero.borrow().get("out");
+                    //     Self::port(out_port)
+                    // } else {
+                    //     let le =
+                    //         builder.add_primitive("le", "std_le", &[*width]);
+                    //     let ge =
+                    //         builder.add_primitive("ge", "std_ge", &[*width]);
+                    //     let b_const = builder.add_constant(b, *width);
+                    //     let e_const = builder.add_constant(e - 1, *width);
+
+                    //     let comparison_wires = vec![
+                    //         builder.build_assignment::<Nothing>(
+                    //             ge.borrow().get("left"),
+                    //             b_const.borrow().get("out"),
+                    //             Self::True.into(),
+                    //         ),
+                    //         builder.build_assignment::<Nothing>(
+                    //             ge.borrow().get("right"),
+                    //             counter.borrow().get("out"),
+                    //             Self::True.into(),
+                    //         ),
+                    //         builder.build_assignment::<Nothing>(
+                    //             le.borrow().get("left"),
+                    //             counter.borrow().get("out"),
+                    //             Self::True.into(),
+                    //         ),
+                    //         builder.build_assignment::<Nothing>(
+                    //             le.borrow().get("right"),
+                    //             e_const.borrow().get("out"),
+                    //             Self::True.into(),
+                    //         ),
+                    //     ];
+
+                    //     builder.add_continuous_assignments(comparison_wires);
+                    //     let ge_guard = Self::port(ge.borrow().get("out"));
+                    //     let le_guard = Self::port(le.borrow().get("out"));
+
+                    //     ge_guard.and(le_guard)
+                    // }
+
+                    // let guard_opt = if
+
                     match (b..e).fold(None, |acc, state| {
                         let state_const = builder.add_constant(state, *width);
                         let state_guard = Self::CompOp(

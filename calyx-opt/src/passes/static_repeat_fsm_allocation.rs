@@ -166,14 +166,6 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                         })
                         .collect_vec();
 
-                    // make sure to actually enable the group at this state
-                    let group = sen.group.clone();
-                    let en_go: Vec<ir::Assignment<ir::Nothing>> =
-                        build_assignments!(self.builder;
-                            group["go"] = ? signal_on["out"];
-                        )
-                        .to_vec();
-
                     // guard reprsenting if counter is in final state
                     let final_state_const =
                         self.builder.add_constant(group_latency - 1, width);
@@ -208,7 +200,6 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                     );
 
                     assigns.extend(incr_counter_assigns.to_vec());
-                    assigns.extend(en_go);
 
                     // push these assignments into the one state allocated for this
                     // enable
@@ -281,7 +272,6 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                             }
                         })
                     };
-
                 self.build_abstract_fsm(
                     &sif.tbranch,
                     guard.clone().and(build_branch_guard(true)),
@@ -467,10 +457,6 @@ impl Visitor for StaticRepeatFSMAllocation {
         let mut sch_constructor_true = StaticSchedule::from(&mut builder);
         let true_branch_fsm = sch_constructor_true.build_fsm(&s.tbranch);
 
-        // generate FSM for false branch
-        let mut sch_constructor_false = StaticSchedule::from(&mut builder);
-        let false_branch_fsm = sch_constructor_false.build_fsm(&s.fbranch);
-
         // group to active each FSM conditionally
         let if_group = builder.add_static_group("if", s.latency);
         let true_guard: ir::Guard<ir::StaticTiming> =
@@ -478,24 +464,41 @@ impl Visitor for StaticRepeatFSMAllocation {
         let false_guard = ir::Guard::not(true_guard.clone());
 
         // assignments to active each FSM
-        let mut trigger_fsms = vec![
+        let mut trigger_fsms_with_branch_latency = vec![(
             builder.build_assignment(
                 true_branch_fsm.borrow().get("start"),
                 signal_on.borrow().get("out"),
                 true_guard,
             ),
-            builder.build_assignment(
-                false_branch_fsm.borrow().get("start"),
-                signal_on.borrow().get("out"),
-                false_guard,
-            ),
-        ];
+            s.tbranch.get_latency(),
+        )];
+
+        // generate FSM and start condition for false branch if branch not empty
+        if !(matches!(&*s.fbranch, ir::StaticControl::Empty(_))) {
+            let mut sch_constructor_false = StaticSchedule::from(&mut builder);
+            let false_branch_fsm = sch_constructor_false.build_fsm(&s.fbranch);
+            trigger_fsms_with_branch_latency.push((
+                builder.build_assignment(
+                    false_branch_fsm.borrow().get("start"),
+                    signal_on.borrow().get("out"),
+                    false_guard,
+                ),
+                s.fbranch.get_latency(),
+            ));
+        }
 
         // make sure [start] for each FSM is pulsed at most once, at the first
         // cycle
-        trigger_fsms.iter_mut().for_each(|assign| {
-            assign.guard.add_interval(ir::StaticTiming::new((0, 1)))
-        });
+
+        let trigger_fsms = trigger_fsms_with_branch_latency
+            .into_iter()
+            .map(|(mut assign, latency)| {
+                assign
+                    .guard
+                    .add_interval(ir::StaticTiming::new((0, latency)));
+                assign
+            })
+            .collect_vec();
 
         if_group.borrow_mut().assignments.extend(trigger_fsms);
 
@@ -527,6 +530,7 @@ impl Visitor for StaticRepeatFSMAllocation {
             .assignments
             .extend(s.stmts.iter().map(|thread: &ir::StaticControl| {
                 let mut sch_generator = StaticSchedule::from(&mut builder);
+                let thread_latency = thread.get_latency();
                 let thread_fsm = sch_generator.build_fsm(thread);
                 let mut trigger_thread = builder.build_assignment(
                     thread_fsm.borrow().get("start"),
@@ -535,7 +539,7 @@ impl Visitor for StaticRepeatFSMAllocation {
                 );
                 trigger_thread
                     .guard
-                    .add_interval(ir::StaticTiming::new((0, 1)));
+                    .add_interval(ir::StaticTiming::new((0, thread_latency)));
                 trigger_thread
             }));
 

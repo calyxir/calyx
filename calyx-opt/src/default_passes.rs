@@ -133,11 +133,13 @@ impl PassManager {
                 CompileInvoke,
                 StaticInference,
                 StaticPromotion,
+                DeadGroupRemoval,
+                CollapseControl,
                 StaticRepeatFSMAllocation,
                 StaticFSMAllocation,
-                // CompileRepeat,
                 DeadGroupRemoval,
                 MergeAssign,
+                CompileRepeat,
                 TopDownCompileControl,
             ]
         );
