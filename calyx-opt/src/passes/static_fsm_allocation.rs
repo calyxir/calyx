@@ -168,6 +168,7 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                                 self.builder,
                                 &counter,
                                 &width,
+                                &group_latency,
                             );
                             let mut assign = ir::Assignment::from(sassign);
                             assign.and_guard(guard.clone());

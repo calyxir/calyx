@@ -2,6 +2,7 @@ use super::{Builder, Cell, NumAttr, Port, RRC};
 use crate::Printer;
 
 use calyx_utils::Error;
+use itertools::Itertools;
 use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 use std::mem;
@@ -522,16 +523,21 @@ impl Guard<StaticTiming> {
         builder: &mut Builder,
         counter: &RRC<Cell>,
         width: &u64,
+        domain: &u64,
     ) {
         match self {
             Self::True | Self::CompOp(..) | Self::Port(..) => (),
-            Self::Not(g) => g.replace_static_timing(builder, counter, width),
+            Self::Not(g) => {
+                g.replace_static_timing(builder, counter, width, domain)
+            }
             Self::And(l, r) | Self::Or(l, r) => {
-                l.replace_static_timing(builder, counter, width);
-                r.replace_static_timing(builder, counter, width);
+                l.replace_static_timing(builder, counter, width, domain);
+                r.replace_static_timing(builder, counter, width, domain);
             }
             Self::Info(static_timing) => {
                 let (b, e) = static_timing.get_interval();
+                let interval = (b..e).collect_vec();
+                let complement = (0..b).chain(e..*domain).collect_vec();
                 self.update(|_| {
                     // let comparison_wires = build_assignments!(builder;
                     //     ge["left"] = ? b_const["out"];
@@ -593,27 +599,47 @@ impl Guard<StaticTiming> {
                     //     ge_guard.and(le_guard)
                     // }
 
-                    // let guard_opt = if
-
-                    match (b..e).fold(None, |acc, state| {
-                        let state_const = builder.add_constant(state, *width);
-                        let state_guard = Self::CompOp(
-                            PortComp::Eq,
-                            counter.borrow().get("out"),
-                            state_const.borrow().get("out"),
-                        );
-                        match acc {
-                            None => Some(state_guard),
-                            Some(existing_guard) => {
-                                Some(existing_guard.or(state_guard))
+                    if interval.len() < complement.len() {
+                        match interval.into_iter().fold(None, |acc, state| {
+                            let state_const =
+                                builder.add_constant(state, *width);
+                            let state_guard = Self::CompOp(
+                                PortComp::Eq,
+                                counter.borrow().get("out"),
+                                state_const.borrow().get("out"),
+                            );
+                            match acc {
+                                None => Some(state_guard),
+                                Some(existing_guard) => {
+                                    Some(existing_guard.or(state_guard))
+                                }
+                            }
+                        }) {
+                            Some(g) => g,
+                            None => {
+                                let zero = builder.add_constant(0, 1);
+                                let out_port = zero.borrow().get("out");
+                                Self::port(out_port)
                             }
                         }
-                    }) {
-                        Some(g) => g,
-                        None => {
-                            let zero = builder.add_constant(0, 1);
-                            let out_port = zero.borrow().get("out");
-                            Self::port(out_port)
+                    } else {
+                        match complement.into_iter().fold(None, |acc, state| {
+                            let state_const =
+                                builder.add_constant(state, *width);
+                            let state_guard = Self::CompOp(
+                                PortComp::Neq,
+                                counter.borrow().get("out"),
+                                state_const.borrow().get("out"),
+                            );
+                            match acc {
+                                None => Some(state_guard),
+                                Some(existing_guard) => {
+                                    Some(existing_guard.and(state_guard))
+                                }
+                            }
+                        }) {
+                            Some(g) => g,
+                            None => Self::True,
                         }
                     }
                 });
