@@ -358,7 +358,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         primitive_enable = set()
         trace = {}
         trace_classified = []
-        self.cell_to_active_cycles = {}  # cell --> [{"start": X, "end": Y, "length": Y - X}].
+        cell_to_active_cycles = {}  # cell --> [{"start": X, "end": Y, "length": Y - X}].
 
         # The events are "partial" because we don't know yet what the tid and pid would be.
         # (Will be filled in during create_timelines(); specifically in port_fsm_events())
@@ -407,10 +407,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 ):  # cells have .go and .done
                     cell = signal_name.split(".go")[0]
                     cell_active.add(cell)
-                    if cell not in self.cell_to_active_cycles:
-                        self.cell_to_active_cycles[cell] = [{"start": clock_cycles}]
+                    if cell not in cell_to_active_cycles:
+                        cell_to_active_cycles[cell] = [{"start": clock_cycles}]
                     else:
-                        self.cell_to_active_cycles[cell].append({"start": clock_cycles})
+                        cell_to_active_cycles[cell].append({"start": clock_cycles})
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
                     if (
@@ -418,7 +418,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     ):  # if main is done, we shouldn't compute a "trace" for this cycle. set flag to True.
                         main_done = True
                     cell_active.remove(cell)
-                    current_segment = self.cell_to_active_cycles[cell][-1]
+                    current_segment = cell_to_active_cycles[cell][-1]
                     current_segment["end"] = clock_cycles
                     current_segment["length"] = clock_cycles - current_segment["start"]
                 # process fsms
@@ -525,7 +525,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
 
-        return trace, trace_classified
+        return trace, trace_classified, cell_to_active_cycles
 
 
 def classify_stacks(stacks, main_shortname):
@@ -1129,34 +1129,46 @@ def create_timeline_event(
 
 
 def write_cell_stats(
-    cell_to_active_cycles, cells_to_components, component_to_num_fsms, out_dir
+    cell_to_active_cycles, cats_to_cycles, cells_to_components, component_to_num_fsms, out_dir
 ):
-    # cell-name,total-cycles,times-active,avg
+    
+        #     "group/primitive": [],
+        # "fsm": [],
+        # "par-done": [],
+        # "fsm + par-done": [],
+    # cell-name,num-fsms,total-cycles,times-active,avg
     stats = []
     for cell in cell_to_active_cycles:
         component = cells_to_components[cell]
         num_fsms = component_to_num_fsms[component]
         total_cycles = 0
         times_active = len(cell_to_active_cycles[cell])
+        cell_cat = {cat : set() for cat in cats_to_cycles}
         for elem in cell_to_active_cycles[cell]:
             total_cycles += elem["length"]
+            active_cycle_list = set(range(elem["start"], elem["end"]))
+            for cat in cats_to_cycles:
+                cell_cat[cat].update(active_cycle_list.intersection(cats_to_cycles[cat]))
+        print(f"categories for cell {cell}")
+        print(cell_cat)
         avg_cycles = round(total_cycles / times_active, 2)
-        stats.append(
-            {
+        stats_dict = {
                 "cell-name": f"{cell} [{component}]",
                 "num-fsms": num_fsms,
                 "total-cycles": total_cycles,
                 "times-active": times_active,
                 "avg": avg_cycles,
             }
-        )
+        for cat in cats_to_cycles:
+            stats_dict[cat] = len(cell_cat[cat])
+        stats.append(stats_dict)
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
-    fieldnames = ["cell-name", "num-fsms", "total-cycles", "times-active", "avg"]
+    fieldnames = ["cell-name", "num-fsms"] + [cat for cat in cats_to_cycles] + ["total-cycles", "times-active", "avg"]
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(stats)
-
+    sys.exit(0)
 
 class SourceLoc:
     def __init__(self, json_dict):
@@ -1375,7 +1387,7 @@ def add_par_to_trace(
                     elif "(primitive)" not in construct:  # group
                         # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
                         # soooooooo ugly
-                        if construct in cell_to_groups_to_par_parent[current_cell]:
+                        if current_cell in cell_to_groups_to_par_parent and construct in cell_to_groups_to_par_parent[current_cell]:
                             group_parents = cell_to_groups_to_par_parent[current_cell][
                                 construct
                             ]
@@ -1395,30 +1407,17 @@ def add_par_to_trace(
                     else:
                         continue
                     # get all of the active pars from this cell
-                    active_from_cell = par_trace[i].intersection(
-                        cells_to_ordered_pars[current_cell]
-                    )
-                    for par_group_active in sorted(
-                        active_from_cell,
-                        key=(lambda p: cells_to_ordered_pars[current_cell].index(p)),
-                    ):
-                        par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
-                        new_events_stack.append(par_group_name)
+                    if current_cell in cells_to_ordered_pars:
+                        active_from_cell = par_trace[i].intersection(
+                            cells_to_ordered_pars[current_cell]
+                        )
+                        for par_group_active in sorted(
+                            active_from_cell,
+                            key=(lambda p: cells_to_ordered_pars[current_cell].index(p)),
+                        ):
+                            par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
+                            new_events_stack.append(par_group_name)
                 new_trace[i].append(new_events_stack)
-
-        #     for par_group_active in sorted(par_trace[i], key=(lambda p: ordered_pars.index(p))):
-        #         print(par_group_active)
-        #         split = par_group_active.split(".")
-        #         # the par group string registered is *.cell-name.par-group-name
-        #         par_group_cell = split[-2]
-        #         par_group_name = split[-1] + " (ctrl)"
-        #         for events_stack in trace[i]:
-        #             new_events_stack = []
-        #             for construct in events_stack:
-        #                 new_events_stack.append(construct)
-        #                 if construct == par_group_cell:
-        #                     new_events_stack.append(par_group_name)
-        #             new_trace[i].append(new_events_stack)
         else:
             new_trace[i] = trace[i].copy()
 
@@ -1482,7 +1481,7 @@ def main(
     signal_prefix = converter.signal_prefix
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
-    trace, trace_classified = (
+    trace, trace_classified, cell_to_active_cycles = (
         converter.postprocess()
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
     control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = (
@@ -1501,14 +1500,6 @@ def main(
     )
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
-    if not os.path.exists(out_dir):
-        os.mkdir(out_dir)
-    write_cell_stats(
-        converter.cell_to_active_cycles,
-        cells_to_components,
-        component_to_num_fsms,
-        out_dir,
-    )
     del converter
 
     if len(trace) < 100:
@@ -1523,6 +1514,18 @@ def main(
         f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}"
     )
 
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+    cats_to_cycles = create_simple_flame_graph(
+        trace_classified, control_reg_updates_per_cycle, out_dir
+    )
+    write_cell_stats(
+        cell_to_active_cycles,
+        cats_to_cycles,
+        cells_to_components,
+        component_to_num_fsms,
+        out_dir,
+    )
     tree_dict, path_dict = create_tree(trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
@@ -1530,9 +1533,6 @@ def main(
     create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
     flat_flame_map, scaled_flame_map = create_flame_maps(trace_with_pars)
     write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
-    cats_to_cycles = create_simple_flame_graph(
-        trace_classified, control_reg_updates_per_cycle, out_dir
-    )
 
     compute_timeline(trace, fsm_events, control_reg_updates, main_fullname, out_dir)
 
