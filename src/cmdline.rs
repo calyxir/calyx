@@ -45,12 +45,8 @@ pub struct Opts {
     pub output: OutputFile,
 
     /// path to the primitives library
-    #[argh(
-        option,
-        short = 'l',
-        default = "Path::new(option_env!(\"CALYX_PRIMITIVES_DIR\").unwrap_or(\".\")).into()"
-    )]
-    pub lib_path: PathBuf,
+    #[argh(option, short = 'l')]
+    pub lib_path: Vec<PathBuf>,
 
     /// compilation mode
     #[argh(option, short = 'm', default = "CompileMode::default()")]
