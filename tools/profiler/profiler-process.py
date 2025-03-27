@@ -1135,11 +1135,10 @@ def write_cell_stats(
     component_to_num_fsms,
     out_dir,
 ):
-    #     "group/primitive": [],
-    # "fsm": [],
-    # "par-done": [],
-    # "fsm + par-done": [],
-    # cell-name,num-fsms,total-cycles,times-active,avg
+    fieldnames = (
+        ["cell-name", "num-fsms", "useful-cycles", "total-cycles", "times-active", "avg"]
+        + [f"{cat} (%)" for cat in cats_to_cycles]
+    ) # fields in CSV file
     stats = []
     for cell in cell_to_active_cycles:
         component = cells_to_components[cell]
@@ -1154,12 +1153,12 @@ def write_cell_stats(
                 cell_cat[cat].update(
                     active_cycle_list.intersection(cats_to_cycles[cat])
                 )
-        print(f"categories for cell {cell}")
-        print(cell_cat)
+                
         avg_cycles = round(total_cycles / times_active, 2)
         stats_dict = {
             "cell-name": f"{cell} [{component}]",
             "num-fsms": num_fsms,
+            "useful-cycles": len(cell_cat["group/primitive"]) + len(cell_cat["other"]),
             "total-cycles": total_cycles,
             "times-active": times_active,
             "avg": avg_cycles,
@@ -1170,16 +1169,10 @@ def write_cell_stats(
             )
         stats.append(stats_dict)
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
-    fieldnames = (
-        ["cell-name", "num-fsms", "total-cycles"]
-        + [f"{cat} (%)" for cat in cats_to_cycles]
-        + ["times-active", "avg"]
-    )
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(stats)
-    sys.exit(0)
 
 
 class SourceLoc:
@@ -1363,7 +1356,6 @@ Give a partial ordering for pars
 
 def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
     ordered = {}  # cell --> ordered par names
-    print(rev_par_deps)
     for cell in sorted(cell_to_pars, key=(lambda c: c.count("."))):
         ordered[cell] = []
         pars = cell_to_pars[cell]
@@ -1446,11 +1438,15 @@ def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
         "group/primitive": [],
         "fsm": [],
         "par-done": [],
-        "fsm + par-done": [],
+        "mult-ctrl": [], # fsm and par-done. Have not seen this yet
+        "other": []
     }
     for i in range(len(classified_trace)):
         if classified_trace[i] > 0:
             flame_base_map["group/primitive"].append(i)
+        elif i not in control_reg_updates: # I suspect this is 1 cycle to execute a combinational group.
+            flame_base_map["other"].append(i)
+            classified_trace[i] = 1 # FIXME: hack to flag this as a "useful" cycle
         elif control_reg_updates[i] == "both":
             flame_base_map["fsm + par-done"].append(i)
         else:
@@ -1504,7 +1500,6 @@ def main(
     control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = (
         converter.postprocess_control()
     )
-    print(f"ctrl reg updates: {control_reg_updates_per_cycle}")
     cell_to_ordered_pars = order_pars(
         cell_to_pars, par_dep_info, reverse_par_dep_info, signal_prefix
     )
@@ -1525,16 +1520,15 @@ def main(
             for stack in trace_with_pars[i]:
                 print(f"\t{stack}")
 
-    num_useful_cycles = len(list(filter(lambda c: c > 0, trace_classified)))
-    percent_useful_cycles = round(num_useful_cycles / len(trace_classified), 2)
-    print(
-        f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}"
-    )
-
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
     cats_to_cycles = create_simple_flame_graph(
         trace_classified, control_reg_updates_per_cycle, out_dir
+    )
+    num_useful_cycles = len(list(filter(lambda c: c > 0, trace_classified)))
+    percent_useful_cycles = round(num_useful_cycles / len(trace_classified), 2)
+    print(
+        f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}"
     )
     write_cell_stats(
         cell_to_active_cycles,
