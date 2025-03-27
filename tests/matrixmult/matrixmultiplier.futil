@@ -50,7 +50,7 @@ component main(@go go: 1) -> (@done done: 1) {
       in1_mem.addr1 = k_reg.out;
       in1_mem.content_en = 1'b1;
       a_reg.in = in1_mem.read_data;
-      a_reg.write_en = 1'b1;
+      a_reg.write_en = in1_mem.done;
       load_a[done] = a_reg.done;
     }
 
@@ -59,7 +59,7 @@ component main(@go go: 1) -> (@done done: 1) {
       in2_mem.addr1 = j_reg.out;
       in2_mem.content_en = 1'b1;
       b_reg.in = in2_mem.read_data;
-      b_reg.write_en = 1'b1;
+      b_reg.write_en = in2_mem.done;
       load_b[done] = b_reg.done;
     }
 

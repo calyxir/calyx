@@ -229,14 +229,20 @@ component main(@go go: 1) -> (@done done: 1) {
 
   control {
     seq {
-      loada00;
-      loada01;
-      loada10;
-      loada11;
-      loadb00;
-      loadb01;
-      loadb10;
-      loadb11;
+      par {
+        seq {
+          loada00;
+          loada01;
+          loada10;
+          loada11;
+        }
+        seq {
+          loadb00;
+          loadb01;
+          loadb10;
+          loadb11;
+        }
+      }
       par {
         multp1;
         multp2;
