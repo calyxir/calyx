@@ -4,15 +4,13 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, Cell, GetAttributes, IdList, LibrarySignatures,
-    Printer, RRC,
+    self as ir, BoolAttr, Cell, GetAttributes, LibrarySignatures, Printer, RRC,
 };
 use calyx_ir::{Id, build_assignments, guard, structure};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
-use petgraph::adj::List;
 use petgraph::graph::DiGraph;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
