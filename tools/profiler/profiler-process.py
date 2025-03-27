@@ -1129,13 +1129,16 @@ def create_timeline_event(
 
 
 def write_cell_stats(
-    cell_to_active_cycles, cats_to_cycles, cells_to_components, component_to_num_fsms, out_dir
+    cell_to_active_cycles,
+    cats_to_cycles,
+    cells_to_components,
+    component_to_num_fsms,
+    out_dir,
 ):
-    
-        #     "group/primitive": [],
-        # "fsm": [],
-        # "par-done": [],
-        # "fsm + par-done": [],
+    #     "group/primitive": [],
+    # "fsm": [],
+    # "par-done": [],
+    # "fsm + par-done": [],
     # cell-name,num-fsms,total-cycles,times-active,avg
     stats = []
     for cell in cell_to_active_cycles:
@@ -1143,32 +1146,41 @@ def write_cell_stats(
         num_fsms = component_to_num_fsms[component]
         total_cycles = 0
         times_active = len(cell_to_active_cycles[cell])
-        cell_cat = {cat : set() for cat in cats_to_cycles}
+        cell_cat = {cat: set() for cat in cats_to_cycles}
         for elem in cell_to_active_cycles[cell]:
             total_cycles += elem["length"]
             active_cycle_list = set(range(elem["start"], elem["end"]))
             for cat in cats_to_cycles:
-                cell_cat[cat].update(active_cycle_list.intersection(cats_to_cycles[cat]))
+                cell_cat[cat].update(
+                    active_cycle_list.intersection(cats_to_cycles[cat])
+                )
         print(f"categories for cell {cell}")
         print(cell_cat)
         avg_cycles = round(total_cycles / times_active, 2)
         stats_dict = {
-                "cell-name": f"{cell} [{component}]",
-                "num-fsms": num_fsms,
-                "total-cycles": total_cycles,
-                "times-active": times_active,
-                "avg": avg_cycles,
-            }
+            "cell-name": f"{cell} [{component}]",
+            "num-fsms": num_fsms,
+            "total-cycles": total_cycles,
+            "times-active": times_active,
+            "avg": avg_cycles,
+        }
         for cat in cats_to_cycles:
-            stats_dict[f"{cat} (%)"] = round((len(cell_cat[cat]) / total_cycles) * 100, 1)
+            stats_dict[f"{cat} (%)"] = round(
+                (len(cell_cat[cat]) / total_cycles) * 100, 1
+            )
         stats.append(stats_dict)
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
-    fieldnames = ["cell-name", "num-fsms", "total-cycles"] + [f"{cat} (%)" for cat in cats_to_cycles] + ["times-active", "avg"]
+    fieldnames = (
+        ["cell-name", "num-fsms", "total-cycles"]
+        + [f"{cat} (%)" for cat in cats_to_cycles]
+        + ["times-active", "avg"]
+    )
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(stats)
     sys.exit(0)
+
 
 class SourceLoc:
     def __init__(self, json_dict):
@@ -1387,7 +1399,10 @@ def add_par_to_trace(
                     elif "(primitive)" not in construct:  # group
                         # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
                         # soooooooo ugly
-                        if current_cell in cell_to_groups_to_par_parent and construct in cell_to_groups_to_par_parent[current_cell]:
+                        if (
+                            current_cell in cell_to_groups_to_par_parent
+                            and construct in cell_to_groups_to_par_parent[current_cell]
+                        ):
                             group_parents = cell_to_groups_to_par_parent[current_cell][
                                 construct
                             ]
@@ -1413,7 +1428,9 @@ def add_par_to_trace(
                         )
                         for par_group_active in sorted(
                             active_from_cell,
-                            key=(lambda p: cells_to_ordered_pars[current_cell].index(p)),
+                            key=(
+                                lambda p: cells_to_ordered_pars[current_cell].index(p)
+                            ),
                         ):
                             par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
                             new_events_stack.append(par_group_name)
