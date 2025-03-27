@@ -4,9 +4,9 @@ import "primitives/memories/seq.futil";
 
 component main(@go go: 1) -> (@done done: 1) {
   cells {
-    @external in1_mem = seq_mem_d2(32, 2, 2, 32, 32);
-    @external in2_mem = seq_mem_d2(32, 2, 2, 32, 32);
-    @external out_mem = seq_mem_d2(32, 2, 2, 32, 32);
+    @external in1_mem = seq_mem_d2(32, 4, 4, 32, 32);
+    @external in2_mem = seq_mem_d2(32, 4, 4, 32, 32);
+    @external out_mem = seq_mem_d2(32, 4, 4, 32, 32);
     add = std_add(32);
     mult = pipelined_mult(32);
     lt1 = std_lt(32);
@@ -113,17 +113,17 @@ component main(@go go: 1) -> (@done done: 1) {
 
     comb group cond_i {
       lt1.left = i_reg.out;
-      lt1.right = 32'd2;
+      lt1.right = 32'd4;
     }
 
     comb group cond_j {
       lt2.left = j_reg.out;
-      lt2.right = 32'd2;
+      lt2.right = 32'd4;
     }
 
     comb group cond_k {
       lt3.left = k_reg.out;
-      lt3.right = 32'd2;
+      lt3.right = 32'd4;
     }
   }
   control {
