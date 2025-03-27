@@ -334,7 +334,16 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::Continue => self.do_continue()?,
                 Command::Empty => {}
                 Command::Display => {
-                    println!("COMMAND NOT YET IMPLEMENTED");
+                    for cell in self.interpreter.iter_active_cells() {
+                        println!(
+                            "{}",
+                            self.interpreter.format_cell_ports(
+                                cell,
+                                PrintCode::Binary,
+                                None
+                            )
+                        )
+                    }
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
