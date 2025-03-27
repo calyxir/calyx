@@ -1,4 +1,5 @@
 import calyx.builder as cb
+import os
 
 
 def insert_foo_component(prog):
@@ -20,6 +21,6 @@ def insert_foo_component(prog):
 
 
 if __name__ == "__main__":
-    prog = cb.Builder()
+    prog = cb.Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     insert_foo_component(prog)
     prog.program.emit()

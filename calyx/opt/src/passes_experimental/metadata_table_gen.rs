@@ -1,6 +1,6 @@
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
-use calyx_ir::source_info::{FileId, LineNum, PositionId, SourceInfoTable};
 use calyx_ir::Id;
+use calyx_ir::source_info::{FileId, LineNum, PositionId, SourceInfoTable};
 use calyx_utils::WithPos;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;

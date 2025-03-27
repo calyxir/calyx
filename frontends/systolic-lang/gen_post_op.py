@@ -60,8 +60,8 @@ def create_immediate_done_condition(
     systolic array presents its final value.
     """
     this = comp.this()
-    final_row_valid = this.port(f"r{num_rows -1}_valid")
-    final_row_idx = this.port(f"r{num_rows-1}_idx")
+    final_row_valid = this.port(f"r{num_rows - 1}_valid")
+    final_row_idx = this.port(f"r{num_rows - 1}_idx")
     max_idx = num_cols - 1
     # delay_reg delays writing to this.computation_done
     delay_reg = comp.reg(1, "delay_reg")

@@ -3,7 +3,7 @@ use calyx_ir as ir;
 use calyx_opt::passes;
 use calyx_opt::traversal::Visitor;
 use criterion::{
-    criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
+    BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main,
 };
 use std::path::Path;
 

@@ -1,5 +1,8 @@
 use super::{
-    commands::{Command, ParsedBreakPointID, ParsedGroupName, PrintMode},
+    commands::{
+        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedGroupName,
+        PrintMode,
+    },
     debugging_context::context::DebuggingContext,
     io_utils::Input,
     source::structures::NewSourceMap,
@@ -12,22 +15,23 @@ use crate::{
     errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
         flat_ir::{
+            base::ComponentIdx,
             base::{GlobalCellIdx, PortValue},
-            prelude::GroupIdx,
+            prelude::{Control, ControlIdx, GroupIdx},
         },
         setup_simulation_with_metadata,
         structures::{
             context::Context,
-            environment::{Path as ParsePath, PathError, Simulator},
+            environment::{Path, PathError, Simulator},
         },
+        text_utils::{Color, print_debugger_welcome},
     },
     serialization::PrintCode,
 };
 
-use std::{collections::HashSet, path::PathBuf, rc::Rc};
+use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
 
 use itertools::Itertools;
-use owo_colors::OwoColorize;
 use std::path::Path as FilePath;
 
 /// Constant amount of space used for debugger messages
@@ -246,7 +250,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         print_tuple.print_code(),
                         *print_tuple.print_mode(),
                     ) {
-                        println!("{}", e.red().bold());
+                        println!("{}", e.stylize_error());
                     };
                 }
             }
@@ -261,8 +265,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     self.program_context
                         .as_ref()
                         .lookup_name(group)
-                        .bright_purple()
-                        .underline()
+                        .stylize_breakpoint()
                 );
             }
             self.interpreter.converge()?;
@@ -292,14 +295,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         let mut input_stream =
             input_stream.map(Ok).unwrap_or_else(Input::new)?;
 
-        println!(
-            "==== {}: The {}alyx {}nterpreter and {}bugge{} ====",
-            "Cider".bold(),
-            "C".underline(),
-            "I".underline(),
-            "De".underline(),
-            "r".underline()
-        );
+        print_debugger_welcome();
 
         let mut err_count = 0_u8;
 
@@ -314,13 +310,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     CiderError::InvalidCommand(_)
                     | CiderError::UnknownCommand(_)
                     | CiderError::ParseError(_) => {
-                        println!("Error: {}", e.red().bold());
+                        println!("Error: {}", e.stylize_error());
                         err_count += 1;
                         if err_count == 3 {
                             println!(
                                 "Type {} for a list of commands or {} for usage examples.",
-                                "help".yellow().bold().underline(),
-                                "explain".yellow().bold().underline()
+                                "help".stylize_command(),
+                                "explain".stylize_command()
                             );
                             err_count = 0;
                         }
@@ -332,19 +328,28 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
             match comm {
                 Command::Step(n) => self.do_step(n)?,
-                Command::StepOver(target) => {
-                    self.do_step_over(target)?;
+                Command::StepOver(target, bound) => {
+                    self.do_step_over(target, bound)?;
                 }
                 Command::Continue => self.do_continue()?,
                 Command::Empty => {}
                 Command::Display => {
-                    println!("COMMAND NOT YET IMPLEMENTED");
+                    for cell in self.interpreter.iter_active_cells() {
+                        println!(
+                            "{}",
+                            self.interpreter.format_cell_ports(
+                                cell,
+                                PrintCode::Binary,
+                                None
+                            )
+                        )
+                    }
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
                         if let Err(e) = self.do_print(&target, code, print_mode)
                         {
-                            println!("{}", e.red().bold());
+                            println!("{}", e.stylize_error());
                         };
                     }
                 }
@@ -438,7 +443,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                             }
 
                             if !printed_position {
-                                println!("Source info unavailable, falling back to Calyx");
+                                println!(
+                                    "Source info unavailable, falling back to Calyx"
+                                );
                                 self.interpreter.print_pc();
                             }
                         } else {
@@ -467,7 +474,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
         }
 
-        println!("Main component has finished executing. Debugger is now in inspection mode.");
+        println!(
+            "Main component has finished executing. Debugger is now in inspection mode."
+        );
 
         loop {
             let comm = input_stream.next_command();
@@ -477,7 +486,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     CiderError::InvalidCommand(_)
                     | CiderError::UnknownCommand(_)
                     | CiderError::ParseError(_) => {
-                        println!("Error: {}", e.red().bold());
+                        println!("Error: {}", e.stylize_error());
                         continue;
                     }
                     _ => return Err(e),
@@ -493,7 +502,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     for target in print_lists {
                         if let Err(e) = self.do_print(&target, code, print_mode)
                         {
-                            println!("{}", e.red().bold());
+                            println!("{}", e.stylize_error());
                         };
                     }
                 }
@@ -542,14 +551,14 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
                 Err(e) => {
                     error_occurred = true;
-                    println!("{}", e.red().bold());
+                    println!("{}", e.stylize_error());
                     continue;
                 }
             }
         }
 
         if error_occurred {
-            println!("{}", "No watchpoints have been added.".red());
+            println!("{}", "No watchpoints have been added.".stylize_error());
             return;
         }
 
@@ -557,7 +566,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             match group.lookup_group(self.program_context.as_ref()) {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("Error: {}", e.red());
+                    println!("Error: {}", e.stylize_error());
                     return;
                 }
             };
@@ -572,19 +581,31 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     fn do_step_over(
         &mut self,
         target: super::commands::ParsedGroupName,
+        bound: Option<NonZeroU32>,
     ) -> Result<(), crate::errors::BoxedCiderError> {
         let target = match target.lookup_group(self.program_context.as_ref()) {
             Ok(v) => v,
             Err(e) => {
-                println!("Error: {}", e.red());
+                println!("Error: {}", e.stylize_error());
                 return Ok(());
             }
         };
+
+        let mut bound: Option<u32> = bound.map(|x| x.into());
 
         if !self.interpreter.is_group_running(target) {
             println!("Group is not currently running")
         } else {
             while self.interpreter.is_group_running(target) {
+                if let Some(current_count) = bound.as_mut() {
+                    if *current_count == 0 {
+                        println!("Bound reached, group is still running.");
+                        break;
+                    } else {
+                        *current_count -= 1;
+                    }
+                }
+
                 self.interpreter.step()?;
             }
             self.interpreter.converge()?;
@@ -601,8 +622,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             unwrap_error_message!(target);
 
             if self.interpreter.is_group_running(target) {
-                println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
-                        self.program_context.as_ref().lookup_name(target).yellow().italic())
+                println!(
+                    "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
+                    self.program_context
+                        .as_ref()
+                        .lookup_name(target)
+                        .stylize_warning()
+                )
             }
 
             self.debugging_context.add_breakpoint(target);
@@ -624,15 +650,15 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn print_from_path(
         &self,
-        path: &ParsePath,
+        path: &Path,
         code: &Option<PrintCode>,
         mode: PrintMode,
     ) -> Result<(), PathError> {
         let code = code.unwrap_or(PrintCode::Binary);
 
         let name_override = match path {
-            ParsePath::Cell(_) | ParsePath::Port(_) => None,
-            ParsePath::AbstractCell(_) | ParsePath::AbstractPort { .. } => {
+            Path::Cell(_) | Path::Port(_) => None,
+            Path::AbstractCell(_) | Path::AbstractPort { .. } => {
                 Some(path.as_string(self.interpreter.env()))
             }
         };
@@ -651,7 +677,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                         println!("{}", state);
                         return Ok(());
                     } else {
-                        println!("{}","Target cell has no internal state, printing port information instead".red());
+                        println!("{}","Target cell has no internal state, printing port information instead".stylize_warning());
                     }
                 }
 
@@ -706,5 +732,69 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
             _ => unreachable!("improper use of manipulate_breakpoint"),
         }
+    }
+
+    /// Returns the controlidx of the last node in the given path and component idx
+    pub fn path_idx(
+        &self,
+        component: ComponentIdx,
+        path: ParsePath,
+    ) -> ControlIdx {
+        let path_nodes = path.get_path();
+        let env = self.interpreter.env();
+        let ctx = env.ctx();
+
+        let component_map = &ctx.primary.components;
+        let control_map = &ctx.primary.control;
+
+        // Get nodes
+        let component_node = component_map.get(component).unwrap();
+
+        let mut control_id = component_node.control().unwrap();
+
+        let mut control_node = &control_map.get(control_id).unwrap().control;
+        for parse_node in path_nodes {
+            match parse_node {
+                ParseNodes::Body => match control_node {
+                    Control::While(while_struct) => {
+                        control_id = while_struct.body();
+                    }
+                    Control::Repeat(repeat_struct) => {
+                        control_id = repeat_struct.body;
+                    }
+                    _ => {
+                        // TODO: Dont want to crash if invalid path, return result type w/ error malformed
+                        panic!();
+                    }
+                },
+                ParseNodes::If(branch) => match control_node {
+                    Control::If(if_struct) => {
+                        control_id = if branch {
+                            if_struct.tbranch()
+                        } else {
+                            if_struct.fbranch()
+                        };
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+                ParseNodes::Offset(child) => match control_node {
+                    Control::Par(par_struct) => {
+                        let children = par_struct.stms();
+                        control_id = children[child as usize];
+                    }
+                    Control::Seq(seq_struct) => {
+                        let children = seq_struct.stms();
+                        control_id = children[child as usize]
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+            }
+            control_node = control_map.get(control_id).unwrap();
+        }
+        control_id
     }
 }

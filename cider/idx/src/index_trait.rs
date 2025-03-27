@@ -1,4 +1,4 @@
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -114,6 +114,10 @@ impl<I: IndexRef + PartialOrd> SplitIndexRange<I> {
     /// Returns an iterator over the entire range.
     pub fn iter_all(&self) -> OwnedIndexRangeIterator<I> {
         OwnedIndexRangeIterator::new(IndexRange::new(self.start, self.end))
+    }
+
+    pub fn contains(&self, item: I) -> bool {
+        item >= self.start && item < self.end
     }
 }
 
@@ -321,7 +325,10 @@ where
                 last.set_end(I::new(last.end.index() + 1));
                 return;
             } else {
-                assert!(last.end < value, "Inserted value must not be less than end of the prior range");
+                assert!(
+                    last.end < value,
+                    "Inserted value must not be less than end of the prior range"
+                );
             }
         }
         self.0

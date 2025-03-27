@@ -80,6 +80,10 @@ pub struct Opts {
     #[argh(switch, long = "check-data-race")]
     check_data_race: bool,
 
+    /// force color output
+    #[argh(switch, long = "force-color")]
+    force_color: bool,
+
     #[argh(subcommand)]
     mode: Option<Command>,
 }
@@ -118,6 +122,8 @@ fn main() -> CiderResult<()> {
         .error_on_overflow(opts.error_on_overflow)
         .undef_guard_check(opts.undef_guard_check)
         .build();
+
+    runtime_config.set_force_color(opts.force_color);
 
     let command = opts.mode.unwrap_or(Command::Interpret(CommandInterpret {}));
     let i_ctx = cider::flatten::setup_simulation(

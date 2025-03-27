@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use itertools::{multizip, Itertools};
+use itertools::{Itertools, multizip};
 use regex::Regex;
 use resolve_path::PathResolveExt;
 use tower_lsp::lsp_types as lspt;
@@ -12,7 +12,7 @@ use tree_sitter as ts;
 use crate::convert::{Contains, Point, Range};
 use crate::log;
 use crate::ts_utils::ParentUntil;
-use crate::{tree_sitter_calyx, Config};
+use crate::{Config, tree_sitter_calyx};
 
 pub struct Document {
     pub url: lspt::Url,
@@ -143,7 +143,7 @@ impl Document {
         &'a self,
         node: ts::Node<'node>,
         pattern: &str,
-    ) -> HashMap<String, Vec<ts::Node>> {
+    ) -> HashMap<String, Vec<ts::Node<'a>>> {
         // create the struct that manages query state
         let mut cursor = ts::QueryCursor::new();
         // create the query from the passed in pattern

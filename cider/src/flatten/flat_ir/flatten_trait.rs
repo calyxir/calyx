@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use cider_idx::{maps::IndexedMap, IndexRef};
+use cider_idx::{IndexRef, maps::IndexedMap};
 
 /// A handle bundling a queue of nodes to be processed and a vector of nodes that
 /// have already been processed. The vec itself is not owned by the handle.
@@ -85,29 +85,38 @@ pub trait FlattenTree: Sized {
     type Output;
     type IdxType: IndexRef;
     type AuxiliaryData;
+    type MutAuxiliaryData;
 
     fn process_element<'data>(
         &'data self,
         handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
         aux: &Self::AuxiliaryData,
+        mut_aux: &mut Self::MutAuxiliaryData,
     ) -> Self::Output;
 }
 
-pub fn flatten_tree<In, Idx, Out, Aux>(
+pub fn flatten_tree<In, Idx, Out, Aux, MutAux>(
     root_node: &In,
     base: Option<Idx>,
     vec: &mut IndexedMap<Idx, Out>,
     aux: &Aux,
+    mut_aux: &mut MutAux,
 ) -> Idx
 where
     Idx: IndexRef,
-    In: FlattenTree<Output = Out, IdxType = Idx, AuxiliaryData = Aux>,
+    In: FlattenTree<
+            Output = Out,
+            IdxType = Idx,
+            AuxiliaryData = Aux,
+            MutAuxiliaryData = MutAux,
+        >,
 {
     let mut handle = VecHandle::new(vec, root_node, base);
     let mut root_node_idx: Option<Idx> = None;
 
     while let Some(node) = handle.next_element() {
-        let res = node.process_element(handle.produce_limited_handle(), aux);
+        let res =
+            node.process_element(handle.produce_limited_handle(), aux, mut_aux);
         root_node_idx.get_or_insert(handle.finish_processing(res));
     }
 

@@ -1,4 +1,5 @@
 import calyx.builder as cb
+import os
 
 
 def insert_identity_component(prog):
@@ -57,7 +58,7 @@ def make_program(prog):
 
 
 def build():
-    prog = cb.Builder()
+    prog = cb.Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     make_program(prog)
     return prog.program
 
