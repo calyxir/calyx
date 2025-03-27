@@ -1160,10 +1160,10 @@ def write_cell_stats(
                 "avg": avg_cycles,
             }
         for cat in cats_to_cycles:
-            stats_dict[cat] = len(cell_cat[cat])
+            stats_dict[f"{cat} (%)"] = round((len(cell_cat[cat]) / total_cycles) * 100, 1)
         stats.append(stats_dict)
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
-    fieldnames = ["cell-name", "num-fsms"] + [cat for cat in cats_to_cycles] + ["total-cycles", "times-active", "avg"]
+    fieldnames = ["cell-name", "num-fsms", "total-cycles"] + [f"{cat} (%)" for cat in cats_to_cycles] + ["times-active", "avg"]
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
         writer.writeheader()
