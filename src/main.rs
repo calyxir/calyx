@@ -55,9 +55,6 @@ fn main() -> PassResult<()> {
         }
     }
 
-    opts.lib_path
-        .push(option_env!("CALYX_PRIMITIVES_DIR").unwrap_or(".").into());
-
     // Construct the namespace.
     let mut ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
 
