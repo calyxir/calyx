@@ -81,7 +81,7 @@ ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
 
 # Link fud2
 WORKDIR /home/calyx
-run mkdir -p ~/.local/bin
+RUN mkdir -p ~/.local/bin
 RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
 RUN printf "dahlia = \"/home/dahlia/fuse\"\n" >> ~/.config/fud2.toml
 RUN printf "[calyx]\nbase = \"/home/calyx\"\n" >> ~/.config/fud2.toml
@@ -101,6 +101,10 @@ RUN fud config --create global.root /home/calyx && \
 
 # Install MrXL
 WORKDIR /home/calyx/frontends/mrxl
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+
+# Install queues
+WORKDIR /home/calyx/frontends/queues
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
 WORKDIR /home/calyx
