@@ -1133,42 +1133,61 @@ def write_cell_stats(
     cats_to_cycles,
     cells_to_components,
     component_to_num_fsms,
+    total_cycles,
     out_dir,
 ):
-    fieldnames = (
-        ["cell-name", "num-fsms", "useful-cycles", "total-cycles", "times-active", "avg"]
-        + [f"{cat} (%)" for cat in cats_to_cycles]
-    ) # fields in CSV file
+    fieldnames = [
+        "cell-name",
+        "num-fsms",
+        "useful-cycles",
+        "total-cycles",
+        "times-active",
+        "avg",
+    ] + [f"{cat} (%)" for cat in cats_to_cycles]  # fields in CSV file
     stats = []
+    totals = {fieldname: 0 for fieldname in fieldnames}
     for cell in cell_to_active_cycles:
         component = cells_to_components[cell]
         num_fsms = component_to_num_fsms[component]
-        total_cycles = 0
+        cell_total_cycles = 0
         times_active = len(cell_to_active_cycles[cell])
         cell_cat = {cat: set() for cat in cats_to_cycles}
         for elem in cell_to_active_cycles[cell]:
-            total_cycles += elem["length"]
+            cell_total_cycles += elem["length"]
             active_cycle_list = set(range(elem["start"], elem["end"]))
             for cat in cats_to_cycles:
                 cell_cat[cat].update(
                     active_cycle_list.intersection(cats_to_cycles[cat])
                 )
-                
-        avg_cycles = round(total_cycles / times_active, 2)
+
+        avg_cycles = round(cell_total_cycles / times_active, 2)
         stats_dict = {
             "cell-name": f"{cell} [{component}]",
             "num-fsms": num_fsms,
             "useful-cycles": len(cell_cat["group/primitive"]) + len(cell_cat["other"]),
-            "total-cycles": total_cycles,
+            "total-cycles": cell_total_cycles,
             "times-active": times_active,
             "avg": avg_cycles,
         }
+        # aggregate stats that should be summed over
+        totals["num-fsms"] += num_fsms
         for cat in cats_to_cycles:
             stats_dict[f"{cat} (%)"] = round(
-                (len(cell_cat[cat]) / total_cycles) * 100, 1
+                (len(cell_cat[cat]) / cell_total_cycles) * 100, 1
             )
         stats.append(stats_dict)
+    # total: aggregate other stats that shouldn't just be summed over
+    totals["cell-name"] = "TOTAL"
+    totals["total-cycles"] = total_cycles
+    for cat in cats_to_cycles:
+        if cat == "group/primitive" or cat == "other":
+            totals["useful-cycles"] += len(cats_to_cycles[cat])
+        totals[f"{cat} (%)"] = round(
+            (len(cats_to_cycles[cat]) / total_cycles) * 100, 1
+        )
+    totals["avg"] = "-"
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
+    stats.append(totals)  # total should come at the end
     with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
         writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
         writer.writeheader()
@@ -1438,15 +1457,17 @@ def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
         "group/primitive": [],
         "fsm": [],
         "par-done": [],
-        "mult-ctrl": [], # fsm and par-done. Have not seen this yet
-        "other": []
+        "mult-ctrl": [],  # fsm and par-done. Have not seen this yet
+        "other": [],
     }
     for i in range(len(classified_trace)):
         if classified_trace[i] > 0:
             flame_base_map["group/primitive"].append(i)
-        elif i not in control_reg_updates: # I suspect this is 1 cycle to execute a combinational group.
+        elif (
+            i not in control_reg_updates
+        ):  # I suspect this is 1 cycle to execute a combinational group.
             flame_base_map["other"].append(i)
-            classified_trace[i] = 1 # FIXME: hack to flag this as a "useful" cycle
+            classified_trace[i] = 1  # FIXME: hack to flag this as a "useful" cycle
         elif control_reg_updates[i] == "both":
             flame_base_map["fsm + par-done"].append(i)
         else:
@@ -1525,16 +1546,12 @@ def main(
     cats_to_cycles = create_simple_flame_graph(
         trace_classified, control_reg_updates_per_cycle, out_dir
     )
-    num_useful_cycles = len(list(filter(lambda c: c > 0, trace_classified)))
-    percent_useful_cycles = round(num_useful_cycles / len(trace_classified), 2)
-    print(
-        f"Useful cycles: {num_useful_cycles} / {len(trace_classified)}. Percentage: {percent_useful_cycles}"
-    )
     write_cell_stats(
         cell_to_active_cycles,
         cats_to_cycles,
         cells_to_components,
         component_to_num_fsms,
+        len(trace),
         out_dir,
     )
     tree_dict, path_dict = create_tree(trace)
