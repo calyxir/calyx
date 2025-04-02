@@ -1182,9 +1182,7 @@ def write_cell_stats(
     for cat in cats_to_cycles:
         if cat == "group/primitive" or cat == "other":
             totals["useful-cycles"] += len(cats_to_cycles[cat])
-        totals[f"{cat} (%)"] = round(
-            (len(cats_to_cycles[cat]) / total_cycles) * 100, 1
-        )
+        totals[f"{cat} (%)"] = round((len(cats_to_cycles[cat]) / total_cycles) * 100, 1)
     totals["avg"] = "-"
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     stats.append(totals)  # total should come at the end
