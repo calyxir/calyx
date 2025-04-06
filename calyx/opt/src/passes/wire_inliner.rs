@@ -95,20 +95,19 @@ impl Visitor for WireInliner {
         let control_ref = Rc::clone(&comp.control);
         let control = control_ref.borrow();
 
-        let this = Rc::clone(&comp.signature);
-        let mut builder = ir::Builder::new(comp, sigs);
-
-        let this_go_port = this
-            .borrow()
-            .find_unique_with_attr(ir::NumAttr::Go)?
-            .unwrap();
-
-        structure!(builder;
-            let one = constant(1, 1);
-        );
-
         match &*control {
             ir::Control::Enable(..) | ir::Control::FSMEnable(..) => {
+                let this = Rc::clone(&comp.signature);
+                let mut builder = ir::Builder::new(comp, sigs);
+
+                let this_go_port = this
+                    .borrow()
+                    .find_unique_with_attr(ir::NumAttr::Go)?
+                    .unwrap();
+
+                structure!(builder;
+                    let one = constant(1, 1);
+                );
                 let assigns = match &*control {
                     ir::Control::Enable(en) => {
                         let group = &en.group;

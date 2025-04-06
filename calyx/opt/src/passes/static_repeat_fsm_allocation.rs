@@ -1,10 +1,9 @@
-use super::math_utilities::get_bit_width_from;
+use crate::analysis::{IncompleteTransition, StaticSchedule};
 use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
-use calyx_ir::{self as ir, BoolAttr, GetAttributes, build_assignments, guard};
+use calyx_ir::{self as ir, BoolAttr, GetAttributes};
 use calyx_utils::CalyxResult;
 use core::ops::Not;
 use itertools::Itertools;
-use std::collections::HashMap;
 
 pub struct StaticRepeatFSMAllocation {}
 
@@ -24,92 +23,7 @@ impl ConstructVisitor for StaticRepeatFSMAllocation {
     fn clear_data(&mut self) {}
 }
 
-/// Represents an FSM transition that doesn't yet have a destination state.
-#[derive(Clone)]
-struct IncompleteTransition {
-    source: u64,
-    guard: ir::Guard<ir::Nothing>,
-}
-
-impl IncompleteTransition {
-    fn new(source: u64, guard: ir::Guard<ir::Nothing>) -> Self {
-        Self { source, guard }
-    }
-}
-
-/// An instance of `StaticSchedule` is constrainted to live at least as long as
-/// the component in which the static island that it represents lives.
-struct StaticSchedule<'b, 'a: 'b> {
-    /// Builder construct to add hardware to the component it's built from
-    builder: &'b mut ir::Builder<'a>,
-    /// Number of cycles to which the static schedule should count up
-    state: u64,
-    /// Maps every FSM state to assignments that should be active in that state
-    state2assigns: HashMap<u64, Vec<ir::Assignment<ir::Nothing>>>,
-    /// Parital map from FSM state to transitions out of that state.
-    /// If a state has no mapping, assume it's an unconditional transition to
-    /// state + 1.
-    state2trans: HashMap<u64, ir::Transition>,
-}
-
-impl<'b, 'a> From<&'b mut ir::Builder<'a>> for StaticSchedule<'b, 'a> {
-    fn from(builder: &'b mut ir::Builder<'a>) -> Self {
-        StaticSchedule {
-            builder,
-            state: 0,
-            state2assigns: HashMap::new(),
-            state2trans: HashMap::new(),
-        }
-    }
-}
-
-impl<'b, 'a> StaticSchedule<'b, 'a> {
-    fn register_transitions(
-        &mut self,
-        curr_state: u64,
-        transitions_to_curr: &mut Vec<IncompleteTransition>,
-        and_guard: ir::Guard<ir::Nothing>,
-    ) {
-        transitions_to_curr.drain(..).for_each(
-            |IncompleteTransition { source, guard }| {
-                let complete_transition =
-                    match (guard, &and_guard) {
-                        (ir::Guard::True, ir::Guard::True) => {
-                            ir::Transition::Unconditional(curr_state)
-                        }
-                        (ir::Guard::True, _) => ir::Transition::Conditional(
-                            vec![(and_guard.clone(), curr_state)],
-                        ),
-                        (guard, ir::Guard::True) => {
-                            ir::Transition::Conditional(vec![(
-                                guard, curr_state,
-                            )])
-                        }
-                        (guard, and_guard) => ir::Transition::Conditional(
-                            vec![(guard.and(and_guard.clone()), curr_state)],
-                        ),
-                    };
-
-                self.state2trans
-                    .entry(source)
-                    .and_modify(|existing_transition| {
-                        match (existing_transition, complete_transition.clone())
-                        {
-                            (ir::Transition::Unconditional(_), _)
-                            | (_, ir::Transition::Unconditional(_)) => (),
-                            (
-                                ir::Transition::Conditional(existing_conds),
-                                ir::Transition::Conditional(new_conds),
-                            ) => {
-                                existing_conds.extend(new_conds);
-                            }
-                        };
-                    })
-                    .or_insert(complete_transition);
-            },
-        );
-    }
-
+impl StaticSchedule<'_, '_> {
     /// Provided a static control node, calling this method on an empty `StaticSchedule`
     /// `sch` will build out the `latency` and `state2assigns` fields of `sch`, in
     /// preparation to replace the `StaticControl` node with an instance of `ir::FSM`.
@@ -135,81 +49,8 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
                 // allocate one state if requested, and have one state for every
                 // cycle otherwise
                 if sen.attributes.has(BoolAttr::OneState) {
-                    let signal_on = self.builder.add_constant(1, 1);
-                    let group_latency = sen.group.borrow().get_latency();
-
-                    // instantiate a local counter register
-                    let width = get_bit_width_from(group_latency);
-                    let counter = self.builder.add_primitive(
-                        "group_counter",
-                        "std_reg",
-                        &[width],
-                    );
-
-                    // transform all assignments in the static group to read
-                    // from the local counter
-                    let mut assigns = sen
-                        .group
-                        .borrow_mut()
-                        .assignments
-                        .clone()
-                        .drain(..)
-                        .map(|mut sassign| {
-                            sassign.guard.replace_static_timing(
-                                self.builder,
-                                &counter,
-                                &width,
-                                &group_latency,
-                            );
-                            let mut assign = ir::Assignment::from(sassign);
-                            assign.and_guard(guard.clone());
-                            assign
-                        })
-                        .collect_vec();
-
-                    // guard reprsenting if counter is in final state
-                    let final_state_const =
-                        self.builder.add_constant(group_latency - 1, width);
-                    let final_state_wire: ir::RRC<ir::Cell> =
-                        self.builder.add_primitive(
-                            format!("const{}_{}_", group_latency - 1, width),
-                            "std_wire",
-                            &[width],
-                        );
-                    let final_state_guard = ir::Guard::CompOp(
-                        ir::PortComp::Eq,
-                        counter.borrow().get("out"),
-                        final_state_wire.borrow().get("out"),
-                    );
-                    let not_final_state_guard = final_state_guard.clone().not();
-
-                    // build assignments to increment / reset the counter
-                    let adder = self.builder.add_primitive(
-                        "adder",
-                        "std_add",
-                        &[width],
-                    );
-                    let const_one = self.builder.add_constant(1, width);
-                    let const_zero = self.builder.add_constant(0, width);
-                    let incr_counter_assigns = build_assignments!(self.builder;
-                        final_state_wire["in"] = ? final_state_const["out"];
-                        adder["left"] = ? counter["out"];
-                        adder["right"] = ? const_one["out"];
-                        counter["write_en"] = ? signal_on["out"];
-                        counter["in"] = final_state_guard ? const_zero["out"];
-                        counter["in"] = not_final_state_guard ? adder["out"];
-                    );
-
-                    assigns.extend(incr_counter_assigns.to_vec());
-
-                    // push these assignments into the one state allocated for this
-                    // enable
-                    self.state2assigns
-                        .entry(self.state)
-                        .and_modify(|other_assigns| {
-                            other_assigns.extend(assigns.clone());
-                        })
-                        .or_insert(assigns);
+                    let final_state_guard =
+                        self.leave_one_state_condition(guard, sen);
 
                     self.state += 1;
                     vec![IncompleteTransition::new(
@@ -288,7 +129,7 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
             }
             ir::StaticControl::Repeat(srep) => {
                 // unroll an encountered repeat loop. usually these are compiled away
-                (0..srep.num_repeats).into_iter().fold(
+                (0..srep.num_repeats).fold(
                     transitions_to_curr,
                     |transitions_to_this_body, _| {
                         self.build_abstract_fsm(
@@ -317,8 +158,6 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
     /// Returns the FSM implementing the given control node, as well as the buidler
     /// object from which it was built.
     fn build_fsm(&mut self, control: &ir::StaticControl) -> ir::RRC<ir::FSM> {
-        let signal_on = self.builder.add_constant(1, 1);
-
         let fsm = self.builder.add_fsm("fsm");
 
         let mut remaining_assignments =
@@ -331,94 +170,8 @@ impl<'b, 'a> StaticSchedule<'b, 'a> {
             ir::Guard::True,
         );
 
-        let (assignments, transitions, state2wires): (
-            Vec<Vec<ir::Assignment<ir::Nothing>>>,
-            Vec<ir::Transition>,
-            Vec<ir::RRC<ir::Cell>>,
-        ) = (0..self.state)
-            .map(|state| {
-                // construct a wire to represent this state
-                let state_wire: ir::RRC<ir::Cell> = self.builder.add_primitive(
-                    format!("{}_{state}", fsm.borrow().name().to_string()),
-                    "std_wire",
-                    &[1],
-                );
-                // build assignment to indicate that we're in this state
-                let mut state_assign: ir::Assignment<ir::Nothing> =
-                    self.builder.build_assignment(
-                        state_wire.borrow().get("in"),
-                        signal_on.borrow().get("out"),
-                        ir::Guard::True,
-                    );
-
-                // merge `idle` and first `calc` state
-                if state == 0 {
-                    state_assign.and_guard(ir::guard!(fsm["start"]));
-                }
-
-                let transition_from_state = match self
-                    .state2trans
-                    .remove(&state)
-                {
-                    Some(mut transition) => {
-                        // if in first state, transition conditioned on fsm[start]
-                        let transition_mut_ref = &mut transition;
-                        if state == 0 {
-                            match transition_mut_ref {
-                                ir::Transition::Unconditional(next_state) => {
-                                    *transition_mut_ref =
-                                        ir::Transition::Conditional(vec![
-                                            (guard!(fsm["start"]), *next_state),
-                                            (ir::Guard::True, 0),
-                                        ]);
-                                }
-                                ir::Transition::Conditional(conditions) => {
-                                    conditions.iter_mut().for_each(
-                                        |(condition, _)| {
-                                            condition.update(|g| {
-                                                g.and(guard!(fsm["start"]))
-                                            });
-                                        },
-                                    );
-                                }
-                            }
-                        }
-
-                        // add a default self-loop for every conditional transition
-                        // if it doesn't already have it
-                        if let ir::Transition::Conditional(trans) =
-                            &mut transition
-                        {
-                            if !(trans.last_mut().unwrap().0.is_true()) {
-                                trans.push((ir::Guard::True, state))
-                            }
-                        }
-                        transition
-                    }
-                    None => {
-                        if state == 0 {
-                            // set transition out of first state, which is
-                            // conditional on reading fsm[start]
-                            ir::Transition::Conditional(vec![
-                                (guard!(fsm["start"]), 1 % self.state),
-                                (ir::Guard::True, 0),
-                            ])
-                        } else {
-                            // loopback to start at final state, and increment
-                            // state otherwise
-                            ir::Transition::Unconditional(
-                                if state + 1 == self.state {
-                                    0
-                                } else {
-                                    state + 1
-                                },
-                            )
-                        }
-                    }
-                };
-                (vec![state_assign], transition_from_state, state_wire)
-            })
-            .multiunzip();
+        let (assignments, transitions, state2wires) =
+            self.build_fsm_pieces(ir::RRC::clone(&fsm));
 
         self.builder.add_continuous_assignments(
             self.state2assigns
