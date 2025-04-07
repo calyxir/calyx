@@ -1513,6 +1513,7 @@ def main(
     signal_prefix = converter.signal_prefix
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
+    
     trace, trace_classified, cell_to_active_cycles = (
         converter.postprocess()
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
@@ -1544,6 +1545,7 @@ def main(
     cats_to_cycles = create_simple_flame_graph(
         trace_classified, control_reg_updates_per_cycle, out_dir
     )
+    print(f"End creating simple flame graph: {datetime.now()}")
     write_cell_stats(
         cell_to_active_cycles,
         cats_to_cycles,
@@ -1552,6 +1554,7 @@ def main(
         len(trace),
         out_dir,
     )
+    print(f"End writing cell stats: {datetime.now()}")
     tree_dict, path_dict = create_tree(trace)
     path_to_edges, all_edges = create_edge_dict(path_dict)
 
