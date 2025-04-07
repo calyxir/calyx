@@ -6,7 +6,7 @@ use calyx_ir::{
 };
 use calyx_utils::CalyxResult;
 
-/// Adds probe wires to each group to detect when a group is active.
+/// Adds probe wires to each group (includes static groups and comb groups) to detect when a group is active.
 /// Used by the profiler.
 pub struct ProfilerInstrumentation {}
 
