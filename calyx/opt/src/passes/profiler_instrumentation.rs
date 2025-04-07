@@ -6,7 +6,7 @@ use calyx_ir::{
 };
 use calyx_utils::CalyxResult;
 
-/// Adds probe wires to each group to detect when a group is active.
+/// Adds probe wires to each group (includes static groups and comb groups) to detect when a group is active.
 /// Used by the profiler.
 pub struct ProfilerInstrumentation {}
 
@@ -59,6 +59,11 @@ impl Visitor for ProfilerInstrumentation {
         // child_group --> [(parent_group, Guard)]
         let group_names = comp
             .groups
+            .iter()
+            .map(|group| group.borrow().name())
+            .collect::<Vec<_>>();
+        let comb_group_names = comp
+            .comb_groups
             .iter()
             .map(|group| group.borrow().name())
             .collect::<Vec<_>>();
@@ -145,9 +150,36 @@ impl Visitor for ProfilerInstrumentation {
         let mut builder = ir::Builder::new(comp, sigs);
         let one = builder.add_constant(1, 1);
         let mut group_name_assign_and_cell = Vec::with_capacity(acc);
+        let mut comb_group_name_assign_and_cell =
+            Vec::with_capacity(comb_group_names.len());
         let mut static_group_name_assign_and_cell =
             Vec::with_capacity(static_group_names.len()); // TODO: adjust when we figure out how to get primitives w/in static groups
         {
+            // Comb: probe and assignments for group (this group is currently active)
+            for comb_group_name in comb_group_names.into_iter() {
+                // store group and component name (differentiate between groups of the same name under different components)
+                let name = format!(
+                    "{}{}{}_group_probe",
+                    comb_group_name, delimiter, comp_name
+                );
+                let probe_cell = builder.add_primitive(name, "std_wire", &[1]);
+                let probe_asgn: ir::Assignment<Nothing> = builder
+                    .build_assignment(
+                        probe_cell.borrow().get("in"),
+                        one.borrow().get("out"),
+                        Guard::True,
+                    );
+                // the probes should be @control because they should have value 0 whenever the corresponding group is not active.
+                probe_cell.borrow_mut().add_attribute(BoolAttr::Control, 1);
+                probe_cell
+                    .borrow_mut()
+                    .add_attribute(BoolAttr::Protected, 1);
+                comb_group_name_assign_and_cell.push((
+                    comb_group_name,
+                    probe_asgn,
+                    probe_cell,
+                ));
+            }
             // Static: probe and assignments for group (this group is currently active)
             for static_group_name in static_group_names.into_iter() {
                 // store group and component name (differentiate between groups of the same name under different components)
@@ -300,6 +332,17 @@ impl Visitor for ProfilerInstrumentation {
             for (group_name, asgn, cell) in group_name_assign_and_cell.iter() {
                 if group.borrow().name() == group_name {
                     group.borrow_mut().assignments.push(asgn.clone());
+                    comp.cells.add(cell.to_owned());
+                }
+            }
+        }
+        // Comb: Add created assignments to each group
+        for comb_group in comp.comb_groups.iter() {
+            for (comb_group_name, asgn, cell) in
+                comb_group_name_assign_and_cell.iter()
+            {
+                if comb_group.borrow().name() == comb_group_name {
+                    comb_group.borrow_mut().assignments.push(asgn.clone());
                     comp.cells.add(cell.to_owned());
                 }
             }
