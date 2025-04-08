@@ -936,7 +936,7 @@ class TimelineCell:
         self.currently_active_group_to_tid = {}
         self.queued_tids = []
 
-    def get_fsm_pid_tid(self, fsm_name):
+    def get_metatrack_pid_tid(self, fsm_name):
         if fsm_name not in self.fsm_to_tid:
             self.fsm_to_tid[fsm_name] = self.tid_acc
             self.tid_acc += 1
@@ -982,15 +982,14 @@ def port_fsm_and_control_events(
         # NOTE: uncomment below to bring back FSM tracks to the timeline.
         # fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
         # if fsm_cell_name == cell_name:
-        #     (fsm_pid, fsm_tid) = cell_to_info[cell_name].get_fsm_pid_tid(fsm_name)
+        #     (fsm_pid, fsm_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(fsm_name)
         #     for entry in partial_fsm_events[fsm_name]:
         #         entry["pid"] = fsm_pid
         #         entry["tid"] = fsm_tid
         #         write_timeline_event(entry, out_file)
         del partial_fsm_events[fsm_name]
     for cycle, update in control_updates[cell_name]:
-        # FIXME: rename the function
-        (control_pid, control_tid) = cell_to_info[cell_name].get_fsm_pid_tid("CTRL")
+        (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid("CTRL")
         begin_event = {
             "name": update,
             "cat": "CTRL",
@@ -1301,7 +1300,6 @@ Returns a set of all fsms with fully qualified fsm names
 
 def read_tdcc_file(fsm_json_file, components_to_cells):
     json_data = json.load(open(fsm_json_file))
-    # cell_to_fsms = {} # cell --> fully qualified fsm names
     fully_qualified_fsms = set()
     par_info = {}  # fully qualified par name --> [fully-qualified par children name]
     reverse_par_info = {}  # fully qualified par name --> [fully-qualified par parent name]
@@ -1310,6 +1308,16 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
     # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
     par_done_regs = set()
     component_to_fsm_acc = {component: 0 for component in components_to_cells}
+    # pass 1: obtain names of all par groups in each component
+    component_to_pars = {} # component --> [par groups]
+    for json_entry in json_data:
+        if "Par" in json_entry:
+            component = json_entry["Par"]["component"]
+            if component in component_to_pars:
+                component_to_pars[component].append(json_entry["Par"]["par_group"])
+            else:
+                component_to_pars[component] = json_entry["Par"]["par_group"]
+    # pass 2: obtain FSM register info, par group and child register information
     for json_entry in json_data:
         if "Fsm" in json_entry:
             entry = json_entry["Fsm"]
@@ -1319,10 +1327,6 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
             for cell in components_to_cells[component]:
                 fully_qualified_fsm = ".".join((cell, fsm_name))
                 fully_qualified_fsms.add(fully_qualified_fsm)
-                # if cell not in cell_to_fsms:
-                #     cell_to_fsms[cell] = [fully_qualified_fsm]
-                # else:
-                #     cell_to_fsms[cell].append(fully_qualified_fsm)
         if "Par" in json_entry:
             entry = json_entry["Par"]
             par = entry["par_group"]
@@ -1336,9 +1340,7 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
                     cell_to_pars[cell] = {fully_qualified_par}
                 for child in entry["child_groups"]:
                     child_name = child["group"]
-                    if child_name.startswith(
-                        "par"
-                    ):  # FIXME: heuristic. might be best to filter later with list of pars
+                    if child_name in component_to_pars[component]:
                         fully_qualified_child_name = ".".join((cell, child_name))
                         child_par_groups.append(fully_qualified_child_name)
                         if fully_qualified_child_name in reverse_par_info:
@@ -1416,7 +1418,6 @@ def add_par_to_trace(
                         current_cell += "." + construct.split(" [")[0]
                     elif "(primitive)" not in construct:  # group
                         # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
-                        # soooooooo ugly
                         if (
                             current_cell in cell_to_groups_to_par_parent
                             and construct in cell_to_groups_to_par_parent[current_cell]
@@ -1428,7 +1429,7 @@ def add_par_to_trace(
                             while (
                                 len(new_events_stack) > 2
                                 and "(ctrl)" in new_events_stack[-2]
-                            ):  # FIXME: this hack only works because par is the only ctrl element rn...
+                            ):  # NOTE: fix in future when there are multiple "ctrl" elements
                                 for parent in group_parents:
                                     if f"{parent} (ctrl)" == new_events_stack[-2]:
                                         parent_found = True
