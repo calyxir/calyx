@@ -358,7 +358,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         primitive_enable = set()
         trace = {}
         trace_classified = []
-        cell_to_active_cycles = {}  # cell --> [{"start": X, "end": Y, "length": Y - X}].
+        cell_to_active_cycles_summary = {} # cell --> {"num-times-active": _, "active-cycles": []}
+        # we lose information about the length of each segment but we can retrieve that information from the timeline
 
         # The events are "partial" because we don't know yet what the tid and pid would be.
         # (Will be filled in during create_timelines(); specifically in port_fsm_events())
@@ -407,10 +408,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 ):  # cells have .go and .done
                     cell = signal_name.split(".go")[0]
                     cell_active.add(cell)
-                    if cell not in cell_to_active_cycles:
-                        cell_to_active_cycles[cell] = [{"start": clock_cycles}]
+                    if cell not in cell_to_active_cycles_summary:
+                        cell_to_active_cycles_summary[cell] = {"num-times-active": 1, "active-cycles": set()} # add active-cycles when accounting for cell_active at the end
                     else:
-                        cell_to_active_cycles[cell].append({"start": clock_cycles})
+                        cell_to_active_cycles_summary[cell]["num-times-active"] += 1
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
                     if (
@@ -418,9 +419,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     ):  # if main is done, we shouldn't compute a "trace" for this cycle. set flag to True.
                         main_done = True
                     cell_active.remove(cell)
-                    current_segment = cell_to_active_cycles[cell][-1]
-                    current_segment["end"] = clock_cycles
-                    current_segment["length"] = clock_cycles - current_segment["start"]
                 # process fsms
                 if ".out[" in signal_name:
                     fsm_name = signal_name.split(".out[")[0]
@@ -459,6 +457,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         elif value == 0:
                             probe_labels_to_sets[probe_label].remove(probe_info)
             if not main_done:
+                # accumulate cycles active for each cell that was active
+                for cell in cell_active:
+                    cell_to_active_cycles_summary[cell]["active-cycles"].add(clock_cycles)
                 # add all probe information
                 info_this_cycle["cell-active"] = cell_active.copy()
                 for group, cell_name in group_active:
@@ -525,7 +526,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
 
-        return trace, trace_classified, cell_to_active_cycles
+        return trace, trace_classified, cell_to_active_cycles_summary
 
 
 def classify_stacks(stacks, main_shortname):
@@ -1149,16 +1150,11 @@ def write_cell_stats(
     for cell in cell_to_active_cycles:
         component = cells_to_components[cell]
         num_fsms = component_to_num_fsms[component]
-        cell_total_cycles = 0
-        times_active = len(cell_to_active_cycles[cell])
+        cell_total_cycles = len(cell_to_active_cycles[cell]["active-cycles"])
+        times_active = cell_to_active_cycles[cell]["num-times-active"]
         cell_cat = {cat: set() for cat in cats_to_cycles}
-        for elem in cell_to_active_cycles[cell]:
-            cell_total_cycles += elem["length"]
-            active_cycle_list = set(range(elem["start"], elem["end"]))
-            for cat in cats_to_cycles:
-                cell_cat[cat].update(
-                    active_cycle_list.intersection(cats_to_cycles[cat])
-                )
+        for cat in cats_to_cycles:
+            cell_cat[cat].update(cell_to_active_cycles[cell]["active-cycles"].intersection(cats_to_cycles[cat]))
 
         avg_cycles = round(cell_total_cycles / times_active, 2)
         stats_dict = {
@@ -1186,8 +1182,8 @@ def write_cell_stats(
     totals["avg"] = "-"
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     stats.append(totals)  # total should come at the end
-    with open(os.path.join(out_dir, "cell-stats.csv"), "w") as csvFile:
-        writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
+    with open(os.path.join(out_dir, "cell-stats.csv"), "w", encoding='utf-8') as csvFile:
+        writer = csv.DictWriter(csvFile, fieldnames=fieldnames, lineterminator=os.linesep)
         writer.writeheader()
         writer.writerows(stats)
 
