@@ -989,7 +989,9 @@ def port_fsm_and_control_events(
         #         write_timeline_event(entry, out_file)
         del partial_fsm_events[fsm_name]
     for cycle, update in control_updates[cell_name]:
-        (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid("CTRL")
+        (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(
+            "CTRL"
+        )
         begin_event = {
             "name": update,
             "cat": "CTRL",
@@ -1309,7 +1311,7 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
     par_done_regs = set()
     component_to_fsm_acc = {component: 0 for component in components_to_cells}
     # pass 1: obtain names of all par groups in each component
-    component_to_pars = {} # component --> [par groups]
+    component_to_pars = {}  # component --> [par groups]
     for json_entry in json_data:
         if "Par" in json_entry:
             component = json_entry["Par"]["component"]
