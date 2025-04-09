@@ -1404,6 +1404,7 @@ impl Visitor for TopDownCompileControl {
         // Registers to save the done signal from each child.
         let mut done_regs = Vec::with_capacity(s.stmts.len());
 
+        // Profiling: record each par child (arm)'s group and done register
         let mut child_infos = Vec::with_capacity(s.stmts.len());
 
         // For each child, build the enabling logic.
