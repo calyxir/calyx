@@ -1152,8 +1152,8 @@ pub struct TopDownCompileControl {
     dump_fsm_json: Option<OutputFile>,
     /// Enable early transitions
     early_transitions: bool,
-    /// Bookkeeping for FSM ids for groups across all FSMs in the program
-    fsm_groups: HashSet<ProfilingInfo>,
+    /// Profiling: Bookkeeping for TDCC-generated register/group information (FSMs, par groups)
+    control_info_for_profiling: HashSet<ProfilingInfo>,
     /// How many states the dynamic FSM must have before picking binary over one-hot
     one_hot_cutoff: u64,
     /// Number of states the dynamic FSM must have before picking duplicate over single register
@@ -1201,7 +1201,7 @@ impl ConstructVisitor for TopDownCompileControl {
             dump_fsm: opts[&"dump-fsm"].bool(),
             dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
-            fsm_groups: HashSet::new(),
+            control_info_for_profiling: HashSet::new(),
             one_hot_cutoff: opts[&"one-hot-cutoff"]
                 .pos_num()
                 .expect("requires non-negative OHE cutoff parameter"),
@@ -1288,7 +1288,7 @@ impl Visitor for TopDownCompileControl {
             if let Some(enable_info) =
                 extract_single_enable(&mut con, comp.name)
             {
-                self.fsm_groups
+                self.control_info_for_profiling
                     .insert(ProfilingInfo::SingleEnable(enable_info));
             }
             return Ok(Action::Stop);
@@ -1316,8 +1316,11 @@ impl Visitor for TopDownCompileControl {
         let fsm_impl = self.get_representation(&sch, &s.attributes);
 
         // Compile schedule and return the group.
-        let seq_group =
-            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
+        let seq_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.control_info_for_profiling,
+            fsm_impl,
+        );
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
@@ -1344,8 +1347,11 @@ impl Visitor for TopDownCompileControl {
         // Compile schedule and return the group.
         sch.calculate_states_if(i, self.early_transitions)?;
         let fsm_impl = self.get_representation(&sch, &i.attributes);
-        let if_group =
-            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
+        let if_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.control_info_for_profiling,
+            fsm_impl,
+        );
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -1372,8 +1378,11 @@ impl Visitor for TopDownCompileControl {
         let fsm_impl = self.get_representation(&sch, &w.attributes);
 
         // Compile schedule and return the group.
-        let if_group =
-            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
+        let if_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.control_info_for_profiling,
+            fsm_impl,
+        );
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -1412,12 +1421,12 @@ impl Visitor for TopDownCompileControl {
             let group = match con {
                 // Do not compile enables
                 ir::Control::Enable(ir::Enable { group, .. }) => {
-                    self.fsm_groups.insert(ProfilingInfo::SingleEnable(
-                        SingleEnableInfo {
+                    self.control_info_for_profiling.insert(
+                        ProfilingInfo::SingleEnable(SingleEnableInfo {
                             group: group.borrow().name(),
                             component: builder.component.name,
-                        },
-                    ));
+                        }),
+                    );
                     Rc::clone(group)
                 }
                 // Compile complex schedule and return the group.
@@ -1427,7 +1436,7 @@ impl Visitor for TopDownCompileControl {
                     let fsm_impl = self.get_representation(&sch, &s.attributes);
                     sch.realize_schedule(
                         self.dump_fsm,
-                        &mut self.fsm_groups,
+                        &mut self.control_info_for_profiling,
                         fsm_impl,
                     )
                 }
@@ -1453,11 +1462,13 @@ impl Visitor for TopDownCompileControl {
             });
             done_regs.push(pd);
         }
-        self.fsm_groups.insert(ProfilingInfo::Par(ParInfo {
-            component: builder.component.name,
-            par_group: par_group.borrow().name(),
-            child_groups: child_infos,
-        }));
+        // Profiling: save collected information about this par
+        self.control_info_for_profiling
+            .insert(ProfilingInfo::Par(ParInfo {
+                component: builder.component.name,
+                par_group: par_group.borrow().name(),
+                child_groups: child_infos,
+            }));
 
         // Done condition for this group
         let done_guard = done_regs
@@ -1512,8 +1523,11 @@ impl Visitor for TopDownCompileControl {
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
         let fsm_impl = self.get_representation(&sch, &attrs);
-        let comp_group =
-            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups, fsm_impl);
+        let comp_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.control_info_for_profiling,
+            fsm_impl,
+        );
 
         Ok(Action::change(ir::Control::enable(comp_group)))
     }
@@ -1523,7 +1537,7 @@ impl Visitor for TopDownCompileControl {
         if let Some(json_out_file) = &mut self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
-                &self.fsm_groups,
+                &self.control_info_for_profiling,
             );
         }
         Ok(Action::Continue)
