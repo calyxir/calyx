@@ -1325,10 +1325,11 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
             entry = json_entry["Fsm"]
             fsm_name = entry["fsm"]
             component = entry["component"]
-            component_to_fsm_acc[component] += 1
-            for cell in components_to_cells[component]:
-                fully_qualified_fsm = ".".join((cell, fsm_name))
-                fully_qualified_fsms.add(fully_qualified_fsm)
+            if component in component_to_fsm_acc: # skip FSMs from components listed in primitive files (not in user-defined code)
+                component_to_fsm_acc[component] += 1
+                for cell in components_to_cells[component]:
+                    fully_qualified_fsm = ".".join((cell, fsm_name))
+                    fully_qualified_fsms.add(fully_qualified_fsm)
         if "Par" in json_entry:
             entry = json_entry["Par"]
             par = entry["par_group"]
@@ -1479,7 +1480,7 @@ def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
             flame_base_map["other"].append(i)
             classified_trace[i] = 1  # FIXME: hack to flag this as a "useful" cycle
         elif control_reg_updates[i] == "both":
-            flame_base_map["fsm + par-done"].append(i)
+            flame_base_map["mult-ctrl"].append(i)
         else:
             flame_base_map[control_reg_updates[i]].append(i)
     # modify names to contain their cycles (for easier viewing)
