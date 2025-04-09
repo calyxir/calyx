@@ -6,6 +6,7 @@ ACTIVE_GROUP_COLOR = "mediumspringgreen"
 ACTIVE_PRIMITIVE_COLOR = "orange"
 TREE_PICTURE_LIMIT = 300
 
+
 def create_edge_dict(path_dict):
     path_to_edges = {}  # stack list string --> [edge string representation]
     all_edges = set()
@@ -191,6 +192,7 @@ def create_aggregate_tree(timeline_map, out_dir, tree_dict, path_dict):
         for edge in edges_dict:
             f.write(f'\t{edge} [label="{edges_dict[edge]}"]; \n')
         f.write("}")
+
 
 def create_slideshow_dot(timeline_map, dot_out_dir, flame_out_file, flames_out_dir):
     if not os.path.exists(dot_out_dir):

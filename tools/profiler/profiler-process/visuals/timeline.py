@@ -5,6 +5,7 @@ ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single c
 JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the fly
 num_timeline_events = 0  # [timeline view] recording how many events have happened
 
+
 class TimelineCell:
     # bookkeeping for forming cells and their groups
     def __init__(self, name, pid):
@@ -53,7 +54,6 @@ def write_timeline_event(event, out_file):
     else:
         out_file.write(f",\n{JSON_INDENT}{json.dumps(event)}")
     num_timeline_events += 1
-
 
 
 def port_fsm_and_control_events(

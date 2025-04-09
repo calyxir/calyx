@@ -9,6 +9,7 @@ import construct_trace
 import preprocess
 from visuals import flame, tree, timeline, stats
 
+
 def main(
     vcd_filename, cells_json_file, tdcc_json_file, adl_mapping_file, out_dir, flame_out
 ):
@@ -89,11 +90,15 @@ def main(
     path_to_edges, all_edges = tree.create_edge_dict(path_dict)
 
     tree.create_aggregate_tree(trace, out_dir, tree_dict, path_dict)
-    tree.create_tree_rankings(trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir)
+    tree.create_tree_rankings(
+        trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir
+    )
     flat_flame_map, scaled_flame_map = flame.create_flame_maps(trace_with_pars)
     flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
 
-    timeline.compute_timeline(trace, fsm_events, control_reg_updates, main_fullname, out_dir)
+    timeline.compute_timeline(
+        trace, fsm_events, control_reg_updates, main_fullname, out_dir
+    )
 
     if adl_mapping_file is not None:  # emit ADL flame graphs.
         print("Computing ADL flames...")

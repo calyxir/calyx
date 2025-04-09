@@ -1,6 +1,7 @@
 import csv
 import os
 
+
 def write_cell_stats(
     cell_to_active_cycles,
     cats_to_cycles,

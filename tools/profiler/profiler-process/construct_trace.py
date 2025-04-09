@@ -5,6 +5,7 @@ from visuals.timeline import ts_multiplier
 
 DELIMITER = "___"
 
+
 def remove_size_from_name(name: str) -> str:
     """changes e.g. "state[2:0]" to "state" """
     return name.split("[")[0]

@@ -4,6 +4,7 @@ SCALED_FLAME_MULTIPLIER = (
     1000  # [flame graph] multiplier so scaled flame graph will not round up.
 )
 
+
 def write_flame_map(flame_map, flame_out_file):
     with open(flame_out_file, "w") as flame_out:
         for stack in flame_map:
