@@ -1,7 +1,9 @@
 use crate::Printer;
 
-use super::{NumAttr, Port, RRC};
+use super::{Builder, Cell, NumAttr, Port, RRC};
 use calyx_utils::Error;
+use itertools::Itertools;
+use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
@@ -480,6 +482,184 @@ impl Guard<StaticTiming> {
     /// updates self -> self & interval
     pub fn add_interval(&mut self, timing_interval: StaticTiming) {
         self.update(|g| g.and(Guard::Info(timing_interval)));
+    }
+
+    /// Take a static assignment guard and the latency of the group in which the assignment
+    /// exists, and provide a list of states, relative to the group's latency, in which
+    /// the static assignment should be valid.
+    pub fn compute_live_states(&self, group_latency: u64) -> HashSet<u64> {
+        match self {
+            Self::True => (0..group_latency).collect(),
+            Self::And(l, r) => l
+                .compute_live_states(group_latency)
+                .intersection(&r.compute_live_states(group_latency))
+                .cloned()
+                .collect(),
+            Self::Or(l, r) => l
+                .compute_live_states(group_latency)
+                .union(&r.compute_live_states(group_latency))
+                .cloned()
+                .collect(),
+            Self::Not(g) => {
+                let dont_include = g.compute_live_states(group_latency);
+                (0..group_latency)
+                    .filter(|state| dont_include.contains(state))
+                    .collect()
+            }
+            Self::Info(static_timing) => {
+                let (b, e) = static_timing.interval;
+                (b..e).collect()
+            }
+            Self::CompOp(..) | Self::Port(_) => {
+                HashSet::from_iter(0..group_latency)
+            }
+        }
+    }
+
+    /// Replace every interval `[a1, a_n]` in a static timing guard with
+    /// `counter.out == a_1 | counter.out == a_2 | ... | counter.out == a_{n-1}`
+    pub fn replace_static_timing(
+        &mut self,
+        builder: &mut Builder,
+        counter: &RRC<Cell>,
+        width: &u64,
+        domain: &u64,
+    ) {
+        match self {
+            Self::True | Self::CompOp(..) | Self::Port(..) => (),
+            Self::Not(g) => {
+                g.replace_static_timing(builder, counter, width, domain)
+            }
+            Self::And(l, r) | Self::Or(l, r) => {
+                l.replace_static_timing(builder, counter, width, domain);
+                r.replace_static_timing(builder, counter, width, domain);
+            }
+            Self::Info(static_timing) => {
+                let (b, e) = static_timing.get_interval();
+                let interval = (b..e).collect_vec();
+                let complement = (0..b).chain(e..*domain).collect_vec();
+                self.update(|_| {
+                    if interval.len() < complement.len() {
+                        match interval.into_iter().fold(None, |acc, state| {
+                            let state_const =
+                                builder.add_constant(state, *width);
+                            let state_guard = Self::CompOp(
+                                PortComp::Eq,
+                                counter.borrow().get("out"),
+                                state_const.borrow().get("out"),
+                            );
+                            match acc {
+                                None => Some(state_guard),
+                                Some(existing_guard) => {
+                                    Some(existing_guard.or(state_guard))
+                                }
+                            }
+                        }) {
+                            Some(g) => g,
+                            None => {
+                                let zero = builder.add_constant(0, 1);
+                                let out_port = zero.borrow().get("out");
+                                Self::port(out_port)
+                            }
+                        }
+                    } else {
+                        match complement.into_iter().fold(None, |acc, state| {
+                            let state_const =
+                                builder.add_constant(state, *width);
+                            let state_guard = Self::CompOp(
+                                PortComp::Neq,
+                                counter.borrow().get("out"),
+                                state_const.borrow().get("out"),
+                            );
+                            match acc {
+                                None => Some(state_guard),
+                                Some(existing_guard) => {
+                                    Some(existing_guard.and(state_guard))
+                                }
+                            }
+                        }) {
+                            Some(g) => g,
+                            None => Self::True,
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    /// Take a static assignment guard and get rid of all static timing portions
+    /// of the guard. This is useful when we know the cycles `c` at which the assignment
+    /// will be active, and we can separately construct the assignment guard
+    /// like `dst = c ? src` instead of `dst = beg <= c <= end ? src`.
+    pub fn remove_static_timing_info(&mut self) {
+        match self {
+            Self::Port(_) | Self::CompOp(..) | Self::True => (),
+            Self::Info(_) => {
+                self.update(|_| Self::True);
+            }
+            Self::Not(g) => match g.as_mut() {
+                Self::Info(_) => self.update(|_| Self::True),
+                _ => g.remove_static_timing_info(),
+            },
+            Self::And(l, r) => match (l.as_mut(), r.as_mut()) {
+                (Self::Info(_), Self::Info(_)) => self.update(|_| Self::True),
+                (Self::Info(_), _) => {
+                    r.remove_static_timing_info();
+                    l.update(|_| Self::True);
+                }
+                (_, Self::Info(_)) => {
+                    l.remove_static_timing_info();
+                    r.update(|_| Self::True);
+                }
+                _ => {
+                    l.remove_static_timing_info();
+                    r.remove_static_timing_info();
+                }
+            },
+            Self::Or(l, r) => match (l.as_mut(), r.as_mut()) {
+                (Self::Info(_), Self::Info(_)) => self.update(|_| Self::True),
+                (Self::Info(_), _) => {
+                    r.remove_static_timing_info();
+                    l.update(|_| Self::not(Self::True))
+                }
+                (_, Self::Info(_)) => {
+                    l.remove_static_timing_info();
+                    r.update(|_| Self::not(Self::True))
+                }
+                _ => {
+                    l.remove_static_timing_info();
+                    r.remove_static_timing_info();
+                }
+            },
+        }
+    }
+}
+
+impl From<Guard<StaticTiming>> for Guard<Nothing> {
+    fn from(guard: Guard<StaticTiming>) -> Guard<Nothing> {
+        match guard {
+            Guard::True => Guard::True,
+            Guard::Port(p) => Guard::Port(p),
+            Guard::CompOp(cmp, p1, p2) => Guard::CompOp(cmp, p1, p2),
+
+            Guard::And(l, r) => {
+                let l_new = Guard::from(*l);
+                let r_new = Guard::from(*r);
+                Guard::And(Box::new(l_new), Box::new(r_new))
+            }
+            Guard::Or(l, r) => {
+                let l_new = Guard::from(*l);
+                let r_new = Guard::from(*r);
+                Guard::Or(Box::new(l_new), Box::new(r_new))
+            }
+            Guard::Not(g) => {
+                let g_new = Guard::from(*g);
+                Guard::Not(Box::new(g_new))
+            }
+            Guard::Info(_) => {
+                unreachable!("Guard should not contain any `info` nodes;")
+            }
+        }
     }
 }
 

@@ -124,9 +124,10 @@ impl NodeReads {
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
                 | ir::Control::Repeat(_)
-                | ir::Control::Static(_) => {
+                | ir::Control::Static(_)
+                | ir::Control::FSMEnable(_) => {
                     unreachable!(
-                        "no empty/seqs/pars/static should be in domination map"
+                        "no empty/seqs/pars/static/fsms should be in domination map"
                     )
                 }
                 ir::Control::If(ir::If { port, cond, .. })
@@ -294,9 +295,10 @@ impl NodeSearch {
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
                 | ir::Control::Repeat(_)
-                | ir::Control::Static(_) => {
+                | ir::Control::Static(_)
+                | ir::Control::FSMEnable(_) => {
                     unreachable!(
-                        "no empty/seqs/pars/repeat/static should be in domination map"
+                        "no empty/seqs/pars/repeat/static/fsms should be in domination map"
                     )
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {

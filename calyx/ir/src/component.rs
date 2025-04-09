@@ -1,7 +1,7 @@
 use super::{
     Assignment, Attribute, Attributes, BoolAttr, Builder, Cell, CellType,
-    CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef, RRC,
-    StaticGroup,
+    CombGroup, Control, Direction, FSM, GetName, Group, Id, NumAttr, PortDef,
+    RRC, StaticGroup,
 };
 use crate::Nothing;
 use crate::guard::StaticTiming;
@@ -37,6 +37,8 @@ pub struct Component {
     pub cells: IdList<Cell>,
     /// Groups of assignment wires.
     pub groups: IdList<Group>,
+    /// FSMs generated during compilation.
+    pub fsms: IdList<FSM>,
     /// Groups of assignment wires
     pub static_groups: IdList<StaticGroup>,
     /// Groups of assignment wires.
@@ -131,6 +133,7 @@ impl Component {
             signature: this_sig,
             cells: IdList::default(),
             groups: IdList::default(),
+            fsms: IdList::default(),
             static_groups: IdList::default(),
             comb_groups: IdList::default(),
             continuous_assignments: vec![],
@@ -153,6 +156,11 @@ impl Component {
         &self.groups
     }
 
+    /// get the component's fsms
+    pub fn get_fsms(&self) -> &IdList<FSM> {
+        &self.fsms
+    }
+
     /// gets the component's static groups
     pub fn get_static_groups(&self) -> &IdList<StaticGroup> {
         &self.static_groups
@@ -161,6 +169,11 @@ impl Component {
     /// gets the component's groups
     pub fn get_groups_mut(&mut self) -> &mut IdList<Group> {
         &mut self.groups
+    }
+
+    /// gets mutable access to the component's fsms
+    pub fn get_fsms_mut(&mut self) -> &mut IdList<FSM> {
+        &mut self.fsms
     }
 
     /// gets the component's groups

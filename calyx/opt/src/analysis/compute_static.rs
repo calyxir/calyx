@@ -51,6 +51,7 @@ impl WithStatic for ir::Control {
             ir::Control::Repeat(rep) => rep.update_static(extra),
             ir::Control::Invoke(inv) => inv.update_static(extra),
             ir::Control::Enable(en) => en.update_static(&()),
+            ir::Control::FSMEnable(_) => todo!(),
             ir::Control::Empty(_) => Some(0),
             ir::Control::Static(sc) => Some(sc.get_latency()),
         }

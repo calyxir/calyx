@@ -36,8 +36,9 @@ impl DeadCellRemoval {
             true
         } else {
             let parent = &dst.get_parent_name();
-            let out =
-                self.all_reads.contains(parent) || wire_reads.contains(parent);
+            let out = self.all_reads.contains(parent)
+                || wire_reads.contains(parent)
+                || asgn.dst.borrow().parent_is_fsm();
             if !out {
                 log::debug!(
                     "`{}' because `{}' is unused",
@@ -129,6 +130,18 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Add cells required by any FSM
+        self.all_reads.extend(comp.fsms.iter().flat_map(|fsm| {
+            fsm.borrow().get_called_port_parents(
+                |cell_names: &mut Vec<ir::Id>, port: &ir::RRC<ir::Port>| {
+                    if let ir::PortParent::Cell(group_wref) =
+                        &port.borrow().parent
+                    {
+                        cell_names.push(group_wref.upgrade().borrow().name());
+                    }
+                },
+            )
+        }));
         // Add @external cells, @protected cells and ref cells.
         self.all_reads.extend(
             comp.cells

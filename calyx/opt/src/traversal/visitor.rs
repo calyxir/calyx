@@ -293,6 +293,17 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed at an [ir::FSMEnable] node.
+    fn fsm_enable(
+        &mut self,
+        _s: &mut ir::FSMEnable,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::StaticEnable] node.
     fn static_enable(
         &mut self,
@@ -491,6 +502,9 @@ impl Visitable for Control {
                 })?,
             Control::Enable(ctrl) => {
                 visitor.enable(ctrl, component, sigs, comps)?
+            }
+            Control::FSMEnable(ctrl) => {
+                visitor.fsm_enable(ctrl, component, sigs, comps)?
             }
             Control::Static(sctrl) => visitor
                 .start_static_control(sctrl, component, sigs, comps)?

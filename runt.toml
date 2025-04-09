@@ -254,6 +254,26 @@ fud2 --from calyx --to jq \
 timeout = 120
 
 [[tests]]
+name = "correctness static infer fsms"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/skid-buffers/*.futil",
+  "tests/correctness/static-interface/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through icarus-verilog \
+         -s calyx.flags "-p fsm-opt -x tdcc:infer-fsms -p lower" \
+         -s verilog.cycle_limit 550 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+[[tests]]
 name = "correctness dynamic fsm register duplication"
 paths = [
   "tests/correctness/*.futil",

@@ -239,7 +239,7 @@ fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
 fn get_final(c: &ir::Control) -> HashSet<u64> {
     let mut hs = HashSet::new();
     match c {
-        ir::Control::Empty(_) => (),
+        ir::Control::Empty(_) | ir::Control::FSMEnable(_) => (), // todo
         ir::Control::Invoke(_)
         | ir::Control::Enable(_)
         | ir::Control::While(_) => {
@@ -333,7 +333,7 @@ impl DominatorMap {
     // executed in c.
     fn build_exit_map(&mut self, c: &ir::Control) {
         match c {
-            ir::Control::Empty(_) => (),
+            ir::Control::Empty(_) | ir::Control::FSMEnable(_) => (), // todo
             ir::Control::Invoke(_) | ir::Control::Enable(_) => {
                 let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
@@ -506,6 +506,9 @@ impl DominatorMap {
                             "should not pattern match agaisnt empty in update_map()"
                         )
                     }
+                    ir::Control::FSMEnable(_) => {
+                        unreachable!("should not encounter fsm nodes")
+                    }
                     ir::Control::Invoke(_) | ir::Control::Enable(_) => {
                         self.update_node(pred, cur_id);
                     }
@@ -671,7 +674,8 @@ impl DominatorMap {
         match c {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
-            | ir::Control::Enable(_) => None,
+            | ir::Control::Enable(_)
+            | ir::Control::FSMEnable(_) => None,
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 for stmt in stmts {

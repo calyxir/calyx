@@ -26,6 +26,7 @@ smallvec.workspace = true
 calyx-utils.workspace = true
 calyx-frontend.workspace = true
 calyx-ir.workspace = true
+calyx-opt.workspace = true
 
 csv = { version = "1.1", optional = true }
 vast = "0.3.1"

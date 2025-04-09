@@ -7,9 +7,10 @@ use crate::passes::{
     DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
     GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
-    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
-    WellFormed, WireInliner, WrapMain,
+    SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
+    StaticInliner, StaticPromotion, StaticRepeatFSMAllocation,
+    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
+    WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -45,6 +46,8 @@ impl PassManager {
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
+        pm.register_pass::<StaticFSMAllocation>()?;
+        pm.register_pass::<StaticRepeatFSMAllocation>()?;
         pm.register_pass::<StaticFSMOpts>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
@@ -112,6 +115,36 @@ impl PassManager {
                 CollapseControl,
             ]
         );
+
+        register_alias!(
+            pm,
+            "fsm-opt",
+            [
+                DataPathInfer,
+                CollapseControl,
+                CompileSyncWithoutSyncReg,
+                GroupToSeq,
+                DeadAssignmentRemoval,
+                GroupToInvoke,
+                ComponentInliner,
+                CombProp,
+                DeadCellRemoval,
+                CellShare,
+                SimplifyWithControl,
+                CompileInvoke,
+                StaticInference,
+                StaticPromotion,
+                DeadGroupRemoval,
+                CollapseControl,
+                StaticRepeatFSMAllocation,
+                StaticFSMAllocation,
+                DeadGroupRemoval,
+                MergeAssign,
+                CompileRepeat,
+                TopDownCompileControl,
+            ]
+        );
+
         register_alias!(
             pm,
             "compile",
@@ -124,7 +157,7 @@ impl PassManager {
                 StaticFSMOpts,
                 CompileStatic,
                 DeadGroupRemoval,
-                TopDownCompileControl
+                TopDownCompileControl,
             ]
         );
         register_alias!(
