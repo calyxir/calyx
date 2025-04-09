@@ -1153,7 +1153,7 @@ pub struct TopDownCompileControl {
     /// Enable early transitions
     early_transitions: bool,
     /// Profiling: Bookkeeping for TDCC-generated register/group information (FSMs, par groups)
-    control_info_for_profiling: HashSet<ProfilingInfo>,
+    profiling_info: HashSet<ProfilingInfo>,
     /// How many states the dynamic FSM must have before picking binary over one-hot
     one_hot_cutoff: u64,
     /// Number of states the dynamic FSM must have before picking duplicate over single register
@@ -1201,7 +1201,7 @@ impl ConstructVisitor for TopDownCompileControl {
             dump_fsm: opts[&"dump-fsm"].bool(),
             dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
-            control_info_for_profiling: HashSet::new(),
+            profiling_info: HashSet::new(),
             one_hot_cutoff: opts[&"one-hot-cutoff"]
                 .pos_num()
                 .expect("requires non-negative OHE cutoff parameter"),
@@ -1288,7 +1288,7 @@ impl Visitor for TopDownCompileControl {
             if let Some(enable_info) =
                 extract_single_enable(&mut con, comp.name)
             {
-                self.control_info_for_profiling
+                self.profiling_info
                     .insert(ProfilingInfo::SingleEnable(enable_info));
             }
             return Ok(Action::Stop);
@@ -1318,7 +1318,7 @@ impl Visitor for TopDownCompileControl {
         // Compile schedule and return the group.
         let seq_group = sch.realize_schedule(
             self.dump_fsm,
-            &mut self.control_info_for_profiling,
+            &mut self.profiling_info,
             fsm_impl,
         );
 
@@ -1349,7 +1349,7 @@ impl Visitor for TopDownCompileControl {
         let fsm_impl = self.get_representation(&sch, &i.attributes);
         let if_group = sch.realize_schedule(
             self.dump_fsm,
-            &mut self.control_info_for_profiling,
+            &mut self.profiling_info,
             fsm_impl,
         );
 
@@ -1380,7 +1380,7 @@ impl Visitor for TopDownCompileControl {
         // Compile schedule and return the group.
         let if_group = sch.realize_schedule(
             self.dump_fsm,
-            &mut self.control_info_for_profiling,
+            &mut self.profiling_info,
             fsm_impl,
         );
 
@@ -1421,12 +1421,12 @@ impl Visitor for TopDownCompileControl {
             let group = match con {
                 // Do not compile enables
                 ir::Control::Enable(ir::Enable { group, .. }) => {
-                    self.control_info_for_profiling.insert(
-                        ProfilingInfo::SingleEnable(SingleEnableInfo {
+                    self.profiling_info.insert(ProfilingInfo::SingleEnable(
+                        SingleEnableInfo {
                             group: group.borrow().name(),
                             component: builder.component.name,
-                        }),
-                    );
+                        },
+                    ));
                     Rc::clone(group)
                 }
                 // Compile complex schedule and return the group.
@@ -1436,7 +1436,7 @@ impl Visitor for TopDownCompileControl {
                     let fsm_impl = self.get_representation(&sch, &s.attributes);
                     sch.realize_schedule(
                         self.dump_fsm,
-                        &mut self.control_info_for_profiling,
+                        &mut self.profiling_info,
                         fsm_impl,
                     )
                 }
@@ -1463,12 +1463,11 @@ impl Visitor for TopDownCompileControl {
             done_regs.push(pd);
         }
         // Profiling: save collected information about this par
-        self.control_info_for_profiling
-            .insert(ProfilingInfo::Par(ParInfo {
-                component: builder.component.name,
-                par_group: par_group.borrow().name(),
-                child_groups: child_infos,
-            }));
+        self.profiling_info.insert(ProfilingInfo::Par(ParInfo {
+            component: builder.component.name,
+            par_group: par_group.borrow().name(),
+            child_groups: child_infos,
+        }));
 
         // Done condition for this group
         let done_guard = done_regs
@@ -1525,7 +1524,7 @@ impl Visitor for TopDownCompileControl {
         let fsm_impl = self.get_representation(&sch, &attrs);
         let comp_group = sch.realize_schedule(
             self.dump_fsm,
-            &mut self.control_info_for_profiling,
+            &mut self.profiling_info,
             fsm_impl,
         );
 
@@ -1537,7 +1536,7 @@ impl Visitor for TopDownCompileControl {
         if let Some(json_out_file) = &mut self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
-                &self.control_info_for_profiling,
+                &self.profiling_info,
             );
         }
         Ok(Action::Continue)
