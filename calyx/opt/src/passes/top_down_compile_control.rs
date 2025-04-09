@@ -299,6 +299,7 @@ struct Schedule<'b, 'a: 'b> {
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 enum ProfilingInfo {
     Fsm(FSMInfo),
+    Par(ParInfo),
     SingleEnable(SingleEnableInfo),
 }
 
@@ -310,6 +311,23 @@ struct SingleEnableInfo {
     pub component: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub group: Id,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct ParInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub component: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub par_group: Id,
+    pub child_groups: Vec<ParChildInfo>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct ParChildInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub group: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub register: Id,
 }
 
 /// Information to be serialized for a single FSM
@@ -1270,10 +1288,15 @@ pub struct TopDownCompileControl {
     dump_fsm_json: Option<OutputFile>,
     /// Enable early transitions
     early_transitions: bool,
+<<<<<<< HEAD
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<ProfilingInfo>,
     /// Decides whether FSMs are emitted as normal (inlined) or such that synthesis tool infers + optimizes FSM
     infer_fsms: bool,
+=======
+    /// Profiling: Bookkeeping for TDCC-generated register/group information (FSMs, par groups)
+    profiling_info: HashSet<ProfilingInfo>,
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
     /// How many states the dynamic FSM must have before picking binary over one-hot
     one_hot_cutoff: u64,
     /// Number of states the dynamic FSM must have before picking duplicate over single register
@@ -1321,8 +1344,12 @@ impl ConstructVisitor for TopDownCompileControl {
             dump_fsm: opts[&"dump-fsm"].bool(),
             dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
+<<<<<<< HEAD
             fsm_groups: HashSet::new(),
             infer_fsms: opts[&"infer-fsms"].bool(),
+=======
+            profiling_info: HashSet::new(),
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
             one_hot_cutoff: opts[&"one-hot-cutoff"]
                 .pos_num()
                 .expect("requires non-negative OHE cutoff parameter"),
@@ -1411,6 +1438,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut con = comp.control.borrow_mut();
+<<<<<<< HEAD
         match *con {
             // If there's one top-level FSM at the beginning of the traversal,
             // the control tree is likely entirely static and has already been compiled.
@@ -1428,6 +1456,14 @@ impl Visitor for TopDownCompileControl {
             _ => {
                 compute_unique_ids(&mut con, 0);
                 Ok(Action::Continue)
+=======
+        if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
+            if let Some(enable_info) =
+                extract_single_enable(&mut con, comp.name)
+            {
+                self.profiling_info
+                    .insert(ProfilingInfo::SingleEnable(enable_info));
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
             }
         }
     }
@@ -1448,6 +1484,7 @@ impl Visitor for TopDownCompileControl {
 
         sch.calculate_states_seq(s, self.early_transitions)?;
 
+<<<<<<< HEAD
         // compile schedule and return the enable node
         let mut seq_enable = if self.infer_fsms {
             ir::Control::fsm_enable(sch.realize_fsm(self.dump_fsm))
@@ -1459,6 +1496,14 @@ impl Visitor for TopDownCompileControl {
                 fsm_impl,
             ))
         };
+=======
+        // Compile schedule and return the group.
+        let seq_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.profiling_info,
+            fsm_impl,
+        );
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
 
         // Add NODE_ID to compiled enable.
         let state_id = s.attributes.get(NODE_ID).unwrap();
@@ -1482,6 +1527,7 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
 
         sch.calculate_states_if(i, self.early_transitions)?;
+<<<<<<< HEAD
 
         // Compile schedule and return the group.
         let mut if_enable = if self.infer_fsms {
@@ -1494,6 +1540,14 @@ impl Visitor for TopDownCompileControl {
                 fsm_impl,
             ))
         };
+=======
+        let fsm_impl = self.get_representation(&sch, &i.attributes);
+        let if_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.profiling_info,
+            fsm_impl,
+        );
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
 
         // Add NODE_ID to compiled group.
         let node_id = i.attributes.get(NODE_ID).unwrap();
@@ -1517,6 +1571,7 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_while(w, self.early_transitions)?;
 
+<<<<<<< HEAD
         // compile schedule and return the enable node
         let mut while_enable = if self.infer_fsms {
             ir::Control::fsm_enable(sch.realize_fsm(self.dump_fsm))
@@ -1528,6 +1583,14 @@ impl Visitor for TopDownCompileControl {
                 fsm_impl,
             ))
         };
+=======
+        // Compile schedule and return the group.
+        let if_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.profiling_info,
+            fsm_impl,
+        );
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
 
         // Add NODE_ID to compiled enable.
         let node_id = w.attributes.get(NODE_ID).unwrap();
@@ -1557,8 +1620,12 @@ impl Visitor for TopDownCompileControl {
         // Registers to save the done signal from each child.
         let mut done_regs = Vec::with_capacity(s.stmts.len());
 
+        // Profiling: record each par child (arm)'s group and done register
+        let mut child_infos = Vec::with_capacity(s.stmts.len());
+
         // For each child, build the enabling logic.
         for con in &s.stmts {
+<<<<<<< HEAD
             // Build circuitry to enable and disable this group.
 
             if self.infer_fsms {
@@ -1626,7 +1693,58 @@ impl Visitor for TopDownCompileControl {
                 par_group.borrow_mut().assignments.extend(assigns);
                 done_regs.push(pd)
             };
+=======
+            let group = match con {
+                // Do not compile enables
+                ir::Control::Enable(ir::Enable { group, .. }) => {
+                    self.profiling_info.insert(ProfilingInfo::SingleEnable(
+                        SingleEnableInfo {
+                            group: group.borrow().name(),
+                            component: builder.component.name,
+                        },
+                    ));
+                    Rc::clone(group)
+                }
+                // Compile complex schedule and return the group.
+                _ => {
+                    let mut sch = Schedule::from(&mut builder);
+                    sch.calculate_states(con, self.early_transitions)?;
+                    let fsm_impl = self.get_representation(&sch, &s.attributes);
+                    sch.realize_schedule(
+                        self.dump_fsm,
+                        &mut self.profiling_info,
+                        fsm_impl,
+                    )
+                }
+            };
+
+            // Build circuitry to enable and disable this group.
+            structure!(builder;
+                let pd = prim std_reg(1);
+            );
+            let group_go = !(guard!(pd["out"] | group["done"]));
+            let group_done = guard!(group["done"]);
+
+            // Save the done condition in a register.
+            let assigns = build_assignments!(builder;
+                group["go"] = group_go ? signal_on["out"];
+                pd["in"] = group_done ? signal_on["out"];
+                pd["write_en"] = group_done ? signal_on["out"];
+            );
+            par_group.borrow_mut().assignments.extend(assigns);
+            child_infos.push(ParChildInfo {
+                group: group.borrow().name(),
+                register: pd.borrow().name(),
+            });
+            done_regs.push(pd);
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
         }
+        // Profiling: save collected information about this par
+        self.profiling_info.insert(ProfilingInfo::Par(ParInfo {
+            component: builder.component.name,
+            par_group: par_group.borrow().name(),
+            child_groups: child_infos,
+        }));
 
         // Done condition for this group
         let done_guard = done_regs
@@ -1679,6 +1797,15 @@ impl Visitor for TopDownCompileControl {
 
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
+<<<<<<< HEAD
+=======
+        let fsm_impl = self.get_representation(&sch, &attrs);
+        let comp_group = sch.realize_schedule(
+            self.dump_fsm,
+            &mut self.profiling_info,
+            fsm_impl,
+        );
+>>>>>>> edcafe210 ([Profiler] Improve control visualizations for timeline view, add TDCC-generated par group support, statistics on useful cycles (#2442))
 
         let control_node = if self.infer_fsms {
             ir::Control::fsm_enable(sch.realize_fsm(self.dump_fsm))
@@ -1699,7 +1826,7 @@ impl Visitor for TopDownCompileControl {
         if let Some(json_out_file) = &mut self.dump_fsm_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
-                &self.fsm_groups,
+                &self.profiling_info,
             );
         }
         Ok(Action::Continue)
