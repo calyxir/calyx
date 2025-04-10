@@ -40,7 +40,21 @@ watch = {
     (^"watch " | ^"w ") ~ (watch_position)? ~ group ~ (^"with")? ~ (print_state | print)
 }
 
-step_over = { ^"step-over" ~ group ~ num? }
+// Path parser merge
+
+root = { "." }
+
+separator = { "-" }
+
+body = { "b" }
+
+branch = { "t" | "f" }
+
+clause = { separator ~ (body | num | branch) }
+
+name_path = { (ASCII_ALPHA | ASCII_DIGIT | "_")* }
+
+step_over = { ^"step-over" ~ (group | name_path) ~ num? }
 
 step       = { (^"step" | ^"s") ~ num? }
 cont       = {
@@ -78,3 +92,5 @@ command = {
     SOI ~ (watch | comm_where | print_state | print | print_fail | delete_watch | delete | brk | enable_watch | disable_watch | enable | disable | step_over | step // commands without input
   | cont | help | info_break | info_watch | display | exit | explain | restart)? ~ EOI
 }
+
+path = { SOI ~ name_path ~ root ~ clause* ~ EOI }

@@ -6,6 +6,7 @@ use super::{
     traverser::{Path, TraversalError, Traverser},
     wave::WaveWriter,
 };
+
 use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
     debugger::{
@@ -502,6 +503,24 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         })
     }
 
+    pub fn is_control_running(&self, control_idx: ControlIdx) -> bool {
+        self.get_currently_running_controls()
+            .any(|x| x == control_idx)
+    }
+
+    pub fn get_currently_running_controls(
+        &self,
+    ) -> impl Iterator<Item = ControlIdx> + '_ {
+        self.pc.iter().filter_map(|(_, point)| {
+            let comp_go = self.get_comp_go(point.comp).unwrap();
+            if self.ports[comp_go].as_bool().unwrap_or_default() {
+                Some(point.control_node_idx)
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn get_currently_running_nodes(
         &self,
     ) -> impl Iterator<Item = ControlIdx> + '_ {
@@ -657,7 +676,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             let ledger = self.cells.get(node.comp).unwrap();
             let comp_ledger = ledger.as_comp().unwrap();
             let component = comp_ledger.comp_id;
-            let string_path = node.string_path(ctx, component.lookup_name(ctx));
+            let string_path = ctx
+                .string_path(node.control_node_idx, component.lookup_name(ctx));
             println!("{}: {}", self.get_full_name(node.comp), string_path);
 
             let path =
@@ -3169,6 +3189,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                 Err(e)
             }
         }
+    }
+
+    pub fn is_control_running(&self, control_idx: ControlIdx) -> bool {
+        self.base.env.is_control_running(control_idx)
     }
 
     delegate! {

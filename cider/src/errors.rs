@@ -434,3 +434,15 @@ impl RuntimeError {
         }
     }
 }
+
+#[derive(Error, Debug)]
+pub enum BreakTargetError {
+    #[error("Invalid Breakpoint")]
+    InvalidBreakPoint,
+}
+
+#[derive(Error, Debug)]
+pub enum ErrorMalformed {
+    #[error("Invalid path")]
+    Malformed,
+}

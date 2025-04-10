@@ -1,6 +1,6 @@
 use super::{
     commands::{
-        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedControlName,
+        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedGroupName,
         PrintMode,
     },
     debugging_context::context::DebuggingContext,
@@ -10,13 +10,14 @@ use super::{
 use crate::{
     configuration::RuntimeConfig,
     debugger::{
-        commands::PrintCommand, source::SourceMap, unwrap_error_message,
+        commands::{BreakTarget, PrintCommand},
+        source::SourceMap,
+        unwrap_error_message,
     },
     errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
         flat_ir::{
-            base::ComponentIdx,
-            base::{GlobalCellIdx, PortValue},
+            base::{ComponentIdx, GlobalCellIdx, PortValue},
             prelude::{Control, ControlIdx, GroupIdx},
         },
         setup_simulation_with_metadata,
@@ -191,15 +192,16 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         Ok(self.status())
     }
 
-    pub fn set_breakpoints(&mut self, breakpoints: Vec<ParsedControlName>) {
-        self.create_breakpoints(breakpoints)
+    pub fn set_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
+        self.create_breakpoints(breakpoints);
     }
 
-    pub fn delete_breakpoints(&mut self, breakpoints: Vec<ParsedControlName>) {
+    pub fn delete_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
         let parsed_bp_ids: Vec<ParsedBreakPointID> = breakpoints
             .into_iter()
-            .map(ParsedBreakPointID::from)
+            .map(|bp| ParsedBreakPointID::Target(bp))
             .collect_vec();
+
         self.manipulate_breakpoint(Command::Delete(parsed_bp_ids));
     }
 
@@ -267,12 +269,12 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
 
         if !self.interpreter.is_done() {
-            for group in breakpoints {
+            for control_idx in breakpoints {
                 println!(
                     "Hit breakpoint: {}",
                     self.program_context
                         .as_ref()
-                        .lookup_name(group)
+                        .lookup_name(control_idx)
                         .stylize_breakpoint()
                 );
             }
@@ -337,7 +339,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             match comm {
                 Command::Step(n) => self.do_step(n)?,
                 Command::StepOver(target, bound) => {
-                    self.do_step_over(target, bound)?;
+                    self.do_step_over(target, bound)?
                 }
                 Command::Continue => self.do_continue()?,
                 Command::Empty => {}
@@ -364,7 +366,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
-                Command::Break(targets) => self.create_breakpoints(targets),
+                Command::Break(targets) => {
+                    self.create_breakpoints(targets).unwrap()
+                }
 
                 // breakpoints
                 comm @ (Command::Delete(_)
@@ -547,7 +551,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         print_target: Vec<Vec<String>>,
         print_code: Option<PrintCode>,
         print_mode: PrintMode,
-        group: super::commands::ParsedControlName,
+        group: super::commands::ParsedGroupName,
         watch_pos: super::commands::WatchPosition,
     ) {
         let mut error_occurred = false;
@@ -588,60 +592,109 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     fn do_step_over(
         &mut self,
-        target: super::commands::ParsedControlName,
+        target: BreakTarget,
         bound: Option<NonZeroU32>,
     ) -> Result<(), crate::errors::BoxedCiderError> {
-        let target = match target.lookup_group(self.program_context.as_ref()) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Error: {}", e.stylize_error());
-                return Ok(());
-            }
-        };
-
-        let mut bound: Option<u32> = bound.map(|x| x.into());
-
-        if !self.interpreter.is_group_running(target) {
-            println!("Group is not currently running")
-        } else {
-            while self.interpreter.is_group_running(target) {
-                if let Some(current_count) = bound.as_mut() {
-                    if *current_count == 0 {
-                        println!("Bound reached, group is still running.");
-                        break;
-                    } else {
-                        *current_count -= 1;
+        let context = self.program_context.as_ref();
+        match target {
+            BreakTarget::Name(target) => {
+                let target = match target.lookup_group(context) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        println!("Error: {}", e.stylize_error());
+                        return Ok(());
                     }
-                }
+                };
 
-                self.interpreter.step()?;
+                let mut bound: Option<u32> = bound.map(|x| x.into());
+
+                if !self.interpreter.is_group_running(target) {
+                    println!("Group is not currently running")
+                } else {
+                    while self.interpreter.is_group_running(target) {
+                        if let Some(current_count) = bound.as_mut() {
+                            if *current_count == 0 {
+                                println!(
+                                    "Bound reached, group is still running."
+                                );
+                                break;
+                            } else {
+                                *current_count -= 1;
+                            }
+                        }
+
+                        self.interpreter.step()?;
+                    }
+                    self.interpreter.converge()?;
+                };
+                Ok(())
             }
-            self.interpreter.converge()?;
-        };
-        Ok(())
+            BreakTarget::Path(path) => {
+                let control_idx = path.path_idx(context).unwrap();
+
+                let mut bound: Option<u32> = bound.map(|x| x.into());
+
+                if !self.interpreter.is_control_running(control_idx) {
+                    println!("control_idx is not currently running")
+                } else {
+                    while self.interpreter.is_control_running(control_idx) {
+                        if let Some(current_count) = bound.as_mut() {
+                            if *current_count == 0 {
+                                println!(
+                                    "Bound reached, control_idx is still running."
+                                );
+                                break;
+                            } else {
+                                *current_count -= 1;
+                            }
+                        }
+                    }
+                    self.interpreter.step()?;
+                }
+                self.interpreter.converge()?;
+
+                Ok(())
+            }
+        }
     }
 
     fn create_breakpoints(
         &mut self,
-        targets: Vec<super::commands::ParsedControlName>,
-    ) {
-        // TODO: THIS DOES IN TERMS OF GROUPS, MUST EXPAND FUNCTIONALITY FOR SPECIFIC ENABLES
+        targets: Vec<super::commands::BreakTarget>,
+    ) -> Result<(), crate::errors::BoxedCiderError> {
+        let ctx = self.program_context.as_ref();
         for target in targets {
-            let target = target.lookup_group(self.program_context.as_ref());
-            unwrap_error_message!(target);
+            match target {
+                BreakTarget::Name(target) => {
+                    let target = target.lookup_group(ctx);
+                    unwrap_error_message!(target);
 
-            if self.interpreter.is_group_running(target) {
-                println!(
-                    "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
-                    self.program_context
-                        .as_ref()
-                        .lookup_name(target)
-                        .stylize_warning()
-                )
+                    if self.interpreter.is_group_running(target) {
+                        println!(
+                            "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
+                            self.program_context
+                                .as_ref()
+                                .lookup_name(target)
+                                .stylize_warning()
+                        )
+                    }
+                    self.debugging_context.add_breakpoint(target);
+                }
+                BreakTarget::Path(path) => {
+                    let control_idx = path.path_idx(ctx).unwrap();
+
+                    if self.interpreter.is_control_running(control_idx) {
+                        println!(
+                            "Warning: the control {} is already running. This breakpoint will not trigger until the next time the control runs.",
+                            ctx.lookup_name(control_idx).stylize_warning()
+                        )
+                    }
+
+                    self.debugging_context.add_breakpoint(control_idx);
+                }
             }
-
-            self.debugging_context.add_breakpoint(target);
         }
+        Ok(())
     }
 
     fn do_print(
@@ -741,69 +794,5 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             }
             _ => unreachable!("improper use of manipulate_breakpoint"),
         }
-    }
-
-    /// Returns the controlidx of the last node in the given path and component idx
-    pub fn path_idx(
-        &self,
-        component: ComponentIdx,
-        path: ParsePath,
-    ) -> ControlIdx {
-        let path_nodes = path.get_path();
-        let env = self.interpreter.env();
-        let ctx = env.ctx();
-
-        let component_map = &ctx.primary.components;
-        let control_map = &ctx.primary.control;
-
-        // Get nodes
-        let component_node = component_map.get(component).unwrap();
-
-        let mut control_id = component_node.control().unwrap();
-
-        let mut control_node = &control_map.get(control_id).unwrap().control;
-        for parse_node in path_nodes {
-            match parse_node {
-                ParseNodes::Body => match control_node {
-                    Control::While(while_struct) => {
-                        control_id = while_struct.body();
-                    }
-                    Control::Repeat(repeat_struct) => {
-                        control_id = repeat_struct.body;
-                    }
-                    _ => {
-                        // TODO: Dont want to crash if invalid path, return result type w/ error malformed
-                        panic!();
-                    }
-                },
-                ParseNodes::If(branch) => match control_node {
-                    Control::If(if_struct) => {
-                        control_id = if branch {
-                            if_struct.tbranch()
-                        } else {
-                            if_struct.fbranch()
-                        };
-                    }
-                    _ => {
-                        panic!();
-                    }
-                },
-                ParseNodes::Offset(child) => match control_node {
-                    Control::Par(par_struct) => {
-                        let children = par_struct.stms();
-                        control_id = children[child as usize];
-                    }
-                    Control::Seq(seq_struct) => {
-                        let children = seq_struct.stms();
-                        control_id = children[child as usize]
-                    }
-                    _ => {
-                        panic!();
-                    }
-                },
-            }
-            control_node = control_map.get(control_id).unwrap();
-        }
-        control_id
     }
 }

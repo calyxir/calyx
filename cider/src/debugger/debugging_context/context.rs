@@ -2,7 +2,7 @@ use super::super::{
     commands::{PrintTuple, WatchPosition},
     debugger_core::SPACING,
 };
-use crate::{debugger, flatten::text_utils::Color};
+use crate::flatten::{structures::context::LookupName, text_utils::Color};
 use crate::{
     debugger::commands::{BreakpointID, BreakpointIdx, WatchID, WatchpointIdx},
     flatten::{
@@ -75,7 +75,6 @@ impl BreakPoint {
                 format!("{parent_name}::{group_name}: {}", self.state)
             }
             _ => {
-                // TODO: STRING PATH
                 // let string_path = self.control.string_path(ctx,);
                 format!("{parent_name}: {}", self.state)
             }
@@ -789,5 +788,27 @@ fn extract_group(ctx: &Context, control: ControlIdx) -> Option<GroupIdx> {
         Some(enable.group())
     } else {
         None
+    }
+}
+
+pub fn format_control_node(ctx: &Context, control_idx: ControlIdx) -> String {
+    let control = &ctx.primary.control[control_idx].control;
+
+    // Get parent
+    let parent_comp = ctx.lookup_control_definition(control_idx);
+    let parent_name = ctx.lookup_name(parent_comp);
+    let name = parent_comp.lookup_name(ctx);
+
+    match control {
+        // Group
+        Control::Enable(enable) => {
+            let group = enable.group();
+            let group_name = ctx.lookup_name(group);
+            format!("{parent_name}::{group_name}")
+        }
+        _ => {
+            let string_path = ctx.string_path(control_idx, name);
+            format!("{parent_name}: {}", string_path)
+        }
     }
 }
