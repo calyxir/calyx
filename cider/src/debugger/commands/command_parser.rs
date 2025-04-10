@@ -1,9 +1,9 @@
 use std::num::NonZeroU32;
 
 use super::{
-    PrintCommand,
+    ParsePath, PrintCommand,
     core::{
-        Command, ParsedBreakPointID, ParsedControlName, PrintMode,
+        Command, ParseNodes, ParsedBreakPointID, ParsedGroupName, PrintMode,
         WatchPosition,
     },
 };
@@ -131,10 +131,10 @@ impl CommandParser {
         Ok(input.as_str().to_owned())
     }
 
-    fn group(input: Node) -> ParseResult<ParsedControlName> {
+    fn group(input: Node) -> ParseResult<ParsedGroupName> {
         Ok(match_nodes!(input.into_children();
-            [identifier(i)] => ParsedControlName::from_control_name(i),
-            [identifier(comp), identifier(group)] => ParsedControlName::from_comp_and_control(comp, group)
+            [identifier(i)] => ParsedGroupName::from_control_name(i),
+            [identifier(comp), identifier(group)] => ParsedGroupName::from_comp_and_control(comp, group)
         ))
     }
 
@@ -299,6 +299,43 @@ impl CommandParser {
             [EOI(_)] => Command::Empty,
         ))
     }
+
+    // Path parser:
+    fn root(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn body(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn separator(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn name_path(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().to_owned())
+    }
+
+    fn branch(input: Node) -> ParseResult<bool> {
+        let b = input.as_str();
+        let result = b != "f";
+        Ok(result)
+    }
+
+    fn clause(input: Node) -> ParseResult<ParseNodes> {
+        Ok(match_nodes!(input.into_children();
+            [separator(_), num(n)] => ParseNodes::Offset(n),
+            [separator(_), body(_)] => ParseNodes::Body,
+            [separator(_), branch(b)] => ParseNodes::If(b)
+        ))
+    }
+
+    fn path(input: Node) -> ParseResult<ParsePath> {
+        Ok(match_nodes!(input.into_children();
+            [name_path(n), root(_), clause(c).., EOI(_)] => ParsePath::from_iter(c,n),
+        ))
+    }
 }
 
 /// Parse the given string into a debugger command.
@@ -306,4 +343,13 @@ pub fn parse_command(input_str: &str) -> CiderResult<Command> {
     let inputs = CommandParser::parse(Rule::command, input_str)?;
     let input = inputs.single()?;
     Ok(CommandParser::command(input)?)
+}
+
+// Parse the path
+#[allow(dead_code)]
+pub fn parse_path(input_str: &str) -> Result<ParsePath, Box<Error<Rule>>> {
+    let entries = CommandParser::parse(Rule::path, input_str)?;
+    let entry = entries.single()?;
+
+    CommandParser::path(entry).map_err(Box::new)
 }

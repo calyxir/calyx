@@ -1,6 +1,6 @@
 use crate::error::AdapterResult;
 use baa::BitVecOps;
-use cider::debugger::commands::ParsedControlName;
+use cider::debugger::commands::ParsedGroupName;
 use cider::debugger::source::structures::NewSourceMap;
 use cider::debugger::{OwnedDebugger, StoppedReason};
 use cider::flatten::flat_ir::base::{GlobalCellIdx, PortValue};
@@ -73,7 +73,7 @@ impl MyAdapter {
         //update adapter
         self.breakpoints.clear();
 
-        let mut to_debugger_set: Vec<ParsedControlName> = vec![];
+        let mut to_debugger_set: Vec<ParsedGroupName> = vec![];
         let mut to_client: Vec<Breakpoint> = vec![];
 
         // iterate over points received in request
@@ -92,7 +92,7 @@ impl MyAdapter {
             if let Some((component, group)) = name {
                 if to_set.contains(&source_point.line) {
                     to_debugger_set.push(
-                        ParsedControlName::from_comp_and_control(
+                        ParsedGroupName::from_comp_and_control(
                             component.clone(),
                             group.clone(),
                         ),
@@ -110,11 +110,11 @@ impl MyAdapter {
     }
     /// handles deleting breakpoints in the debugger
     fn delete_breakpoints(&mut self, to_delete: HashSet<i64>) {
-        let mut to_debugger: Vec<ParsedControlName> = vec![];
+        let mut to_debugger: Vec<ParsedGroupName> = vec![];
         for point in to_delete {
             let name = self.ids.lookup_line(point as u64);
             if let Some((component, group)) = name {
-                to_debugger.push(ParsedControlName::from_comp_and_control(
+                to_debugger.push(ParsedGroupName::from_comp_and_control(
                     component.clone(),
                     group.clone(),
                 ))
