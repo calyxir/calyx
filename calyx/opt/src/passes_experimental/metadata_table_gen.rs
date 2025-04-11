@@ -162,14 +162,16 @@ impl Visitor for Metadata {
         }
         // visit all groups in component
         comp.groups.iter().for_each(|rrcgrp| {
-            let grp = rrcgrp.borrow_mut();
-            let pos_data = grp.attributes.copy_span();
+            let mut grp = rrcgrp.borrow_mut();
+            let attr = &mut grp.attributes;
+            let pos_data = attr.copy_span();
             let (f, span) = pos_data.get_line_num();
             let fid = self.file_ids.get(f).unwrap(); // this def should be in file_ids
-            let _temp = self
+            let pos = self
                 .src_table
                 .push_position(*fid, LineNum::new(span.0 as u32));
             // add tag to group attributes
+            attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
             //dbg!(&self.src_table);
         });
         //dbg!(&self.src_table);
