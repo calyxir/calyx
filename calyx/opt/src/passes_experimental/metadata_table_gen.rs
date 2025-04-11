@@ -1,6 +1,8 @@
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
-use calyx_ir::Id;
+
+use calyx_frontend::SetAttr::Pos;
 use calyx_ir::source_info::{FileId, LineNum, PositionId, SourceInfoTable};
+use calyx_ir::{GetAttributes, Id};
 use calyx_utils::WithPos;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
@@ -22,6 +24,17 @@ impl Metadata {
             src_table: SourceInfoTable::new_empty(),
             file_ids: HashMap::new(),
         }
+    }
+
+    pub fn add_control_node<A: GetAttributes>(&mut self, node: &mut A) {
+        let attr = node.get_mut_attributes();
+        let temp = attr.copy_span();
+        let (f, (line, _)) = temp.get_line_num();
+        let fnum = self.file_ids.get(f).unwrap();
+        let pos = self
+            .src_table
+            .push_position(*fnum, LineNum::new(line as u32));
+        attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
     }
 
     // /// Add a new entry to the metadata table
@@ -156,6 +169,7 @@ impl Visitor for Metadata {
             let _temp = self
                 .src_table
                 .push_position(*fid, LineNum::new(span.0 as u32));
+            // add tag to group attributes
             //dbg!(&self.src_table);
         });
         //dbg!(&self.src_table);
@@ -170,25 +184,15 @@ impl Visitor for Metadata {
         Ok(Action::Continue)
     }
 
-    // generic method helper
-
     // start seq
     fn start_seq(
         &mut self,
         s: &mut calyx_ir::Seq,
-        comp: &mut calyx_ir::Component,
+        _comp: &mut calyx_ir::Component,
         _sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
-        let binding = comp.attributes.copy_span();
-        let (file, _bs) = binding.get_line_num();
-
-        // add file to source table (if not already in)
-        if !self.file_ids.contains_key(file) {
-            print!("no way")
-        }
-        let fnum = self.file_ids.get(file).unwrap();
-        let line = s.attributes.copy_span().get_line_num();
+        self.add_control_node(s);
         Ok(Action::Continue)
     }
 

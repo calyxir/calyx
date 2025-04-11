@@ -34,6 +34,10 @@ impl PositionId {
     pub fn new(id: Word) -> Self {
         Self(id)
     }
+
+    pub fn value(&self) -> Word {
+        self.0
+    }
 }
 
 impl From<Word> for PositionId {
