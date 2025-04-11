@@ -5,10 +5,11 @@ use crate::analysis::{
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::{self as ir};
+use calyx_ir::{self as ir, Id};
 use calyx_ir::{BoolAttr, rewriter};
 use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
+use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
@@ -33,6 +34,24 @@ fn cell_type_to_string(cell_type: &ir::CellType) -> String {
             format!("Const_{val}_{width}")
         }
     }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct ShareEntry {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    original: Id, // cell to be replaced
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    new: Id, // replacement cell (shared)
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    component: Id,
+    cell_type: String,
+}
+
+fn id_serialize_passthrough<S>(id: &Id, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    id.to_string().serialize(ser)
 }
 
 /// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
@@ -120,6 +139,11 @@ pub struct CellShare {
     /// whether or not to print the share_freqs
     print_share_freqs: Option<OutputFile>,
     print_par_timing: Option<OutputFile>,
+
+    /// whether or not to print the share mappings
+    emit_share_map: Option<OutputFile>,
+    /// Bookkeeping for share mappings
+    shared_cells_list: Vec<ShareEntry>,
 }
 
 impl Named for CellShare {
@@ -135,6 +159,12 @@ impl Named for CellShare {
             PassOpt::new(
                 "print-share-freqs",
                 "print sharing frequencies",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream,
+            ),
+            PassOpt::new(
+                "emit-share-map",
+                "emit json file of shared cells",
                 ParseVal::OutStream(OutputFile::Null),
                 PassOpt::parse_outstream,
             ),
@@ -179,6 +209,8 @@ impl ConstructVisitor for CellShare {
             bounds: opts["bounds"].num_list_exact::<3>(),
             print_par_timing: opts["print-par-timing"].not_null_outstream(),
             print_share_freqs: opts["print-share-freqs"].not_null_outstream(),
+            emit_share_map: opts["emit-share-map"].not_null_outstream(),
+            shared_cells_list: Vec::new(),
         })
     }
 
@@ -450,6 +482,16 @@ impl Visitor for CellShare {
             self.print_share_json();
         }
 
+        println!("AYAKA");
+        for (id, cell_ref) in coloring.iter() {
+            self.shared_cells_list.push(ShareEntry {
+                original: *id,
+                new: cell_ref.borrow().name(),
+                component: comp.name,
+                cell_type: cell_type_to_string(&cell_ref.borrow().prototype),
+            });
+        }
+
         // Rewrite assignments using the coloring generated.
         let rewriter = ir::Rewriter {
             cell_map: coloring,
@@ -465,6 +507,16 @@ impl Visitor for CellShare {
         // Rewrite control uses of ports
         rewriter.rewrite_control(&mut comp.control.borrow_mut());
 
+        Ok(Action::Stop)
+    }
+
+    fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
+        if let Some(json_out_file) = &mut self.emit_share_map {
+            let _ = serde_json::to_writer_pretty(
+                json_out_file.get_write(),
+                &self.shared_cells_list,
+            );
+        }
         Ok(Action::Stop)
     }
 }
