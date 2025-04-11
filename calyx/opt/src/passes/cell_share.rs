@@ -510,6 +510,7 @@ impl Visitor for CellShare {
         Ok(Action::Stop)
     }
 
+    /// If requested, emit share map json after all components are processed
     fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
         if let Some(json_out_file) = &mut self.emit_share_map {
             let _ = serde_json::to_writer_pretty(
