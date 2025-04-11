@@ -910,6 +910,7 @@ fn emit_fsm_module<F: io::Write>(
 
     // Begin emitting the FSM's transitions and updates
     writeln!(f, "  always @(*) begin")?;
+    writeln!(f, "    state_next = s0;")?;
     writeln!(f, "    case ( state_reg )")?;
     // At each state, write the updates to the state and the outward-facing
     // wires to make high / low
