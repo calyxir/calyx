@@ -75,7 +75,6 @@ impl BreakPoint {
                 format!("{parent_name}::{group_name}: {}", self.state)
             }
             _ => {
-                // let string_path = self.control.string_path(ctx,);
                 format!("{parent_name}: {}", self.state)
             }
         }

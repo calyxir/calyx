@@ -7,7 +7,7 @@ use cider::{
     configuration,
     debugger::{Debugger, DebuggerInfo, DebuggerReturnStatus},
     errors::CiderResult,
-    flatten::structures::environment::Simulator,
+    flatten::structures::{context::Context, environment::Simulator},
 };
 
 use std::{
@@ -150,7 +150,7 @@ fn main() -> CiderResult<()> {
             Ok(())
         }
         Command::Debug(_) => {
-            let mut info: Option<DebuggerInfo> = None;
+            let mut info: Option<DebuggerInfo<&Context>> = None;
             loop {
                 let debugger = Debugger::new(
                     &i_ctx,

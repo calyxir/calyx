@@ -9,6 +9,7 @@ use crate::flatten::flat_ir::prelude::*;
 pub struct ControlIdx(u32);
 impl_index!(ControlIdx);
 
+
 /// A map storing [ControlNodes](ControlNode) indexed by [ControlIdx]
 pub type ControlMap = IndexedMap<ControlIdx, ControlNode>;
 
