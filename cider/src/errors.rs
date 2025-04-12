@@ -436,13 +436,9 @@ impl RuntimeError {
 }
 
 #[derive(Error, Debug)]
-pub enum BreakTargetError {
-    #[error("Invalid Breakpoint")]
-    InvalidBreakPoint,
-}
+#[error("Invalid Breakpoint")]
+pub struct BreakTargetError;
 
 #[derive(Error, Debug)]
-pub enum ErrorMalformed {
-    #[error("Invalid path")]
-    Malformed,
-}
+#[error("Invalid path")]
+pub struct ErrorMalformed;

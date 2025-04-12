@@ -1,8 +1,5 @@
 use super::{
-    commands::{
-        Command, ParseNodes, ParsePath, ParsedBreakPointID, ParsedGroupName,
-        PrintMode,
-    },
+    commands::{Command, ParsedBreakPointID, PrintMode},
     debugging_context::context::DebuggingContext,
     io_utils::Input,
     source::structures::NewSourceMap,
@@ -11,6 +8,7 @@ use crate::{
     configuration::RuntimeConfig,
     debugger::{
         commands::{BreakTarget, PrintCommand},
+        debugging_context::context::format_control_node,
         source::SourceMap,
         unwrap_error_message,
     },
@@ -30,7 +28,12 @@ use crate::{
     serialization::PrintCode,
 };
 
-use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
+use std::{
+    collections::{HashSet, VecDeque},
+    num::NonZeroU32,
+    path::PathBuf,
+    rc::Rc,
+};
 
 use itertools::Itertools;
 use std::path::Path as FilePath;
@@ -193,7 +196,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     pub fn set_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
-        self.create_breakpoints(breakpoints);
+        let _ = self.create_breakpoints(breakpoints);
     }
 
     pub fn delete_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
@@ -244,6 +247,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
         let mut breakpoints: Vec<ControlIdx> = vec![];
 
+        let ctx = self.program_context.as_ref();
+
         while breakpoints.is_empty() && !self.interpreter.is_done() {
             self.interpreter.step()?;
             // TODO griffin: figure out how to skip this convergence
@@ -272,10 +277,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             for control_idx in breakpoints {
                 println!(
                     "Hit breakpoint: {}",
-                    self.program_context
-                        .as_ref()
-                        .lookup_name(control_idx)
-                        .stylize_breakpoint()
+                    format_control_node(ctx, control_idx)
                 );
             }
             self.interpreter.converge()?;
@@ -339,7 +341,9 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             match comm {
                 Command::Step(n) => self.do_step(n)?,
                 Command::StepOver(target, bound) => {
-                    self.do_step_over(target, bound)?
+                    if let Err(e) = self.do_step_over(target, bound) {
+                        println!("Error: {}", e.stylize_error());
+                    }
                 }
                 Command::Continue => self.do_continue()?,
                 Command::Empty => {}
@@ -658,6 +662,63 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
     }
 
+    // Get all control idxs in an enable component that matches group_idx input
+    fn find_control_idx(
+        &self,
+        group_idx: GroupIdx,
+        component: ComponentIdx,
+    ) -> Vec<ControlIdx> {
+        let ctx = self.program_context.as_ref();
+        let component_map = &ctx.primary.components;
+        let control_map = &ctx.primary.control;
+        let component_node = component_map.get(component).unwrap();
+
+        let control_idx = component_node.control().unwrap();
+
+        let mut control_queue: VecDeque<ControlIdx> = VecDeque::new();
+
+        control_queue.push_back(control_idx);
+
+        let mut control_vec: Vec<ControlIdx> = Vec::new();
+
+        while !control_queue.is_empty() {
+            let temp_control_idx = control_queue.pop_front().unwrap();
+            let temp_control_node =
+                &control_map.get(temp_control_idx).unwrap().control;
+            match temp_control_node {
+                Control::While(while_struct) => {
+                    control_queue.push_back(while_struct.body());
+                }
+                Control::Repeat(repeat_struct) => {
+                    control_queue.push_back(repeat_struct.body);
+                }
+                Control::If(if_struct) => {
+                    control_queue.push_back(if_struct.tbranch());
+                    control_queue.push_back(if_struct.fbranch());
+                }
+                Control::Seq(seq_struct) => {
+                    for child in seq_struct.stms() {
+                        control_queue.push_back(*child);
+                    }
+                }
+                Control::Par(par_struct) => {
+                    for child in par_struct.stms() {
+                        control_queue.push_back(*child);
+                    }
+                }
+                Control::Enable(enable_struct) => {
+                    if enable_struct.group() == group_idx {
+                        control_vec.push(temp_control_idx);
+                    }
+                }
+                _ => {
+                    continue;
+                }
+            }
+        }
+        control_vec
+    }
+
     fn create_breakpoints(
         &mut self,
         targets: Vec<super::commands::BreakTarget>,
@@ -666,19 +727,33 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         for target in targets {
             match target {
                 BreakTarget::Name(target) => {
-                    let target = target.lookup_group(ctx);
-                    unwrap_error_message!(target);
+                    let group_idx = target.lookup_group(ctx);
+                    unwrap_error_message!(group_idx);
 
-                    if self.interpreter.is_group_running(target) {
+                    let component_idx = ctx
+                        .lookup_comp_by_name(&target.get_comp().unwrap())
+                        .unwrap();
+
+                    // write a function that takes in a groupidx and component
+                    // with component go through entire tree of nodes, everytime we hit an enable we check groupidx and then check if same
+
+                    if self.interpreter.is_group_running(group_idx) {
                         println!(
                             "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
                             self.program_context
                                 .as_ref()
-                                .lookup_name(target)
+                                .lookup_name(group_idx)
                                 .stylize_warning()
                         )
                     }
-                    self.debugging_context.add_breakpoint(target);
+
+                    // Add all enables that corresponds to said group
+                    let control_idx_vec =
+                        self.find_control_idx(group_idx, component_idx);
+
+                    for child in control_idx_vec {
+                        self.debugging_context.add_breakpoint(child);
+                    }
                 }
                 BreakTarget::Path(path) => {
                     let control_idx = path.path_idx(ctx).unwrap();
@@ -686,7 +761,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     if self.interpreter.is_control_running(control_idx) {
                         println!(
                             "Warning: the control {} is already running. This breakpoint will not trigger until the next time the control runs.",
-                            ctx.lookup_name(control_idx).stylize_warning()
+                            format_control_node(ctx, control_idx)
                         )
                     }
 

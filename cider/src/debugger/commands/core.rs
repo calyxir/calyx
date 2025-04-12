@@ -48,7 +48,7 @@ impl Display for WatchpointIdx {
 /// which case it is generally assumed to be the entry point.
 #[derive(Debug)]
 pub struct ParsedGroupName {
-    // enum: name and group 2) name and path
+    // enum: name and group 2 name and path
     component: Option<String>,
     group: String,
 }
@@ -68,6 +68,10 @@ impl ParsedGroupName {
             component: Some(component),
             group,
         }
+    }
+
+    pub fn get_comp(self) -> Option<String> {
+        self.component.clone()
     }
 
     /// Attempts to look up the group of the given name in the context. If the
@@ -137,7 +141,7 @@ impl ParsedBreakPointID {
                     if let Some(node) = component_node {
                         Ok(BreakpointID::Name(node.control().unwrap()))
                     } else {
-                        Err(BreakTargetError::InvalidBreakPoint)
+                        Err(BreakTargetError)
                     }
                 }
                 BreakTarget::Path(parse_path) => {
@@ -410,7 +414,7 @@ impl ParsePath {
                     Control::Repeat(repeat_struct) => {
                         control_id = repeat_struct.body;
                     }
-                    _ => return Err(ErrorMalformed::Malformed),
+                    _ => return Err(ErrorMalformed),
                 },
                 ParseNodes::If(branch) => match control_node {
                     Control::If(if_struct) => {
@@ -420,7 +424,7 @@ impl ParsePath {
                             if_struct.fbranch()
                         };
                     }
-                    _ => return Err(ErrorMalformed::Malformed),
+                    _ => return Err(ErrorMalformed),
                 },
                 ParseNodes::Offset(child) => match control_node {
                     Control::Par(par_struct) => {
@@ -431,7 +435,7 @@ impl ParsePath {
                         let children = seq_struct.stms();
                         control_id = children[child as usize]
                     }
-                    _ => return Err(ErrorMalformed::Malformed),
+                    _ => return Err(ErrorMalformed),
                 },
             }
             control_node = control_map.get(control_id).unwrap();

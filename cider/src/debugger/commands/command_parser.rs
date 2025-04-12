@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 
 use super::{
-    ParsePath, PrintCommand,
+    BreakTarget, ParsePath, PrintCommand,
     core::{
         Command, ParseNodes, ParsedBreakPointID, ParsedGroupName, PrintMode,
         WatchPosition,
@@ -154,7 +154,9 @@ impl CommandParser {
 
     fn brk(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [group(g)..] => Command::Break(g.collect()),
+            [group(g)..] => {
+                Command::Break(g.map(|x| BreakTarget::Name(x)).collect())
+            },
         ))
     }
 
@@ -188,9 +190,9 @@ impl CommandParser {
 
     fn step_over(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [group(g)] => Command::StepOver(g, None),
+            [group(g)] => Command::StepOver(BreakTarget::Name(g), None),
             [group(g), num(n)] => {
-               Command::StepOver(g, NonZeroU32::new(n))
+               Command::StepOver(BreakTarget::Name(g), NonZeroU32::new(n))
             }
         ))
     }

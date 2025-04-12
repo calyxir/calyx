@@ -604,10 +604,3 @@ impl LookupName for CombGroupIdx {
         ctx.resolve_id(ctx.primary[*self].name())
     }
 }
-
-impl LookupName for ControlIdx {
-    #[inline]
-    fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
-        ctx.resolve_id(ctx.primary[*self].name())
-    }
-}
