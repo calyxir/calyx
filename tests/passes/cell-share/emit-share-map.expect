@@ -63,17 +63,18 @@ component identity<"state_share"=1>(in_1: 32, @go go: 1, @clk clk: 1, @reset res
   }
 }
 ---STDERR---
-[
-  {
-    "original": "id_3",
-    "new": "id_1",
-    "component": "main",
-    "cell_type": "identity"
-  },
-  {
-    "original": "id_2",
-    "new": "id_1",
-    "component": "main",
-    "cell_type": "identity"
-  }
-]
+{
+  "identity": [],
+  "main": [
+    {
+      "original": "id_3",
+      "new": "id_1",
+      "cell_type": "identity"
+    },
+    {
+      "original": "id_2",
+      "new": "id_1",
+      "cell_type": "identity"
+    }
+  ]
+}

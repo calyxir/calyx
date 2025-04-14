@@ -11,7 +11,7 @@ use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 // function to turn cell types to string when we are building the json for
 // share_freqs
@@ -42,8 +42,6 @@ struct ShareEntry {
     original: Id, // cell to be replaced
     #[serde(serialize_with = "id_serialize_passthrough")]
     new: Id, // replacement cell (shared)
-    #[serde(serialize_with = "id_serialize_passthrough")]
-    component: Id,
     cell_type: String,
 }
 
@@ -143,7 +141,7 @@ pub struct CellShare {
     /// whether or not to print the share mappings
     emit_share_map: Option<OutputFile>,
     /// Bookkeeping for share mappings
-    shared_cells: Vec<ShareEntry>,
+    shared_cells: BTreeMap<String, Vec<ShareEntry>>,
 }
 
 impl Named for CellShare {
@@ -210,7 +208,7 @@ impl ConstructVisitor for CellShare {
             print_par_timing: opts["print-par-timing"].not_null_outstream(),
             print_share_freqs: opts["print-share-freqs"].not_null_outstream(),
             emit_share_map: opts["emit-share-map"].not_null_outstream(),
-            shared_cells: Vec::new(),
+            shared_cells: BTreeMap::new(),
         })
     }
 
@@ -342,6 +340,9 @@ impl Visitor for CellShare {
                 .or_default()
                 .push(cell.borrow().name());
         }
+
+        // List of cell maps
+        let mut cell_map_list = Vec::new();
 
         // Maps cell type to conflict graph (will be used to perform coloring)
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
@@ -483,13 +484,16 @@ impl Visitor for CellShare {
         }
 
         for (id, cell_ref) in coloring.iter() {
-            self.shared_cells.push(ShareEntry {
+            cell_map_list.push(ShareEntry {
                 original: *id,
                 new: cell_ref.borrow().name(),
-                component: comp.name,
                 cell_type: cell_type_to_string(&cell_ref.borrow().prototype),
             });
         }
+        // sort entries by original cell name to avoid output nondeterminism
+        cell_map_list.sort_by(|c1, c2| c1.original.cmp(&c2.original));
+        self.shared_cells
+            .insert(comp.name.to_string(), cell_map_list);
 
         // Rewrite assignments using the coloring generated.
         let rewriter = ir::Rewriter {
@@ -512,14 +516,6 @@ impl Visitor for CellShare {
     /// If requested, emit share map json after all components are processed
     fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
         if let Some(json_out_file) = &mut self.emit_share_map {
-            // sort entries by original cell name (and via component name to break ties) to avoid output nondeterminism
-            self.shared_cells.sort_by(|c1, c2| {
-                if c1.original == c2.original {
-                    c1.component.cmp(&c2.component)
-                } else {
-                    c1.original.cmp(&c2.original)
-                }
-            });
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
                 &self.shared_cells,
