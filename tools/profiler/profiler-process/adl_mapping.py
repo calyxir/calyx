@@ -1,6 +1,7 @@
 import json
 import os
 
+
 class SourceLoc:
     def __init__(self, json_dict):
         self.filename = os.path.basename(json_dict["filename"])
