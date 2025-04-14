@@ -143,7 +143,7 @@ pub struct CellShare {
     /// whether or not to print the share mappings
     emit_share_map: Option<OutputFile>,
     /// Bookkeeping for share mappings
-    shared_cells_list: Vec<ShareEntry>,
+    shared_cells: Vec<ShareEntry>,
 }
 
 impl Named for CellShare {
@@ -210,7 +210,7 @@ impl ConstructVisitor for CellShare {
             print_par_timing: opts["print-par-timing"].not_null_outstream(),
             print_share_freqs: opts["print-share-freqs"].not_null_outstream(),
             emit_share_map: opts["emit-share-map"].not_null_outstream(),
-            shared_cells_list: Vec::new(),
+            shared_cells: Vec::new(),
         })
     }
 
@@ -482,9 +482,8 @@ impl Visitor for CellShare {
             self.print_share_json();
         }
 
-        println!("AYAKA");
         for (id, cell_ref) in coloring.iter() {
-            self.shared_cells_list.push(ShareEntry {
+            self.shared_cells.push(ShareEntry {
                 original: *id,
                 new: cell_ref.borrow().name(),
                 component: comp.name,
@@ -513,9 +512,17 @@ impl Visitor for CellShare {
     /// If requested, emit share map json after all components are processed
     fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
         if let Some(json_out_file) = &mut self.emit_share_map {
+            // sort entries by original cell name (and via component name to break ties) to avoid output nondeterminism
+            self.shared_cells.sort_by(|c1, c2| {
+                if c1.original == c2.original {
+                    c1.component.cmp(&c2.component)
+                } else {
+                    c1.original.cmp(&c2.original)
+                }
+            });
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
-                &self.shared_cells_list,
+                &self.shared_cells,
             );
         }
         Ok(Action::Stop)
