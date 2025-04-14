@@ -140,7 +140,7 @@ pub struct CellShare {
 
     /// whether or not to print the share mappings
     emit_share_map: Option<OutputFile>,
-    /// Bookkeeping for share mappings
+    /// Bookkeeping for share mappings, using a BTreeMap for output determinism.
     shared_cells: BTreeMap<String, Vec<ShareEntry>>,
 }
 
