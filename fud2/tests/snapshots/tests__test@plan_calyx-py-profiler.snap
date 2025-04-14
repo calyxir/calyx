@@ -26,7 +26,7 @@ edsl-args =
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
-parse-vcd-script = $calyx-base/tools/profiler/profiler-process.py
+parse-vcd-script = $calyx-base/tools/profiler/profiler-process/main.py
 rule parse-vcd
   command = python3 $parse-vcd-script $in $cells $fsm-json profiler-out $out
 
