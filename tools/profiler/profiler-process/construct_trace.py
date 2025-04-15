@@ -31,7 +31,6 @@ def create_cycle_trace(
     main_component,
     include_primitives,
 ):
-    print(f"CELLS TO COMPONENTS:\n{cells_to_components}")
     stacks_this_cycle = []
     parents = set()  # keeping track of entities that are parents of other entities
     i_mapping = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
@@ -61,8 +60,6 @@ def create_cycle_trace(
             if current_cell in info_this_cycle["cell-invoke"]
             else set()
         )
-        print("I MAPPING")
-        print(i_mapping)
         # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
         for active_unit in units_to_cover:
             shortname = active_unit.split(".")[-1]
@@ -107,9 +104,7 @@ def create_cycle_trace(
                 cell_split = invoked_cell.split(".")
                 cell_shortname = cell_split[-1]
                 cell_prefix = ".".join(cell_split[:-1])
-                print(shared_cell_map)
                 if cell_shortname in shared_cell_map[current_component]:
-                    print("in shared map!!!")
                     replacement_cell_shortname = shared_cell_map[current_component][
                         cell_shortname
                     ]
