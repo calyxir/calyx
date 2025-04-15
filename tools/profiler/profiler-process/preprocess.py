@@ -146,3 +146,15 @@ def read_tdcc_file(fsm_json_file, components_to_cells):
         par_done_regs,
         cell_to_groups_to_par_parent,
     )
+
+
+def read_shared_cells_map(shared_cells_json):
+    shared_cells_map = {}
+    json_map = json.load(open(shared_cells_json))
+    for component in json_map:
+        shared_cells_map[component] = {}
+        for entry in json_map[component]:
+            original = entry["original"]
+            new = entry["new"]
+            shared_cells_map[component][original] = new
+    return shared_cells_map

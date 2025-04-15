@@ -60,14 +60,6 @@ def port_fsm_and_control_events(
     partial_fsm_events, control_updates, cell_to_info, cell_name, out_file
 ):
     for fsm_name in list(partial_fsm_events.keys()):
-        # NOTE: uncomment below to bring back FSM tracks to the timeline.
-        # fsm_cell_name = ".".join(fsm_name.split(".")[:-1])
-        # if fsm_cell_name == cell_name:
-        #     (fsm_pid, fsm_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(fsm_name)
-        #     for entry in partial_fsm_events[fsm_name]:
-        #         entry["pid"] = fsm_pid
-        #         entry["tid"] = fsm_tid
-        #         write_timeline_event(entry, out_file)
         del partial_fsm_events[fsm_name]
     for cycle, update in control_updates[cell_name]:
         (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(
@@ -118,10 +110,25 @@ def compute_timeline(
         for stack in trace[i]:
             stack_acc = main_component
             current_cell = main_component  # need to keep track of cells in case we have a structural group enable.
+            display_name = None
             for stack_elem in stack:
                 name = None
                 if " [" in stack_elem:  # cell
-                    stack_acc += "." + stack_elem.split(" [")[0]
+                    if (
+                        "(" in stack_elem
+                    ):  # shared cell. use the info of the replacement cell
+                        replacement_cell_shortname = stack_elem.split("(")[1].split(
+                            ")"
+                        )[0]
+                        display_name = (
+                            stack_acc
+                            + "."
+                            + stack_elem.split(" (")[0]
+                            + f" ({replacement_cell_shortname})"
+                        )
+                        stack_acc += "." + replacement_cell_shortname
+                    else:
+                        stack_acc += "." + stack_elem.split(" [")[0]
                     name = stack_acc
                     current_cell = name
                     if name not in cell_to_info:  # cell is not registered yet
@@ -145,29 +152,47 @@ def compute_timeline(
                 else:  # group
                     name = stack_acc + "." + stack_elem
                     group_to_parent_cell[name] = current_cell
-                active_this_cycle.add(name)
-        for nonactive_element in currently_active.difference(
+                active_this_cycle.add((name, display_name))
+        for nonactive_element, nonactive_element_display in currently_active.difference(
             active_this_cycle
         ):  # element that was previously active but no longer is.
             # make end event
             end_event = create_timeline_event(
-                nonactive_element, i, "E", cell_to_info, group_to_parent_cell
+                nonactive_element,
+                i,
+                "E",
+                cell_to_info,
+                group_to_parent_cell,
+                cell_display_name=nonactive_element_display,
             )
             write_timeline_event(end_event, out_file)
-        for newly_active_element in active_this_cycle.difference(
+        for newly_active_element, newly_active_display in active_this_cycle.difference(
             currently_active
         ):  # element that started to be active this cycle.
             begin_event = create_timeline_event(
-                newly_active_element, i, "B", cell_to_info, group_to_parent_cell
+                newly_active_element,
+                i,
+                "B",
+                cell_to_info,
+                group_to_parent_cell,
+                cell_display_name=newly_active_display,
             )
             write_timeline_event(begin_event, out_file)
         currently_active = active_this_cycle
 
-    for still_active_element in (
+    for (
+        still_active_element,
+        still_active_display,
+    ) in (
         currently_active
     ):  # need to close any elements that are still active at the end of the simulation
         end_event = create_timeline_event(
-            still_active_element, len(trace), "E", cell_to_info, group_to_parent_cell
+            still_active_element,
+            len(trace),
+            "E",
+            cell_to_info,
+            group_to_parent_cell,
+            cell_display_name=still_active_display,
         )
         write_timeline_event(end_event, out_file)
 
@@ -181,15 +206,21 @@ Creates a JSON entry for traceEvents.
 element_name: fully qualified name of cell/group
 cycle: timestamp of the event, in cycles
 event_type: "B" for begin event, "E" for end event
+display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
 """
 
 
 def create_timeline_event(
-    element_name, cycle, event_type, cell_to_info, group_to_parent_cell
+    element_name,
+    cycle,
+    event_type,
+    cell_to_info,
+    group_to_parent_cell,
+    cell_display_name=None,
 ):
     if element_name in cell_to_info:  # cell
         event = {
-            "name": element_name,
+            "name": element_name if cell_display_name is None else cell_display_name,
             "cat": "cell",
             "ph": event_type,
             "pid": cell_to_info[element_name].pid,

@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import json
 import sys
 import vcdvcd
 
@@ -11,12 +12,20 @@ from visuals import flame, tree, timeline, stats
 
 
 def main(
-    vcd_filename, cells_json_file, tdcc_json_file, adl_mapping_file, out_dir, flame_out
+    vcd_filename,
+    cells_json_file,
+    tdcc_json_file,
+    shared_cells_json,
+    adl_mapping_file,
+    out_dir,
+    flame_out,
 ):
     print(f"Start time: {datetime.now()}")
     main_shortname, cells_to_components, components_to_cells = (
         preprocess.read_component_cell_names_json(cells_json_file)
     )
+    shared_cells_map = preprocess.read_shared_cells_map(shared_cells_json)
+    print(shared_cells_map)
     (
         fully_qualified_fsms,
         component_to_num_fsms,
@@ -45,8 +54,8 @@ def main(
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
-    trace, trace_classified, cell_to_active_cycles = (
-        converter.postprocess()
+    trace, trace_classified, cell_to_active_cycles = converter.postprocess(
+        shared_cells_map
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
     control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = (
         converter.postprocess_control()
@@ -132,23 +141,33 @@ def main(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 5:
+    if len(sys.argv) > 6:
         vcd_filename = sys.argv[1]
         cells_json = sys.argv[2]
         fsms_json = sys.argv[3]
-        out_dir = sys.argv[4]
-        flame_out = sys.argv[5]
-        if len(sys.argv) > 6:
+        shared_cells_json = sys.argv[4]
+        out_dir = sys.argv[5]
+        flame_out = sys.argv[6]
+        if len(sys.argv) > 7:
             adl_mapping_file = sys.argv[6]
         else:
             adl_mapping_file = None
         print(f"ADL mapping file: {adl_mapping_file}")
-        main(vcd_filename, cells_json, fsms_json, adl_mapping_file, out_dir, flame_out)
+        main(
+            vcd_filename,
+            cells_json,
+            fsms_json,
+            shared_cells_json,
+            adl_mapping_file,
+            out_dir,
+            flame_out,
+        )
     else:
         args_desc = [
             "VCD_FILE",
-            "CELLS_JSON",
+            "CELLS_JSON",  # FIXME: might want to rename this
             "FSMS_JSON",
+            "SHARED_CELLS_JSON",
             "OUT_DIR",
             "FLATTENED_FLAME_OUT",
             "[ADL_MAP_JSON]",

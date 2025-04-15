@@ -25,8 +25,13 @@ def classify_stacks(stacks, main_shortname):
 
 
 def create_cycle_trace(
-    info_this_cycle, cells_to_components, main_component, include_primitives
+    info_this_cycle,
+    cells_to_components,
+    shared_cell_map,
+    main_component,
+    include_primitives,
 ):
+    print(f"CELLS TO COMPONENTS:\n{cells_to_components}")
     stacks_this_cycle = []
     parents = set()  # keeping track of entities that are parents of other entities
     i_mapping = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
@@ -56,6 +61,8 @@ def create_cycle_trace(
             if current_cell in info_this_cycle["cell-invoke"]
             else set()
         )
+        print("I MAPPING")
+        print(i_mapping)
         # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
         for active_unit in units_to_cover:
             shortname = active_unit.split(".")[-1]
@@ -90,8 +97,37 @@ def create_cycle_trace(
         # now we need to construct stacks for any cells that are called from a group in the current component.
         for cell_invoker_group in cell_invokes:
             for invoked_cell in cell_invokes[cell_invoker_group]:
-                if invoked_cell in info_this_cycle["cell-active"]:
-                    cell_shortname = invoked_cell.split(".")[-1]
+                # TODO: if rewritten... then look for the rewritten cell from cell-active
+                # probably worth putting some info in the flame graph that the cell is rewritten from the originally coded one?
+                current_component = (
+                    cells_to_components[current_cell]
+                    if current_cell != main_component
+                    else "main"
+                )
+                cell_split = invoked_cell.split(".")
+                cell_shortname = cell_split[-1]
+                cell_prefix = ".".join(cell_split[:-1])
+                print(shared_cell_map)
+                if cell_shortname in shared_cell_map[current_component]:
+                    print("in shared map!!!")
+                    replacement_cell_shortname = shared_cell_map[current_component][
+                        cell_shortname
+                    ]
+                    replacement_cell = f"{cell_prefix}.{replacement_cell_shortname}"
+                    if replacement_cell not in info_this_cycle["cell-active"]:
+                        print(
+                            f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!"
+                        )
+                        print(info_this_cycle["cell-active"])
+                        sys.exit(1)
+                    cell_worklist.append(replacement_cell)
+                    cell_component = cells_to_components[replacement_cell]
+                    parent = f"{current_cell}.{cell_invoker_group}"
+                    i_mapping[replacement_cell] = i_mapping[parent] + [
+                        f"{cell_shortname} ({replacement_cell_shortname}) [{cell_component}]"
+                    ]
+                    parents.add(parent)
+                elif invoked_cell in info_this_cycle["cell-active"]:
                     cell_worklist.append(invoked_cell)
                     cell_component = cells_to_components[invoked_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
@@ -347,7 +383,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     everything within a stream if we wanted to be precise)
     """
 
-    def postprocess(self):
+    def postprocess(self, shared_cells_map):
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
@@ -521,7 +557,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             parent_group
                         ].add(primitive_name)
                 stacks_this_cycle = create_cycle_trace(
-                    info_this_cycle, self.cells_to_components, self.main_component, True
+                    info_this_cycle,
+                    self.cells_to_components,
+                    shared_cells_map,
+                    self.main_component,
+                    True,
                 )  # True to track primitives
                 trace[clock_cycles] = stacks_this_cycle
                 trace_classified.append(
