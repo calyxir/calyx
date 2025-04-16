@@ -98,7 +98,7 @@ impl ScriptContext {
         // for this function
         if !self.setups.borrow().contains_key(fnptr.fn_name()) {
             let rctx = RhaiSetupCtx {
-                path: Rc::clone(&self.path),
+                _path: Rc::clone(&self.path),
                 ast: Rc::new(self.ast.clone_functions_only()),
                 name: fnptr.fn_name().to_string(),
             };
@@ -606,7 +606,7 @@ impl ScriptRunner {
                   -> RhaiResult<_> {
                 let setups = sctx.setups_array(&ctx, setups)?;
                 let rctx = RhaiSetupCtx {
-                    path: sctx.path.clone(),
+                    _path: sctx.path.clone(),
                     ast: Rc::new(sctx.ast.clone_functions_only()),
                     name: build.fn_name().to_string(),
                 };
