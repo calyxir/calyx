@@ -300,18 +300,24 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # for now, control_reg_update_type will be one of "fsm", "par-done", "both"
 
         control_group_start_cycles = {}
+        control_group_to_summary = {} # group --> {"num-times-active": _, "active-cycles": []}
         for ts in self.timestamps_to_control_group_events:
             if ts in self.timestamps_to_clock_cycles:
                 clock_cycle = self.timestamps_to_clock_cycles[ts]
                 events = self.timestamps_to_control_group_events[ts]
                 for event in events:
                     group_name = event["group"]
+                    if group_name not in control_group_to_summary:
+                        control_group_to_summary[group_name] = {"num-times-active": 0, "active-cycles": []}
                     if event["value"] == 1:  # control group started
                         control_group_start_cycles[group_name] = clock_cycle
+                        control_group_to_summary[group_name]["num-times-active"] += 1
                     elif event["value"] == 0:  # control group ended
-                        for i in range(
+                        active_range = range(
                             control_group_start_cycles[group_name], clock_cycle
-                        ):
+                        )
+                        control_group_to_summary[group_name]["active-cycles"] += list(active_range)
+                        for i in active_range:
                             if i in control_group_events:
                                 control_group_events[i].add(group_name)
                             else:
@@ -368,7 +374,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         cell_to_change_type.keys(), key=(lambda k: k.count("."))
                     )[-1]
                     control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
-        return control_group_events, control_reg_updates, control_reg_per_cycle
+        return control_group_events, control_group_to_summary, control_reg_updates, control_reg_per_cycle
 
     """
     Postprocess data mapping timestamps to events (signal changes)

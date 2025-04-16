@@ -25,11 +25,10 @@ def main(
         preprocess.read_component_cell_names_json(cells_json_file)
     )
     shared_cells_map = preprocess.read_shared_cells_map(shared_cells_json)
-    print(shared_cells_map)
     (
         fully_qualified_fsms,
         component_to_num_fsms,
-        par_dep_info,
+        par_to_children,
         reverse_par_dep_info,
         cell_to_pars,
         par_done_regs,
@@ -46,7 +45,7 @@ def main(
         cells_to_components,
         fully_qualified_fsms,
         fsm_events,
-        set(par_dep_info.keys()),
+        set(par_to_children.keys()),
         par_done_regs,
     )
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
@@ -57,11 +56,11 @@ def main(
     trace, trace_classified, cell_to_active_cycles = converter.postprocess(
         shared_cells_map
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
-    control_groups_trace, control_reg_updates, control_reg_updates_per_cycle = (
+    control_groups_trace, control_groups_summary, control_reg_updates, control_reg_updates_per_cycle = (
         converter.postprocess_control()
     )
     cell_to_ordered_pars = construct_trace.order_pars(
-        cell_to_pars, par_dep_info, reverse_par_dep_info, signal_prefix
+        cell_to_pars, par_to_children, reverse_par_dep_info, signal_prefix
     )
     trace_with_pars = construct_trace.add_par_to_trace(
         trace,
@@ -94,6 +93,7 @@ def main(
         len(trace),
         out_dir,
     )
+    stats.write_par_stats(control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, out_dir)
     print(f"End writing cell stats: {datetime.now()}")
     tree_dict, path_dict = tree.create_tree(trace)
     path_to_edges, all_edges = tree.create_edge_dict(path_dict)
