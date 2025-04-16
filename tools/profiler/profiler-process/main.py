@@ -56,9 +56,12 @@ def main(
     trace, trace_classified, cell_to_active_cycles = converter.postprocess(
         shared_cells_map
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
-    control_groups_trace, control_groups_summary, control_reg_updates, control_reg_updates_per_cycle = (
-        converter.postprocess_control()
-    )
+    (
+        control_groups_trace,
+        control_groups_summary,
+        control_reg_updates,
+        control_reg_updates_per_cycle,
+    ) = converter.postprocess_control()
     cell_to_ordered_pars = construct_trace.order_pars(
         cell_to_pars, par_to_children, reverse_par_dep_info, signal_prefix
     )
@@ -93,7 +96,9 @@ def main(
         len(trace),
         out_dir,
     )
-    stats.write_par_stats(control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, out_dir)
+    stats.write_par_stats(
+        control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, out_dir
+    )
     print(f"End writing cell stats: {datetime.now()}")
     tree_dict, path_dict = tree.create_tree(trace)
     path_to_edges, all_edges = tree.create_edge_dict(path_dict)
