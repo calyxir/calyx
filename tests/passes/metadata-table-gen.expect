@@ -58,12 +58,3 @@ POSITIONS
 6: 1 41
 7: 1 45
 }#
----STDERR---
-[calyx/opt/src/passes_experimental/metadata_table_gen.rs:161:13] &self.src_table = SourceInfoTable {
-    file_map: {
-        FileId(
-            1,
-        ): "tests/passes/metadata-table-gen.futil",
-    },
-    position_map: {},
-}

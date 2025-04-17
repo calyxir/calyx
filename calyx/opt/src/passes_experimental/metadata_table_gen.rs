@@ -1,13 +1,11 @@
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 
-use calyx_frontend::SetAttr::Pos;
-use calyx_ir::source_info::{FileId, LineNum, PositionId, SourceInfoTable};
-use calyx_ir::{GetAttributes, Id};
+//use calyx_frontend::SetAttr::Pos;
+use calyx_ir::GetAttributes;
+use calyx_ir::source_info::{FileId, LineNum, SourceInfoTable};
 use calyx_utils::WithPos;
-use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
-use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Metadata stores a Map between each group name and data used in the metadata table (specified in PR #2022)
 pub struct Metadata {
@@ -242,29 +240,3 @@ impl Visitor for Metadata {
         Ok(Action::Continue)
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use std::path::PathBuf;
-
-//     use calyx_ir::Id;
-
-//     use crate::passes_experimental::metadata_table_gen::Metadata;
-//     #[test]
-//     fn test_metadata() {
-//         let mut data = Metadata::new();
-//         let empt_string = data.to_string();
-//         assert_eq!(empt_string, "");
-
-//         let path = PathBuf::from("/temp/path/for/testing.futil");
-//         data.add_entry(
-//             Id::from("main"),
-//             Id::from("group_1"),
-//             (12, 16),
-//             path.clone(),
-//         );
-//         data.add_entry(Id::from("main"), Id::from("group_2"), (23, 28), path);
-//         let test_string = data.to_string();
-//         assert_eq!(test_string, "main.group_1: /temp/path/for/testing.futil 12-16\nmain.group_2: /temp/path/for/testing.futil 23-28\n")
-//     }
-// }
