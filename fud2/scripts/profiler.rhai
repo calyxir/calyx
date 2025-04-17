@@ -23,7 +23,7 @@ fn profiling_setup(e) {
     // rules for postprocessing
 
     // script to process vcd and produce folded representation of flame graph
-    e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process.py");
+    e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process/main.py");
     e.rule("parse-vcd", "python3 $parse-vcd-script $in $cells $fsm-json profiler-out $out");
 
     e.config_var("flamegraph-script", "flamegraph.script");

@@ -1,0 +1,54 @@
+// -p cell-share -x cell-share:emit-share-map=<err>
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external mem = comb_mem_d1(32, 1, 1);
+    r = std_reg(32);
+    ans = std_reg(32);
+    id_1 = identity();
+    id_2 = identity();
+    id_3 = identity();
+  }
+  wires {
+    group read {
+      mem.addr0 = 1'd0;
+      r.in = mem.read_data;
+      r.write_en = 1'd1;
+      read[done] = r.done;
+    }
+    group write {
+      mem.addr0 = 1'd0;
+      mem.write_en = 1'd1;
+      mem.write_data = r.out;
+      write[done] = mem.done;
+    }
+  }
+  control {
+    seq {
+      read;
+      invoke id_1(in_1=r.out)(out=ans.in);
+      invoke id_2(in_1=r.out)(out=ans.in);
+      invoke id_3(in_1=r.out)(out=ans.in);
+      write;
+    }
+  }
+}
+component identity<"state_share"=1>(in_1: 32) -> (out: 32) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    group save {
+      r.in = in_1;
+      r.write_en = 1'd1;
+      save[done] = r.done;
+    }
+    out = r.out;
+  }
+  control {
+    save;
+  }
+}
