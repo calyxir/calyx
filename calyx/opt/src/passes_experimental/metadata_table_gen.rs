@@ -156,7 +156,7 @@ impl Visitor for Metadata {
         if !self.file_ids.contains_key(file) {
             let id = self.src_table.push_file(PathBuf::from(file));
             self.file_ids.insert(String::from(file), id);
-            dbg!(&self.src_table);
+            //dbg!(&self.src_table);
         }
         // visit all groups in component
         comp.groups.iter().for_each(|rrcgrp| {
