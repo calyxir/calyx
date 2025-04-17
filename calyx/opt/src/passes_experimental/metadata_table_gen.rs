@@ -186,7 +186,7 @@ impl Visitor for Metadata {
         Ok(Action::Continue)
     }
 
-    // start seq
+    // control nodes
     fn start_seq(
         &mut self,
         s: &mut calyx_ir::Seq,
@@ -198,10 +198,49 @@ impl Visitor for Metadata {
         Ok(Action::Continue)
     }
 
-    // start par
+    fn start_par(
+        &mut self,
+        s: &mut calyx_ir::Par,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
 
-    // after groups are done: implement visit trait for each control node to add a position tag to it
-    // get the line info from span and add position, add posId to node attributes (insert set)
+    fn start_if(
+        &mut self,
+        s: &mut calyx_ir::If,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_while(
+        &mut self,
+        s: &mut calyx_ir::While,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_repeat(
+        &mut self,
+        s: &mut calyx_ir::Repeat,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
 }
 
 // #[cfg(test)]
