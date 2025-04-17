@@ -1,19 +1,69 @@
 import "primitives/core.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {}
+  cells {
+    reg1 = std_reg(32);
+    reg2 = std_reg(32);
+    reg3 = std_reg(32);
+    lt = std_lt(32);
+  }
   wires {
-    group g1 {
+    group g1<"pos"={1}> {
+      reg1.in = 32'd1;
+      reg1.write_en = 1'd1;
+      done = reg1.done;
     }
-    group g2 {
+    group g2<"pos"={2}> {
+      reg2.in = 32'd2;
+      reg2.write_en = 1'd1;
+      done = reg2.done;
     }
-    group g3 {
+    group g3<"pos"={3}> {
+      reg3.in = 32'd3;
+      reg3.write_en = 1'd1;
+      done = reg3.done;
+    }
+    group g4<"pos"={4}> {
+      reg3.in = 32'd0;
+      reg3.write_en = 1'd1;
+      done = reg3.done;
+    }
+    comb group cond {
+      lt.left = 32'd5;
+      lt.right = 32'd9;
     }
   }
-  control {}
+  control {
+    @pos{5} par {
+      @pos{6} seq {
+        g1;
+        g2;
+      }
+      @pos{7} if lt.out with cond {
+        g3;
+      } else {
+        g4;
+      }
+    }
+  }
 }
-metadata #{
-main.g1: tests/passes/metadata-table-gen.futil 8-8
-main.g2: tests/passes/metadata-table-gen.futil 9-9
-main.g3: tests/passes/metadata-table-gen.futil 10-10
-
+sourceinfo #{
+FILES
+1: tests/passes/metadata-table-gen.futil
+POSITIONS
+1: 1 14
+2: 1 19
+3: 1 24
+4: 1 29
+5: 1 40
+6: 1 41
+7: 1 45
 }#
+---STDERR---
+[calyx/opt/src/passes_experimental/metadata_table_gen.rs:161:13] &self.src_table = SourceInfoTable {
+    file_map: {
+        FileId(
+            1,
+        ): "tests/passes/metadata-table-gen.futil",
+    },
+    position_map: {},
+}
