@@ -7,7 +7,7 @@ use calyx_utils::WithPos;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// Metadata stores a Map between each group name and data used in the metadata table (specified in PR #2022)
+/// Metadata creates and stores the source info table for the currently running program
 pub struct Metadata {
     //groups: LinkedHashMap<(Id, Id), ((usize, usize), PathBuf)>,
     src_table: SourceInfoTable,
