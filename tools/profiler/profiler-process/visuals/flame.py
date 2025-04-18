@@ -5,10 +5,20 @@ SCALED_FLAME_MULTIPLIER = (
 )
 
 
+"""
+Utility function for outputting a flame graph to file.
+"""
+
+
 def write_flame_map(flame_map, flame_out_file):
     with open(flame_out_file, "w") as flame_out:
         for stack in flame_map:
             flame_out.write(f"{stack} {flame_map[stack]}\n")
+
+
+"""
+Utility function for writing flat and scaled flame maps to file.
+"""
 
 
 def write_flame_maps(
@@ -65,12 +75,18 @@ def create_flame_maps(trace):
     return flat_flame_map, scaled_flame_map
 
 
+"""
+Create and output a very simple overview flame graph that attributes cycles to categories
+describing how "useful" a cycle is.
+"""
+
+
 def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
     flame_base_map = {
-        "group/primitive": [],
-        "fsm": [],
-        "par-done": [],
-        "mult-ctrl": [],  # fsm and par-done. Have not seen this yet
+        "group/primitive": [],  # at least one group/primitive is executing this cycle
+        "fsm": [],  # only fsm updates are happening this cycle
+        "par-done": [],  # only pd register updates are happening this cycle
+        "mult-ctrl": [],  # fsm and par-done
         "other": [],
     }
     for i in range(len(classified_trace)):

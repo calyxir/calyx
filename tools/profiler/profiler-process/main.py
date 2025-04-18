@@ -21,6 +21,7 @@ def main(
     flame_out,
 ):
     print(f"Start time: {datetime.now()}")
+    # Preprocess information to use in VCD reading
     main_shortname, cells_to_components, components_to_cells = (
         preprocess.read_component_cell_names_json(cells_json_file)
     )
@@ -34,7 +35,7 @@ def main(
         par_done_regs,
         cell_to_groups_to_par_parent,
     ) = preprocess.read_tdcc_file(tdcc_json_file, components_to_cells)
-    # moving output info out of the converter
+    # create dict of fsms outside the converter so they are preserved.
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
         for fsm in fully_qualified_fsms
@@ -49,7 +50,9 @@ def main(
         par_done_regs,
     )
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
-    signal_prefix = converter.signal_prefix
+    signal_prefix = (
+        converter.signal_prefix
+    )  # OS-specific prefix for each signal in the VCD file
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
@@ -76,6 +79,7 @@ def main(
     print(f"End reading VCD: {datetime.now()}")
     del converter
 
+    # debug printing for programs that are less than 100 cycles long
     if len(trace) < 100:
         for i in trace_with_pars:
             print(i)

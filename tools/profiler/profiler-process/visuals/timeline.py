@@ -18,6 +18,7 @@ class TimelineCell:
         self.queued_tids = []
 
     def get_metatrack_pid_tid(self, fsm_name):
+        # metatrack is the second tid, containing information about control register updates
         if fsm_name not in self.fsm_to_tid:
             self.fsm_to_tid[fsm_name] = self.tid_acc
             self.tid_acc += 1
@@ -47,6 +48,11 @@ class TimelineCell:
         return (self.pid, group_tid)
 
 
+"""
+Output a event to the timeline JSON.
+"""
+
+
 def write_timeline_event(event, out_file):
     global num_timeline_events
     if num_timeline_events == 0:  # shouldn't prepend a comma on the first entry
@@ -54,6 +60,12 @@ def write_timeline_event(event, out_file):
     else:
         out_file.write(f",\n{JSON_INDENT}{json.dumps(event)}")
     num_timeline_events += 1
+
+
+"""
+Add fsm and control events to the timeline (values are already determined, this
+function just sets the pid and tid, and writes to file).
+"""
 
 
 def port_fsm_and_control_events(
@@ -84,6 +96,13 @@ def port_fsm_and_control_events(
         write_timeline_event(begin_event, out_file)
         write_timeline_event(end_event, out_file)
     del control_updates[cell_name]
+
+
+"""
+Compute and output a JSON that conforms to the Google Trace File format.
+Each cell gets its own process id, where tid 1 is the duration of the cell itself,
+tid 2 contains control register updates, and tid 3+ contains durations of groups.
+"""
 
 
 def compute_timeline(
