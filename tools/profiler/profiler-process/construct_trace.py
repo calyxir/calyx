@@ -621,9 +621,12 @@ def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
             worklist += par_deps[par]
     return ordered
 
+
 """
 Adds par groups (created by TDCC) to an existing trace.
 """
+
+
 def add_par_to_trace(
     trace,
     par_trace,
