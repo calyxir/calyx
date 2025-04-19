@@ -25,7 +25,11 @@ def classify_stacks(stacks, main_shortname):
 
 
 def create_cycle_trace(
-    info_this_cycle, cells_to_components, main_component, include_primitives
+    info_this_cycle,
+    cells_to_components,
+    shared_cell_map,
+    main_component,
+    include_primitives,
 ):
     stacks_this_cycle = []
     parents = set()  # keeping track of entities that are parents of other entities
@@ -90,8 +94,35 @@ def create_cycle_trace(
         # now we need to construct stacks for any cells that are called from a group in the current component.
         for cell_invoker_group in cell_invokes:
             for invoked_cell in cell_invokes[cell_invoker_group]:
-                if invoked_cell in info_this_cycle["cell-active"]:
-                    cell_shortname = invoked_cell.split(".")[-1]
+                # TODO: if rewritten... then look for the rewritten cell from cell-active
+                # probably worth putting some info in the flame graph that the cell is rewritten from the originally coded one?
+                current_component = (
+                    cells_to_components[current_cell]
+                    if current_cell != main_component
+                    else "main"
+                )
+                cell_split = invoked_cell.split(".")
+                cell_shortname = cell_split[-1]
+                cell_prefix = ".".join(cell_split[:-1])
+                if cell_shortname in shared_cell_map[current_component]:
+                    replacement_cell_shortname = shared_cell_map[current_component][
+                        cell_shortname
+                    ]
+                    replacement_cell = f"{cell_prefix}.{replacement_cell_shortname}"
+                    if replacement_cell not in info_this_cycle["cell-active"]:
+                        print(
+                            f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!"
+                        )
+                        print(info_this_cycle["cell-active"])
+                        sys.exit(1)
+                    cell_worklist.append(replacement_cell)
+                    cell_component = cells_to_components[replacement_cell]
+                    parent = f"{current_cell}.{cell_invoker_group}"
+                    i_mapping[replacement_cell] = i_mapping[parent] + [
+                        f"{cell_shortname} ({replacement_cell_shortname}) [{cell_component}]"
+                    ]
+                    parents.add(parent)
+                elif invoked_cell in info_this_cycle["cell-active"]:
                     cell_worklist.append(invoked_cell)
                     cell_component = cells_to_components[invoked_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
@@ -128,6 +159,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.partial_fsm_events = fsm_events
         self.par_done_regs = par_done_regs
         self.par_groups = par_groups
+
+    """
+    Decide which signals we need to extract value change information from.
+    """
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -204,6 +239,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         del self.par_groups
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
+        # separating probe + cell signals from TDCC/control register signals so we can have a
+        # control-signal-free version of the trace.
         self.signal_id_to_names = {
             k: v for k, v in signal_id_dict.items() if len(v) > 0
         }
@@ -213,6 +250,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.control_signal_id_to_names = {
             k: v for k, v in control_signal_id_to_names.items() if len(v) > 0
         }
+
+    """
+    Reading through value changes and preserving timestamps to value changes for
+    all signals we "care about".
+    """
 
     def value(self, vcd, time, value, identifier_code, cur_sig_vals):
         int_value = int(value, 2)
@@ -257,89 +299,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     )
 
     """
-    Must run after postprocess
-    """
-
-    def postprocess_control(self):
-        control_group_events = {}  # cycle count --> [control groups that are active that cycle]
-        control_reg_updates = {
-            c: [] for c in self.cells_to_components
-        }  # cell name --> (clock_cycle, updates)
-        control_reg_per_cycle = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
-        # for now, control_reg_update_type will be one of "fsm", "par-done", "both"
-
-        control_group_start_cycles = {}
-        for ts in self.timestamps_to_control_group_events:
-            if ts in self.timestamps_to_clock_cycles:
-                clock_cycle = self.timestamps_to_clock_cycles[ts]
-                events = self.timestamps_to_control_group_events[ts]
-                for event in events:
-                    group_name = event["group"]
-                    if event["value"] == 1:  # control group started
-                        control_group_start_cycles[group_name] = clock_cycle
-                    elif event["value"] == 0:  # control group ended
-                        for i in range(
-                            control_group_start_cycles[group_name], clock_cycle
-                        ):
-                            if i in control_group_events:
-                                control_group_events[i].add(group_name)
-                            else:
-                                control_group_events[i] = {group_name}
-
-        for ts in self.timestamps_to_control_reg_changes:
-            if ts in self.timestamps_to_clock_cycles:
-                clock_cycle = self.timestamps_to_clock_cycles[ts]
-                # control_reg_per_cycle[clock_cycle] = []
-                events = self.timestamps_to_control_reg_changes[ts]
-                cell_to_val_changes = {}
-                cell_to_change_type = {}
-                # we only care about registers when their write_enables are fired.
-                for write_en in filter(
-                    lambda e: e.endswith("write_en") and events[e] == 1, events.keys()
-                ):
-                    write_en_split = write_en.split(".")
-                    reg_name = ".".join(write_en_split[:-1])
-                    cell_name = ".".join(write_en_split[:-2])
-                    in_signal = f"{reg_name}.in"
-                    reg_new_value = events[in_signal] if in_signal in events else 0
-                    if not (
-                        reg_name in self.par_done_regs and reg_new_value == 0
-                    ):  # ignore when pd values turn 0 since they are only useful when they are high
-                        upd = f"{write_en_split[-2]}:{reg_new_value}"
-                        if cell_name in cell_to_val_changes:
-                            cell_to_val_changes[cell_name] += f", {upd}"
-                        else:
-                            cell_to_val_changes[cell_name] = upd
-                        # update cell_to_change_type
-                        if ".pd" in reg_name and cell_name not in cell_to_change_type:
-                            cell_to_change_type[cell_name] = "par-done"
-                        elif (
-                            ".pd" in reg_name
-                            and cell_to_change_type[cell_name] == "fsm"
-                        ):
-                            cell_to_change_type[cell_name] = "both"
-                        elif (
-                            ".fsm" in reg_name and cell_name not in cell_to_change_type
-                        ):
-                            cell_to_change_type[cell_name] = "fsm"
-                        elif (
-                            ".fsm" in reg_name
-                            and cell_to_change_type[cell_name] == "par-done"
-                        ):
-                            cell_to_change_type[cell_name] = "both"
-                        # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
-                for cell in cell_to_val_changes:
-                    control_reg_updates[cell].append(
-                        (clock_cycle, cell_to_val_changes[cell])
-                    )
-                if len(cell_to_change_type) > 0:
-                    leaf_cell = sorted(
-                        cell_to_change_type.keys(), key=(lambda k: k.count("."))
-                    )[-1]
-                    control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
-        return control_group_events, control_reg_updates, control_reg_per_cycle
-
-    """
     Postprocess data mapping timestamps to events (signal changes)
     We have to postprocess instead of processing signals in a stream because
     signal changes that happen at the same time as a clock tick might be recorded
@@ -347,7 +306,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     everything within a stream if we wanted to be precise)
     """
 
-    def postprocess(self):
+    def postprocess(self, shared_cells_map):
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
@@ -521,7 +480,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             parent_group
                         ].add(primitive_name)
                 stacks_this_cycle = create_cycle_trace(
-                    info_this_cycle, self.cells_to_components, self.main_component, True
+                    info_this_cycle,
+                    self.cells_to_components,
+                    shared_cells_map,
+                    self.main_component,
+                    True,
                 )  # True to track primitives
                 trace[clock_cycles] = stacks_this_cycle
                 trace_classified.append(
@@ -533,9 +496,111 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         return trace, trace_classified, cell_to_active_cycles_summary
 
+    """
+    Collects information on control register (fsm, pd) updates.
+    Must run after self.postprocess() because this function relies on self.timestamps_to_clock_cycles
+    (which gets filled in during self.postprocess()).
+    """
+
+    def postprocess_control(self):
+        control_group_events = {}  # cycle count --> [control groups that are active that cycle]
+        control_reg_updates = {
+            c: [] for c in self.cells_to_components
+        }  # cell name --> (clock_cycle, updates)
+        control_reg_per_cycle = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
+        # for now, control_reg_update_type will be one of "fsm", "par-done", "both"
+
+        control_group_start_cycles = {}
+        control_group_to_summary = {}  # group --> {"num-times-active": _, "active-cycles": []}. Used in
+        for ts in self.timestamps_to_control_group_events:
+            if ts in self.timestamps_to_clock_cycles:
+                clock_cycle = self.timestamps_to_clock_cycles[ts]
+                events = self.timestamps_to_control_group_events[ts]
+                for event in events:
+                    group_name = event["group"]
+                    if group_name not in control_group_to_summary:
+                        control_group_to_summary[group_name] = {
+                            "num-times-active": 0,
+                            "active-cycles": [],
+                        }
+                    if event["value"] == 1:  # control group started
+                        control_group_start_cycles[group_name] = clock_cycle
+                        control_group_to_summary[group_name]["num-times-active"] += 1
+                    elif event["value"] == 0:  # control group ended
+                        active_range = range(
+                            control_group_start_cycles[group_name], clock_cycle
+                        )
+                        control_group_to_summary[group_name]["active-cycles"] += list(
+                            active_range
+                        )
+                        for i in active_range:
+                            if i in control_group_events:
+                                control_group_events[i].add(group_name)
+                            else:
+                                control_group_events[i] = {group_name}
+
+        for ts in self.timestamps_to_control_reg_changes:
+            if ts in self.timestamps_to_clock_cycles:
+                clock_cycle = self.timestamps_to_clock_cycles[ts]
+                # control_reg_per_cycle[clock_cycle] = []
+                events = self.timestamps_to_control_reg_changes[ts]
+                cell_to_val_changes = {}
+                cell_to_change_type = {}
+                # we only care about registers when their write_enables are fired.
+                for write_en in filter(
+                    lambda e: e.endswith("write_en") and events[e] == 1, events.keys()
+                ):
+                    write_en_split = write_en.split(".")
+                    reg_name = ".".join(write_en_split[:-1])
+                    cell_name = ".".join(write_en_split[:-2])
+                    in_signal = f"{reg_name}.in"
+                    reg_new_value = events[in_signal] if in_signal in events else 0
+                    if not (
+                        reg_name in self.par_done_regs and reg_new_value == 0
+                    ):  # ignore when pd values turn 0 since they are only useful when they are high
+                        upd = f"{write_en_split[-2]}:{reg_new_value}"
+                        if cell_name in cell_to_val_changes:
+                            cell_to_val_changes[cell_name] += f", {upd}"
+                        else:
+                            cell_to_val_changes[cell_name] = upd
+                        # update cell_to_change_type
+                        if ".pd" in reg_name and cell_name not in cell_to_change_type:
+                            cell_to_change_type[cell_name] = "par-done"
+                        elif (
+                            ".pd" in reg_name
+                            and cell_to_change_type[cell_name] == "fsm"
+                        ):
+                            cell_to_change_type[cell_name] = "both"
+                        elif (
+                            ".fsm" in reg_name and cell_name not in cell_to_change_type
+                        ):
+                            cell_to_change_type[cell_name] = "fsm"
+                        elif (
+                            ".fsm" in reg_name
+                            and cell_to_change_type[cell_name] == "par-done"
+                        ):
+                            cell_to_change_type[cell_name] = "both"
+                        # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
+                for cell in cell_to_val_changes:
+                    control_reg_updates[cell].append(
+                        (clock_cycle, cell_to_val_changes[cell])
+                    )
+                if len(cell_to_change_type) > 0:
+                    leaf_cell = sorted(
+                        cell_to_change_type.keys(), key=(lambda k: k.count("."))
+                    )[-1]
+                    control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
+        return (
+            control_group_events,
+            control_group_to_summary,
+            control_reg_updates,
+            control_reg_per_cycle,
+        )
+
 
 """
-Give a partial ordering for pars
+Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
+we should add them to the trace.
 (1) order based on cells
 (2) for pars in the same cell, order based on dependencies information
 """
@@ -555,6 +620,11 @@ def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
             # get all the children of this par
             worklist += par_deps[par]
     return ordered
+
+
+"""
+Adds par groups (created by TDCC) to an existing trace.
+"""
 
 
 def add_par_to_trace(
