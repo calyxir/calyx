@@ -87,7 +87,7 @@ def read_tdcc_file(tdcc_json_file, components_to_cells):
             if component in component_to_pars:
                 component_to_pars[component].append(json_entry["Par"]["par_group"])
             else:
-                component_to_pars[component] = json_entry["Par"]["par_group"]
+                component_to_pars[component] = [json_entry["Par"]["par_group"]]
     # pass 2: obtain FSM register info, par group and child register information
     for json_entry in json_data:
         if "Fsm" in json_entry:
