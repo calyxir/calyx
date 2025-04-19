@@ -3,7 +3,6 @@ import os
 import sys
 import vcdvcd
 
-# import adl_mapping, construct_trace, preprocess
 import adl_mapping
 import construct_trace
 import preprocess
