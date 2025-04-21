@@ -160,11 +160,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.par_done_regs = par_done_regs
         self.par_groups = par_groups
 
-    """
-    Decide which signals we need to extract value change information from.
-    """
-
     def enddefinitions(self, vcd, signals, cur_sig_vals):
+        """
+        Decide which signals we need to extract value change information from.
+        """
         # convert references to list and sort by name
         refs = [(k, v) for k, v in vcd.references_to_ids.items()]
         refs = sorted(refs, key=lambda e: e[0])
@@ -251,12 +250,11 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             k: v for k, v in control_signal_id_to_names.items() if len(v) > 0
         }
 
-    """
-    Reading through value changes and preserving timestamps to value changes for
-    all signals we "care about".
-    """
-
     def value(self, vcd, time, value, identifier_code, cur_sig_vals):
+        """
+        Reading through value changes and preserving timestamps to value changes for
+        all signals we "care about".
+        """
         int_value = int(value, 2)
         if identifier_code in self.signal_id_to_names:
             signal_names = self.signal_id_to_names[identifier_code]
@@ -298,15 +296,15 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         int_value
                     )
 
-    """
-    Postprocess data mapping timestamps to events (signal changes)
-    We have to postprocess instead of processing signals in a stream because
-    signal changes that happen at the same time as a clock tick might be recorded
-    *before* or *after* the clock change on the VCD file (hence why we can't process
-    everything within a stream if we wanted to be precise)
-    """
-
     def postprocess(self, shared_cells_map):
+        """
+        Postprocess data mapping timestamps to events (signal changes)
+        We have to postprocess instead of processing signals in a stream because
+        signal changes that happen at the same time as a clock tick might be recorded
+        *before* or *after* the clock change on the VCD file (hence why we can't process
+        everything within a stream if we wanted to be precise)
+        """
+
         clock_name = f"{self.main_component}.clk"
         clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
@@ -496,13 +494,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         return trace, trace_classified, cell_to_active_cycles_summary
 
-    """
-    Collects information on control register (fsm, pd) updates.
-    Must run after self.postprocess() because this function relies on self.timestamps_to_clock_cycles
-    (which gets filled in during self.postprocess()).
-    """
-
     def postprocess_control(self):
+        """
+        Collects information on control register (fsm, pd) updates.
+        Must run after self.postprocess() because this function relies on self.timestamps_to_clock_cycles
+        (which gets filled in during self.postprocess()).
+        """
         control_group_events = {}  # cycle count --> [control groups that are active that cycle]
         control_reg_updates = {
             c: [] for c in self.cells_to_components
@@ -598,15 +595,13 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         )
 
 
-"""
-Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
-we should add them to the trace.
-(1) order based on cells
-(2) for pars in the same cell, order based on dependencies information
-"""
-
-
 def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
+    """
+    Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
+    we should add them to the trace.
+    (1) order based on cells
+    (2) for pars in the same cell, order based on dependencies information
+    """
     ordered = {}  # cell --> ordered par names
     for cell in sorted(cell_to_pars, key=(lambda c: c.count("."))):
         ordered[cell] = []
@@ -622,11 +617,6 @@ def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
     return ordered
 
 
-"""
-Adds par groups (created by TDCC) to an existing trace.
-"""
-
-
 def add_par_to_trace(
     trace,
     par_trace,
@@ -634,6 +624,9 @@ def add_par_to_trace(
     cell_to_groups_to_par_parent,
     main_shortname,
 ):
+    """
+    Adds par groups (created by TDCC) to an existing trace.
+    """
     new_trace = {i: [] for i in trace}
     for i in trace:
         if i in par_trace:

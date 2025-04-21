@@ -1,10 +1,6 @@
 import csv
 import os
 
-"""
-Collect and write statistics information about cells to cell-stats.csv.
-"""
-
 
 def write_cell_stats(
     cell_to_active_cycles,
@@ -14,6 +10,9 @@ def write_cell_stats(
     total_cycles,
     out_dir,
 ):
+    """
+    Collect and write statistics information about cells to cell-stats.csv.
+    """
     fieldnames = [
         "cell-name",
         "num-fsms",
@@ -73,14 +72,15 @@ def write_cell_stats(
         writer.writerows(stats)
 
 
-"""
-Utility function to compute the amount of "flattened" work we get out of a par.
-"""
+
 
 
 def compute_par_useful_work(
     fully_qualified_par_name, active_cycles, trace, main_shortname
 ):
+    """
+    Utility function to compute the amount of "flattened" work we get out of a par.
+    """
     # super hacky way to get number of flattened useful cycles we obtained
     acc = 0
     # FIXME: this may not work for nested pars. Should explicitly test
@@ -108,14 +108,13 @@ def compute_par_useful_work(
     return acc
 
 
-"""
-Collect and output statistics about TDCC-defined par groups to ctrl-group-stats.csv.
-"""
-
 
 def write_par_stats(
     control_groups_summary, cats_to_cycles, trace_with_ctrl, main_shortname, out_dir
 ):
+    """
+    Collect and output statistics about TDCC-defined par groups to ctrl-group-stats.csv.
+    """    
     fieldnames = [
         "group-name",
         "flattened-cycles",

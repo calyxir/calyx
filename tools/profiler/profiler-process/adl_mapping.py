@@ -31,12 +31,11 @@ def read_adl_mapping_file(adl_mapping_file):
     return component_mappings, cell_mappings, group_mappings
 
 
-"""
-Creates ADL and Mixed (ADL + Calyx) versions of flame graph maps.
-"""
-
 
 def convert_flame_map(flame_map, adl_mapping_file):
+    """
+    Creates ADL and Mixed (ADL + Calyx) versions of flame graph maps.
+    """    
     component_map, cell_map, group_map = read_adl_mapping_file(adl_mapping_file)
     adl_flame_map = {}
     mixed_flame_map = {}

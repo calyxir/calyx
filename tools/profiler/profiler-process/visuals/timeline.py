@@ -48,12 +48,10 @@ class TimelineCell:
         return (self.pid, group_tid)
 
 
-"""
-Output a event to the timeline JSON.
-"""
-
-
 def write_timeline_event(event, out_file):
+    """
+    Output a event to the timeline JSON.
+    """
     global num_timeline_events
     if num_timeline_events == 0:  # shouldn't prepend a comma on the first entry
         out_file.write(f"\n{JSON_INDENT}{json.dumps(event)}")
@@ -62,15 +60,13 @@ def write_timeline_event(event, out_file):
     num_timeline_events += 1
 
 
-"""
-Add fsm and control events to the timeline (values are already determined, this
-function just sets the pid and tid, and writes to file).
-"""
-
-
 def port_fsm_and_control_events(
     partial_fsm_events, control_updates, cell_to_info, cell_name, out_file
 ):
+    """
+    Add fsm and control events to the timeline (values are already determined, this
+    function just sets the pid and tid, and writes to file).
+    """
     for fsm_name in list(partial_fsm_events.keys()):
         del partial_fsm_events[fsm_name]
     for cycle, update in control_updates[cell_name]:
@@ -98,16 +94,14 @@ def port_fsm_and_control_events(
     del control_updates[cell_name]
 
 
-"""
-Compute and output a JSON that conforms to the Google Trace File format.
-Each cell gets its own process id, where tid 1 is the duration of the cell itself,
-tid 2 contains control register updates, and tid 3+ contains durations of groups.
-"""
-
-
 def compute_timeline(
     trace, partial_fsm_events, control_updates, main_component, out_dir
 ):
+    """
+    Compute and output a JSON that conforms to the Google Trace File format.
+    Each cell gets its own process id, where tid 1 is the duration of the cell itself,
+    tid 2 contains control register updates, and tid 3+ contains durations of groups.
+    """
     # generate the JSON on the fly instead of storing everything in a list to save memory
     out_path = os.path.join(out_dir, "timeline-dump.json")
     out_file = open(out_path, "w", encoding="utf-8")
@@ -220,15 +214,6 @@ def compute_timeline(
     out_file.close()
 
 
-"""
-Creates a JSON entry for traceEvents.
-element_name: fully qualified name of cell/group
-cycle: timestamp of the event, in cycles
-event_type: "B" for begin event, "E" for end event
-display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
-"""
-
-
 def create_timeline_event(
     element_name,
     cycle,
@@ -237,6 +222,13 @@ def create_timeline_event(
     group_to_parent_cell,
     cell_display_name=None,
 ):
+    """
+    Creates a JSON entry for traceEvents.
+    element_name: fully qualified name of cell/group
+    cycle: timestamp of the event, in cycles
+    event_type: "B" for begin event, "E" for end event
+    display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
+    """
     if element_name in cell_to_info:  # cell
         event = {
             "name": element_name if cell_display_name is None else cell_display_name,
