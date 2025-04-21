@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime
 import os
 import sys
@@ -148,38 +149,33 @@ def main(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 6:
-        vcd_filename = sys.argv[1]
-        cells_json = sys.argv[2]
-        fsms_json = sys.argv[3]
-        shared_cells_json = sys.argv[4]
-        out_dir = sys.argv[5]
-        flame_out = sys.argv[6]
-        if len(sys.argv) > 7:
-            adl_mapping_file = sys.argv[6]
-        else:
-            adl_mapping_file = None
-        print(f"ADL mapping file: {adl_mapping_file}")
-        main(
-            vcd_filename,
-            cells_json,
-            fsms_json,
-            shared_cells_json,
-            adl_mapping_file,
-            out_dir,
-            flame_out,
-        )
-    else:
-        args_desc = [
-            "VCD_FILE",
-            "CELLS_JSON",  # FIXME: might want to rename this
-            "FSMS_JSON",
-            "SHARED_CELLS_JSON",
-            "OUT_DIR",
-            "FLATTENED_FLAME_OUT",
-            "[ADL_MAP_JSON]",
-        ]
-        print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
-        print("CELLS_JSON: Run the `component_cells` tool")
-        print("CELLS_FOR_TIMELINE is an optional ")
-        sys.exit(-1)
+    parser = argparse.ArgumentParser(
+        description="Analyze instrumented VCD file and generate initial files for visualizations"
+    )
+    parser.add_argument("vcd_filename", help="Instrumented VCD file")
+    parser.add_argument(
+        "cells_json", help="File mapping components to the cells that they contain."
+    )
+    parser.add_argument(
+        "fsms_json",
+        help='Run the Calyx compiler with -x tdcc:dump-fsm-json="<FILENAME>" to obtain the file.',
+    )
+    parser.add_argument(
+        "shared_cells_json",
+        help="Records cells that are shared during cell-share pass.",
+    )
+    parser.add_argument("out_dir", help="Output directory")
+    parser.add_argument("flame_out", help="Flame")
+    parser.add_argument(
+        "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
+    )
+    args = parser.parse_args()
+    main(
+        args.vcd_filename,
+        args.cells_json,
+        args.fsms_json,
+        args.shared_cells_json,
+        args.adl_mapping_file,
+        args.out_dir,
+        args.flame_out,
+    )
