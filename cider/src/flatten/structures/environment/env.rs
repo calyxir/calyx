@@ -390,6 +390,8 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     memory_header: Option<Vec<MemoryDeclaration>>,
     logger: Logger,
+
+    group_instances: Vec<(GlobalCellIdx, GroupIdx)>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -511,6 +513,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             pinned_ports: PinnedPorts::new(),
             control_ports: HashMap::new(),
             logger: logging::initialize_logger(logging_conf),
+            group_instances: vec![],
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -552,6 +555,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         if let Some(header) = data_map {
             env.memory_header = Some(header.header.memories);
+        }
+
+        for (cell, ledger) in env.cells.iter() {
+            if let Some(comp_ledger) = ledger.as_comp() {
+                let ctx = env.ctx.as_ref();
+                for group in
+                    ctx.secondary[comp_ledger.comp_id].definitions.groups()
+                {
+                    env.group_instances.push((cell, group))
+                }
+            }
         }
 
         env
@@ -1905,12 +1919,16 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self,
         control_points: &[ControlTuple],
     ) -> Vec<ScheduledAssignments> {
-        control_points
+        let mut skiplist = HashSet::new();
+
+        let mut out: Vec<ScheduledAssignments> = control_points
             .iter()
             .filter_map(|(thread, node)| {
                 match &self.ctx().primary[node.control_node_idx].control {
                     Control::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
+
+                        skiplist.insert((node.comp, e.group()));
 
                         Some(ScheduledAssignments::new_control(
                             node.comp,
@@ -1952,7 +1970,28 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     )
                 },
             ))
-            .collect()
+            .collect();
+
+        out.extend(self.env.group_instances.iter().filter_map(
+            |(cell, group_idx)| {
+                if !skiplist.contains(&(*cell, *group_idx)) {
+                    let group = &self.ctx().primary[*group_idx];
+
+                    Some(ScheduledAssignments::new_control(
+                        *cell,
+                        group.assignments,
+                        Some(GroupInterfacePorts {
+                            go: group.go,
+                            done: group.done,
+                        }),
+                        None,
+                    ))
+                } else {
+                    None
+                }
+            },
+        ));
+        out
     }
 
     /// A helper function which inserts indices for the ref cells and ports
