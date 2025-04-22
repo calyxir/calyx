@@ -9,7 +9,7 @@ rule get-rsrc
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
 calyx-lib-path = $calyx-base
-args = 
+args =
 rule calyx
   command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
@@ -20,14 +20,15 @@ rule calyx-cider
 
 cells = cells.json
 fsm-json = fsm.json
+cell-share-json = shared-cells.json
 passes = -p pre-opt -p compile -p post-opt -p lower
-edsl-args = 
+edsl-args =
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
 parse-vcd-script = $calyx-base/tools/profiler/profiler-process/main.py
 rule parse-vcd
-  command = python3 $parse-vcd-script $in $cells $fsm-json profiler-out $out
+  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out
 flamegraph-script = /test/calyx/non-existent.script
 create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
 rule create-visuals
@@ -67,7 +68,7 @@ cycle-limit = 500000000
 build $cells: component-cells /input.ext
 build instrumented.sv: calyx /input.ext
   backend = verilog
-  args = -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json
+  args = -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel
