@@ -25,6 +25,21 @@ pub enum RunError {
 
     /// The Ninja process exited with nonzero status.
     NinjaFailed(ExitStatus),
+
+    /// The Rhai emitter ran into an error. Probably should just reconfigure so
+    /// that the emitter just returns the actual error type
+    RhaiError(String),
+}
+
+impl From<Box<rhai::EvalAltResult>> for RunError {
+    fn from(v: Box<rhai::EvalAltResult>) -> Self {
+        // this is kinda a hack
+        if let rhai::EvalAltResult::ErrorSystem(_, actual_err) = *v {
+            Self::RhaiError(format!("{actual_err}"))
+        } else {
+            Self::RhaiError(format!("{v}"))
+        }
+    }
 }
 
 impl From<std::io::Error> for RunError {
@@ -55,6 +70,9 @@ impl std::fmt::Display for RunError {
             }
             RunError::NinjaFailed(c) => {
                 write!(f, "ninja exited with {}", c)
+            }
+            RunError::RhaiError(eval_alt_result) => {
+                write!(f, "{}", eval_alt_result)
             }
         }
     }

@@ -1,7 +1,6 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit plan: calyx-py-profiler"
-snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
@@ -30,6 +29,19 @@ rule component-cells
 parse-vcd-script = $calyx-base/tools/profiler/profiler-process/main.py
 rule parse-vcd
   command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out
+flamegraph-script = /test/calyx/non-existent.script
+create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
+rule create-visuals
+  command = bash $create-visuals-script $flamegraph-script profiler-out $in $out
+build tb.sv: get-rsrc
+rule edsl-to-calyx
+  command = python3 $in $edsl-args > $out
+metadata-mapping-json = metadata-map.json
+fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
+rule parse-metadata
+  command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
+rule parse-vcd-from-adl
+  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out $metadata-mapping-json
 
 verilator = verilator
 cycle-limit = 500000000
