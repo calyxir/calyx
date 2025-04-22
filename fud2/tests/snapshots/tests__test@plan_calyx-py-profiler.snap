@@ -9,7 +9,7 @@ rule get-rsrc
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
 calyx-lib-path = $calyx-base
-args =
+args = 
 rule calyx
   command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
 rule calyx-pass
@@ -22,7 +22,7 @@ cells = cells.json
 fsm-json = fsm.json
 cell-share-json = shared-cells.json
 passes = -p pre-opt -p compile -p post-opt -p lower
-edsl-args =
+edsl-args = 
 component_cells = $calyx-base/target/debug/component_cells
 rule component-cells
   command = $component_cells -l $calyx-base $in > $out
@@ -41,7 +41,7 @@ fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata
   command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
 rule parse-vcd-from-adl
-  command = python3 $parse-vcd-script $in $cells $fsm-json profiler-out $out $metadata-mapping-json
+  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out $metadata-mapping-json
 
 verilator = verilator
 cycle-limit = 500000000
