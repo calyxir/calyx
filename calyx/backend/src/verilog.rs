@@ -850,7 +850,7 @@ fn emit_fsm_module<F: io::Write>(
     // Write module header. Inputs include ports checked during transitions, and
     // outputs include one one-bit wire for every state
     writeln!(f, "\nmodule {}_{comp_name}_def (", fsm.borrow().name())?;
-    writeln!(f, "{}", "  input logic clk,\n  input logic reset,\n")?;
+    writeln!(f, "  input logic clk,\n  input logic reset,\n")?;
     let mut used_port_names: HashSet<ir::Canonical> = HashSet::new();
     for transition in fsm.borrow().transitions.iter() {
         if let ir::Transition::Conditional(guards) = transition {
