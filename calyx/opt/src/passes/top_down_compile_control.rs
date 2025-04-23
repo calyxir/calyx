@@ -1,14 +1,12 @@
-use super::math_utilities::get_bit_width_from;
 use crate::passes;
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{
-    self as ir, BoolAttr, Cell, GetAttributes, LibrarySignatures, Printer, RRC,
+    self as ir, BoolAttr, Cell, GetAttributes, Id, LibrarySignatures, Printer,
+    RRC, build_assignments, guard, structure,
 };
-use calyx_ir::{Id, build_assignments, guard, structure};
-use calyx_utils::Error;
-use calyx_utils::{CalyxResult, OutputFile};
+use calyx_utils::{CalyxResult, Error, OutputFile, math::bits_needed_for};
 use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
@@ -496,7 +494,7 @@ impl Schedule<'_, '_> {
         // get fsm bit width and build constant emitting fsm first state
         let (fsm_size, first_state) = match fsm_rep.encoding {
             RegisterEncoding::Binary => {
-                let fsm_size = get_bit_width_from(fsm_rep.last_state + 1);
+                let fsm_size = bits_needed_for(fsm_rep.last_state + 1);
                 (fsm_size, builder.add_constant(0, fsm_size))
             }
             RegisterEncoding::OneHot => {

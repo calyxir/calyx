@@ -60,11 +60,9 @@ impl<'a> Builder<'a> {
         self.component.continuous_assignments.extend(assigns);
     }
 
-    /// Construct a non-conflicting name for the FSM construct
-    pub fn generate_fsm_name(&mut self) -> ir::Id {
-        self.component.generate_name("fsm")
-    }
-
+    /// Construct a new FSM and add it to the Component.
+    /// The FSM is guaranteed to start with `prefix`.
+    /// Returns a reference to the group.
     pub fn add_fsm<S>(&mut self, prefix: S) -> RRC<ir::FSM>
     where
         S: Into<ir::Id>,

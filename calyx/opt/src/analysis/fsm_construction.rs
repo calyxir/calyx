@@ -1,5 +1,5 @@
-use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir, build_assignments, guard};
+use calyx_utils::math::bits_needed_for;
 use core::ops::Not;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -59,7 +59,7 @@ impl StaticSchedule<'_, '_> {
         let group_latency = sen.group.borrow().get_latency();
 
         // instantiate a local counter register
-        let width = get_bit_width_from(group_latency);
+        let width = bits_needed_for(group_latency);
         let counter =
             self.builder
                 .add_primitive("group_counter", "std_reg", &[width]);

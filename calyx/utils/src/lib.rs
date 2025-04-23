@@ -7,7 +7,8 @@ mod pos_string;
 mod position;
 mod weight_graph;
 
-mod math;
+pub mod math;
+pub mod math_utilities;
 pub(crate) mod measure_time;
 
 pub mod float;
