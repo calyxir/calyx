@@ -1,28 +1,6 @@
-{
-  "l0": [
-    4,
-    6,
-    8
-  ],
-  "l1": [
-    7,
-    9,
-    11
-  ],
-  "out_mem": [
-    760,
-    400,
-    1120,
-    580
-  ],
-  "t0": [
-    30,
-    40,
-    50
-  ],
-  "t1": [
-    10,
-    20,
-    30
-  ]
-}
+
+---STDERR---
+==== [1mCider[0m: The [4mC[0malyx [4mI[0mnterpreter and [4mDe[0mbugge[4mr[0m ====
+Hit breakpoint: main::true
+Main component has finished executing. Debugger is now in inspection mode.
+Exiting.
