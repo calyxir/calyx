@@ -129,7 +129,7 @@ impl SearchPath {
         self.path.len()
     }
 
-    pub fn _is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.path.is_empty()
     }
 
