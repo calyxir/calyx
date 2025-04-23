@@ -157,6 +157,9 @@ impl CommandParser {
             [group(g)..] => {
                 Command::Break(g.map(|x| BreakTarget::Name(x)).collect())
             },
+            [breakpoint_path(p)..] => {
+                Command::Break(p.map(|x| BreakTarget::Path(x)).collect())
+            }
         ))
     }
 
@@ -319,12 +322,6 @@ impl CommandParser {
         Ok(input.as_str().to_owned())
     }
 
-    fn branch(input: Node) -> ParseResult<bool> {
-        let b = input.as_str();
-        let result = b != "f";
-        Ok(result)
-    }
-
     fn clause(input: Node) -> ParseResult<ParseNodes> {
         Ok(match_nodes!(input.into_children();
             [separator(_), num(n)] => ParseNodes::Offset(n),
@@ -333,9 +330,21 @@ impl CommandParser {
         ))
     }
 
+    fn branch(input: Node) -> ParseResult<bool> {
+        let b = input.as_str();
+        let result = b != "f";
+        Ok(result)
+    }
+
+    fn breakpoint_path(input: Node) -> ParseResult<ParsePath> {
+        Ok(match_nodes!(input.into_children();
+            [name_path(n), root(_), clause(c)..] => ParsePath::from_iter(c,n),
+        ))
+    }
+
     fn path(input: Node) -> ParseResult<ParsePath> {
         Ok(match_nodes!(input.into_children();
-            [name_path(n), root(_), clause(c).., EOI(_)] => ParsePath::from_iter(c,n),
+            [breakpoint_path(p), EOI(_)] => p,
         ))
     }
 }
