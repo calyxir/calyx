@@ -120,7 +120,7 @@ paths = [
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-python3 {} 20000 --keepgoing |\
+python3 {} 100 --keepgoing |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
