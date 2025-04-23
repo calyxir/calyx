@@ -685,19 +685,14 @@ impl<C: AsRef<Context> + Clone> DebuggingContext<C> {
             .group_info
             .ctrl_nodes_off()
             .filter_map(|x| {
-                if let Some(watchpoint_indices) =
-                    extract_group(self.context.as_ref(), *x)
-                        .and_then(|x| self.watchpoints.get_by_group(x))
-                {
-                    Some(match watchpoint_indices {
+                extract_group(self.context.as_ref(), *x)
+                    .and_then(|x| self.watchpoints.get_by_group(x))
+                    .map(|watchpoint_indices| match watchpoint_indices {
                         WatchPointIndices::After(x) => x.iter(),
                         WatchPointIndices::Both { after, .. } => after.iter(),
                         // this is stupid but works
                         _ => [].iter(),
                     })
-                } else {
-                    None
-                }
             })
             .flatten();
 
