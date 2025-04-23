@@ -196,6 +196,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     pub fn set_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
+        // TODO IS THIS RIGHT?
         let _ = self.create_breakpoints(breakpoints);
     }
 

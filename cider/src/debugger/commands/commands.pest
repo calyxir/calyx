@@ -52,9 +52,14 @@ branch = { "t" | "f" }
 
 clause = { separator ~ (body | num | branch) }
 
-name_path = { (ASCII_ALPHA | ASCII_DIGIT | "_")* }
+// Should always atleast be 1
+name_path = { (ASCII_ALPHA | ASCII_DIGIT | "_")+ }
 
-step_over = { ^"step-over" ~ (group | name_path) ~ num? }
+breakpoint_path = { name_path ~ root ~ clause* }
+
+// End merge
+
+step_over = { ^"step-over" ~ (group | breakpoint_path) ~ num? }
 
 step       = { (^"step" | ^"s") ~ num? }
 cont       = {
@@ -67,7 +72,8 @@ display    = { ^"display" | ^"d" }
 info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
 info_watch = { (^"info" ~ ^"watch") | ^"i" ~ ^"w" }
 
-brk    = { (^"break " | ^"br ") ~ group+ }
+// For now we assume we have all groups or all breakpoints
+brk    = { (^"break " | ^"br ") ~ (breakpoint_path+ | group+) }
 brk_id = { (group | num) }
 
 delete = { (^"delete " | ^"del ") ~ brk_id+ }
@@ -93,4 +99,4 @@ command = {
   | cont | help | info_break | info_watch | display | exit | explain | restart)? ~ EOI
 }
 
-path = { SOI ~ name_path ~ root ~ clause* ~ EOI }
+path = { SOI ~ breakpoint_path ~ EOI }
