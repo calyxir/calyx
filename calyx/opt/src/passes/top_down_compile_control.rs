@@ -1288,7 +1288,7 @@ pub struct TopDownCompileControl {
     dump_fsm_json: Option<OutputFile>,
     /// Enable early transitions
     early_transitions: bool,
-    /// Bookkeeping for FSM ids for groups across all FSMs in the program
+    /// Profiling: Bookkeeping for TDCC-generated register/group information (FSMs, par groups)
     profiling_info: HashSet<ProfilingInfo>,
     /// Decides whether FSMs are emitted as normal (inlined) or such that synthesis tool infers + optimizes FSM
     infer_fsms: bool,

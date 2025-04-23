@@ -1,0 +1,80 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external mem = comb_mem_d1(32, 1, 1);
+    r = std_reg(32);
+    ans = std_reg(32);
+    id_1 = identity();
+    id_2 = identity();
+    id_3 = identity();
+  }
+  wires {
+    group read {
+      mem.addr0 = 1'd0;
+      r.in = mem.read_data;
+      r.write_en = 1'd1;
+      read[done] = r.done;
+    }
+    group write {
+      mem.addr0 = 1'd0;
+      mem.write_en = 1'd1;
+      mem.write_data = r.out;
+      write[done] = mem.done;
+    }
+  }
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID read;
+      @NODE_ID(2) invoke id_1(
+        in_1 = r.out
+      )(
+        out = ans.in
+      );
+      @NODE_ID(3) invoke id_1(
+        in_1 = r.out
+      )(
+        out = ans.in
+      );
+      @NODE_ID(4) invoke id_1(
+        in_1 = r.out
+      )(
+        out = ans.in
+      );
+      @NODE_ID(5) write;
+    }
+  }
+}
+component identity<"state_share"=1>(in_1: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    group save {
+      r.in = in_1;
+      r.write_en = 1'd1;
+      save[done] = r.done;
+    }
+    out = r.out;
+  }
+  control {
+    @NODE_ID(0) save;
+  }
+}
+---STDERR---
+{
+  "identity": [],
+  "main": [
+    {
+      "original": "id_3",
+      "new": "id_1",
+      "cell_type": "identity"
+    },
+    {
+      "original": "id_2",
+      "new": "id_1",
+      "cell_type": "identity"
+    }
+  ]
+}
