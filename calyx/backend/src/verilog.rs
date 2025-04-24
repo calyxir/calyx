@@ -12,10 +12,13 @@ use morty::{FileBundle, LibraryBundle};
 use std::env;
 use std::io;
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::path;
 use std::{collections::HashMap, collections::HashSet, path::PathBuf, rc::Rc};
 use std::{fs::File, time::Instant};
 use tempfile::NamedTempFile;
 use vast::v17::ast as v;
+
+const PRIM_DIR: &str = "CALYX_PRIMITIVES_DIR";
 
 /// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
 /// and no groups.
@@ -153,12 +156,18 @@ trait LibraryHandlerTrait {
 struct HardFloatHandler;
 impl LibraryHandlerTrait for HardFloatHandler {
     fn add_incs(&self) -> CalyxResult<Vec<PathBuf>> {
-        let current_dir = env::current_dir()
-            .map_err(|e| Error::invalid_file(e.to_string()))?;
+        let base: path::PathBuf = match env::var_os(PRIM_DIR) {
+            Some(v) => path::PathBuf::from(v),
+            None => {
+                let mut path: path::PathBuf =
+                    env::var_os("HOME").unwrap().into();
+                path.push(".calyx");
+                path
+            }
+        };
 
         // To include `HardFloat_consts.vi` file
-        let source_path =
-            current_dir.join("primitives/float/HardFloat-1/source/");
+        let source_path = base.join("primitives/float/HardFloat-1/source/");
         // Randomly pick the RISCV directory as the specialization subdirectory to include `HardFloat_specialize.vi`
         let riscv_path = source_path.join("RISCV/");
 
@@ -191,11 +200,17 @@ impl LibraryHandlerTrait for HardFloatHandler {
         Ok(inc_paths)
     }
     fn add_library_dirs(&self) -> CalyxResult<Vec<PathBuf>> {
-        let current_dir = env::current_dir()
-            .map_err(|e| Error::invalid_file(e.to_string()))?;
+        let base: path::PathBuf = match env::var_os(PRIM_DIR) {
+            Some(v) => path::PathBuf::from(v),
+            None => {
+                let mut path: path::PathBuf =
+                    env::var_os("HOME").unwrap().into();
+                path.push(".calyx");
+                path
+            }
+        };
 
-        let source_path =
-            current_dir.join("primitives/float/HardFloat-1/source/");
+        let source_path = base.join("primitives/float/HardFloat-1/source/");
 
         let mut inc_paths = Vec::new();
 
