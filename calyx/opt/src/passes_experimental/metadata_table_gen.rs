@@ -9,7 +9,6 @@ use std::path::PathBuf;
 
 /// Metadata creates and stores the source info table for the currently running program
 pub struct Metadata {
-    //groups: LinkedHashMap<(Id, Id), ((usize, usize), PathBuf)>,
     src_table: SourceInfoTable,
     file_ids: HashMap<String, FileId>,
 }
@@ -34,37 +33,7 @@ impl Metadata {
             .push_position(*fnum, LineNum::new(line as u32));
         attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
     }
-
-    // /// Add a new entry to the metadata table
-    // fn add_entry(
-    //     &mut self,
-    //     comp_name: Id,
-    //     name: Id,
-    //     span: (usize, usize),
-    //     path: PathBuf,
-    // ) {
-    //     let ins = self.groups.insert((comp_name, name), (span, path));
-    //     if let Some(_v) = ins {
-    //         panic!("Two of same group name found")
-    //     }
-    // }
 }
-
-// impl fmt::Display for Metadata {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         let grps = &self.groups;
-
-//         for ((comp, name), ((start, end), file)) in grps {
-//             let file = file.to_str().unwrap();
-
-//             writeln!(f, "{comp}.{name}: {file} {start}-{end}")?;
-//         }
-
-//         // display source info table
-
-//         Ok(())
-//     }
-// }
 
 impl Named for Metadata {
     fn name() -> &'static str {
@@ -89,54 +58,12 @@ impl ConstructVisitor for Metadata {
     }
 }
 impl Visitor for Metadata {
-    //iterate over all groups in all components and collect metadata
-    // this just needs to create source table in Metadata
-    // fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
-    //     if ctx.metadata.is_none() {
-    //         let mut table = Metadata::new();
-    //         for component in &ctx.components {
-    //             let cmpt_iter = component.groups.into_iter();
-    //             for rcc_grp in cmpt_iter {
-    //                 let grp = rcc_grp.borrow_mut();
-    //                 let pos_data = grp.attributes.copy_span();
-    //                 let (file, span) = pos_data.get_line_num();
-    //                 table.add_entry(
-    //                     component.name,
-    //                     grp.name(),
-    //                     span,
-    //                     PathBuf::from(file),
-    //                 );
-    //                 // hm may need to actually use the full name of the group
-    //             }
-
-    //             ctx.metadata = Some(table.to_string());
-    //         }
-    //         // to generate the table:
-    //         let mut new_src_table: SourceInfoTable =
-    //             match &ctx.source_info_table {
-    //                 None => SourceInfoTable::new_empty(),
-    //                 Some(s) => s.clone(),
-    //             };
-
-    //         // add this file to the table
-    //         // longass train of calls that inlines what i do above to get file name from component span
-    //         let temp0 = &ctx.components[0]
-    //             .groups
-    //             .into_iter()
-    //             .next()
-    //             .unwrap()
-    //             .borrow_mut()
-    //             .attributes
-    //             .copy_span();
-    //         let (file, _span) = temp0.get_line_num();
-    //         let id = new_src_table.push_file(PathBuf::from(file));
-    //         self.src_table = new_src_table;
-    //         self.file_ids.insert(String::from(file), id);
-    //         //update this -> table needs its own to_string
-    //         // may need to add display method to source info table (source_info.rs)
-    //     }
-    //     Ok(Action::Stop)
-    // }
+    fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
+        if let Some(x) = std::mem::take(&mut ctx.source_info_table) {
+            self.src_table = x;
+        }
+        Ok(Action::Continue)
+    }
 
     // this visits each component
     fn start(
@@ -156,10 +83,9 @@ impl Visitor for Metadata {
         if !self.file_ids.contains_key(file) {
             let id = self.src_table.push_file(PathBuf::from(file));
             self.file_ids.insert(String::from(file), id);
-            //dbg!(&self.src_table);
         }
         // visit all groups in component
-        comp.groups.iter().for_each(|rrcgrp| {
+        for rrcgrp in comp.groups.iter() {
             let mut grp = rrcgrp.borrow_mut();
             let attr = &mut grp.attributes;
             let pos_data = attr.copy_span();
@@ -170,17 +96,23 @@ impl Visitor for Metadata {
                 .push_position(*fid, LineNum::new(span.0 as u32));
             // add tag to group attributes
             attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
-            //dbg!(&self.src_table);
-        });
-        //dbg!(&self.src_table);
-
+        }
         Ok(Action::Continue)
     }
 
     fn finish_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
-        //dbg!(&self.src_table);
         ctx.source_info_table = Some(std::mem::take(&mut self.src_table));
-        //dbg!(&ctx.source_info_table);
+        Ok(Action::Continue)
+    }
+
+    fn enable(
+        &mut self,
+        s: &mut calyx_ir::Enable,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
         Ok(Action::Continue)
     }
 
