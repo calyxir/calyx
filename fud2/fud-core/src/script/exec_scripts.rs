@@ -3,7 +3,7 @@ use camino::Utf8PathBuf;
 use once_cell::unsync::Lazy;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
-use super::report::RhaiReport;
+// use super::report::RhaiReport;
 
 pub(super) type RhaiResult<T> = Result<T, Box<rhai::EvalAltResult>>;
 
@@ -13,11 +13,11 @@ pub(super) struct RhaiEmitter(Rc<RefCell<BufEmitter>>);
 impl RhaiEmitter {
     fn with<F>(emitter: &mut StreamEmitter, f: F) -> EmitResult
     where
-        F: Fn(Self),
+        F: Fn(Self) -> EmitResult,
     {
         let buf_emit = emitter.buffer();
         let rhai_emit = Self(Rc::new(RefCell::new(buf_emit)));
-        f(rhai_emit.clone());
+        f(rhai_emit.clone())?;
         let buf_emit = Rc::into_inner(rhai_emit.0).unwrap().into_inner();
         emitter.unbuffer(buf_emit)
     }
@@ -202,7 +202,7 @@ thread_local! {
 
 #[derive(Clone, Debug)]
 pub(super) struct RhaiSetupCtx {
-    pub path: Rc<PathBuf>,
+    pub _path: Rc<PathBuf>,
     pub ast: Rc<rhai::AST>,
     pub name: String,
 }
@@ -217,8 +217,8 @@ impl EmitSetup for RhaiSetupCtx {
                     &self.name,
                     (rhai_emit.clone(),),
                 )
-                .report(self.path.as_ref())
-            });
+                .map_err(|e| e.into())
+            })
         })?;
 
         Ok(())
@@ -244,8 +244,8 @@ impl EmitBuild for RhaiSetupCtx {
                         output[0].to_string(),
                     ),
                 )
-                .report(self.path.as_ref())
-            });
+                .map_err(|e| e.into())
+            })
         })?;
 
         Ok(())

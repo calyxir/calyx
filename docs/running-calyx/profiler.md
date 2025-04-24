@@ -11,6 +11,7 @@ In order to run the profiler, you need:
 - Internal tools within the Calyx repository; run `cargo build --all` to build all of them.
 - The Python [`vcdvcd` library](https://github.com/cirosantilli/vcdvcd). Running `fud2 env init` should install this for you.
 - A clone of Brendan Gregg's Flamegraph repository: [https://github.com/brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph)
+- [Graphviz](https://graphviz.org/download/)
 
 Then, you need to edit your fud2 configuration file to specify the location of `flamegraph.pl` within the `Flamegraph` repository:
 

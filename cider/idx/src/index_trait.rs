@@ -115,6 +115,10 @@ impl<I: IndexRef + PartialOrd> SplitIndexRange<I> {
     pub fn iter_all(&self) -> OwnedIndexRangeIterator<I> {
         OwnedIndexRangeIterator::new(IndexRange::new(self.start, self.end))
     }
+
+    pub fn contains(&self, item: I) -> bool {
+        item >= self.start && item < self.end
+    }
 }
 
 impl<I> IntoIterator for IndexRange<I>

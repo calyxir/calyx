@@ -3,13 +3,13 @@ use crate::pass_manager::PassResult;
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, ComponentInliner,
-    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
-    DefaultAssigns, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
-    InferShare, LowerGuards, MergeAssign, Papercut, ProfilerInstrumentation,
-    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
-    StaticFSMOpts, StaticInference, StaticInliner, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    ConstantPortProp, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
+    DeadGroupRemoval, DefaultAssigns, Externalize, GoInsertion, GroupToInvoke,
+    GroupToSeq, InferShare, LowerGuards, MergeAssign, Papercut,
+    ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
+    SimplifyWithControl, StaticFSMOpts, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -78,6 +78,7 @@ impl PassManager {
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
         pm.register_pass::<ExternalToRef>()?;
+        pm.register_pass::<ConstantPortProp>()?;
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
@@ -99,6 +100,7 @@ impl PassManager {
                 InferShare,
                 ComponentInliner,
                 CombProp,
+                ConstantPortProp,
                 DeadCellRemoval, // Clean up dead wires left by CombProp
                 CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
@@ -162,8 +164,6 @@ impl PassManager {
             "profiler",
             [
                 "validate",
-                StaticInliner,
-                CompileStatic,
                 CompileInvoke,
                 ProfilerInstrumentation,
                 "pre-opt",

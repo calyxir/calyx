@@ -91,6 +91,16 @@ pub trait Color: OwoColorize + Display {
         let style = Style::new().red();
         Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
     }
+
+    fn stylize_value(&self) -> impl Display {
+        let style = Style::new().bold();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
+
+    fn stylize_port_name(&self) -> impl Display {
+        let style = Style::new().yellow();
+        Box::new(self.if_supports_color(Stdout, move |text| text.style(style)))
+    }
 }
 
 impl<T: OwoColorize + Display> Color for T {}

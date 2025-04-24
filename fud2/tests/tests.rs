@@ -6,7 +6,7 @@ use fud_core::{
         IO, Plan, Request,
         plan::{EnumeratePlanner, FindPlan, LegacyPlanner},
     },
-    run::Run,
+    run::{Run, RunError},
 };
 use itertools::Itertools;
 
@@ -92,6 +92,7 @@ impl InstaTest for Plan {
             .merge(("xilinx.xrt", "/test/xilinx/xrt"))
             .merge(("dahlia", "/test/bin/dahlia"))
             .merge(("jq.expr", "."))
+            .merge(("flamegraph.script", "/test/calyx/non-existent.script"))
             .merge(("c0", "v1"));
         let run = Run::with_config(driver, self, config);
         let mut buf = vec![];
@@ -104,6 +105,22 @@ impl InstaTest for Plan {
             .collect::<Vec<_>>()
             .join("\n")
     }
+}
+
+fn emit_with_config(
+    plan: Plan,
+    driver: &Driver,
+    config: figment::Figment,
+) -> Result<String, RunError> {
+    let run = Run::with_config(driver, plan, config);
+    let mut buf = vec![];
+    run.emit(&mut buf)?;
+    Ok(String::from_utf8(buf)
+        .unwrap()
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n"))
 }
 
 impl InstaTest for Request {
@@ -344,4 +361,24 @@ fn config() {
     let driver = driver_from_path_with_config("defop", config);
     request(&driver, &["state0"], &["state1"], &["t4"]).test(&driver);
     request(&driver, &["state0"], &["state1"], &["t5"]).test(&driver);
+}
+
+#[test]
+fn emit_bad_config() {
+    let driver = test_driver();
+
+    let config = default_config()
+        .merge(("exe", "fud2"))
+        .merge(("calyx.base", "/test/calyx"))
+        .merge(("sim.data", "/test/data.json"));
+
+    let req = request(&driver, &["dahlia"], &["verilog"], &[]);
+    let plan = driver.plan(req).unwrap();
+
+    let err = emit_with_config(plan, &driver, config).unwrap_err();
+    if let RunError::RhaiError(err_str) = err {
+        assert!(err_str.contains("missing required config key: dahlia"))
+    } else {
+        panic!()
+    }
 }
