@@ -6,7 +6,7 @@ extern "mulFN.sv" {
   ](
     @clk clk: 1,
     @reset reset: 1,
-    @go go: 1,
+    @write_together @interval(4) @go go: 1,
     control: 1,
     @write_together(1) left: numWidth,
     @write_together(1) right: numWidth,
