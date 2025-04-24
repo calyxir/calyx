@@ -249,6 +249,10 @@ impl Printer {
             Self::write_static_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
+        for fsm in comp.get_fsms().iter() {
+            Self::write_fsm(&fsm.borrow(), 4, f)?;
+            writeln!(f)?;
+        }
         for comb_group in comp.comb_groups.iter() {
             Self::write_comb_group(&comb_group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -461,6 +465,65 @@ impl Printer {
         write!(f, "{}}}", " ".repeat(indent_level))
     }
 
+    /// Format and write an FSM
+    pub fn write_fsm<F: io::Write>(
+        fsm: &ir::FSM,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "fsm {}", fsm.name().id)?;
+        if !fsm.attributes.is_empty() {
+            write!(f, "{}", Self::format_attributes(&fsm.attributes))?;
+        }
+        writeln!(f, " {{")?;
+        for (i, (assigns, trans)) in
+            fsm.assignments.iter().zip(&fsm.transitions).enumerate()
+        {
+            // WRITE ASSIGNMENTS
+            write!(f, "{}", " ".repeat(indent_level + 2))?;
+            write!(f, "{} : ", i)?;
+            match assigns.is_empty() {
+                true => {
+                    // skip directly to transitions section
+                    write!(f, "{{")?;
+                    write!(f, "}} ")?;
+                    write!(f, "=> ")?;
+                }
+                false => {
+                    writeln!(f, "{{")?;
+                    for assign in assigns {
+                        Self::write_assignment(assign, indent_level + 4, f)?;
+                        writeln!(f)?;
+                    }
+                    write!(f, "{}", " ".repeat(indent_level + 2))?;
+                    write!(f, "}} => ")?;
+                }
+            }
+
+            // WRITE TRANSITIONS
+            match trans {
+                ir::Transition::Unconditional(s) => {
+                    writeln!(f, "{},", s)?;
+                }
+                ir::Transition::Conditional(cond_dsts) => {
+                    writeln!(f, "{{")?;
+                    for (i, (g, dst)) in cond_dsts.iter().enumerate() {
+                        write!(f, "{}", " ".repeat(indent_level + 4))?;
+                        if i == cond_dsts.len() - 1 {
+                            writeln!(f, "default -> {},", dst)?;
+                        } else {
+                            writeln!(f, "{} -> {},", Self::guard_str(g), dst)?;
+                        }
+                    }
+                    write!(f, "{}", " ".repeat(indent_level + 2))?;
+                    writeln!(f, "}},")?;
+                }
+            }
+        }
+        write!(f, "{}}}", " ".repeat(indent_level))
+    }
+
     /// Format and write a static control program
     pub fn write_static_control<F: io::Write>(
         scontrol: &ir::StaticControl,
@@ -626,6 +689,10 @@ impl Printer {
             ir::Control::Enable(ir::Enable { group, attributes }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "{};", group.borrow().name().id)
+            }
+            ir::Control::FSMEnable(ir::FSMEnable { fsm, attributes }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "{};", fsm.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke {
                 comp,
@@ -836,6 +903,20 @@ impl Printer {
                     .upgrade()
                     .unwrap_or_else(|| panic!(
                         "Malformed AST: No reference to Group for port `{:#?}'",
+                        port
+                    ))
+                    .borrow()
+                    .name()
+                    .id,
+                port.name.id
+            ),
+            ir::PortParent::FSM(fsm_wref) => format!(
+                "{}[{}]",
+                fsm_wref
+                    .internal
+                    .upgrade()
+                    .unwrap_or_else(|| panic!(
+                        "Malformed AST: No reference to FSM for port `{:#?}'",
                         port
                     ))
                     .borrow()

@@ -1,7 +1,7 @@
-use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir};
 use calyx_ir::{Nothing, build_assignments};
 use calyx_ir::{guard, structure};
+use calyx_utils::math::bits_needed_for;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -36,7 +36,7 @@ impl StaticFSM {
         // Determine number of bits needed in the register.
         let fsm_size = match encoding {
             /* represent 0..latency */
-            FSMEncoding::Binary => get_bit_width_from(num_states + 1),
+            FSMEncoding::Binary => bits_needed_for(num_states + 1),
             FSMEncoding::OneHot => num_states,
         };
         // OHE needs an initial value of 1.

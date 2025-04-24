@@ -211,6 +211,7 @@ impl Rewriter {
     pub fn rewrite_control(&self, c: &mut ir::Control) {
         match c {
             ir::Control::Empty(_) => (),
+
             ir::Control::Enable(en) => {
                 let g = &en.group.borrow().name();
                 if let Some(new_group) = self.group_map.get(g) {
@@ -258,6 +259,7 @@ impl Rewriter {
             }
             ir::Control::Invoke(inv) => self.rewrite_invoke(inv),
             ir::Control::Static(s) => self.rewrite_static_control(s),
+            ir::Control::FSMEnable(_) => todo!(),
         }
     }
 

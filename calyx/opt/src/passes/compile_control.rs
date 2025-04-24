@@ -1,12 +1,10 @@
-use super::math_utilities::get_bit_width_from;
 use crate::passes::TopDownCompileControl;
 use crate::{build_assignments, guard, structure};
 use calyx_ir::{
-    self,
+    self, LibrarySignatures,
     traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures,
 };
-use calyx_utils::Error;
+use calyx_utils::{Error, math::bits_needed_for};
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -278,7 +276,7 @@ impl Visitor for CompileControl {
 
         // Create a new group for the seq related structure.
         let seq_group = builder.add_group("seq");
-        let fsm_size = get_bit_width_from(1 + s.stmts.len() as u64);
+        let fsm_size = bits_needed_for(1 + s.stmts.len() as u64);
 
         // new structure
         structure!(builder;

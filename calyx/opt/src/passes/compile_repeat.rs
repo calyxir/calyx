@@ -1,7 +1,7 @@
-use super::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::structure;
 use calyx_ir::{self as ir, LibrarySignatures};
+use calyx_utils::math::bits_needed_for;
 
 use ir::{build_assignments, guard};
 /// Compiles [`ir::Invoke`](calyx_ir::Invoke) statements into an [`ir::Enable`](calyx_ir::Enable)
@@ -37,7 +37,7 @@ impl Visitor for CompileRepeat {
         } else {
             // Otherwise we should build a while loop.
             let mut builder = ir::Builder::new(comp, ctx);
-            let idx_size = get_bit_width_from(num_repeats + 1);
+            let idx_size = bits_needed_for(num_repeats + 1);
             structure!( builder;
                 // holds the idx of the iteration
                 let idx = prim std_reg(idx_size);
