@@ -1,6 +1,6 @@
 import vcdvcd
-import sys
 
+from errors import ProfilerException
 from visuals.timeline import ts_multiplier
 
 DELIMITER = "___"
@@ -110,11 +110,9 @@ def create_cycle_trace(
                     ]
                     replacement_cell = f"{cell_prefix}.{replacement_cell_shortname}"
                     if replacement_cell not in info_this_cycle["cell-active"]:
-                        print(
-                            f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!"
+                        raise ProfilerException(
+                            f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!\n{info_this_cycle['cell-active']}"
                         )
-                        print(info_this_cycle["cell-active"])
-                        sys.exit(1)
                     cell_worklist.append(replacement_cell)
                     cell_component = cells_to_components[replacement_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
@@ -182,11 +180,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             filter(lambda x: x.endswith(f"{self.main_shortname}.clk"), names)
         )
         if len(clock_filter) > 1:
-            print(f"Found multiple clocks: {clock_filter} Exiting...")
-            sys.exit(1)
+            raise ProfilerException(f"Found multiple clocks: {clock_filter} Exiting...")
         elif len(clock_filter) == 0:
-            print("Can't find the clock? Exiting...")
-            sys.exit(1)
+            raise ProfilerException("Can't find the clock? Exiting...")
         clock_name = clock_filter[0]
         # Depending on the simulator + OS, we may get different prefixes before the name
         # of the main component.

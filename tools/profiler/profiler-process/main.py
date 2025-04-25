@@ -1,7 +1,6 @@
 import argparse
 from datetime import datetime
 import os
-import sys
 import vcdvcd
 
 import adl_mapping
