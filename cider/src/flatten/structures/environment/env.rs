@@ -115,6 +115,14 @@ impl PortMap {
         }
     }
 
+    pub(crate) fn insert_val_unchecked(
+        &mut self,
+        idx: GlobalPortIdx,
+        val: AssignedValue,
+    ) {
+        self[idx] = PortValue::new(val)
+    }
+
     /// Sets the given index to undefined without checking whether or not it was
     /// already defined
     #[inline]
@@ -122,33 +130,32 @@ impl PortMap {
         self[target] = PortValue::new_undef();
     }
 
+    #[inline(always)]
     pub fn insert_val(
         &mut self,
         target: GlobalPortIdx,
         val: AssignedValue,
     ) -> Result<UpdateStatus, Box<ConflictingAssignments>> {
         match self[target].as_option() {
-            // unchanged
-            Some(t) if t.eq_no_transitive_clocks(&val) => {
-                Ok(UpdateStatus::Unchanged)
-            }
-            // conflict
-            // TODO: Fix to make the error more helpful
-            Some(t)
-                if t.has_conflict_with(&val)
-                // Assignment & cell values are allowed to override implicit but not the
-                // other way around
-                    && !(*t.winner() == AssignmentWinner::Implicit) =>
-            {
-                Err(ConflictingAssignments {
-                    target,
-                    a1: t.clone(),
-                    a2: val,
+            Some(t) => {
+                if *t.winner() != AssignmentWinner::Implicit
+                    && t.has_conflict_with(&val)
+                {
+                    Err(ConflictingAssignments {
+                        target,
+                        a1: t.clone(),
+                        a2: val,
+                    }
+                    .into())
+                } else if t.eq_no_transitive_clocks(&val) {
+                    Ok(UpdateStatus::Unchanged)
+                } else {
+                    self[target] = PortValue::new(val);
+                    Ok(UpdateStatus::Changed)
                 }
-                .into())
             }
             // changed
-            Some(_) | None => {
+            None => {
                 self[target] = PortValue::new(val);
                 Ok(UpdateStatus::Changed)
             }
@@ -158,6 +165,7 @@ impl PortMap {
     /// Identical to `insert_val` but returns a `RuntimeError` instead of a
     /// `ConflictingAssignments` error. This should be used inside of primitives
     /// while the latter is used in the general simulation flow.
+    #[inline]
     pub fn insert_val_general(
         &mut self,
         target: GlobalPortIdx,
@@ -2272,27 +2280,32 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             self.env.clocks = clock_map;
         }
 
-        let out: Result<(), BoxedRuntimeError> = self
-            .env
-            .cells
-            .values_mut()
-            .filter_map(|cell| match cell {
+        let mut prim_step_res = Ok(());
+        for cell in self.env.cells.values_mut() {
+            match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle(&mut self.env.ports))
+                    let res = cell_dyn.exec_cycle(&mut self.env.ports);
+                    if res.is_err() {
+                        prim_step_res = res;
+                        break;
+                    }
                 }
 
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle_checked(
+                    let res = cell_dyn.exec_cycle_checked(
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
-                    ))
+                    );
+                    if res.is_err() {
+                        prim_step_res = res;
+                        break;
+                    }
                 }
-                CellLedger::Component(_) => None,
-            })
-            .collect();
-
-        out.map_err(|e| e.prettify_message(&self.env))?;
+                CellLedger::Component(_) => {}
+            }
+        }
+        prim_step_res.map_err(|e| e.prettify_message(&self.env))?;
 
         self.env.pc.clear_finished_comps();
 
@@ -2876,8 +2889,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 // are present. Since clocks aren't present
                                 // when not running with `check_data_race`, this
                                 // won't happen when the flag is not set
-                                if (val.clocks().is_some()
-                                    || val.transitive_clocks().is_some())
+                                if self.conf.check_data_race
+                                    && (val.clocks().is_some()
+                                        || val.transitive_clocks().is_some())
                                     && (assign_type.is_combinational()
                                         || assign_type.is_continuous())
                                 {
@@ -3277,17 +3291,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     }
 
     fn run_primitive_comb_path(&mut self) -> Result<bool, BoxedRuntimeError> {
-        let changed: bool = self
-            .env
-            .cells
-            .values_mut()
-            .filter_map(|x| match x {
+        let mut changed = UpdateStatus::Unchanged;
+        for cell in self.env.cells.values_mut() {
+            match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    let result = cell_dyn.exec_comb(&mut self.env.ports);
+                    let result = cell_dyn.exec_comb(&mut self.env.ports)?;
 
-                    if result.is_ok()
-                        && self.conf.check_data_race
-                        && cell_dyn.is_combinational()
+                    changed |= result;
+
+                    if self.conf.check_data_race && cell_dyn.is_combinational()
                     {
                         let mut working_set = vec![];
                         let signature = cell_dyn.get_ports();
@@ -3318,23 +3330,21 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             todo!("comb primitive with multiple outputs")
                         }
                     }
-                    Some(result)
                 }
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                    Some(cell_dyn.exec_comb_checked(
+                    let result = cell_dyn.exec_comb_checked(
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
-                    ))
+                    )?;
+                    changed |= result;
                 }
 
-                CellLedger::Component(_) => None,
-            })
-            .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
-                has_changed | update
-            })?
-            .as_bool();
-        Ok(changed)
+                CellLedger::Component(_) => {}
+            }
+        }
+
+        Ok(changed.as_bool())
     }
 
     /// A wrapper function for [check_read] which takes in a [PortRef] and the

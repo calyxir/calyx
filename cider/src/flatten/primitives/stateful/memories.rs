@@ -112,21 +112,26 @@ impl Primitive for StdReg {
             done: Self::DONE,
             out_idx: Self::OUT];
 
-        let out_signal = port_map.insert_val_general(
-            out_idx,
-            AssignedValue::cell_value(self.internal_state.value.clone())
-                .with_clocks(self.internal_state.clocks),
-        )?;
-        let done_signal = port_map.insert_val_general(
-            done,
-            AssignedValue::cell_value(if self.done_is_high {
-                BitVecValue::new_true()
-            } else {
-                BitVecValue::new_false()
-            }),
-        )?;
+        let out_signal =
+            port_map[done].is_undef() || port_map[out_idx].is_undef();
 
-        Ok(out_signal | done_signal)
+        if out_signal {
+            port_map.insert_val_unchecked(
+                out_idx,
+                AssignedValue::cell_value(self.internal_state.value.clone())
+                    .with_clocks(self.internal_state.clocks),
+            );
+            port_map.insert_val_unchecked(
+                done,
+                AssignedValue::cell_value(if self.done_is_high {
+                    BitVecValue::new_true()
+                } else {
+                    BitVecValue::new_false()
+                }),
+            );
+        }
+
+        Ok(out_signal.into())
     }
 
     fn serialize(&self, code: Option<PrintCode>) -> Serializable {
