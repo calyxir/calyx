@@ -3,7 +3,7 @@
     "data": [0],
     "format": {
       "numeric_type": "bitnum",
-      "is_signed": true,
+      "is_signed": false,
       "width": 1
     }
   },
@@ -11,7 +11,7 @@
     "data": [0],
     "format": {
       "numeric_type": "bitnum",
-      "is_signed": true,
+      "is_signed": false,
       "width": 1
     }
   }
