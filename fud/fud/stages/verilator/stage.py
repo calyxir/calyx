@@ -161,6 +161,7 @@ class VerilatorStage(Stage):
         testbench_sv = str(
             Path(config["global", cfg.ROOT]) / "fud" / "icarus" / "tb.sv"
         )
+        cycle_limit = config["stages", self.name, "cycle_limit"]
         cmd = " ".join(
             [
                 config["stages", self.name, "exec"],
@@ -173,6 +174,10 @@ class VerilatorStage(Stage):
                 "--Mdir",
                 "{tmpdir_name}",
                 "-fno-inline",
+                "-DDATA={tmpdir_name}",
+                f"-DCYCLE_LIMIT={str(cycle_limit)}",
+                "-DOUT={tmpdir_name}/output.vcd",
+                f"-DNOTRACE={0 if self.vcd else 1}",
             ]
         )
 
@@ -191,14 +196,9 @@ class VerilatorStage(Stage):
             """
             Simulates compiled Verilator code.
             """
-            cycle_limit = config["stages", self.name, "cycle_limit"]
             return shell(
                 [
                     f"{tmpdir.name}/Vtoplevel",
-                    f"+DATA={tmpdir.name}",
-                    f"+CYCLE_LIMIT={str(cycle_limit)}",
-                    f"+OUT={tmpdir.name}/output.vcd",
-                    f"+NOTRACE={0 if self.vcd else 1}",
                 ]
             )
 

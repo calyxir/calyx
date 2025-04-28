@@ -127,10 +127,10 @@ class IcarusBaseStage(Stage):
             return shell(
                 [
                     f"{tmpdir.name}/{self.object_name}",
-                    f"+DATA={tmpdir.name}",
-                    f"+CYCLE_LIMIT={str(cycle_limit)}",
-                    f"+OUT={tmpdir.name}/output.vcd",
-                    f"+NOTRACE={0 if self.is_vcd else 1}",
+                    f"-DDATA={tmpdir.name}",
+                    f"-DCYCLE_LIMIT={str(cycle_limit)}",
+                    f"-DOUT={tmpdir.name}/output.vcd",
+                    f"-DNOTRACE={0 if self.is_vcd else 1}",
                 ]
             )
 
