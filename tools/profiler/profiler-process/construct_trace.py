@@ -591,7 +591,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         )
 
 
-def order_pars(cell_to_pars, par_deps, rev_par_deps, signal_prefix):
+def order_pars(cell_to_pars, par_deps, rev_par_deps):
     """
     Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
     we should add them to the trace.

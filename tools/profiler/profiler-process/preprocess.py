@@ -1,4 +1,43 @@
 import json
+from dataclasses import dataclass, field
+from typing import List, Any, Tuple, Optional, Set
+
+@dataclass
+class CellMetadata:
+    main_component: str
+    # cell name --> component name
+    cell_to_component: dict[str, str] = field(default_factory=dict)
+    # component name --> [cell names]
+    component_to_cells: dict[str, list[str]] = field(default_factory=dict)
+    added_signal_prefix: bool
+
+    # optional fields to fill in later
+    main_shortname: str = None
+
+    def add_signal_prefix(self, signal_prefix):
+        """
+        Add OS-specific Verilator prefix to all cell names
+        """
+        str_to_add = signal_prefix + "."
+        self.main_component = str_to_add + self.main_component
+        
+        for cell in list(self.cell_to_component.keys()):
+            fully_qualified_cell = str_to_add + cell
+            self.cell_to_component[fully_qualified_cell] = self.cell_to_component[cell]
+            del self.cell_to_component[cell]
+
+        for component in self.component_to_cells:
+            fully_qualified_cells = []
+            for cell in self.component_to_cells[component]:
+                fully_qualified_cells.append(str_to_add + cell)
+            self.component_to_cells[component] = fully_qualified_cells
+
+        self.added_signal_prefix = True
+
+    def get_main_shortname(self):
+        if self.main_shortname is None:
+            self.main_shortname = self.main_component.split(".")[-1]
+        return self.main_shortname
 
 
 def build_components_to_cells(
@@ -59,6 +98,31 @@ def read_component_cell_names_json(json_file):
 
     return main_component, cell_names_to_components, components_to_cells
 
+        # fully_qualified_fsms,
+        # component_to_fsm_acc,
+        # par_info,
+        # reverse_par_info,
+        # cell_to_pars,
+        # par_done_regs,
+        # cell_to_groups_to_par_parent,
+
+@dataclass
+class ControlBaseInfo:
+    # names of fully qualified FSMs
+    fsms: Set = field(default_factory=set)
+    # fully qualified par name --> [fully-qualified par children name]
+    par_info: dict[str, list[str]] = field(default_factory=dict)
+    # fully qualified par name --> [fully-qualified par parent name]
+    reverse_par_info: dict[str, list[str]] = field(default_factory=dict)
+    cell_to_pars: dict[str, list[str]] = field(default_factory=dict)
+    par_done_regs: set[str] = field(default_factory=set)
+    # partial_fsm_events: 
+
+
+    def add_signal_prefix_to_fsm(self, signal_prefix):
+        self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
+        self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
+        self.par_groups = {f"{signal_prefix}.{par_group}" for par_group in self.par_groups}
 
 def read_tdcc_file(tdcc_json_file, components_to_cells):
     """
@@ -67,8 +131,8 @@ def read_tdcc_file(tdcc_json_file, components_to_cells):
     """
     json_data = json.load(open(tdcc_json_file))
     fully_qualified_fsms = set()
-    par_info = {}  # fully qualified par name --> [fully-qualified par children name]
-    reverse_par_info = {}  # fully qualified par name --> [fully-qualified par parent name]
+    par_info = {}
+    reverse_par_info = {}
     cell_to_pars = {}
     cell_to_groups_to_par_parent = {}  # cell --> { group --> name of par parent group}. Kind of like reverse_par_info but for normal groups
     # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
