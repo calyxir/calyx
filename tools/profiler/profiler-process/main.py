@@ -25,9 +25,7 @@ class PreprocessedInfo:
 def main(args):
     print(f"Start time: {datetime.now()}")
     # Preprocess information to use in VCD reading
-    main_shortname, cells_to_components, components_to_cells = (
-        preprocess.read_component_cell_names_json(args.cells_json_file)
-    )
+    cell_metadata = preprocess.preprocess_cell_infos(args.cells_json, args.shared_cells_json)
     shared_cells_map = preprocess.read_shared_cells_map(args.shared_cells_json)
     (
         fully_qualified_fsms,
@@ -37,7 +35,7 @@ def main(args):
         cell_to_pars,
         par_done_regs,
         cell_to_groups_to_par_parent,
-    ) = preprocess.read_tdcc_file(args.tdcc_json_file, components_to_cells)
+    ) = preprocess.read_tdcc_file(args.tdcc_json_file, cell_metadata)
     # create dict of fsms outside the converter so they are preserved.
     fsm_events = {
         fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
@@ -45,8 +43,7 @@ def main(args):
     }  # won't be fully filled in until create_timeline()
     print(f"Start reading VCD: {datetime.now()}")
     converter = construct_trace.VCDConverter(
-        main_shortname,
-        cells_to_components,
+        cell_metadata,
         fully_qualified_fsms,
         fsm_events,
         set(par_to_children.keys()),

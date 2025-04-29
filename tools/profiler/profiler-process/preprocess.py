@@ -1,44 +1,21 @@
 import json
 from dataclasses import dataclass, field
-from typing import List, Any, Tuple, Optional, Set
 
-@dataclass
-class CellMetadata:
-    main_component: str
-    # cell name --> component name
-    cell_to_component: dict[str, str] = field(default_factory=dict)
-    # component name --> [cell names]
-    component_to_cells: dict[str, list[str]] = field(default_factory=dict)
-    added_signal_prefix: bool
+from classes import CellMetadata, ControlMetadata, ParChildInfo, ParChildType
 
-    # optional fields to fill in later
-    main_shortname: str = None
-
-    def add_signal_prefix(self, signal_prefix):
-        """
-        Add OS-specific Verilator prefix to all cell names
-        """
-        str_to_add = signal_prefix + "."
-        self.main_component = str_to_add + self.main_component
-        
-        for cell in list(self.cell_to_component.keys()):
-            fully_qualified_cell = str_to_add + cell
-            self.cell_to_component[fully_qualified_cell] = self.cell_to_component[cell]
-            del self.cell_to_component[cell]
-
-        for component in self.component_to_cells:
-            fully_qualified_cells = []
-            for cell in self.component_to_cells[component]:
-                fully_qualified_cells.append(str_to_add + cell)
-            self.component_to_cells[component] = fully_qualified_cells
-
-        self.added_signal_prefix = True
-
-    def get_main_shortname(self):
-        if self.main_shortname is None:
-            self.main_shortname = self.main_component.split(".")[-1]
-        return self.main_shortname
-
+def read_shared_cells_map(shared_cells_json):
+    """
+    Reads shared_cells_json and returns map of cells that are being shared via the cell-sharing pass.
+    """
+    shared_cells_map = {}
+    json_map = json.load(open(shared_cells_json))
+    for component in json_map:
+        shared_cells_map[component] = {}
+        for entry in json_map[component]:
+            original = entry["original"]
+            new = entry["new"]
+            shared_cells_map[component][original] = new
+    return shared_cells_map
 
 def build_components_to_cells(
     prefix, curr_component, cells_to_components, components_to_cells
@@ -59,7 +36,6 @@ def build_components_to_cells(
             cells_to_components,
             components_to_cells,
         )
-
 
 def read_component_cell_names_json(json_file):
     """
@@ -96,48 +72,22 @@ def read_component_cell_names_json(json_file):
         for cell in components_to_cells[component]:
             cell_names_to_components[cell] = component
 
-    return main_component, cell_names_to_components, components_to_cells
+    return CellMetadata(main_component, cell_names_to_components, components_to_cells)
 
-        # fully_qualified_fsms,
-        # component_to_fsm_acc,
-        # par_info,
-        # reverse_par_info,
-        # cell_to_pars,
-        # par_done_regs,
-        # cell_to_groups_to_par_parent,
+def preprocess_cell_infos(cell_names_json, shared_cells_json):
+    metadata = read_component_cell_names_json(cell_names_json)
+    metadata.shared_cells = read_shared_cells_map(shared_cells_json)
 
-@dataclass
-class ControlBaseInfo:
-    # names of fully qualified FSMs
-    fsms: Set = field(default_factory=set)
-    # fully qualified par name --> [fully-qualified par children name]
-    par_info: dict[str, list[str]] = field(default_factory=dict)
-    # fully qualified par name --> [fully-qualified par parent name]
-    reverse_par_info: dict[str, list[str]] = field(default_factory=dict)
-    cell_to_pars: dict[str, list[str]] = field(default_factory=dict)
-    par_done_regs: set[str] = field(default_factory=set)
-    # partial_fsm_events: 
-
-
-    def add_signal_prefix_to_fsm(self, signal_prefix):
-        self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
-        self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.par_groups = {f"{signal_prefix}.{par_group}" for par_group in self.par_groups}
-
-def read_tdcc_file(tdcc_json_file, components_to_cells):
+def read_tdcc_file(tdcc_json_file, cell_metadata):
     """
     Processes tdcc_json_file to produce information about control registers (FSMs, pd registers for pars)
     and par groups.
     """
     json_data = json.load(open(tdcc_json_file))
-    fully_qualified_fsms = set()
-    par_info = {}
-    reverse_par_info = {}
-    cell_to_pars = {}
+    control_metadata = ControlMetadata()
     cell_to_groups_to_par_parent = {}  # cell --> { group --> name of par parent group}. Kind of like reverse_par_info but for normal groups
     # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
-    par_done_regs = set()
-    component_to_fsm_acc = {component: 0 for component in components_to_cells}
+    component_to_fsm_acc = {component: 0 for component in cell_metadata.components_to_cells}
     # pass 1: obtain names of all par groups in each component
     component_to_pars = {}  # component --> [par groups]
     for json_entry in json_data:
@@ -157,48 +107,44 @@ def read_tdcc_file(tdcc_json_file, components_to_cells):
                 component in component_to_fsm_acc
             ):  # skip FSMs from components listed in primitive files (not in user-defined code)
                 component_to_fsm_acc[component] += 1
-                for cell in components_to_cells[component]:
+                for cell in cell_metadata.components_to_cells[component]:
                     fully_qualified_fsm = ".".join((cell, fsm_name))
-                    fully_qualified_fsms.add(fully_qualified_fsm)
+                    control_metadata.fsms.add(fully_qualified_fsm)
         if "Par" in json_entry:
             entry = json_entry["Par"]
             par = entry["par_group"]
             component = entry["component"]
             child_par_groups = []
-            for cell in components_to_cells[component]:
+            for cell in cell_metadata.components_to_cells[component]:
                 fully_qualified_par = ".".join((cell, par))
-                if cell in cell_to_pars:
-                    cell_to_pars[cell].add(fully_qualified_par)
-                else:
-                    cell_to_pars[cell] = {fully_qualified_par}
                 for child in entry["child_groups"]:
                     child_name = child["group"]
                     if child_name in component_to_pars[component]:
                         fully_qualified_child_name = ".".join((cell, child_name))
                         child_par_groups.append(fully_qualified_child_name)
-                        if fully_qualified_child_name in reverse_par_info:
-                            reverse_par_info[fully_qualified_child_name].append(
+                        if fully_qualified_child_name in control_metadata.par_to_par_parent:
+                            control_metadata.par_to_par_parent[fully_qualified_child_name].append(
                                 fully_qualified_par
                             )
                         else:
-                            reverse_par_info[fully_qualified_child_name] = [
+                            control_metadata.par_to_par_parent[fully_qualified_child_name] = [
                                 fully_qualified_par
                             ]
                     else:  # normal group
-                        if cell in cell_to_groups_to_par_parent:
-                            if child_name in cell_to_groups_to_par_parent[cell]:
-                                cell_to_groups_to_par_parent[cell][child_name].add(par)
+                        parent_info = ParChildInfo(child_name, par, ParChildType.GROUP)
+                        if cell in control_metadata.cell_to_child_to_par_parent:
+                            if child_name in control_metadata.cell_to_child_to_par_parent[cell]:
+                                control_metadata.cell_to_child_to_par_parent[cell][child_name].add(parent_info)
                             else:
-                                cell_to_groups_to_par_parent[cell][child_name] = {par}
+                                control_metadata.cell_to_child_to_par_parent[cell][child_name] = {parent_info}
                         else:
-                            cell_to_groups_to_par_parent[cell] = {child_name: {par}}
+                            control_metadata.cell_to_child_to_par_parent[cell] = {child_name: {parent_info}}
                     # register
                     child_pd_reg = child["register"]
-                    par_done_regs.add(".".join((cell, child_pd_reg)))
-                par_info[fully_qualified_par] = child_par_groups
-
+                    control_metadata.par_done_regs.add(".".join((cell, child_pd_reg)))
+                control_metadata.par_to_children[fully_qualified_par] = child_par_groups
+    # return control_metadata
     return (
-        fully_qualified_fsms,
         component_to_fsm_acc,
         par_info,
         reverse_par_info,
@@ -207,17 +153,3 @@ def read_tdcc_file(tdcc_json_file, components_to_cells):
         cell_to_groups_to_par_parent,
     )
 
-
-def read_shared_cells_map(shared_cells_json):
-    """
-    Reads shared_cells_json and returns map of cells that are being shared via the cell-sharing pass.
-    """
-    shared_cells_map = {}
-    json_map = json.load(open(shared_cells_json))
-    for component in json_map:
-        shared_cells_map[component] = {}
-        for entry in json_map[component]:
-            original = entry["original"]
-            new = entry["new"]
-            shared_cells_map[component][original] = new
-    return shared_cells_map
