@@ -10,7 +10,7 @@ pub struct BinaryOutputFile {
 
 impl BinaryOutputFile {
     // Constructor to create and open the binary file
-    fn new(file_path: &str) -> io::Result<Self> {
+    pub fn new(file_path: &str) -> io::Result<Self> {
         let file = File::create(file_path)?;
         Ok(Self {
             file,
@@ -20,36 +20,36 @@ impl BinaryOutputFile {
     }
 
     // Method to write bits to the binary file
-    fn write_bits(&mut self, bits: &[u8]) -> io::Result<()> {
+    pub fn write_bits(&mut self, bits: &[u8]) -> io::Result<()> {
         for &bit in bits {
             // Shift the buffer left by 1 and add the new bit
-            self.bit_buffer = (self.bit_buffer << 1) | bit;
+            self.bit_buffer = (self.bit_buffer << 1) | (bit & 1);
             self.bit_count += 1;
 
+            // If the buffer is full (8 bits), write it to the file
             if self.bit_count == 8 {
-                // Buffer is full (8 bits), write it to the file
                 self.file.write_all(&[self.bit_buffer])?;
                 self.bit_buffer = 0; // Reset the buffer
-                self.bit_count = 0;  // Reset the bit count
+                self.bit_count = 0; // Reset the bit count
             }
         }
         Ok(())
     }
 
-    // Method to flush any remaining bits in the buffer to the file
-    fn flush(&mut self) -> io::Result<()> {
+    // Method to flush remaining bits in the buffer (if any)
+    pub fn flush(&mut self) -> io::Result<()> {
         if self.bit_count > 0 {
-            // There are leftover bits, pad the buffer with zeros and write it
-            self.bit_buffer <<= 8 - self.bit_count; // Shift left to pad any leftover bits with zeros
-            self.file.write_all(&[self.bit_buffer])?;
-            self.bit_buffer = 0; 
-            self.bit_count = 0;  
+            // Shift the remaining bits to the left to form a full byte
+            let remaining_byte = self.bit_buffer << (8 - self.bit_count);
+            self.file.write_all(&[remaining_byte])?;
+            self.bit_buffer = 0; // Reset the buffer
+            self.bit_count = 0; // Reset the bit count
         }
         Ok(())
     }
 }
 
-fn to_text_file (
+pub fn to_text_file (
     input: &str,
     file: &mut File) -> std::io::Result<()> {
 
@@ -60,7 +60,7 @@ fn to_text_file (
     
 }
 
-fn to_std_out (
+pub fn to_std_out (
     input: &str,
 ) -> std::io::Result<()> {
     stdout().write_all(input.as_bytes())?;
