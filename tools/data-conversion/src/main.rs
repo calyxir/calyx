@@ -55,16 +55,16 @@ impl ToString for NumType {
     }
 }
 
-#[derive(Debug)]
-struct ParseFileTypeError;
+// #[derive(Debug)]
+// struct ParseFileTypeError;
 
-impl fmt::Display for ParseFileTypeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid file type")
-    }
-}
+// impl fmt::Display for ParseFileTypeError {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "invalid file type")
+//     }
+// }
 
-impl Error for ParseFileTypeError {}
+// impl Error for ParseFileTypeError {}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum FileType {

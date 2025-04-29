@@ -1,17 +1,48 @@
 use num_bigint::BigInt;
 use num_bigint::BigUint;
-use num_traits::Num;
+use num_traits::{Num};
 use std::fs::File;
 use std::io::{self, Write};
 use std::str::FromStr;
+use num_traits::Zero;
+
+/// Enum representing special cases for binary numbers.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SpecialCase {
+    None,
+    Zero,
+    Infinity,
+    NaN,
+}
 
 /// * 'sign' - `true` indicates that the value is negative; `false` indicates that it is positive.
 /// * 'mantissa' - The absolute value represented as an integer without a decimal point.
 /// * 'exponent' - The exponent to apply to the mantissa, where the actual value is calculated as `mantissa * 2^exponent`. The exponent can be negative.
+/// * 'special_case' - Represents any special cases like zero, infinity, NaN, etc.
 pub struct IntermediateRepresentation {
     pub sign: bool,
     pub mantissa: BigUint,
     pub exponent: i64,
+    pub special_case: SpecialCase,
+}
+
+impl IntermediateRepresentation {
+    /// Determines the special case for the current representation.
+    pub fn determine_special_case(&mut self, bit_width: usize) {
+        let max_exponent = (1 << (bit_width - 1)) - 1; // All exponent bits set to 1
+        let is_exponent_all_ones = self.exponent == max_exponent as i64;
+        let is_mantissa_zero = self.mantissa.is_zero();
+
+        self.special_case = if is_exponent_all_ones && is_mantissa_zero {
+            SpecialCase::Infinity
+        } else if is_exponent_all_ones && !is_mantissa_zero {
+            SpecialCase::NaN
+        } else if self.mantissa.is_zero() {
+            SpecialCase::Zero
+        } else {
+            SpecialCase::None
+        };
+    }
 }
 
 /// Converts a string representation of a binary number the intermediate representation.
@@ -60,6 +91,7 @@ pub fn from_binary(
         sign,
         mantissa,
         exponent: 0,
+        special_case: SpecialCase::None,
     }
 }
 
@@ -150,6 +182,7 @@ pub fn from_float(float_string: &str) -> IntermediateRepresentation {
         sign,
         mantissa: BigUint::from_str(&mantissa_string).expect("Invalid number"),
         exponent: -(fractional_part.len() as i64),
+        special_case: SpecialCase::None,
     }
 }
 
@@ -365,6 +398,7 @@ pub fn from_hex(hex_string: &str, width: usize) -> IntermediateRepresentation {
         sign,
         mantissa,
         exponent: 0,
+        special_case: SpecialCase::None,
     }
 }
 

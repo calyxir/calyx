@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::stdout;
 use std::io::{self, Write};
 
+
 /// Formats [to_format] properly for float values
 pub fn format_binary(to_format: u64) -> String {
     let binary_str = format!("{:064b}", to_format);
@@ -330,31 +331,35 @@ pub fn binary_to_fixed_bit_slice(
     filepath_send: &mut Option<File>,
     exp_int: i64,
 ) -> io::Result<()> {
-    // Convert binary string to an integer (assuming binary_string is a valid binary representation)
-    let binary_int = u64::from_str_radix(binary_string, 2).unwrap();
+    // Convert binary string to an integer
+    let binary_int = match u64::from_str_radix(binary_string, 2) {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Invalid binary string: {}", binary_string);
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid binary string"));
+        }
+    };
 
     // Adjust the binary point based on the exponent
-    let mut result = binary_int;
-    if exp_int < 0 {
-        // If exponent is negative, shift right (multiply by 2^(-exp_int))
-        result >>= -exp_int as u64;
+    let fixed_value = if exp_int < 0 {
+        // If exponent is negative, divide by 2^(-exp_int)
+        binary_int as f64 / (1u64 << -exp_int) as f64
     } else {
-        // If exponent is positive, shift left (multiply by 2^(exp_int))
-        result <<= exp_int as u64;
-    }
+        // If exponent is positive, multiply by 2^(exp_int)
+        binary_int as f64 * (1u64 << exp_int) as f64
+    };
 
-    // Convert result to a fixed-point decimal representation
-    let fixed_value = result as f64;
-
-    let string_of_fixed = format!("{:.8e}", fixed_value);
+    // Format the fixed-point value as a plain decimal
+    let string_of_fixed = format!("{:.8}", fixed_value);
 
     if let Some(file) = filepath_send.as_mut() {
-        // Write binary string to the file
+        // Write the fixed-point value to the file
         file.write_all(string_of_fixed.as_bytes())?;
         file.write_all(b"\n")?;
     } else {
-        stdout().write_all(string_of_fixed.as_bytes())?;
-        stdout().write_all(b"\n")?;
+        // Write the fixed-point value to standard output
+        io::stdout().write_all(string_of_fixed.as_bytes())?;
+        io::stdout().write_all(b"\n")?;
     }
 
     Ok(())

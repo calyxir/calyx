@@ -1,4 +1,5 @@
-use crate::ir::IntermediateRepresentation;
+// use crate::ir::IntermediateRepresentation;
+use crate::ir::{IntermediateRepresentation, SpecialCase};
 use num_bigint::{BigInt, BigUint};
 use num_traits::One;
 
@@ -87,11 +88,17 @@ pub fn u8_to_ir_fixed(
                 BigUint::from_bytes_be(&vec)
             };
 
-            IntermediateRepresentation {
+            let mut ir: IntermediateRepresentation = IntermediateRepresentation {
                 sign: is_negative,
                 mantissa,
                 exponent,
-            }
+                special_case: SpecialCase::None,
+            };
+
+            // Determine the special case
+            ir.determine_special_case(vec.len() * 8); // Pass the bit width (length of the vector in bits)
+
+            ir
         }
         Err(e) => {
             // Handle the error case, for example by panicking or returning a default value.
@@ -163,6 +170,7 @@ pub fn u8_to_ir_float(
                 sign: is_negative,
                 mantissa,
                 exponent,
+                special_case: SpecialCase::None
             }
         }
         Err(e) => {
