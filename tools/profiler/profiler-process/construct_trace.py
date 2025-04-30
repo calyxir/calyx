@@ -1,5 +1,6 @@
 import vcdvcd
 
+from classes import CellMetadata, ControlMetadata
 from errors import ProfilerException
 from visuals.timeline import ts_multiplier
 
@@ -139,24 +140,18 @@ def create_cycle_trace(
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(
         self,
-        main_component,
-        cells_to_components,
-        fsms,
-        fsm_events,
-        par_groups,
-        par_done_regs,
+        cell_metadata,
+        control_metadata
     ):
         super().__init__()
-        self.main_shortname = main_component
-        self.cells_to_components = cells_to_components
+        self.cell_metadata: CellMetadata = cell_metadata
+        self.control_metadata: ControlMetadata = control_metadata
         self.timestamps_to_events = {}  # timestamps to
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
         self.timestamps_to_control_group_events = {}
-        self.fsms = fsms
-        self.partial_fsm_events = fsm_events
-        self.par_done_regs = par_done_regs
-        self.par_groups = par_groups
+
+        self.clock_name: str = None
 
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         """
@@ -176,23 +171,29 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             sid: [] for sid in vcd.references_to_ids.values()
         }  # same as signal_id_dict, but just groups that manage control (only par for now, can also consider tdcc)
 
+        main_shortname = self.cell_metadata.get_main_shortname()
+
         clock_filter = list(
-            filter(lambda x: x.endswith(f"{self.main_shortname}.clk"), names)
+            filter(lambda x: x.endswith(f"{main_shortname}.clk"), names)
         )
         if len(clock_filter) > 1:
             raise ProfilerException(f"Found multiple clocks: {clock_filter} Exiting...")
         elif len(clock_filter) == 0:
             raise ProfilerException("Can't find the clock? Exiting...")
-        clock_name = clock_filter[0]
+        self.clock_name = clock_filter[0]
         # Depending on the simulator + OS, we may get different prefixes before the name
         # of the main component.
-        self.signal_prefix = clock_name.split(f".{self.main_shortname}")[0]
-        self.main_component = f"{self.signal_prefix}.{self.main_shortname}"
-        signal_id_dict[vcd.references_to_ids[clock_name]] = [clock_name]
+        self.signal_prefix = self.clock_name.split(f".{main_shortname}")[0]
+        self.cell_metadata.main_component = f"{self.signal_prefix}.{main_shortname}"
+        signal_id_dict[vcd.references_to_ids[self.clock_name]] = [self.clock_name]
+
+        # replace the old key (cell_suffix) with the fully qualified cell name
+        self.cell_metadata.add_signal_prefix(self.signal_prefix)
+        # update fsms, par done registers, par groups with fully qualified names
+        self.control_metadata.add_signal_prefix(self.signal_prefix)
 
         # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
-        for cell_suffix in list(self.cells_to_components.keys()):
-            cell = f"{self.signal_prefix}.{cell_suffix}"
+        for cell in list(self.cell_metadata.cell_to_component.keys()):
             cell_go = cell + ".go"
             cell_done = cell + ".done"
             if cell_go not in vcd.references_to_ids:
@@ -200,20 +201,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 continue
             signal_id_dict[vcd.references_to_ids[cell_go]].append(cell_go)
             signal_id_dict[vcd.references_to_ids[cell_done]].append(cell_done)
-            # replace the old key (cell_suffix) with the fully qualified cell name
-            self.cells_to_components[cell] = self.cells_to_components[cell_suffix]
-            del self.cells_to_components[cell_suffix]
-        # update fsms, par done registers, par groups with fully qualified names
-        self.fsms = {f"{self.signal_prefix}.{fsm}" for fsm in self.fsms}
-        self.partial_fsm_events = {
-            f"{self.signal_prefix}.{fsm}": self.partial_fsm_events[fsm]
-            for fsm in self.partial_fsm_events
-        }
-        self.par_done_regs = {f"{self.signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.par_groups = {
-            f"{self.signal_prefix}.{par_group}" for par_group in self.par_groups
-        }
-
+            
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
@@ -257,7 +245,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
             for signal_name in signal_names:
                 if (
-                    signal_name == f"{self.main_component}.clk" and int_value == 0
+                    signal_name == self.clock_name and int_value == 0
                 ):  # ignore falling edges
                     continue
                 event = {"signal": signal_name, "value": int_value}
@@ -301,7 +289,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         everything within a stream if we wanted to be precise)
         """
 
-        clock_name = f"{self.main_component}.clk"
         clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
         cell_active = set()
@@ -336,7 +323,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             if not started:  # only start counting when main component is on.
                 continue
             # checking whether the timestamp has a rising edge
-            if {"signal": clock_name, "value": 1} in events:
+            if {"signal": self.clock_name, "value": 1} in events:
                 clock_cycles += 1
                 self.timestamps_to_clock_cycles[ts] = clock_cycles
             # Recording the data organization for every kind of probe so I don't forget. () is a set.

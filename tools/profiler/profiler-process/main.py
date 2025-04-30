@@ -9,15 +9,6 @@ import construct_trace
 import preprocess
 from visuals import flame, tree, timeline, stats
 
-# args.vcd_filename,
-#         args.cells_json,
-#         args.fsms_json,
-#         args.shared_cells_json,
-#         args.adl_mapping_file,
-#         args.out_dir,
-#         args.flame_out,
-#         args.print_trace_threshold
-
 @dataclass
 class PreprocessedInfo:
     main_shortname: str
@@ -27,27 +18,17 @@ def main(args):
     # Preprocess information to use in VCD reading
     cell_metadata = preprocess.preprocess_cell_infos(args.cells_json, args.shared_cells_json)
     shared_cells_map = preprocess.read_shared_cells_map(args.shared_cells_json)
-    (
-        fully_qualified_fsms,
-        component_to_num_fsms,
-        par_to_children,
-        reverse_par_dep_info,
-        cell_to_pars,
-        par_done_regs,
-        cell_to_groups_to_par_parent,
-    ) = preprocess.read_tdcc_file(args.tdcc_json_file, cell_metadata)
-    # create dict of fsms outside the converter so they are preserved.
-    fsm_events = {
-        fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
-        for fsm in fully_qualified_fsms
-    }  # won't be fully filled in until create_timeline()
+    control_metadata = preprocess.read_tdcc_file(args.tdcc_json_file, cell_metadata)
+    # FIXME: just create everything in create_timeline(), remove below commented code
+    # # create dict of fsms outside the converter so they are preserved.
+    # fsm_events = {
+    #     fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
+    #     for fsm in fully_qualified_fsms
+    # }  # won't be fully filled in until create_timeline()
     print(f"Start reading VCD: {datetime.now()}")
     converter = construct_trace.VCDConverter(
         cell_metadata,
-        fully_qualified_fsms,
-        fsm_events,
-        set(par_to_children.keys()),
-        par_done_regs,
+        control_metadata
     )
     vcdvcd.VCDVCD(args.vcd_filename, callbacks=converter)
     main_fullname = converter.main_component

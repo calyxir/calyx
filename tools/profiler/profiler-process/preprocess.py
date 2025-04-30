@@ -1,7 +1,7 @@
 import json
-from dataclasses import dataclass, field
 
 from classes import CellMetadata, ControlMetadata, ParChildInfo, ParChildType
+
 
 def read_shared_cells_map(shared_cells_json):
     """
@@ -16,6 +16,7 @@ def read_shared_cells_map(shared_cells_json):
             new = entry["new"]
             shared_cells_map[component][original] = new
     return shared_cells_map
+
 
 def build_components_to_cells(
     prefix, curr_component, cells_to_components, components_to_cells
@@ -36,6 +37,7 @@ def build_components_to_cells(
             cells_to_components,
             components_to_cells,
         )
+
 
 def read_component_cell_names_json(json_file):
     """
@@ -74,9 +76,14 @@ def read_component_cell_names_json(json_file):
 
     return CellMetadata(main_component, cell_names_to_components, components_to_cells)
 
+
 def preprocess_cell_infos(cell_names_json, shared_cells_json):
+    """
+    Wrapper function to populate CellMetadata object with information pertaining to cells.
+    """
     metadata = read_component_cell_names_json(cell_names_json)
     metadata.shared_cells = read_shared_cells_map(shared_cells_json)
+
 
 def read_tdcc_file(tdcc_json_file, cell_metadata):
     """
@@ -85,31 +92,25 @@ def read_tdcc_file(tdcc_json_file, cell_metadata):
     """
     json_data = json.load(open(tdcc_json_file))
     control_metadata = ControlMetadata()
-    cell_to_groups_to_par_parent = {}  # cell --> { group --> name of par parent group}. Kind of like reverse_par_info but for normal groups
-    # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
-    component_to_fsm_acc = {component: 0 for component in cell_metadata.components_to_cells}
     # pass 1: obtain names of all par groups in each component
-    component_to_pars = {}  # component --> [par groups]
     for json_entry in json_data:
         if "Par" in json_entry:
             component = json_entry["Par"]["component"]
-            if component in component_to_pars:
-                component_to_pars[component].append(json_entry["Par"]["par_group"])
+            if component in control_metadata.component_to_pars:
+                control_metadata.component_to_pars[component].append(
+                    json_entry["Par"]["par_group"]
+                )
             else:
-                component_to_pars[component] = [json_entry["Par"]["par_group"]]
+                control_metadata.component_to_pars[component] = [
+                    json_entry["Par"]["par_group"]
+                ]
     # pass 2: obtain FSM register info, par group and child register information
     for json_entry in json_data:
         if "Fsm" in json_entry:
             entry = json_entry["Fsm"]
-            fsm_name = entry["fsm"]
-            component = entry["component"]
-            if (
-                component in component_to_fsm_acc
-            ):  # skip FSMs from components listed in primitive files (not in user-defined code)
-                component_to_fsm_acc[component] += 1
-                for cell in cell_metadata.components_to_cells[component]:
-                    fully_qualified_fsm = ".".join((cell, fsm_name))
-                    control_metadata.fsms.add(fully_qualified_fsm)
+            control_metadata.register_fsm(
+                entry["fsm"], entry["component"], cell_metadata
+            )
         if "Par" in json_entry:
             entry = json_entry["Par"]
             par = entry["par_group"]
@@ -119,37 +120,21 @@ def read_tdcc_file(tdcc_json_file, cell_metadata):
                 fully_qualified_par = ".".join((cell, par))
                 for child in entry["child_groups"]:
                     child_name = child["group"]
-                    if child_name in component_to_pars[component]:
+                    if (
+                        child_name in control_metadata.component_to_pars[component]
+                    ):  # child is a par
+                        control_metadata.register_par_child(
+                            component, ParChildInfo(child_name, par, ParChildType.PAR)
+                        )
                         fully_qualified_child_name = ".".join((cell, child_name))
                         child_par_groups.append(fully_qualified_child_name)
-                        if fully_qualified_child_name in control_metadata.par_to_par_parent:
-                            control_metadata.par_to_par_parent[fully_qualified_child_name].append(
-                                fully_qualified_par
-                            )
-                        else:
-                            control_metadata.par_to_par_parent[fully_qualified_child_name] = [
-                                fully_qualified_par
-                            ]
                     else:  # normal group
-                        parent_info = ParChildInfo(child_name, par, ParChildType.GROUP)
-                        if cell in control_metadata.cell_to_child_to_par_parent:
-                            if child_name in control_metadata.cell_to_child_to_par_parent[cell]:
-                                control_metadata.cell_to_child_to_par_parent[cell][child_name].add(parent_info)
-                            else:
-                                control_metadata.cell_to_child_to_par_parent[cell][child_name] = {parent_info}
-                        else:
-                            control_metadata.cell_to_child_to_par_parent[cell] = {child_name: {parent_info}}
-                    # register
+                        control_metadata.register_par_child(
+                            component, ParChildInfo(child_name, par, ParChildType.GROUP)
+                        )
+                    # add par done register information
                     child_pd_reg = child["register"]
                     control_metadata.par_done_regs.add(".".join((cell, child_pd_reg)))
                 control_metadata.par_to_children[fully_qualified_par] = child_par_groups
-    # return control_metadata
-    return (
-        component_to_fsm_acc,
-        par_info,
-        reverse_par_info,
-        cell_to_pars,
-        par_done_regs,
-        cell_to_groups_to_par_parent,
-    )
 
+    return control_metadata
