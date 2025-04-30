@@ -56,74 +56,19 @@ pub fn hex_to_u8_vec(hex: &str) -> Result<Vec<u8>, String> {
     Ok(vec)
 }
 
-/// Converts a fixed-point number represented as a u8 vector into an IntermediateRepresentation
-///
-///  # Arguments
-///
-/// * `vector` - A vector of u8 values representing the fixed-point number.
-/// * `exponent` - The value of the exponent.
-/// * `twos_comp` - Boolean  indicating whether the fixed-point number uses two's complement for the sign bit.
-///
-/// # Returns
-///
-/// An intermediate representation
-pub fn u8_to_ir_fixed(
-    vector: Result<Vec<u8>, String>,
-    exponent: i64,
-    twos_comp: bool,
-) -> IntermediateRepresentation {
-    match vector {
-        Ok(vec) => {
-            // Check if the MSB of the first byte is 1
-            let mut is_negative = false;
-
-            if twos_comp {
-                is_negative = (vec[0] & 0b10000000) != 0;
-            }
-
-            let mantissa = if is_negative {
-                let bigint = BigInt::from_signed_bytes_be(&vec);
-                bigint.magnitude().clone() // absolute value
-            } else {
-                BigUint::from_bytes_be(&vec)
-            };
-
-            let mut ir: IntermediateRepresentation = IntermediateRepresentation {
-                sign: is_negative,
-                mantissa,
-                exponent,
-                special_case: SpecialCase::None,
-            };
-
-            // Determine the special case
-            ir.determine_special_case(vec.len() * 8); // Pass the bit width (length of the vector in bits)
-
-            ir
-        }
-        Err(e) => {
-            // Handle the error case, for example by panicking or returning a default value.
-            panic!("Failed to convert: {}", e);
-        }
-    }
+pub enum NumericFormat {
+    Fixed {
+        exponent: i64,
+    },
+    Float {
+        exponent_len: i64,
+        mantissa_len: i64,
+    },
 }
 
-/// Converts a floating-point number represented as a u8 vector into an IntermediateRepresentation
-///
-///  # Arguments
-///
-/// * `vector` - A vector of u8 values representing the floating-point number.
-/// * `exponent_len` - The number of bits in the exponent.
-/// * `mantissa_len` - The number of bits in the mantissa.
-/// * `twos_comp` - Boolean  indicating whether the floating-point number uses two's complement for the sign bit.
-///
-/// # Returns
-///
-/// An intermediate representation
-
-pub fn u8_to_ir_float(
+pub fn u8_to_ir(
     vector: Result<Vec<u8>, String>,
-    exponent_len: i64,
-    mantissa_len: i64,
+    numeric_format: NumericFormat,
     twos_comp: bool,
 ) -> IntermediateRepresentation {
     match vector {
@@ -134,47 +79,61 @@ pub fn u8_to_ir_float(
                 is_negative = (vec[0] & 0b10000000) != 0;
             }
 
-            // Extract the mantissa
-            let mut mantissa = BigUint::from(0u8);
-            let bit_offset = 1 + exponent_len; // Start after the sign (1 bit) and exponent
-
-            for i in 0..mantissa_len {
-                let byte_index = ((bit_offset + i) / 8) as usize;
-                let bit_index = ((bit_offset + i) % 8) as usize;
-                let bit = (vec[byte_index] >> (7 - bit_index)) & 1; // Get the i-th bit
-
-                // Shift the mantissa left and add the new bit
-                mantissa <<= 1;
-                if bit == 1 {
-                    // If bit is 1, add 1 to the mantissa
-                    mantissa |= BigUint::one()
+            let (mantissa, exponent) = match numeric_format {
+                NumericFormat::Fixed { exponent } => {
+                    let mantissa = if is_negative {
+                        let bigint = BigInt::from_signed_bytes_be(&vec);
+                        bigint.magnitude().clone() // absolute value
+                    } else {
+                        BigUint::from_bytes_be(&vec)
+                    };
+                    (mantissa, exponent)
                 }
-            }
+                NumericFormat::Float {
+                    exponent_len,
+                    mantissa_len,
+                } => {
+                    let mut mantissa = BigUint::from(0u8);
+                    let bit_offset = 1 + exponent_len; // Start after the sign (1 bit) and exponent
 
-            // Extract the exponent
-            let mut exponent = 0i64;
-            for i in 0..exponent_len {
-                let byte_index = ((1 + i) / 8) as usize; // Start after the sign bit
-                let bit_index = ((1 + i) % 8) as usize;
-                let bit = (vec[byte_index] >> (7 - bit_index)) & 1;
+                    for i in 0..mantissa_len {
+                        let byte_index = ((bit_offset + i) / 8) as usize;
+                        let bit_index = ((bit_offset + i) % 8) as usize;
+                        let bit = (vec[byte_index] >> (7 - bit_index)) & 1; // Get the i-th bit
 
-                // Shift exponent left and add the bit
-                exponent = (exponent << 1) | bit as i64;
-            }
+                        // Shift the mantissa left and add the new bit
+                        mantissa <<= 1;
+                        if bit == 1 {
+                            mantissa |= BigUint::one();
+                        }
+                    }
 
-            // Apply the bias to the exponent
-            let bias = (1 << (exponent_len - 1)) - 1; // Bias: 2^(exponent_len-1) - 1
-            exponent -= bias; // Subtract the bias to get the actual exponent value
+                    let mut exponent = 0i64;
+                    for i in 0..exponent_len {
+                        let byte_index = ((1 + i) / 8) as usize; // Start after the sign bit
+                        let bit_index = ((1 + i) % 8) as usize;
+                        let bit = (vec[byte_index] >> (7 - bit_index)) & 1;
+
+                        // Shift exponent left and add the bit
+                        exponent = (exponent << 1) | bit as i64;
+                    }
+
+                    // Apply the bias to the exponent
+                    let bias = (1 << (exponent_len - 1)) - 1; // Bias: 2^(exponent_len-1) - 1
+                    exponent -= bias;
+
+                    (mantissa, exponent)
+                }
+            };
 
             IntermediateRepresentation {
                 sign: is_negative,
                 mantissa,
                 exponent,
-                special_case: SpecialCase::None
+                special_case: SpecialCase::None,
             }
         }
         Err(e) => {
-            // Handle the error case, for example by panicking or returning a default value.
             panic!("Error unpacking vector: {}", e);
         }
     }

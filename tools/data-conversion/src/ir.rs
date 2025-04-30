@@ -1,10 +1,10 @@
 use num_bigint::BigInt;
 use num_bigint::BigUint;
-use num_traits::{Num};
+use num_traits::Num;
+use num_traits::Zero;
 use std::fs::File;
 use std::io::{self, Write};
 use std::str::FromStr;
-use num_traits::Zero;
 
 /// Enum representing special cases for binary numbers.
 #[derive(Debug, PartialEq, Eq)]
@@ -87,12 +87,17 @@ pub fn from_binary(
         &max_value - &binary_value
     };
 
-    IntermediateRepresentation {
+    let mut ir = IntermediateRepresentation {
         sign,
         mantissa,
         exponent: 0,
         special_case: SpecialCase::None,
-    }
+    };
+
+    // Determine if the IR is a special case
+    ir.determine_special_case(bit_width);
+
+    ir
 }
 
 /// Converts the intermediate representation to a binary string and writes it to a file or stdout.
@@ -204,7 +209,7 @@ pub fn from_float(float_string: &str) -> IntermediateRepresentation {
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
 
-pub fn to_float(
+pub fn to_dec_float(
     inter_rep: IntermediateRepresentation,
     filepath_send: &mut Option<File>,
 ) -> io::Result<()> {
@@ -301,62 +306,54 @@ pub fn to_float(
 ///
 /// This function returns a `std::io::Result<()>` which is `Ok` if the operation
 /// is successful, or an `Err` if an I/O error occurs while writing to the file.
-// pub fn to_fixed(
-//     inter_rep: IntermediateRepresentation,
-//     filepath_send: &mut Option<File>,
-// ) -> io::Result<()> {
-//     // Negate exp
-//     let neg_exponent = -inter_rep.exponent;
+pub fn to_dec_fixed(
+    inter_rep: IntermediateRepresentation,
+    filepath_send: &mut Option<File>,
+) -> io::Result<()> {
+    // Negate exp
+    let neg_exponent = -inter_rep.exponent;
 
-//     // 10^-exp
-//     let scale_factor = BigInt::from(10).pow(neg_exponent as u32);
+    // 10^-exp
+    let scale_factor = BigInt::from(10).pow(neg_exponent as u32);
 
-//     // Convert mantissa to BigInt
-//     let mantissa_bigint = BigInt::from(inter_rep.mantissa);
+    // Convert mantissa to BigInt
+    let mantissa_bigint = BigInt::from(inter_rep.mantissa);
 
-//     let mantissa_mult = mantissa_bigint * scale_factor;
+    let mantissa_mult = mantissa_bigint * scale_factor;
 
-//     // Apply the sign
-//     let signed_value = if inter_rep.sign {
-//         mantissa_mult
-//     } else {
-//         -mantissa_mult
-//     };
+    // Apply the sign
+    let signed_value = if inter_rep.sign {
+        mantissa_mult
+    } else {
+        -mantissa_mult
+    };
 
-//     // Handle placement of decimal point
-//     let mantissa_str = signed_value.to_string();
-//     let mantissa_len = mantissa_str.len();
-//     let adjusted_exponent = inter_rep.exponent + mantissa_len as i64;
+    // Handle placement of decimal point
+    let mantissa_str = signed_value.to_string();
+    let mantissa_len = mantissa_str.len();
+    let adjusted_exponent = inter_rep.exponent + mantissa_len as i64;
 
-//     let string = if adjusted_exponent <= 0 {
-//         // Handle case where the exponent indicates a number less than 1
-//         let zero_padding = "0".repeat(-adjusted_exponent as usize);
-//         format!("0.{}{}", zero_padding, mantissa_str)
-//     } else if adjusted_exponent as usize >= mantissa_len {
-//         // Handle case where the exponent is larger than the length of the mantissa
-//         format!(
-//             "{}{}",
-//             mantissa_str,
-//             "0".repeat(adjusted_exponent as usize - mantissa_len)
-//         )
-//     } else {
-//         // Normal case
-//         let integer_part = &mantissa_str[..adjusted_exponent as usize];
-//         let fractional_part = &mantissa_str[adjusted_exponent as usize..];
-//         format!("{}.{}", integer_part, fractional_part)
-//     };
+    let string = if adjusted_exponent <= 0 {
+        // Handle case where the exponent indicates a number less than 1
+        let zero_padding = "0".repeat(-adjusted_exponent as usize);
+        format!("0.{}{}", zero_padding, mantissa_str)
+    } else if adjusted_exponent as usize >= mantissa_len {
+        // Handle case where the exponent is larger than the length of the mantissa
+        format!(
+            "{}{}",
+            mantissa_str,
+            "0".repeat(adjusted_exponent as usize - mantissa_len)
+        )
+    } else {
+        // Normal case
+        let integer_part = &mantissa_str[..adjusted_exponent as usize];
+        let fractional_part = &mantissa_str[adjusted_exponent as usize..];
+        format!("{}.{}", integer_part, fractional_part)
+    };
 
-//     // Write the result to the file or stdout
-//     if let Some(file) = filepath_send.as_mut() {
-//         file.write_all(string.as_bytes())?;
-//         file.write_all(b"\n")?;
-//     } else {
-//         io::stdout().write_all(string.as_bytes())?;
-//         io::stdout().write_all(b"\n")?;
-//     }
-
-//     Ok(())
-// }
+    // Write the result to the file or stdout
+    write_to_output(&string, filepath_send)
+}
 
 /// Converts a string representation of a hexadecimal number to the intermediate representation.
 ///
@@ -378,11 +375,9 @@ pub fn to_float(
 /// This function will panic if the input string cannot be parsed as a hexadecimal number.
 
 pub fn from_hex(hex_string: &str, width: usize) -> IntermediateRepresentation {
-    // Convert the cleaned hexadecimal string to BigUint
     let hex_value = BigUint::from_str_radix(hex_string, 16)
         .expect("Invalid hexadecimal string");
 
-    // Determine if the value is negative based on the MSB
     let sign_bit = BigUint::from(1u64) << (width - 1);
     let sign = &hex_value & &sign_bit == BigUint::from(0u64);
 
@@ -394,12 +389,17 @@ pub fn from_hex(hex_string: &str, width: usize) -> IntermediateRepresentation {
         &max_value - &hex_value
     };
 
-    IntermediateRepresentation {
+    let mut ir = IntermediateRepresentation {
         sign,
         mantissa,
         exponent: 0,
         special_case: SpecialCase::None,
-    }
+    };
+
+    // Determine if the IR is a special case
+    ir.determine_special_case(width);
+
+    ir
 }
 
 /// Converts the intermediate representation to a hexadecimal string and writes it to a file or stdout.
@@ -438,5 +438,19 @@ pub fn to_hex(
         io::stdout().write_all(b"\n")?;
     }
 
+    Ok(())
+}
+
+fn write_to_output(
+    string: &str,
+    filepath_send: &mut Option<File>,
+) -> io::Result<()> {
+    if let Some(file) = filepath_send.as_mut() {
+        file.write_all(string.as_bytes())?;
+        file.write_all(b"\n")?;
+    } else {
+        io::stdout().write_all(string.as_bytes())?;
+        io::stdout().write_all(b"\n")?;
+    }
     Ok(())
 }

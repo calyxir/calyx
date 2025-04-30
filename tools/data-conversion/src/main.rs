@@ -239,7 +239,7 @@ fn convert(args: &Arguments) {
                         )
                         .expect("Failed to write binary to file");
                     } else {
-                        ir::to_float(
+                        ir::to_dec_fixed(
                             ir::from_binary(line, width, twos),
                             &mut converted,
                         )
@@ -249,20 +249,36 @@ fn convert(args: &Arguments) {
             }
             (FileType::Binary, FileType::Hex) => {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    let u8vec = u8vector::binary_to_u8_vec(line)
-                        .expect("Failed to write hex to file");
-                    let ir_input =
-                        u8vector::u8_to_ir_fixed(Ok(u8vec), exponent, twos);
-                    ir::to_hex(ir_input, &mut converted)
+                    if line.len() <= FAST_TRACK_THRESHOLD_FLOAT_TO_BINARY
+                        && !inter
+                    {
+                        let u8vec = u8vector::binary_to_u8_vec(line)
+                            .expect("Failed to write hex to file");
+                        let ir_input = u8vector::u8_to_ir(
+                            Ok(u8vec),
+                            u8vector::NumericFormat::Fixed { exponent },
+                            twos,
+                        );
+                        ir::to_hex(ir_input, &mut converted)
+                            .expect("Failed to write binary to file");
+                    } else {
+                        ir::to_dec_fixed(
+                            ir::from_binary(line, width, twos),
+                            &mut converted,
+                        )
                         .expect("Failed to write binary to file");
+                    }
                 }
             }
             (FileType::Hex, FileType::Binary) => {
                 for line in read_to_string(filepath_get).unwrap().lines() {
                     let u8vec = u8vector::hex_to_u8_vec(line)
                         .expect("Failed to write hex to file");
-                    let ir_input =
-                        u8vector::u8_to_ir_fixed(Ok(u8vec), exponent, twos);
+                    let ir_input = u8vector::u8_to_ir(
+                        Ok(u8vec),
+                        u8vector::NumericFormat::Fixed { exponent },
+                        twos,
+                    );
                     ir::to_binary(ir_input, &mut converted, width)
                         .expect("Failed to write binary to file");
                 }
@@ -317,10 +333,12 @@ fn convert(args: &Arguments) {
                     } else {
                         let u8vec = u8vector::binary_to_u8_vec(line)
                             .expect("Failed to write hex to file");
-                        let ir_input = u8vector::u8_to_ir_float(
+                        let ir_input = u8vector::u8_to_ir(
                             Ok(u8vec),
-                            exp_width.try_into().unwrap(),
-                            mant_width.try_into().unwrap(),
+                            u8vector::NumericFormat::Float {
+                                exponent_len: exp_width.try_into().unwrap(),
+                                mantissa_len: mant_width.try_into().unwrap(),
+                            },
                             twos,
                         );
                         ir::to_hex(ir_input, &mut converted)
@@ -336,7 +354,7 @@ fn convert(args: &Arguments) {
                         fast_track::binary_to_float(line, &mut converted)
                             .expect("Failed to write float to file");
                     } else {
-                        ir::to_float(
+                        ir::to_dec_float(
                             ir::from_binary(line, width, twos),
                             &mut converted,
                         )
@@ -346,7 +364,7 @@ fn convert(args: &Arguments) {
             }
             (FileType::Hex, FileType::Decimal) => {
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    ir::to_float(ir::from_hex(line, width), &mut converted)
+                    ir::to_dec_float(ir::from_hex(line, width), &mut converted)
                         .expect("Failed to write binary to file");
                 }
             }
