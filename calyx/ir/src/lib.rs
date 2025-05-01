@@ -46,7 +46,7 @@ pub use structure::{
 pub use calyx_frontend::{
     Attribute, Attributes, BoolAttr, DEPRECATED_ATTRIBUTES, Direction,
     GetAttributes, InternalAttr, LibrarySignatures, NumAttr, PortDef,
-    Primitive, PrimitiveInfo, Width,
+    Primitive, PrimitiveInfo, Width, source_info,
 };
 
 /// Module to transform AST programs into IR.

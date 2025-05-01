@@ -27,3 +27,4 @@ serde_json = "1.0.79"
 
 calyx-ir.workspace = true
 calyx-utils.workspace = true
+calyx-frontend.workspace = true
