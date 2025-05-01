@@ -112,6 +112,16 @@ impl Attributes {
             }
         }
     }
+    pub fn insert_set<S>(&mut self, key: S, val: u32)
+    where
+        S: Into<SetAttribute>,
+    {
+        self.hinfo
+            .set_attrs
+            .entry(key.into())
+            .or_default()
+            .insert(val);
+    }
 
     /// Get the value associated with an attribute key
     pub fn get<A>(&self, key: A) -> Option<u64>

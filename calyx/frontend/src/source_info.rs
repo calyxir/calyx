@@ -34,6 +34,10 @@ impl PositionId {
     pub fn new(id: Word) -> Self {
         Self(id)
     }
+
+    pub fn value(&self) -> Word {
+        self.0
+    }
 }
 
 impl From<Word> for PositionId {
@@ -89,7 +93,7 @@ impl TryFrom<Word> for LineNum {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SourceInfoTable {
     /// map file ids to the file path, note that this does not contain file content
     file_map: HashMap<FileId, PathBuf>,

@@ -1,48 +1,37 @@
-use crate::traversal::{Action, Named, VisResult, Visitor};
-use calyx_ir::Id;
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+
+//use calyx_frontend::SetAttr::Pos;
+use calyx_ir::GetAttributes;
+use calyx_ir::source_info::{FileId, LineNum, SourceInfoTable};
 use calyx_utils::WithPos;
-use linked_hash_map::LinkedHashMap;
-use std::fmt;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// Metadata stores a Map between each group name and data used in the metadata table (specified in PR #2022)
-#[derive(Default)]
+/// Metadata creates and stores the source info table for the currently running program
 pub struct Metadata {
-    groups: LinkedHashMap<(Id, Id), ((usize, usize), PathBuf)>,
+    src_table: SourceInfoTable,
+    file_ids: HashMap<String, FileId>,
 }
 
 impl Metadata {
     /// Create an empty metadata table
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add a new entry to the metadata table
-    fn add_entry(
-        &mut self,
-        comp_name: Id,
-        name: Id,
-        span: (usize, usize),
-        path: PathBuf,
-    ) {
-        let ins = self.groups.insert((comp_name, name), (span, path));
-        if let Some(_v) = ins {
-            panic!("Two of same group name found")
+        Self {
+            src_table: SourceInfoTable::new_empty(),
+            file_ids: HashMap::new(),
         }
     }
-}
 
-impl fmt::Display for Metadata {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let grps = &self.groups;
-
-        for ((comp, name), ((start, end), file)) in grps {
-            let file = file.to_str().unwrap();
-
-            writeln!(f, "{comp}.{name}: {file} {start}-{end}")?;
-        }
-
-        Ok(())
+    pub fn add_control_node<A: GetAttributes>(&mut self, node: &mut A) {
+        let attr = node.get_mut_attributes();
+        let temp = attr.copy_span();
+        let (f, (line, _)) = temp.get_line_num();
+        let fnum = self.file_ids.get(f).unwrap();
+        let pos = self
+            .src_table
+            .push_position(*fnum, LineNum::new(line as u32));
+        attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
     }
 }
 
@@ -55,57 +44,131 @@ impl Named for Metadata {
     }
 }
 
-impl Visitor for Metadata {
-    //iterate over all groups in all components and collect metadata
-    fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
-        if ctx.metadata.is_none() {
-            let mut table = Metadata::new();
-            for component in &ctx.components {
-                let cmpt_iter = component.groups.into_iter();
-                for rcc_grp in cmpt_iter {
-                    let grp = rcc_grp.borrow_mut();
-                    let pos_data = grp.attributes.copy_span();
-                    let (file, span) = pos_data.get_line_num();
-                    table.add_entry(
-                        component.name,
-                        grp.name(),
-                        span,
-                        PathBuf::from(file),
-                    ); //hm may need to actually use the full name of the group
-                }
+impl ConstructVisitor for Metadata {
+    fn from(_ctx: &calyx_ir::Context) -> calyx_utils::CalyxResult<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self::new())
+    }
 
-                ctx.metadata = Some(table.to_string());
-            }
-        }
-        Ok(Action::Stop)
+    fn clear_data(&mut self) {
+        // preserve across components
+        // hacky oops
     }
 }
+impl Visitor for Metadata {
+    fn start_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
+        if let Some(x) = std::mem::take(&mut ctx.source_info_table) {
+            self.src_table = x;
+        }
+        Ok(Action::Continue)
+    }
 
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
+    // this visits each component
+    fn start(
+        &mut self,
+        comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        // implement visiting each component and adding the positions
+        // how this works:
+        // components have attributes !!
+        // check if file exists for component definition
+        let binding = comp.attributes.copy_span();
+        let (file, _bs) = binding.get_line_num();
 
-    use calyx_ir::Id;
+        // add file to source table (if not already in)
+        if !self.file_ids.contains_key(file) {
+            let id = self.src_table.push_file(PathBuf::from(file));
+            self.file_ids.insert(String::from(file), id);
+        }
+        // visit all groups in component
+        for rrcgrp in comp.groups.iter() {
+            let mut grp = rrcgrp.borrow_mut();
+            let attr = &mut grp.attributes;
+            let pos_data = attr.copy_span();
+            let (f, (line_start, _line_end)) = pos_data.get_line_num();
+            let fid = self.file_ids.get(f).unwrap(); // this def should be in file_ids
+            let pos = self
+                .src_table
+                .push_position(*fid, LineNum::new(line_start as u32));
+            // add tag to group attributes
+            attr.insert_set(calyx_frontend::SetAttr::Pos, pos.value());
+        }
+        Ok(Action::Continue)
+    }
 
-    use crate::passes_experimental::metadata_table_gen::Metadata;
-    #[test]
-    fn test_metadata() {
-        let mut data = Metadata::new();
-        let empt_string = data.to_string();
-        assert_eq!(empt_string, "");
+    fn finish_context(&mut self, ctx: &mut calyx_ir::Context) -> VisResult {
+        ctx.source_info_table = Some(std::mem::take(&mut self.src_table));
+        Ok(Action::Continue)
+    }
 
-        let path = PathBuf::from("/temp/path/for/testing.futil");
-        data.add_entry(
-            Id::from("main"),
-            Id::from("group_1"),
-            (12, 16),
-            path.clone(),
-        );
-        data.add_entry(Id::from("main"), Id::from("group_2"), (23, 28), path);
-        let test_string = data.to_string();
-        assert_eq!(
-            test_string,
-            "main.group_1: /temp/path/for/testing.futil 12-16\nmain.group_2: /temp/path/for/testing.futil 23-28\n"
-        )
+    fn enable(
+        &mut self,
+        s: &mut calyx_ir::Enable,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    // control nodes
+    fn start_seq(
+        &mut self,
+        s: &mut calyx_ir::Seq,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_par(
+        &mut self,
+        s: &mut calyx_ir::Par,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_if(
+        &mut self,
+        s: &mut calyx_ir::If,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_while(
+        &mut self,
+        s: &mut calyx_ir::While,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
+    }
+
+    fn start_repeat(
+        &mut self,
+        s: &mut calyx_ir::Repeat,
+        _comp: &mut calyx_ir::Component,
+        _sigs: &calyx_ir::LibrarySignatures,
+        _comps: &[calyx_ir::Component],
+    ) -> VisResult {
+        self.add_control_node(s);
+        Ok(Action::Continue)
     }
 }
