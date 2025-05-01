@@ -129,15 +129,61 @@ class StackElementType(Enum):
 class StackElement:
     name: str
     element_type: StackElementType
+    is_main: bool = field(default=False)
     component_name: str = field(default=None) # should only contain a value if element_type is CELL
+    replacement_cell_name: str = field(default=None) # should only contain a value if element_type is CELL
+
+    def __repr__(self):
+        match self.element_type:
+            case StackElementType.GROUP:
+                return self.name
+            case StackElementType.PRIMITIVE:
+                return f"{self.name} (primitive)"
+            case StackElementType.CELL:
+                if self.replacement_cell_name is not None:
+                    return f"{self.name} ({self.replacement_cell_name}) [{self.component_name}]"
+                else:
+                    return f"{self.name} [{self.component_name}]"
+            case StackElementType.CONTROL_GROUP:
+                return f"{self.name} (ctrl)"
+
+class CycleTrace:
+    """
+    List of stacks that are active in a particular cycle
+    """
+    stacks: list[StackElement]
+    is_useful_cycle: bool
+    cycle_type: CycleType
+
+    def __init__(self, stacks_this_cycle: list[StackElement]):
+        self.stacks = stacks_this_cycle
+
+        # If a group or primitive is at the top of at least one stack, then the cycle is "useful"
+        self.is_useful_cycle = False
+        for stack in self.stacks:
+            top: StackElement = stack[-1]
+            match top.element_type:
+                case CycleType.GROUP_OR_PRIMITIVE:
+                    self.is_useful_cycle = True
 
 @dataclass
 class CellSummary:
-    num_times_active: int
-    active_cycles: set
+    num_times_active: int = 0
+    active_cycles: set = field(default=set)
+
+    def start_inv(self):
+        self.num_times_active += 1
 
 @dataclass
 class TraceData:
-    trace: dict[int, list[StackElement]]
-    trace_classified: dict[int, CycleType]
-    cell_to_active_cycles: dict[str, CellSummary]
+    trace: dict[int, list[StackElement]] = field(default=dict)
+    trace_classified: dict[int, CycleType] = field(default=dict)
+    cell_to_active_cycles: dict[str, CellSummary] = field(default=dict)
+
+    def cell_start_invoke(self, cell: str):
+        if cell not in self.cell_to_active_cycles:
+            self.cell_to_active_cycles[cell] = CellSummary()
+        self.cell_to_active_cycles[cell].num_times_active += 1
+    
+    def register_cell_cycle(self, cell, cycle):
+        self.cell_to_active_cycles[cell].active_cycles.add(cycle)

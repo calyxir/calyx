@@ -9,6 +9,8 @@ import construct_trace
 import preprocess
 from visuals import flame, tree, timeline, stats
 
+from classes import TraceData
+
 @dataclass
 class PreprocessedInfo:
     main_shortname: str
@@ -19,6 +21,8 @@ def main(args):
     cell_metadata = preprocess.preprocess_cell_infos(args.cells_json, args.shared_cells_json)
     shared_cells_map = preprocess.read_shared_cells_map(args.shared_cells_json)
     control_metadata = preprocess.read_tdcc_file(args.tdcc_json_file, cell_metadata)
+    # create tracedata object here so we can use it outside of converter
+    tracedata = TraceData()
     # FIXME: just create everything in create_timeline(), remove below commented code
     # # create dict of fsms outside the converter so they are preserved.
     # fsm_events = {
@@ -28,7 +32,8 @@ def main(args):
     print(f"Start reading VCD: {datetime.now()}")
     converter = construct_trace.VCDConverter(
         cell_metadata,
-        control_metadata
+        control_metadata,
+        tracedata
     )
     vcdvcd.VCDVCD(args.vcd_filename, callbacks=converter)
     main_fullname = converter.main_component

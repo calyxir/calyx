@@ -1,6 +1,12 @@
 import vcdvcd
 
-from classes import CellMetadata, ControlMetadata
+from classes import (
+    CellMetadata,
+    ControlMetadata,
+    CycleTrace,
+    StackElement,
+    StackElementType,
+)
 from errors import ProfilerException
 from visuals.timeline import ts_multiplier
 
@@ -12,31 +18,23 @@ def remove_size_from_name(name: str) -> str:
     return name.split("[")[0]
 
 
-def classify_stacks(stacks, main_shortname):
-    # True if something "useful" is happening this cycle (group or primitive)
-    acc = 0
-    for stack in stacks:
-        top = stack[-1]
-        if "(primitive)" in top:
-            acc += 1
-        elif "[" not in top and top != main_shortname:  # group
-            acc += 1
-
-    return acc
-
-
 def create_cycle_trace(
-    info_this_cycle,
-    cells_to_components,
+    cell_info: CellMetadata,
+    info_this_cycle,    
     shared_cell_map,
-    main_component,
     include_primitives,
 ):
-    stacks_this_cycle = []
+    stacks_this_cycle: list[StackElement] = []
     parents = set()  # keeping track of entities that are parents of other entities
-    i_mapping = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
-    i_mapping[main_component] = [main_component.split(".")[-1]]
-    cell_worklist = [main_component]
+    i_mapping: dict[
+        str, list[StackElement]
+    ] = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
+    i_mapping[cell_info.main_component] = [
+        StackElement(
+            cell_info.get_main_shortname(), StackElementType.CELL, is_main=True
+        )
+    ]
+    cell_worklist = [cell_info.main_component]  # worklist of cell names
     while len(cell_worklist) > 0:
         current_cell = cell_worklist.pop()
         covered_units_in_component = set()  # collect all of the units we've covered.
@@ -65,12 +63,14 @@ def create_cycle_trace(
         for active_unit in units_to_cover:
             shortname = active_unit.split(".")[-1]
             if active_unit not in structural_enables:
-                i_mapping[active_unit] = i_mapping[current_cell] + [shortname]
+                i_mapping[active_unit] = i_mapping[current_cell] + [
+                    StackElement(shortname, StackElementType.GROUP)
+                ]
                 parents.add(current_cell)
                 covered_units_in_component.add(active_unit)
         # get all of the other active units
         while len(covered_units_in_component) < len(units_to_cover):
-            # loop through all other elements to figure out parent child info
+            # loop through all other elements to figure out parent child info (structural enables)
             for active_unit in units_to_cover:
                 shortname = active_unit.split(".")[-1]
                 if active_unit in i_mapping:
@@ -78,7 +78,9 @@ def create_cycle_trace(
                 for parent_group in structural_enables[active_unit]:
                     parent = f"{current_cell}.{parent_group}"
                     if parent in i_mapping:
-                        i_mapping[active_unit] = i_mapping[parent] + [shortname]
+                        i_mapping[active_unit] = i_mapping[parent] + [
+                            StackElement(shortname, StackElementType.GROUP)
+                        ]
                         covered_units_in_component.add(active_unit)
                         parents.add(parent)
         # get primitives if requested.
@@ -88,7 +90,7 @@ def create_cycle_trace(
                     primitive_parent = f"{current_cell}.{primitive_parent_group}"
                     primitive_shortname = primitive_name.split(".")[-1]
                     i_mapping[primitive_name] = i_mapping[primitive_parent] + [
-                        f"{primitive_shortname} (primitive)"
+                        StackElement(primitive_shortname, StackElementType.PRIMITIVE)
                     ]
                     parents.add(primitive_parent)
         # by this point, we should have covered all groups in the same component...
@@ -98,8 +100,8 @@ def create_cycle_trace(
                 # TODO: if rewritten... then look for the rewritten cell from cell-active
                 # probably worth putting some info in the flame graph that the cell is rewritten from the originally coded one?
                 current_component = (
-                    cells_to_components[current_cell]
-                    if current_cell != main_component
+                    cell_info.cell_to_component[current_cell]
+                    if current_cell != cell_info.main_component
                     else "main"
                 )
                 cell_split = invoked_cell.split(".")
@@ -115,18 +117,18 @@ def create_cycle_trace(
                             f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!\n{info_this_cycle['cell-active']}"
                         )
                     cell_worklist.append(replacement_cell)
-                    cell_component = cells_to_components[replacement_cell]
+                    cell_component = cell_info.cell_to_component[replacement_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[replacement_cell] = i_mapping[parent] + [
-                        f"{cell_shortname} ({replacement_cell_shortname}) [{cell_component}]"
+                        StackElement(cell_shortname, StackElementType.CELL, component_name=cell_component, replacement_cell_name=replacement_cell_shortname)
                     ]
                     parents.add(parent)
                 elif invoked_cell in info_this_cycle["cell-active"]:
                     cell_worklist.append(invoked_cell)
-                    cell_component = cells_to_components[invoked_cell]
+                    cell_component = cell_info.cell_to_component[invoked_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[invoked_cell] = i_mapping[parent] + [
-                        f"{cell_shortname} [{cell_component}]"
+                        StackElement(cell_shortname, StackElementType.CELL, component_name=cell_component)
                     ]
                     parents.add(parent)
     # Only retain paths that lead to leaf nodes.
@@ -134,18 +136,15 @@ def create_cycle_trace(
         if elem not in parents:
             stacks_this_cycle.append(i_mapping[elem])
 
-    return stacks_this_cycle
+    return CycleTrace(stacks_this_cycle)
 
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
-    def __init__(
-        self,
-        cell_metadata,
-        control_metadata
-    ):
+    def __init__(self, cell_metadata, control_metadata, tracedata):
         super().__init__()
         self.cell_metadata: CellMetadata = cell_metadata
         self.control_metadata: ControlMetadata = control_metadata
+        self.tracedata = tracedata
         self.timestamps_to_events = {}  # timestamps to
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
@@ -201,7 +200,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 continue
             signal_id_dict[vcd.references_to_ids[cell_go]].append(cell_go)
             signal_id_dict[vcd.references_to_ids[cell_done]].append(cell_done)
-            
+
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
@@ -296,10 +295,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         structural_enable_active = set()
         cell_enable_active = set()
         primitive_enable = set()
-        trace = {}
-        trace_classified = []
-        cell_to_active_cycles_summary = {}  # cell --> {"num-times-active": _, "active-cycles": []}
-        # we lose information about the length of each segment but we can retrieve that information from the timeline
 
         # The events are "partial" because we don't know yet what the tid and pid would be.
         # (Will be filled in during create_timelines(); specifically in port_fsm_events())
@@ -348,13 +343,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 ):  # cells have .go and .done
                     cell = signal_name.split(".go")[0]
                     cell_active.add(cell)
-                    if cell not in cell_to_active_cycles_summary:
-                        cell_to_active_cycles_summary[cell] = {
-                            "num-times-active": 1,
-                            "active-cycles": set(),
-                        }  # add active-cycles when accounting for cell_active at the end
-                    else:
-                        cell_to_active_cycles_summary[cell]["num-times-active"] += 1
+                    self.tracedata.cell_start_invoke(cell)
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
                     if (
@@ -402,9 +391,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             if not main_done:
                 # accumulate cycles active for each cell that was active
                 for cell in cell_active:
-                    cell_to_active_cycles_summary[cell]["active-cycles"].add(
-                        clock_cycles
-                    )
+                    self.tracedata.register_cell_cycle(cell, clock_cycles)
                 # add all probe information
                 info_this_cycle["cell-active"] = cell_active.copy()
                 for group, cell_name in group_active:
@@ -460,22 +447,17 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         info_this_cycle["primitive-enable"][cell_name][
                             parent_group
                         ].add(primitive_name)
-                stacks_this_cycle = create_cycle_trace(
+                cycle_trace = create_cycle_trace(
                     info_this_cycle,
                     self.cells_to_components,
                     shared_cells_map,
                     self.main_component,
                     True,
                 )  # True to track primitives
-                trace[clock_cycles] = stacks_this_cycle
-                trace_classified.append(
-                    classify_stacks(stacks_this_cycle, self.main_shortname)
-                )
+                self.tracedata.trace[clock_cycles] = cycle_trace
         self.clock_cycles = (
             clock_cycles  # last rising edge does not count as a full cycle (probably)
         )
-
-        return trace, trace_classified, cell_to_active_cycles_summary
 
     def postprocess_control(self):
         """
