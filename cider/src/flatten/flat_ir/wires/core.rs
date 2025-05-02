@@ -1,4 +1,5 @@
 use cider_idx::{iter::IndexRange, maps::IndexedMap};
+use smallvec::SmallVec;
 
 use crate::flatten::flat_ir::prelude::*;
 
@@ -32,6 +33,9 @@ pub struct Group {
     pub go: LocalPortOffset,
     /// the done signal for this group
     pub done: LocalPortOffset,
+    /// the list of groups which this group could potentially be activated by
+    /// this group
+    pub structural_enables: SmallVec<[GroupIdx; 4]>,
 }
 
 impl Group {
@@ -47,6 +51,7 @@ impl Group {
             assignments,
             go,
             done,
+            structural_enables: SmallVec::new(),
         }
     }
 

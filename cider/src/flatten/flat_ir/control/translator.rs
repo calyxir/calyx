@@ -9,7 +9,7 @@ use crate::{
     as_raw::AsRaw,
     flatten::{
         flat_ir::{
-            base::SignatureRange,
+            base::{LocalPortOffset, SignatureRange},
             cell_prototype::{CellPrototype, ConstantType},
             component::{
                 AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
@@ -279,15 +279,36 @@ fn translate_component(
 
     let group_base = ctx.primary.groups.peek_next_idx();
 
+    let mut go_port_group_map: HashMap<LocalPortOffset, GroupIdx> =
+        HashMap::new();
+
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
-        let group_idx =
+        let translated_group =
             translate_group(&group_brw, ctx, &layout.port_map, hash_cons_map);
-        let k = ctx.primary.groups.push(group_idx);
+        let group_go = translated_group.go;
+        let k = ctx.primary.groups.push(translated_group);
+        go_port_group_map.insert(group_go, k);
         group_map.insert(group.as_raw(), k);
     }
     auxiliary_component_info
         .set_group_range(group_base, ctx.primary.groups.peek_next_idx());
+
+    for group in auxiliary_component_info.definitions.groups() {
+        for assignment in ctx.primary[group].assignments {
+            let dst = ctx.primary[assignment].dst;
+            if let Some(local) = dst.as_local() {
+                if let Some(other_group) = go_port_group_map.get(local) {
+                    ctx.primary
+                        .groups
+                        .get_mut(group)
+                        .unwrap()
+                        .structural_enables
+                        .push(*other_group);
+                }
+            }
+        }
+    }
 
     let comb_group_base = ctx.primary.comb_groups.peek_next_idx();
     // Translate comb groups

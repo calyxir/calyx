@@ -46,17 +46,20 @@ use crate::{
     errors::{RuntimeError, RuntimeResult},
     flatten::structures::environment::wave::WaveWriter,
 };
-use ahash::HashSet;
-use ahash::HashSetExt;
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
-use cider_idx::{IndexRef, iter::IndexRange, maps::IndexedMap};
+use cider_idx::{
+    IndexRef,
+    iter::IndexRange,
+    maps::{IndexedMap, SecondaryMap},
+};
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
 use slog::{Logger, info, warn};
-use std::fmt::Write;
+use std::{collections::VecDeque, fmt::Write};
 use std::{convert::Into, fmt::Debug};
 
 #[derive(Debug, Clone)]
@@ -115,6 +118,7 @@ impl PortMap {
         }
     }
 
+    #[inline]
     pub(crate) fn insert_val_unchecked(
         &mut self,
         idx: GlobalPortIdx,
@@ -389,7 +393,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     clocks: ClockMap,
     thread_map: ThreadMap,
-    control_ports: HashMap<GlobalPortIdx, u32>,
+    control_ports: FxHashMap<GlobalPortIdx, u32>,
 
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
@@ -400,6 +404,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     logger: Logger,
 
     group_instances: Vec<(GlobalCellIdx, GroupIdx)>,
+    ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -519,9 +524,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
-            control_ports: HashMap::new(),
+            control_ports: FxHashMap::new(),
             logger: logging::initialize_logger(logging_conf),
             group_instances: vec![],
+            ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -565,6 +571,9 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             env.memory_header = Some(header.header.memories);
         }
 
+        env.ports_to_cells_map =
+            SecondaryMap::capacity_with_default(0.into(), env.ports.len());
+
         for (cell, ledger) in env.cells.iter() {
             if let Some(comp_ledger) = ledger.as_comp() {
                 let ctx = env.ctx.as_ref();
@@ -572,6 +581,15 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     ctx.secondary[comp_ledger.comp_id].definitions.groups()
                 {
                     env.group_instances.push((cell, group))
+                }
+
+                for port in comp_ledger.signature_ports(ctx) {
+                    env.ports_to_cells_map.insert(port, cell);
+                }
+            } else {
+                let cell_dyn = ledger.as_primitive().unwrap();
+                for port in cell_dyn.get_ports().iter_all() {
+                    env.ports_to_cells_map.insert(port, cell);
                 }
             }
         }
@@ -1928,6 +1946,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         control_points: &[ControlTuple],
     ) -> Vec<ScheduledAssignments> {
         let mut skiplist = HashSet::new();
+        let mut additional_groups = VecDeque::new();
 
         let mut out: Vec<ScheduledAssignments> = control_points
             .iter()
@@ -1937,6 +1956,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         let group = &self.ctx().primary[e.group()];
 
                         skiplist.insert((node.comp, e.group()));
+                        additional_groups.extend(
+                            group
+                                .structural_enables
+                                .iter()
+                                .copied()
+                                .map(|grp| (node.comp, grp)),
+                        );
 
                         Some(ScheduledAssignments::new_control(
                             node.comp,
@@ -1980,25 +2006,30 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             ))
             .collect();
 
-        out.extend(self.env.group_instances.iter().filter_map(
-            |(cell, group_idx)| {
-                if !skiplist.contains(&(*cell, *group_idx)) {
-                    let group = &self.ctx().primary[*group_idx];
+        while let Some((cell, grp)) = additional_groups.pop_front() {
+            if skiplist.insert((cell, grp)) {
+                let group = &self.ctx().primary[grp];
 
-                    Some(ScheduledAssignments::new_control(
-                        *cell,
-                        group.assignments,
-                        Some(GroupInterfacePorts {
-                            go: group.go,
-                            done: group.done,
-                        }),
-                        None,
-                    ))
-                } else {
-                    None
-                }
-            },
-        ));
+                additional_groups.extend(
+                    group
+                        .structural_enables
+                        .iter()
+                        .copied()
+                        .map(|grp| (cell, grp)),
+                );
+
+                out.push(ScheduledAssignments::new_control(
+                    cell,
+                    group.assignments,
+                    Some(GroupInterfacePorts {
+                        go: group.go,
+                        done: group.done,
+                    }),
+                    None,
+                ))
+            }
+        }
+
         out
     }
 
@@ -2815,6 +2846,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             info!(self.env.logger, "Started combinational convergence");
         }
 
+        let mut rerun_all_primitives = true;
+
+        let mut changed_cells: FxHashSet<GlobalCellIdx> = FxHashSet::new();
+
         while has_changed {
             has_changed = false;
 
@@ -2854,15 +2889,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 .get_global_port_idx(&assign.src, *active_cell);
                             let val = &self.env.ports[port];
 
-                            if self.conf.debug_logging {
-                                self.log_assignment(
-                                    active_cell,
-                                    ledger,
-                                    assign_idx,
-                                    val,
-                                );
-                            }
-
                             let dest = self
                                 .get_global_port_idx(&assign.dst, *active_cell);
 
@@ -2876,6 +2902,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                         continue;
                                     }
                                 }
+                            }
+
+                            if self.conf.debug_logging {
+                                self.log_assignment(
+                                    active_cell,
+                                    ledger,
+                                    assign_idx,
+                                    val,
+                                );
                             }
 
                             if let Some(v) = val.as_option() {
@@ -2938,6 +2973,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                     }
                                 };
 
+                                if changed.as_bool() {
+                                    changed_cells.insert(
+                                        self.env.ports_to_cells_map[dest],
+                                    );
+                                }
+
                                 has_changed |= changed.as_bool();
                             }
                             // attempts to undefine a control port that is zero
@@ -2970,7 +3011,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 self.propagate_comb_reads(assigns_bundle)?;
             }
 
-            let changed = self.run_primitive_comb_path()?;
+            let changed = if rerun_all_primitives {
+                rerun_all_primitives = false;
+                self.run_primitive_comb_path(
+                    self.env.cells.range().into_iter(),
+                )?
+            } else {
+                self.run_primitive_comb_path(changed_cells.drain())?
+            };
 
             has_changed |= changed;
 
@@ -2985,6 +3033,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         self.env.ports[*port] =
                             PortValue::new_implicit(BitVecValue::zero(*width));
                         has_changed = true;
+                        rerun_all_primitives = true;
 
                         if self.conf.debug_logging {
                             info!(
@@ -3290,9 +3339,21 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
     }
 
-    fn run_primitive_comb_path(&mut self) -> Result<bool, BoxedRuntimeError> {
+    fn run_primitive_comb_path<I>(
+        &mut self,
+        cells_to_run: I,
+    ) -> Result<bool, BoxedRuntimeError>
+    where
+        I: Iterator<Item = GlobalCellIdx>,
+    {
+        if self.conf.debug_logging {
+            info!(self.env().logger, "Starting primitive combinational update");
+        }
+
         let mut changed = UpdateStatus::Unchanged;
-        for cell in self.env.cells.values_mut() {
+
+        for cell in cells_to_run {
+            let cell = &mut self.env.cells[cell];
             match cell {
                 CellLedger::Primitive { cell_dyn } => {
                     let result = cell_dyn.exec_comb(&mut self.env.ports)?;
@@ -3342,6 +3403,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                 CellLedger::Component(_) => {}
             }
+        }
+
+        if self.conf.debug_logging {
+            info!(self.env().logger, "Finished primitive combinational update");
         }
 
         Ok(changed.as_bool())

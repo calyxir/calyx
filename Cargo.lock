@@ -619,6 +619,7 @@ dependencies = [
  "cider-idx",
  "fraction",
  "fst-writer",
+ "fxhash",
  "itertools 0.11.0",
  "num-bigint",
  "num-traits",
