@@ -8,17 +8,29 @@ import queues.flow_inference as fi
 import json
 import os
 
-# def unroll(data):
-#   """Need to recurse until we hit leaves, and then build up"""
-#   for key, value in data.items():
-#     if key == "class":
-#       name = "fifo_" + value
-#       fifos.append(fifo.insert_fifo(prog, name))
-#     else:
-#       # need to continue recursing to find leaf
-#       unroll(value)
 rr_id = 0
 strict_id = 0
+
+def compute_order(lst):
+  """
+  Assumes lexigraphical ordering for classes. In Rio programs, order is specified
+  indirectly by the order which a class shows up in the list of children. For
+  instance Strict[B, C, A] means that B is prioritized first, then C, then A. When
+  translating that same policy to Calyx a zero-indexed numerical order must be specified, and this
+  is what this function does. In this case it would return [1, 2, 0].
+  """
+  sorted_classes = sorted((item for item in lst if isinstance(item, str)))
+  class_rank = {item: rank for rank, item in enumerate(sorted_classes)}
+
+  order = []
+  for idx, item in enumerate(lst):
+      if isinstance(item, str):
+          order.append(class_rank[item])
+      else:
+          order.append(idx)
+  
+  return order
+
 
 def create(data, lower, upper, prog, fifo_queue):
   """
@@ -32,30 +44,33 @@ def create(data, lower, upper, prog, fifo_queue):
         return fifo_queue
       elif key == "RR":
         num_children = len(val)
-        interval = (upper - lower) // num_children
-        boundaries = []
-        for i in range(1, num_children):
-          boundaries.append(lower + (interval * i))
-        boundaries.append(upper)
+        if num_children == 1:
+          return create(val[0], lower, upper, prog, fifo_queue) # or return fifo_queue, bc rr with one child is just a fifo, but what if the child is not a fifo?
+        else:
+          interval = (upper - lower) // num_children
+          boundaries = []
+          for i in range(1, num_children):
+            boundaries.append(lower + (interval * i))
+          boundaries.append(upper)
 
-        children = []
-        l = lower
-        u = upper # keep in mind case where there are only 2 children, could lead to a bug with rounding error
-        for child in range(num_children):
-          u = l + interval
-          if child == num_children - 1:
-            u = upper
-          children.append(create(val[child], l, u, prog, fifo_queue))
-          l = u
+          children = []
+          l = lower
+          u = upper
+          for child in range(num_children):
+            u = l + interval
+            if child == num_children - 1:
+              u = upper
+            children.append(create(val[child], l, u, prog, fifo_queue))
+            l = u
 
-        rr_id += 1
-        return strict_or_rr.insert_queue(
-        prog,
-        f"pifo_rr{rr_id}",
-        True,
-        children,
-        fi.insert_boundary_flow_inference(prog, f"fi_rr{rr_id}", boundaries),
-        )
+          rr_id += 1
+          return strict_or_rr.insert_queue(
+            prog,
+            f"pifo_rr{rr_id}",
+            True,
+            children,
+            fi.insert_boundary_flow_inference(prog, f"fi_rr{rr_id}", boundaries),
+          )
       elif key == "Strict":
         num_children = len(val)
         interval = (upper - lower) // num_children
@@ -66,27 +81,31 @@ def create(data, lower, upper, prog, fifo_queue):
 
         children = []
         l = lower
-        u = upper # keep in mind case where there are only 2 children, could lead to a bug with rounding error
-        for child in range(num_children):
+        u = upper
+        lst = []
+        for i in range(num_children):
           u = l + interval
-          if child == num_children - 1:
+          if i == num_children - 1:
             u = upper
-          children.append(create(val[child], l, u, prog, fifo_queue))
+          children.append(create(val[i], l, u, prog, fifo_queue))
           l = u
+          my_dict = val[i]
+          k, v = my_dict.popitem()
+          if k == "FIFO":
+            lst.append(v[0])
+          else:
+            lst.append(i)
 
+        order = compute_order(lst)
         strict_id += 1
         return strict_or_rr.insert_queue(
-        prog,
-        f"pifo_strict{strict_id}",
-        False,
-        children,
-        fi.insert_boundary_flow_inference(prog, f"fi_strict{strict_id}", boundaries),
-        order = [n for n in range(num_children)],
+          prog,
+          f"pifo_strict{strict_id}",
+          False,
+          children,
+          fi.insert_boundary_flow_inference(prog, f"fi_strict{strict_id}", boundaries),
+          order = order,
         )
-  # elif isinstance(data, list):
-  #   for child in data:
-  #     create(child)
-
 
 
 def build(json_file):
@@ -95,7 +114,6 @@ def build(json_file):
     keepgoing = "--keepgoing" in sys.argv
     prog = cb.Builder()
 
-    #data = json.loads(json_file)
     base_dir = os.path.dirname(__file__)
     file_path = os.path.join(base_dir, json_file)
     with open(file_path) as f:
