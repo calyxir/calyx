@@ -69,7 +69,11 @@ expect_dir = "par-to-seq"
 
 [[tests]]
 name = "control"
-paths = ["control/*.futil", "control/iteration/*.futil"]
+paths = [
+  "control/*.futil",
+  "control/iteration/*.futil",
+  "control/structural-enables/*.futil",
+]
 cmd = """
 fud2 --from calyx --to dat \
          --through cider \
