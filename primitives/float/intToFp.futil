@@ -7,7 +7,7 @@ extern "intToFp.sv" {
     ](
         @clk clk: 1,
         @reset reset: 1,
-        @go go: 1,
+        @write_together @interval(2) @go go: 1,
         in: intWidth,
         signedIn: 1
     ) -> (
