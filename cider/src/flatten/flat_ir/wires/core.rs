@@ -33,8 +33,7 @@ pub struct Group {
     pub go: LocalPortOffset,
     /// the done signal for this group
     pub done: LocalPortOffset,
-    /// the list of groups which this group could potentially be activated by
-    /// this group
+    /// the list of groups which this group could potentially activate
     pub structural_enables: SmallVec<[GroupIdx; 4]>,
 }
 
