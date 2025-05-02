@@ -167,23 +167,57 @@ class CycleTrace:
                     self.is_useful_cycle = True
 
 @dataclass
-class CellSummary:
+class Summary:
+    """
+    Summary for Cells/Control groups on the number of times they were active vs their active cycles
+    FIXME: Add min/max/avg and collect these for normal groups as well?
+    """
     num_times_active: int = 0
     active_cycles: set = field(default=set)
 
-    def start_inv(self):
-        self.num_times_active += 1
+class ControlRegUpdateType(Enum):
+    FSM = 1
+    PAR_DONE = 2
+    BOTH = 3
+
+@dataclass
+class ControlRegUpdate:
+    """
+    Updates to control registers in a cell.
+    Retain this info to add to the timeline
+    """
+    cell_name: str
+    clock_cycle: int
+    updates: str
+    update_type: ControlRegUpdateType
 
 @dataclass
 class TraceData:
     trace: dict[int, list[StackElement]] = field(default=dict)
     trace_classified: dict[int, CycleType] = field(default=dict)
-    cell_to_active_cycles: dict[str, CellSummary] = field(default=dict)
+    cell_to_active_cycles: dict[str, Summary] = field(default=dict)
+
+    # fields relating to control groups/registers
+    trace_with_control_groups: dict[int, list[StackElement]] = field(default=dict)
+    control_group_to_active_cycles: dict[str, Summary] = field(default=dict)
+    control_reg_updates: dict[str, list[ControlRegUpdate]] = field(default=dict)
+
+    def incr_num_times_active(self, name: str, d: dict[str, Summary]):
+        if name not in d:
+            d[name] = Summary()
+        d[name].num_times_active += 1
 
     def cell_start_invoke(self, cell: str):
-        if cell not in self.cell_to_active_cycles:
-            self.cell_to_active_cycles[cell] = CellSummary()
-        self.cell_to_active_cycles[cell].num_times_active += 1
+        self.incr_num_times_active(cell, self.cell_to_active_cycles)
     
     def register_cell_cycle(self, cell, cycle):
         self.cell_to_active_cycles[cell].active_cycles.add(cycle)
+
+    def control_group_interval(self, group: str, interval: range):
+        self.incr_num_times_active(group, self.control_group_to_active_cycles)
+        self.control_group_to_active_cycles[group].active_cycles.add(interval)
+
+    def register_control_reg_update(self, cell: str, clock_cycle: int, update_str: str):
+        if cell not in self.control_reg_updates:
+            self.control_reg_updates[cell] = []
+        self.control_reg_updates[cell].append(ControlRegUpdate(cell, clock_cycle, update_str))

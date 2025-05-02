@@ -4,6 +4,7 @@ from classes import (
     CellMetadata,
     ControlMetadata,
     CycleTrace,
+    TraceData,
     StackElement,
     StackElementType,
 )
@@ -144,7 +145,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         super().__init__()
         self.cell_metadata: CellMetadata = cell_metadata
         self.control_metadata: ControlMetadata = control_metadata
-        self.tracedata = tracedata
+        self.tracedata: TraceData = tracedata
         self.timestamps_to_events = {}  # timestamps to
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
@@ -466,35 +467,25 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         (which gets filled in during self.postprocess()).
         """
         control_group_events = {}  # cycle count --> [control groups that are active that cycle]
-        control_reg_updates = {
-            c: [] for c in self.cells_to_components
-        }  # cell name --> (clock_cycle, updates)
+
+        # FIXME: we might be able to get away with not computing this, since when we add to the stack 
         control_reg_per_cycle = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
         # for now, control_reg_update_type will be one of "fsm", "par-done", "both"
 
         control_group_start_cycles = {}
-        control_group_to_summary = {}  # group --> {"num-times-active": _, "active-cycles": []}. Used in
         for ts in self.timestamps_to_control_group_events:
             if ts in self.timestamps_to_clock_cycles:
                 clock_cycle = self.timestamps_to_clock_cycles[ts]
                 events = self.timestamps_to_control_group_events[ts]
                 for event in events:
                     group_name = event["group"]
-                    if group_name not in control_group_to_summary:
-                        control_group_to_summary[group_name] = {
-                            "num-times-active": 0,
-                            "active-cycles": [],
-                        }
                     if event["value"] == 1:  # control group started
                         control_group_start_cycles[group_name] = clock_cycle
-                        control_group_to_summary[group_name]["num-times-active"] += 1
                     elif event["value"] == 0:  # control group ended
                         active_range = range(
                             control_group_start_cycles[group_name], clock_cycle
                         )
-                        control_group_to_summary[group_name]["active-cycles"] += list(
-                            active_range
-                        )
+                        self.tracedata.control_group_interval(group_name, active_range)
                         for i in active_range:
                             if i in control_group_events:
                                 control_group_events[i].add(group_name)
@@ -544,19 +535,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             cell_to_change_type[cell_name] = "both"
                         # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
                 for cell in cell_to_val_changes:
-                    control_reg_updates[cell].append(
-                        (clock_cycle, cell_to_val_changes[cell])
-                    )
+                    self.tracedata.register_control_reg_update(cell, clock_cycle, cell_to_val_changes[cell])
                 if len(cell_to_change_type) > 0:
                     leaf_cell = sorted(
                         cell_to_change_type.keys(), key=(lambda k: k.count("."))
                     )[-1]
                     control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
         return (
-            control_group_events,
-            control_group_to_summary,
-            control_reg_updates,
-            control_reg_per_cycle,
+            control_group_events
         )
 
 
