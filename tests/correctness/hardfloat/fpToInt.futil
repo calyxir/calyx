@@ -1,0 +1,33 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/float/fpToInt.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+    cells {
+        @external mem_read = comb_mem_d1(32, 1, 1);
+        @external mem_write = comb_mem_d1(32, 1, 1);
+        fpToInt0 = std_fpToInt(8, 24, 32, 32);
+    }
+
+    wires {
+        group fp_to_si {
+            mem_read.addr0 = 1'b0;
+            fpToInt0.in = mem_read.read_data;
+
+            fpToInt0.go = 1'b1;
+            fpToInt0.signedOut = 1'b1;
+
+            mem_write.addr0 = 1'b0;
+            mem_write.write_data = fpToInt0.out;
+            mem_write.write_en = 1'b1;
+
+            fp_to_si[done] = (mem_write.done & fpToInt0.done) ? 1'd1;
+        }
+    }
+
+    control {
+        seq {
+            fp_to_si;
+        }
+    }
+}

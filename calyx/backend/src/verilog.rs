@@ -212,6 +212,9 @@ impl LibraryHandlerTrait for HardFloatHandler {
 
         let source_path = base.join("primitives/float/HardFloat-1/source/");
 
+        // Include `RISCV` folder to include `iNFromException`
+        let riscv_path = source_path.join("RISCV");
+
         let mut inc_paths = Vec::new();
 
         if source_path.exists()
@@ -223,6 +226,18 @@ impl LibraryHandlerTrait for HardFloatHandler {
         } else {
             return Err(Error::invalid_file(
                 "Invalid path for HardFloat source directory",
+            ));
+        }
+
+        if riscv_path.exists()
+            && std::fs::metadata(&riscv_path)
+                .map(|m| m.is_dir())
+                .unwrap_or(false)
+        {
+            inc_paths.push(riscv_path);
+        } else {
+            return Err(Error::invalid_file(
+                "Invalid path for HardFloat RISCV directory",
             ));
         }
 
