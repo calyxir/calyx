@@ -244,7 +244,7 @@ fn check_library_needed(ctx: &ir::Context) -> bool {
     ctx.lib
         .extern_paths()
         .iter()
-        .any(|path| path.to_string_lossy().contains("float"))
+        .any(|path| path.to_string_lossy().contains("float/"))
 }
 
 /// Collect all included files specified by the Calyx source file
