@@ -7,6 +7,7 @@ from classes import (
     TraceData,
     StackElement,
     StackElementType,
+    ControlRegUpdateType
 )
 from errors import ProfilerException
 from visuals.timeline import ts_multiplier
@@ -468,9 +469,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         """
         control_group_events = {}  # cycle count --> [control groups that are active that cycle]
 
-        # FIXME: we might be able to get away with not computing this, since when we add to the stack 
-        control_reg_per_cycle = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
-        # for now, control_reg_update_type will be one of "fsm", "par-done", "both"
+        # FIXME: we might be able to get away with not computing this
+        control_reg_per_cycle: dict[int, ControlRegUpdateType] = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
 
         control_group_start_cycles = {}
         for ts in self.timestamps_to_control_group_events:
@@ -495,10 +495,13 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for ts in self.timestamps_to_control_reg_changes:
             if ts in self.timestamps_to_clock_cycles:
                 clock_cycle = self.timestamps_to_clock_cycles[ts]
-                # control_reg_per_cycle[clock_cycle] = []
                 events = self.timestamps_to_control_reg_changes[ts]
                 cell_to_val_changes = {}
-                cell_to_change_type = {}
+                # for each cell active in this clock cycle, what kinds of ctrl reg updates happened?
+                # we will only store the ContrlRegUpdateType of the leaf cell (the cell on the top of the stack) since that's what is "currently active"
+                # into control_reg_update_type
+                # FIXME: is there a corner case I'm missing here?
+                cell_to_change_type: dict[str, ControlRegUpdateType] = {}
                 # we only care about registers when their write_enables are fired.
                 for write_en in filter(
                     lambda e: e.endswith("write_en") and events[e] == 1, events.keys()
@@ -516,24 +519,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             cell_to_val_changes[cell_name] += f", {upd}"
                         else:
                             cell_to_val_changes[cell_name] = upd
-                        # update cell_to_change_type
-                        if ".pd" in reg_name and cell_name not in cell_to_change_type:
-                            cell_to_change_type[cell_name] = "par-done"
-                        elif (
-                            ".pd" in reg_name
-                            and cell_to_change_type[cell_name] == "fsm"
-                        ):
-                            cell_to_change_type[cell_name] = "both"
-                        elif (
-                            ".fsm" in reg_name and cell_name not in cell_to_change_type
-                        ):
-                            cell_to_change_type[cell_name] = "fsm"
-                        elif (
-                            ".fsm" in reg_name
-                            and cell_to_change_type[cell_name] == "par-done"
-                        ):
-                            cell_to_change_type[cell_name] = "both"
-                        # m[cell_name].append((reg_name, reg_new_value, clock_cycle))
+                        
+                        update_cell_to_change_type(reg_name, cell_name, cell_to_change_type)
+
                 for cell in cell_to_val_changes:
                     self.tracedata.register_control_reg_update(cell, clock_cycle, cell_to_val_changes[cell])
                 if len(cell_to_change_type) > 0:
@@ -542,8 +530,22 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     )[-1]
                     control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
         return (
-            control_group_events
+            control_group_events,
+            control_reg_per_cycle
         )
+
+def update_cell_to_change_type(reg_name: str, cell_name: str, cell_to_change_type: dict[str, ControlRegUpdateType]):
+    par_done_indicator = ".pd"
+    fsm_indicator = ".fsm"
+    if cell_name not in cell_to_change_type:
+        if par_done_indicator in reg_name:
+            cell_to_change_type[cell_name] = ControlRegUpdateType.PAR_DONE
+        elif fsm_indicator in reg_name:
+            cell_to_change_type[cell_name] = ControlRegUpdateType.FSM
+    elif par_done_indicator in reg_name and cell_to_change_type[cell_name] == ControlRegUpdateType.FSM:
+        cell_to_change_type[cell_name] = ControlRegUpdateType.BOTH
+    elif fsm_indicator in reg_name and cell_to_change_type[cell_name] == ControlRegUpdateType.PAR_DONE:
+        cell_to_change_type[cell_name] = ControlRegUpdateType.BOTH
 
 
 def order_pars(cell_to_pars, par_deps, rev_par_deps):

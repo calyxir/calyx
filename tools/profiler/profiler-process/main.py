@@ -44,8 +44,6 @@ def main(args):
     )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
     (
         control_groups_trace,
-        control_groups_summary,
-        control_reg_updates,
         control_reg_updates_per_cycle,
     ) = converter.postprocess_control()
     cell_to_ordered_pars = construct_trace.order_pars(

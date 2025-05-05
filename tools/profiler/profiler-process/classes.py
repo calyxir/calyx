@@ -62,6 +62,7 @@ class ControlMetadata:
     # component --> { fsm in the component. NOT fully qualified }
     component_to_fsms: dict[str, set[str]] = field(default_factory=dict)
     # component --> { par groups in the component }
+    component_to_par_groups: dict[str, set[str]] = field(default_factory=dict)
     # fully qualified par name --> [fully-qualified par children name]
     par_to_children: dict[str, list[str]] = field(default_factory=dict)
     # component --> { child name --> ParChildInfo (contains parent name and child type) }
@@ -69,6 +70,9 @@ class ControlMetadata:
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
     # partial_fsm_events: 
+
+    cell_to_ordered_pars: dict[str, list[str]] = field(default=list) # cell --> ordered par group names
+    
 
     # FIXME: see if we want to bring this back
     # # fully qualified par name --> [fully-qualified par parent name]
@@ -111,6 +115,26 @@ class ControlMetadata:
                 self.component_to_child_to_par_parent[component][child_name] = {parent_info}
         else:
             self.component_to_child_to_par_parent[component] = {child_name: {parent_info}}
+
+    def order_pars(self, cell_to_pars, par_deps, rev_par_deps):
+        """
+        Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
+        we should add them to the trace.
+        (1) order based on cells
+        (2) for pars in the same cell, order based on dependencies information
+        """
+        self.cell_to_ordered_pars = {}
+        for cell in sorted(cell_to_pars, key=(lambda c: c.count("."))):
+            self.cell_to_ordered_pars[cell] = []
+            pars = cell_to_pars[cell]
+            # start with pars with no parent
+            worklist = list(pars.difference(rev_par_deps))
+            while len(worklist) > 0:
+                par = worklist.pop(0)
+                if par not in self.cell_to_ordered_pars[cell]:
+                    ordered[cell].append(par)  # f"{signal_prefix}.{par}"
+                # get all the children of this par
+                worklist += par_deps[par]
 
 class CycleType(Enum):
     GROUP_OR_PRIMITIVE = 1
@@ -181,7 +205,7 @@ class ControlRegUpdateType(Enum):
     BOTH = 3
 
 @dataclass
-class ControlRegUpdate:
+class ControlRegUpdates:
     """
     Updates to control registers in a cell.
     Retain this info to add to the timeline
@@ -190,6 +214,8 @@ class ControlRegUpdate:
     clock_cycle: int
     updates: str
     update_type: ControlRegUpdateType
+
+
 
 @dataclass
 class TraceData:
@@ -200,7 +226,8 @@ class TraceData:
     # fields relating to control groups/registers
     trace_with_control_groups: dict[int, list[StackElement]] = field(default=dict)
     control_group_to_active_cycles: dict[str, Summary] = field(default=dict)
-    control_reg_updates: dict[str, list[ControlRegUpdate]] = field(default=dict)
+    control_reg_updates: dict[str, list[ControlRegUpdates]] = field(default=dict) # cell --> ControlRegUpdate. This is for constructing timeline later.
+    cycle_to_control_reg
 
     def incr_num_times_active(self, name: str, d: dict[str, Summary]):
         if name not in d:
@@ -220,4 +247,8 @@ class TraceData:
     def register_control_reg_update(self, cell: str, clock_cycle: int, update_str: str):
         if cell not in self.control_reg_updates:
             self.control_reg_updates[cell] = []
-        self.control_reg_updates[cell].append(ControlRegUpdate(cell, clock_cycle, update_str))
+        self.control_reg_updates[cell].append(ControlRegUpdates(cell, clock_cycle, update_str))
+
+    def create_trace_with_control_groups(self, cell_metadata: CellMetadata, control_metadata: ControlMetadata):
+
+        return
