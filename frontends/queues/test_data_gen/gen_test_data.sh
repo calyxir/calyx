@@ -145,7 +145,7 @@ for sched_algo in round_robin strict; do
     done
 done
 
-# for the sample compiled programs (provided the corresponding JSON file exists)
+# For the sample compiled programs (provided the corresponding JSON file exists)
 # - FIFO
 # - PIFO tree
 # - Round robin with 2 flows
@@ -153,36 +153,36 @@ done
 # - Round robin union, which essentially behaves like a FIFO
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
-        > ../tests/fifo_compile.data
+        > ${tests_dir}/compiler/fifo_compile.data
 
-cat ../tests/fifo_compile.data \
+cat ${tests_dir}/compiler/fifo_compile.data \
         | python3 fifo_oracle.py $num_cmds $queue_size --keepgoing \
-        > ../tests/fifo_compile.expect
+        > ${tests_dir}/compiler/fifo_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
-        > ../tests/pifo_tree_compile.data
+        > ${tests_dir}/compiler/pifo_tree_compile.data
 
-cat ../tests/pifo_tree_compile.data \
+cat ${tests_dir}/compiler/pifo_tree_compile.data \
         | python3 pifo_tree_oracle.py $num_cmds $queue_size --keepgoing \
-        > ../tests/pifo_tree_compile.expect
+        > ${tests_dir}/compiler/pifo_tree_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
-        > ../tests/rr_compile.data
+        > ${tests_dir}/compiler/rr_compile.data
 
-cat ../tests/rr_compile.data \
+cat ${tests_dir}/compiler/rr_compile.data \
         | python3 rr_oracle.py $num_cmds $queue_size 2 --keepgoing \
-        > ../tests/rr_compile.expect
+        > ${tests_dir}/compiler/rr_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
-        > ../tests/strict_compile.data
+        > ${tests_dir}/compiler/strict_compile.data
 
-cat ../tests/strict_compile.data \
+cat ${tests_dir}/compiler/strict_compile.data \
         | python3 strict_oracle.py $num_cmds $queue_size 3 --keepgoing \
-        > ../tests/strict_compile.expect
+        > ${tests_dir}/compiler/strict_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
-        > ../tests/fifo_union_compile.data
+        > ${tests_dir}/compiler/fifo_union_compile.data
 
-cat ../tests/fifo_union_compile.data \
+cat ${tests_dir}/compiler/fifo_union_compile.data \
         | python3 fifo_oracle.py $num_cmds $queue_size --keepgoing \
-        > ../tests/fifo_union_compile.expect
+        > ${tests_dir}/compiler/fifo_union_compile.expect

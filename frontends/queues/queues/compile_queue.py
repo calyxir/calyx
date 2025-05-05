@@ -59,14 +59,14 @@ def create(data, lower, upper, prog, fifo_queue):
 
                     if key == "RR":
                         children = []
-                        l = lower
+                        lo = lower
                         u = upper
                         for child in range(num_children):
-                            u = l + interval
+                            u = lo + interval
                             if child == num_children - 1:
                                 u = upper
                             children.append(create(val[child], l, u, prog, fifo_queue))
-                            l = u
+                            lo = u
                         rr_id += 1
                         return strict_or_rr.insert_queue(
                             prog,
@@ -79,15 +79,15 @@ def create(data, lower, upper, prog, fifo_queue):
                         )
                     elif key == "Strict":
                         children = []
-                        l = lower
+                        lo = lower
                         u = upper
                         lst = []
                         for i in range(num_children):
-                            u = l + interval
+                            u = lo + interval
                             if i == num_children - 1:
                                 u = upper
                             children.append(create(val[i], l, u, prog, fifo_queue))
-                            l = u
+                            lo = u
                             my_dict = val[i]
                             k, v = my_dict.popitem()
                             if k == "FIFO":
