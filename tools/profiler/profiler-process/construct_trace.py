@@ -548,28 +548,6 @@ def update_cell_to_change_type(reg_name: str, cell_name: str, cell_to_change_typ
         cell_to_change_type[cell_name] = ControlRegUpdateType.BOTH
 
 
-def order_pars(cell_to_pars, par_deps, rev_par_deps):
-    """
-    Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
-    we should add them to the trace.
-    (1) order based on cells
-    (2) for pars in the same cell, order based on dependencies information
-    """
-    ordered = {}  # cell --> ordered par names
-    for cell in sorted(cell_to_pars, key=(lambda c: c.count("."))):
-        ordered[cell] = []
-        pars = cell_to_pars[cell]
-        # start with pars with no parent
-        worklist = list(pars.difference(rev_par_deps))
-        while len(worklist) > 0:
-            par = worklist.pop(0)
-            if par not in ordered:
-                ordered[cell].append(par)  # f"{signal_prefix}.{par}"
-            # get all the children of this par
-            worklist += par_deps[par]
-    return ordered
-
-
 def add_par_to_trace(
     trace,
     par_trace,
@@ -580,6 +558,9 @@ def add_par_to_trace(
     """
     Adds par groups (created by TDCC) to an existing trace.
     """
+
+
+
     new_trace = {i: [] for i in trace}
     for i in trace:
         if i in par_trace:
