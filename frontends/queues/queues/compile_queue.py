@@ -65,7 +65,7 @@ def create(data, lower, upper, prog, fifo_queue):
                             u = lo + interval
                             if child == num_children - 1:
                                 u = upper
-                            children.append(create(val[child], l, u, prog, fifo_queue))
+                            children.append(create(val[child], lo, u, prog, fifo_queue))
                             lo = u
                         rr_id += 1
                         return strict_or_rr.insert_queue(
@@ -86,7 +86,7 @@ def create(data, lower, upper, prog, fifo_queue):
                             u = lo + interval
                             if i == num_children - 1:
                                 u = upper
-                            children.append(create(val[i], l, u, prog, fifo_queue))
+                            children.append(create(val[i], lo, u, prog, fifo_queue))
                             lo = u
                             my_dict = val[i]
                             k, v = my_dict.popitem()

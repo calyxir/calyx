@@ -156,33 +156,33 @@ python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
         > ${tests_dir}/compiler/fifo_compile.data
 
 cat ${tests_dir}/compiler/fifo_compile.data \
-        | python3 fifo_oracle.py $num_cmds $queue_size --keepgoing \
+        | python3 ${data_gen_dir}/fifo_oracle.py $num_cmds $queue_size --keepgoing \
         > ${tests_dir}/compiler/fifo_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
         > ${tests_dir}/compiler/pifo_tree_compile.data
 
 cat ${tests_dir}/compiler/pifo_tree_compile.data \
-        | python3 pifo_tree_oracle.py $num_cmds $queue_size --keepgoing \
+        | python3 ${data_gen_dir}/pifo_tree_oracle.py $num_cmds $queue_size --keepgoing \
         > ${tests_dir}/compiler/pifo_tree_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
         > ${tests_dir}/compiler/rr_compile.data
 
 cat ${tests_dir}/compiler/rr_compile.data \
-        | python3 rr_oracle.py $num_cmds $queue_size 2 --keepgoing \
+        | python3 ${data_gen_dir}/rr_oracle.py $num_cmds $queue_size 2 --keepgoing \
         > ${tests_dir}/compiler/rr_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
         > ${tests_dir}/compiler/strict_compile.data
 
 cat ${tests_dir}/compiler/strict_compile.data \
-        | python3 strict_oracle.py $num_cmds $queue_size 3 --keepgoing \
+        | python3 ${data_gen_dir}/strict_oracle.py $num_cmds $queue_size 3 --keepgoing \
         > ${tests_dir}/compiler/strict_compile.expect
 
 python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
         > ${tests_dir}/compiler/fifo_union_compile.data
 
 cat ${tests_dir}/compiler/fifo_union_compile.data \
-        | python3 fifo_oracle.py $num_cmds $queue_size --keepgoing \
+        | python3 ${data_gen_dir}fifo_oracle.py $num_cmds $queue_size --keepgoing \
         > ${tests_dir}/compiler/fifo_union_compile.expect
