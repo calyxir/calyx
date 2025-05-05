@@ -116,6 +116,7 @@ paths = [
   "frontends/queues/tests/binheap/*.py",
   "frontends/queues/tests/binheap/round_robin/*.py",
   "frontends/queues/tests/binheap/strict/*.py",
+  "frontends/queues/tests/compiler/*.py"
 ]
 cmd = """
 name=$(basename {} .py) &&
