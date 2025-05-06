@@ -1,13 +1,13 @@
+use crate::u8vector::binary_to_u8_vec;
+use crate::write_to_file::to_std_out;
+use crate::write_to_file::{to_text_file, BinaryOutputFile};
 use argh::FromArgs;
 use std::error::Error;
 use std::fmt;
 use std::fs::read_to_string;
 use std::fs::File;
+use std::io::{self};
 use std::str::FromStr;
-use std::io::{self, Write};
-use crate::write_to_file::{BinaryOutputFile, to_text_file};
-use crate::u8vector::binary_to_u8_vec;
-use crate::write_to_file::to_std_out;
 mod fast_track;
 mod ir;
 mod u8vector;
@@ -52,25 +52,15 @@ impl FromStr for NumType {
     }
 }
 
-impl ToString for NumType {
-    fn to_string(&self) -> String {
-        match self {
-            NumType::Float => "float".to_string(),
-            NumType::Fixed => "fixed".to_string(),
-        }
+impl fmt::Display for NumType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            NumType::Float => "float",
+            NumType::Fixed => "fixed",
+        };
+        write!(f, "{}", s)
     }
 }
-
-// #[derive(Debug)]
-// struct ParseFileTypeError;
-
-// impl fmt::Display for ParseFileTypeError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "invalid file type")
-//     }
-// }
-
-// impl Error for ParseFileTypeError {}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum FileType {
@@ -92,13 +82,14 @@ impl std::str::FromStr for FileType {
     }
 }
 
-impl ToString for FileType {
-    fn to_string(&self) -> String {
-        match self {
-            FileType::Hex => "hex".to_string(),
-            FileType::Binary => "binary".to_string(),
-            FileType::Decimal => "decimal".to_string(),
-        }
+impl fmt::Display for FileType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            FileType::Hex => "hex",
+            FileType::Binary => "binary",
+            FileType::Decimal => "decimal",
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -170,7 +161,7 @@ fn main() {
 
 /// Converts [filepath_get] from type [convert_from] to type
 /// [convert_to] in [filepath_send]
-
+//
 /// # Arguments
 ///
 /// * `filepath_get` - A reference to a `String` representing the path to the input file
@@ -372,19 +363,17 @@ fn convert(args: &Arguments) -> io::Result<()> {
                 panic!("Invalid Conversion of File Types")
             }
         },
-        _ => panic!(
-            "Conversion from {} to {} is not supported",
-            fromnum.to_string(),
-            tonum.to_string()
-        ),
+        _ => {
+            panic!("Conversion from {} to {} is not supported", fromnum, tonum)
+        }
     }
 
     // Handle output based on the format
     match output_format.as_str() {
         "text" => {
-            // Write as a text file 
+            // Write as a text file
             if let Some(filepath) = filepath_send {
-                let mut output_file = File::create(filepath)?; 
+                let mut output_file = File::create(filepath)?;
                 to_text_file(filepath_get, &mut output_file)?;
             }
         }
@@ -393,8 +382,9 @@ fn convert(args: &Arguments) -> io::Result<()> {
             if let Some(filepath) = filepath_send {
                 let mut binary_file = BinaryOutputFile::new(filepath)?;
                 for line in read_to_string(filepath_get).unwrap().lines() {
-                    let u8_vec = binary_to_u8_vec(line)
-                        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+                    let u8_vec = binary_to_u8_vec(line).map_err(|e| {
+                        io::Error::new(io::ErrorKind::InvalidData, e)
+                    })?;
                     binary_file.write_bits(&u8_vec)?;
                 }
                 binary_file.flush()?;
@@ -415,16 +405,10 @@ fn convert(args: &Arguments) -> io::Result<()> {
     if let Some(filepath) = filepath_send {
         eprintln!(
             "Successfully converted from {} to {} in {}",
-            fromnum.to_string(),
-            tonum.to_string(),
-            filepath
+            fromnum, tonum, filepath
         );
     } else {
-        eprintln!(
-            "Successfully converted from {} to {}",
-            fromnum.to_string(),
-            tonum.to_string(),
-        );
+        eprintln!("Successfully converted from {} to {}", fromnum, tonum,);
     }
 
     Ok(())

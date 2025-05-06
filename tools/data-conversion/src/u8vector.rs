@@ -88,12 +88,13 @@ pub fn u8_to_ir_fixed(
                 BigUint::from_bytes_be(&vec)
             };
 
-            let mut ir: IntermediateRepresentation = IntermediateRepresentation {
-                sign: is_negative,
-                mantissa,
-                exponent,
-                special_case: SpecialCase::None,
-            };
+            let mut ir: IntermediateRepresentation =
+                IntermediateRepresentation {
+                    sign: is_negative,
+                    mantissa,
+                    exponent,
+                    special_case: SpecialCase::None,
+                };
 
             // Determine the special case
             ir.determine_special_case(vec.len() * 8); // Pass the bit width (length of the vector in bits)
@@ -119,7 +120,6 @@ pub fn u8_to_ir_fixed(
 /// # Returns
 ///
 /// An intermediate representation
-
 pub fn u8_to_ir_float(
     vector: Result<Vec<u8>, String>,
     exponent_len: i64,
@@ -170,7 +170,7 @@ pub fn u8_to_ir_float(
                 sign: is_negative,
                 mantissa,
                 exponent,
-                special_case: SpecialCase::None
+                special_case: SpecialCase::None,
             }
         }
         Err(e) => {
