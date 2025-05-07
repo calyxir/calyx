@@ -147,7 +147,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.cell_metadata: CellMetadata = cell_metadata
         self.control_metadata: ControlMetadata = control_metadata
         self.tracedata: TraceData = tracedata
-        self.timestamps_to_events = {}  # timestamps to
+        self.timestamps_to_events: dict[int, dict] = {}  # timestamps to
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
         self.timestamps_to_control_group_events = {}
@@ -246,7 +246,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             for signal_name in signal_names:
                 if (
                     signal_name == self.clock_name and int_value == 0
-                ):  # ignore falling edges
+                ):  # ignore falling clock edges
                     continue
                 event = {"signal": signal_name, "value": int_value}
                 if time not in self.timestamps_to_events:
@@ -289,6 +289,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         everything within a stream if we wanted to be precise)
         """
 
+        print(f"CLOCK NAME: {self.clock_name}")
+
         clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
         cell_active = set()
@@ -311,6 +313,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         main_done = False  # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
+            print(events)
             started = started or [
                 x
                 for x in events
@@ -321,6 +324,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             # checking whether the timestamp has a rising edge
             if {"signal": self.clock_name, "value": 1} in events:
                 clock_cycles += 1
+                print(f"clock cycle increment! {clock_cycles}")
                 self.timestamps_to_clock_cycles[ts] = clock_cycles
             # Recording the data organization for every kind of probe so I don't forget. () is a set.
             # groups-active: cell --> (active groups)

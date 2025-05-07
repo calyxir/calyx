@@ -138,6 +138,9 @@ class ControlMetadata:
         for cell in sorted(cell_metadata.cell_to_component.keys(), key=(lambda c: c.count("."))):
             self.cell_to_ordered_pars[cell] = []
             component = cell_metadata.cell_to_component[cell]
+            if component not in self.component_to_par_groups:
+                # ignore components that don't feature pars.
+                continue
             pars = self.component_to_par_groups[component]
             # start with pars with no parent
             pars_with_parent = filter((lambda x: self.component_to_child_to_par_parent[component][x].child_type == ParChildType.PAR), self.component_to_child_to_par_parent[component])
@@ -254,8 +257,8 @@ class TraceData:
         if threshold == 0:
             return
         for i in self.trace:
-            if threshold > 0 and threshold < i:
-                return
+            # if threshold > 0 and threshold < i:
+            #     return
             print(i)
             print(self.trace[i])
 
