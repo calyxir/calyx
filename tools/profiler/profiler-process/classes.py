@@ -71,7 +71,7 @@ class ControlMetadata:
     par_done_regs: set[str] = field(default_factory=set)
     # partial_fsm_events: 
 
-    cell_to_ordered_pars: dict[str, list[str]] = field(default=list) # cell --> ordered par group names
+    cell_to_ordered_pars: dict[str, list[str]] = {} # cell --> ordered par group names
     
 
     # FIXME: see if we want to bring this back
@@ -103,6 +103,12 @@ class ControlMetadata:
             fully_qualified_fsm = ".".join((cell, fsm_name))
             self.fsms.add(fully_qualified_fsm)
 
+    def register_par(self, par_group, component):
+        if component not in self.component_to_par_groups:
+            self.component_to_par_groups[component] = {par_group}
+        else:
+            self.component_to_par_groups[component].add(par_group)
+
     def register_par_child(self, component, parent_info):
         """
         Add information about a par child to the field component_to_child_to_par_parent.
@@ -116,25 +122,26 @@ class ControlMetadata:
         else:
             self.component_to_child_to_par_parent[component] = {child_name: {parent_info}}
 
-    def order_pars(self, cell_to_pars, par_deps, rev_par_deps):
+    def order_pars(self, cell_metadata: CellMetadata):
         """
         Give a partial ordering for pars so we know when multiple pars occur simultaneously, what order
         we should add them to the trace.
         (1) order based on cells
         (2) for pars in the same cell, order based on dependencies information
         """
-        self.cell_to_ordered_pars = {}
-        for cell in sorted(cell_to_pars, key=(lambda c: c.count("."))):
+        for cell in sorted(cell_metadata.cell_to_component.keys(), key=(lambda c: c.count("."))):
             self.cell_to_ordered_pars[cell] = []
-            pars = cell_to_pars[cell]
+            component = cell_metadata.cell_to_component[cell]
+            pars = self.component_to_par_groups[component]
             # start with pars with no parent
-            worklist = list(pars.difference(rev_par_deps))
+            pars_with_parent = filter((lambda x: self.component_to_child_to_par_parent[component][x].child_type == ParChildType.PAR), self.component_to_child_to_par_parent[component])
+            worklist = list(pars.difference(pars_with_parent))
             while len(worklist) > 0:
                 par = worklist.pop(0)
                 if par not in self.cell_to_ordered_pars[cell]:
-                    ordered[cell].append(par)  # f"{signal_prefix}.{par}"
+                    self.cell_to_ordered_pars[cell].append(par)  # f"{signal_prefix}.{par}"
                 # get all the children of this par
-                worklist += par_deps[par]
+                worklist += self.par_to_children[par]
 
 class CycleType(Enum):
     GROUP_OR_PRIMITIVE = 1
@@ -175,11 +182,11 @@ class CycleTrace:
     """
     List of stacks that are active in a particular cycle
     """
-    stacks: list[StackElement]
+    stacks: list[list[StackElement]]
     is_useful_cycle: bool
     cycle_type: CycleType
 
-    def __init__(self, stacks_this_cycle: list[StackElement]):
+    def __init__(self, stacks_this_cycle: list[list[StackElement]]):
         self.stacks = stacks_this_cycle
 
         # If a group or primitive is at the top of at least one stack, then the cycle is "useful"
@@ -219,15 +226,14 @@ class ControlRegUpdates:
 
 @dataclass
 class TraceData:
-    trace: dict[int, list[StackElement]] = field(default=dict)
+    trace: dict[int, CycleTrace] = field(default=dict)
     trace_classified: dict[int, CycleType] = field(default=dict)
     cell_to_active_cycles: dict[str, Summary] = field(default=dict)
 
     # fields relating to control groups/registers
-    trace_with_control_groups: dict[int, list[StackElement]] = field(default=dict)
+    trace_with_control_groups: dict[int, CycleTrace] = field(default=dict)
     control_group_to_active_cycles: dict[str, Summary] = field(default=dict)
     control_reg_updates: dict[str, list[ControlRegUpdates]] = field(default=dict) # cell --> ControlRegUpdate. This is for constructing timeline later.
-    cycle_to_control_reg
 
     def incr_num_times_active(self, name: str, d: dict[str, Summary]):
         if name not in d:
@@ -249,6 +255,57 @@ class TraceData:
             self.control_reg_updates[cell] = []
         self.control_reg_updates[cell].append(ControlRegUpdates(cell, clock_cycle, update_str))
 
-    def create_trace_with_control_groups(self, cell_metadata: CellMetadata, control_metadata: ControlMetadata):
+    def create_trace_with_control_groups(self, control_groups_trace: dict[int, set[str]], cell_metadata: CellMetadata, control_metadata: ControlMetadata):
+        control_metadata.order_pars(cell_metadata)
+        for i in self.trace:
+            if i in control_groups_trace:
+                for events_stack in self.trace[i].stacks:
+                    new_events_stack = []
+                    for construct in events_stack:
+                        new_events_stack.append(construct)
+                        
+                        if construct == main_shortname:  # main
+                            current_cell = main_shortname
+                        elif " [" in construct:  # cell detected
+                            current_cell += "." + construct.split(" [")[0]
+                        elif "(primitive)" not in construct:  # group
+                            # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
+                            if (
+                                current_cell in cell_to_groups_to_par_parent
+                                and construct in cell_to_groups_to_par_parent[current_cell]
+                            ):
+                                group_parents = cell_to_groups_to_par_parent[current_cell][
+                                    construct
+                                ]
+                                parent_found = False
+                                while (
+                                    len(new_events_stack) > 2
+                                    and "(ctrl)" in new_events_stack[-2]
+                                ):  # NOTE: fix in future when there are multiple "ctrl" elements
+                                    for parent in group_parents:
+                                        if f"{parent} (ctrl)" == new_events_stack[-2]:
+                                            parent_found = True
+                                            break
+                                    if parent_found:
+                                        break
+                                    new_events_stack.pop(-2)
+                            continue
+                        else:
+                            continue
+                        # get all of the active pars from this cell
+                        if current_cell in cells_to_ordered_pars:
+                            active_from_cell = par_trace[i].intersection(
+                                cells_to_ordered_pars[current_cell]
+                            )
+                            for par_group_active in sorted(
+                                active_from_cell,
+                                key=(
+                                    lambda p: cells_to_ordered_pars[current_cell].index(p)
+                                ),
+                            ):
+                                par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
+                                new_events_stack.append(par_group_name)
+                    self.trace_with_control_groups[i].append(new_events_stack)
+            else:
+                self.trace_with_control_groups[i] = self.trace[i].copy()
 
-        return

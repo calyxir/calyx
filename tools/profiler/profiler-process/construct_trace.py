@@ -26,7 +26,7 @@ def create_cycle_trace(
     shared_cell_map,
     include_primitives,
 ):
-    stacks_this_cycle: list[StackElement] = []
+    stacks_this_cycle: list[list[StackElement]] = []
     parents = set()  # keeping track of entities that are parents of other entities
     i_mapping: dict[
         str, list[StackElement]
@@ -467,7 +467,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         Must run after self.postprocess() because this function relies on self.timestamps_to_clock_cycles
         (which gets filled in during self.postprocess()).
         """
-        control_group_events = {}  # cycle count --> [control groups that are active that cycle]
+        control_group_events: dict[int, set[str]] = {}  # cycle count --> [control groups that are active that cycle]
 
         # FIXME: we might be able to get away with not computing this
         control_reg_per_cycle: dict[int, ControlRegUpdateType] = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)

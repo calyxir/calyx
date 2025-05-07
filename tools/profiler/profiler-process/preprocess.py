@@ -116,6 +116,7 @@ def read_tdcc_file(tdcc_json_file, cell_metadata):
             par = entry["par_group"]
             component = entry["component"]
             child_par_groups = []
+            control_metadata.register_par()
             for cell in cell_metadata.components_to_cells[component]:
                 fully_qualified_par = ".".join((cell, par))
                 for child in entry["child_groups"]:
