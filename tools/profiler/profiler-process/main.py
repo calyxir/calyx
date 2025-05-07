@@ -39,68 +39,61 @@ def main(args):
     main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
-    trace, trace_classified, cell_to_active_cycles = converter.postprocess(
+    converter.postprocess(
         shared_cells_map
-    )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
+    )
     (
         control_groups_trace,
         control_reg_updates_per_cycle,
     ) = converter.postprocess_control()
-    cell_to_ordered_pars = construct_trace.order_pars(
-        cell_to_pars, par_to_children, reverse_par_dep_info
-    )
-    trace_with_pars = construct_trace.add_par_to_trace(
-        trace,
-        control_groups_trace,
-        cell_to_ordered_pars,
-        cell_to_groups_to_par_parent,
-        main_shortname,
-    )
+    del converter
+    tracedata.create_trace_with_control_groups(control_groups_trace, cell_metadata, control_metadata)
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
-    del converter
 
-    # debug printing for programs that are less than print_trace_threshold (optional arg; default 0) cycles long
-    if len(trace) < args.print_trace_threshold:
-        for i in trace_with_pars:
-            print(i)
-            for stack in trace_with_pars[i]:
-                print(f"\t{stack}")
+    tracedata.print_trace()
 
-    if not os.path.exists(args.out_dir):
-        os.mkdir(args.out_dir)
-    cats_to_cycles = flame.create_simple_flame_graph(
-        trace_classified, control_reg_updates_per_cycle, args.out_dir
-    )
-    print(f"End creating simple flame graph: {datetime.now()}")
-    stats.write_cell_stats(
-        cell_to_active_cycles,
-        cats_to_cycles,
-        cells_to_components,
-        component_to_num_fsms,
-        len(trace),
-        args.out_dir,
-    )
-    stats.write_par_stats(
-        control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, args.out_dir
-    )
-    print(f"End writing cell stats: {datetime.now()}")
-    tree_dict, path_dict = tree.create_tree(trace)
-    path_to_edges, all_edges = tree.create_edge_dict(path_dict)
+    # # debug printing for programs that are less than print_trace_threshold (optional arg; default 0) cycles long
+    # if len(trace) < args.print_trace_threshold:
+    #     for i in trace_with_pars:
+    #         print(i)
+    #         for stack in trace_with_pars[i]:
+    #             print(f"\t{stack}")
 
-    tree.create_aggregate_tree(trace, args.out_dir, tree_dict, path_dict)
-    tree.create_tree_rankings(
-        trace, tree_dict, path_dict, path_to_edges, all_edges, args.out_dir
-    )
-    flat_flame_map, scaled_flame_map = flame.create_flame_maps(trace_with_pars)
-    flame.write_flame_maps(flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out)
+    # if not os.path.exists(args.out_dir):
+    #     os.mkdir(args.out_dir)
+    # cats_to_cycles = flame.create_simple_flame_graph(
+    #     trace_classified, control_reg_updates_per_cycle, args.out_dir
+    # )
+    # print(f"End creating simple flame graph: {datetime.now()}")
+    # stats.write_cell_stats(
+    #     cell_to_active_cycles,
+    #     cats_to_cycles,
+    #     cells_to_components,
+    #     component_to_num_fsms,
+    #     len(trace),
+    #     args.out_dir,
+    # )
+    # stats.write_par_stats(
+    #     control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, args.out_dir
+    # )
+    # print(f"End writing cell stats: {datetime.now()}")
+    # tree_dict, path_dict = tree.create_tree(trace)
+    # path_to_edges, all_edges = tree.create_edge_dict(path_dict)
 
-    timeline.compute_timeline(
-        trace, fsm_events, control_reg_updates, main_fullname, args.out_dir
-    )
+    # tree.create_aggregate_tree(trace, args.out_dir, tree_dict, path_dict)
+    # tree.create_tree_rankings(
+    #     trace, tree_dict, path_dict, path_to_edges, all_edges, args.out_dir
+    # )
+    # flat_flame_map, scaled_flame_map = flame.create_flame_maps(trace_with_pars)
+    # flame.write_flame_maps(flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out)
 
-    if args.adl_mapping_file is not None:  # emit ADL flame graphs.
-        create_adl_visuals(args.adl_mapping_file, args.out_dir, flat_flame_map, scaled_flame_map)
+    # timeline.compute_timeline(
+    #     trace, fsm_events, control_reg_updates, main_fullname, args.out_dir
+    # )
+
+    # if args.adl_mapping_file is not None:  # emit ADL flame graphs.
+    #     create_adl_visuals(args.adl_mapping_file, args.out_dir, flat_flame_map, scaled_flame_map)
 
     print(f"End time: {datetime.now()}")
 

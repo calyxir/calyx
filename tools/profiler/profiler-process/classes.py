@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
+from errors import ProfilerException
+
 @dataclass
 class CellMetadata:
     """
@@ -66,7 +68,7 @@ class ControlMetadata:
     # fully qualified par name --> [fully-qualified par children name]
     par_to_children: dict[str, list[str]] = field(default_factory=dict)
     # component --> { child name --> ParChildInfo (contains parent name and child type) }
-    component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(default_factory=dict)
+    component_to_child_to_par_parent: dict[str, dict[str, set[ParChildInfo]]] = field(default_factory=dict)
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
     # partial_fsm_events: 
@@ -197,6 +199,12 @@ class CycleTrace:
                 case CycleType.GROUP_OR_PRIMITIVE:
                     self.is_useful_cycle = True
 
+    def __repr__(self):
+        out = ""
+        for stack in self.stacks:
+            out += f"\t{stack}\n"
+        return out
+
 @dataclass
 class Summary:
     """
@@ -235,6 +243,18 @@ class TraceData:
     control_group_to_active_cycles: dict[str, Summary] = field(default=dict)
     control_reg_updates: dict[str, list[ControlRegUpdates]] = field(default=dict) # cell --> ControlRegUpdate. This is for constructing timeline later.
 
+    def print_trace(self, threshold=-1):
+        """
+        Threshold is an optional argument that determines how many cycles you are going to print out.
+        """
+        if threshold == 0:
+            return
+        for i in self.trace:
+            if threshold > 0 and threshold < i:
+                return
+            print(i)
+            print(self.trace[i])
+
     def incr_num_times_active(self, name: str, d: dict[str, Summary]):
         if name not in d:
             d[name] = Summary()
@@ -260,51 +280,44 @@ class TraceData:
         for i in self.trace:
             if i in control_groups_trace:
                 for events_stack in self.trace[i].stacks:
-                    new_events_stack = []
-                    for construct in events_stack:
-                        new_events_stack.append(construct)
-                        
-                        if construct == main_shortname:  # main
-                            current_cell = main_shortname
-                        elif " [" in construct:  # cell detected
-                            current_cell += "." + construct.split(" [")[0]
-                        elif "(primitive)" not in construct:  # group
-                            # handling the edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent.
-                            if (
-                                current_cell in cell_to_groups_to_par_parent
-                                and construct in cell_to_groups_to_par_parent[current_cell]
-                            ):
-                                group_parents = cell_to_groups_to_par_parent[current_cell][
-                                    construct
-                                ]
-                                parent_found = False
-                                while (
-                                    len(new_events_stack) > 2
-                                    and "(ctrl)" in new_events_stack[-2]
-                                ):  # NOTE: fix in future when there are multiple "ctrl" elements
-                                    for parent in group_parents:
-                                        if f"{parent} (ctrl)" == new_events_stack[-2]:
-                                            parent_found = True
+                    new_events_stack: list[StackElement] = []
+                    for stack_element in events_stack:
+                        new_events_stack.append(stack_element)
+                        match stack_element.element_type:
+                            case StackElementType.CELL:
+                                if stack_element.is_main:
+                                    current_cell = stack_element.name
+                                else:
+                                    current_cell += f".{stack_element.name}"
+                            case StackElementType.GROUP:
+                                # standard groups to handle edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent
+                                current_component = cell_metadata.cell_to_component[current_cell]
+                                if (current_component in control_metadata.component_to_child_to_par_parent and stack_element.name in control_metadata.component_to_child_to_par_parent[current_component]):
+                                    child_parent_infos = control_metadata.component_to_child_to_par_parent[current_component][stack_element.name]
+                                    parent_names = set()
+                                    for child_parent_info in child_parent_infos:
+                                        if child_parent_info.child_type == ParChildType.PAR:
+                                            raise ProfilerException("A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent")
+                                        parent_names.add(child_parent_info.parent)
+                                    parent_found = False
+                                    while (len(new_events_stack) > 2 and new_events_stack[-2].element_type == StackElementType.CONTROL_GROUP):
+                                        # FIXME: We currently assume that all StackElementType.CONTROL_GROUP are pars, so we can pull this trick
+                                        # NOTE: we may need to fix this in the future when there are multiple StackElementType.CONTROL_GROUP
+                                        for parent in parent_names:
+                                            if parent == new_events_stack[-2].name:
+                                                parent_found = True
+                                                break
+                                        if parent_found:
                                             break
-                                    if parent_found:
-                                        break
-                                    new_events_stack.pop(-2)
-                            continue
-                        else:
-                            continue
-                        # get all of the active pars from this cell
-                        if current_cell in cells_to_ordered_pars:
-                            active_from_cell = par_trace[i].intersection(
-                                cells_to_ordered_pars[current_cell]
-                            )
-                            for par_group_active in sorted(
-                                active_from_cell,
-                                key=(
-                                    lambda p: cells_to_ordered_pars[current_cell].index(p)
-                                ),
-                            ):
-                                par_group_name = par_group_active.split(".")[-1] + " (ctrl)"
-                                new_events_stack.append(par_group_name)
+                                        new_events_stack.pop(-2)
+                                    continue
+                        if current_cell in control_metadata.cell_to_ordered_pars:
+                            active_from_cell = control_groups_trace[i].intersection(control_metadata.cell_to_ordered_pars[current_cell])
+                            for par_group_active in sorted(active_from_cell, key=(
+                                    lambda p: control_metadata.cells_to_ordered_pars[current_cell].index(p)
+                            )):
+                                par_group_name = par_group_active.split(".")[-1]
+                                new_events_stack.append(StackElement(par_group_name, StackElementType.CONTROL_GROUP))
                     self.trace_with_control_groups[i].append(new_events_stack)
             else:
                 self.trace_with_control_groups[i] = self.trace[i].copy()
