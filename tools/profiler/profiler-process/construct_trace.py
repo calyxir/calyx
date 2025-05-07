@@ -206,21 +206,20 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         for name, sid in refs:
             if "probe_out" in name:
                 signal_id_dict[sid].append(name)
-            for fsm in self.fsms:
+            for fsm in self.control_metadata.fsms:
                 if name.startswith(f"{fsm}.out["):
                     signal_id_dict[sid].append(name)
                 if name.startswith(f"{fsm}.write_en") or name.startswith(f"{fsm}.in"):
                     tdcc_signal_id_to_names[sid].append(name)
-            for par_done_reg in self.par_done_regs:
+            for par_done_reg in self.control_metadata.par_done_regs:
                 if (
                     name.startswith(f"{par_done_reg}.in")
                     or name == f"{par_done_reg}.write_en"
                 ):
                     tdcc_signal_id_to_names[sid].append(name)
-            for par_group_name in self.par_groups:
+            for par_group_name in self.control_metadata.par_groups:
                 if name == f"{par_group_name}_go_out":
                     control_signal_id_to_names[sid].append(name)
-        del self.par_groups
 
         # don't need to check for signal ids that don't pertain to signals we're interested in
         # separating probe + cell signals from TDCC/control register signals so we can have a
@@ -300,7 +299,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         # The events are "partial" because we don't know yet what the tid and pid would be.
         # (Will be filled in during create_timelines(); specifically in port_fsm_events())
-        fsm_current = {fsm: 0 for fsm in self.fsms}  # fsm --> value
+        fsm_current = {fsm: 0 for fsm in self.control_metadata.fsms}  # fsm --> value
 
         probe_labels_to_sets = {
             "group_probe_out": group_active,
@@ -315,7 +314,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             started = started or [
                 x
                 for x in events
-                if x["signal"] == f"{self.main_component}.go" and x["value"] == 1
+                if x["signal"] == f"{self.cell_metadata.main_component}.go" and x["value"] == 1
             ]
             if not started:  # only start counting when main component is on.
                 continue
@@ -349,7 +348,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 if signal_name.endswith(".done") and value == 1:
                     cell = signal_name.split(".done")[0]
                     if (
-                        cell == self.main_component
+                        cell == self.cell_metadata.main_component
                     ):  # if main is done, we shouldn't compute a "trace" for this cycle. set flag to True.
                         main_done = True
                     cell_active.remove(cell)
@@ -453,7 +452,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     info_this_cycle,
                     self.cells_to_components,
                     shared_cells_map,
-                    self.main_component,
+                    self.cell_metadata.main_component,
                     True,
                 )  # True to track primitives
                 self.tracedata.trace[clock_cycles] = cycle_trace

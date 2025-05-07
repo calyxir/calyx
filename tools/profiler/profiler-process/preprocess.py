@@ -83,9 +83,10 @@ def preprocess_cell_infos(cell_names_json, shared_cells_json):
     """
     metadata = read_component_cell_names_json(cell_names_json)
     metadata.shared_cells = read_shared_cells_map(shared_cells_json)
+    return metadata
 
 
-def read_tdcc_file(tdcc_json_file, cell_metadata):
+def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     """
     Processes tdcc_json_file to produce information about control registers (FSMs, pd registers for pars)
     and par groups.
@@ -116,7 +117,7 @@ def read_tdcc_file(tdcc_json_file, cell_metadata):
             par = entry["par_group"]
             component = entry["component"]
             child_par_groups = []
-            control_metadata.register_par()
+            control_metadata.register_par(par, component)
             for cell in cell_metadata.components_to_cells[component]:
                 fully_qualified_par = ".".join((cell, par))
                 for child in entry["child_groups"]:
@@ -135,7 +136,9 @@ def read_tdcc_file(tdcc_json_file, cell_metadata):
                         )
                     # add par done register information
                     child_pd_reg = child["register"]
-                    control_metadata.par_done_regs.add(".".join((cell, child_pd_reg)))
-                control_metadata.par_to_children[fully_qualified_par] = child_par_groups
+                    control_metadata.add_par_done_reg(".".join((cell, child_pd_reg)))
+                # add information to control_metadata
+                control_metadata.register_fully_qualified_par(fully_qualified_par)
+                # control_metadata.par_to_children[fully_qualified_par] = child_par_groups
 
     return control_metadata

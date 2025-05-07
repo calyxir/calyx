@@ -60,40 +60,44 @@ class ParChildInfo:
 @dataclass
 class ControlMetadata:
     # names of fully qualified FSMs
-    fsms: set = field(default_factory=set)
+    fsms: set[str] = field(default_factory=set)
+    # names of fully qualified par groups
+    par_groups: set[str] = field(default_factory=set)
     # component --> { fsm in the component. NOT fully qualified }
     component_to_fsms: dict[str, set[str]] = field(default_factory=dict)
     # component --> { par groups in the component }
     component_to_par_groups: dict[str, set[str]] = field(default_factory=dict)
-    # fully qualified par name --> [fully-qualified par children name]
-    par_to_children: dict[str, list[str]] = field(default_factory=dict)
+    # # fully qualified par name --> [fully-qualified par children name]
+    # par_to_children: dict[str, list[str]] = field(default_factory=dict)
     # component --> { child name --> ParChildInfo (contains parent name and child type) }
     component_to_child_to_par_parent: dict[str, dict[str, set[ParChildInfo]]] = field(default_factory=dict)
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
     # partial_fsm_events: 
 
-    cell_to_ordered_pars: dict[str, list[str]] = {} # cell --> ordered par group names
-    
+    cell_to_ordered_pars: dict[str, list[str]] = field(default_factory=dict) # cell --> ordered par group names
 
     # FIXME: see if we want to bring this back
     # # fully qualified par name --> [fully-qualified par parent name]
     # par_to_par_parent: dict[str, list[str]] = field(default_factory=dict)
     # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
 
+    def add_par_done_reg(self, par_done_reg):
+        self.par_done_regs.add(par_done_reg)
+
+    def register_fully_qualified_par(self, fully_qualified_par):
+        self.par_groups.add(fully_qualified_par)
+
     def add_signal_prefix(self, signal_prefix: str):
         self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
         self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
         self.par_groups = {f"{signal_prefix}.{par_group}" for par_group in self.par_groups}
-
-    def pars(self):
-        return set(self.par_to_children.keys())
     
-    def register_fsm(self, fsm_name, component, cell_metadata):
+    def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
         """
         Add information about a newly discovered FSM to the fields fsms and component_to_fsms.
         """
-        if component not in cell_metadata.components_to_cells:
+        if component not in cell_metadata.component_to_cells:
             # skip FSMs from components listed in primitive files (not in user-defined code)
             return
         if component in self.component_to_fsms:            
@@ -101,7 +105,7 @@ class ControlMetadata:
         else:
             self.component_to_fsms[component] = set(fsm_name)
 
-        for cell in cell_metadata.components_to_cells[component]:
+        for cell in cell_metadata.component_to_cells[component]:
             fully_qualified_fsm = ".".join((cell, fsm_name))
             self.fsms.add(fully_qualified_fsm)
 
@@ -212,7 +216,7 @@ class Summary:
     FIXME: Add min/max/avg and collect these for normal groups as well?
     """
     num_times_active: int = 0
-    active_cycles: set = field(default=set)
+    active_cycles: set = field(default_factory=set)
 
 class ControlRegUpdateType(Enum):
     FSM = 1
@@ -234,14 +238,14 @@ class ControlRegUpdates:
 
 @dataclass
 class TraceData:
-    trace: dict[int, CycleTrace] = field(default=dict)
-    trace_classified: dict[int, CycleType] = field(default=dict)
-    cell_to_active_cycles: dict[str, Summary] = field(default=dict)
+    trace: dict[int, CycleTrace] = field(default_factory=dict)
+    trace_classified: dict[int, CycleType] = field(default_factory=dict)
+    cell_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
 
     # fields relating to control groups/registers
-    trace_with_control_groups: dict[int, CycleTrace] = field(default=dict)
-    control_group_to_active_cycles: dict[str, Summary] = field(default=dict)
-    control_reg_updates: dict[str, list[ControlRegUpdates]] = field(default=dict) # cell --> ControlRegUpdate. This is for constructing timeline later.
+    trace_with_control_groups: dict[int, CycleTrace] = field(default_factory=dict)
+    control_group_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
+    control_reg_updates: dict[str, list[ControlRegUpdates]] = field(default_factory=dict) # cell --> ControlRegUpdate. This is for constructing timeline later.
 
     def print_trace(self, threshold=-1):
         """

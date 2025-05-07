@@ -20,7 +20,7 @@ def main(args):
     # Preprocess information to use in VCD reading
     cell_metadata = preprocess.preprocess_cell_infos(args.cells_json, args.shared_cells_json)
     shared_cells_map = preprocess.read_shared_cells_map(args.shared_cells_json)
-    control_metadata = preprocess.read_tdcc_file(args.tdcc_json_file, cell_metadata)
+    control_metadata = preprocess.read_tdcc_file(args.fsms_json, cell_metadata)
     # create tracedata object here so we can use it outside of converter
     tracedata = TraceData()
     # FIXME: just create everything in create_timeline(), remove below commented code
@@ -36,7 +36,6 @@ def main(args):
         tracedata
     )
     vcdvcd.VCDVCD(args.vcd_filename, callbacks=converter)
-    main_fullname = converter.main_component
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
     converter.postprocess(
