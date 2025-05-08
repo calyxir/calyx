@@ -1,3 +1,4 @@
+mod cse_exp;
 mod discover_external;
 mod external_to_ref;
 mod hole_inliner;
@@ -6,6 +7,7 @@ mod par_to_seq;
 mod register_unsharing;
 mod sync;
 
+pub use cse_exp::CseExp;
 pub use discover_external::DiscoverExternal;
 pub use external_to_ref::ExternalToRef;
 pub use hole_inliner::HoleInliner;
