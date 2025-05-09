@@ -181,7 +181,9 @@ class StackElement:
             case StackElementType.PRIMITIVE:
                 return f"{self.name} (primitive)"
             case StackElementType.CELL:
-                if self.replacement_cell_name is not None:
+                if self.is_main:
+                    return f"{self.name}"
+                elif self.replacement_cell_name is not None:
                     return f"{self.name} ({self.replacement_cell_name}) [{self.component_name}]"
                 else:
                     return f"{self.name} [{self.component_name}]"
@@ -209,8 +211,7 @@ class CycleTrace:
 
     def __repr__(self):
         out = ""
-        for stack in self.stacks:
-            out += f"\t{stack}\n"
+        out = "\n".join(map(lambda x: f"\t{x}", self.stacks))
         return out
 
 @dataclass
