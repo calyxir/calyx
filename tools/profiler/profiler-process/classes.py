@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -235,7 +236,7 @@ class ControlRegUpdates:
     cell_name: str
     clock_cycle: int
     updates: str
-    update_type: ControlRegUpdateType
+    # update_type: ControlRegUpdateType
 
 
 
@@ -327,5 +328,5 @@ class TraceData:
                                 new_events_stack.append(StackElement(par_group_name, StackElementType.CONTROL_GROUP))
                     self.trace_with_control_groups[i].append(new_events_stack)
             else:
-                self.trace_with_control_groups[i] = self.trace[i].copy()
+                self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 

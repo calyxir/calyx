@@ -9,6 +9,7 @@ from classes import (
     StackElementType,
     ControlRegUpdateType
 )
+from dataclasses import dataclass
 from errors import ProfilerException
 from visuals.timeline import ts_multiplier
 
@@ -140,6 +141,19 @@ def create_cycle_trace(
 
     return CycleTrace(stacks_this_cycle)
 
+@dataclass
+class WaveformEvent():
+    signal: str
+    value: int
+
+    def __eq__(self, value):
+        if not (isinstance(value, WaveformEvent)):
+            return False
+        return self.signal == value.signal and self.value == value.value
+    
+    def __repr__(self):
+        return f"({self.signal}, {self.value})"
+        
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, cell_metadata, control_metadata, tracedata):
@@ -147,7 +161,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.cell_metadata: CellMetadata = cell_metadata
         self.control_metadata: ControlMetadata = control_metadata
         self.tracedata: TraceData = tracedata
-        self.timestamps_to_events: dict[int, dict] = {}  # timestamps to
+        self.timestamps_to_events: dict[int, list[WaveformEvent]] = {}  # timestamps to
         self.timestamps_to_clock_cycles = {}
         self.timestamps_to_control_reg_changes = {}
         self.timestamps_to_control_group_events = {}
@@ -185,7 +199,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # Depending on the simulator + OS, we may get different prefixes before the name
         # of the main component.
         self.signal_prefix = self.clock_name.split(f".{main_shortname}")[0]
-        self.cell_metadata.main_component = f"{self.signal_prefix}.{main_shortname}"
         signal_id_dict[vcd.references_to_ids[self.clock_name]] = [self.clock_name]
 
         # replace the old key (cell_suffix) with the fully qualified cell name
@@ -248,7 +261,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     signal_name == self.clock_name and int_value == 0
                 ):  # ignore falling clock edges
                     continue
-                event = {"signal": signal_name, "value": int_value}
+                event: WaveformEvent = WaveformEvent(signal_name, int_value)
                 if time not in self.timestamps_to_events:
                     self.timestamps_to_events[time] = [event]
                 else:
@@ -268,7 +281,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.timestamps_to_control_group_events[time].append(event)
         if identifier_code in self.tdcc_signal_id_to_names:
             signal_names = self.tdcc_signal_id_to_names[identifier_code]
-
             for signal_name in signal_names:
                 clean_signal_name = remove_size_from_name(signal_name)
                 if time not in self.timestamps_to_control_reg_changes:
@@ -309,20 +321,16 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             "cell_probe_out": cell_enable_active,
             "primitive_probe_out": primitive_enable,
         }
-
+        print(f"looking for: {self.cell_metadata.main_component}.go")
         main_done = False  # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
             print(events)
-            started = started or [
-                x
-                for x in events
-                if x["signal"] == f"{self.cell_metadata.main_component}.go" and x["value"] == 1
-            ]
+            started = started or WaveformEvent(f"{self.cell_metadata.main_component}.go", 1) in events
             if not started:  # only start counting when main component is on.
                 continue
             # checking whether the timestamp has a rising edge
-            if {"signal": self.clock_name, "value": 1} in events:
+            if WaveformEvent(self.clock_name, 1) in events:
                 clock_cycles += 1
                 print(f"clock cycle increment! {clock_cycles}")
                 self.timestamps_to_clock_cycles[ts] = clock_cycles
@@ -341,57 +349,40 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             }
             for event in events:
                 # check probe and cell signals to update currently active entities.
-                signal_name = event["signal"]
-                value = event["value"]
                 if (
-                    signal_name.endswith(".go") and value == 1
+                    event.signal.endswith(".go") and event.value == 1
                 ):  # cells have .go and .done
-                    cell = signal_name.split(".go")[0]
+                    cell = event.signal.split(".go")[0]
                     cell_active.add(cell)
                     self.tracedata.cell_start_invoke(cell)
-                if signal_name.endswith(".done") and value == 1:
-                    cell = signal_name.split(".done")[0]
+                if event.signal.endswith(".done") and event.value == 1:
+                    cell = event.signal.split(".done")[0]
                     if (
                         cell == self.cell_metadata.main_component
                     ):  # if main is done, we shouldn't compute a "trace" for this cycle. set flag to True.
                         main_done = True
                     cell_active.remove(cell)
                 # process fsms
-                if ".out[" in signal_name:
-                    fsm_name = signal_name.split(".out[")[0]
+                if ".out[" in event.signal:
+                    fsm_name = event.signal.split(".out[")[0]
                     cell_name = ".".join(fsm_name.split(".")[:-1])
-                    if fsm_current[fsm_name] != value:
-                        # record the (partial) end event of the previous value and begin event of the current value
-                        partial_end_event = {
-                            "name": str(fsm_current[fsm_name]),
-                            "cat": "fsm",
-                            "ph": "E",
-                            "ts": clock_cycles * ts_multiplier,
-                        }
-                        partial_begin_event = {
-                            "name": str(value),
-                            "cat": "fsm",
-                            "ph": "B",
-                            "ts": clock_cycles * ts_multiplier,
-                        }
-                        self.partial_fsm_events[fsm_name].append(partial_end_event)
-                        self.partial_fsm_events[fsm_name].append(partial_begin_event)
+                    if fsm_current[fsm_name] != event.value:
                         # update value
-                        fsm_current[fsm_name] = value
+                        fsm_current[fsm_name] = event.value
                 # process all probes.
                 for probe_label in probe_labels_to_sets:
                     cutoff = f"_{probe_label}"
-                    if cutoff in signal_name:
+                    if cutoff in event.signal:
                         # record cell name instead of component name.
-                        split = signal_name.split(cutoff)[0].split(DELIMITER)[:-1]
+                        split = event.signal.split(cutoff)[0].split(DELIMITER)[:-1]
                         cell_name = ".".join(
-                            signal_name.split(cutoff)[0].split(".")[:-1]
+                            event.signal.split(cutoff)[0].split(".")[:-1]
                         )
                         split.append(cell_name)
                         probe_info = tuple(split)
-                        if value == 1:
+                        if event.value == 1:
                             probe_labels_to_sets[probe_label].add(probe_info)
-                        elif value == 0:
+                        elif event.value == 0:
                             probe_labels_to_sets[probe_label].remove(probe_info)
             if not main_done:
                 # accumulate cycles active for each cell that was active
@@ -453,10 +444,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             parent_group
                         ].add(primitive_name)
                 cycle_trace = create_cycle_trace(
+                    self.cell_metadata,
                     info_this_cycle,
-                    self.cells_to_components,
                     shared_cells_map,
-                    self.cell_metadata.main_component,
                     True,
                 )  # True to track primitives
                 self.tracedata.trace[clock_cycles] = cycle_trace
@@ -515,7 +505,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     in_signal = f"{reg_name}.in"
                     reg_new_value = events[in_signal] if in_signal in events else 0
                     if not (
-                        reg_name in self.par_done_regs and reg_new_value == 0
+                        reg_name in self.control_metadata.par_done_regs and reg_new_value == 0
                     ):  # ignore when pd values turn 0 since they are only useful when they are high
                         upd = f"{write_en_split[-2]}:{reg_new_value}"
                         if cell_name in cell_to_val_changes:
