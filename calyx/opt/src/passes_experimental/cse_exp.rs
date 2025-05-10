@@ -209,12 +209,6 @@ impl AvailableExpressions {
                                 "expected completed expressions to contain latching candidaate string"
                             ),
                         };
-                        // if self.contains_exp(string_expression) {
-                        //     log::debug!(
-                        //         "already contain {string_expression} in running expressions"
-                        //     );
-                        //     continue;
-                        // }
                         let new_exp = ExpressionMetadata {
                             reg_port: assign
                                 .dst
@@ -403,29 +397,6 @@ impl AvailableExpressions {
                     }
                 }
             }
-            // for killed_expression in remove_expressions.iter() {
-            //     for depth in 0..(self.current_depth + 1) {
-            //         match self.running_expressions.get_mut(&depth) {
-            //             Some(expressions) => {
-            //                 match expressions.get(killed_expression) {
-            //                     Some(expression_sources) => {
-            //                         // there is a vector of expressions available
-            //                         let new_expression_sources =
-            //                             Vec::<ExpressionMetadata>::new();
-            //                     }
-            //                 }
-            //                 if expressions.remove(killed_expression).is_some() {
-            //                     log::debug!(
-            //                         "[KILL] removed expression {killed_expression} from available expressions at depth {depth}"
-            //                     );
-            //                 }
-            //             }
-            //             None => {
-            //                 panic!("no HashMap allocated for depth {depth}?");
-            //             }
-            //         }
-            //     }
-            // }
         }
     }
 
@@ -485,28 +456,6 @@ impl AvailableExpressions {
             }
             self.per_group_expressions
                 .insert(group.clone(), new_group_expressions);
-            // let modify_g_e = self.per_group_expressions.get_mut(&group);
-            // match modify_g_e {
-            //     Some(group_expressions) => {
-            //         for removed_expression in remove_expressions.iter() {
-            //             if group_expressions
-            //                 .remove(removed_expression)
-            //                 .is_some()
-            //             {
-            //                 log::debug!(
-            //                     "[GROUP-KILL] removed expression {removed_expression} from availalbe expressions for group {group}"
-            //                 );
-            //             } else {
-            //                 panic!(
-            //                     "expected expression to exist in group expressions"
-            //                 );
-            //             }
-            //         }
-            //     }
-            //     None => {
-            //         panic!("expected group expressions to exist");
-            //     }
-            // }
         } else {
             // do 1)
             let mut new_group_expressions: HashMap<
@@ -730,17 +679,6 @@ impl AvailableExpressions {
                 }
             }
         }
-        // let rewriter = ir::Rewriter {
-        //     port_map: cse_rewriter,
-        //     ..Default::default()
-        // };
-        // log::debug!("rewriter invoked for group {group}");
-        // let mut asgns = group_obj.assignments.clone();
-        // for assign in asgns.iter_mut() {
-        //     rewriter.rewrite_assign(assign);
-        // }
-        // group_obj.assignments = asgns;
-        // rewriter.rewrite_control(&mut comp.control.borrow_mut());
     }
 }
 
