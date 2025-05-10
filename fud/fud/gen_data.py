@@ -28,7 +28,7 @@ def modulate_size(size, banks):
 
 
 def replace(mapping, key):
-    if type(key) == int:
+    if type(key) is int:
         return key
 
     return mapping[key]

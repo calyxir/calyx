@@ -1,0 +1,62 @@
+// -p metadata-table-generation
+
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    reg1 = std_reg(32);
+    reg2 = std_reg(32);
+    reg3 = std_reg(32);
+    lt = std_lt(32);
+  }
+
+  wires {
+    group g1 {
+      reg1.in = 32'd1;
+      reg1.write_en = 1'd1;
+      done = reg1.done;
+    }
+    group g2 {
+      reg2.in = 32'd2;
+      reg2.write_en = 1'd1;
+      done = reg2.done;
+    }
+    group g3 {
+      reg3.in = 32'd3;
+      reg3.write_en = 1'd1;
+      done = reg3.done;
+    }
+    group g4 {
+      reg3.in = 32'd0;
+      reg3.write_en = 1'd1;
+      done = reg3.done;
+    }
+    comb group cond {
+      lt.left = 32'd5;
+      lt.right = 32'd9;
+    }
+  }
+  control {
+    par {
+      seq {
+        g1;
+        g2;
+      }
+      if lt.out with cond {
+        g3;
+      } else {
+        g4;
+      }
+    }
+    
+  }
+}
+
+sourceinfo #{
+FILES
+1: tests/passes/test_file.futil
+POSITIONS
+1: 1 5
+2: 1 6
+3: 1 7
+}#

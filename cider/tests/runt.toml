@@ -69,7 +69,11 @@ expect_dir = "par-to-seq"
 
 [[tests]]
 name = "control"
-paths = ["control/*.futil", "control/iteration/*.futil"]
+paths = [
+  "control/*.futil",
+  "control/iteration/*.futil",
+  "control/structural-enables/*.futil",
+]
 cmd = """
 fud2 --from calyx --to dat \
          --through cider \
@@ -285,3 +289,11 @@ timeout = 180
 #             -s verilog.data {}.data \
 #             -s jq.expr ".main"
 # """
+
+[[tests]]
+name = "Debugger Interaction"
+paths = ["debugger/*.futil"]
+cmd = """
+cat {}.commands | fud2 --to cider-debug {} \
+         -s calyx.args="--log off"
+"""

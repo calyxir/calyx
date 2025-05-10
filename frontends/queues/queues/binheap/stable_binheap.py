@@ -33,7 +33,7 @@ def insert_stable_binheap(prog, name, queue_len_factor=FACTOR):
 
     comp = prog.component(name)
 
-    heap = insert_binheap(prog, "heap", queue_len_factor, 64, 32)
+    heap = insert_binheap(prog, f"{name}_heap", queue_len_factor, 64, 32)
     below = comp.cell("below", heap)
 
     cmd = comp.input("cmd", 1)

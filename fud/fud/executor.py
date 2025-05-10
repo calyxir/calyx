@@ -38,9 +38,9 @@ class Profiler:
         self._current_time = time.time()
 
     def end(self):
-        assert (
-            self._current_time is not None
-        ), "Attempt to end measurement before it starts"
+        assert self._current_time is not None, (
+            "Attempt to end measurement before it starts"
+        )
         t = self._current_time
         self._current_time = None
         return time.time() - t

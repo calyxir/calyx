@@ -1,4 +1,4 @@
-# For usage, see gen_queue_data_expect.sh
+# For usage, see gen_test_data.sh
 
 import sys
 import queues
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     # Our Round Robin Queue orchestrates n subqueues, in this case provided as
     # a command line argument. It orchestrates the subqueues in a round-robin fashion.
-    pifo = queues.RRQueue(numflows, boundaries, subqueues, len)
+    pifo = queues.RRPifo(numflows, boundaries, subqueues, len)
 
     ans = queues.operate_queue(pifo, num_cmds, commands, values, keepgoing=keepgoing)
 

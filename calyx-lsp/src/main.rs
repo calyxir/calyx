@@ -19,15 +19,15 @@ use goto_definition::DefinitionProvider;
 use query_result::QueryResult;
 use serde::Deserialize;
 use tower_lsp::lsp_types::{self as lspt, Url};
-use tower_lsp::{jsonrpc, Client, LanguageServer, LspService, Server};
+use tower_lsp::{Client, LanguageServer, LspService, Server, jsonrpc};
 use tree_sitter as ts;
 
 use crate::completion::CompletionProvider;
 use crate::log::Debug;
 
-extern "C" {
+unsafe extern "C" {
     /// Bind the tree-sitter parser to something that we can use in Rust
-    fn tree_sitter_calyx() -> ts::Language;
+    unsafe fn tree_sitter_calyx() -> ts::Language;
 }
 
 #[derive(Debug, Deserialize, Default)]

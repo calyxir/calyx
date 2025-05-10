@@ -1,0 +1,30 @@
+[package]
+name = "calyx-opt"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+readme.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+linked-hash-map.workspace = true
+itertools.workspace = true
+petgraph.workspace = true
+log.workspace = true
+lazy_static.workspace = true
+smallvec.workspace = true
+serde.workspace = true
+
+serde_json = "1.0.79"
+
+calyx-ir.workspace = true
+calyx-utils.workspace = true
+calyx-frontend.workspace = true

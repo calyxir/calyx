@@ -1,4 +1,4 @@
-# For usage, see gen_queue_data_expect.sh
+# For usage, see gen_test_data.sh
 
 import sys
 import queues

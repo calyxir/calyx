@@ -162,22 +162,34 @@ component dense_1x10() -> () {
   }
 }
 
-component main() -> () {
+component main<"pos"={4}>() -> () {
   cells {
-    @external x = seq_mem_d2(32, 1, 4096, 1, 13);
-    @external y = seq_mem_d2(32, 10, 4096, 4, 13);
-    @external x1 = seq_mem_d2(32, 1, 10, 1, 4);
-    dense_1x10_ = dense_1x10();
+    @external @pos{0} x = seq_mem_d2(32, 1, 4096, 1, 13);
+    @external @pos{0} y = seq_mem_d2(32, 10, 4096, 4, 13);
+    @external @pos{0} x1 = seq_mem_d2(32, 1, 10, 1, 4);
+    @pos{1} dense_1x10_ = dense_1x10();
   }
   wires {
 
   }
   control {
-    seq {
-      @pos(0) invoke dense_1x10_[x=x, y=y, x1=x1]()();
+    @pos{3} seq {
+      @pos{2} @pos(0) invoke dense_1x10_[x=x, y=y, x1=x1]()();
     }
   }
 }
 metadata #{
 0: let %x1: Tensor[(1, 10), int32] /* ty=Tensor[(1, 10), int32] span=from_string:4:3 */ = nn.dense(%x, %y, units=10) /* ty=Tensor[(1, 10), int32] span=from_string:3:39 */;
+}#
+
+sourceinfo #{
+FILES 
+  0: relay_utils.py
+  1: relay_visitor.py
+POSITIONS 
+  0: 0 157
+  1: 1 277
+  2: 0 117
+  3: 1 394
+  4: 1 389
 }#

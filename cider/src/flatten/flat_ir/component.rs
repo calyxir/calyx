@@ -37,6 +37,9 @@ pub struct DefinitionRanges {
     /// The entire range of comb-groups defined by this component. Does not
     /// include sub-component instances.
     comb_groups: IndexRange<CombGroupIdx>,
+    /// The entire range of control nodes defined by this component. Does not
+    /// include control nodes defined in sub-components
+    control: IndexRange<ControlIdx>,
 }
 
 impl DefinitionRanges {
@@ -63,6 +66,10 @@ impl DefinitionRanges {
     pub fn comb_groups(&self) -> &IndexRange<CombGroupIdx> {
         &self.comb_groups
     }
+
+    pub fn control(&self) -> IndexRange<ControlIdx> {
+        self.control
+    }
 }
 
 impl Default for DefinitionRanges {
@@ -74,6 +81,7 @@ impl Default for DefinitionRanges {
             ref_cells: IndexRange::empty_interval(),
             groups: IndexRange::empty_interval(),
             comb_groups: IndexRange::empty_interval(),
+            control: IndexRange::empty_interval(),
         }
     }
 }
@@ -218,26 +226,26 @@ impl ComponentCore {
         } else if let Some(root) = self.control {
             let mut search_stack = vec![root];
             while let Some(node) = search_stack.pop() {
-                match &ctx.primary[node] {
-                    ControlNode::Empty(_) => {}
-                    ControlNode::Enable(e) => {
+                match &ctx.primary[node].control {
+                    Control::Empty(_) => {}
+                    Control::Enable(e) => {
                         if ctx.primary[e.group()].assignments.contains(assign) {
                             return Some(AssignmentDefinitionLocation::Group(
                                 e.group(),
                             ));
                         }
                     }
-                    ControlNode::Seq(s) => {
+                    Control::Seq(s) => {
                         for stmt in s.stms() {
                             search_stack.push(*stmt);
                         }
                     }
-                    ControlNode::Par(p) => {
+                    Control::Par(p) => {
                         for stmt in p.stms() {
                             search_stack.push(*stmt);
                         }
                     }
-                    ControlNode::If(i) => {
+                    Control::If(i) => {
                         if let Some(comb) = i.cond_group() {
                             if ctx.primary[comb].assignments.contains(assign) {
                                 return Some(
@@ -251,7 +259,7 @@ impl ComponentCore {
                         search_stack.push(i.tbranch());
                         search_stack.push(i.fbranch());
                     }
-                    ControlNode::While(wh) => {
+                    Control::While(wh) => {
                         if let Some(comb) = wh.cond_group() {
                             if ctx.primary[comb].assignments.contains(assign) {
                                 return Some(
@@ -263,10 +271,10 @@ impl ComponentCore {
                         }
                         search_stack.push(wh.body());
                     }
-                    ControlNode::Repeat(r) => {
+                    Control::Repeat(r) => {
                         search_stack.push(r.body);
                     }
-                    ControlNode::Invoke(i) => {
+                    Control::Invoke(i) => {
                         if let Some(comb) = i.comb_group {
                             if ctx.primary[comb].assignments.contains(assign) {
                                 return Some(
@@ -378,6 +386,14 @@ impl AuxiliaryComponentInfo {
         end: CombGroupIdx,
     ) {
         self.definitions.comb_groups = IndexRange::new(start, end)
+    }
+
+    pub fn set_control_range(&mut self, start: ControlIdx, end: ControlIdx) {
+        self.definitions.control = IndexRange::new(start, end)
+    }
+
+    pub fn contains_control(&self, target: ControlIdx) -> bool {
+        self.definitions.control.contains(target)
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = LocalPortOffset> + '_ {

@@ -83,7 +83,7 @@ def gen_xml(yxi):
                 "id": f"{i}",
                 "port": f"m_axi_{mem['name']}",
                 # XRT expects AXI manager interfaces that are 64 bits wide
-                "size": f"0x8",
+                "size": "0x8",
                 "offset": f"{hex(args_addr + (i * 8))}",
                 # NOTE(nathaniel): Calyx is agnostic to the bit interpretation, so hardcoded `int*` makes sure XRT treats ecerything as a "bag of bits."
                 # https://github.com/calyxir/calyx/pull/2229#discussion_r1694310099
@@ -104,12 +104,12 @@ def size_in_bytes(mem):
 def check_mems_wellformed(mems):
     """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
     for mem in mems:
-        assert (
-            mem[width_key] % 8 == 0
-        ), "Width must be a multiple of 8 to alow byte addressing to host"
-        assert log2(
-            mem[width_key]
-        ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
+        assert mem[width_key] % 8 == 0, (
+            "Width must be a multiple of 8 to alow byte addressing to host"
+        )
+        assert log2(mem[width_key]).is_integer(), (
+            "Width must be a power of 2 to be correctly described by xSIZE"
+        )
         assert mem[size_key] > 0, "Memory size must be greater than 0"
 
 

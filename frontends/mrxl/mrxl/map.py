@@ -71,9 +71,9 @@ def gen_map_impl(
             operation = comp.add(32, f"add_{suffix}")
         # ANCHOR_END: map_op
 
-        assert (
-            len(stmt.binds) <= 2
-        ), "Map statements with more than 2 arguments not supported"
+        assert len(stmt.binds) <= 2, (
+            "Map statements with more than 2 arguments not supported"
+        )
         # ANCHOR: map_inputs
         with comp.group(f"eval_body_{suffix}") as evl:
             # Index each array

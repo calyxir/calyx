@@ -1,4 +1,12 @@
 ---CODE---
 1
 ---STDERR---
-Error: Concurrent read & write to the same register [4mmain.cond_reg[0m
+Error: Concurrent read & write to the same register main.cond_reg
+  write in thread ThreadIdx(5) from assignment cond_reg.write_en = 1'd1; in group main::write_cond
+  read in thread ThreadIdx(3) from conditional evaluation in main: 
+     if cond_reg.out {
+        incr_a;
+    } else {
+        decr_b;
+    }
+

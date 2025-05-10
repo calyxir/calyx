@@ -86,9 +86,9 @@ def emit_invoke_control(
     # "reusing" a Dahlia Function (which will later be a Calyx component)
     # and therefore need to use the same parameter names as the previous invoke
     def add_arg2(arg_cell, param_cell):
-        assert (
-            arg_cell.comp == param_cell.comp
-        ), "arg cell and param cell must be same component"
+        assert arg_cell.comp == param_cell.comp, (
+            "arg cell and param cell must be same component"
+        )
         comp = arg_cell.comp
         param = f"{param_cell.id.name}"
         arg = CompVar(arg_cell.id.name)
@@ -106,9 +106,9 @@ def emit_invoke_control(
     else:
         # case for when we are "reusing" a Dahlia Function/Calyx component and
         # therefore need to make sure we're using the previous parameter names
-        assert len(old_args) == len(
-            args
-        ), "we are reusing a dahlia function but the args are different lengths"
+        assert len(old_args) == len(args), (
+            "we are reusing a dahlia function but the args are different lengths"
+        )
         assert old_dest is not None, "if using old_args must provide an old_dest too"
         for cell1, cell2 in zip(args, old_args):
             add_arg2(cell1, cell2)

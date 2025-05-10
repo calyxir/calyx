@@ -1,7 +1,7 @@
 use super::{
     super::context::Context,
-    assignments::{GroupInterfacePorts, ScheduledAssignments},
-    clock::ClockMap,
+    assignments::{AssignType, GroupInterfacePorts, ScheduledAssignments},
+    clock::{ClockMap, ReadSource},
     program_counter::{
         ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
     },
@@ -9,6 +9,10 @@ use super::{
 };
 use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
+    debugger::{
+        self,
+        commands::{ParseNodes, ParsePath},
+    },
     errors::{
         BoxedCiderError, BoxedRuntimeError, CiderResult, ConflictingAssignments,
     },
@@ -20,12 +24,11 @@ use crate::{
             },
             cell_prototype::{CellPrototype, SingleWidthType},
             prelude::*,
-            wires::guards::Guard,
+            wires::guards::{Guard, PortComp},
         },
         primitives::{
-            self,
+            self, Primitive,
             prim_trait::{RaceDetectionPrimitive, UpdateStatus},
-            Primitive,
         },
         structures::{
             context::{LookupName, PortDefinitionInfo},
@@ -34,6 +37,7 @@ use crate::{
             },
             thread::{ThreadIdx, ThreadMap},
         },
+        text_utils::Color,
     },
     logging,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
@@ -42,16 +46,20 @@ use crate::{
     errors::{RuntimeError, RuntimeResult},
     flatten::structures::environment::wave::WaveWriter,
 };
-use ahash::HashSet;
-use ahash::HashSetExt;
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use baa::{BitVecOps, BitVecValue};
-use cider_idx::{iter::IndexRange, maps::IndexedMap, IndexRef};
+use calyx_frontend::source_info::PositionId;
+use cider_idx::{
+    IndexRef,
+    iter::IndexRange,
+    maps::{IndexedMap, SecondaryMap},
+};
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 
-use slog::{info, warn, Logger};
-use std::fmt::Write;
+use slog::{Logger, info, warn};
+use std::{collections::VecDeque, fmt::Write};
 use std::{convert::Into, fmt::Debug};
 
 #[derive(Debug, Clone)]
@@ -110,6 +118,15 @@ impl PortMap {
         }
     }
 
+    #[inline]
+    pub(crate) fn insert_val_unchecked(
+        &mut self,
+        idx: GlobalPortIdx,
+        val: AssignedValue,
+    ) {
+        self[idx] = PortValue::new(val)
+    }
+
     /// Sets the given index to undefined without checking whether or not it was
     /// already defined
     #[inline]
@@ -117,33 +134,32 @@ impl PortMap {
         self[target] = PortValue::new_undef();
     }
 
+    #[inline(always)]
     pub fn insert_val(
         &mut self,
         target: GlobalPortIdx,
         val: AssignedValue,
     ) -> Result<UpdateStatus, Box<ConflictingAssignments>> {
         match self[target].as_option() {
-            // unchanged
-            Some(t) if t.eq_no_transitive_clocks(&val) => {
-                Ok(UpdateStatus::Unchanged)
-            }
-            // conflict
-            // TODO: Fix to make the error more helpful
-            Some(t)
-                if t.has_conflict_with(&val)
-                // Assignment & cell values are allowed to override implicit but not the
-                // other way around
-                    && !(*t.winner() == AssignmentWinner::Implicit) =>
-            {
-                Err(ConflictingAssignments {
-                    target,
-                    a1: t.clone(),
-                    a2: val,
+            Some(t) => {
+                if *t.winner() != AssignmentWinner::Implicit
+                    && t.has_conflict_with(&val)
+                {
+                    Err(ConflictingAssignments {
+                        target,
+                        a1: t.clone(),
+                        a2: val,
+                    }
+                    .into())
+                } else if t.eq_no_transitive_clocks(&val) {
+                    Ok(UpdateStatus::Unchanged)
+                } else {
+                    self[target] = PortValue::new(val);
+                    Ok(UpdateStatus::Changed)
                 }
-                .into())
             }
             // changed
-            Some(_) | None => {
+            None => {
                 self[target] = PortValue::new(val);
                 Ok(UpdateStatus::Changed)
             }
@@ -153,6 +169,7 @@ impl PortMap {
     /// Identical to `insert_val` but returns a `RuntimeError` instead of a
     /// `ConflictingAssignments` error. This should be used inside of primitives
     /// while the latter is used in the general simulation flow.
+    #[inline]
     pub fn insert_val_general(
         &mut self,
         target: GlobalPortIdx,
@@ -207,6 +224,13 @@ impl ComponentLedger {
             CellRef::Local(l) => (&self.index_bases + l).into(),
             CellRef::Ref(r) => (&self.index_bases + r).into(),
         }
+    }
+
+    pub fn signature_ports(&self, ctx: &Context) -> IndexRange<GlobalPortIdx> {
+        let sig = ctx.secondary[self.comp_id].signature();
+        let beginning = &self.index_bases + sig.start();
+        let end = &self.index_bases + sig.end();
+        IndexRange::new(beginning, end)
     }
 }
 
@@ -354,7 +378,7 @@ impl PinnedPorts {
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
     /// A map from global port IDs to their current values.
-    ports: PortMap,
+    pub(super) ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
     pub(super) cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
@@ -369,7 +393,7 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     clocks: ClockMap,
     thread_map: ThreadMap,
-    control_ports: HashMap<GlobalPortIdx, u32>,
+    control_ports: FxHashMap<GlobalPortIdx, u32>,
 
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
@@ -378,6 +402,9 @@ pub struct Environment<C: AsRef<Context> + Clone> {
 
     memory_header: Option<Vec<MemoryDeclaration>>,
     logger: Logger,
+
+    group_instances: Vec<(GlobalCellIdx, GroupIdx)>,
+    ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
@@ -497,8 +524,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             ctx,
             memory_header: None,
             pinned_ports: PinnedPorts::new(),
-            control_ports: HashMap::new(),
+            control_ports: FxHashMap::new(),
             logger: logging::initialize_logger(logging_conf),
+            group_instances: vec![],
+            ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
         };
 
         let root_node = CellLedger::new_comp(root, &env);
@@ -540,6 +569,29 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         if let Some(header) = data_map {
             env.memory_header = Some(header.header.memories);
+        }
+
+        env.ports_to_cells_map =
+            SecondaryMap::capacity_with_default(0.into(), env.ports.len());
+
+        for (cell, ledger) in env.cells.iter() {
+            if let Some(comp_ledger) = ledger.as_comp() {
+                let ctx = env.ctx.as_ref();
+                for group in
+                    ctx.secondary[comp_ledger.comp_id].definitions.groups()
+                {
+                    env.group_instances.push((cell, group))
+                }
+
+                for port in comp_ledger.signature_ports(ctx) {
+                    env.ports_to_cells_map.insert(port, cell);
+                }
+            } else {
+                let cell_dyn = ledger.as_primitive().unwrap();
+                for port in cell_dyn.get_ports().iter_all() {
+                    env.ports_to_cells_map.insert(port, cell);
+                }
+            }
         }
 
         env
@@ -701,7 +753,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
             for dec in data.header.memories.iter() {
                 if !memories_initialized.contains(&dec.name) {
                     // TODO griffin: maybe make this an error?
-                    warn!(self.logger, "Initialization was provided for memory {} but no such memory exists in the entrypoint component.", dec.name);
+                    warn!(
+                        self.logger,
+                        "Initialization was provided for memory {} but no such memory exists in the entrypoint component.",
+                        dec.name
+                    );
                 }
             }
         }
@@ -721,6 +777,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn unwrap_comp_go(&self, comp: GlobalCellIdx) -> GlobalPortIdx {
         self.get_comp_go(comp).unwrap()
+    }
+
+    pub fn comp_go_as_bool(&self, comp: GlobalCellIdx) -> bool {
+        let go = self.unwrap_comp_go(comp);
+        self.ports[go].as_bool().unwrap_or_default()
     }
 
     pub fn get_comp_done(&self, comp: GlobalCellIdx) -> Option<GlobalPortIdx> {
@@ -756,9 +817,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
     ) -> impl Iterator<Item = GroupIdx> + '_ {
         self.pc.iter().filter_map(|(_, point)| {
-            let node = &self.ctx.as_ref().primary[point.control_node_idx];
+            let node =
+                &self.ctx.as_ref().primary[point.control_node_idx].control;
             match node {
-                ControlNode::Enable(x) => {
+                Control::Enable(x) => {
                     let comp_go = self.get_comp_go(point.comp).unwrap();
                     if self.ports[comp_go].as_bool().unwrap_or_default() {
                         Some(x.group())
@@ -879,9 +941,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn print_pc(&self) {
         let current_nodes = self.pc.iter().filter(|(_thread, point)| {
-            let node = &self.ctx.as_ref().primary[point.control_node_idx];
+            let node =
+                &self.ctx.as_ref().primary[point.control_node_idx].control;
             match node {
-                ControlNode::Enable(_) | ControlNode::Invoke(_) => {
+                Control::Enable(_) | Control::Invoke(_) => {
                     let comp_go = self.unwrap_comp_go(point.comp);
                     self.ports[comp_go].as_bool().unwrap_or_default()
                 }
@@ -893,15 +956,15 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let ctx = &self.ctx.as_ref();
 
         for (_thread, point) in current_nodes {
-            let node = &ctx.primary[point.control_node_idx];
+            let node = &ctx.primary[point.control_node_idx].control;
             match node {
-                ControlNode::Enable(x) => {
+                Control::Enable(x) => {
                     let go = &self.cells[point.comp].unwrap_comp().index_bases
                         + self.ctx().primary[x.group()].go;
                     println!(
                         "{}::{}{}",
                         self.get_full_name(point.comp),
-                        ctx.lookup_name(x.group()).underline(),
+                        ctx.lookup_name(x.group()).stylize_name(),
                         if self.ports[go].as_bool().unwrap_or_default() {
                             ""
                         } else {
@@ -909,7 +972,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                         }
                     );
                 }
-                ControlNode::Invoke(x) => {
+                Control::Invoke(x) => {
                     let invoked_name = match x.cell {
                         CellRef::Local(l) => self.get_full_name(
                             &self.cells[point.comp].unwrap_comp().index_bases
@@ -930,7 +993,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     println!(
                         "{}: invoke {}",
                         self.get_full_name(point.comp),
-                        invoked_name.underline()
+                        invoked_name.stylize_name()
                     );
                 }
                 _ => unreachable!(),
@@ -938,14 +1001,85 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         }
     }
 
+    /// Returns the controlidx of the last node in the given path and component idx
+    pub fn path_idx(
+        &self,
+        component: ComponentIdx,
+        path: ParsePath,
+    ) -> ControlIdx {
+        let path_nodes = path.get_path();
+        let ctx = self.ctx();
+
+        let component_map = &ctx.primary.components;
+        let control_map = &ctx.primary.control;
+
+        // Get nodes
+        let component_node = component_map.get(component).unwrap();
+
+        let mut control_id = component_node.control().unwrap();
+
+        let mut control_node = &control_map[control_id].control;
+        for parse_node in path_nodes {
+            match parse_node {
+                ParseNodes::Body => match control_node {
+                    Control::While(while_struct) => {
+                        control_id = while_struct.body();
+                    }
+                    Control::Repeat(repeat_struct) => {
+                        control_id = repeat_struct.body;
+                    }
+                    _ => {
+                        // TODO: Dont want to crash if invalid path, return result type w/ error malformed
+                        panic!();
+                    }
+                },
+                ParseNodes::If(branch) => match control_node {
+                    Control::If(if_struct) => {
+                        control_id = if branch {
+                            if_struct.tbranch()
+                        } else {
+                            if_struct.fbranch()
+                        };
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+                ParseNodes::Offset(child) => match control_node {
+                    Control::Par(par_struct) => {
+                        let children = par_struct.stms();
+                        control_id = children[child as usize];
+                    }
+                    Control::Seq(seq_struct) => {
+                        let children = seq_struct.stms();
+                        control_id = children[child as usize];
+                    }
+                    _ => {
+                        // Do nothing! use same control_id!
+                    }
+                },
+            }
+            control_node = &control_map[control_id].control;
+        }
+        control_id
+    }
+
     pub fn print_pc_string(&self) {
         let ctx = self.ctx.as_ref();
         for node in self.pc_iter() {
-            println!(
-                "{}: {}",
-                self.get_full_name(node.comp),
-                node.string_path(ctx)
-            );
+            let ledger = self.cells.get(node.comp).unwrap();
+            let comp_ledger = ledger.as_comp().unwrap();
+            let component = comp_ledger.comp_id;
+            let string_path = node.string_path(ctx, component.lookup_name(ctx));
+            println!("{}: {}", self.get_full_name(node.comp), string_path);
+
+            let path =
+                debugger::commands::path_parser::parse_path(&string_path)
+                    .unwrap();
+
+            let control_idx = self.path_idx(component, path);
+
+            debug_assert_eq!(control_idx, node.control_node_idx);
         }
     }
 
@@ -1394,6 +1528,41 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         let idx = comp.ref_port_offset_map[port];
         self.ctx.as_ref().secondary[idx]
     }
+
+    pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> + '_ {
+        self.pc
+            .iter()
+            .filter_map(|(_, ctrl_point)| {
+                let node = &self.ctx().primary[ctrl_point.control_node_idx];
+
+                if self.comp_go_as_bool(ctrl_point.comp) {
+                    Some(node.positions())
+                } else {
+                    None
+                }
+            })
+            .flatten()
+    }
+
+    pub fn get_parent_from_port(
+        &self,
+        port: GlobalPortIdx,
+    ) -> Option<GlobalCellIdx> {
+        self.cells
+            .iter()
+            .find(|(_, ledger)| match ledger {
+                CellLedger::Primitive { cell_dyn } => {
+                    cell_dyn.get_ports().contains(port)
+                }
+                CellLedger::RaceDetectionPrimitive { cell_dyn } => {
+                    cell_dyn.get_ports().contains(port)
+                }
+                CellLedger::Component(component_ledger) => {
+                    component_ledger.signature_ports(self.ctx()).contains(port)
+                }
+            })
+            .map(|(idx, _)| idx)
+    }
 }
 
 enum ControlNodeEval {
@@ -1546,7 +1715,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
                     slog::error!(
                         self.base.env().logger,
                         "Program execution failed with error: {}",
-                        e.red()
+                        e.stylize_error()
                     );
                 }
                 Err(e)
@@ -1564,6 +1733,10 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     pub fn print_pc_string(&self) {
         self.base.print_pc_string()
+    }
+
+    pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx> {
+        self.base.iter_active_cells()
     }
 }
 
@@ -1649,6 +1822,63 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     ) -> Option<BitVecValue> {
         self.env.lookup_port_from_string(port)
     }
+
+    /// Return an iterator over all cells that are in scope for the current set
+    /// of assignments.
+    pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx> {
+        let assigns_bundle = self.get_assignments(self.env.pc.node_slice());
+
+        let mut referenced_cells: HashSet<GlobalCellIdx> = HashSet::new();
+
+        for ScheduledAssignments {
+            active_cell,
+            assignments,
+            interface_ports,
+            assign_type,
+            ..
+        } in assigns_bundle
+        {
+            referenced_cells.insert(active_cell);
+            let ledger = self.env.cells[active_cell].as_comp().unwrap();
+            let group_go =
+                interface_ports.as_ref().map(|x| &ledger.index_bases + x.go);
+            let comp_go = self.env.get_comp_go(active_cell);
+
+            if self.is_assign_bundle_active(assign_type, group_go, comp_go) {
+                for assign in assignments.iter() {
+                    let assignment = &self.ctx().primary[assign];
+                    let src =
+                        self.get_global_port_idx(&assignment.src, active_cell);
+                    let dst =
+                        self.get_global_port_idx(&assignment.dst, active_cell);
+
+                    if let Some(src) = self.env.get_parent_from_port(src) {
+                        referenced_cells.insert(src);
+                    }
+
+                    if let Some(dst) = self.env.get_parent_from_port(dst) {
+                        referenced_cells.insert(dst);
+                    }
+
+                    if let Some(ports) =
+                        self.ctx().primary.guard_read_map.get(assignment.guard)
+                    {
+                        for port in ports.iter() {
+                            let port =
+                                self.get_global_port_idx(port, active_cell);
+                            if let Some(parent) =
+                                self.env.get_parent_from_port(port)
+                            {
+                                referenced_cells.insert(parent);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        referenced_cells.into_iter().sorted()
+    }
 }
 
 // =========================== simulation functions ===========================
@@ -1715,12 +1945,24 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self,
         control_points: &[ControlTuple],
     ) -> Vec<ScheduledAssignments> {
-        control_points
+        let mut skiplist = HashSet::new();
+        let mut additional_groups = VecDeque::new();
+
+        let mut out: Vec<ScheduledAssignments> = control_points
             .iter()
             .filter_map(|(thread, node)| {
-                match &self.ctx().primary[node.control_node_idx] {
-                    ControlNode::Enable(e) => {
+                match &self.ctx().primary[node.control_node_idx].control {
+                    Control::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
+
+                        skiplist.insert((node.comp, e.group()));
+                        additional_groups.extend(
+                            group
+                                .structural_enables
+                                .iter()
+                                .copied()
+                                .map(|grp| (node.comp, grp)),
+                        );
 
                         Some(ScheduledAssignments::new_control(
                             node.comp,
@@ -1733,7 +1975,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         ))
                     }
 
-                    ControlNode::Invoke(i) => {
+                    Control::Invoke(i) => {
                         Some(ScheduledAssignments::new_control(
                             node.comp,
                             i.assignments,
@@ -1742,13 +1984,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         ))
                     }
 
-                    ControlNode::Empty(_) => None,
+                    Control::Empty(_) => None,
                     // non-leaf nodes
-                    ControlNode::If(_)
-                    | ControlNode::While(_)
-                    | ControlNode::Repeat(_)
-                    | ControlNode::Seq(_)
-                    | ControlNode::Par(_) => None,
+                    Control::If(_)
+                    | Control::While(_)
+                    | Control::Repeat(_)
+                    | Control::Seq(_)
+                    | Control::Par(_) => None,
                 }
             })
             .chain(self.env.pc.continuous_assigns().iter().map(|x| {
@@ -1762,7 +2004,33 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     )
                 },
             ))
-            .collect()
+            .collect();
+
+        while let Some((cell, grp)) = additional_groups.pop_front() {
+            if skiplist.insert((cell, grp)) {
+                let group = &self.ctx().primary[grp];
+
+                additional_groups.extend(
+                    group
+                        .structural_enables
+                        .iter()
+                        .copied()
+                        .map(|grp| (cell, grp)),
+                );
+
+                out.push(ScheduledAssignments::new_control(
+                    cell,
+                    group.assignments,
+                    Some(GroupInterfacePorts {
+                        go: group.go,
+                        done: group.done,
+                    }),
+                    None,
+                ))
+            }
+        }
+
+        out
     }
 
     /// A helper function which inserts indices for the ref cells and ports
@@ -1894,17 +2162,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             }
         }
 
-        let (mut vecs, par_map, mut with_map, repeat_map) =
+        let (vecs, par_map, mut with_map, repeat_map) =
             self.env.pc.take_fields();
-
-        // For thread propagation during race detection we need to iterate in
-        // containment order. This probably isn't necessary for normal execution
-        // and could be guarded by the `check_data_race` flag. Will leave it for
-        // the moment though and see if we need to change it down the line. In
-        // expectation, the program counter should almost always be already
-        // sorted as the only thing which causes nodes to be added or removed
-        // are par nodes
-        vecs.sort_by_key(|x| x.1.comp);
 
         // for mutability reasons, this should be a cheap clone, either an RC in
         // the owned case or a simple reference clone
@@ -1924,9 +2183,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     PortValue::new_implicit(BitVecValue::new_false());
             }
 
-            match &ctx_ref.primary[node.control_node_idx] {
+            match &ctx_ref.primary[node.control_node_idx].control {
                 // actual nodes
-                ControlNode::Enable(enable) => {
+                Control::Enable(enable) => {
                     let go_local = ctx_ref.primary[enable.group()].go;
                     let index_bases = &self.env.cells[node.comp]
                         .as_comp()
@@ -1938,7 +2197,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     self.env.ports[go_idx] =
                         PortValue::new_implicit(BitVecValue::new_true());
                 }
-                ControlNode::Invoke(invoke) => {
+                Control::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
                         && !with_map.contains_key(node)
                     {
@@ -1965,7 +2224,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     self.initialize_ref_cells(node.comp, invoke);
                 }
                 // with nodes
-                ControlNode::If(i) => {
+                Control::If(i) => {
                     if i.cond_group().is_some() && !with_map.contains_key(node)
                     {
                         with_map.insert(
@@ -1974,7 +2233,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         );
                     }
                 }
-                ControlNode::While(w) => {
+                Control::While(w) => {
                     if w.cond_group().is_some() && !with_map.contains_key(node)
                     {
                         with_map.insert(
@@ -1984,10 +2243,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     }
                 }
                 // --
-                ControlNode::Empty(_)
-                | ControlNode::Seq(_)
-                | ControlNode::Par(_)
-                | ControlNode::Repeat(_) => {}
+                Control::Empty(_)
+                | Control::Seq(_)
+                | Control::Par(_)
+                | Control::Repeat(_) => {}
             }
         }
 
@@ -2030,10 +2289,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                     // transitive reads, we will check them at
                                     // the cycle boundary and attribute the read
                                     // to the continuous thread
+                                    let (assign_idx, cell) =
+                                        val.winner().as_assign().unwrap();
                                     self.check_read(
                                         ThreadMap::continuous_thread(),
                                         port,
                                         &mut clock_map,
+                                        ReadSource::Assignment(assign_idx),
+                                        cell,
                                     )
                                     .map_err(|e| {
                                         e.prettify_message(&self.env)
@@ -2048,27 +2311,32 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             self.env.clocks = clock_map;
         }
 
-        let out: Result<(), BoxedRuntimeError> = self
-            .env
-            .cells
-            .values_mut()
-            .filter_map(|cell| match cell {
+        let mut prim_step_res = Ok(());
+        for cell in self.env.cells.values_mut() {
+            match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle(&mut self.env.ports))
+                    let res = cell_dyn.exec_cycle(&mut self.env.ports);
+                    if res.is_err() {
+                        prim_step_res = res;
+                        break;
+                    }
                 }
 
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle_checked(
+                    let res = cell_dyn.exec_cycle_checked(
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
-                    ))
+                    );
+                    if res.is_err() {
+                        prim_step_res = res;
+                        break;
+                    }
                 }
-                CellLedger::Component(_) => None,
-            })
-            .collect();
-
-        out.map_err(|e| e.prettify_message(&self.env))?;
+                CellLedger::Component(_) => {}
+            }
+        }
+        prim_step_res.map_err(|e| e.prettify_message(&self.env))?;
 
         self.env.pc.clear_finished_comps();
 
@@ -2101,7 +2369,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 }
             }
         }
+        let removed_empty = removed.is_empty();
 
+        // should consider if swap remove is the right choice hre since it
+        // breaks the list ordering which we then have to fix. Possibly a
+        // standard remove would make more sense here? Or maybe an approach with
+        // tombstones
         for i in removed.into_iter().rev() {
             vecs.swap_remove(i);
         }
@@ -2110,8 +2383,19 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             .pc
             .restore_fields((vecs, par_map, with_map, repeat_map));
 
+        let new_nodes_empty = new_nodes.is_empty();
+
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
+
+        // For thread propagation during race detection we need to iterate in
+        // containment order. This probably isn't necessary for normal execution
+        // and could be guarded by the `check_data_race` flag.
+        //
+        // If we altered the node list, we need to restore the order invariant
+        if !removed_empty || !new_nodes_empty {
+            self.env.pc.vec_mut().sort_by_key(|x| x.1.comp);
+        }
 
         Ok(())
     }
@@ -2144,9 +2428,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
 
         // just considering a single node case for the moment
-        let retain_bool = match &ctx.primary[node.control_node_idx] {
-            ControlNode::Seq(seq) => self.handle_seq(seq, node),
-            ControlNode::Par(par) => self.handle_par(
+        let retain_bool = match &ctx.primary[node.control_node_idx].control {
+            Control::Seq(seq) => self.handle_seq(seq, node),
+            Control::Par(par) => self.handle_par(
                 par_map,
                 node,
                 thread,
@@ -2154,21 +2438,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 par,
                 new_nodes,
             ),
-            ControlNode::If(i) => self.handle_if(with_map, node, thread, i)?,
-            ControlNode::While(w) => {
+            Control::If(i) => self.handle_if(with_map, node, thread, i)?,
+            Control::While(w) => {
                 self.handle_while(w, with_map, node, thread)?
             }
-            ControlNode::Repeat(rep) => {
-                self.handle_repeat(repeat_map, node, rep)
-            }
+            Control::Repeat(rep) => self.handle_repeat(repeat_map, node, rep),
 
             // ===== leaf nodes =====
-            ControlNode::Empty(_) => {
-                node.mutate_into_next(self.env.ctx.as_ref())
-            }
+            Control::Empty(_) => node.mutate_into_next(self.env.ctx.as_ref()),
 
-            ControlNode::Enable(e) => self.handle_enable(e, node),
-            ControlNode::Invoke(i) => self.handle_invoke(i, node, with_map)?,
+            Control::Enable(e) => self.handle_enable(e, node),
+            Control::Invoke(i) => self.handle_invoke(i, node, with_map)?,
         };
 
         if retain_bool && node.should_reprocess(ctx) {
@@ -2177,7 +2457,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
         if !retain_bool && ControlPoint::get_next(node, self.env.ctx.as_ref()).is_none() &&
          // either we are not a par node, or we are the last par node
-         (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx], ControlNode::Par(_)) || !par_map.contains_key(node))
+         (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx].control, Control::Par(_)) || !par_map.contains_key(node))
         {
             if self.conf.check_data_race {
                 assert!(
@@ -2296,12 +2576,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if par_entry.child_count() == 0 {
                 let par_entry = par_map.remove(node).unwrap();
                 if self.conf.check_data_race {
-                    assert!(par_entry
-                        .iter_finished_threads()
-                        .map(|thread| {
-                            self.env.thread_map[thread].parent().unwrap()
-                        })
-                        .all_equal());
+                    assert!(
+                        par_entry
+                            .iter_finished_threads()
+                            .map(|thread| {
+                                self.env.thread_map[thread].parent().unwrap()
+                            })
+                            .all_equal()
+                    );
                     let parent =
                         self.env.thread_map[thread.unwrap()].parent().unwrap();
                     let parent_clock =
@@ -2311,13 +2593,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         let child_clock_idx =
                             self.env.thread_map.unwrap_clock_id(child_thread);
 
-                        let child_clock = std::mem::take(
-                            &mut self.env.clocks[child_clock_idx],
-                        );
+                        let (parent_clock, child_clock) = self
+                            .env
+                            .clocks
+                            .split_mut_indices(parent_clock, child_clock_idx)
+                            .unwrap();
 
-                        self.env.clocks[parent_clock].sync(&child_clock);
-
-                        self.env.clocks[child_clock_idx] = child_clock;
+                        parent_clock.sync(child_clock);
                     }
 
                     *node_thread = Some(parent);
@@ -2402,6 +2684,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 w.cond_port(),
                 node.comp,
                 &mut clock_map,
+                ReadSource::Conditional(node.control_node_idx),
             )?;
 
             self.env.clocks = clock_map;
@@ -2452,7 +2735,13 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if self.conf.check_data_race {
                 let mut clock_map = std::mem::take(&mut self.env.clocks);
 
-                self.check_read(thread.unwrap(), idx, &mut clock_map)?;
+                self.check_read(
+                    thread.unwrap(),
+                    idx,
+                    &mut clock_map,
+                    ReadSource::Conditional(node.control_node_idx),
+                    node.comp,
+                )?;
 
                 self.env.clocks = clock_map;
             }
@@ -2522,12 +2811,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 let a_val = self.env.ports[a].val()?;
                 let b_val = self.env.ports[b].val()?;
                 match c {
-                    calyx_ir::PortComp::Eq => a_val == b_val,
-                    calyx_ir::PortComp::Neq => a_val != b_val,
-                    calyx_ir::PortComp::Gt => a_val.is_greater(b_val),
-                    calyx_ir::PortComp::Lt => a_val.is_less(b_val),
-                    calyx_ir::PortComp::Geq => a_val.is_greater_or_equal(b_val),
-                    calyx_ir::PortComp::Leq => a_val.is_less_or_equal(b_val),
+                    PortComp::Eq => a_val == b_val,
+                    PortComp::Neq => a_val != b_val,
+                    PortComp::Gt => a_val.is_greater(b_val),
+                    PortComp::Lt => a_val.is_less(b_val),
+                    PortComp::Geq => a_val.is_greater_or_equal(b_val),
+                    PortComp::Leq => a_val.is_less_or_equal(b_val),
                 }
                 .into()
             }
@@ -2557,6 +2846,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             info!(self.env.logger, "Started combinational convergence");
         }
 
+        let mut rerun_all_primitives = true;
+
+        let mut changed_cells: FxHashSet<GlobalCellIdx> = FxHashSet::new();
+
         while has_changed {
             has_changed = false;
 
@@ -2570,7 +2863,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             } in assigns_bundle.iter()
             {
                 let ledger = self.env.cells[*active_cell].as_comp().unwrap();
-                let go = interface_ports
+                let group_go = interface_ports
                     .as_ref()
                     .map(|x| &ledger.index_bases + x.go);
                 let done = interface_ports
@@ -2578,30 +2871,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     .map(|x| &ledger.index_bases + x.done);
 
                 let comp_go = self.env.get_comp_go(*active_cell);
-                let thread = self.compute_thread(comp_go, thread, go);
+                let thread = self.compute_thread(comp_go, thread, group_go);
 
-                // the go for the group is high
-                if go
-                    .as_ref()
-                    // the group must have its go signal high and the go
-                    // signal of the component must also be high
-                    .map(|g| {
-                        self.env.ports[*g].as_bool().unwrap_or_default()
-                            && self.env.ports[comp_go.unwrap()]
-                                .as_bool()
-                                .unwrap_or_default()
-                    })
-                    .unwrap_or_else(|| {
-                        // if there is no go signal, then we want to run the
-                        // continuous assignments but not comb group assignments
-                        if assign_type.is_continuous() {
-                            true
-                        } else {
-                            self.env.ports[comp_go.unwrap()]
-                                .as_bool()
-                                .unwrap_or_default()
-                        }
-                    })
+                if self.is_assign_bundle_active(*assign_type, group_go, comp_go)
                 {
                     for assign_idx in assignments {
                         let assign = &self.env.ctx.as_ref().primary[assign_idx];
@@ -2616,15 +2888,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             let port = self
                                 .get_global_port_idx(&assign.src, *active_cell);
                             let val = &self.env.ports[port];
-
-                            if self.conf.debug_logging {
-                                self.log_assignment(
-                                    active_cell,
-                                    ledger,
-                                    assign_idx,
-                                    val,
-                                );
-                            }
 
                             let dest = self
                                 .get_global_port_idx(&assign.dst, *active_cell);
@@ -2641,6 +2904,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 }
                             }
 
+                            if self.conf.debug_logging {
+                                self.log_assignment(
+                                    active_cell,
+                                    ledger,
+                                    assign_idx,
+                                    val,
+                                );
+                            }
+
                             if let Some(v) = val.as_option() {
                                 let mut assigned_value = AssignedValue::new(
                                     v.val().clone(),
@@ -2652,8 +2924,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 // are present. Since clocks aren't present
                                 // when not running with `check_data_race`, this
                                 // won't happen when the flag is not set
-                                if (val.clocks().is_some()
-                                    || val.transitive_clocks().is_some())
+                                if self.conf.check_data_race
+                                    && (val.clocks().is_some()
+                                        || val.transitive_clocks().is_some())
                                     && (assign_type.is_combinational()
                                         || assign_type.is_continuous())
                                 {
@@ -2700,6 +2973,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                     }
                                 };
 
+                                if changed.as_bool() {
+                                    changed_cells.insert(
+                                        self.env.ports_to_cells_map[dest],
+                                    );
+                                }
+
                                 has_changed |= changed.as_bool();
                             }
                             // attempts to undefine a control port that is zero
@@ -2710,7 +2989,18 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 && !(self.env.control_ports.contains_key(&dest)
                                     && self.env.ports[dest].is_zero().unwrap())
                             {
-                                todo!("Raise an error here since this assignment is undefining things: {}. Port currently has value: {}", self.env.ctx.as_ref().printer().print_assignment(ledger.comp_id, assign_idx), &self.env.ports[dest])
+                                todo!(
+                                    "Raise an error here since this assignment is undefining things: {}. Port currently has value: {}",
+                                    self.env
+                                        .ctx
+                                        .as_ref()
+                                        .printer()
+                                        .print_assignment(
+                                            ledger.comp_id,
+                                            assign_idx
+                                        ),
+                                    &self.env.ports[dest]
+                                )
                             }
                         }
                     }
@@ -2721,7 +3011,14 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 self.propagate_comb_reads(assigns_bundle)?;
             }
 
-            let changed = self.run_primitive_comb_path()?;
+            let changed = if rerun_all_primitives {
+                rerun_all_primitives = false;
+                self.run_primitive_comb_path(
+                    self.env.cells.range().into_iter(),
+                )?
+            } else {
+                self.run_primitive_comb_path(changed_cells.drain())?
+            };
 
             has_changed |= changed;
 
@@ -2736,6 +3033,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         self.env.ports[*port] =
                             PortValue::new_implicit(BitVecValue::zero(*width));
                         has_changed = true;
+                        rerun_all_primitives = true;
 
                         if self.conf.debug_logging {
                             info!(
@@ -2767,6 +3065,35 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
 
         Ok(())
+    }
+
+    fn is_assign_bundle_active(
+        &self,
+        assign_type: AssignType,
+        group_go: Option<GlobalPortIdx>,
+        comp_go: Option<GlobalPortIdx>,
+    ) -> bool {
+        group_go
+            .as_ref()
+            // the group must have its go signal high and the go
+            // signal of the component must also be high
+            .map(|g| {
+                self.env.ports[*g].as_bool().unwrap_or_default()
+                    && self.env.ports[comp_go.unwrap()]
+                        .as_bool()
+                        .unwrap_or_default()
+            })
+            .unwrap_or_else(|| {
+                // if there is no go signal, then we want to run the
+                // continuous assignments but not comb group assignments
+                if assign_type.is_continuous() {
+                    true
+                } else {
+                    self.env.ports[comp_go.unwrap()]
+                        .as_bool()
+                        .unwrap_or_default()
+                }
+            })
     }
 
     /// For all groups in the given assignments, set the go port to zero if the
@@ -2846,6 +3173,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             assign.src,
                             *active_cell,
                             &mut clock_map,
+                            ReadSource::Assignment(assign_idx),
                         )?;
                     }
 
@@ -2864,6 +3192,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 *port,
                                 *active_cell,
                                 &mut clock_map,
+                                ReadSource::Guard(assign_idx),
                             )?;
                         }
                     }
@@ -3010,18 +3339,28 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
     }
 
-    fn run_primitive_comb_path(&mut self) -> Result<bool, BoxedRuntimeError> {
-        let changed: bool = self
-            .env
-            .cells
-            .values_mut()
-            .filter_map(|x| match x {
-                CellLedger::Primitive { cell_dyn } => {
-                    let result = cell_dyn.exec_comb(&mut self.env.ports);
+    fn run_primitive_comb_path<I>(
+        &mut self,
+        cells_to_run: I,
+    ) -> Result<bool, BoxedRuntimeError>
+    where
+        I: Iterator<Item = GlobalCellIdx>,
+    {
+        if self.conf.debug_logging {
+            info!(self.env().logger, "Starting primitive combinational update");
+        }
 
-                    if result.is_ok()
-                        && self.conf.check_data_race
-                        && cell_dyn.is_combinational()
+        let mut changed = UpdateStatus::Unchanged;
+
+        for cell in cells_to_run {
+            let cell = &mut self.env.cells[cell];
+            match cell {
+                CellLedger::Primitive { cell_dyn } => {
+                    let result = cell_dyn.exec_comb(&mut self.env.ports)?;
+
+                    changed |= result;
+
+                    if self.conf.check_data_race && cell_dyn.is_combinational()
                     {
                         let mut working_set = vec![];
                         let signature = cell_dyn.get_ports();
@@ -3052,23 +3391,25 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             todo!("comb primitive with multiple outputs")
                         }
                     }
-                    Some(result)
                 }
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                    Some(cell_dyn.exec_comb_checked(
+                    let result = cell_dyn.exec_comb_checked(
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
-                    ))
+                    )?;
+                    changed |= result;
                 }
 
-                CellLedger::Component(_) => None,
-            })
-            .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
-                has_changed | update
-            })?
-            .as_bool();
-        Ok(changed)
+                CellLedger::Component(_) => {}
+            }
+        }
+
+        if self.conf.debug_logging {
+            info!(self.env().logger, "Finished primitive combinational update");
+        }
+
+        Ok(changed.as_bool())
     }
 
     /// A wrapper function for [check_read] which takes in a [PortRef] and the
@@ -3079,9 +3420,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         port: PortRef,
         active_cell: GlobalCellIdx,
         clock_map: &mut ClockMap,
+        source: ReadSource,
     ) -> Result<(), BoxedRuntimeError> {
         let global_port = self.get_global_port_idx(&port, active_cell);
-        self.check_read(thread, global_port, clock_map)
+        self.check_read(thread, global_port, clock_map, source, active_cell)
     }
 
     fn check_read(
@@ -3089,31 +3431,42 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         thread: ThreadIdx,
         global_port: GlobalPortIdx,
         clock_map: &mut ClockMap,
+        source: ReadSource,
+        cell: GlobalCellIdx,
     ) -> Result<(), BoxedRuntimeError> {
         let val = &self.env.ports[global_port];
         let thread_clock = self.env.thread_map.unwrap_clock_id(thread);
 
         if val.clocks().is_some() && val.transitive_clocks().is_some() {
             // TODO griffin: Sort this out
-            panic!("Value has both direct clock and transitive clock. This shouldn't happen?")
+            panic!(
+                "Value has both direct clock and transitive clock. This shouldn't happen?"
+            )
         } else if let Some(clocks) = val.clocks() {
-            let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
-            clocks.check_read_w_cell(
-                (thread, thread_clock),
-                clock_map,
-                info.attached_cell,
-                info.entry_number,
-            )?
+            clocks
+                .check_read_with_ascription(
+                    (thread, thread_clock),
+                    source,
+                    cell,
+                    clock_map,
+                )
+                .map_err(|e| {
+                    let info = clock_map.lookup_cell(clocks).expect("Clock pair without cell. This should never happen, please report this bug");
+                    e.add_cell_info(info.attached_cell, info.entry_number)
+                })?
         } else if let Some(transitive_clocks) = val.transitive_clocks() {
             for clock_pair in transitive_clocks {
-                let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
-
-                clock_pair.check_read_w_cell(
-                    (thread, thread_clock),
-                    clock_map,
-                    info.attached_cell,
-                    info.entry_number,
-                )?
+                clock_pair
+                    .check_read_with_ascription(
+                        (thread, thread_clock),
+                        source.clone(),
+                        cell,
+                        clock_map,
+                    )
+                    .map_err(|e| {
+                        let info = clock_map.lookup_cell(*clock_pair).expect("Clock pair without cell. This should never happen, please report this bug");
+                        e.add_cell_info(info.attached_cell, info.entry_number)
+                    })?
             }
         }
 
@@ -3279,16 +3632,17 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         let mut buf = String::new();
 
         if let Some(name_override) = name {
-            writeln!(buf, "{name_override}:").unwrap();
+            writeln!(buf, "{}:", name_override.stylize_name()).unwrap();
         } else {
-            writeln!(buf, "{}:", self.get_full_name(cell_idx)).unwrap();
+            writeln!(buf, "{}:", self.get_full_name(cell_idx).stylize_name())
+                .unwrap();
         }
         for (identifier, port_idx) in self.env.get_ports_from_cell(cell_idx) {
             writeln!(
                 buf,
                 "  {}: {}",
-                self.ctx().lookup_name(identifier),
-                self.format_port_value(port_idx, print_code)
+                self.ctx().lookup_name(identifier).stylize_port_name(),
+                self.format_port_value(port_idx, print_code).stylize_value()
             )
             .unwrap();
         }

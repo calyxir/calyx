@@ -17,12 +17,11 @@ rust-version.workspace = true
 [dependencies]
 serde.workspace = true
 argh.workspace = true
+calyx-utils.workspace = true
+calyx-frontend.workspace = true
+calyx-opt.workspace = true
 serde_json = "1.0.79"
 
-calyx-utils = { path = "../../calyx-utils" }
-calyx-frontend = { path = "../../calyx-frontend" }
-calyx-opt = { path = "../../calyx-opt" }
-
 [dependencies.calyx-ir]
-path = "../../calyx-ir"
+workspace = true
 features = ["serialize"]

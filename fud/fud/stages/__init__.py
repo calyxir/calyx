@@ -1,10 +1,5 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Callable, Iterable
-
-"""The definitions of fud stages."""
-if TYPE_CHECKING:
-    from .config import Configuration
-
 import functools
 import inspect
 import logging as log
@@ -14,6 +9,10 @@ from pathlib import Path
 
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
+
+"""The definitions of fud stages."""
+if TYPE_CHECKING:
+    from .config import Configuration
 
 
 class Step:
@@ -421,9 +420,9 @@ class ComputationGraph:
                 # make sure that the args are convertible to expected input
                 # types
                 for arg, inp in zip(args, input_types):
-                    assert isinstance(
-                        arg, Source
-                    ), f"Argument type is not source: ${type(arg)}"
+                    assert isinstance(arg, Source), (
+                        f"Argument type is not source: ${type(arg)}"
+                    )
                     if arg.typ != inp and not arg.is_convertible_to(inp):
                         raise Exception(
                             f"Type mismatch: can't convert {arg.typ} to {inp}"

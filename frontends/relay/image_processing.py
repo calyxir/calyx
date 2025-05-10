@@ -41,7 +41,7 @@ def preprocess_img_mnist(img_path):
     try:
         # This may cause an error if the image is already in grayscale.
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    except:
+    except Exception:
         pass
     # Resize.
     img = cv2.resize(img, (28, 28)).astype(np.float32) / 255

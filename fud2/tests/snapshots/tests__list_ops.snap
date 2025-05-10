@@ -1,5 +1,6 @@
 ---
 source: fud2/tests/tests.rs
+snapshot_kind: text
 ---
 [
     (
@@ -11,6 +12,11 @@ source: fud2/tests/tests.rs
         "calyx-noverify",
         "calyx",
         "verilog-noverify",
+    ),
+    (
+        "calyx-py-profiler",
+        "calyx_py",
+        "flamegraph",
     ),
     (
         "calyx-to-cider",

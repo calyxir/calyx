@@ -35,11 +35,9 @@
 #   python3 parse_pcap.py example.pcap example.data --start 10 --end 20 --num-flows 3
 
 import sys
-import random
 import json
 import dpkt
 import argparse
-from contextlib import nullcontext
 from calyx.utils import bits_needed
 
 CMD_PUSH = 1
@@ -159,7 +157,7 @@ def parse_pcap(pcap_file):
     pcap = dpkt.pcap.Reader(pcap_file)
 
     # first pass over PCAP
-    star_ts = None
+    _star_ts = None
     end_ts = None
     total_size = 0
     make_addr_map = ADDR2INT is None

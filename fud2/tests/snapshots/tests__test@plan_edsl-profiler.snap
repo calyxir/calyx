@@ -1,0 +1,69 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: edsl-profiler"
+snapshot_kind: text
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+calyx-exe = $calyx-base/target/debug/calyx
+calyx-lib-path = $calyx-base
+args = 
+rule calyx
+  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
+cider-calyx-passes = -p none
+rule calyx-cider
+  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
+
+cells = cells.json
+passes = -p all
+edsl-args = 
+component_cells = $calyx-base/target/debug/component_cells
+rule component-cells
+  command = $component_cells -l $calyx-base $in > $out
+parse-vcd-script = $calyx-base/tools/profiler/profiler-process.py
+rule parse-vcd
+  command = python3 $parse-vcd-script $in $cells NA profiler-out $out
+
+verilator = verilator
+cycle-limit = 500000000
+rule verilator-compile-standalone-tb
+  command = $verilator $in tb.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
+rule verilator-compile-custom-tb
+  command = $verilator $in tb.sv memories.sv --trace --binary --top-module toplevel -fno-inline -Mdir $out-dir
+rule cp
+  command = cp $in $out
+
+python = python3
+build json-dat.py: get-rsrc
+rule hex-data
+  command = $python json-dat.py --from-json $in $out
+rule json-data
+  command = $python json-dat.py --to-json $out $in
+sim_data = /test/data.json
+datadir = sim_data
+build $datadir: hex-data $sim_data | json-dat.py
+rule sim-run
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+cycle-limit = 500000000
+
+build calyx.futil: edsl-to-calyx /input.ext
+build $metadata-mapping-json: parse-metadata calyx.futil
+build $cells: component-cells calyx.futil
+build instrumented.sv: calyx calyx.futil
+  backend = verilog
+  args = -p static-inline -p compile-static -p compile-repeat -p compile-invoke -p profiler-instrumentation $passes
+build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
+  out-dir = verilator-out
+build instrumented.exe: cp verilator-out/Vtoplevel
+build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
+  bin = instrumented.exe
+  args = +NOTRACE=0 +OUT=instrumented.vcd
+build flamegraph.folded: parse-vcd-from-adl instrumented.vcd | $cells $metadata-mapping-json
+build /output.ext: create-visuals flamegraph.folded
+
+default /output.ext

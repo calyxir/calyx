@@ -2,7 +2,6 @@
 import calyx.builder as cb
 from calyx.utils import bits_needed
 from queues.binheap.stable_binheap import insert_stable_binheap
-from queues.flow_inference import insert_boundary_flow_inference
 
 FACTOR = 4
 
@@ -10,7 +9,7 @@ FACTOR = 4
 def insert_binheap_strict(prog, name, n, order, flow_infer, queue_size_factor=FACTOR):
     comp = prog.component(name)
 
-    binheap = insert_stable_binheap(prog, "binheap", queue_size_factor)
+    binheap = insert_stable_binheap(prog, f"{name}_binheap", queue_size_factor)
     binheap = comp.cell("binheap", binheap)
 
     flow_infer = comp.cell("flow_infer", flow_infer)

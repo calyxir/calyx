@@ -22,9 +22,9 @@ class RPTParser:
 
     @staticmethod
     def _parse_simple_header(line):
-        assert re.search(
-            r"\s*\|", line
-        ), "Simple header line should have | as first non-whitespace character"
+        assert re.search(r"\s*\|", line), (
+            "Simple header line should have | as first non-whitespace character"
+        )
         return RPTParser._clean_and_strip(line.split("|"))
 
     @staticmethod
@@ -163,7 +163,8 @@ class RPTParser:
                 while self.lines[end].strip() != "":
                     end += 1
 
-        assert end > start, "Failed to find table start for {}.".format(reg)
+        if end <= start:
+            return None
 
         return self._parse_table(self.lines[start:end], multi_header)
 

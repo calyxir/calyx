@@ -1,5 +1,3 @@
-use calyx_ir::PortComp;
-
 use crate::flatten::flat_ir::{
     cell_prototype::{CellPrototype, ConstantType},
     identifier::{CanonicalIdentifier, IdMap},
@@ -148,20 +146,53 @@ impl<'a> Printer<'a> {
         let parent = self.ctx.find_parent_cell(comp, target);
 
         match (port, parent) {
-            (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.ctx.secondary[c].name, self.ctx.secondary[l].name),
+            (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => {
+                CanonicalIdentifier::interface_port(
+                    self.ctx.secondary[c].name,
+                    self.ctx.secondary[l].name,
+                )
+            }
             (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => {
-                if let CellPrototype::Constant { value, width, c_type }= &self.ctx.secondary[c].prototype {
+                if let CellPrototype::Constant {
+                    value,
+                    width,
+                    c_type,
+                } = &self.ctx.secondary[c].prototype
+                {
                     match c_type {
-                        ConstantType::Literal => CanonicalIdentifier::literal((*width).into(), *value),
-                        ConstantType::Primitive => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l].name),
+                        ConstantType::Literal => CanonicalIdentifier::literal(
+                            (*width).into(),
+                            *value,
+                        ),
+                        ConstantType::Primitive => {
+                            CanonicalIdentifier::cell_port(
+                                self.ctx.secondary[c].name,
+                                self.ctx.secondary[l].name,
+                            )
+                        }
                     }
                 } else {
-                    CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l].name)
+                    CanonicalIdentifier::cell_port(
+                        self.ctx.secondary[c].name,
+                        self.ctx.secondary[l].name,
+                    )
                 }
-            },
-            (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => CanonicalIdentifier::group_port( self.ctx.primary[g].name(), self.ctx.secondary[l].name),
-            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.ctx.secondary[rc].name, self.ctx.secondary[rp]),
-            _ => unreachable!("Inconsistent port definition and parent. This should never happen"),
+            }
+            (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => {
+                CanonicalIdentifier::group_port(
+                    self.ctx.primary[g].name(),
+                    self.ctx.secondary[l].name,
+                )
+            }
+            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => {
+                CanonicalIdentifier::cell_port(
+                    self.ctx.secondary[rc].name,
+                    self.ctx.secondary[rp],
+                )
+            }
+            _ => unreachable!(
+                "Inconsistent port definition and parent. This should never happen"
+            ),
         }
     }
 
@@ -171,24 +202,20 @@ impl<'a> Printer<'a> {
         control: ControlIdx,
         indent: usize,
     ) -> String {
-        match &self.ctx.primary[control] {
-            ControlNode::Empty(_) => String::new(),
-            ControlNode::Enable(e) => text_utils::indent(
+        match &self.ctx.primary[control].control {
+            Control::Empty(_) => String::new(),
+            Control::Enable(e) => text_utils::indent(
                 format!(
-                    "{};     ({:?})",
+                    "{};",
                     self.ctx.secondary[self.ctx.primary[e.group()].name()]
                         .clone(),
-                    control
                 ),
                 indent,
             ),
 
             // TODO Griffin: refactor into shared function rather than copy-paste?
-            ControlNode::Seq(s) => {
-                let mut seq = text_utils::indent(
-                    format!("seq {{  ({:?})\n", control),
-                    indent,
-                );
+            Control::Seq(s) => {
+                let mut seq = text_utils::indent("seq {\n", indent);
                 for stmt in s.stms() {
                     let child = self.format_control(parent, *stmt, indent + 1);
                     seq += &child;
@@ -197,7 +224,7 @@ impl<'a> Printer<'a> {
                 seq += &text_utils::indent("}", indent);
                 seq
             }
-            ControlNode::Par(p) => {
+            Control::Par(p) => {
                 let mut par = text_utils::indent("par {\n", indent);
                 for stmt in p.stms() {
                     let child = self.format_control(parent, *stmt, indent + 1);
@@ -207,7 +234,7 @@ impl<'a> Printer<'a> {
                 par += &text_utils::indent("}", indent);
                 par
             }
-            ControlNode::If(i) => {
+            Control::If(i) => {
                 let cond = self.lookup_id_from_port(parent, i.cond_port());
                 let mut out = text_utils::indent(
                     format!("if {} ", cond.format_name(self.string_table())),
@@ -237,7 +264,7 @@ impl<'a> Printer<'a> {
 
                 out
             }
-            ControlNode::While(w) => {
+            Control::While(w) => {
                 let cond = self.lookup_id_from_port(parent, w.cond_port());
                 let mut out = text_utils::indent(
                     format!("while {} ", cond.format_name(self.string_table())),
@@ -257,7 +284,7 @@ impl<'a> Printer<'a> {
 
                 out
             }
-            ControlNode::Invoke(i) => {
+            Control::Invoke(i) => {
                 let invoked_name =
                     &self.ctx.secondary[self.lookup_cell_id(parent, i.cell)];
 
@@ -285,7 +312,7 @@ impl<'a> Printer<'a> {
 
                 text_utils::indent(out, indent)
             }
-            ControlNode::Repeat(_) => {
+            Control::Repeat(_) => {
                 todo!()
             }
         }
@@ -356,17 +383,6 @@ impl<'a> Printer<'a> {
         parent: ComponentIdx,
         guard: GuardIdx,
     ) -> String {
-        fn op_to_str(op: &PortComp) -> String {
-            match op {
-                PortComp::Eq => String::from("=="),
-                PortComp::Neq => String::from("!="),
-                PortComp::Gt => String::from(">"),
-                PortComp::Lt => String::from("<"),
-                PortComp::Geq => String::from(">="),
-                PortComp::Leq => String::from("<="),
-            }
-        }
-
         match &self.ctx.primary.guards[guard] {
             Guard::True => String::new(),
             Guard::Or(l, r) => {
@@ -389,7 +405,7 @@ impl<'a> Printer<'a> {
                 format!(
                     "{} {} {}",
                     l.format_name(&self.ctx.secondary.string_table),
-                    op_to_str(op),
+                    op.to_str(),
                     r.format_name(&self.ctx.secondary.string_table)
                 )
             }

@@ -6,7 +6,7 @@ authors.workspace = true
 license-file.workspace = true
 repository.workspace = true
 homepage.workspace = true
-rust-version = "1.76"
+rust-version.workspace = true
 
 keywords = ["build-tool"]
 readme = "README.md"

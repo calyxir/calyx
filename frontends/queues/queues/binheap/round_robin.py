@@ -9,7 +9,7 @@ FACTOR = 4
 def insert_binheap_rr(prog, name, n, flow_infer, queue_size_factor=FACTOR):
     comp = prog.component(name)
 
-    binheap = insert_stable_binheap(prog, "binheap", queue_size_factor)
+    binheap = insert_stable_binheap(prog, f"{name}_binheap", queue_size_factor)
     binheap = comp.cell("binheap", binheap)
 
     flow_infer = comp.cell("flow_infer", flow_infer)

@@ -1,52 +1,52 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/memories/seq.futil";
-component exp(x: 16) -> (out: 16) {
+component exp<"pos"={0}>(x: 16) -> (out: 16) {
   cells {
-    exponent_value = std_reg(16);
-    int_x = std_reg(16);
-    frac_x = std_reg(16);
-    m = std_reg(16);
-    and0 = std_and(16);
-    and1 = std_and(16);
-    rsh = std_rsh(16);
-    lt = std_slt(16);
-    c2 = std_const(16, 2);
-    c3 = std_const(16, 3);
-    c4 = std_const(16, 4);
-    one = std_const(16, 256);
-    e = std_const(16, 696);
-    negative_one = std_const(16, 65280);
-    product2 = std_reg(16);
-    product3 = std_reg(16);
-    product4 = std_reg(16);
-    p2 = std_reg(16);
-    p3 = std_reg(16);
-    p4 = std_reg(16);
-    sum1 = std_reg(16);
-    sum2 = std_reg(16);
-    add1 = std_fp_sadd(16, 8, 8);
-    add2 = std_fp_sadd(16, 8, 8);
-    mult_pipe1 = std_fp_smult_pipe(16, 8, 8);
-    mult_pipe2 = std_fp_smult_pipe(16, 8, 8);
-    mult_pipe3 = std_fp_smult_pipe(16, 8, 8);
-    mult_pipe4 = std_fp_smult_pipe(16, 8, 8);
-    div_pipe = std_fp_sdiv_pipe(16, 8, 8);
-    reciprocal_factorial2 = std_const(16, 128);
-    reciprocal_factorial3 = std_const(16, 43);
-    reciprocal_factorial4 = std_const(16, 11);
-    pow1 = fp_pow();
-    pow2 = fp_pow();
-    pow3 = fp_pow();
-    pow4 = fp_pow();
+    @pos{1} exponent_value = std_reg(16);
+    @pos{2} int_x = std_reg(16);
+    @pos{3} frac_x = std_reg(16);
+    @pos{4} m = std_reg(16);
+    @pos{5} and0 = std_and(16);
+    @pos{6} and1 = std_and(16);
+    @pos{7} rsh = std_rsh(16);
+    @pos{8} lt = std_slt(16);
+    @pos{9} c2 = std_const(16, 2);
+    @pos{9} c3 = std_const(16, 3);
+    @pos{9} c4 = std_const(16, 4);
+    @pos{10} one = std_const(16, 256);
+    @pos{11} e = std_const(16, 696);
+    @pos{12} negative_one = std_const(16, 65280);
+    @pos{13} product2 = std_reg(16);
+    @pos{13} product3 = std_reg(16);
+    @pos{13} product4 = std_reg(16);
+    @pos{14} p2 = std_reg(16);
+    @pos{14} p3 = std_reg(16);
+    @pos{14} p4 = std_reg(16);
+    @pos{15} sum1 = std_reg(16);
+    @pos{15} sum2 = std_reg(16);
+    @pos{16} add1 = std_fp_sadd(16, 8, 8);
+    @pos{16} add2 = std_fp_sadd(16, 8, 8);
+    @pos{17} mult_pipe1 = std_fp_smult_pipe(16, 8, 8);
+    @pos{17} mult_pipe2 = std_fp_smult_pipe(16, 8, 8);
+    @pos{17} mult_pipe3 = std_fp_smult_pipe(16, 8, 8);
+    @pos{17} mult_pipe4 = std_fp_smult_pipe(16, 8, 8);
+    @pos{18} div_pipe = std_fp_sdiv_pipe(16, 8, 8);
+    @pos{19} reciprocal_factorial2 = std_const(16, 128);
+    @pos{19} reciprocal_factorial3 = std_const(16, 43);
+    @pos{19} reciprocal_factorial4 = std_const(16, 11);
+    @pos{20} pow1 = fp_pow();
+    @pos{20} pow2 = fp_pow();
+    @pos{20} pow3 = fp_pow();
+    @pos{20} pow4 = fp_pow();
   }
   wires {
-    group init<"promotable"=1> {
+    group init<"pos"={21}, "promotable"=1> {
       exponent_value.write_en = 1'd1;
       exponent_value.in = x;
       init[done] = exponent_value.done;
     }
-    group split_bits_int_x {
+    group split_bits_int_x<"pos"={22}> {
       and0.left = exponent_value.out;
       and0.right = 16'd65280;
       rsh.left = and0.out;
@@ -55,14 +55,14 @@ component exp(x: 16) -> (out: 16) {
       int_x.in = rsh.out;
       split_bits_int_x[done] = int_x.done;
     }
-    group split_bits_frac_x {
+    group split_bits_frac_x<"pos"={23}> {
       and1.left = exponent_value.out;
       and1.right = 16'd255;
       frac_x.write_en = 1'd1;
       frac_x.in = and1.out;
       split_bits_frac_x[done] = frac_x.done;
     }
-    group negate {
+    group negate<"pos"={24}> {
       mult_pipe1.left = exponent_value.out;
       mult_pipe1.right = negative_one.out;
       mult_pipe1.go = !mult_pipe1.done ? 1'd1;
@@ -74,7 +74,7 @@ component exp(x: 16) -> (out: 16) {
       lt.left = x;
       lt.right = 16'd0;
     }
-    group reciprocal {
+    group reciprocal<"pos"={25}> {
       div_pipe.left = one.out;
       div_pipe.right = m.out;
       div_pipe.go = !div_pipe.done ? 1'd1;
@@ -82,22 +82,22 @@ component exp(x: 16) -> (out: 16) {
       m.in = div_pipe.out_quotient;
       reciprocal[done] = m.done;
     }
-    group consume_pow2<"promotable"=1> {
+    group consume_pow2<"pos"={26}, "promotable"=1> {
       p2.write_en = 1'd1;
       p2.in = pow2.out;
       consume_pow2[done] = p2.done ? 1'd1;
     }
-    group consume_pow3<"promotable"=1> {
+    group consume_pow3<"pos"={26}, "promotable"=1> {
       p3.write_en = 1'd1;
       p3.in = pow3.out;
       consume_pow3[done] = p3.done ? 1'd1;
     }
-    group consume_pow4<"promotable"=1> {
+    group consume_pow4<"pos"={26}, "promotable"=1> {
       p4.write_en = 1'd1;
       p4.in = pow4.out;
       consume_pow4[done] = p4.done ? 1'd1;
     }
-    group mult_by_reciprocal_factorial2 {
+    group mult_by_reciprocal_factorial2<"pos"={27}> {
       mult_pipe2.left = p2.out;
       mult_pipe2.right = reciprocal_factorial2.out;
       mult_pipe2.go = !mult_pipe2.done ? 1'd1;
@@ -105,7 +105,7 @@ component exp(x: 16) -> (out: 16) {
       product2.in = mult_pipe2.out;
       mult_by_reciprocal_factorial2[done] = product2.done;
     }
-    group mult_by_reciprocal_factorial3 {
+    group mult_by_reciprocal_factorial3<"pos"={27}> {
       mult_pipe3.left = p3.out;
       mult_pipe3.right = reciprocal_factorial3.out;
       mult_pipe3.go = !mult_pipe3.done ? 1'd1;
@@ -113,7 +113,7 @@ component exp(x: 16) -> (out: 16) {
       product3.in = mult_pipe3.out;
       mult_by_reciprocal_factorial3[done] = product3.done;
     }
-    group mult_by_reciprocal_factorial4 {
+    group mult_by_reciprocal_factorial4<"pos"={27}> {
       mult_pipe4.left = p4.out;
       mult_pipe4.right = reciprocal_factorial4.out;
       mult_pipe4.go = !mult_pipe4.done ? 1'd1;
@@ -121,35 +121,35 @@ component exp(x: 16) -> (out: 16) {
       product4.in = mult_pipe4.out;
       mult_by_reciprocal_factorial4[done] = product4.done;
     }
-    group sum_round1_1<"promotable"=1> {
+    group sum_round1_1<"pos"={28}, "promotable"=1> {
       add1.left = frac_x.out;
       add1.right = product2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round1_1[done] = sum1.done;
     }
-    group sum_round1_2<"promotable"=1> {
+    group sum_round1_2<"pos"={28}, "promotable"=1> {
       add2.left = product3.out;
       add2.right = product4.out;
       sum2.write_en = 1'd1;
       sum2.in = add2.out;
       sum_round1_2[done] = sum2.done;
     }
-    group sum_round2_1<"promotable"=1> {
+    group sum_round2_1<"pos"={28}, "promotable"=1> {
       add1.left = sum1.out;
       add1.right = sum2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round2_1[done] = sum1.done;
     }
-    group add_degree_zero<"promotable"=1> {
+    group add_degree_zero<"pos"={29}, "promotable"=1> {
       add1.left = sum1.out;
       add1.right = one.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       add_degree_zero[done] = sum1.done;
     }
-    group final_multiply {
+    group final_multiply<"pos"={30}> {
       mult_pipe1.left = pow1.out;
       mult_pipe1.right = sum1.out;
       mult_pipe1.go = !mult_pipe1.done ? 1'd1;
@@ -160,66 +160,66 @@ component exp(x: 16) -> (out: 16) {
     out = m.out;
   }
   control {
-    seq {
-      init;
-      if lt.out with is_negative {
-        negate;
+    @pos{40} seq {
+      @pos{40} init;
+      @pos{37} if lt.out with is_negative {
+        @pos{37} negate;
       }
-      par {
-        split_bits_int_x;
-        split_bits_frac_x;
+      @pos{38} par {
+        @pos{38} split_bits_int_x;
+        @pos{38} split_bits_frac_x;
       }
-      par {
-        invoke pow1(base=e.out, integer_exp=int_x.out)();
-        invoke pow2(base=frac_x.out, integer_exp=c2.out)();
-        invoke pow3(base=frac_x.out, integer_exp=c3.out)();
-        invoke pow4(base=frac_x.out, integer_exp=c4.out)();
+      @pos{33} par {
+        @pos{31} invoke pow1(base=e.out, integer_exp=int_x.out)();
+        @pos{32} invoke pow2(base=frac_x.out, integer_exp=c2.out)();
+        @pos{32} invoke pow3(base=frac_x.out, integer_exp=c3.out)();
+        @pos{32} invoke pow4(base=frac_x.out, integer_exp=c4.out)();
       }
-      par {
-        consume_pow2;
-        consume_pow3;
-        consume_pow4;
+      @pos{34} par {
+        @pos{34} consume_pow2;
+        @pos{34} consume_pow3;
+        @pos{34} consume_pow4;
       }
-      par {
-        mult_by_reciprocal_factorial2;
-        mult_by_reciprocal_factorial3;
-        mult_by_reciprocal_factorial4;
+      @pos{35} par {
+        @pos{35} mult_by_reciprocal_factorial2;
+        @pos{35} mult_by_reciprocal_factorial3;
+        @pos{35} mult_by_reciprocal_factorial4;
       }
-      par {
-        sum_round1_1;
-        sum_round1_2;
+      @pos{36} par {
+        @pos{36} sum_round1_1;
+        @pos{36} sum_round1_2;
       }
-      par {
-        sum_round2_1;
+      @pos{36} par {
+        @pos{36} sum_round2_1;
       }
-      add_degree_zero;
-      final_multiply;
-      if lt.out with is_negative {
-        reciprocal;
+      @pos{40} add_degree_zero;
+      @pos{40} final_multiply;
+      @pos{39} if lt.out with is_negative {
+        @pos{39} reciprocal;
       }
     }
   }
 }
-component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
+component fp_pow<"pos"={41}>(base: 16, integer_exp: 16) -> (out: 16) {
   cells {
-    pow = std_reg(16);
-    count = std_reg(16);
-    mul = std_fp_smult_pipe(16, 8, 8);
-    count_incr_1_1 = std_sadd(16);
-    lt_2 = std_slt(16);
+    @pos{42} pow = std_reg(16);
+    @pos{43} count = std_reg(16);
+    @pos{44} mul = std_fp_smult_pipe(16, 8, 8);
+    @pos{48} count_incr_1_1 = std_sadd(16);
+    @pos{49} lt_2 = std_slt(16);
   }
   wires {
-    group init_pow {
+    group init_pow<"pos"={45}> {
       pow.in = 16'd256;
       pow.write_en = 1'd1;
       init_pow[done] = pow.done;
     }
-    group init_count {
+    group init_count<"pos"={46}> {
       count.in = 16'd0;
       count.write_en = 1'd1;
       init_count[done] = count.done;
     }
-    group execute_mul {
+    group execute_mul<"pos"={47}> {
       mul.left = base;
       mul.right = pow.out;
       mul.go = !mul.done ? 1'd1;
@@ -227,7 +227,7 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
       pow.in = mul.out;
       execute_mul[done] = pow.done;
     }
-    group count_incr_1_1_group {
+    group count_incr_1_1_group<"pos"={48}> {
       count_incr_1_1.left = count.out;
       count_incr_1_1.right = 16'd1;
       count.write_en = 1'd1;
@@ -241,36 +241,36 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
     out = pow.out;
   }
   control {
-    seq {
-      par {
-        init_pow;
-        init_count;
+    @pos{52} seq {
+      @pos{50} par {
+        @pos{50} init_pow;
+        @pos{50} init_count;
       }
-      while lt_2.out with lt_2_group {
-        par {
-          execute_mul;
-          count_incr_1_1_group;
+      @pos{51} while lt_2.out with lt_2_group {
+        @pos{51} par {
+          @pos{51} execute_mul;
+          @pos{51} count_incr_1_1_group;
         }
       }
     }
   }
 }
-component main() -> () {
+component main<"pos"={53}>() -> () {
   cells {
-    t = std_reg(16);
-    @external x = seq_mem_d1(16, 1, 1);
-    @external ret = seq_mem_d1(16, 1, 1);
-    e = exp();
+    @pos{54} t = std_reg(16);
+    @external @pos{55} x = seq_mem_d1(16, 1, 1);
+    @external @pos{56} ret = seq_mem_d1(16, 1, 1);
+    @pos{57} e = exp();
   }
   wires {
-    group init {
+    group init<"pos"={58}> {
       x.addr0 = 1'd0;
       x.content_en = 1'd1;
       t.in = x.done ? x.read_data;
       t.write_en = x.done ? 1'd1;
       init[done] = t.done;
     }
-    group write_to_memory {
+    group write_to_memory<"pos"={59}> {
       ret.addr0 = 1'd0;
       ret.write_en = 1'd1;
       ret.write_data = e.out;
@@ -279,10 +279,78 @@ component main() -> () {
     }
   }
   control {
-    seq {
-      init;
-      invoke e(x=t.out)();
-      write_to_memory;
+    @pos{61} seq {
+      @pos{61} init;
+      @pos{60} invoke e(x=t.out)();
+      @pos{61} write_to_memory;
     }
   }
 }
+
+sourceinfo #{
+FILES 
+  0: gen_exp.py
+POSITIONS 
+  0: 0 491
+  1: 0 94
+  2: 0 95
+  3: 0 96
+  4: 0 97
+  5: 0 99
+  6: 0 100
+  7: 0 101
+  8: 0 103
+  9: 0 107
+  10: 0 110
+  11: 0 115
+  12: 0 127
+  13: 0 137
+  14: 0 140
+  15: 0 144
+  16: 0 147
+  17: 0 156
+  18: 0 164
+  19: 0 177
+  20: 0 181
+  21: 0 311
+  22: 0 324
+  23: 0 332
+  24: 0 341
+  25: 0 357
+  26: 0 262
+  27: 0 274
+  28: 0 227
+  29: 0 250
+  30: 0 296
+  31: 0 382
+  32: 0 388
+  33: 0 381
+  34: 0 400
+  35: 0 403
+  36: 0 414
+  37: 0 435
+  38: 0 445
+  39: 0 453
+  40: 0 430
+  41: 0 37
+  42: 0 43
+  43: 0 44
+  44: 0 45
+  45: 0 53
+  46: 0 60
+  47: 0 65
+  48: 0 73
+  49: 0 75
+  50: 0 81
+  51: 0 82
+  52: 0 80
+  53: 0 743
+  54: 0 745
+  55: 0 746
+  56: 0 747
+  57: 0 748
+  58: 0 750
+  59: 0 757
+  60: 0 761
+  61: 0 759
+}#

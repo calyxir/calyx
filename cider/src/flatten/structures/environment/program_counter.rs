@@ -1,13 +1,13 @@
 use std::{collections::hash_map::Entry, num::NonZeroU32};
 
 use ahash::{HashMap, HashMapExt};
-use cider_idx::{impl_index_nonzero, iter::IndexRange, IndexRef};
+use cider_idx::{IndexRef, impl_index_nonzero, iter::IndexRange};
 use smallvec::SmallVec;
 
 use super::super::context::Context;
 use crate::flatten::{
     flat_ir::prelude::{
-        AssignmentIdx, CombGroupIdx, ControlIdx, ControlMap, ControlNode,
+        AssignmentIdx, CombGroupIdx, Control, ControlIdx, ControlMap,
         GlobalCellIdx,
     },
     structures::thread::ThreadIdx,
@@ -60,75 +60,81 @@ impl ControlPoint {
     }
 
     pub(super) fn should_reprocess(&self, ctx: &Context) -> bool {
-        match &ctx.primary.control[self.control_node_idx] {
-            ControlNode::Repeat(_)
-            | ControlNode::Empty(_)
-            | ControlNode::Seq(_)
-            | ControlNode::Par(_) => true,
-            ControlNode::Enable(_)
-            | ControlNode::If(_)
-            | ControlNode::While(_)
-            | ControlNode::Invoke(_) => false,
+        match &ctx.primary.control[self.control_node_idx].control {
+            Control::Repeat(_)
+            | Control::Empty(_)
+            | Control::Seq(_)
+            | Control::Par(_) => true,
+            Control::Enable(_)
+            | Control::If(_)
+            | Control::While(_)
+            | Control::Invoke(_) => false,
         }
     }
 
     /// Returns a string showing the path from the root node to input node. This
     /// path is displayed in the minimal metadata path syntax.
-    pub fn string_path(&self, ctx: &Context) -> String {
+    pub fn string_path(&self, ctx: &Context, name: &String) -> String {
         let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
-        let mut path_vec = path.path;
-
-        // Remove first element since we know it is a root
-        path_vec.remove(0);
-        let mut string_path = String::new();
-        string_path.push('.');
         let control_map = &ctx.primary.control;
-        let mut count = -1;
-        let mut body = false;
-        let mut if_branches: HashMap<ControlIdx, String> = HashMap::new();
-        for search_node in path_vec {
+        let path_vec = path.path;
+
+        let mut string_path = name.to_owned();
+
+        string_path.push('.');
+
+        // Remove first index
+        let mut iter = path_vec.iter();
+        let node = iter.next().unwrap();
+        let control_idx = node.node;
+        let mut prev_control_node =
+            &control_map.get(control_idx).unwrap().control;
+
+        for search_node in iter {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
             let control_idx = search_node.node;
-            let control_node = control_map.get(control_idx).unwrap();
-            match control_node {
-                // These are terminal nodes
-                // ControlNode::Empty(_) => "empty",
-                // ControlNode::Invoke(_) => "invoke",
-                // ControlNode::Enable(_) => "enable",
+            let control_node = &control_map.get(control_idx).unwrap().control;
 
-                // These have unbounded children
-                // ControlNode::Seq(_) => "seq",
-                // ControlNode::Par(_) => "par",
-
-                // Special cases
-                ControlNode::If(if_node) => {
-                    if_branches.insert(if_node.tbranch(), String::from("t"));
-                    if_branches.insert(if_node.tbranch(), String::from("f"));
+            // we are onto the next iteration and in the body... if Seq or Par is present save their children
+            // essentially skip iteration
+            match prev_control_node {
+                Control::While(_) => {
+                    string_path += "-b";
                 }
-                ControlNode::While(_) => {
-                    body = true;
-                }
-                ControlNode::Repeat(_) => {
-                    body = true;
-                }
-                _ => {}
-            };
+                Control::If(struc) => {
+                    let append = if struc.tbranch() == control_idx {
+                        "-t"
+                    } else {
+                        "-f"
+                    };
 
-            let control_type = if body {
-                body = false;
-                count = -1;
-                String::from("b")
-            } else if if_branches.contains_key(&control_idx) {
-                let (_, branch) =
-                    if_branches.get_key_value(&control_idx).unwrap();
-                branch.clone()
-            } else {
-                count += 1;
-                count.to_string()
-            };
+                    string_path += append;
+                }
+                Control::Par(struc) => {
+                    let children = struc.stms();
+                    let count = children
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
 
-            string_path = string_path + "-" + &control_type;
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path = string_path + &control_type;
+                }
+                Control::Seq(struc) => {
+                    let children = struc.stms();
+                    let count = children
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
+
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path += &control_type;
+                }
+                _ => { // must be a terminal node
+                }
+            }
+            prev_control_node = control_node;
         }
         string_path
     }
@@ -209,8 +215,8 @@ impl SearchPath {
             // minus 2 gets us the second to last node index
             for search_head in (0..=self.len() - 2).rev() {
                 let SearchNode { node, search_index } = &self.path[search_head];
-                match &control_map[*node] {
-                    ControlNode::Seq(s) => {
+                match &control_map[*node].control {
+                    Control::Seq(s) => {
                         let current_child = search_index.expect(
                             "search index should be present in active seq",
                         );
@@ -222,7 +228,7 @@ impl SearchPath {
                         }
                         // we finished this seq node and need to ascend further
                     }
-                    ControlNode::Par(_) => {
+                    Control::Par(_) => {
                         // the challenge here is that we currently don't know if
                         // the par is done executing. probably this means we
                         // should return None and wait until the entire par is
@@ -232,7 +238,7 @@ impl SearchPath {
 
                         return Some(*node);
                     }
-                    ControlNode::If(i) => {
+                    Control::If(i) => {
                         if i.cond_group().is_some() {
                             // since this has a with, we need to re-visit
                             // the node to clean-up the with group
@@ -242,13 +248,13 @@ impl SearchPath {
                         // is already done once the body is done
                         continue;
                     }
-                    ControlNode::While(_) => {
+                    Control::While(_) => {
                         // we need to re-check the conditional, so this is our
                         // next node
                         return Some(*node);
                     }
 
-                    ControlNode::Repeat(_) => {
+                    Control::Repeat(_) => {
                         // we need to re-check the loop count, so this is our
                         // next node
                         return Some(*node);
@@ -257,10 +263,12 @@ impl SearchPath {
                     // none of these three should be possible as a non-leaf node
                     // which is what we are currently searching through on the
                     // path, so this is definitely an error
-                    ControlNode::Invoke(_)
-                    | ControlNode::Empty(_)
-                    | ControlNode::Enable(_) => {
-                        unreachable!("SearchPath is malformed. This is an error and should be reported")
+                    Control::Invoke(_)
+                    | Control::Empty(_)
+                    | Control::Enable(_) => {
+                        unreachable!(
+                            "SearchPath is malformed. This is an error and should be reported"
+                        )
                     }
                 }
             }
@@ -285,17 +293,15 @@ impl SearchPath {
                 break;
             }
 
-            match &context.primary.control[node.node] {
-                ControlNode::Empty(_)
-                | ControlNode::Enable(_)
-                | ControlNode::Invoke(_) => {
+            match &context.primary.control[node.node].control {
+                Control::Empty(_) | Control::Enable(_) | Control::Invoke(_) => {
                     // in this case we reached a terminal node which was not the
                     // target since we did not break in the above case. So we
                     // simply remove the current lowest node and ascend the
                     // stack to continue the DFS.
                     current_path.path.pop();
                 }
-                ControlNode::Seq(s) => {
+                Control::Seq(s) => {
                     if let Some(idx) = &mut node.search_index {
                         if idx.index() < (s.stms().len() - 1) {
                             *idx = idx.next();
@@ -320,7 +326,7 @@ impl SearchPath {
                     })
                 }
                 // TODO Griffin: figure out how to deduplicate these arms
-                ControlNode::Par(p) => {
+                Control::Par(p) => {
                     if let Some(idx) = &mut node.search_index {
                         if idx.index() < (p.stms().len() - 1) {
                             *idx = idx.next();
@@ -344,7 +350,7 @@ impl SearchPath {
                         search_index: None,
                     })
                 }
-                ControlNode::If(i) => {
+                Control::If(i) => {
                     if let Some(idx) = &mut node.search_index {
                         if idx.is_true_branch() {
                             *idx = SearchIndex::new(SearchIndex::FALSE_BRANCH);
@@ -364,7 +370,7 @@ impl SearchPath {
                         })
                     }
                 }
-                ControlNode::While(w) => {
+                Control::While(w) => {
                     if node.search_index.is_some() {
                         current_path.path.pop();
                     } else {
@@ -375,7 +381,7 @@ impl SearchPath {
                         })
                     }
                 }
-                ControlNode::Repeat(rep) => {
+                Control::Repeat(rep) => {
                     if node.search_index.is_some() {
                         current_path.path.pop();
                     } else {
@@ -401,7 +407,7 @@ impl SearchPath {
             .iter()
             .fold_while(ControlIdx::new(0), |current_root, (_, comp_info)| {
                 if let Some(index) = comp_info.control() {
-                    if index >= current_root && index < target {
+                    if index >= current_root && index <= target {
                         FoldWhile::Continue(index)
                     } else {
                         FoldWhile::Done(current_root)

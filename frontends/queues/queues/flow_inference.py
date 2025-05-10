@@ -4,16 +4,16 @@ from calyx.utils import bits_needed
 from calyx.tuple import insert_untuplify
 
 
-def insert_boundary_flow_inference(prog, name, boundaries):
-    n = len(boundaries)
+def insert_boundary_flow_inference(prog, name, boundaries, flow_bits=None):
+    flow_bits = flow_bits or bits_needed(len(boundaries) - 1)
 
     comp = prog.component(name)
 
     value = comp.input("value", 32)
-    flow = comp.reg(bits_needed(n - 1), "flow", is_ref=True)
+    flow = comp.reg(flow_bits, "flow", is_ref=True)
 
     bound_checks = []
-    for b in range(n):
+    for b in range(len(boundaries)):
         lt = comp.lt(32)
         le = comp.le(32)
         guard = comp.and_(1)
@@ -56,7 +56,31 @@ def insert_tuple_flow_inference(prog, name, num_flows):
 
     comp.control += [
         comp.reg_store(flow, untuplify.fst),
-        comp.reg_store(flow, flow.out, "nop"),  # temporary no-op to get it to run
+        comp.reg_store(flow, flow.out, "nop"),  # temporary no-op to compile
+        # question about this on Zulip:
+        # https://calyx.zulipchat.com/#narrow/channel/423433-general/topic/Circular.20Combinational.20Logic/near/479748231
+    ]
+
+    return comp
+
+
+def insert_value_flow_inference(prog, name, num_flows):
+    flow_bits = bits_needed(num_flows - 1)
+
+    comp = prog.component(name)
+
+    untuplify = insert_untuplify(prog, f"{name}_untuplify", 32 - flow_bits, flow_bits)
+    untuplify = comp.cell("untuplify", untuplify)
+
+    value = comp.input("value", 32)
+    flow = comp.reg(flow_bits, "flow", is_ref=True)
+
+    with comp.continuous:
+        untuplify.tup = value
+
+    comp.control += [
+        comp.reg_store(flow, untuplify.snd),
+        comp.reg_store(flow, flow.out, "nop"),  # temporary no-op to compile
         # question about this on Zulip:
         # https://calyx.zulipchat.com/#narrow/channel/423433-general/topic/Circular.20Combinational.20Logic/near/479748231
     ]

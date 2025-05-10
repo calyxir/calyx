@@ -27,6 +27,12 @@ from calyx.utils import float_to_fixed_point
 from calyx import numeric_types
 from dahlia_impl import emit_components
 
+# Calyx-py soureinfo should emit paths relative to the script's directory
+import calyx.py_ast as ast
+import os
+
+ast.FILEINFO_BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+
 calyx_keywords_list = ["input"]
 
 
@@ -214,9 +220,9 @@ class Relay2Calyx(ExprFunctor):
             for arg in value.args:
                 new_arg = arg
                 if isinstance(arg, list):
-                    assert (
-                        len(arg) == 1
-                    ), "only time arg can be a list is when it returns a list of length 1 from visit_var()"
+                    assert len(arg) == 1, (
+                        "only time arg can be a list is when it returns a list of length 1 from visit_var()"
+                    )
                     new_arg = arg[0]
                 unnested_args.append(new_arg)
             value.args = unnested_args
@@ -276,7 +282,7 @@ class Relay2Calyx(ExprFunctor):
             invoke = ru.emit_invoke_control(
                 comp_decl, dest, value.args, old_args=old_func_args, old_dest=old_dest
             )
-            invoke.attributes.append(("pos", self.pos_count))
+            invoke.attributes.add(("pos", self.pos_count))
             self.controls.append(invoke)
 
             tag = self.pos_count
@@ -320,13 +326,15 @@ class Relay2Calyx(ExprFunctor):
             # evaluate to cells
             assert isinstance(value, list) and len(value) == len(
                 let.var.type_annotation.fields
-            ), "Currently, if let destination is a tuple, can only handle 'tuple forwarding' situations"
+            ), (
+                "Currently, if let destination is a tuple, can only handle 'tuple forwarding' situations"
+            )
             unnested_values = []
             # need to do this bc visit_var now returns a list
             for dest in value:
-                assert isinstance(dest, list) and isinstance(
-                    dest[0], Cell
-                ), "Tuples in let value must evaluate to cells"
+                assert isinstance(dest, list) and isinstance(dest[0], Cell), (
+                    "Tuples in let value must evaluate to cells"
+                )
                 unnested_values.append(dest[0])
             # doesn't do anything just increments id by 1 so that we can
             # compare the names the generated Calyx/Dahlia files with the
@@ -384,6 +392,7 @@ class Relay2Calyx(ExprFunctor):
                 outputs=[],
                 structs=self.wires + list(self.id_to_cell.values()),
                 controls=SeqComp(self.controls),
+                attributes=set(),
             ),
             self.func_defs,
         )
@@ -522,9 +531,9 @@ if __name__ == "__main__":
 
     with open(args.file, "r") as file:
         relay_ir = file.read()
-    assert (
-        '#[version = "0.0.5"]' in relay_ir
-    ), 'TVM Requires #[version = "0.0.5"] at the top of the Relay IR file.'
+    assert '#[version = "0.0.5"]' in relay_ir, (
+        'TVM Requires #[version = "0.0.5"] at the top of the Relay IR file.'
+    )
 
     relay_ir = tvm.parser.fromtext(relay_ir)
 

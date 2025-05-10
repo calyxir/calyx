@@ -1,4 +1,4 @@
-# For usage, see gen_queue_data_expect.sh
+# For usage, see gen_test_data.sh
 
 import sys
 import queues
@@ -18,12 +18,12 @@ if __name__ == "__main__":
     subqueues3s = [queues.Fifo(len) for _ in range(3)]
     subqueues2 = [queues.Fifo(len) for _ in range(2)]
 
-    pifo = queues.RRQueue(
+    pifo = queues.RRPifo(
         3,
         [133, 266, 400],
         [
             queues.StrictPifo(3, [44, 88, 133], [0, 1, 2], subqueues3s, len),
-            queues.RRQueue(3, [177, 221, 266], subqueues3, len),
+            queues.RRPifo(3, [177, 221, 266], subqueues3, len),
             queues.StrictPifo(2, [333, 400], [0, 1], subqueues2, len),
         ],
         len,

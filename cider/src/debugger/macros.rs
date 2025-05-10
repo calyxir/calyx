@@ -5,7 +5,10 @@ macro_rules! unwrap_error_message {
         let $name = match $name {
             Ok(v) => v,
             Err(e) => {
-                println!("Error: {}", owo_colors::OwoColorize::red(&e));
+                println!(
+                    "Error: {}",
+                    crate::flatten::text_utils::Color::stylize_error(&e)
+                );
                 continue;
             }
         };

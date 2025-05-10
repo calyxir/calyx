@@ -1,4 +1,5 @@
 from calyx.builder import Builder, invoke
+import os
 
 
 # Creates a component the has a case statement.
@@ -7,7 +8,7 @@ def add_case(prog):
     my_comp = prog.component("my_comp")
     comp_reg = my_comp.reg(1, "comp_reg")
     in_1 = my_comp.input("in_1", 8)
-    out_1 = my_comp.output("out_1", 16)
+    _out_1 = my_comp.output("out_1", 16)
 
     with my_comp.group("my_group") as my_group:
         # Some assignments
@@ -19,7 +20,7 @@ def add_case(prog):
 
 
 def build():
-    prog = Builder()
+    prog = Builder(fileinfo_base_path=os.path.dirname(os.path.realpath(__file__)))
     add_case(prog)
     return prog.program
 

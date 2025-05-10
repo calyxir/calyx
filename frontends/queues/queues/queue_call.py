@@ -32,9 +32,9 @@ def insert_runner(prog, queue, name, num_cmds, use_ranks, stats_component=None):
     - 6: `component_err`, a 1-bit unsigned integer.
        We raise/lower it to indicate whether an error occurred.
     """
-    assert (
-        name != "main"
-    ), "This method is not designed for the creation of `main`-style components."
+    assert name != "main", (
+        "This method is not designed for the creation of `main`-style components."
+    )
 
     runner: cb.ComponentBuilder = prog.component(name)
 

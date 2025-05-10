@@ -34,7 +34,7 @@ if __name__ == "__main__":
     post_op = args.post_op
     json_file = args.json_file
 
-    assert td == ld, f"Cannot multiply matrices: " f"{tl}x{td} and {ld}x{ll}"
+    assert td == ld, f"Cannot multiply matrices: {tl}x{td} and {ld}x{ll}"
 
     left = np.zeros((ll, ld), "f")
     top = np.zeros((td, tl), "f")

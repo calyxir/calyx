@@ -1,6 +1,6 @@
-use std::collections::HashSet;
-
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use calyx_frontend::{SetAttr, source_info::PositionId};
+use calyx_ir::GetAttributes;
 use calyx_ir::{self as cir, NumAttr, RRC};
 use cider_idx::iter::IndexRange;
 use itertools::Itertools;
@@ -9,18 +9,21 @@ use crate::{
     as_raw::AsRaw,
     flatten::{
         flat_ir::{
-            base::SignatureRange,
+            base::{LocalPortOffset, SignatureRange},
             cell_prototype::{CellPrototype, ConstantType},
             component::{
                 AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
                 PrimaryComponentInfo,
             },
-            flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
+            flatten_trait::{FlattenTree, SingleHandle, flatten_tree},
             prelude::{
                 Assignment, AssignmentIdx, CellRef, CombGroup, CombGroupIdx,
                 ComponentIdx, GroupIdx, GuardIdx, PortRef,
             },
-            wires::{core::Group, guards::Guard},
+            wires::{
+                core::Group,
+                guards::{Guard, PortComp},
+            },
         },
         structures::context::{
             Context, InterpretationContext, SecondaryContext,
@@ -30,9 +33,59 @@ use crate::{
 
 use super::{structures::*, utils::CompTraversal};
 
+/// A transient version of guards that exists during translation to allow
+/// hashing, and consequently Hash-consing the flattened guards.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+enum TranslationGuard {
+    True,
+    Or(Box<TranslationGuard>, Box<TranslationGuard>),
+    And(Box<TranslationGuard>, Box<TranslationGuard>),
+    Not(Box<TranslationGuard>),
+    Comp(PortComp, PortRef, PortRef),
+    Port(PortRef),
+}
+
+impl TranslationGuard {
+    fn translate(
+        guard: &cir::Guard<cir::Nothing>,
+        mapper: &PortMapper,
+    ) -> Self {
+        // TODO griffin: make this not recursive? Probably not a huge issue
+        // right now
+        match guard {
+            calyx_ir::Guard::Or(guard, guard1) => Self::Or(
+                Box::new(Self::translate(guard, mapper)),
+                Box::new(Self::translate(guard1, mapper)),
+            ),
+            calyx_ir::Guard::And(guard, guard1) => Self::And(
+                Box::new(Self::translate(guard, mapper)),
+                Box::new(Self::translate(guard1, mapper)),
+            ),
+            calyx_ir::Guard::Not(guard) => {
+                Self::Not(Box::new(Self::translate(guard, mapper)))
+            }
+            calyx_ir::Guard::True => Self::True,
+            calyx_ir::Guard::CompOp(port_comp, ref_cell, ref_cell1) => {
+                Self::Comp(
+                    port_comp.into(),
+                    mapper[&ref_cell.as_raw()],
+                    mapper[&ref_cell1.as_raw()],
+                )
+            }
+            calyx_ir::Guard::Port(ref_cell) => {
+                Self::Port(mapper[&ref_cell.as_raw()])
+            }
+            calyx_ir::Guard::Info(_) => {
+                todo!("Guard::Info(_) is not currently supported")
+            }
+        }
+    }
+}
+
 type PortMapper = HashMap<*const cir::Port, PortRef>;
 type CellMapper = HashMap<*const cir::Cell, CellRef>;
 type ComponentMapper = HashMap<cir::Id, ComponentIdx>;
+type GuardHashConsMap = HashMap<TranslationGuard, GuardIdx>;
 
 /// An ephemeral structure used during the translation of a component.
 pub struct GroupMapper {
@@ -41,16 +94,22 @@ pub struct GroupMapper {
 }
 
 pub fn translate(orig_ctx: &cir::Context) -> Context {
-    let mut ctx = Context::new();
+    let mut ctx = Context::new(orig_ctx.source_info_table.clone());
 
     let mut component_id_map = ComponentMapper::new();
+    let mut hash_cons_map = GuardHashConsMap::new();
 
     // TODO (griffin)
     // the current component traversal is not well equipped for immutable
     // iteration over the components in a post-order so this is a hack instead
 
     for comp in CompTraversal::new(&orig_ctx.components).iter() {
-        translate_component(comp, &mut ctx, &mut component_id_map);
+        translate_component(
+            comp,
+            &mut ctx,
+            &mut component_id_map,
+            &mut hash_cons_map,
+        );
     }
 
     ctx.entry_point = *component_id_map
@@ -65,12 +124,14 @@ fn translate_group(
     group: &cir::Group,
     ctx: &mut Context,
     map: &PortMapper,
+    hash_cons_map: &mut GuardHashConsMap,
 ) -> Group {
     let id = ctx.secondary.string_table.insert(group.name());
     let base = ctx.primary.assignments.peek_next_idx();
 
     for assign in group.assignments.iter() {
-        let assign_new = translate_assignment(assign, &mut ctx.primary, map);
+        let assign_new =
+            translate_assignment(assign, &mut ctx.primary, map, hash_cons_map);
         ctx.primary.assignments.push(assign_new);
     }
 
@@ -90,12 +151,14 @@ fn translate_comb_group(
     comb_group: &cir::CombGroup,
     ctx: &mut Context,
     map: &PortMapper,
+    hash_cons_map: &mut GuardHashConsMap,
 ) -> CombGroup {
     let identifier = ctx.secondary.string_table.insert(comb_group.name());
     let base = ctx.primary.assignments.peek_next_idx();
 
     for assign in comb_group.assignments.iter() {
-        let assign_new = translate_assignment(assign, &mut ctx.primary, map);
+        let assign_new =
+            translate_assignment(assign, &mut ctx.primary, map, hash_cons_map);
         ctx.primary.assignments.push(assign_new);
     }
 
@@ -110,11 +173,12 @@ fn translate_assignment(
     assign: &cir::Assignment<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
+    hash_cons_map: &mut GuardHashConsMap,
 ) -> Assignment {
     Assignment {
         dst: map[&assign.dst.as_raw()],
         src: map[&assign.src.as_raw()],
-        guard: translate_guard(&assign.guard, interp_ctx, map),
+        guard: translate_guard(&assign.guard, interp_ctx, map, hash_cons_map),
     }
 }
 #[must_use]
@@ -122,8 +186,20 @@ fn translate_guard(
     guard: &cir::Guard<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
+    hash_cons_map: &mut GuardHashConsMap,
 ) -> GuardIdx {
-    let idx = flatten_tree(guard, None, &mut interp_ctx.guards, map);
+    let guard = TranslationGuard::translate(guard, map);
+
+    if let Some(idx) = hash_cons_map.get(&guard) {
+        return *idx;
+    }
+
+    let idx =
+        flatten_tree(&guard, None, &mut interp_ctx.guards, &(), hash_cons_map);
+
+    // if we didn't exit early, the full guard needs to be added to hash-cons
+    // map. The sub-guards will have already been added during flattening
+    hash_cons_map.insert(guard, idx);
 
     // not worth trying to force this search traversal into the flatten trait so
     // I'm just gonna opt for this. It's a onetime cost, so I'm not particularly
@@ -168,6 +244,7 @@ fn translate_component(
     comp: &cir::Component,
     ctx: &mut Context,
     component_id_map: &mut ComponentMapper,
+    hash_cons_map: &mut GuardHashConsMap,
 ) -> ComponentIdx {
     let mut auxiliary_component_info = AuxiliaryComponentInfo::new_with_name(
         ctx.secondary.string_table.insert(comp.name),
@@ -183,8 +260,12 @@ fn translate_component(
     // Continuous Assignments
     let cont_assignment_base = ctx.primary.assignments.peek_next_idx();
     for assign in &comp.continuous_assignments {
-        let assign_new =
-            translate_assignment(assign, &mut ctx.primary, &layout.port_map);
+        let assign_new = translate_assignment(
+            assign,
+            &mut ctx.primary,
+            &layout.port_map,
+            hash_cons_map,
+        );
         ctx.primary.assignments.push(assign_new);
     }
 
@@ -198,14 +279,36 @@ fn translate_component(
 
     let group_base = ctx.primary.groups.peek_next_idx();
 
+    let mut go_port_group_map: HashMap<LocalPortOffset, GroupIdx> =
+        HashMap::new();
+
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
-        let group_idx = translate_group(&group_brw, ctx, &layout.port_map);
-        let k = ctx.primary.groups.push(group_idx);
+        let translated_group =
+            translate_group(&group_brw, ctx, &layout.port_map, hash_cons_map);
+        let group_go = translated_group.go;
+        let k = ctx.primary.groups.push(translated_group);
+        go_port_group_map.insert(group_go, k);
         group_map.insert(group.as_raw(), k);
     }
     auxiliary_component_info
         .set_group_range(group_base, ctx.primary.groups.peek_next_idx());
+
+    for group in auxiliary_component_info.definitions.groups() {
+        for assignment in ctx.primary[group].assignments {
+            let dst = ctx.primary[assignment].dst;
+            if let Some(local) = dst.as_local() {
+                if let Some(other_group) = go_port_group_map.get(local) {
+                    ctx.primary
+                        .groups
+                        .get_mut(group)
+                        .unwrap()
+                        .structural_enables
+                        .push(*other_group);
+                }
+            }
+        }
+    }
 
     let comb_group_base = ctx.primary.comb_groups.peek_next_idx();
     // Translate comb groups
@@ -213,8 +316,12 @@ fn translate_component(
 
     for comb_grp in comp.comb_groups.iter() {
         let comb_grp_brw = comb_grp.borrow();
-        let comb_grp_idx =
-            translate_comb_group(&comb_grp_brw, ctx, &layout.port_map);
+        let comb_grp_idx = translate_comb_group(
+            &comb_grp_brw,
+            ctx,
+            &layout.port_map,
+            hash_cons_map,
+        );
         let k = ctx.primary.comb_groups.push(comb_grp_idx);
         comb_group_map.insert(comb_grp.as_raw(), k);
     }
@@ -251,6 +358,7 @@ fn translate_component(
                 None,
                 &mut taken_control,
                 &argument_tuple,
+                &mut (),
             );
             Some(ctrl_node)
         };
@@ -258,14 +366,17 @@ fn translate_component(
     let ctrl_idx_end = taken_control.peek_next_idx();
 
     // unwrap all the stuff packed into the argument tuple
-    let (_, layout, mut taken_ctx, auxiliary_component_info) = argument_tuple;
+    let (_, layout, mut taken_ctx, mut auxiliary_component_info) =
+        argument_tuple;
 
     // put stuff back
     taken_ctx.primary.control = taken_control;
     *ctx = taken_ctx;
 
+    auxiliary_component_info.set_control_range(ctrl_idx_start, ctrl_idx_end);
+
     for node in IndexRange::new(ctrl_idx_start, ctrl_idx_end).iter() {
-        if let ControlNode::Invoke(i) = &mut ctx.primary.control[node] {
+        if let Control::Invoke(i) = &mut ctx.primary.control[node].control {
             let assign_start_index = ctx.primary.assignments.peek_next_idx();
 
             for (dst, src) in i.signature.iter() {
@@ -522,7 +633,9 @@ fn compute_local_layout(
             };
             aux.skip_offsets(skips);
         } else {
-            unreachable!("Component cell isn't a component?. This shouldn't be possible please report this.")
+            unreachable!(
+                "Component cell isn't a component?. This shouldn't be possible please report this."
+            )
         }
     }
 
@@ -575,63 +688,65 @@ fn is_primitive(cell_ref: &std::cell::Ref<cir::Cell>) -> bool {
         || matches!(&cell_ref.prototype, cir::CellType::Constant { .. })
 }
 
-impl FlattenTree for cir::Guard<cir::Nothing> {
+impl FlattenTree for TranslationGuard {
     type Output = Guard;
     type IdxType = GuardIdx;
-    type AuxiliaryData = PortMapper;
+    type AuxiliaryData = ();
+    type MutAuxiliaryData = GuardHashConsMap;
 
     fn process_element<'data>(
         &'data self,
         mut handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
-        aux: &Self::AuxiliaryData,
+        _: &Self::AuxiliaryData,
+        cons_map: &mut Self::MutAuxiliaryData,
     ) -> Self::Output {
         match self {
-            cir::Guard::Or(a, b) => {
-                Guard::Or(handle.enqueue(a), handle.enqueue(b))
-            }
-            cir::Guard::And(a, b) => {
-                Guard::And(handle.enqueue(a), handle.enqueue(b))
-            }
-            cir::Guard::Not(n) => Guard::Not(handle.enqueue(n)),
-            cir::Guard::True => Guard::True,
-            cir::Guard::CompOp(op, a, b) => Guard::Comp(
-                op.clone(),
-                *aux.get(&a.as_raw()).unwrap(),
-                *aux.get(&b.as_raw()).unwrap(),
+            TranslationGuard::Or(a, b) => Guard::Or(
+                *cons_map.entry(*a.clone()).or_insert(handle.enqueue(a)),
+                *cons_map.entry(*b.clone()).or_insert(handle.enqueue(b)),
             ),
-            cir::Guard::Port(p) => Guard::Port(*aux.get(&p.as_raw()).unwrap()),
-            cir::Guard::Info(_) => panic!("Guard::Info(_) not handled yet"),
+            TranslationGuard::And(a, b) => Guard::And(
+                *cons_map.entry(*a.clone()).or_insert(handle.enqueue(a)),
+                *cons_map.entry(*b.clone()).or_insert(handle.enqueue(b)),
+            ),
+            TranslationGuard::Not(n) => Guard::Not(
+                *cons_map.entry(*n.clone()).or_insert(handle.enqueue(n)),
+            ),
+            TranslationGuard::True => Guard::True,
+            TranslationGuard::Comp(op, a, b) => Guard::Comp(*op, *a, *b),
+            TranslationGuard::Port(p) => Guard::Port(*p),
         }
     }
 }
 
 impl FlattenTree for cir::Control {
     type Output = ControlNode;
-
     type IdxType = ControlIdx;
-
     type AuxiliaryData = (GroupMapper, Layout, Context, AuxiliaryComponentInfo);
+    type MutAuxiliaryData = ();
 
     fn process_element<'data>(
         &'data self,
         mut handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
         aux: &Self::AuxiliaryData,
+        _: &mut Self::MutAuxiliaryData,
     ) -> Self::Output {
         let (group_map, layout, ctx, comp_info) = aux;
-        match self {
-            cir::Control::Seq(s) => ControlNode::Seq(Seq::new(
+        let ctrl = match self {
+            cir::Control::FSMEnable(_) => todo!(),
+            cir::Control::Seq(s) => Control::Seq(Seq::new(
                 s.stmts.iter().map(|s| handle.enqueue(s)),
             )),
-            cir::Control::Par(p) => ControlNode::Par(Par::new(
+            cir::Control::Par(p) => Control::Par(Par::new(
                 p.stmts.iter().map(|s| handle.enqueue(s)),
             )),
-            cir::Control::If(i) => ControlNode::If(If::new(
+            cir::Control::If(i) => Control::If(If::new(
                 layout.port_map[&i.port.as_raw()],
                 i.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
                 handle.enqueue(&i.tbranch),
                 handle.enqueue(&i.fbranch),
             )),
-            cir::Control::While(w) => ControlNode::While(While::new(
+            cir::Control::While(w) => Control::While(While::new(
                 layout.port_map[&w.port.as_raw()],
                 w.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
                 handle.enqueue(&w.body),
@@ -695,8 +810,8 @@ impl FlattenTree for cir::Control {
 
                 let ref_cells = inv.ref_cells.iter().map(|(ref_cell_id, realizing_cell)| {
                         let invoked_comp = invoked_comp.as_component().expect("cannot invoke a non-component with ref cells");
-                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(_idx, &def_idx)| {
-                            let def = &ctx.secondary[def_idx];
+                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(_idx, def_idx)| {
+                            let def = &ctx.secondary[**def_idx];
                             def.name == resolve_id(ref_cell_id)
                         }).map(|(t, _)| t).expect("Unable to find the given ref cell in the invoked component");
                         (*target, layout.cell_map[&realizing_cell.as_raw()])
@@ -721,7 +836,10 @@ impl FlattenTree for cir::Control {
                     .borrow()
                     .find_all_with_attr(NumAttr::Go)
                     .collect_vec();
-                assert!(go.len() == 1, "cannot handle multiple go ports yet or the invoked cell has none");
+                assert!(
+                    go.len() == 1,
+                    "cannot handle multiple go ports yet or the invoked cell has none"
+                );
                 let comp_go = layout.port_map[&go[0].as_raw()];
                 let done = inv
                     .comp
@@ -734,7 +852,7 @@ impl FlattenTree for cir::Control {
                 );
                 let comp_done = layout.port_map[&done[0].as_raw()];
 
-                ControlNode::Invoke(Invoke::new(
+                Control::Invoke(Invoke::new(
                     invoked_cell,
                     inv.comb_group
                         .as_ref()
@@ -746,17 +864,25 @@ impl FlattenTree for cir::Control {
                     comp_done,
                 ))
             }
-            cir::Control::Enable(e) => ControlNode::Enable(Enable::new(
+            cir::Control::Enable(e) => Control::Enable(Enable::new(
                 group_map.groups[&e.group.as_raw()],
             )),
-            cir::Control::Empty(_) => ControlNode::Empty(Empty),
+            cir::Control::Empty(_) => Control::Empty(Empty),
             cir::Control::Static(_) => {
                 todo!("The interpreter does not support static control yet")
             }
             cir::Control::Repeat(repeat) => {
                 let body = handle.enqueue(&repeat.body);
-                ControlNode::Repeat(Repeat::new(body, repeat.num_repeats))
+                Control::Repeat(Repeat::new(body, repeat.num_repeats))
             }
+        };
+
+        ControlNode {
+            control: ctrl,
+            pos: self
+                .get_attributes()
+                .get_set(SetAttr::Pos)
+                .map(|x| x.iter().map(|p| PositionId::new(*p)).collect()),
         }
     }
 }

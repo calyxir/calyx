@@ -1,9 +1,10 @@
 use argh::FromArgs;
 use calyx_frontend as frontend;
 use calyx_ir as ir;
+use calyx_ir::utils::GetMemInfo;
 use calyx_utils::CalyxResult;
 use rand::Rng;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -34,15 +35,6 @@ lazy_static::lazy_static! {
         .into_iter()
         .collect::<HashMap<&'static str, Vec<&'static str>>>()
     };
-}
-
-/// Holds data for std_mem cells, including name of cell, width, and sizes
-/// Name is the name of cell itself, not its type. Sizes is a vector
-/// that holds the dimensions of the cell (ex: for a 2 x 3 comb_mem_d2 cell it would be [2,3])
-struct CellData {
-    name: String,
-    width: u64,
-    sizes: Vec<usize>,
 }
 
 #[derive(Debug, FromArgs)]
@@ -76,15 +68,19 @@ fn main() -> CalyxResult<()> {
 
     let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
     let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
-
-    let comp = ctx.entrypoint();
-
-    let data_vec: Vec<CellData> =
-        comp.cells.iter().filter_map(get_data).collect();
+    let top = ctx.entrypoint();
+    let data_vec = top.get_mem_info();
 
     let mut map = Map::new();
-
-    for CellData { name, width, sizes } in data_vec {
+    for ir::utils::MemInfo {
+        name,
+        data_width: width,
+        dimension_sizes,
+        ..
+    } in data_vec
+    {
+        let sizes: Vec<usize> =
+            dimension_sizes.into_iter().map(|x| x as usize).collect();
         let json_comp = if !(fp_data) {
             gen_comp(&sizes[..], width, rand_data)
         } else {
@@ -100,8 +96,8 @@ fn main() -> CalyxResult<()> {
 
 // generates random of size usize
 fn gen_random_int_vec(d0: usize) -> Vec<u64> {
-    let mut rng = rand::thread_rng();
-    (0..d0).map(|_| rng.gen_range(0..100)).collect()
+    let mut rng = rand::rng();
+    (0..d0).map(|_| rng.random_range(0..100)).collect()
 }
 
 fn gen_random_2d_int(d0: usize, d1: usize) -> Vec<Vec<u64>> {
@@ -132,8 +128,8 @@ fn gen_random_4d_int(
 
 // generates random of size usize
 fn gen_random_vec(d0: usize) -> Vec<f32> {
-    let mut rng = rand::thread_rng();
-    (0..d0).map(|_| rng.gen_range(-5.0..5.0)).collect()
+    let mut rng = rand::rng();
+    (0..d0).map(|_| rng.random_range(-5.0..5.0)).collect()
 }
 
 // generates random 2d vec of size usize
@@ -239,31 +235,4 @@ fn gen_comp_float(
             "width": width
         }
     })
-}
-
-//Returns Some(CellData)) if cell is a std_mem cell, None otherwise
-fn get_data(cell: &ir::RRC<ir::Cell>) -> Option<CellData> {
-    let final_cell = cell.borrow();
-    if !final_cell.attributes.has(ir::BoolAttr::External) {
-        return None;
-    }
-    match final_cell.prototype {
-        ir::CellType::Primitive { ref name, .. } => {
-            SIZEMAP.get(&name.id.as_str()).map(|sizes_vec| CellData {
-                name: final_cell.name().id.as_str().to_string(),
-                width: final_cell
-                    .get_parameter("WIDTH")
-                    .unwrap_or_else(|| panic!("unable to get width of cell")),
-                sizes: sizes_vec
-                    .iter()
-                    .map(|size| {
-                        final_cell.get_parameter(*size).unwrap_or_else(|| {
-                            panic!("unable to get sizes of cell")
-                        }) as usize
-                    })
-                    .collect(),
-            })
-        }
-        _ => None,
-    }
 }

@@ -160,10 +160,10 @@ def generate_pade_groups(comp: ComponentBuilder):
     Generates groups for pade approximant componenet
     """
 
-    multiply_cells(comp, "get_x_sq", "mult_pipe", "x_reg", "x_reg"),
-    multiply_cells(comp, "num_term1", "n_mult_pipe1", "mult_pipe", "n1"),
-    multiply_cells(comp, "num_term2", "n_mult_pipe2", "x_reg", "n2"),
-    multiply_cells(comp, "den_term2", "d_mult_pipe2", "x_reg", "d2"),
+    (multiply_cells(comp, "get_x_sq", "mult_pipe", "x_reg", "x_reg"),)
+    (multiply_cells(comp, "num_term1", "n_mult_pipe1", "mult_pipe", "n1"),)
+    (multiply_cells(comp, "num_term2", "n_mult_pipe2", "x_reg", "n2"),)
+    (multiply_cells(comp, "den_term2", "d_mult_pipe2", "x_reg", "d2"),)
 
     x_reg = comp.get_cell("x_reg")
     add1 = comp.get_cell("add1")
@@ -265,7 +265,7 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
     comp.output("out", width)
 
     # this is unused for some reason
-    and1 = comp.cell("and1", Stdlib.op("and", width, signed=False))
+    _and1 = comp.cell("and1", Stdlib.op("and", width, signed=False))
 
     n = comp.reg(width, "n")
     div_pipe = comp.cell(
@@ -298,9 +298,9 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
     res_reg = comp.reg(width, "res_reg")
     msb = comp.comp_instance("msb", "msb_calc", check_undeclared=False)
     # these 3 appear unused, not sure why
-    slice0 = comp.cell("slice0", Stdlib.slice(width, int_width))
-    rsh = comp.cell("rsh", Stdlib.op("rsh", width, is_signed))
-    shift_amount = comp.const("shift_amount", width, int_width)
+    _slice0 = comp.cell("slice0", Stdlib.slice(width, int_width))
+    _rsh = comp.cell("rsh", Stdlib.op("rsh", width, is_signed))
+    _shift_amount = comp.const("shift_amount", width, int_width)
 
     with comp.group("get_n") as get_n:
         n.write_en = HI

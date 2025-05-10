@@ -35,7 +35,11 @@ fn cider_setup(e) {
 
     e.rule(
         "run-cider-debug",
-        "$cider-exe -l $calyx-base $data $cider-flags $in debug || true",
+    //                                                       this is a dumb hack
+    //                                                       to avoid fud2
+    //                                                       complaining about
+    //                                                       there being no file
+        "$cider-exe -l $calyx-base $data $cider-flags $in debug && echo > $out",
     );
     e.arg("pool", "console");
 

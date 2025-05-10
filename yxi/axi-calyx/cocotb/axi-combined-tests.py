@@ -20,7 +20,9 @@ async def read_channels_happy_path(main):
     B0_in = [126, 62, 30, 14, 6, 2, 0, 1]
     expected_sum = [A0_in[i] + B0_in[i] for i in range(len(B0_in))]
     await run_module(main, A0_in, B0_in, expected_sum)  # checks cocotb axi rams
-    await assert_mem_content(main.internal_mem_A0, A0_in)  # checks in verilog module, as opposed to axiram
+    await assert_mem_content(
+        main.internal_mem_A0, A0_in
+    )  # checks in verilog module, as opposed to axiram
     await assert_mem_content(main.internal_mem_B0, B0_in)
     await assert_mem_content(main.internal_mem_Sum0, expected_sum)
 
@@ -59,9 +61,9 @@ async def assert_mem_content(mem, expected: List[int]):
     """
     if debug:
         print(f"DEBUG: assert_mem_content: {cocotb_mem_to_ints(mem)}")
-    assert (
-        cocotb_mem_to_ints(mem) == expected
-    ), f":mem {cocotb_mem_to_ints(mem)} does not contain the data in expected: {expected}."
+    assert cocotb_mem_to_ints(mem) == expected, (
+        f":mem {cocotb_mem_to_ints(mem)} does not contain the data in expected: {expected}."
+    )
 
 
 async def assert_axi_ram_content(
@@ -71,13 +73,13 @@ async def assert_axi_ram_content(
     verilog module matches expected starting at address for length bytes
     """
     if debug:
-        print(f"DEBUG: axi_ram.read: {axi_ram.read(address,length)}")
+        print(f"DEBUG: axi_ram.read: {axi_ram.read(address, length)}")
         print(
-            f"DEBUG: assert_axi_ram_content: {bytes_to_int(axi_ram.read(address,length))}"
+            f"DEBUG: assert_axi_ram_content: {bytes_to_int(axi_ram.read(address, length))}"
         )
-    assert (
-        bytes_to_int(axi_ram.read(address, length)) == expected
-    ), f"The axi_ram {axi_ram} contained {bytes_to_int(axi_ram.read(address,length))} not {expected}."
+    assert bytes_to_int(axi_ram.read(address, length)) == expected, (
+        f"The axi_ram {axi_ram} contained {bytes_to_int(axi_ram.read(address, length))} not {expected}."
+    )
 
 
 async def run_module(
@@ -104,12 +106,12 @@ async def run_module(
     # Start the execution
     module.go.value = 1
 
-    #Used to test byte-addressable to calyx-width-addressable 
+    # Used to test byte-addressable to calyx-width-addressable
     base_address = 0x1000
     # 4 bytes per integer
     A0_size = len(A0_data) * 4 + base_address
     B0_size = len(B0_data) * 4 + base_address
-    Sum0_size = 8 * 4  + base_address # hardcoded because we dont pass in any sum data
+    Sum0_size = 8 * 4 + base_address  # hardcoded because we dont pass in any sum data
     # anonymous mmep for now to back axiram
     A0_memmap = mmap.mmap(-1, A0_size)
     B0_memmap = mmap.mmap(-1, B0_size)
@@ -160,7 +162,7 @@ async def run_module(
 
     await Timer(20, "ns")
     if debug:
-        A0.hexdump(base_address, A0_size - base_address , prefix="A0 RAM")
+        A0.hexdump(base_address, A0_size - base_address, prefix="A0 RAM")
         B0.hexdump(base_address, B0_size - base_address, prefix="B0 RAM")
         Sum0.hexdump(base_address, Sum0_size - base_address, prefix="Sum0 RAM")
 
@@ -170,7 +172,7 @@ async def run_module(
         B0.hexdump(base_address, B0_size - base_address, prefix="B0 RAM post")
         Sum0.hexdump(base_address, Sum0_size - base_address, prefix="Sum0 RAM post")
 
-    #TODO(nathanielnrn): dynamically pass in `length` currently uses default 8*4 for vec_add test
+    # TODO(nathanielnrn): dynamically pass in `length` currently uses default 8*4 for vec_add test
     await assert_axi_ram_content(A0, A0_data[0:8], base_address)
     await assert_axi_ram_content(B0, B0_data[0:8], base_address)
     await assert_axi_ram_content(Sum0, Sum0_expected[0:8], base_address)
@@ -217,7 +219,7 @@ def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
 
     if type(input_list) is bytes:
         assert len(input_list) % 4 == 0, "input_list length not divisble by 4."
-        frmt += f"{len(input_list)//4}"
+        frmt += f"{len(input_list) // 4}"
     elif type(input_list[0]) is int:
         frmt += f"{len(input_list)}"
 

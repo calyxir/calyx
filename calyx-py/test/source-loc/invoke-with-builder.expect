@@ -1,0 +1,64 @@
+import "primitives/core.futil";
+component main<"pos"={0}>() -> () {
+  cells {
+    @pos{1} b = std_reg(32);
+    @pos{2} c = std_reg(32);
+    @pos{3} cst = std_const(32, 1);
+    @pos{8} foo0 = foo();
+  }
+  wires {
+    group write_constant<"pos"={9}, "promotable"=1> {
+      b.in = cst.out;
+      b.write_en = 1'd1;
+      write_constant[done] = b.done;
+    }
+    group save_foo<"pos"={10}> {
+      c.in = foo0.out;
+      c.write_en = 1'd1;
+      save_foo[done] = c.done;
+    }
+  }
+  control {
+    @pos{13} seq {
+      @pos{11} write_constant;
+      @pos{12} invoke foo0(a=b.out)();
+      @pos{13} save_foo;
+    }
+  }
+}
+component foo<"pos"={4}>(a: 32) -> (out: 32) {
+  cells {
+    @pos{5} temp = std_reg(32);
+  }
+  wires {
+    group let<"pos"={6}, "promotable"=1> {
+      temp.in = a;
+      temp.write_en = 1'd1;
+      let[done] = temp.done;
+    }
+    out = temp.out;
+  }
+  control {
+    @pos{7} let;
+  }
+}
+
+sourceinfo #{
+FILES 
+  0: invoke-with-builder.py
+POSITIONS 
+  0: 0 27
+  1: 0 30
+  2: 0 31
+  3: 0 32
+  4: 0 6
+  5: 0 11
+  6: 0 13
+  7: 0 21
+  8: 0 33
+  9: 0 36
+  10: 0 41
+  11: 0 46
+  12: 0 47
+  13: 0 48
+}#
