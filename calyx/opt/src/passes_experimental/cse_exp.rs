@@ -27,11 +27,11 @@ impl Default for CseExp {
                 safe_depth: -1,
                 running_expressions: HashMap::<
                     i32,
-                    HashMap<String, ExpressionMetadata>,
+                    HashMap<String, Vec<ExpressionMetadata>>,
                 >::new(),
                 per_group_expressions: HashMap::<
                     String,
-                    HashMap<String, ExpressionMetadata>,
+                    HashMap<String, Vec<ExpressionMetadata>>,
                 >::new(),
             },
         }
@@ -46,8 +46,9 @@ struct ExpressionMetadata {
 struct AvailableExpressions {
     current_depth: i32,
     safe_depth: i32,
-    running_expressions: HashMap<i32, HashMap<String, ExpressionMetadata>>,
-    per_group_expressions: HashMap<String, HashMap<String, ExpressionMetadata>>,
+    running_expressions: HashMap<i32, HashMap<String, Vec<ExpressionMetadata>>>, // its a vector to deal with duplicates
+    per_group_expressions:
+        HashMap<String, HashMap<String, Vec<ExpressionMetadata>>>,
 }
 
 impl AvailableExpressions {
@@ -66,6 +67,35 @@ impl AvailableExpressions {
             }
         }
     }
+
+    fn contains_metadata(
+        &self,
+        string_expression: &String,
+        metadata: &ExpressionMetadata,
+    ) -> bool {
+        let mut contains_flag = false;
+        for depth in 0..(self.current_depth + 1) {
+            match self.running_expressions.get(&depth) {
+                Some(expressions) => match expressions.get(string_expression) {
+                    Some(metadata_vec) => {
+                        for met in metadata_vec {
+                            if met.group == metadata.group
+                                && met.reg_port == metadata.reg_port
+                            {
+                                contains_flag = true;
+                            }
+                        }
+                    }
+                    None => {}
+                },
+                None => {
+                    panic!("no HashMap allocated for depth {depth}?");
+                }
+            }
+        }
+        return contains_flag;
+    }
+
     /*
         increment depth and potentially safe depth, allocating
         a new HashMap for this depth's expressions
@@ -88,12 +118,19 @@ impl AvailableExpressions {
         // this key should never exist already
         let dbg_depth = self.current_depth;
         if self.running_expressions.contains_key(&self.current_depth) {
+            let dbg_map_len =
+                match self.running_expressions.get(&self.current_depth) {
+                    Some(v) => v.keys().len(),
+                    None => panic! {"??"},
+                };
             panic!(
-                "running expressions somehow already contains current depth {dbg_depth} key"
+                "running expressions somehow already contains current depth key {dbg_depth} len {dbg_map_len}"
             );
         }
-        let current_depth_expressions: HashMap<String, ExpressionMetadata> =
-            HashMap::<String, ExpressionMetadata>::new();
+        let current_depth_expressions: HashMap<
+            String,
+            Vec<ExpressionMetadata>,
+        > = HashMap::<String, Vec<ExpressionMetadata>>::new();
         self.running_expressions
             .insert(self.current_depth, current_depth_expressions);
         log::debug!(
@@ -105,8 +142,8 @@ impl AvailableExpressions {
         allocated for this depth's expressions
     */
     fn dec_depth(&mut self) -> () {
+        let deleted_depth = self.current_depth;
         // invariant check
-        let dbg_deleted_depth = self.current_depth;
         assert!(
             self.safe_depth <= self.current_depth,
             "safe depth somehow exceeded current depth"
@@ -118,10 +155,11 @@ impl AvailableExpressions {
             self.current_depth -= 1;
         }
         let dbg_depth = self.current_depth;
-        self.running_expressions.remove(&self.current_depth);
-        log::debug!(
-            "decremented current depth to {dbg_depth} and removed hashmap for expressions at depth {dbg_deleted_depth}"
-        );
+        if self.running_expressions.remove(&deleted_depth).is_some() {
+            log::debug!(
+                "decremented current depth to {dbg_depth} and removed hashmap for expressions at depth {deleted_depth}"
+            );
+        }
     }
 
     /*
@@ -163,6 +201,20 @@ impl AvailableExpressions {
                         && self.current_depth <= self.safe_depth
                         && src_port_name.to_string().as_str() == "out"
                     {
+                        let string_expression = match completed_exp
+                            .get(&latching_cadidate.to_string())
+                        {
+                            Some(v) => v,
+                            None => panic!(
+                                "expected completed expressions to contain latching candidaate string"
+                            ),
+                        };
+                        // if self.contains_exp(string_expression) {
+                        //     log::debug!(
+                        //         "already contain {string_expression} in running expressions"
+                        //     );
+                        //     continue;
+                        // }
                         let new_exp = ExpressionMetadata {
                             reg_port: assign
                                 .dst
@@ -177,30 +229,33 @@ impl AvailableExpressions {
                             .get_mut(&self.current_depth)
                         {
                             Some(current_depth_expressions) => {
-                                match completed_exp
-                                    .get(&latching_cadidate.to_string())
+                                let dbg_depth: i32 = self.current_depth;
+                                let dbg_parent = new_exp
+                                    .reg_port
+                                    .borrow()
+                                    .cell_parent()
+                                    .borrow()
+                                    .name();
+                                let dbg_port = new_exp.reg_port.borrow().name;
+                                match current_depth_expressions
+                                    .get_mut(string_expression)
                                 {
-                                    Some(string_expression) => {
-                                        let dbg_parent = new_exp
-                                            .reg_port
-                                            .borrow()
-                                            .cell_parent()
-                                            .borrow()
-                                            .name();
-                                        let dbg_port =
-                                            new_exp.reg_port.borrow().name;
-                                        let dbg_depth = self.current_depth;
+                                    Some(string_expression_sources) => {
+                                        // existing list of subexpressions will have another source appended on it
                                         log::debug!(
-                                            "[GEN] adding expression {string_expression} with parent port {dbg_parent}.{dbg_port} to running expressions at depth {dbg_depth}"
+                                            "[GEN] adding {string_expression} with parent port {dbg_parent}.{dbg_port} to existing list at depth {dbg_depth}"
+                                        );
+                                        string_expression_sources.push(new_exp);
+                                    }
+                                    None => {
+                                        // new list of subexpressions will be allocated
+                                        let new_exp_sources = vec![new_exp];
+                                        log::debug!(
+                                            "[GEN] adding expression {string_expression} with parent port {dbg_parent}.{dbg_port} to new list of running expressions at depth {dbg_depth}"
                                         );
                                         current_depth_expressions.insert(
                                             string_expression.to_string(),
-                                            new_exp,
-                                        );
-                                    }
-                                    None => {
-                                        panic!(
-                                            "string expression not found in current depth expressions"
+                                            new_exp_sources,
                                         );
                                     }
                                 }
@@ -264,7 +319,7 @@ impl AvailableExpressions {
         assignments: &Vec<ir::Assignment<ir::Nothing>>,
         group: String,
     ) {
-        let mut remove_expressions: Vec<String> = Vec::new();
+        // let mut remove_expressions: Vec<String> = Vec::new();
         for assign in assignments.iter() {
             if assign.dst.borrow().is_hole() {
                 continue;
@@ -281,43 +336,54 @@ impl AvailableExpressions {
                 && dst_port.name.to_string().as_str() == "in"
             {
                 for depth in 0..(self.current_depth + 1) {
-                    let e = self.running_expressions.get_mut(&depth);
+                    let e = self.running_expressions.get(&depth);
+                    let mut updates =
+                        HashMap::<String, Vec<ExpressionMetadata>>::new();
                     match e {
                         Some(expressions) => {
-                            for (string_expression, metadata) in
+                            for (string_expression, metadata_vec) in
                                 expressions.into_iter()
                             {
-                                if metadata.group != group
-                                    && metadata
-                                        .reg_port
-                                        .borrow()
-                                        .cell_parent()
-                                        .borrow()
-                                        .name()
-                                        == dst_port
+                                let mut new_expression_sources =
+                                    Vec::<ExpressionMetadata>::new();
+                                for metadata in metadata_vec.into_iter() {
+                                    // either this was introduced in this group, or we don't share a cell_parent
+                                    // if the above is true then we keep the expression
+                                    if metadata.group == group
+                                        || metadata
+                                            .reg_port
+                                            .borrow()
                                             .cell_parent()
                                             .borrow()
                                             .name()
-                                {
-                                    remove_expressions
-                                        .push(string_expression.to_string());
+                                            != dst_port
+                                                .cell_parent()
+                                                .borrow()
+                                                .name()
+                                    {
+                                        new_expression_sources.push(
+                                            ExpressionMetadata {
+                                                reg_port: metadata
+                                                    .reg_port
+                                                    .clone(),
+                                                group: metadata.group.clone(),
+                                            },
+                                        );
+                                    } else {
+                                        let dbg_parent = dst_port
+                                            .cell_parent()
+                                            .borrow()
+                                            .name();
+                                        let dbg_port =
+                                            metadata.reg_port.borrow().name;
+                                        log::debug!(
+                                            "[KILL] removed {string_expression} with parent port {dbg_parent}.{dbg_port} from expressions at depth {depth}"
+                                        );
+                                    }
                                 }
-                            }
-                        }
-                        None => {
-                            panic!("no HashMap allocated for depth {depth}?");
-                        }
-                    }
-                }
-            }
-            for killed_expression in remove_expressions.iter() {
-                for depth in 0..(self.current_depth + 1) {
-                    let e = self.running_expressions.get_mut(&depth);
-                    match e {
-                        Some(expressions) => {
-                            if expressions.remove(killed_expression).is_some() {
-                                log::debug!(
-                                    "[KILL] removed expression {killed_expression} from available expressions at depth {depth}"
+                                updates.insert(
+                                    string_expression.clone(),
+                                    new_expression_sources,
                                 );
                             }
                         }
@@ -325,8 +391,41 @@ impl AvailableExpressions {
                             panic!("no HashMap allocated for depth {depth}?");
                         }
                     }
+                    match self.running_expressions.get_mut(&depth) {
+                        Some(expressions) => {
+                            for (key, value) in updates {
+                                expressions.insert(key, value);
+                            }
+                        }
+                        None => {
+                            panic!("no HashMap allocated for depth {depth}?");
+                        }
+                    }
                 }
             }
+            // for killed_expression in remove_expressions.iter() {
+            //     for depth in 0..(self.current_depth + 1) {
+            //         match self.running_expressions.get_mut(&depth) {
+            //             Some(expressions) => {
+            //                 match expressions.get(killed_expression) {
+            //                     Some(expression_sources) => {
+            //                         // there is a vector of expressions available
+            //                         let new_expression_sources =
+            //                             Vec::<ExpressionMetadata>::new();
+            //                     }
+            //                 }
+            //                 if expressions.remove(killed_expression).is_some() {
+            //                     log::debug!(
+            //                         "[KILL] removed expression {killed_expression} from available expressions at depth {depth}"
+            //                     );
+            //                 }
+            //             }
+            //             None => {
+            //                 panic!("no HashMap allocated for depth {depth}?");
+            //             }
+            //         }
+            //     }
+            // }
         }
     }
 
@@ -339,72 +438,120 @@ impl AvailableExpressions {
     fn group_exp(&mut self, group: String) {
         if self.per_group_expressions.contains_key(&group) {
             // do 2)
-            let mut remove_expressions: Vec<String> = Vec::new();
-            let g_e = self.per_group_expressions.get_mut(&group);
+            let mut new_group_expressions =
+                HashMap::<String, Vec<ExpressionMetadata>>::new();
+            // let mut remove_expressions: Vec<String> = Vec::new();
+            let g_e = self.per_group_expressions.get(&group);
             match g_e {
                 Some(group_expressions) => {
-                    for (group_string_expression, _) in &mut *group_expressions
+                    for (group_string_expression, metadata_vec) in
+                        group_expressions
                     {
-                        let mut remove_flag = true;
-                        for depth in 0..(self.current_depth + 1) {
-                            let e = self.running_expressions.get_mut(&depth);
-                            match e {
-                                Some(expressions) => {
-                                    if expressions
-                                        .contains_key(group_string_expression)
-                                    {
-                                        remove_flag = false;
-                                    }
-                                }
-                                None => {
-                                    panic!(
-                                        "no HashMap allocated for depth {depth}?"
-                                    );
-                                }
+                        let mut new_group_expression_vec =
+                            Vec::<ExpressionMetadata>::new();
+                        for metadata in metadata_vec.into_iter() {
+                            if self.contains_metadata(
+                                group_string_expression,
+                                metadata,
+                            ) {
+                                new_group_expression_vec.push(
+                                    ExpressionMetadata {
+                                        group: metadata.group.clone(),
+                                        reg_port: metadata.reg_port.clone(),
+                                    },
+                                )
+                            } else {
+                                let dbg_parent = metadata
+                                    .reg_port
+                                    .borrow()
+                                    .cell_parent()
+                                    .borrow()
+                                    .name();
+                                let dbg_port = metadata.reg_port.borrow().name;
+                                log::debug!(
+                                    "[GROUP-KILL] removed expression {group_string_expression} with parent port {dbg_parent}.{dbg_port}"
+                                );
                             }
                         }
-                        if remove_flag {
-                            remove_expressions
-                                .push(group_string_expression.clone());
-                        }
-                    }
-                    for removed_expression in remove_expressions.iter() {
-                        if group_expressions
-                            .remove(removed_expression)
-                            .is_some()
-                        {
-                            log::debug!(
-                                "[GROUP-KILL] removed expression {removed_expression} from availalbe expressions for group {group}"
-                            );
-                        } else {
-                            panic!(
-                                "expected expression to exist in group expressions"
-                            );
-                        }
+                        new_group_expressions.insert(
+                            group_string_expression.clone(),
+                            new_group_expression_vec,
+                        );
                     }
                 }
                 None => {
                     panic!("expected group expressions to exist");
                 }
             }
+            self.per_group_expressions
+                .insert(group.clone(), new_group_expressions);
+            // let modify_g_e = self.per_group_expressions.get_mut(&group);
+            // match modify_g_e {
+            //     Some(group_expressions) => {
+            //         for removed_expression in remove_expressions.iter() {
+            //             if group_expressions
+            //                 .remove(removed_expression)
+            //                 .is_some()
+            //             {
+            //                 log::debug!(
+            //                     "[GROUP-KILL] removed expression {removed_expression} from availalbe expressions for group {group}"
+            //                 );
+            //             } else {
+            //                 panic!(
+            //                     "expected expression to exist in group expressions"
+            //                 );
+            //             }
+            //         }
+            //     }
+            //     None => {
+            //         panic!("expected group expressions to exist");
+            //     }
+            // }
         } else {
             // do 1)
-            let mut new_group_expressions: HashMap<String, ExpressionMetadata> =
-                HashMap::<String, ExpressionMetadata>::new();
+            let mut new_group_expressions: HashMap<
+                String,
+                Vec<ExpressionMetadata>,
+            > = HashMap::<String, Vec<ExpressionMetadata>>::new();
             for depth in 0..(self.current_depth + 1) {
                 let e = self.running_expressions.get_mut(&depth);
                 match e {
                     Some(expressions) => {
-                        for (string_expression, metadata) in
+                        for (string_expression, metadata_vec) in
                             expressions.into_iter()
                         {
-                            new_group_expressions.insert(
-                                string_expression.clone(),
-                                ExpressionMetadata {
-                                    reg_port: metadata.reg_port.clone(),
-                                    group: metadata.group.clone(),
-                                },
-                            );
+                            for metadata in metadata_vec.into_iter() {
+                                match new_group_expressions
+                                    .get_mut(string_expression)
+                                {
+                                    Some(group_expression_vec) => {
+                                        group_expression_vec.push(
+                                            ExpressionMetadata {
+                                                reg_port: metadata
+                                                    .reg_port
+                                                    .clone(),
+                                                group: metadata.group.clone(),
+                                            },
+                                        )
+                                    }
+                                    None => {
+                                        let mut new_group_expression_vec =
+                                            Vec::<ExpressionMetadata>::new();
+                                        new_group_expression_vec.push(
+                                            ExpressionMetadata {
+                                                reg_port: metadata
+                                                    .reg_port
+                                                    .clone(),
+                                                group: metadata.group.clone(),
+                                            },
+                                        );
+                                        new_group_expressions.insert(
+                                            string_expression.clone(),
+                                            new_group_expression_vec,
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }
                     None => {
@@ -496,37 +643,50 @@ impl AvailableExpressions {
                     }
                 };
                 match current_group_subexpressions.get(string_expression) {
-                    Some(potential_common_subexpression) => {
-                        if potential_common_subexpression.group != group {
-                            log::debug!(
-                                "common subexpression {string_expression} identified in {group}"
-                            );
-                            /*
-                                i think now you add a mapping from redun_calculation.out to latched_exp_reg.out
-                                aka mapping from assignment src to cse port
-                            */
-                            let dbg_canonical_src =
-                                assign.src.borrow().canonical();
-                            let dbg_canonical_val =
-                                potential_common_subexpression
-                                    .reg_port
-                                    .clone()
-                                    .borrow()
-                                    .canonical();
-                            log::debug!(
-                                "[OPTIMIZE] applying mapping from {dbg_canonical_src} -> {dbg_canonical_val} for group {group}"
-                            );
-                            cse_rewriter.insert(
-                                assign.src.clone().borrow().canonical(),
-                                potential_common_subexpression.reg_port.clone(),
-                            );
-                            let rewriter = ir::Rewriter {
-                                port_map: cse_rewriter.clone(),
-                                ..Default::default()
-                            };
-                            let mut asgn = assign.clone();
-                            rewriter.rewrite_assign(&mut asgn);
-                            *assign = asgn;
+                    Some(potential_common_subexpression_vec) => {
+                        if potential_common_subexpression_vec.len() > 0 {
+                            // getting the 0th index will get the earliest detected common subexpression
+                            let potential_common_subexpression =
+                                potential_common_subexpression_vec
+                                    .get(0)
+                                    .expect(&format!(
+                                        "expected zero index expression"
+                                    ));
+                            if potential_common_subexpression.group != group {
+                                log::debug!(
+                                    "common subexpression {string_expression} identified in {group}"
+                                );
+                                /*
+                                    i think now you add a mapping from redun_calculation.out to latched_exp_reg.out
+                                    aka mapping from assignment src to cse port
+                                */
+                                let dbg_canonical_src =
+                                    assign.src.borrow().canonical();
+                                let dbg_canonical_val =
+                                    potential_common_subexpression
+                                        .reg_port
+                                        .clone()
+                                        .borrow()
+                                        .canonical();
+                                log::debug!(
+                                    "[OPTIMIZE] applying mapping from {dbg_canonical_src} -> {dbg_canonical_val} for group {group}"
+                                );
+                                cse_rewriter.insert(
+                                    assign.src.clone().borrow().canonical(),
+                                    potential_common_subexpression
+                                        .reg_port
+                                        .clone(),
+                                );
+                                let rewriter = ir::Rewriter {
+                                    port_map: cse_rewriter.clone(),
+                                    ..Default::default()
+                                };
+                                let mut asgn = assign.clone();
+                                rewriter.rewrite_assign(&mut asgn);
+                                *assign = asgn;
+                            }
+                        } else {
+                            continue;
                         }
                     }
                     None => continue,
