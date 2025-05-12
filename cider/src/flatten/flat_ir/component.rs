@@ -407,11 +407,11 @@ impl AuxiliaryComponentInfo {
         self.definitions.control.contains(target)
     }
 
-    pub fn inputs(&self) -> impl Iterator<Item = LocalPortOffset> + '_ {
+    pub fn inputs(&self) -> impl Iterator<Item = LocalPortOffset> {
         self.signature_in.iter()
     }
 
-    pub fn outputs(&self) -> impl Iterator<Item = LocalPortOffset> + '_ {
+    pub fn outputs(&self) -> impl Iterator<Item = LocalPortOffset> {
         self.signature_out.iter()
     }
 

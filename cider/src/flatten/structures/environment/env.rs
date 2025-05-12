@@ -354,9 +354,7 @@ struct PinnedPorts {
 }
 
 impl PinnedPorts {
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&GlobalPortIdx, &BitVecValue)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&GlobalPortIdx, &BitVecValue)> {
         self.map.iter()
     }
 
@@ -423,7 +421,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// Used for Cider-DAP extension
     pub fn iter_compts(
         &self,
-    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> {
         self.cells.iter().filter_map(|(idx, ledge)| match ledge {
             CellLedger::Primitive { .. } => None,
             CellLedger::Component(component_ledger) => {
@@ -437,7 +435,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn iter_cmpt_cells(
         &self,
         cpt: GlobalCellIdx,
-    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> {
         // take globalcellid, look up in env to get compt ledger and get base indices
         // w cmpt id, go to context look at ctx.secondary[cmptidx] to get aux info, want cell offset map just keys
         // add local and globel offset, lookup full name and port info
@@ -454,7 +452,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> {
         let env = self;
         let cell_names = self.cells.iter().map(|(idx, _ledger)| {
             (idx.get_full_name(env), self.ports_helper(idx))
@@ -815,7 +813,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn get_currently_running_groups(
         &self,
-    ) -> impl Iterator<Item = GroupIdx> + '_ {
+    ) -> impl Iterator<Item = GroupIdx> {
         self.pc.iter().filter_map(|(_, point)| {
             let node =
                 &self.ctx.as_ref().primary[point.control_node_idx].control;
@@ -1529,7 +1527,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.ctx.as_ref().secondary[idx]
     }
 
-    pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> + '_ {
+    pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> {
         self.pc
             .iter()
             .filter_map(|(_, ctrl_point)| {
@@ -1641,7 +1639,7 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
 
     pub fn get_currently_running_groups(
         &self,
-    ) -> impl Iterator<Item = GroupIdx> + '_ {
+    ) -> impl Iterator<Item = GroupIdx> {
         self.base.get_currently_running_groups()
     }
 
@@ -1768,7 +1766,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
     pub fn get_currently_running_groups(
         &self,
-    ) -> impl Iterator<Item = GroupIdx> + '_ {
+    ) -> impl Iterator<Item = GroupIdx> {
         self.env.get_currently_running_groups()
     }
 

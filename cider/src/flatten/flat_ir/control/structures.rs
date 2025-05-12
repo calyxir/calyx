@@ -326,7 +326,7 @@ impl AsRef<Control> for ControlNode {
 }
 
 impl ControlNode {
-    pub fn positions(&self) -> impl Iterator<Item = PositionId> + '_ {
+    pub fn positions(&self) -> impl Iterator<Item = PositionId> {
         self.pos.iter().flatten().copied()
     }
 }

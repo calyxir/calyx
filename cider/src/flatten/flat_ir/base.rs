@@ -495,9 +495,7 @@ impl AssignedValue {
             .extend(clocks);
     }
 
-    pub fn iter_transitive_clocks(
-        &self,
-    ) -> impl Iterator<Item = ClockPair> + '_ {
+    pub fn iter_transitive_clocks(&self) -> impl Iterator<Item = ClockPair> {
         self.transitive_clocks
             .as_ref()
             .map(|set| set.iter().copied())
