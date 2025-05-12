@@ -129,13 +129,14 @@ impl PrimaryComponentInfo {
         &self,
         ctx: &Context,
         assign: AssignmentIdx,
+        comp: ComponentIdx,
     ) -> Option<AssignmentDefinitionLocation> {
         match self {
             PrimaryComponentInfo::Comb(info) => {
                 info.contains_assignment(assign)
             }
             PrimaryComponentInfo::Standard(info) => {
-                info.contains_assignment(ctx, assign)
+                info.contains_assignment(ctx, assign, comp)
             }
         }
     }
@@ -220,6 +221,7 @@ impl ComponentCore {
         &self,
         ctx: &Context,
         assign: AssignmentIdx,
+        comp: ComponentIdx,
     ) -> Option<AssignmentDefinitionLocation> {
         if self.continuous_assignments.contains(assign) {
             return Some(AssignmentDefinitionLocation::ContinuousAssignment);
@@ -291,6 +293,15 @@ impl ComponentCore {
                             ));
                         }
                     }
+                }
+            }
+
+            // if we get to this point then it isn't in the control tree, but
+            // may be structurally invoked
+            for group in ctx.secondary.comp_aux_info[comp].definitions.groups()
+            {
+                if ctx.primary[group].assignments.contains(assign) {
+                    return Some(AssignmentDefinitionLocation::Group(group));
                 }
             }
         }
