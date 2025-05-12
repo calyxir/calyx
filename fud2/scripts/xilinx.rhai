@@ -39,7 +39,6 @@ fn xilinx_setup(e) {
     e.rule("gen-kernel-xml", "$python $xml-generator $in > $out");
 };
 
-
 // TODO(nathanielnrn): Remove this and instead have a calyx -> verilog stage
 // that uses the "xilinx" backend when the correct flags are set.
 // When the yxi/calyx based wrappers are complete this can be removed.
@@ -131,11 +130,9 @@ fn xrt_setup(e) {
     e.rule("emconfig", "$vitis-dir/bin/emconfigutil --platform $platform");
     e.build_cmd(["emconfig.json"], "emconfig", [], []);
 
-    let calyx_wrapper = if e.config_constrained_or("calyx-wrapper", ["true", "false"], "false") {""} else {"--calyx-wrapper"};
     // Execute via the `xclrun` tool.
     e.config_var("xrt-dir", "xilinx.xrt");
     e.rule(
-        "xclrun",
         "xclrun",
         `bash -c '
         source $vitis-dir/settings64.sh;
