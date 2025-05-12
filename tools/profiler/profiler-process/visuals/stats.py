@@ -1,14 +1,18 @@
 import csv
 import os
 
+from classes import TraceData, CellMetadata, ControlMetadata, CycleType
 
 def write_cell_stats(
-    cell_to_active_cycles,
-    cats_to_cycles,
-    cells_to_components,
-    component_to_num_fsms,
-    total_cycles,
-    out_dir,
+    cell_metadata: CellMetadata,
+    control_metadata: ControlMetadata,
+    tracedata: TraceData,
+    # cell_to_active_cycles,
+    # cats_to_cycles,
+    # cells_to_components,
+    # component_to_num_fsms,
+    # total_cycles,
+    out_dir: str
 ):
     """
     Collect and write statistics information about cells to cell-stats.csv.
@@ -20,45 +24,48 @@ def write_cell_stats(
         "total-cycles",
         "times-active",
         "avg",
-    ] + [f"{cat} (%)" for cat in cats_to_cycles]  # fields in CSV file
+    ] + [f"{cat.name} (%)" for cat in tracedata.cycletype_to_cycles]  # fields in CSV file
     stats = []
     totals = {fieldname: 0 for fieldname in fieldnames}
-    for cell in cell_to_active_cycles:
-        component = cells_to_components[cell]
-        num_fsms = component_to_num_fsms[component]
-        cell_total_cycles = len(cell_to_active_cycles[cell]["active-cycles"])
-        times_active = cell_to_active_cycles[cell]["num-times-active"]
-        cell_cat = {cat: set() for cat in cats_to_cycles}
-        for cat in cats_to_cycles:
-            cell_cat[cat].update(
-                cell_to_active_cycles[cell]["active-cycles"].intersection(
-                    cats_to_cycles[cat]
+    for cell in tracedata.cell_to_active_cycles:
+        component = cell_metadata.cell_to_component[cell]
+        num_fsms = len(control_metadata.component_to_fsms[component])
+        cell_total_cycles = len(tracedata.cell_to_active_cycles[cell].active_cycles)
+        times_active = tracedata.cell_to_active_cycles[cell].num_times_active
+        cell_cat = {}
+        for cat in tracedata.cycletype_to_cycles:
+            cell_cat[cat] = (
+                tracedata.cell_to_active_cycles[cell].active_cycles.intersection(
+                    tracedata.cycletype_to_cycles[cat]
                 )
             )
-
         avg_cycles = round(cell_total_cycles / times_active, 2)
         stats_dict = {
             "cell-name": f"{cell} [{component}]",
             "num-fsms": num_fsms,
-            "useful-cycles": len(cell_cat["group/primitive"]) + len(cell_cat["other"]),
+            "useful-cycles": len(cell_cat[CycleType.GROUP_OR_PRIMITIVE]) + len(cell_cat[CycleType.OTHER]),
             "total-cycles": cell_total_cycles,
             "times-active": times_active,
             "avg": avg_cycles,
         }
         # aggregate stats that should be summed over
         totals["num-fsms"] += num_fsms
-        for cat in cats_to_cycles:
-            stats_dict[f"{cat} (%)"] = round(
+        for cycletype in tracedata.cycletype_to_cycles:
+            stats_dict[f"{cycletype.name} (%)"] = round(
                 (len(cell_cat[cat]) / cell_total_cycles) * 100, 1
             )
         stats.append(stats_dict)
     # total: aggregate other stats that shouldn't just be summed over
     totals["cell-name"] = "TOTAL"
+    total_cycles = len(tracedata.trace)
     totals["total-cycles"] = total_cycles
-    for cat in cats_to_cycles:
-        if cat == "group/primitive" or cat == "other":
-            totals["useful-cycles"] += len(cats_to_cycles[cat])
-        totals[f"{cat} (%)"] = round((len(cats_to_cycles[cat]) / total_cycles) * 100, 1)
+    totals["useful-cycles"] = len(tracedata.cycletype_to_cycles[CycleType.GROUP_OR_PRIMITIVE]) + len(tracedata.cycletype_to_cycles[CycleType.OTHER])
+    # totals["useful-cycles"] = len(filter((lambda t: t.is_useful_cycle), tracedata.trace.values))
+    for cycletype in tracedata.cycletype_to_cycles:
+        match cycletype:
+            case CycleType.GROUP_OR_PRIMITIVE | CycleType.OTHER:
+                totals["useful-cycles"] += len(tracedata.cycletype_to_cycles[cycletype])
+        totals[f"{cycletype.name} (%)"] = round((len(tracedata.cycletype_to_cycles[cycletype]) / total_cycles) * 100, 1)
     totals["avg"] = "-"
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     stats.append(totals)  # total should come at the end

@@ -301,8 +301,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         everything within a stream if we wanted to be precise)
         """
 
-        print(f"CLOCK NAME: {self.clock_name}")
-
         clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
         cell_active = set()
@@ -321,18 +319,15 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             "cell_probe_out": cell_enable_active,
             "primitive_probe_out": primitive_enable,
         }
-        print(f"looking for: {self.cell_metadata.main_component}.go")
         main_done = False  # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
-            print(events)
             started = started or WaveformEvent(f"{self.cell_metadata.main_component}.go", 1) in events
             if not started:  # only start counting when main component is on.
                 continue
             # checking whether the timestamp has a rising edge
             if WaveformEvent(self.clock_name, 1) in events:
                 clock_cycles += 1
-                print(f"clock cycle increment! {clock_cycles}")
                 self.timestamps_to_clock_cycles[ts] = clock_cycles
             # Recording the data organization for every kind of probe so I don't forget. () is a set.
             # groups-active: cell --> (active groups)

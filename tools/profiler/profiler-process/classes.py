@@ -153,13 +153,6 @@ class ControlMetadata:
                 # get all the children of this par
                 worklist += self.par_to_children[par]
 
-class CycleType(Enum):
-    GROUP_OR_PRIMITIVE = 1
-    FSM_UPDATE = 2
-    PD_UPDATE = 3
-    MULT_CONTROL = 4
-    OTHER = 5
-
 class StackElementType(Enum):
     GROUP = 1
     PRIMITIVE = 2
@@ -190,30 +183,55 @@ class StackElement:
             case StackElementType.CONTROL_GROUP:
                 return f"{self.name} (ctrl)"
 
+class CycleType(Enum):
+    GROUP_OR_PRIMITIVE = 1 # at least one group/primitive is executing this cycle
+    FSM_UPDATE = 2 # only fsm updates are happening this cycle
+    PD_UPDATE = 3 # only pd register updates are happening this cycle
+    MULT_CONTROL = 4 # fsm and par-done
+    OTHER = 5
+    # UNKNOWN = 6
+
 class CycleTrace:
     """
     List of stacks that are active in a particular cycle
     """
     stacks: list[list[StackElement]]
     is_useful_cycle: bool
-    cycle_type: CycleType
-
-    def __init__(self, stacks_this_cycle: list[list[StackElement]]):
-        self.stacks = stacks_this_cycle
-
-        # If a group or primitive is at the top of at least one stack, then the cycle is "useful"
-        self.is_useful_cycle = False
-        for stack in self.stacks:
-            top: StackElement = stack[-1]
-            match top.element_type:
-                case CycleType.GROUP_OR_PRIMITIVE:
-                    self.is_useful_cycle = True
+    # cycle_type: CycleType
 
     def __repr__(self):
         out = ""
         out = "\n".join(map(lambda x: f"\t{x}", self.stacks))
         return out
 
+    def __init__(self, stacks_this_cycle: list[list[StackElement]]=None):
+        self.stacks = []
+        # self.cycle_type = CycleType.UNKNOWN # default
+
+        # If a group or primitive is at the top of at least one stack, then the cycle is "useful"
+        self.is_useful_cycle = False
+        if stacks_this_cycle is not None:
+            for stack in stacks_this_cycle:
+                self.add_stack(stack)
+
+    def add_stack(self, stack: list[StackElement]):
+        assert(len(stack) > 0)
+        top: StackElement = stack[-1]
+        match top.element_type:
+            case StackElementType.GROUP | StackElementType.PRIMITIVE:
+                self.is_useful_cycle = True
+                # self.cycle_type = CycleType.GROUP_OR_PRIMITIVE
+        self.stacks.append(stack)
+        
+    def get_stack_list_strs(self):
+        stack_strs = []
+        for stack in self.stacks:
+            stack_strs.append(";".join(map(lambda x: str(x), stack)))
+        return stack_strs
+    
+    def get_num_stacks(self):
+        return len(self.stacks)
+    
 @dataclass
 class Summary:
     """
@@ -221,7 +239,7 @@ class Summary:
     FIXME: Add min/max/avg and collect these for normal groups as well?
     """
     num_times_active: int = 0
-    active_cycles: set = field(default_factory=set)
+    active_cycles: set[int] = field(default_factory=set)
 
 class ControlRegUpdateType(Enum):
     FSM = 1
@@ -251,6 +269,8 @@ class TraceData:
     trace_with_control_groups: dict[int, CycleTrace] = field(default_factory=dict)
     control_group_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
     control_reg_updates: dict[str, list[ControlRegUpdates]] = field(default_factory=dict) # cell --> ControlRegUpdate. This is for constructing timeline later.
+    
+    cycletype_to_cycles: dict[CycleType, set[int]] = None
 
     def print_trace(self, threshold=-1):
         """
@@ -272,7 +292,7 @@ class TraceData:
     def cell_start_invoke(self, cell: str):
         self.incr_num_times_active(cell, self.cell_to_active_cycles)
     
-    def register_cell_cycle(self, cell, cycle):
+    def register_cell_cycle(self, cell, cycle: int):
         self.cell_to_active_cycles[cell].active_cycles.add(cycle)
 
     def control_group_interval(self, group: str, interval: range):
@@ -288,6 +308,7 @@ class TraceData:
         control_metadata.order_pars(cell_metadata)
         for i in self.trace:
             if i in control_groups_trace:
+                self.trace_with_control_groups[i] = CycleTrace()
                 for events_stack in self.trace[i].stacks:
                     new_events_stack: list[StackElement] = []
                     for stack_element in events_stack:
@@ -327,7 +348,7 @@ class TraceData:
                             )):
                                 par_group_name = par_group_active.split(".")[-1]
                                 new_events_stack.append(StackElement(par_group_name, StackElementType.CONTROL_GROUP))
-                    self.trace_with_control_groups[i].append(new_events_stack)
+                    self.trace_with_control_groups[i].add_stack(new_events_stack)
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
 

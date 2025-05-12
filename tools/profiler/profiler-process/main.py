@@ -23,12 +23,6 @@ def main(args):
     control_metadata = preprocess.read_tdcc_file(args.fsms_json, cell_metadata)
     # create tracedata object here so we can use it outside of converter
     tracedata = TraceData()
-    # FIXME: just create everything in create_timeline(), remove below commented code
-    # # create dict of fsms outside the converter so they are preserved.
-    # fsm_events = {
-    #     fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
-    #     for fsm in fully_qualified_fsms
-    # }  # won't be fully filled in until create_timeline()
     print(f"Start reading VCD: {datetime.now()}")
     converter = construct_trace.VCDConverter(
         cell_metadata,
@@ -52,27 +46,18 @@ def main(args):
 
     tracedata.print_trace()
 
-    # # debug printing for programs that are less than print_trace_threshold (optional arg; default 0) cycles long
-    # if len(trace) < args.print_trace_threshold:
-    #     for i in trace_with_pars:
-    #         print(i)
-    #         for stack in trace_with_pars[i]:
-    #             print(f"\t{stack}")
-
-    # if not os.path.exists(args.out_dir):
-    #     os.mkdir(args.out_dir)
-    # cats_to_cycles = flame.create_simple_flame_graph(
-    #     trace_classified, control_reg_updates_per_cycle, args.out_dir
-    # )
-    # print(f"End creating simple flame graph: {datetime.now()}")
-    # stats.write_cell_stats(
-    #     cell_to_active_cycles,
-    #     cats_to_cycles,
-    #     cells_to_components,
-    #     component_to_num_fsms,
-    #     len(trace),
-    #     args.out_dir,
-    # )
+    if not os.path.exists(args.out_dir):
+        os.mkdir(args.out_dir)
+    flame.create_simple_flame_graph(
+        tracedata, control_reg_updates_per_cycle, args.out_dir
+    )
+    print(f"End creating overview flame graph: {datetime.now()}")
+    stats.write_cell_stats(
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        args.out_dir,
+    )
     # stats.write_par_stats(
     #     control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, args.out_dir
     # )
@@ -84,15 +69,15 @@ def main(args):
     # tree.create_tree_rankings(
     #     trace, tree_dict, path_dict, path_to_edges, all_edges, args.out_dir
     # )
-    # flat_flame_map, scaled_flame_map = flame.create_flame_maps(trace_with_pars)
-    # flame.write_flame_maps(flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out)
+    flat_flame_map, scaled_flame_map = flame.create_flame_maps(tracedata.trace_with_control_groups)
+    flame.write_flame_maps(flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out)
 
     # timeline.compute_timeline(
     #     trace, fsm_events, control_reg_updates, main_fullname, args.out_dir
     # )
 
-    # if args.adl_mapping_file is not None:  # emit ADL flame graphs.
-    #     create_adl_visuals(args.adl_mapping_file, args.out_dir, flat_flame_map, scaled_flame_map)
+    if args.adl_mapping_file is not None:  # emit ADL flame graphs.
+        create_adl_visuals(args.adl_mapping_file, args.out_dir, flat_flame_map, scaled_flame_map)
 
     print(f"End time: {datetime.now()}")
 
