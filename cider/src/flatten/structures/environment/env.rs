@@ -3022,6 +3022,31 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
             has_changed |= changed;
 
+            if !has_changed {
+                for ScheduledAssignments {
+                    active_cell,
+                    interface_ports,
+                    ..
+                } in assigns_bundle.iter()
+                {
+                    if let Some(i) = interface_ports {
+                        let ledger =
+                            self.env.cells[*active_cell].as_comp().unwrap();
+                        let go = &ledger.index_bases + i.go;
+                        let done = &ledger.index_bases + i.done;
+
+                        if self.env.ports[go].as_bool().unwrap_or_default()
+                            && self.env.ports[done].is_undef()
+                        {
+                            self.env.ports[done] = PortValue::new_implicit(
+                                BitVecValue::new_false(),
+                            );
+                            has_changed = true;
+                        }
+                    }
+                }
+            }
+
             // check for undefined done ports. If any remain after we've
             // converged then they should be set to zero and we should continue
             // convergence. Since these ports cannot become undefined again we
