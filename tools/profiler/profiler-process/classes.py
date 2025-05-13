@@ -55,8 +55,14 @@ class ParChildType(Enum):
 @dataclass
 class ParChildInfo:
     child_name: str
-    parent: str
     child_type: ParChildType
+    parents: set[str] = field(default_factory=set)
+
+    def __hash__(self):
+        return hash((self.child_name, self.parents, self.child_type))
+    
+    def register_new_parent(self, new_parent: str):
+        self.parents.add(new_parent)
 
 @dataclass
 class ControlMetadata:
@@ -65,13 +71,15 @@ class ControlMetadata:
     # names of fully qualified par groups
     par_groups: set[str] = field(default_factory=set)
     # component --> { fsm in the component. NOT fully qualified }
+    # components that are not in this dictionary do not contain any fsms
     component_to_fsms: dict[str, set[str]] = field(default_factory=dict)
     # component --> { par groups in the component }
+    # components that are not in this dictionary do not contain any par groups
     component_to_par_groups: dict[str, set[str]] = field(default_factory=dict)
-    # # fully qualified par name --> [fully-qualified par children name]
-    # par_to_children: dict[str, list[str]] = field(default_factory=dict)
-    # component --> { child name --> ParChildInfo (contains parent name and child type) }
-    component_to_child_to_par_parent: dict[str, dict[str, set[ParChildInfo]]] = field(default_factory=dict)
+    # fully qualified par name --> [fully-qualified par children name]. Each of the children here have to be pars.
+    par_to_par_children: dict[str, list[str]] = field(default_factory=dict)
+    # component --> { child name --> ParChildInfo (contains parent name(s) and child type) }
+    component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(default_factory=dict)
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
     # partial_fsm_events: 
@@ -93,6 +101,11 @@ class ControlMetadata:
         self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
         self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
         self.par_groups = {f"{signal_prefix}.{par_group}" for par_group in self.par_groups}
+        new_par_to_children = {}
+        for fully_qualified_par in self.par_to_par_children:
+            print(fully_qualified_par)
+            new_par_to_children[f"{signal_prefix}.{fully_qualified_par}"] = list(map(lambda c: f"{signal_prefix}.{c}", self.par_to_par_children[fully_qualified_par]))
+        self.par_to_par_children = new_par_to_children
     
     def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
         """
@@ -116,18 +129,29 @@ class ControlMetadata:
         else:
             self.component_to_par_groups[component].add(par_group)
 
-    def register_par_child(self, component, parent_info):
+    def register_par_child(self, component: str, child_name: str, parent: str, child_type: ParChildType, cell_metadata: CellMetadata):
         """
-        Add information about a par child to the field component_to_child_to_par_parent.
-        """
-        child_name = parent_info.child
+        Add information about a par child to the fields component_to_child_to_par_parent and par_to_children.
+        """        
         if component in self.component_to_child_to_par_parent:
             if child_name in self.component_to_child_to_par_parent[component]:
-                self.component_to_child_to_par_parent[component][child_name].add(parent_info)
+                self.component_to_child_to_par_parent[component][child_name].register_new_parent(parent)
             else:
-                self.component_to_child_to_par_parent[component][child_name] = {parent_info}
+                child_info = ParChildInfo(child_name, child_type, {parent})
+                self.component_to_child_to_par_parent[component][child_name] = child_info
         else:
-            self.component_to_child_to_par_parent[component] = {child_name: {parent_info}}
+            child_info = ParChildInfo(child_name, child_type, {parent})
+            self.component_to_child_to_par_parent[component] = {child_name: child_info}
+        
+        if child_type == ParChildType.PAR:
+            for cell in cell_metadata.component_to_cells[component]:
+                fully_qualified_par = f"{cell}.{parent}"
+                fully_qualified_child = f"{cell}.{child_name}"
+                if fully_qualified_par not in self.par_to_par_children:
+                    self.par_to_par_children[fully_qualified_par] = {fully_qualified_child}
+                else:
+                    self.par_to_par_children[fully_qualified_par].add(fully_qualified_child)
+
 
     def order_pars(self, cell_metadata: CellMetadata):
         """
@@ -143,15 +167,21 @@ class ControlMetadata:
                 # ignore components that don't feature pars.
                 continue
             pars = self.component_to_par_groups[component]
-            # start with pars with no parent
+            # the worklist starts with pars with no parent
             pars_with_parent = filter((lambda x: self.component_to_child_to_par_parent[component][x].child_type == ParChildType.PAR), self.component_to_child_to_par_parent[component])
-            worklist = list(pars.difference(pars_with_parent))
+            worklist = []
+            for par in pars.difference(pars_with_parent):
+                # need to make all of the pars fully qualified before adding them to the worklist.
+                worklist.append(f"{cell}.{par}")
+
             while len(worklist) > 0:
                 par = worklist.pop(0)
                 if par not in self.cell_to_ordered_pars[cell]:
-                    self.cell_to_ordered_pars[cell].append(par)  # f"{signal_prefix}.{par}"
-                # get all the children of this par
-                worklist += self.par_to_children[par]
+                    self.cell_to_ordered_pars[cell].append(par)
+                if par in self.par_to_par_children:
+                    # get all the children (who are pars) of this par. 
+                    # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
+                    worklist += self.par_to_par_children[par]
 
 class StackElementType(Enum):
     GROUP = 1
@@ -316,7 +346,7 @@ class TraceData:
                         match stack_element.element_type:
                             case StackElementType.CELL:
                                 if stack_element.is_main:
-                                    current_cell = stack_element.name
+                                    current_cell = f"{cell_metadata.signal_prefix}.{stack_element.name}"
                                 else:
                                     current_cell += f".{stack_element.name}"
                             case StackElementType.GROUP:

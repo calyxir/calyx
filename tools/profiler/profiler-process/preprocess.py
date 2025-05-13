@@ -96,15 +96,7 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     # pass 1: obtain names of all par groups in each component
     for json_entry in json_data:
         if "Par" in json_entry:
-            component = json_entry["Par"]["component"]
-            if component in control_metadata.component_to_pars:
-                control_metadata.component_to_pars[component].append(
-                    json_entry["Par"]["par_group"]
-                )
-            else:
-                control_metadata.component_to_pars[component] = [
-                    json_entry["Par"]["par_group"]
-                ]
+            control_metadata.register_par(json_entry["Par"]["par_group"], json_entry["Par"]["component"])
     # pass 2: obtain FSM register info, par group and child register information
     for json_entry in json_data:
         if "Fsm" in json_entry:
@@ -117,23 +109,18 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
             par = entry["par_group"]
             component = entry["component"]
             child_par_groups = []
-            control_metadata.register_par(par, component)
-            for cell in cell_metadata.components_to_cells[component]:
+            for cell in cell_metadata.component_to_cells[component]:
                 fully_qualified_par = ".".join((cell, par))
                 for child in entry["child_groups"]:
                     child_name = child["group"]
                     if (
-                        child_name in control_metadata.component_to_pars[component]
+                        child_name in control_metadata.component_to_par_groups[component]
                     ):  # child is a par
-                        control_metadata.register_par_child(
-                            component, ParChildInfo(child_name, par, ParChildType.PAR)
-                        )
+                        control_metadata.register_par_child(component, child_name, par, ParChildType.PAR, cell_metadata)
                         fully_qualified_child_name = ".".join((cell, child_name))
                         child_par_groups.append(fully_qualified_child_name)
                     else:  # normal group
-                        control_metadata.register_par_child(
-                            component, ParChildInfo(child_name, par, ParChildType.GROUP)
-                        )
+                        control_metadata.register_par_child(component, child_name, par, ParChildType.GROUP, cell_metadata)
                     # add par done register information
                     child_pd_reg = child["register"]
                     control_metadata.add_par_done_reg(".".join((cell, child_pd_reg)))

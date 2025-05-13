@@ -1,7 +1,7 @@
 import csv
 import os
 
-from classes import TraceData, CellMetadata, ControlMetadata, CycleType
+from classes import TraceData, CellMetadata, ControlMetadata, CycleType, CycleTrace, StackElementType
 
 def write_cell_stats(
     cell_metadata: CellMetadata,
@@ -24,7 +24,10 @@ def write_cell_stats(
     totals = {fieldname: 0 for fieldname in fieldnames}
     for cell in tracedata.cell_to_active_cycles:
         component = cell_metadata.cell_to_component[cell]
-        num_fsms = len(control_metadata.component_to_fsms[component])
+        if component in control_metadata.component_to_fsms: 
+            num_fsms = len(control_metadata.component_to_fsms[component])
+        else:
+            num_fsms = 0
         cell_total_cycles = len(tracedata.cell_to_active_cycles[cell].active_cycles)
         times_active = tracedata.cell_to_active_cycles[cell].num_times_active
         cell_cat = {}
@@ -78,7 +81,7 @@ def write_cell_stats(
 
 
 def compute_par_useful_work(
-    fully_qualified_par_name, active_cycles, trace, main_shortname
+    fully_qualified_par_name, active_cycles: set[int], trace: dict[int, CycleTrace],
 ):
     """
     Utility function to compute the amount of "flattened" work we get out of a par.
@@ -89,34 +92,37 @@ def compute_par_useful_work(
     par_cell_name = fully_qualified_par_name.split(".")[-2]
     par_name = fully_qualified_par_name.split(".")[-1]
     for cycle in active_cycles:  # cycles where the par group is active
-        for stack in trace[cycle]:
+        for stack in trace[cycle].stacks:
             in_par_cell = False  # are we in the cell that the par is active in?
             in_par = False  # are we in the par itself?
             for stack_elem in stack:
-                if stack_elem == main_shortname or "[" in stack_elem:
-                    # in a cell
-                    if in_par_cell:  # we were previously in the cell that the par lived in but no longer are.
-                        break
-                    elif stack_elem.split("[")[0] == par_cell_name:
-                        in_par_cell = True
-                elif in_par_cell and stack_elem == f"{par_name} (ctrl)":
-                    in_par = True
-                elif (
-                    in_par and "(" not in stack_elem
-                ):  # let's ignore primitives as they can't happen without a group?
-                    # encountered a group
-                    acc += 1
+                match stack_elem.element_type:
+                    case StackElementType.CELL:
+                        if in_par_cell:
+                            # we were previously in the cell that the par lived in but no longer are.
+                            break
+                        elif stack_elem.name == par_cell_name:
+                            in_par_cell = True
+                    case StackElementType.CONTROL_GROUP:
+                        if in_par_cell and stack_elem.name == par_name:
+                            in_par = True
+                    case StackElementType.GROUP:
+                        if in_par:
+                            acc += 1
+                    # ignoring primitives for now as they can't happen without a group.
 
     return acc
 
 
 
-def write_par_stats(
-    control_groups_summary, cats_to_cycles, trace_with_ctrl, main_shortname, out_dir
-):
+def write_par_stats(tracedata: TraceData, out_dir):
     """
     Collect and output statistics about TDCC-defined par groups to ctrl-group-stats.csv.
     """    
+    # exit early if there are no control groups to check
+    if len(tracedata.control_group_to_active_cycles) == 0:
+        print("[write_par_stats] No par/control groups to emit information about! Skipping...")
+        return
     fieldnames = [
         "group-name",
         "flattened-cycles",
@@ -128,17 +134,16 @@ def write_par_stats(
     ]
     stats = []
     totals = {fieldname: 0 for fieldname in fieldnames}
-    for group in control_groups_summary:
+    for group in tracedata.control_group_to_active_cycles:
         flattened_useful_cycles = compute_par_useful_work(
             group,
-            control_groups_summary[group]["active-cycles"],
-            trace_with_ctrl,
-            main_shortname,
+            tracedata.control_group_to_active_cycles[group].active_cycles,
+            tracedata.trace_with_control_groups,
         )
-        active_cycles_set = set(control_groups_summary[group]["active-cycles"])
+        active_cycles_set = tracedata.control_group_to_active_cycles[group].active_cycles
         num_active_cycles = len(active_cycles_set)
         useful_cycles = len(
-            active_cycles_set.intersection(cats_to_cycles["group/primitive"])
+            active_cycles_set.intersection(tracedata.cycletype_to_cycles[CycleType.GROUP_OR_PRIMITIVE])
         )
         flattened_cycle_percent = round(
             (flattened_useful_cycles / num_active_cycles) * 100, 1
@@ -151,7 +156,7 @@ def write_par_stats(
             "total-cycles": num_active_cycles,
             "flattened-cycles (%)": flattened_cycle_percent,
             "useful-cycles (%)": useful_cycle_percent,
-            "times-active": control_groups_summary[group]["num-times-active"],
+            "times-active": tracedata.control_group_to_active_cycles[group].num_times_active
         }
         for field in stats_dict:
             if field not in ["group-name", "useful-cycles (%)", "flattened-cycles (%)"]:

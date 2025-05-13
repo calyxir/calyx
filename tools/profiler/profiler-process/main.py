@@ -23,6 +23,8 @@ def main(args):
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(args.fsms_json, cell_metadata)
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
+
+    
     print(f"Start reading VCD: {datetime.now()}")
     converter = construct_trace.VCDConverter(
         cell_metadata,
@@ -58,9 +60,7 @@ def main(args):
         tracedata,
         args.out_dir,
     )
-    # stats.write_par_stats(
-    #     control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, args.out_dir
-    # )
+    stats.write_par_stats(tracedata, args.out_dir)
     # print(f"End writing cell stats: {datetime.now()}")
     # tree_dict, path_dict = tree.create_tree(trace)
     # path_to_edges, all_edges = tree.create_edge_dict(path_dict)

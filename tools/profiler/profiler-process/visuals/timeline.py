@@ -1,7 +1,12 @@
 import json
 import os
 
-from classes import TraceData, ControlRegUpdates, CycleTrace, StackElementType, CellMetadata
+from classes import (
+    TraceData,
+    ControlRegUpdates,
+    StackElementType,
+    CellMetadata,
+)
 
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
 JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the fly
@@ -63,7 +68,10 @@ def write_timeline_event(event, out_file):
 
 
 def port_control_events(
-    control_updates: dict[str, list[ControlRegUpdates]], cell_to_info: dict[str, TimelineCell], cell_name: str, out_file
+    control_updates: dict[str, list[ControlRegUpdates]],
+    cell_to_info: dict[str, TimelineCell],
+    cell_name: str,
+    out_file,
 ):
     """
     Add control events to the timeline (values are already determined, this
@@ -95,9 +103,7 @@ def port_control_events(
     del control_updates[cell_name]
 
 
-def compute_timeline(
-    tracedata: TraceData, cell_metadata: CellMetadata, out_dir
-):
+def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir):
     """
     Compute and output a JSON that conforms to the Google Trace File format.
     Each cell gets its own process id, where tid 1 is the duration of the cell itself,
@@ -110,10 +116,15 @@ def compute_timeline(
     out_file.write(f'{{\n{JSON_INDENT}"traceEvents": [')
     # each cell gets its own pid. The cell's lifetime is tid 1, followed by the FSM(s), then groups
     # main component gets pid 1
-    cell_to_info: dict[str, TimelineCell] = {cell_metadata.main_component: TimelineCell(cell_metadata.main_component, 1)}
+    cell_to_info: dict[str, TimelineCell] = {
+        cell_metadata.main_component: TimelineCell(cell_metadata.main_component, 1)
+    }
     # generate JSON for all FSM events in main
     port_control_events(
-        tracedata.control_reg_updates, cell_to_info, cell_metadata.main_component, out_file
+        tracedata.control_reg_updates,
+        cell_to_info,
+        cell_metadata.main_component,
+        out_file,
     )
     group_to_parent_cell = {}
     pid_acc = 2
@@ -122,7 +133,9 @@ def compute_timeline(
         active_this_cycle: tuple[str, str] = set()
         for stack in tracedata.trace[i].stacks:
             stack_acc = cell_metadata.main_component
-            current_cell = cell_metadata.main_component  # need to keep track of cells in case we have a structural group enable.
+            current_cell = (
+                cell_metadata.main_component
+            )  # need to keep track of cells in case we have a structural group enable.
             display_name = None
             for stack_elem in stack:
                 match stack_elem.element_type:
