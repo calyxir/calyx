@@ -7,11 +7,6 @@ def write_cell_stats(
     cell_metadata: CellMetadata,
     control_metadata: ControlMetadata,
     tracedata: TraceData,
-    # cell_to_active_cycles,
-    # cats_to_cycles,
-    # cells_to_components,
-    # component_to_num_fsms,
-    # total_cycles,
     out_dir: str
 ):
     """
@@ -33,10 +28,10 @@ def write_cell_stats(
         cell_total_cycles = len(tracedata.cell_to_active_cycles[cell].active_cycles)
         times_active = tracedata.cell_to_active_cycles[cell].num_times_active
         cell_cat = {}
-        for cat in tracedata.cycletype_to_cycles:
-            cell_cat[cat] = (
+        for cycletype in tracedata.cycletype_to_cycles:
+            cell_cat[cycletype] = (
                 tracedata.cell_to_active_cycles[cell].active_cycles.intersection(
-                    tracedata.cycletype_to_cycles[cat]
+                    tracedata.cycletype_to_cycles[cycletype]
                 )
             )
         avg_cycles = round(cell_total_cycles / times_active, 2)
@@ -52,7 +47,7 @@ def write_cell_stats(
         totals["num-fsms"] += num_fsms
         for cycletype in tracedata.cycletype_to_cycles:
             stats_dict[f"{cycletype.name} (%)"] = round(
-                (len(cell_cat[cat]) / cell_total_cycles) * 100, 1
+                (len(cell_cat[cycletype]) / cell_total_cycles) * 100, 1
             )
         stats.append(stats_dict)
     # total: aggregate other stats that shouldn't just be summed over
