@@ -96,7 +96,9 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     # pass 1: obtain names of all par groups in each component
     for json_entry in json_data:
         if "Par" in json_entry:
-            control_metadata.register_par(json_entry["Par"]["par_group"], json_entry["Par"]["component"])
+            control_metadata.register_par(
+                json_entry["Par"]["par_group"], json_entry["Par"]["component"]
+            )
     # pass 2: obtain FSM register info, par group and child register information
     for json_entry in json_data:
         if "Fsm" in json_entry:
@@ -114,13 +116,22 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
                 for child in entry["child_groups"]:
                     child_name = child["group"]
                     if (
-                        child_name in control_metadata.component_to_par_groups[component]
+                        child_name
+                        in control_metadata.component_to_par_groups[component]
                     ):  # child is a par
-                        control_metadata.register_par_child(component, child_name, par, ParChildType.PAR, cell_metadata)
+                        control_metadata.register_par_child(
+                            component, child_name, par, ParChildType.PAR, cell_metadata
+                        )
                         fully_qualified_child_name = ".".join((cell, child_name))
                         child_par_groups.append(fully_qualified_child_name)
                     else:  # normal group
-                        control_metadata.register_par_child(component, child_name, par, ParChildType.GROUP, cell_metadata)
+                        control_metadata.register_par_child(
+                            component,
+                            child_name,
+                            par,
+                            ParChildType.GROUP,
+                            cell_metadata,
+                        )
                     # add par done register information
                     child_pd_reg = child["register"]
                     control_metadata.add_par_done_reg(".".join((cell, child_pd_reg)))

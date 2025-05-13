@@ -4,11 +4,13 @@ from enum import Enum
 
 from errors import ProfilerException
 
+
 @dataclass
 class CellMetadata:
     """
     Preprocessed data relating to cells
     """
+
     main_component: str
     # cell name --> component name
     cell_to_component: dict[str, str]
@@ -29,7 +31,7 @@ class CellMetadata:
         self.signal_prefix = signal_prefix
         str_to_add = signal_prefix + "."
         self.main_component = str_to_add + self.main_component
-        
+
         for cell in list(self.cell_to_component.keys()):
             fully_qualified_cell = str_to_add + cell
             self.cell_to_component[fully_qualified_cell] = self.cell_to_component[cell]
@@ -48,9 +50,11 @@ class CellMetadata:
             self.main_shortname = self.main_component.split(".")[-1]
         return self.main_shortname
 
+
 class ParChildType(Enum):
     GROUP = 1
     PAR = 2
+
 
 @dataclass
 class ParChildInfo:
@@ -60,9 +64,10 @@ class ParChildInfo:
 
     def __hash__(self):
         return hash((self.child_name, self.parents, self.child_type))
-    
+
     def register_new_parent(self, new_parent: str):
         self.parents.add(new_parent)
+
 
 @dataclass
 class ControlMetadata:
@@ -79,12 +84,16 @@ class ControlMetadata:
     # fully qualified par name --> [fully-qualified par children name]. Each of the children here have to be pars.
     par_to_par_children: dict[str, list[str]] = field(default_factory=dict)
     # component --> { child name --> ParChildInfo (contains parent name(s) and child type) }
-    component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(default_factory=dict)
+    component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(
+        default_factory=dict
+    )
     # fully qualified names of done registers for pars
     par_done_regs: set[str] = field(default_factory=set)
-    # partial_fsm_events: 
+    # partial_fsm_events:
 
-    cell_to_ordered_pars: dict[str, list[str]] = field(default_factory=dict) # cell --> ordered par group names
+    cell_to_ordered_pars: dict[str, list[str]] = field(
+        default_factory=dict
+    )  # cell --> ordered par group names
 
     # FIXME: see if we want to bring this back
     # # fully qualified par name --> [fully-qualified par parent name]
@@ -100,13 +109,20 @@ class ControlMetadata:
     def add_signal_prefix(self, signal_prefix: str):
         self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
         self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
-        self.par_groups = {f"{signal_prefix}.{par_group}" for par_group in self.par_groups}
+        self.par_groups = {
+            f"{signal_prefix}.{par_group}" for par_group in self.par_groups
+        }
         new_par_to_children = {}
         for fully_qualified_par in self.par_to_par_children:
             print(fully_qualified_par)
-            new_par_to_children[f"{signal_prefix}.{fully_qualified_par}"] = list(map(lambda c: f"{signal_prefix}.{c}", self.par_to_par_children[fully_qualified_par]))
+            new_par_to_children[f"{signal_prefix}.{fully_qualified_par}"] = list(
+                map(
+                    lambda c: f"{signal_prefix}.{c}",
+                    self.par_to_par_children[fully_qualified_par],
+                )
+            )
         self.par_to_par_children = new_par_to_children
-    
+
     def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
         """
         Add information about a newly discovered FSM to the fields fsms and component_to_fsms.
@@ -114,7 +130,7 @@ class ControlMetadata:
         if component not in cell_metadata.component_to_cells:
             # skip FSMs from components listed in primitive files (not in user-defined code)
             return
-        if component in self.component_to_fsms:            
+        if component in self.component_to_fsms:
             self.component_to_fsms[component].add(fsm_name)
         else:
             self.component_to_fsms[component] = set(fsm_name)
@@ -129,29 +145,43 @@ class ControlMetadata:
         else:
             self.component_to_par_groups[component].add(par_group)
 
-    def register_par_child(self, component: str, child_name: str, parent: str, child_type: ParChildType, cell_metadata: CellMetadata):
+    def register_par_child(
+        self,
+        component: str,
+        child_name: str,
+        parent: str,
+        child_type: ParChildType,
+        cell_metadata: CellMetadata,
+    ):
         """
         Add information about a par child to the fields component_to_child_to_par_parent and par_to_children.
-        """        
+        """
         if component in self.component_to_child_to_par_parent:
             if child_name in self.component_to_child_to_par_parent[component]:
-                self.component_to_child_to_par_parent[component][child_name].register_new_parent(parent)
+                self.component_to_child_to_par_parent[component][
+                    child_name
+                ].register_new_parent(parent)
             else:
                 child_info = ParChildInfo(child_name, child_type, {parent})
-                self.component_to_child_to_par_parent[component][child_name] = child_info
+                self.component_to_child_to_par_parent[component][child_name] = (
+                    child_info
+                )
         else:
             child_info = ParChildInfo(child_name, child_type, {parent})
             self.component_to_child_to_par_parent[component] = {child_name: child_info}
-        
+
         if child_type == ParChildType.PAR:
             for cell in cell_metadata.component_to_cells[component]:
                 fully_qualified_par = f"{cell}.{parent}"
                 fully_qualified_child = f"{cell}.{child_name}"
                 if fully_qualified_par not in self.par_to_par_children:
-                    self.par_to_par_children[fully_qualified_par] = {fully_qualified_child}
+                    self.par_to_par_children[fully_qualified_par] = {
+                        fully_qualified_child
+                    }
                 else:
-                    self.par_to_par_children[fully_qualified_par].add(fully_qualified_child)
-
+                    self.par_to_par_children[fully_qualified_par].add(
+                        fully_qualified_child
+                    )
 
     def order_pars(self, cell_metadata: CellMetadata):
         """
@@ -160,7 +190,9 @@ class ControlMetadata:
         (1) order based on cells
         (2) for pars in the same cell, order based on dependencies information
         """
-        for cell in sorted(cell_metadata.cell_to_component.keys(), key=(lambda c: c.count("."))):
+        for cell in sorted(
+            cell_metadata.cell_to_component.keys(), key=(lambda c: c.count("."))
+        ):
             self.cell_to_ordered_pars[cell] = []
             component = cell_metadata.cell_to_component[cell]
             if component not in self.component_to_par_groups:
@@ -168,7 +200,15 @@ class ControlMetadata:
                 continue
             pars = self.component_to_par_groups[component]
             # the worklist starts with pars with no parent
-            pars_with_parent = filter((lambda x: self.component_to_child_to_par_parent[component][x].child_type == ParChildType.PAR), self.component_to_child_to_par_parent[component])
+            pars_with_parent = filter(
+                (
+                    lambda x: self.component_to_child_to_par_parent[component][
+                        x
+                    ].child_type
+                    == ParChildType.PAR
+                ),
+                self.component_to_child_to_par_parent[component],
+            )
             worklist = []
             for par in pars.difference(pars_with_parent):
                 # need to make all of the pars fully qualified before adding them to the worklist.
@@ -179,23 +219,29 @@ class ControlMetadata:
                 if par not in self.cell_to_ordered_pars[cell]:
                     self.cell_to_ordered_pars[cell].append(par)
                 if par in self.par_to_par_children:
-                    # get all the children (who are pars) of this par. 
+                    # get all the children (who are pars) of this par.
                     # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
                     worklist += self.par_to_par_children[par]
+
 
 class StackElementType(Enum):
     GROUP = 1
     PRIMITIVE = 2
     CELL = 3
-    CONTROL_GROUP = 4 # TDCC-generated groups that manage control
+    CONTROL_GROUP = 4  # TDCC-generated groups that manage control
+
 
 @dataclass
 class StackElement:
     name: str
     element_type: StackElementType
     is_main: bool = field(default=False)
-    component_name: str = field(default=None) # should only contain a value if element_type is CELL
-    replacement_cell_name: str = field(default=None) # should only contain a value if element_type is CELL
+    component_name: str = field(
+        default=None
+    )  # should only contain a value if element_type is CELL
+    replacement_cell_name: str = field(
+        default=None
+    )  # should only contain a value if element_type is CELL
 
     def __repr__(self):
         match self.element_type:
@@ -213,18 +259,21 @@ class StackElement:
             case StackElementType.CONTROL_GROUP:
                 return f"{self.name} (ctrl)"
 
+
 class CycleType(Enum):
-    GROUP_OR_PRIMITIVE = 1 # at least one group/primitive is executing this cycle
-    FSM_UPDATE = 2 # only fsm updates are happening this cycle
-    PD_UPDATE = 3 # only pd register updates are happening this cycle
-    MULT_CONTROL = 4 # fsm and par-done
+    GROUP_OR_PRIMITIVE = 1  # at least one group/primitive is executing this cycle
+    FSM_UPDATE = 2  # only fsm updates are happening this cycle
+    PD_UPDATE = 3  # only pd register updates are happening this cycle
+    MULT_CONTROL = 4  # fsm and par-done
     OTHER = 5
     # UNKNOWN = 6
+
 
 class CycleTrace:
     """
     List of stacks that are active in a particular cycle
     """
+
     stacks: list[list[StackElement]]
     is_useful_cycle: bool
     # cycle_type: CycleType
@@ -234,7 +283,7 @@ class CycleTrace:
         out = "\n".join(map(lambda x: f"\t{x}", self.stacks))
         return out
 
-    def __init__(self, stacks_this_cycle: list[list[StackElement]]=None):
+    def __init__(self, stacks_this_cycle: list[list[StackElement]] = None):
         self.stacks = []
         # self.cycle_type = CycleType.UNKNOWN # default
 
@@ -245,36 +294,40 @@ class CycleTrace:
                 self.add_stack(stack)
 
     def add_stack(self, stack: list[StackElement]):
-        assert(len(stack) > 0)
+        assert len(stack) > 0
         top: StackElement = stack[-1]
         match top.element_type:
             case StackElementType.GROUP | StackElementType.PRIMITIVE:
                 self.is_useful_cycle = True
                 # self.cycle_type = CycleType.GROUP_OR_PRIMITIVE
         self.stacks.append(stack)
-        
+
     def get_stack_list_strs(self):
         stack_strs = []
         for stack in self.stacks:
             stack_strs.append(";".join(map(lambda x: str(x), stack)))
         return stack_strs
-    
+
     def get_num_stacks(self):
         return len(self.stacks)
-    
+
+
 @dataclass
 class Summary:
     """
     Summary for Cells/Control groups on the number of times they were active vs their active cycles
     FIXME: Add min/max/avg and collect these for normal groups as well?
     """
+
     num_times_active: int = 0
     active_cycles: set[int] = field(default_factory=set)
+
 
 class ControlRegUpdateType(Enum):
     FSM = 1
     PAR_DONE = 2
     BOTH = 3
+
 
 @dataclass
 class ControlRegUpdates:
@@ -282,11 +335,11 @@ class ControlRegUpdates:
     Updates to control registers in a cell.
     Retain this info to add to the timeline
     """
+
     cell_name: str
     clock_cycle: int
     updates: str
     # update_type: ControlRegUpdateType
-
 
 
 @dataclass
@@ -298,8 +351,10 @@ class TraceData:
     # fields relating to control groups/registers
     trace_with_control_groups: dict[int, CycleTrace] = field(default_factory=dict)
     control_group_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
-    control_reg_updates: dict[str, list[ControlRegUpdates]] = field(default_factory=dict) # cell --> ControlRegUpdate. This is for constructing timeline later.
-    
+    control_reg_updates: dict[str, list[ControlRegUpdates]] = field(
+        default_factory=dict
+    )  # cell --> ControlRegUpdate. This is for constructing timeline later.
+
     cycletype_to_cycles: dict[CycleType, set[int]] = None
 
     def print_trace(self, threshold=-1):
@@ -321,7 +376,7 @@ class TraceData:
 
     def cell_start_invoke(self, cell: str):
         self.incr_num_times_active(cell, self.cell_to_active_cycles)
-    
+
     def register_cell_cycle(self, cell, cycle: int):
         self.cell_to_active_cycles[cell].active_cycles.add(cycle)
 
@@ -332,9 +387,16 @@ class TraceData:
     def register_control_reg_update(self, cell: str, clock_cycle: int, update_str: str):
         if cell not in self.control_reg_updates:
             self.control_reg_updates[cell] = []
-        self.control_reg_updates[cell].append(ControlRegUpdates(cell, clock_cycle, update_str))
+        self.control_reg_updates[cell].append(
+            ControlRegUpdates(cell, clock_cycle, update_str)
+        )
 
-    def create_trace_with_control_groups(self, control_groups_trace: dict[int, set[str]], cell_metadata: CellMetadata, control_metadata: ControlMetadata):
+    def create_trace_with_control_groups(
+        self,
+        control_groups_trace: dict[int, set[str]],
+        cell_metadata: CellMetadata,
+        control_metadata: ControlMetadata,
+    ):
         control_metadata.order_pars(cell_metadata)
         for i in self.trace:
             if i in control_groups_trace:
@@ -351,16 +413,36 @@ class TraceData:
                                     current_cell += f".{stack_element.name}"
                             case StackElementType.GROUP:
                                 # standard groups to handle edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent
-                                current_component = cell_metadata.cell_to_component[current_cell]
-                                if (current_component in control_metadata.component_to_child_to_par_parent and stack_element.name in control_metadata.component_to_child_to_par_parent[current_component]):
-                                    child_parent_infos = control_metadata.component_to_child_to_par_parent[current_component][stack_element.name]
+                                current_component = cell_metadata.cell_to_component[
+                                    current_cell
+                                ]
+                                if (
+                                    current_component
+                                    in control_metadata.component_to_child_to_par_parent
+                                    and stack_element.name
+                                    in control_metadata.component_to_child_to_par_parent[
+                                        current_component
+                                    ]
+                                ):
+                                    child_parent_infos = control_metadata.component_to_child_to_par_parent[
+                                        current_component
+                                    ][stack_element.name]
                                     parent_names = set()
                                     for child_parent_info in child_parent_infos:
-                                        if child_parent_info.child_type == ParChildType.PAR:
-                                            raise ProfilerException("A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent")
+                                        if (
+                                            child_parent_info.child_type
+                                            == ParChildType.PAR
+                                        ):
+                                            raise ProfilerException(
+                                                "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
+                                            )
                                         parent_names.add(child_parent_info.parent)
                                     parent_found = False
-                                    while (len(new_events_stack) > 2 and new_events_stack[-2].element_type == StackElementType.CONTROL_GROUP):
+                                    while (
+                                        len(new_events_stack) > 2
+                                        and new_events_stack[-2].element_type
+                                        == StackElementType.CONTROL_GROUP
+                                    ):
                                         # FIXME: We currently assume that all StackElementType.CONTROL_GROUP are pars, so we can pull this trick
                                         # NOTE: we may need to fix this in the future when there are multiple StackElementType.CONTROL_GROUP
                                         for parent in parent_names:
@@ -372,13 +454,23 @@ class TraceData:
                                         new_events_stack.pop(-2)
                                     continue
                         if current_cell in control_metadata.cell_to_ordered_pars:
-                            active_from_cell = control_groups_trace[i].intersection(control_metadata.cell_to_ordered_pars[current_cell])
-                            for par_group_active in sorted(active_from_cell, key=(
-                                    lambda p: control_metadata.cells_to_ordered_pars[current_cell].index(p)
-                            )):
+                            active_from_cell = control_groups_trace[i].intersection(
+                                control_metadata.cell_to_ordered_pars[current_cell]
+                            )
+                            for par_group_active in sorted(
+                                active_from_cell,
+                                key=(
+                                    lambda p: control_metadata.cells_to_ordered_pars[
+                                        current_cell
+                                    ].index(p)
+                                ),
+                            ):
                                 par_group_name = par_group_active.split(".")[-1]
-                                new_events_stack.append(StackElement(par_group_name, StackElementType.CONTROL_GROUP))
+                                new_events_stack.append(
+                                    StackElement(
+                                        par_group_name, StackElementType.CONTROL_GROUP
+                                    )
+                                )
                     self.trace_with_control_groups[i].add_stack(new_events_stack)
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
-

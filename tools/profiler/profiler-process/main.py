@@ -11,38 +11,39 @@ from visuals import flame, tree, timeline, stats
 
 from classes import CellMetadata, ControlMetadata, TraceData
 
+
 @dataclass
 class PreprocessedInfo:
     main_shortname: str
 
+
 def main(args):
     print(f"Start time: {datetime.now()}")
     # Preprocess information to use in VCD reading
-    cell_metadata: CellMetadata = preprocess.preprocess_cell_infos(args.cells_json, args.shared_cells_json)
+    cell_metadata: CellMetadata = preprocess.preprocess_cell_infos(
+        args.cells_json, args.shared_cells_json
+    )
     shared_cells_map = preprocess.read_shared_cells_map(args.shared_cells_json)
-    control_metadata: ControlMetadata = preprocess.read_tdcc_file(args.fsms_json, cell_metadata)
+    control_metadata: ControlMetadata = preprocess.read_tdcc_file(
+        args.fsms_json, cell_metadata
+    )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
 
-    
     print(f"Start reading VCD: {datetime.now()}")
-    converter = construct_trace.VCDConverter(
-        cell_metadata,
-        control_metadata,
-        tracedata
-    )
+    converter = construct_trace.VCDConverter(cell_metadata, control_metadata, tracedata)
     vcdvcd.VCDVCD(args.vcd_filename, callbacks=converter)
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
-    converter.postprocess(
-        shared_cells_map
-    )
+    converter.postprocess(shared_cells_map)
     (
         control_groups_trace,
         control_reg_updates_per_cycle,
     ) = converter.postprocess_control()
     del converter
-    tracedata.create_trace_with_control_groups(control_groups_trace, cell_metadata, control_metadata)
+    tracedata.create_trace_with_control_groups(
+        control_groups_trace, cell_metadata, control_metadata
+    )
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
 
@@ -69,12 +70,14 @@ def main(args):
     # tree.create_tree_rankings(
     #     trace, tree_dict, path_dict, path_to_edges, all_edges, args.out_dir
     # )
-    flat_flame_map, scaled_flame_map = flame.create_flame_maps(tracedata.trace_with_control_groups)
-    flame.write_flame_maps(flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out)
-
-    timeline.compute_timeline(
-        tracedata, cell_metadata, args.out_dir
+    flat_flame_map, scaled_flame_map = flame.create_flame_maps(
+        tracedata.trace_with_control_groups
     )
+    flame.write_flame_maps(
+        flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out
+    )
+
+    timeline.compute_timeline(tracedata, cell_metadata, args.out_dir)
 
     # if args.adl_mapping_file is not None:  # emit ADL flame graphs.
     #     create_adl_visuals(args.adl_mapping_file, args.out_dir, flat_flame_map, scaled_flame_map)

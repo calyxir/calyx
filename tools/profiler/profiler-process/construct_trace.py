@@ -7,7 +7,7 @@ from classes import (
     TraceData,
     StackElement,
     StackElementType,
-    ControlRegUpdateType
+    ControlRegUpdateType,
 )
 from dataclasses import dataclass
 from errors import ProfilerException
@@ -23,7 +23,7 @@ def remove_size_from_name(name: str) -> str:
 
 def create_cycle_trace(
     cell_info: CellMetadata,
-    info_this_cycle,    
+    info_this_cycle,
     shared_cell_map,
     include_primitives,
 ):
@@ -123,7 +123,12 @@ def create_cycle_trace(
                     cell_component = cell_info.cell_to_component[replacement_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[replacement_cell] = i_mapping[parent] + [
-                        StackElement(cell_shortname, StackElementType.CELL, component_name=cell_component, replacement_cell_name=replacement_cell_shortname)
+                        StackElement(
+                            cell_shortname,
+                            StackElementType.CELL,
+                            component_name=cell_component,
+                            replacement_cell_name=replacement_cell_shortname,
+                        )
                     ]
                     parents.add(parent)
                 elif invoked_cell in info_this_cycle["cell-active"]:
@@ -131,7 +136,11 @@ def create_cycle_trace(
                     cell_component = cell_info.cell_to_component[invoked_cell]
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[invoked_cell] = i_mapping[parent] + [
-                        StackElement(cell_shortname, StackElementType.CELL, component_name=cell_component)
+                        StackElement(
+                            cell_shortname,
+                            StackElementType.CELL,
+                            component_name=cell_component,
+                        )
                     ]
                     parents.add(parent)
     # Only retain paths that lead to leaf nodes.
@@ -141,8 +150,9 @@ def create_cycle_trace(
 
     return CycleTrace(stacks_this_cycle)
 
+
 @dataclass
-class WaveformEvent():
+class WaveformEvent:
     signal: str
     value: int
 
@@ -150,10 +160,10 @@ class WaveformEvent():
         if not (isinstance(value, WaveformEvent)):
             return False
         return self.signal == value.signal and self.value == value.value
-    
+
     def __repr__(self):
         return f"({self.signal}, {self.value})"
-        
+
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
     def __init__(self, cell_metadata, control_metadata, tracedata):
@@ -322,7 +332,10 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         main_done = False  # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
-            started = started or WaveformEvent(f"{self.cell_metadata.main_component}.go", 1) in events
+            started = (
+                started
+                or WaveformEvent(f"{self.cell_metadata.main_component}.go", 1) in events
+            )
             if not started:  # only start counting when main component is on.
                 continue
             # checking whether the timestamp has a rising edge
@@ -455,10 +468,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         Must run after self.postprocess() because this function relies on self.timestamps_to_clock_cycles
         (which gets filled in during self.postprocess()).
         """
-        control_group_events: dict[int, set[str]] = {}  # cycle count --> [control groups that are active that cycle]
+        control_group_events: dict[
+            int, set[str]
+        ] = {}  # cycle count --> [control groups that are active that cycle]
 
         # FIXME: we might be able to get away with not computing this
-        control_reg_per_cycle: dict[int, ControlRegUpdateType] = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
+        control_reg_per_cycle: dict[
+            int, ControlRegUpdateType
+        ] = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
 
         control_group_start_cycles = {}
         for ts in self.timestamps_to_control_group_events:
@@ -500,29 +517,34 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     in_signal = f"{reg_name}.in"
                     reg_new_value = events[in_signal] if in_signal in events else 0
                     if not (
-                        reg_name in self.control_metadata.par_done_regs and reg_new_value == 0
+                        reg_name in self.control_metadata.par_done_regs
+                        and reg_new_value == 0
                     ):  # ignore when pd values turn 0 since they are only useful when they are high
                         upd = f"{write_en_split[-2]}:{reg_new_value}"
                         if cell_name in cell_to_val_changes:
                             cell_to_val_changes[cell_name] += f", {upd}"
                         else:
                             cell_to_val_changes[cell_name] = upd
-                        
-                        update_cell_to_change_type(reg_name, cell_name, cell_to_change_type)
+
+                        update_cell_to_change_type(
+                            reg_name, cell_name, cell_to_change_type
+                        )
 
                 for cell in cell_to_val_changes:
-                    self.tracedata.register_control_reg_update(cell, clock_cycle, cell_to_val_changes[cell])
+                    self.tracedata.register_control_reg_update(
+                        cell, clock_cycle, cell_to_val_changes[cell]
+                    )
                 if len(cell_to_change_type) > 0:
                     leaf_cell = sorted(
                         cell_to_change_type.keys(), key=(lambda k: k.count("."))
                     )[-1]
                     control_reg_per_cycle[clock_cycle] = cell_to_change_type[leaf_cell]
-        return (
-            control_group_events,
-            control_reg_per_cycle
-        )
+        return (control_group_events, control_reg_per_cycle)
 
-def update_cell_to_change_type(reg_name: str, cell_name: str, cell_to_change_type: dict[str, ControlRegUpdateType]):
+
+def update_cell_to_change_type(
+    reg_name: str, cell_name: str, cell_to_change_type: dict[str, ControlRegUpdateType]
+):
     par_done_indicator = ".pd"
     fsm_indicator = ".fsm"
     if cell_name not in cell_to_change_type:
@@ -530,9 +552,15 @@ def update_cell_to_change_type(reg_name: str, cell_name: str, cell_to_change_typ
             cell_to_change_type[cell_name] = ControlRegUpdateType.PAR_DONE
         elif fsm_indicator in reg_name:
             cell_to_change_type[cell_name] = ControlRegUpdateType.FSM
-    elif par_done_indicator in reg_name and cell_to_change_type[cell_name] == ControlRegUpdateType.FSM:
+    elif (
+        par_done_indicator in reg_name
+        and cell_to_change_type[cell_name] == ControlRegUpdateType.FSM
+    ):
         cell_to_change_type[cell_name] = ControlRegUpdateType.BOTH
-    elif fsm_indicator in reg_name and cell_to_change_type[cell_name] == ControlRegUpdateType.PAR_DONE:
+    elif (
+        fsm_indicator in reg_name
+        and cell_to_change_type[cell_name] == ControlRegUpdateType.PAR_DONE
+    ):
         cell_to_change_type[cell_name] = ControlRegUpdateType.BOTH
 
 
@@ -546,8 +574,6 @@ def add_par_to_trace(
     """
     Adds par groups (created by TDCC) to an existing trace.
     """
-
-
 
     new_trace = {i: [] for i in trace}
     for i in trace:
