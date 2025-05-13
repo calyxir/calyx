@@ -77,7 +77,10 @@ def port_control_events(
     Add control events to the timeline (values are already determined, this
     function just sets the pid and tid, and writes to file).
     """
-    # for cycle, update in control_updates[cell_name]:
+    if cell_name not in control_updates:
+        # cells that are not in control_updates do not have any control register updates
+        # they are probably single-group components.
+        return
     for update_info in control_updates[cell_name]:
         (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(
             "CTRL"
@@ -149,6 +152,9 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                             if stack_elem.replacement_cell_name is not None:
                                 # shared cell. use the info of the replacement cell
                                 display_name += f" ({stack_elem.replacement_cell_name})"
+                                stack_acc += "." + stack_elem.replacement_cell_name
+                            else:
+                                stack_acc += "." + stack_elem.name
                             name = stack_acc
                             current_cell = name
                             if name not in cell_to_info:  # cell is not registered yet

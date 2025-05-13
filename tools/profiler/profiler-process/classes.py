@@ -327,7 +327,7 @@ class TraceData:
 
     def control_group_interval(self, group: str, interval: range):
         self.incr_num_times_active(group, self.control_group_to_active_cycles)
-        self.control_group_to_active_cycles[group].active_cycles.add(interval)
+        self.control_group_to_active_cycles[group].active_cycles.update(set(interval))
 
     def register_control_reg_update(self, cell: str, clock_cycle: int, update_str: str):
         if cell not in self.control_reg_updates:
