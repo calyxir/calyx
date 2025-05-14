@@ -1,7 +1,7 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir};
 use ir::Control::{self as Control};
-use std::{collections::HashMap, rc::Rc, string};
+use std::{collections::HashMap, rc::Rc};
 
 const SUPPORTED_STD: &[&str] = &["std_add"];
 
@@ -15,7 +15,7 @@ impl Named for CseExp {
     }
 
     fn description() -> &'static str {
-        "replace common subexpression uses with already computed values when possible"
+        "constant focused common subexpression elimination"
     }
 }
 
@@ -23,12 +23,9 @@ impl Default for CseExp {
     fn default() -> Self {
         CseExp {
             available_expressions: AvailableExpressions {
-                current_depth: -1,
-                safe_depth: -1,
-                running_expressions: HashMap::<
-                    i32,
-                    HashMap<String, Vec<ExpressionMetadata>>,
-                >::new(),
+                enable_addition: true,
+                running_expressions:
+                    HashMap::<String, Vec<ExpressionMetadata>>::new(),
                 per_group_expressions: HashMap::<
                     String,
                     HashMap<String, Vec<ExpressionMetadata>>,
@@ -53,9 +50,8 @@ impl Clone for ExpressionMetadata {
 }
 
 struct AvailableExpressions {
-    current_depth: i32,
-    safe_depth: i32,
-    running_expressions: HashMap<i32, HashMap<String, Vec<ExpressionMetadata>>>, // its a vector to deal with duplicates
+    enable_addition: bool, // true enables full add_exp, kill_exp, group_exp, false only allows kill_exp
+    running_expressions: HashMap<String, Vec<ExpressionMetadata>>, // its a vector to deal with duplicates
     per_group_expressions:
         HashMap<String, HashMap<String, Vec<ExpressionMetadata>>>,
 }
@@ -77,33 +73,54 @@ impl AvailableExpressions {
         }
     }
 
-    pub fn intersection(
+    // unions two available expression structs
+    pub fn union(
         one: &AvailableExpressions,
         two: &AvailableExpressions,
     ) -> (
         HashMap<String, Vec<ExpressionMetadata>>,
         HashMap<String, HashMap<String, Vec<ExpressionMetadata>>>,
     ) {
-        // <- i was working on an intersection function to take two available expressions structs/objects and create a new hashmap representing their intersections (to then finish the correct if implementation)
-        // we follow one's order of stuff for the intersection, since it has to exist in both branches its an alright order to follow
-        let mut running_intersection =
-            HashMap::<String, Vec<ExpressionMetadata>>::new();
-        let mut group_intersection =
-            HashMap::<String, HashMap<String, Vec<ExpressionMetadata>>>::new();
-        for (_, expressions) in one.running_expressions.iter() {
-            for (string_expression, metadata_vec) in expressions {
-                let mut new_metadata_vec = Vec::<ExpressionMetadata>::new();
+        // we follow one's order of stuff for the union, i dont know of anything better
+        // two's additions will be after one's if they share the same value
+        let mut running_union = one.running_expressions.clone();
+        for (string_expression, metadata_vec) in two.running_expressions.iter()
+        {
+            if !one.running_expressions.contains_key(string_expression) {
+                running_union
+                    .insert(string_expression.clone(), metadata_vec.clone());
+            } else {
                 for metadata in metadata_vec {
-                    if two.contains_metadata(&string_expression, &metadata) {
+                    if !one
+                        .running_contains_metadata(string_expression, metadata)
+                    {
+                        // this is a new metadata in a shared string_expression
+                        let mut new_metadata_vec = running_union
+                            .get(string_expression)
+                            .expect("should contain metadata_vec")
+                            .clone();
                         new_metadata_vec.push(metadata.clone());
+                        running_union.insert(
+                            string_expression.clone(),
+                            new_metadata_vec,
+                        );
                     }
-                }
-                if new_metadata_vec.len() > 0 {
-                    running_intersection
-                        .insert(string_expression.clone(), new_metadata_vec);
                 }
             }
         }
+        // this is still a group intersection
+        let group_intersection =
+            AvailableExpressions::group_intersection(one, two);
+        return (running_union, group_intersection);
+    }
+
+    // intersects two available expression structs' per_group expressions
+    pub fn group_intersection(
+        one: &AvailableExpressions,
+        two: &AvailableExpressions,
+    ) -> HashMap<String, HashMap<String, Vec<ExpressionMetadata>>> {
+        let mut group_intersection =
+            HashMap::<String, HashMap<String, Vec<ExpressionMetadata>>>::new();
         for (group, expressions) in one.per_group_expressions.iter() {
             // do intersection if both available expressions have the group
             if two.per_group_expressions.contains_key(group) {
@@ -154,41 +171,63 @@ impl AvailableExpressions {
                 group_intersection.insert(group.clone(), expressions.clone());
             }
         }
+        return group_intersection;
+    }
+
+    // intersects two availalbe expression structs
+    pub fn intersection(
+        one: &AvailableExpressions,
+        two: &AvailableExpressions,
+    ) -> (
+        HashMap<String, Vec<ExpressionMetadata>>,
+        HashMap<String, HashMap<String, Vec<ExpressionMetadata>>>,
+    ) {
+        // we follow one's order of stuff for the intersection, since it has to exist in both branches its an alright order to follow
+        let mut running_intersection =
+            HashMap::<String, Vec<ExpressionMetadata>>::new();
+        for (string_expression, metadata_vec) in one.running_expressions.iter()
+        {
+            let mut new_metadata_vec = Vec::<ExpressionMetadata>::new();
+            for metadata in metadata_vec {
+                if two.running_contains_metadata(&string_expression, &metadata)
+                {
+                    new_metadata_vec.push(metadata.clone());
+                }
+            }
+            if new_metadata_vec.len() > 0 {
+                running_intersection
+                    .insert(string_expression.clone(), new_metadata_vec);
+            }
+        }
+        let group_intersection =
+            AvailableExpressions::group_intersection(one, two);
         return (running_intersection, group_intersection);
     }
     fn clone(&self) -> AvailableExpressions {
         AvailableExpressions {
-            current_depth: self.current_depth,
-            safe_depth: self.safe_depth,
+            enable_addition: self.enable_addition,
             running_expressions: self.running_expressions.clone(),
             per_group_expressions: self.per_group_expressions.clone(),
         }
     }
     // for checking running_expressions
-    fn contains_metadata(
+    fn running_contains_metadata(
         &self,
         string_expression: &String,
         metadata: &ExpressionMetadata,
     ) -> bool {
         let mut contains_flag = false;
-        for depth in 0..(self.current_depth + 1) {
-            match self.running_expressions.get(&depth) {
-                Some(expressions) => match expressions.get(string_expression) {
-                    Some(metadata_vec) => {
-                        for met in metadata_vec {
-                            if met.group == metadata.group
-                                && met.reg_port == metadata.reg_port
-                            {
-                                contains_flag = true;
-                            }
-                        }
+        match self.running_expressions.get(string_expression) {
+            Some(metadata_vec) => {
+                for met in metadata_vec {
+                    if met.group == metadata.group
+                        && met.reg_port == metadata.reg_port
+                    {
+                        contains_flag = true;
                     }
-                    None => {}
-                },
-                None => {
-                    panic!("no HashMap allocated for depth {depth}?");
                 }
             }
+            None => {}
         }
         return contains_flag;
     }
@@ -224,80 +263,19 @@ impl AvailableExpressions {
     }
 
     /*
-        increment depth and potentially safe depth, allocating
-        a new HashMap for this depth's expressions
-    */
-    fn inc_depth(&mut self, safe_depth: bool) -> () {
-        // invariant check
-        assert!(
-            self.safe_depth <= self.current_depth,
-            "safe depth somehow exceeded current depth"
-        );
-        // only increment if current_depth is on par with safe depth,
-        // otherwise either safe_depth is false OR we are in an unsafe
-        // zone.
-        if safe_depth && self.current_depth == self.safe_depth {
-            self.current_depth += 1;
-            self.safe_depth += 1;
-        } else {
-            self.current_depth += 1;
-        }
-        // this key should never exist already
-        let dbg_depth = self.current_depth;
-        if self.running_expressions.contains_key(&self.current_depth) {
-            let dbg_map_len =
-                match self.running_expressions.get(&self.current_depth) {
-                    Some(v) => v.keys().len(),
-                    None => panic! {"??"},
-                };
-            panic!(
-                "running expressions somehow already contains current depth key {dbg_depth} len {dbg_map_len}"
-            );
-        }
-        let current_depth_expressions: HashMap<
-            String,
-            Vec<ExpressionMetadata>,
-        > = HashMap::<String, Vec<ExpressionMetadata>>::new();
-        self.running_expressions
-            .insert(self.current_depth, current_depth_expressions);
-        log::debug!(
-            "incremented current depth to {dbg_depth} and allocated hashmap for expressions"
-        );
-    }
-    /*
-        decrement depth and potentially safe depth, deleting the HashMap
-        allocated for this depth's expressions
-    */
-    fn dec_depth(&mut self) -> () {
-        let deleted_depth = self.current_depth;
-        // invariant check
-        assert!(
-            self.safe_depth <= self.current_depth,
-            "safe depth somehow exceeded current depth"
-        );
-        if self.current_depth == self.safe_depth {
-            self.safe_depth -= 1;
-            self.current_depth -= 1;
-        } else {
-            self.current_depth -= 1;
-        }
-        let dbg_depth = self.current_depth;
-        if self.running_expressions.remove(&deleted_depth).is_some() {
-            log::debug!(
-                "decremented current depth to {dbg_depth} and removed hashmap for expressions at depth {deleted_depth}"
-            );
-        }
-    }
-
-    /*
-        add to current_depth's running_expressions available subexpressions from
-        supported operations
+        given a list of assignments within a group, add to running_expressions
+        the corresponding available subexpressions in said group
+        (restricted to supported operations)
     */
     fn add_exp(
         &mut self,
         assignments: &Vec<ir::Assignment<ir::Nothing>>, // a specific group's assignments
         group: String, // the group with the assignments in question
     ) -> () {
+        if !self.enable_addition {
+            log::debug!("enable addition is false, not running add_exp");
+            return;
+        }
         let mut intermediate_exp: HashMap<String, String> =
             HashMap::<String, String>::new();
         let mut completed_exp = HashMap::<String, String>::new();
@@ -313,6 +291,7 @@ impl AvailableExpressions {
                 };
             if !(SUPPORTED_STD.contains(&operation.to_string().as_str())) {
                 // here we check if a register is latching an existing subexpression
+                // (since this isn't a supported operation to track common subexpression elimination)
                 let dst_port_name = assign.dst.borrow().name;
                 if operation.to_string().as_str() == "std_reg"
                     && dst_port_name.to_string().as_str() == "in"
@@ -325,107 +304,81 @@ impl AvailableExpressions {
                     );
                     if completed_exp
                         .contains_key(&latching_cadidate.to_string())
-                        && self.current_depth <= self.safe_depth
                         && src_port_name.to_string().as_str() == "out"
                     {
-                        let string_expression = match completed_exp
-                            .get(&latching_cadidate.to_string())
-                        {
-                            Some(v) => v,
-                            None => panic!(
-                                "expected completed expressions to contain latching candidaate string"
-                            ),
-                        };
+                        let string_expression = completed_exp
+                            .get(&latching_cadidate.to_string()).expect("expected completed expressions to contain latching candidate string");
                         let new_exp = ExpressionMetadata {
                             reg_port: assign
                                 .dst
                                 .borrow()
                                 .cell_parent()
                                 .borrow()
-                                .get("out"), // <------ right now only the in port is written down, we need it to be the .out port. TODO
+                                .get("out")
+                                .clone(),
                             group: group.clone(),
                         };
+                        let dbg_parent = new_exp
+                            .reg_port
+                            .borrow()
+                            .cell_parent()
+                            .borrow()
+                            .name();
+                        let dbg_port = new_exp.reg_port.borrow().name;
                         match self
                             .running_expressions
-                            .get_mut(&self.current_depth)
+                            .get_mut(string_expression)
                         {
-                            Some(current_depth_expressions) => {
-                                let dbg_depth: i32 = self.current_depth;
-                                let dbg_parent = new_exp
-                                    .reg_port
-                                    .borrow()
-                                    .cell_parent()
-                                    .borrow()
-                                    .name();
-                                let dbg_port = new_exp.reg_port.borrow().name;
-                                match current_depth_expressions
-                                    .get_mut(string_expression)
-                                {
-                                    Some(string_expression_sources) => {
-                                        // existing list of subexpressions will have another source appended on it
-                                        log::debug!(
-                                            "[GEN] adding {string_expression} with parent port {dbg_parent}.{dbg_port} to existing list at depth {dbg_depth}"
-                                        );
-                                        string_expression_sources.push(new_exp);
-                                    }
-                                    None => {
-                                        // new list of subexpressions will be allocated
-                                        let new_exp_sources = vec![new_exp];
-                                        log::debug!(
-                                            "[GEN] adding expression {string_expression} with parent port {dbg_parent}.{dbg_port} to new list of running expressions at depth {dbg_depth}"
-                                        );
-                                        current_depth_expressions.insert(
-                                            string_expression.to_string(),
-                                            new_exp_sources,
-                                        );
-                                    }
-                                }
+                            Some(metadata_vec) => {
+                                // existing list of subexpressions will have another source appended on it
+                                log::debug!(
+                                    "[GEN] adding {string_expression} with parent port {dbg_parent}.{dbg_port} to existing list"
+                                );
+                                metadata_vec.push(new_exp);
                             }
                             None => {
-                                panic!(
-                                    "current depth not found in running expressions"
+                                // new list of subexpressions will be allocated
+                                let new_metadata_vec = vec![new_exp];
+                                log::debug!(
+                                    "[GEN] adding expression {string_expression} with parent port {dbg_parent}.{dbg_port} to new list of running expressions"
+                                );
+                                self.running_expressions.insert(
+                                    string_expression.to_string(),
+                                    new_metadata_vec,
                                 );
                             }
                         }
                     }
                 }
-                // TODO: ensure expresion is latched and safe_depth is >= cur_depth before adding to avaialble expresions
-                continue;
-            }
-            // check intermediate_exp if already contains expression
-            let operation_cell_name =
-                assign.dst.borrow().cell_parent().borrow().name();
-            if !intermediate_exp.contains_key(&operation_cell_name.to_string())
-            {
-                intermediate_exp.insert(
-                    operation_cell_name.to_string(),
-                    AvailableExpressions::get_val(&assign.src.borrow()),
-                );
-                continue;
-            }
-            // else we have completed this subexpression
-            else {
-                let dest =
-                    intermediate_exp.get(&operation_cell_name.to_string());
-                match dest {
-                    Some(destination) => {
-                        // grab full subexpression
-                        let cdepth = self.current_depth;
-                        let source =
-                            AvailableExpressions::get_val(&assign.src.borrow());
-                        let expression =
-                            format!("{source}({operation}){destination}");
-                        log::debug!(
-                            "added {expression} for depth {cdepth} to completed (intermediate) expressions"
-                        );
-                        completed_exp.insert(
-                            operation_cell_name.to_string(),
-                            expression,
-                        );
-                    }
-                    None => {
-                        panic!("missing key?");
-                    }
+            } else {
+                // this is a supported operation to track common subexpression elimination
+
+                // check intermediate_exp if already contains expression
+                let operation_cell_name =
+                    assign.dst.borrow().cell_parent().borrow().name();
+                if !intermediate_exp
+                    .contains_key(&operation_cell_name.to_string())
+                {
+                    intermediate_exp.insert(
+                        operation_cell_name.to_string(),
+                        AvailableExpressions::get_val(&assign.src.borrow()),
+                    );
+                }
+                // else we have completed this subexpression
+                else {
+                    let destination = intermediate_exp
+                        .get(&operation_cell_name.to_string())
+                        .expect("missing intermediate expression key");
+                    // grab full subexpression
+                    let source =
+                        AvailableExpressions::get_val(&assign.src.borrow());
+                    let expression =
+                        format!("{source}({operation}){destination}");
+                    log::debug!(
+                        "added {expression} to completed (intermediate) expressions"
+                    );
+                    completed_exp
+                        .insert(operation_cell_name.to_string(), expression);
                 }
             }
         }
@@ -433,15 +386,15 @@ impl AvailableExpressions {
 
     /*
         identify destroyed expressions from register overwrites
-        and remove from all depths.
+        and remove from running_expressions
     */
     fn kill_exp(
         &mut self,
         assignments: &Vec<ir::Assignment<ir::Nothing>>,
         group: String,
     ) {
-        // let mut remove_expressions: Vec<String> = Vec::new();
         for assign in assignments.iter() {
+            // early breakouts
             if assign.dst.borrow().is_hole() {
                 continue;
             }
@@ -450,78 +403,52 @@ impl AvailableExpressions {
                     Some(v) => v,
                     None => continue,
                 };
+
             // we need to see if a register that is containing a currently latched
             // subexpression is being overwritted
             let dst_port = assign.dst.borrow();
             if operation.to_string().as_str() == "std_reg"
                 && dst_port.name.to_string().as_str() == "in"
             {
-                for depth in 0..(self.current_depth + 1) {
-                    let e = self.running_expressions.get(&depth);
-                    let mut updates =
-                        HashMap::<String, Vec<ExpressionMetadata>>::new();
-                    match e {
-                        Some(expressions) => {
-                            for (string_expression, metadata_vec) in
-                                expressions.into_iter()
-                            {
-                                let mut new_expression_sources =
-                                    Vec::<ExpressionMetadata>::new();
-                                for metadata in metadata_vec.into_iter() {
-                                    // either this was introduced in this group, or we don't share a cell_parent
-                                    // if the above is true then we keep the expression
-                                    if metadata.group == group
-                                        || metadata
-                                            .reg_port
-                                            .borrow()
-                                            .cell_parent()
-                                            .borrow()
-                                            .name()
-                                            != dst_port
-                                                .cell_parent()
-                                                .borrow()
-                                                .name()
-                                    {
-                                        new_expression_sources.push(
-                                            ExpressionMetadata {
-                                                reg_port: metadata
-                                                    .reg_port
-                                                    .clone(),
-                                                group: metadata.group.clone(),
-                                            },
-                                        );
-                                    } else {
-                                        let dbg_parent = dst_port
-                                            .cell_parent()
-                                            .borrow()
-                                            .name();
-                                        let dbg_port =
-                                            metadata.reg_port.borrow().name;
-                                        log::debug!(
-                                            "[KILL] removed {string_expression} with parent port {dbg_parent}.{dbg_port} from expressions at depth {depth}"
-                                        );
-                                    }
-                                }
-                                updates.insert(
-                                    string_expression.clone(),
-                                    new_expression_sources,
-                                );
-                            }
-                        }
-                        None => {
-                            panic!("no HashMap allocated for depth {depth}?");
+                let mut updates =
+                    HashMap::<String, Vec<ExpressionMetadata>>::new();
+                for (string_expression, metadata_vec) in
+                    self.running_expressions.iter()
+                {
+                    let mut new_expression_sources =
+                        Vec::<ExpressionMetadata>::new();
+                    for metadata in metadata_vec {
+                        // either this was introduced in this group, or we don't share a cell_parent
+                        // if the above is true then we keep the expression
+                        if metadata.group == group
+                            || metadata
+                                .reg_port
+                                .borrow()
+                                .cell_parent()
+                                .borrow()
+                                .name()
+                                != dst_port.cell_parent().borrow().name()
+                        {
+                            new_expression_sources.push(ExpressionMetadata {
+                                reg_port: metadata.reg_port.clone(),
+                                group: metadata.group.clone(),
+                            });
+                        } else {
+                            let dbg_parent =
+                                dst_port.cell_parent().borrow().name();
+                            let dbg_port = metadata.reg_port.borrow().name;
+                            log::debug!(
+                                "[KILL] removed {string_expression} with parent port {dbg_parent}.{dbg_port} from expressions"
+                            );
                         }
                     }
-                    match self.running_expressions.get_mut(&depth) {
-                        Some(expressions) => {
-                            for (key, value) in updates {
-                                expressions.insert(key, value);
-                            }
-                        }
-                        None => {
-                            panic!("no HashMap allocated for depth {depth}?");
-                        }
-                    }
+                    updates.insert(
+                        string_expression.clone(),
+                        new_expression_sources,
+                    );
+                }
+                for (key, value) in updates {
+                    self.running_expressions.insert(key, value);
                 }
             }
         }
@@ -534,113 +461,87 @@ impl AvailableExpressions {
             2) else, do self.group_expressions[group] ∩ self.running_expressions
     */
     fn group_exp(&mut self, group: String) {
-        if self.per_group_expressions.contains_key(&group) {
-            // do 2)
-            let mut new_group_expressions =
-                HashMap::<String, Vec<ExpressionMetadata>>::new();
-            // let mut remove_expressions: Vec<String> = Vec::new();
-            let g_e = self.per_group_expressions.get(&group);
-            match g_e {
-                Some(group_expressions) => {
-                    for (group_string_expression, metadata_vec) in
-                        group_expressions
-                    {
-                        let mut new_group_expression_vec =
-                            Vec::<ExpressionMetadata>::new();
-                        for metadata in metadata_vec.into_iter() {
-                            if self.contains_metadata(
-                                group_string_expression,
-                                metadata,
-                            ) {
-                                new_group_expression_vec.push(
-                                    ExpressionMetadata {
-                                        group: metadata.group.clone(),
-                                        reg_port: metadata.reg_port.clone(),
-                                    },
-                                )
-                            } else {
-                                let dbg_parent = metadata
-                                    .reg_port
-                                    .borrow()
-                                    .cell_parent()
-                                    .borrow()
-                                    .name();
-                                let dbg_port = metadata.reg_port.borrow().name;
-                                log::debug!(
-                                    "[GROUP-KILL] removed expression {group_string_expression} with parent port {dbg_parent}.{dbg_port}"
-                                );
-                            }
-                        }
-                        new_group_expressions.insert(
-                            group_string_expression.clone(),
-                            new_group_expression_vec,
-                        );
-                    }
-                }
-                None => {
-                    panic!("expected group expressions to exist");
-                }
-            }
-            self.per_group_expressions
-                .insert(group.clone(), new_group_expressions);
-        } else {
+        if !self.enable_addition {
+            log::debug!("enable_addition is false, not running group_exp()");
+            return;
+        }
+        if !self.per_group_expressions.contains_key(&group) {
             // do 1)
             let mut new_group_expressions: HashMap<
                 String,
                 Vec<ExpressionMetadata>,
             > = HashMap::<String, Vec<ExpressionMetadata>>::new();
-            for depth in 0..(self.current_depth + 1) {
-                let e = self.running_expressions.get_mut(&depth);
-                match e {
-                    Some(expressions) => {
-                        for (string_expression, metadata_vec) in
-                            expressions.into_iter()
-                        {
-                            for metadata in metadata_vec.into_iter() {
-                                match new_group_expressions
-                                    .get_mut(string_expression)
-                                {
-                                    Some(group_expression_vec) => {
-                                        group_expression_vec.push(
-                                            ExpressionMetadata {
-                                                reg_port: metadata
-                                                    .reg_port
-                                                    .clone(),
-                                                group: metadata.group.clone(),
-                                            },
-                                        )
-                                    }
-                                    None => {
-                                        let mut new_group_expression_vec =
-                                            Vec::<ExpressionMetadata>::new();
-                                        new_group_expression_vec.push(
-                                            ExpressionMetadata {
-                                                reg_port: metadata
-                                                    .reg_port
-                                                    .clone(),
-                                                group: metadata.group.clone(),
-                                            },
-                                        );
-                                        new_group_expressions.insert(
-                                            string_expression.clone(),
-                                            new_group_expression_vec,
-                                        );
-                                    }
-                                }
-                            }
+            for (string_expression, metadata_vec) in
+                self.running_expressions.iter()
+            {
+                for metadata in metadata_vec.into_iter() {
+                    match new_group_expressions.get_mut(string_expression) {
+                        Some(group_expression_vec) => group_expression_vec
+                            .push(ExpressionMetadata {
+                                reg_port: metadata.reg_port.clone(),
+                                group: metadata.group.clone(),
+                            }),
+                        None => {
+                            let mut new_group_expression_vec =
+                                Vec::<ExpressionMetadata>::new();
+                            new_group_expression_vec.push(ExpressionMetadata {
+                                reg_port: metadata.reg_port.clone(),
+                                group: metadata.group.clone(),
+                            });
+                            new_group_expressions.insert(
+                                string_expression.clone(),
+                                new_group_expression_vec,
+                            );
                         }
-                    }
-                    None => {
-                        panic!("no HashMap allocated for depth {depth}?");
                     }
                 }
             }
-            let dbg_depth = self.current_depth;
             log::debug!(
-                "[GROUP-GEN] inserted all running expressions from depth {dbg_depth} downwards for group {group}"
+                "[GROUP-GEN] inserted all running expressions for group {group}"
             );
             self.per_group_expressions
                 .insert(group, new_group_expressions);
+        } else {
+            // do 2)
+            let mut new_group_expressions =
+                HashMap::<String, Vec<ExpressionMetadata>>::new();
+
+            let group_expressions = self
+                .per_group_expressions
+                .get(&group)
+                .expect(&format!("expected {group} expressions to exist"));
+            for (group_string_expression, metadata_vec) in group_expressions {
+                let mut new_group_expression_vec =
+                    Vec::<ExpressionMetadata>::new();
+                for metadata in metadata_vec.into_iter() {
+                    if self.running_contains_metadata(
+                        group_string_expression,
+                        metadata,
+                    ) {
+                        new_group_expression_vec.push(ExpressionMetadata {
+                            group: metadata.group.clone(),
+                            reg_port: metadata.reg_port.clone(),
+                        })
+                    } else {
+                        let dbg_parent = metadata
+                            .reg_port
+                            .borrow()
+                            .cell_parent()
+                            .borrow()
+                            .name();
+                        let dbg_port = metadata.reg_port.borrow().name;
+                        log::debug!(
+                            "[GROUP-KILL] removed expression {group_string_expression} with parent port {dbg_parent}.{dbg_port}"
+                        );
+                    }
+                }
+                new_group_expressions.insert(
+                    group_string_expression.clone(),
+                    new_group_expression_vec,
+                );
+            }
+            self.per_group_expressions
+                .insert(group.clone(), new_group_expressions);
         }
     }
     /*
@@ -655,7 +556,7 @@ impl AvailableExpressions {
     fn optimize(
         &mut self,
         group_obj: &mut std::cell::RefMut<ir::Group>,
-        group: String, // the group with the assignments in question
+        group: String,
     ) -> () {
         let mut intermediate_exp: HashMap<String, String> =
             HashMap::<String, String>::new();
@@ -707,17 +608,9 @@ impl AvailableExpressions {
                         Some(v) => v,
                         None => continue,
                     };
-                let current_group_subexpressions = match self
+                let current_group_subexpressions = self
                     .per_group_expressions
-                    .get(&group)
-                {
-                    Some(v) => v,
-                    None => {
-                        panic!(
-                            "group should have available expressions at this point"
-                        )
-                    }
-                };
+                    .get(&group).expect(&format!("{group} should have available expressions at this point"));
                 match current_group_subexpressions.get(string_expression) {
                     Some(potential_common_subexpression_vec) => {
                         if potential_common_subexpression_vec.len() > 0 {
@@ -761,48 +654,39 @@ impl AvailableExpressions {
                                 rewriter.rewrite_assign(&mut asgn);
                                 *assign = asgn;
                             }
-                        } else {
-                            continue;
                         }
                     }
                     None => continue,
                 }
-                continue;
-            }
-            // check intermediate_exp if already contains expression
-            let operation_cell_name =
-                assign.dst.borrow().cell_parent().borrow().name();
-            if !intermediate_exp.contains_key(&operation_cell_name.to_string())
-            {
-                intermediate_exp.insert(
-                    operation_cell_name.to_string(),
-                    AvailableExpressions::get_val(&assign.src.borrow()),
-                );
-                continue;
-            }
-            // else we have completed this subexpression
-            else {
-                let dest =
-                    intermediate_exp.get(&operation_cell_name.to_string());
-                match dest {
-                    Some(destination) => {
-                        // grab full subexpression
-                        let cdepth = self.current_depth;
-                        let source =
-                            AvailableExpressions::get_val(&assign.src.borrow());
-                        let expression =
-                            format!("{source}({operation}){destination}");
-                        log::debug!(
-                            "added {expression} for depth {cdepth} to completed (intermediate) expressions"
-                        );
-                        completed_exp.insert(
-                            operation_cell_name.to_string(),
-                            expression,
-                        );
-                    }
-                    None => {
-                        panic!("missing key?");
-                    }
+            } else {
+                // this is a supported operation to track common subexpression elimination
+
+                // check intermediate_exp if already contains expression
+                let operation_cell_name =
+                    assign.dst.borrow().cell_parent().borrow().name();
+                if !intermediate_exp
+                    .contains_key(&operation_cell_name.to_string())
+                {
+                    intermediate_exp.insert(
+                        operation_cell_name.to_string(),
+                        AvailableExpressions::get_val(&assign.src.borrow()),
+                    );
+                    continue;
+                }
+                // else we have completed this subexpression
+                else {
+                    let destination = intermediate_exp
+                        .get(&operation_cell_name.to_string())
+                        .expect("missing intermediate expression key");
+                    let source =
+                        AvailableExpressions::get_val(&assign.src.borrow());
+                    let expression =
+                        format!("{source}({operation}){destination}");
+                    log::debug!(
+                        "added {expression} to completed (intermediate) expressions"
+                    );
+                    completed_exp
+                        .insert(operation_cell_name.to_string(), expression);
                 }
             }
         }
@@ -991,9 +875,7 @@ impl Visitor for CseExp {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        log::debug!("[START] Start AvailableExpression Analysis");
-        // create depth 0 dictionary, this is basically a seq block
-        self.available_expressions.inc_depth(true);
+        log::debug!("[START] Toplevel AvailableExpression Analysis");
         // Create a clone of the reference to the Control
         // program.
         let control_ref = Rc::clone(&_comp.control);
@@ -1003,7 +885,7 @@ impl Visitor for CseExp {
         }
         // Mutably borrow the control program and traverse.
         control_ref.borrow_mut().visit(self)?;
-        // dont need the real visitor to be called here
+        // can't call skip-children here unfortunately since visitor missing pop() call
         Ok(Action::Continue)
     }
 
@@ -1037,9 +919,9 @@ impl ExpressionVisitor for CseExp {
         let mut false_cse_exp = CseExp {
             available_expressions: self.available_expressions.clone(),
         };
-        log::debug!("running true branch");
+        log::debug!("[START] starting true branch");
         let _ = _s.tbranch.visit(&mut true_cse_exp);
-        log::debug!("running false branch");
+        log::debug!("[START] starting false branch");
         let _ = _s.fbranch.visit(&mut false_cse_exp);
         log::debug!("intersecting branches");
         let (intersection_running, intersection_group) =
@@ -1048,12 +930,64 @@ impl ExpressionVisitor for CseExp {
                 &false_cse_exp.available_expressions,
             );
         // finally overwrite the current available expressions
-        log::debug!("overwriting local expressions with branch merge");
-        self.available_expressions.running_expressions.insert(
-            self.available_expressions.current_depth.clone(),
-            intersection_running,
-        );
+        log::debug!("overwriting local expressions with branch intersection");
+        self.available_expressions.running_expressions = intersection_running;
         self.available_expressions.per_group_expressions = intersection_group;
+        Ok(Action::SkipChildren)
+    }
+    fn start_par(&mut self, _s: &mut calyx_ir::Par) -> VisResult {
+        log::debug!("start_par");
+        // first disable enable_addition and save state
+        self.available_expressions.enable_addition = false;
+        let initial_save_state = self.available_expressions.clone();
+        // need to run all branches independently and merge their outputs
+        for control in _s.stmts.iter_mut() {
+            let mut child_control_cse_exp = CseExp {
+                available_expressions: initial_save_state.clone(),
+            };
+            log::debug!(
+                "[START] starting par control child for baseline construction"
+            );
+            let _ = control.visit(&mut child_control_cse_exp);
+            log::debug!(
+                "intersection between parent available expression and child control"
+            );
+            let (intersection_running, intersection_group) =
+                AvailableExpressions::intersection(
+                    &self.available_expressions,
+                    &child_control_cse_exp.available_expressions,
+                );
+            log::debug!(
+                "overwriting local expressions with child intersection"
+            );
+            self.available_expressions.running_expressions =
+                intersection_running;
+            self.available_expressions.per_group_expressions =
+                intersection_group;
+        }
+        // at this point all expressions that would have been killed at any point by a child
+        // have been killed, and this is reflected in self.available expressions
+        self.available_expressions.enable_addition = true;
+        let true_baseline_save_state = self.available_expressions.clone();
+        for control in _s.stmts.iter_mut() {
+            let mut child_control_cse_exp = CseExp {
+                available_expressions: true_baseline_save_state.clone(),
+            };
+            log::debug!("[START] starting par control child for union");
+            let _ = control.visit(&mut child_control_cse_exp);
+            log::debug!(
+                "union between parent available expression and child control"
+            );
+            let (union_running, union_group) = AvailableExpressions::union(
+                &self.available_expressions,
+                &child_control_cse_exp.available_expressions,
+            );
+            log::debug!(
+                "overwriting local expressions with child intersection"
+            );
+            self.available_expressions.running_expressions = union_running;
+            self.available_expressions.per_group_expressions = union_group;
+        }
         Ok(Action::SkipChildren)
     }
     /*
