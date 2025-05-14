@@ -95,7 +95,7 @@ def create(data, lower, upper, prog, fifo_queue):
                             else:
                                 lst.append(i)
 
-                        order = compute_order(lst)
+                        #order = compute_order(lst)
                         strict_id += 1
                         return strict_or_rr.insert_queue(
                             prog,
@@ -105,7 +105,7 @@ def create(data, lower, upper, prog, fifo_queue):
                             fi.insert_boundary_flow_inference(
                                 prog, f"fi_strict{strict_id}", boundaries
                             ),
-                            order=order,
+                            order=[n for n in range(num_children)],
                         )
 
 
@@ -119,7 +119,7 @@ def build(json_file):
     prog = cb.Builder()
 
     base_dir = os.path.dirname(__file__)
-    json_subdir = '../tests/compiler/jsons'
+    json_subdir = "../tests/compiler/jsons"
     file_path = os.path.join(base_dir, json_subdir, json_file)
     with open(file_path) as f:
         data = json.load(f)

@@ -15,7 +15,7 @@ if __name__ == "__main__":
         order = [1, 0]
     elif numflows == 3:
         boundaries = [133, 266, 400]
-        order = [1, 2, 0]
+        order = [0, 1, 2]
     elif numflows == 4:
         boundaries = [100, 200, 300, 400]
         order = [3, 0, 2, 1]
