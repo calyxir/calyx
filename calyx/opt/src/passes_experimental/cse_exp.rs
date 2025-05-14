@@ -23,7 +23,8 @@ impl Default for CseExp {
     fn default() -> Self {
         CseExp {
             available_expressions: AvailableExpressions {
-                enable_addition: true,
+                enable: -1,
+                current_depth: 0,
                 running_expressions:
                     HashMap::<String, Vec<ExpressionMetadata>>::new(),
                 per_group_expressions: HashMap::<
@@ -50,7 +51,8 @@ impl Clone for ExpressionMetadata {
 }
 
 struct AvailableExpressions {
-    enable_addition: bool, // true enables full add_exp, kill_exp, group_exp, false only allows kill_exp
+    enable: i32, // -1 enables full add_exp, kill_exp, group_exp, >= 0 only allows kill_exp
+    current_depth: i32, // current depth with regards to nested par blocks, loops, anything that toggles enable_addition
     running_expressions: HashMap<String, Vec<ExpressionMetadata>>, // its a vector to deal with duplicates
     per_group_expressions:
         HashMap<String, HashMap<String, Vec<ExpressionMetadata>>>,
@@ -148,14 +150,18 @@ impl AvailableExpressions {
                             {
                                 let mut group_metadata_vec = group_expressions.get(string_expression).expect(&format!("expected metadata vec {string_expression}")).clone();
                                 group_metadata_vec.push(metadata.clone());
-                                group_expressions
-                                    .insert(group.clone(), group_metadata_vec);
+                                group_expressions.insert(
+                                    string_expression.clone(),
+                                    group_metadata_vec,
+                                );
                             } else {
                                 let mut group_metadata_vec =
                                     Vec::<ExpressionMetadata>::new();
                                 group_metadata_vec.push(metadata.clone());
-                                group_expressions
-                                    .insert(group.clone(), group_metadata_vec);
+                                group_expressions.insert(
+                                    string_expression.clone(),
+                                    group_metadata_vec,
+                                );
                             }
                         }
                     }
@@ -203,9 +209,52 @@ impl AvailableExpressions {
             AvailableExpressions::group_intersection(one, two);
         return (running_intersection, group_intersection);
     }
+
+    fn inc_depth(&mut self) {
+        self.current_depth += 1;
+        let dbg_depth = self.current_depth;
+        log::debug!("incremented depth to {dbg_depth}");
+    }
+
+    fn dec_depth(&mut self) {
+        self.current_depth -= 1;
+        let dbg_depth = self.current_depth;
+        log::debug!("decremented depth to {dbg_depth}");
+    }
+
+    fn disable_addition(&mut self) {
+        let dbg_depth = self.current_depth;
+        if self.enable == -1 {
+            self.enable = self.current_depth;
+            log::debug!("disabled addition at depth {dbg_depth}");
+        } else {
+            // otherwise its already disabled
+            log::debug!("already disabled at depth {dbg_depth}")
+        }
+    }
+
+    fn enable_addition(&mut self) -> bool {
+        let dbg_depth = self.current_depth;
+        // priority is given to higher scopes (lower number depths)
+        if self.enable == -1 {
+            log::debug!("already enabled at depth {dbg_depth}");
+            return true;
+        } else if self.current_depth <= self.enable {
+            self.enable = -1;
+            log::debug!("enabled addition at depth {dbg_depth}");
+            return true;
+        } else {
+            log::debug!(
+                "couldn't enable addition, higher-level scope holding enable"
+            );
+            return false;
+        }
+    }
+
     fn clone(&self) -> AvailableExpressions {
         AvailableExpressions {
-            enable_addition: self.enable_addition,
+            enable: self.enable,
+            current_depth: self.current_depth,
             running_expressions: self.running_expressions.clone(),
             per_group_expressions: self.per_group_expressions.clone(),
         }
@@ -272,8 +321,8 @@ impl AvailableExpressions {
         assignments: &Vec<ir::Assignment<ir::Nothing>>, // a specific group's assignments
         group: String, // the group with the assignments in question
     ) -> () {
-        if !self.enable_addition {
-            log::debug!("enable addition is false, not running add_exp");
+        if self.enable != -1 {
+            log::debug!("disabled addition, not running add_exp");
             return;
         }
         let mut intermediate_exp: HashMap<String, String> =
@@ -461,8 +510,8 @@ impl AvailableExpressions {
             2) else, do self.group_expressions[group] ∩ self.running_expressions
     */
     fn group_exp(&mut self, group: String) {
-        if !self.enable_addition {
-            log::debug!("enable_addition is false, not running group_exp()");
+        if self.enable != -1 {
+            log::debug!("disabled addition, not running group_exp()");
             return;
         }
         if !self.per_group_expressions.contains_key(&group) {
@@ -936,9 +985,13 @@ impl ExpressionVisitor for CseExp {
         Ok(Action::SkipChildren)
     }
     fn start_par(&mut self, _s: &mut calyx_ir::Par) -> VisResult {
+        log::debug!(
+            "-----------------par baseline construction-----------------"
+        );
         log::debug!("start_par");
-        // first disable enable_addition and save state
-        self.available_expressions.enable_addition = false;
+        // first inc depth and disable enable_addition and save state
+        self.available_expressions.inc_depth();
+        self.available_expressions.disable_addition();
         let initial_save_state = self.available_expressions.clone();
         // need to run all branches independently and merge their outputs
         for control in _s.stmts.iter_mut() {
@@ -967,27 +1020,32 @@ impl ExpressionVisitor for CseExp {
         }
         // at this point all expressions that would have been killed at any point by a child
         // have been killed, and this is reflected in self.available expressions
-        self.available_expressions.enable_addition = true;
-        let true_baseline_save_state = self.available_expressions.clone();
-        for control in _s.stmts.iter_mut() {
-            let mut child_control_cse_exp = CseExp {
-                available_expressions: true_baseline_save_state.clone(),
-            };
-            log::debug!("[START] starting par control child for union");
-            let _ = control.visit(&mut child_control_cse_exp);
-            log::debug!(
-                "union between parent available expression and child control"
-            );
-            let (union_running, union_group) = AvailableExpressions::union(
-                &self.available_expressions,
-                &child_control_cse_exp.available_expressions,
-            );
-            log::debug!(
-                "overwriting local expressions with child intersection"
-            );
-            self.available_expressions.running_expressions = union_running;
-            self.available_expressions.per_group_expressions = union_group;
+        log::debug!("-----------------par union-----------------");
+        if self.available_expressions.enable_addition() {
+            let true_baseline_save_state = self.available_expressions.clone();
+            for control in _s.stmts.iter_mut() {
+                let mut child_control_cse_exp = CseExp {
+                    available_expressions: true_baseline_save_state.clone(),
+                };
+                log::debug!("[START] starting par control child for union");
+                let _ = control.visit(&mut child_control_cse_exp);
+                log::debug!(
+                    "union between parent available expression and child control"
+                );
+                let (union_running, union_group) = AvailableExpressions::union(
+                    &self.available_expressions,
+                    &child_control_cse_exp.available_expressions,
+                );
+                log::debug!("overwriting local expressions with child union");
+                self.available_expressions.running_expressions = union_running;
+                self.available_expressions.per_group_expressions = union_group;
+            }
+        } else {
+            log::debug!("exiting early, higher scope will rerun");
         }
+        // dec depth once par block is done
+        self.available_expressions.dec_depth();
+        log::debug!("-----------------par union finished-----------------");
         Ok(Action::SkipChildren)
     }
     /*
