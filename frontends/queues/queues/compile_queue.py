@@ -119,7 +119,7 @@ def build(json_file):
     prog = cb.Builder()
 
     base_dir = os.path.dirname(__file__)
-    json_subdir = "../tests/compiler/jsons"
+    json_subdir = '../tests/compiler/jsons'
     file_path = os.path.join(base_dir, json_subdir, json_file)
     with open(file_path) as f:
         data = json.load(f)
