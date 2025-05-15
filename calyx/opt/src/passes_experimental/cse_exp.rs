@@ -1048,6 +1048,106 @@ impl ExpressionVisitor for CseExp {
         log::debug!("-----------------par union finished-----------------");
         Ok(Action::SkipChildren)
     }
+    fn start_while(&mut self, _s: &mut calyx_ir::While) -> VisResult {
+        // similar to par blocks, we create a baseline then run the children with the baseline
+        // baseline deals with loop running multiple times to ensure available expressions are
+        // available the entire time
+        log::debug!("start_while");
+        self.available_expressions.inc_depth();
+        self.available_expressions.disable_addition();
+        let initial_save_state = self.available_expressions.clone();
+        let mut body_cse_exp = CseExp {
+            available_expressions: initial_save_state.clone(),
+        };
+        log::debug!("[START] starting while body for baseline construction");
+        let _ = _s.body.visit(&mut body_cse_exp);
+        log::debug!(
+            "intersection between parent available expression and body"
+        );
+        let (intersection_running, intersection_group) =
+            AvailableExpressions::intersection(
+                &self.available_expressions,
+                &body_cse_exp.available_expressions,
+            );
+        log::debug!("overwriting local expressions with body intersection");
+        self.available_expressions.running_expressions = intersection_running;
+        self.available_expressions.per_group_expressions = intersection_group;
+        // now we have a true baseline
+        if self.available_expressions.enable_addition() {
+            let true_baseline_save_state = self.available_expressions.clone();
+            let mut body_cse_exp = CseExp {
+                available_expressions: true_baseline_save_state.clone(),
+            };
+            log::debug!("[START] starting while body");
+            let _ = _s.body.visit(&mut body_cse_exp);
+            log::debug!(
+                "intersection between parent available expression and body"
+            );
+            let (intersection_running, intersection_group) =
+                AvailableExpressions::intersection(
+                    &self.available_expressions,
+                    &body_cse_exp.available_expressions,
+                );
+            log::debug!("overwriting local expressions with body intersection");
+            self.available_expressions.running_expressions =
+                intersection_running;
+            self.available_expressions.per_group_expressions =
+                intersection_group;
+        } else {
+            log::debug!("exiting early, higher scope will rerun");
+        }
+        self.available_expressions.dec_depth();
+        Ok(Action::SkipChildren)
+    }
+    fn start_repeat(&mut self, _s: &mut calyx_ir::Repeat) -> VisResult {
+        // same as start_while
+        log::debug!("start_repeat");
+        self.available_expressions.inc_depth();
+        self.available_expressions.disable_addition();
+        let initial_save_state = self.available_expressions.clone();
+        let mut body_cse_exp = CseExp {
+            available_expressions: initial_save_state.clone(),
+        };
+        log::debug!("[START] starting repeat body for baseline construction");
+        let _ = _s.body.visit(&mut body_cse_exp);
+        log::debug!(
+            "intersection between parent available expression and body"
+        );
+        let (intersection_running, intersection_group) =
+            AvailableExpressions::intersection(
+                &self.available_expressions,
+                &body_cse_exp.available_expressions,
+            );
+        log::debug!("overwriting local expressions with body intersection");
+        self.available_expressions.running_expressions = intersection_running;
+        self.available_expressions.per_group_expressions = intersection_group;
+        // now we have a true baseline
+        if self.available_expressions.enable_addition() {
+            let true_baseline_save_state = self.available_expressions.clone();
+            let mut body_cse_exp = CseExp {
+                available_expressions: true_baseline_save_state.clone(),
+            };
+            log::debug!("[START] starting repeat body");
+            let _ = _s.body.visit(&mut body_cse_exp);
+            log::debug!(
+                "intersection between parent available expression and body"
+            );
+            let (intersection_running, intersection_group) =
+                AvailableExpressions::intersection(
+                    &self.available_expressions,
+                    &body_cse_exp.available_expressions,
+                );
+            log::debug!("overwriting local expressions with body intersection");
+            self.available_expressions.running_expressions =
+                intersection_running;
+            self.available_expressions.per_group_expressions =
+                intersection_group;
+        } else {
+            log::debug!("exiting early, higher scope will rerun");
+        }
+        self.available_expressions.dec_depth();
+        Ok(Action::SkipChildren)
+    }
     /*
         Do:
             1) add expressions this group creates
