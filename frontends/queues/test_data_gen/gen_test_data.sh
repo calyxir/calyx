@@ -112,6 +112,16 @@ for n in {2..7}; do
     [[ $? -eq 0 ]] && echo "Generated strict/strict_${n}flow_test.expect"
 done
 
+# Tests for a specific ordering different from the default
+python3 ${data_gen_dir}/gen_oracle_data.py $num_cmds \
+    > ${tests_dir}/strict/strict_order_test.data
+[[ $? -eq 0 ]] && echo "Generated strict/strict_order_test.data"
+
+cat ${tests_dir}/strict/strict_order_test.data \
+    | python3 ${data_gen_dir}/strict_oracle.py $num_cmds $queue_size 3 --keepgoing --order 2,0,1 \
+    > ${tests_dir}/strict/strict_order_test.expect
+[[ $? -eq 0 ]] && echo "Generated strict/strict_order_test.expect"
+
 
 # Copying into binheap/ for heap-based implementations of previous queues: namely,
 # - FIFO

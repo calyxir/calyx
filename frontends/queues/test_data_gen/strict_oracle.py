@@ -33,9 +33,11 @@ if __name__ == "__main__":
         raise ValueError("Unsupported number of flows")
 
     if order_override:
-        # --order expects an argument where the ints are separated by a space,
-        # for example "2 3 1 0" for [2, 3, 1, 0]
-        order = list(map(int, s.split()))
+        # --order expects an argument where the ints are comma-separated,
+        # for example "2,3,1,0" for [2, 3, 1, 0]
+        order_idx = sys.argv.index("--order") + 1
+        lst = sys.argv[order_idx]
+        order = list(map(int, lst.split(",")))
 
     subqueues = [queues.Fifo(len) for _ in range(numflows)]
 

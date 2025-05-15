@@ -38,7 +38,6 @@ def create(data, lower, upper, prog, fifo_queue):
                     children = []
                     lo = lower
                     u = upper
-                    lst = []
                     for i in range(num_children):
                         u = lo + interval
                         if i == num_children - 1:
