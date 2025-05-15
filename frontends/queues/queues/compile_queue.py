@@ -95,7 +95,7 @@ def create(data, lower, upper, prog, fifo_queue):
                             else:
                                 lst.append(i)
 
-                        #order = compute_order(lst)
+                        # order = compute_order(lst)
                         strict_id += 1
                         return strict_or_rr.insert_queue(
                             prog,
