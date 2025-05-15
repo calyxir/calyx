@@ -12,28 +12,6 @@ rr_id = 0
 strict_id = 0
 
 
-def compute_order(lst):
-    """
-    Assumes lexigraphical ordering for classes. In Rio programs, order is specified
-    indirectly by the order which a class shows up in the list of children. For
-    instance, `Strict[B, C, A]` means that B is prioritized first, then C, then A. When
-    translating that same policy to Calyx, an order must be specified, which must
-    be a permutation of {0, ..., n - 1}. This function generates such an order.
-    In the case of the above example, it would return [1, 2, 0].
-    """
-    sorted_classes = sorted((item for item in lst if isinstance(item, str)))
-    class_rank = {item: rank for rank, item in enumerate(sorted_classes)}
-
-    order = []
-    for idx, item in enumerate(lst):
-        if isinstance(item, str):
-            order.append(class_rank[item])
-        else:
-            order.append(idx)
-
-    return order
-
-
 def create(data, lower, upper, prog, fifo_queue):
     """
     Recursively creates the PIFO by crawling the json file `data`, which represents
@@ -57,16 +35,18 @@ def create(data, lower, upper, prog, fifo_queue):
                         boundaries.append(lower + (interval * i))
                     boundaries.append(upper)
 
+                    children = []
+                    lo = lower
+                    u = upper
+                    lst = []
+                    for i in range(num_children):
+                        u = lo + interval
+                        if i == num_children - 1:
+                            u = upper
+                        children.append(create(val[i], lo, u, prog, fifo_queue))
+                        lo = u
+
                     if key == "RR":
-                        children = []
-                        lo = lower
-                        u = upper
-                        for child in range(num_children):
-                            u = lo + interval
-                            if child == num_children - 1:
-                                u = upper
-                            children.append(create(val[child], lo, u, prog, fifo_queue))
-                            lo = u
                         rr_id += 1
                         return strict_or_rr.insert_queue(
                             prog,
@@ -78,24 +58,6 @@ def create(data, lower, upper, prog, fifo_queue):
                             ),
                         )
                     elif key == "Strict":
-                        children = []
-                        lo = lower
-                        u = upper
-                        lst = []
-                        for i in range(num_children):
-                            u = lo + interval
-                            if i == num_children - 1:
-                                u = upper
-                            children.append(create(val[i], lo, u, prog, fifo_queue))
-                            lo = u
-                            my_dict = val[i]
-                            k, v = my_dict.popitem()
-                            if k == "FIFO":
-                                lst.append(v[0])
-                            else:
-                                lst.append(i)
-
-                        # order = compute_order(lst)
                         strict_id += 1
                         return strict_or_rr.insert_queue(
                             prog,

@@ -8,6 +8,7 @@ import util
 if __name__ == "__main__":
     num_cmds, len, numflows = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
     keepgoing = "--keepgoing" in sys.argv
+    order_override = "--order" in sys.argv
     commands, values, _, _ = util.parse_json()
 
     if numflows == 2:
@@ -30,6 +31,11 @@ if __name__ == "__main__":
         order = [0, 1, 2, 3, 4, 5, 6]
     else:
         raise ValueError("Unsupported number of flows")
+
+    if order_override:
+        # --order expects an argument where the ints are separated by a space,
+        # for example "2 3 1 0" for [2, 3, 1, 0]
+        order = list(map(int, s.split()))
 
     subqueues = [queues.Fifo(len) for _ in range(numflows)]
 
