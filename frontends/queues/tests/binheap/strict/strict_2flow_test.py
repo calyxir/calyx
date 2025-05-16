@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     prog = cb.Builder()
 
-    order = [1, 0]
+    order = [0, 1]
     if sim_pcap:
         flow_infer = fi.insert_tuple_flow_inference(prog, "flow_inference", NUMFLOWS)
         pifo = st.insert_binheap_strict(prog, "pifo", NUMFLOWS, order, flow_infer)

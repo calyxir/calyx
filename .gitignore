@@ -53,6 +53,12 @@ results.xml
 
 !cider/dap/calyxDebug/package.json
 !cider/dap/calyxDebug/tsconfig.json
+!frontends/queues/tests/compiler/jsons/complex_tree.json
+!frontends/queues/tests/compiler/jsons/fifo.json
+!frontends/queues/tests/compiler/jsons/pifo_tree.json
+!frontends/queues/tests/compiler/jsons/rr_2flows.json
+!frontends/queues/tests/compiler/jsons/rr_union.json
+!frontends/queues/tests/compiler/jsons/strict_3flows.json
 
 # btor2i ignore
 tools/btor2/btor2i/build/
