@@ -290,13 +290,13 @@ class StackElement:
     )  # should only contain a value if element_type is CELL
 
     # ADL source location of the stack element
-    sourceloc: SourceLoc = field(default_factory=None)
+    sourceloc: SourceLoc = field(default=None)
     # ADL source location of the replacement cell
     # Should only contain a value if element_type is CELL
-    replacement_cell_sourceloc: SourceLoc = field(default_factory=None)
+    replacement_cell_sourceloc: SourceLoc = field(default=None)
     # ADL source location of the original component definition
     # Should only contain a value if element_type is CELL
-    component_sourceloc: SourceLoc = field(default_factory=None)
+    component_sourceloc: SourceLoc = field(default=None)
 
     def __repr__(self):
         match self.element_type:
