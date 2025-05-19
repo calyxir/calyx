@@ -1,9 +1,55 @@
+import os
 import copy
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 
 from errors import ProfilerException
 
+@dataclass
+class SourceLoc:
+    filename: str
+    linenum: int
+    varname: str
+
+    def __init__(self, json_dict):
+        self.filename = os.path.basename(json_dict["filename"])
+        self.linenum = json_dict["linenum"]
+        self.varname = json_dict["varname"]
+
+    def adl_str(self):
+        return f"{self.varname} {{{self.filename}: {self.linenum}}}"
+    
+    def loc_str(self):
+        return f"{{{self.filename}: {self.linenum}}}"
+    
+
+@dataclass
+class AdlMap:
+    # component --> (filename, linenum)
+    component_map: dict[str, SourceLoc]
+    # component --> {cell --> (filename, linenum)}
+    cell_map: dict[str, dict[str, SourceLoc]]
+    # component --> {group --> (filename, linenum)}
+    group_map: dict[str, dict[str, SourceLoc]]
+
+    def __init__(self, adl_mapping_file=str):
+        with open(adl_mapping_file, "r") as json_file:
+            json_data = json.load(json_file)
+            for component_dict in json_data:
+                component_name = component_dict["component"]
+                self.component_map[component_name] = SourceLoc(component_dict)
+                self.cell_map[component_name] = {}
+                for cell_dict in component_dict["cells"]:
+                    self.cell_map[component_name][cell_dict["name"]] = SourceLoc(
+                        cell_dict
+                    )
+                # probably worth removing code clone at some point
+                self.group_map[component_name] = {}
+                for group_dict in component_dict["groups"]:
+                    self.group_map[component_name][group_dict["name"]] = SourceLoc(
+                        group_dict
+                    )
 
 @dataclass
 class CellMetadata:
@@ -243,6 +289,15 @@ class StackElement:
         default=None
     )  # should only contain a value if element_type is CELL
 
+    # ADL source location of the stack element
+    sourceloc: SourceLoc = field(default_factory=None)
+    # ADL source location of the replacement cell
+    # Should only contain a value if element_type is CELL
+    replacement_cell_sourceloc: SourceLoc = field(default_factory=None)
+    # ADL source location of the original component definition
+    # Should only contain a value if element_type is CELL
+    component_sourceloc: SourceLoc = field(default_factory=None)
+
     def __repr__(self):
         match self.element_type:
             case StackElementType.GROUP:
@@ -258,7 +313,57 @@ class StackElement:
                     return f"{self.name} [{self.component_name}]"
             case StackElementType.CONTROL_GROUP:
                 return f"{self.name} (ctrl)"
+            
+    def adl_str(self):
+        match self.element_type:
+            case StackElementType.GROUP:
+                if self.sourceloc is None:
+                    return "compiler-generated"
+                else:
+                    return self.sourceloc.adl_str()
+            case StackElementType.PRIMITIVE:
+                return self.sourceloc.adl_str() + "(primitive)"
+            case StackElementType.CELL:
+                if self.is_main:
+                    return self.sourceloc.adl_str()
+                else:
+                    og_sourceloc_str = self.sourceloc.adl_str()
+                    component_sourceloc_str = self.component_sourceloc.adl_str()
+                    if self.replacement_cell_name is not None:
+                        replacement_sourceloc_str = self.replacement_cell_sourceloc.adl_str()
+                        return f"{og_sourceloc_str} ({replacement_sourceloc_str}) [{component_sourceloc_str}]"
+                    else:
+                        return f"{og_sourceloc_str} [{component_sourceloc_str}]"
+            case StackElementType.CONTROL_GROUP:
+                return "compiler-generated (ctrl)"
+            
+    def mixed_str(self):
+        match self.element_type:
+            case StackElementType.GROUP:
+                if self.sourceloc is None:
+                    return f"{self.name} {{compiler-generated}}"
+                else:
+                    return f"{self.name} {self.sourceloc.loc_str()}"
+            case StackElementType.PRIMITIVE:
+                return f"{self.name} {self.sourceloc.loc_str()} (primitive)"
+            case StackElementType.CELL:
+                if self.is_main:
+                    return f"{self.name} {self.sourceloc.loc_str()}"
+                else:
+                    og_str = f"{self.name} {self.sourceloc.loc_str()}"
+                    component_str = f"{self.component_name} {self.component_sourceloc.loc_str()}"
+                    if self.replacement_cell_name is not None:
+                        replacement_str = self.replacement_cell_sourceloc.loc_str()
+                        return f"{og_str} ({replacement_str}) [{component_str}]"
+                    else:
+                        return f"{og_str} [{component_str}]"
+            case StackElementType.CONTROL_GROUP:
+                return f"{self.name} {{compiler-generated}} (ctrl)"
 
+class FlameMapMode(Enum):
+    CALYX = 1
+    ADL = 2
+    MIXED = 3
 
 class CycleType(Enum):
     GROUP_OR_PRIMITIVE = 1  # at least one group/primitive is executing this cycle
@@ -278,6 +383,8 @@ class CycleTrace:
     is_useful_cycle: bool
     # cycle_type: CycleType
 
+    sourceloc_info_added: bool = field(default_factory=False)
+    
     def __repr__(self):
         out = ""
         out = "\n".join(map(lambda x: f"\t{x}", self.stacks))
@@ -302,16 +409,51 @@ class CycleTrace:
                 # self.cycle_type = CycleType.GROUP_OR_PRIMITIVE
         self.stacks.append(stack)
 
-    def get_stack_list_strs(self):
-        stack_strs = []
+    def get_stack_str_list(self, mode: FlameMapMode):
+        """
+        retrieve stack strings based on what mode (Default, ADL, mixed) we're going off of
+        """
+        stack_str_list = []
         for stack in self.stacks:
-            stack_strs.append(";".join(map(lambda x: str(x), stack)))
-        return stack_strs
+            match mode:
+                case FlameMapMode.CALYX:
+                    stack_str = ";".join(map(lambda elem: str(elem), stack))
+                case FlameMapMode.ADL:
+                    stack_str = ";".join(map(lambda elem: elem.adl_str(), stack))
+                case FlameMapMode.MIXED:
+                    stack_str = ";".join(map(lambda elem: elem.mixed_str(), stack))
+            stack_str_list.append(stack_str)
+        return stack_str_list
 
     def get_num_stacks(self):
         return len(self.stacks)
 
+    def add_sourceloc_info(self, adl_map: AdlMap):
+        for stack in self.stacks:
+            curr_component: str = None
+            for stack_elem in stack:
+                match stack_elem.element_type:
+                    case StackElementType.CELL:
+                        if stack_elem.is_main:
+                            stack_elem.sourceloc = adl_map.component_map[stack_elem.name]
+                            curr_component = stack_elem.name
+                        else:
+                            stack_elem.sourceloc = adl_map.cell_map[curr_component][stack_elem.name]
+                            cell_component = stack_elem.component_name
+                            stack_elem.component_sourceloc = adl_map.component_map[cell_component]
+                            if stack_elem.replacement_cell_name is not None:
+                                stack_elem.replacement_cell_sourceloc = adl_map.cell_map[curr_component][stack_elem.replacement_cell_name]
+                            curr_component = cell_component
+                    case StackElementType.GROUP:
+                        # compiler-generated groups will not be contained in adl_map.group_map
+                        if stack_elem.name in adl_map.group_map[curr_component]:
+                            stack_elem.sourceloc = adl_map.group_map[curr_component][stack_elem.name]
+                    case StackElementType.PRIMITIVE:
+                        stack_elem.sourceloc = adl_map.cell_map[curr_component][stack_elem.name]
 
+        self.sourceloc_info_added = True
+
+            
 @dataclass
 class Summary:
     """
@@ -354,6 +496,9 @@ class TraceData:
     control_reg_updates: dict[str, list[ControlRegUpdates]] = field(
         default_factory=dict
     )  # cell --> ControlRegUpdate. This is for constructing timeline later.
+
+    # # fields relating to ADL traces. Will only be created if an ADL map is provided
+    # adl_trace: dict[int, CycleTrace] = field(default_factory=dict)
 
     cycletype_to_cycles: dict[CycleType, set[int]] = None
 
@@ -474,3 +619,13 @@ class TraceData:
                     self.trace_with_control_groups[i].add_stack(new_events_stack)
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
+
+    def add_sourceloc_info(self, adl_map: AdlMap):
+        """
+        Wrapper function to add SourceLoc info to elements in self.trace
+        FIXME: is it better to have a separate ADL trace?
+        """
+        assert(len(self.trace) > 0) # can't add sourceloc info on an empty trace
+        
+        for i in self.trace:
+            self.trace[i].add_sourceloc_info(adl_map)

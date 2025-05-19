@@ -27,15 +27,15 @@ def create_cycle_trace(
     shared_cell_map,
     include_primitives,
 ):
+    assert(cell_info is not None)
     stacks_this_cycle: list[list[StackElement]] = []
     parents = set()  # keeping track of entities that are parents of other entities
     i_mapping: dict[
         str, list[StackElement]
     ] = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
+    main_shortname = cell_info.get_main_shortname()
     i_mapping[cell_info.main_component] = [
-        StackElement(
-            cell_info.get_main_shortname(), StackElementType.CELL, is_main=True
-        )
+        StackElement(main_shortname, StackElementType.CELL, is_main=True)
     ]
     cell_worklist = [cell_info.main_component]  # worklist of cell names
     while len(cell_worklist) > 0:

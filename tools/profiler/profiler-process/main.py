@@ -7,14 +7,9 @@ from dataclasses import dataclass
 import adl_mapping
 import construct_trace
 import preprocess
-from visuals import flame, tree, timeline, stats
+from visuals import flame, timeline, stats
 
 from classes import CellMetadata, ControlMetadata, TraceData
-
-
-@dataclass
-class PreprocessedInfo:
-    main_shortname: str
 
 
 def main(args):
@@ -62,14 +57,7 @@ def main(args):
         args.out_dir,
     )
     stats.write_par_stats(tracedata, args.out_dir)
-    # print(f"End writing cell stats: {datetime.now()}")
-    # tree_dict, path_dict = tree.create_tree(trace)
-    # path_to_edges, all_edges = tree.create_edge_dict(path_dict)
-
-    # tree.create_aggregate_tree(trace, args.out_dir, tree_dict, path_dict)
-    # tree.create_tree_rankings(
-    #     trace, tree_dict, path_dict, path_to_edges, all_edges, args.out_dir
-    # )
+    print(f"End writing cell stats: {datetime.now()}")
     flat_flame_map, scaled_flame_map = flame.create_flame_maps(
         tracedata.trace_with_control_groups
     )
@@ -79,39 +67,10 @@ def main(args):
 
     timeline.compute_timeline(tracedata, cell_metadata, args.out_dir)
 
-    # if args.adl_mapping_file is not None:  # emit ADL flame graphs.
-    #     create_adl_visuals(args.adl_mapping_file, args.out_dir, flat_flame_map, scaled_flame_map)
+    if args.adl_mapping_file is not None:  # emit ADL flame graphs.
+        adl_mapping.create_and_write_adl_map(tracedata, args.adl_mapping_file, args.out_dir)
 
     print(f"End time: {datetime.now()}")
-
-
-def create_adl_visuals(adl_mapping_file, out_dir, flat_flame_map, scaled_flame_map):
-    print("Computing ADL flames...")
-    adl_flat_flame, mixed_flat_flame = adl_mapping.convert_flame_map(
-        flat_flame_map, adl_mapping_file
-    )
-    adl_scaled_flame, mixed_scaled_flame = adl_mapping.convert_flame_map(
-        scaled_flame_map, adl_mapping_file
-    )
-    adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
-    adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
-    flame.write_flame_maps(
-        adl_flat_flame,
-        adl_scaled_flame,
-        out_dir,
-        adl_flat_flame_file,
-        adl_scaled_flame_file,
-    )
-
-    mixed_flat_flame_file = os.path.join(out_dir, "mixed-flat-flame.folded")
-    mixed_scaled_flame_file = os.path.join(out_dir, "mixed-scaled-flame.folded")
-    flame.write_flame_maps(
-        mixed_flat_flame,
-        mixed_scaled_flame,
-        out_dir,
-        mixed_flat_flame_file,
-        mixed_scaled_flame_file,
-    )
 
 
 if __name__ == "__main__":

@@ -1,13 +1,13 @@
 import os
 
-from classes import CycleTrace, CycleType, TraceData, ControlRegUpdateType
+from classes import CycleTrace, CycleType, TraceData, ControlRegUpdateType, FlameMapMode
 
 SCALED_FLAME_MULTIPLIER = (
     1000  # [flame graph] multiplier so scaled flame graph will not round up.
 )
 
 
-def write_flame_map(flame_map, flame_out_file):
+def write_flame_map(flame_map: dict[str, int], flame_out_file: str):
     """
     Utility function for outputting a flame graph to file.
     """
@@ -38,14 +38,15 @@ def write_flame_maps(
     write_flame_map(scaled_flame_map, scaled_flame_out_file)
 
 
-def create_flame_maps(trace: dict[int, CycleTrace]):
+def create_flame_maps(trace: dict[int, CycleTrace], mode: FlameMapMode=FlameMapMode.CALYX) -> tuple[dict[str, int], dict[str, int]]:
     """
     Creates flat and scaled flame maps from a trace.
     """
+
     # flat flame graph; each par arm is counted for 1 cycle
     flat_flame_map = {}  # stack to number of cycles
     for i in trace:
-        for stack_id in trace[i].get_stack_list_strs():
+        for stack_id in trace[i].get_stack_str_list(mode):
             if stack_id not in flat_flame_map:
                 flat_flame_map[stack_id] = 1
             else:
@@ -58,7 +59,7 @@ def create_flame_maps(trace: dict[int, CycleTrace]):
         cycle_slice = round(1 / num_stacks, 3)
         last_cycle_slice = 1 - (cycle_slice * (num_stacks - 1))
         acc = 0
-        for stack_id in trace[i].get_stack_list_strs():
+        for stack_id in trace[i].get_stack_str_list(mode):
             slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
             if stack_id not in scaled_flame_map:
                 scaled_flame_map[stack_id] = slice_to_add * SCALED_FLAME_MULTIPLIER
