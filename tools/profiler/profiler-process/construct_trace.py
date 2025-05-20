@@ -11,7 +11,6 @@ from classes import (
 )
 from dataclasses import dataclass
 from errors import ProfilerException
-from visuals.timeline import ts_multiplier
 
 DELIMITER = "___"
 

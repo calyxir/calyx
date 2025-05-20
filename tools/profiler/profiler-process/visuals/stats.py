@@ -1,13 +1,21 @@
 import csv
 import os
 
-from classes import TraceData, CellMetadata, ControlMetadata, CycleType, CycleTrace, StackElementType
+from classes import (
+    TraceData,
+    CellMetadata,
+    ControlMetadata,
+    CycleType,
+    CycleTrace,
+    StackElementType,
+)
+
 
 def write_cell_stats(
     cell_metadata: CellMetadata,
     control_metadata: ControlMetadata,
     tracedata: TraceData,
-    out_dir: str
+    out_dir: str,
 ):
     """
     Collect and write statistics information about cells to cell-stats.csv.
@@ -19,12 +27,14 @@ def write_cell_stats(
         "total-cycles",
         "times-active",
         "avg",
-    ] + [f"{cat.name} (%)" for cat in tracedata.cycletype_to_cycles]  # fields in CSV file
+    ] + [
+        f"{cat.name} (%)" for cat in tracedata.cycletype_to_cycles
+    ]  # fields in CSV file
     stats = []
     totals = {fieldname: 0 for fieldname in fieldnames}
     for cell in tracedata.cell_to_active_cycles:
         component = cell_metadata.cell_to_component[cell]
-        if component in control_metadata.component_to_fsms: 
+        if component in control_metadata.component_to_fsms:
             num_fsms = len(control_metadata.component_to_fsms[component])
         else:
             num_fsms = 0
@@ -32,16 +42,15 @@ def write_cell_stats(
         times_active = tracedata.cell_to_active_cycles[cell].num_times_active
         cell_cat = {}
         for cycletype in tracedata.cycletype_to_cycles:
-            cell_cat[cycletype] = (
-                tracedata.cell_to_active_cycles[cell].active_cycles.intersection(
-                    tracedata.cycletype_to_cycles[cycletype]
-                )
-            )
+            cell_cat[cycletype] = tracedata.cell_to_active_cycles[
+                cell
+            ].active_cycles.intersection(tracedata.cycletype_to_cycles[cycletype])
         avg_cycles = round(cell_total_cycles / times_active, 2)
         stats_dict = {
             "cell-name": f"{cell} [{component}]",
             "num-fsms": num_fsms,
-            "useful-cycles": len(cell_cat[CycleType.GROUP_OR_PRIMITIVE]) + len(cell_cat[CycleType.OTHER]),
+            "useful-cycles": len(cell_cat[CycleType.GROUP_OR_PRIMITIVE])
+            + len(cell_cat[CycleType.OTHER]),
             "total-cycles": cell_total_cycles,
             "times-active": times_active,
             "avg": avg_cycles,
@@ -61,7 +70,9 @@ def write_cell_stats(
         match cycletype:
             case CycleType.GROUP_OR_PRIMITIVE | CycleType.OTHER:
                 totals["useful-cycles"] += len(tracedata.cycletype_to_cycles[cycletype])
-        totals[f"{cycletype.name} (%)"] = round((len(tracedata.cycletype_to_cycles[cycletype]) / total_cycles) * 100, 1)
+        totals[f"{cycletype.name} (%)"] = round(
+            (len(tracedata.cycletype_to_cycles[cycletype]) / total_cycles) * 100, 1
+        )
     totals["avg"] = "-"
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     stats.append(totals)  # total should come at the end
@@ -75,11 +86,10 @@ def write_cell_stats(
         writer.writerows(stats)
 
 
-
-
-
 def compute_par_useful_work(
-    fully_qualified_par_name, active_cycles: set[int], trace: dict[int, CycleTrace],
+    fully_qualified_par_name,
+    active_cycles: set[int],
+    trace: dict[int, CycleTrace],
 ):
     """
     Utility function to compute the amount of "flattened" work we get out of a par.
@@ -112,14 +122,15 @@ def compute_par_useful_work(
     return acc
 
 
-
 def write_par_stats(tracedata: TraceData, out_dir):
     """
     Collect and output statistics about TDCC-defined par groups to ctrl-group-stats.csv.
-    """    
+    """
     # exit early if there are no control groups to check
     if len(tracedata.control_group_to_active_cycles) == 0:
-        print("[write_par_stats] No par/control groups to emit information about! Skipping...")
+        print(
+            "[write_par_stats] No par/control groups to emit information about! Skipping..."
+        )
         return
     fieldnames = [
         "group-name",
@@ -138,10 +149,14 @@ def write_par_stats(tracedata: TraceData, out_dir):
             tracedata.control_group_to_active_cycles[group].active_cycles,
             tracedata.trace_with_control_groups,
         )
-        active_cycles_set = tracedata.control_group_to_active_cycles[group].active_cycles
+        active_cycles_set = tracedata.control_group_to_active_cycles[
+            group
+        ].active_cycles
         num_active_cycles = len(active_cycles_set)
         useful_cycles = len(
-            active_cycles_set.intersection(tracedata.cycletype_to_cycles[CycleType.GROUP_OR_PRIMITIVE])
+            active_cycles_set.intersection(
+                tracedata.cycletype_to_cycles[CycleType.GROUP_OR_PRIMITIVE]
+            )
         )
         flattened_cycle_percent = round(
             (flattened_useful_cycles / num_active_cycles) * 100, 1
@@ -154,7 +169,9 @@ def write_par_stats(tracedata: TraceData, out_dir):
             "total-cycles": num_active_cycles,
             "flattened-cycles (%)": flattened_cycle_percent,
             "useful-cycles (%)": useful_cycle_percent,
-            "times-active": tracedata.control_group_to_active_cycles[group].num_times_active
+            "times-active": tracedata.control_group_to_active_cycles[
+                group
+            ].num_times_active,
         }
         for field in stats_dict:
             if field not in ["group-name", "useful-cycles (%)", "flattened-cycles (%)"]:

@@ -1,6 +1,6 @@
 import json
 
-from classes import CellMetadata, ControlMetadata, ParChildInfo, ParChildType
+from classes import CellMetadata, ControlMetadata, ParChildType
 
 
 def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
@@ -137,6 +137,5 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
                     control_metadata.add_par_done_reg(".".join((cell, child_pd_reg)))
                 # add information to control_metadata
                 control_metadata.register_fully_qualified_par(fully_qualified_par)
-                # control_metadata.par_to_children[fully_qualified_par] = child_par_groups
 
     return control_metadata

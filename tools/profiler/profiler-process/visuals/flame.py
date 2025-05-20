@@ -38,7 +38,9 @@ def write_flame_maps(
     write_flame_map(scaled_flame_map, scaled_flame_out_file)
 
 
-def create_flame_maps(trace: dict[int, CycleTrace], mode: FlameMapMode=FlameMapMode.CALYX) -> tuple[dict[str, int], dict[str, int]]:
+def create_flame_maps(
+    trace: dict[int, CycleTrace], mode: FlameMapMode = FlameMapMode.CALYX
+) -> tuple[dict[str, int], dict[str, int]]:
     """
     Creates flat and scaled flame maps from a trace.
     """
@@ -70,19 +72,23 @@ def create_flame_maps(trace: dict[int, CycleTrace], mode: FlameMapMode=FlameMapM
     return flat_flame_map, scaled_flame_map
 
 
-def create_simple_flame_graph(tracedata: TraceData, control_reg_updates: dict[int, ControlRegUpdateType], out_dir):
+def create_simple_flame_graph(
+    tracedata: TraceData, control_reg_updates: dict[int, ControlRegUpdateType], out_dir
+):
     """
     Create and output a very simple overview flame graph that attributes cycles to categories
     describing how "useful" a cycle is.
     """
-    flame_base_map: dict[CycleType, set[int]] = {t : set() for t in CycleType}
+    flame_base_map: dict[CycleType, set[int]] = {t: set() for t in CycleType}
     for i in range(len(tracedata.trace)):
         if tracedata.trace[i].is_useful_cycle:
             flame_base_map[CycleType.GROUP_OR_PRIMITIVE].add(i)
-        elif (i not in control_reg_updates):
+        elif i not in control_reg_updates:
             # most likely cycles devoted to compiler-generated groups (repeats, etc)
             flame_base_map[CycleType.OTHER].add(i)
-            tracedata.trace[i].is_useful_cycle = True # FIXME: hack to flag this as a "useful" cycle
+            tracedata.trace[
+                i
+            ].is_useful_cycle = True  # FIXME: hack to flag this as a "useful" cycle
         else:
             match control_reg_updates[i]:
                 case ControlRegUpdateType.FSM:

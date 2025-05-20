@@ -6,8 +6,13 @@ from enum import Enum
 
 from errors import ProfilerException
 
+
 @dataclass
 class SourceLoc:
+    """
+    ADL source location information obtained from metadata.
+    """
+
     filename: str
     linenum: int
     varname: str
@@ -19,13 +24,17 @@ class SourceLoc:
 
     def adl_str(self):
         return f"{self.varname} {{{self.filename}: {self.linenum}}}"
-    
+
     def loc_str(self):
         return f"{{{self.filename}: {self.linenum}}}"
-    
+
 
 @dataclass
 class AdlMap:
+    """
+    Mappings from Calyx components, cells, and groups to the corresponding ADL SourceLoc.
+    """
+
     # component --> (filename, linenum)
     component_map: dict[str, SourceLoc]
     # component --> {cell --> (filename, linenum)}
@@ -54,10 +63,11 @@ class AdlMap:
                         group_dict
                     )
 
+
 @dataclass
 class CellMetadata:
     """
-    Preprocessed data relating to cells
+    Preprocessed information related to cells.
     """
 
     main_component: str
@@ -70,13 +80,17 @@ class CellMetadata:
     added_signal_prefix: bool = field(default=False)
 
     # optional fields to fill in later
-    main_shortname: str = None
-    signal_prefix: str = None
+
+    # Name of the main component without the signal prefix
+    main_shortname: str = field(default=None)
+    # OS-specific Verilator prefix
+    signal_prefix: str = field(default=None)
 
     def add_signal_prefix(self, signal_prefix: str):
         """
         Add OS-specific Verilator prefix to all cell names
         """
+        assert not self.added_signal_prefix
         self.signal_prefix = signal_prefix
         str_to_add = signal_prefix + "."
         self.main_component = str_to_add + self.main_component
@@ -107,6 +121,8 @@ class ParChildType(Enum):
 
 @dataclass
 class ParChildInfo:
+    """ """
+
     child_name: str
     child_type: ParChildType
     parents: set[str] = field(default_factory=set)
@@ -120,6 +136,10 @@ class ParChildInfo:
 
 @dataclass
 class ControlMetadata:
+    """
+    Preprocessed information on TDCC-generated FSMs and control groups (only pars so far).
+    """
+
     # names of fully qualified FSMs
     fsms: set[str] = field(default_factory=set)
     # names of fully qualified par groups
@@ -144,6 +164,8 @@ class ControlMetadata:
         default_factory=dict
     )  # cell --> ordered par group names
 
+    added_signal_prefix: bool = field(default=False)
+
     def add_par_done_reg(self, par_done_reg):
         self.par_done_regs.add(par_done_reg)
 
@@ -151,6 +173,7 @@ class ControlMetadata:
         self.par_groups.add(fully_qualified_par)
 
     def add_signal_prefix(self, signal_prefix: str):
+        assert not self.added_signal_prefix
         self.fsms = {f"{signal_prefix}.{fsm}" for fsm in self.fsms}
         self.par_done_regs = {f"{signal_prefix}.{pd}" for pd in self.par_done_regs}
         self.par_groups = {
@@ -165,6 +188,7 @@ class ControlMetadata:
                 )
             )
         self.par_to_par_children = new_par_to_children
+        self.added_signal_prefix = True
 
     def register_fsm(self, fsm_name, component, cell_metadata: CellMetadata):
         """
@@ -266,6 +290,7 @@ class ControlMetadata:
                     # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
                     worklist += self.par_to_par_children[par]
 
+
 class StackElementType(Enum):
     GROUP = 1
     PRIMITIVE = 2
@@ -275,15 +300,18 @@ class StackElementType(Enum):
 
 @dataclass
 class StackElement:
+    """
+    An element on a trace stack.
+    """
+
     name: str
     element_type: StackElementType
     is_main: bool = field(default=False)
-    component_name: str = field(
-        default=None
-    )  # should only contain a value if element_type is CELL
-    replacement_cell_name: str = field(
-        default=None
-    )  # should only contain a value if element_type is CELL
+
+    # should only contain a value if element_type is CELL
+    component_name: str = field(default=None)
+    # should only contain a value if element_type is CELL
+    replacement_cell_name: str = field(default=None)
 
     # ADL source location of the stack element
     sourceloc: SourceLoc = field(default=None)
@@ -311,8 +339,12 @@ class StackElement:
                     return f"{self.name} [{self.component_name}]"
             case StackElementType.CONTROL_GROUP:
                 return f"{self.name} (ctrl)"
-            
+
     def adl_str(self):
+        """
+        String representation for ADL flame graph.
+        Any name in '' (single quotes) indicates an entity created by the compiler (doesn't exist in the original ADL code).
+        """
         match self.element_type:
             case StackElementType.GROUP:
                 if self.sourceloc is None:
@@ -328,14 +360,19 @@ class StackElement:
                     og_sourceloc_str = self.sourceloc.adl_str()
                     component_sourceloc_str = self.component_sourceloc.adl_str()
                     if self.replacement_cell_name is not None:
-                        replacement_sourceloc_str = self.replacement_cell_sourceloc.adl_str()
+                        replacement_sourceloc_str = (
+                            self.replacement_cell_sourceloc.adl_str()
+                        )
                         return f"{og_sourceloc_str} ({replacement_sourceloc_str}) [{component_sourceloc_str}]"
                     else:
                         return f"{og_sourceloc_str} [{component_sourceloc_str}]"
             case StackElementType.CONTROL_GROUP:
                 return f"{self.compiler_generated_msg} (ctrl)"
-            
+
     def mixed_str(self):
+        """
+        String representation for mixed (group/cell/component names in Calyx, along with sourceloc file and line #) flame graph.
+        """
         match self.element_type:
             case StackElementType.GROUP:
                 if self.sourceloc is None:
@@ -349,7 +386,9 @@ class StackElement:
                     return f"{self.name} {self.sourceloc.loc_str()}"
                 else:
                     og_str = f"{self.name} {self.sourceloc.loc_str()}"
-                    component_str = f"{self.component_name} {self.component_sourceloc.loc_str()}"
+                    component_str = (
+                        f"{self.component_name} {self.component_sourceloc.loc_str()}"
+                    )
                     if self.replacement_cell_name is not None:
                         replacement_str = self.replacement_cell_sourceloc.loc_str()
                         return f"{og_str} ({replacement_str}) [{component_str}]"
@@ -358,31 +397,31 @@ class StackElement:
             case StackElementType.CONTROL_GROUP:
                 return f"{self.name} (ctrl) {{{self.compiler_generated_msg}}}"
 
+
 class FlameMapMode(Enum):
     CALYX = 1
     ADL = 2
     MIXED = 3
+
 
 class CycleType(Enum):
     GROUP_OR_PRIMITIVE = 1  # at least one group/primitive is executing this cycle
     FSM_UPDATE = 2  # only fsm updates are happening this cycle
     PD_UPDATE = 3  # only pd register updates are happening this cycle
     MULT_CONTROL = 4  # fsm and par-done
-    OTHER = 5
-    # UNKNOWN = 6
+    OTHER = 5  # most likely a compiler-generated group
 
 
 class CycleTrace:
     """
-    List of stacks that are active in a particular cycle
+    List of stacks that are active in a single cycle.
     """
 
     stacks: list[list[StackElement]]
     is_useful_cycle: bool
-    # cycle_type: CycleType
 
     sourceloc_info_added: bool = field(default_factory=False)
-    
+
     def __repr__(self):
         out = ""
         out = "\n".join(map(lambda x: f"\t{x}", self.stacks))
@@ -390,7 +429,6 @@ class CycleTrace:
 
     def __init__(self, stacks_this_cycle: list[list[StackElement]] = None):
         self.stacks = []
-        # self.cycle_type = CycleType.UNKNOWN # default
 
         # If a group or primitive is at the top of at least one stack, then the cycle is "useful"
         self.is_useful_cycle = False
@@ -409,7 +447,7 @@ class CycleTrace:
 
     def get_stack_str_list(self, mode: FlameMapMode):
         """
-        retrieve stack strings based on what mode (Default, ADL, mixed) we're going off of
+        Retrieve a list of stack string representations based on what mode (Default, ADL, mixed) we're going off of.
         """
         stack_str_list = []
         for stack in self.stacks:
@@ -417,8 +455,10 @@ class CycleTrace:
                 case FlameMapMode.CALYX:
                     stack_str = ";".join(map(lambda elem: str(elem), stack))
                 case FlameMapMode.ADL:
+                    assert self.sourceloc_info_added
                     stack_str = ";".join(map(lambda elem: elem.adl_str(), stack))
                 case FlameMapMode.MIXED:
+                    assert self.sourceloc_info_added
                     stack_str = ";".join(map(lambda elem: elem.mixed_str(), stack))
             stack_str_list.append(stack_str)
         return stack_str_list
@@ -427,31 +467,48 @@ class CycleTrace:
         return len(self.stacks)
 
     def add_sourceloc_info(self, adl_map: AdlMap):
+        """
+        Adds ADL mapping information to elements on stacks. Elements that don't get ADL information added will be considered compiler-generated.
+        """
         for stack in self.stacks:
             curr_component: str = None
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.CELL:
                         if stack_elem.is_main:
-                            stack_elem.sourceloc = adl_map.component_map[stack_elem.name]
+                            stack_elem.sourceloc = adl_map.component_map[
+                                stack_elem.name
+                            ]
                             curr_component = stack_elem.name
                         else:
-                            stack_elem.sourceloc = adl_map.cell_map[curr_component][stack_elem.name]
+                            stack_elem.sourceloc = adl_map.cell_map[curr_component][
+                                stack_elem.name
+                            ]
                             cell_component = stack_elem.component_name
-                            stack_elem.component_sourceloc = adl_map.component_map[cell_component]
+                            stack_elem.component_sourceloc = adl_map.component_map[
+                                cell_component
+                            ]
                             if stack_elem.replacement_cell_name is not None:
-                                stack_elem.replacement_cell_sourceloc = adl_map.cell_map[curr_component][stack_elem.replacement_cell_name]
+                                stack_elem.replacement_cell_sourceloc = (
+                                    adl_map.cell_map[curr_component][
+                                        stack_elem.replacement_cell_name
+                                    ]
+                                )
                             curr_component = cell_component
                     case StackElementType.GROUP:
                         # compiler-generated groups will not be contained in adl_map.group_map
                         if stack_elem.name in adl_map.group_map[curr_component]:
-                            stack_elem.sourceloc = adl_map.group_map[curr_component][stack_elem.name]
+                            stack_elem.sourceloc = adl_map.group_map[curr_component][
+                                stack_elem.name
+                            ]
                     case StackElementType.PRIMITIVE:
-                        stack_elem.sourceloc = adl_map.cell_map[curr_component][stack_elem.name]
+                        stack_elem.sourceloc = adl_map.cell_map[curr_component][
+                            stack_elem.name
+                        ]
 
         self.sourceloc_info_added = True
 
-            
+
 @dataclass
 class Summary:
     """
@@ -479,8 +536,6 @@ class ControlRegUpdates:
     cell_name: str
     clock_cycle: int
     updates: str
-    # update_type: ControlRegUpdateType
-
 
 @dataclass
 class TraceData:
@@ -491,12 +546,10 @@ class TraceData:
     # fields relating to control groups/registers
     trace_with_control_groups: dict[int, CycleTrace] = field(default_factory=dict)
     control_group_to_active_cycles: dict[str, Summary] = field(default_factory=dict)
+    # cell --> ControlRegUpdate. This is for constructing timeline later.
     control_reg_updates: dict[str, list[ControlRegUpdates]] = field(
         default_factory=dict
-    )  # cell --> ControlRegUpdate. This is for constructing timeline later.
-
-    # # fields relating to ADL traces. Will only be created if an ADL map is provided
-    # adl_trace: dict[int, CycleTrace] = field(default_factory=dict)
+    )
 
     cycletype_to_cycles: dict[CycleType, set[int]] = None
 
@@ -629,11 +682,10 @@ class TraceData:
     def add_sourceloc_info(self, adl_map: AdlMap):
         """
         Wrapper function to add SourceLoc info to elements in self.trace
-        FIXME: is it better to have a separate ADL trace?
         """
         trace: dict[int, CycleTrace] = self.trace_with_control_groups
-        assert(len(trace) > 0) # can't add sourceloc info on an empty trace
-        
+        assert len(trace) > 0  # can't add sourceloc info on an empty trace
+
         for i in self.trace:
             trace[i].add_sourceloc_info(adl_map)
 
