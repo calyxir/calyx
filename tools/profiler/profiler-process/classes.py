@@ -34,6 +34,9 @@ class AdlMap:
     group_map: dict[str, dict[str, SourceLoc]]
 
     def __init__(self, adl_mapping_file=str):
+        self.component_map = {}
+        self.cell_map = {}
+        self.group_map = {}
         with open(adl_mapping_file, "r") as json_file:
             json_data = json.load(json_file)
             for component_dict in json_data:
@@ -269,7 +272,6 @@ class ControlMetadata:
                     # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
                     worklist += self.par_to_par_children[par]
 
-
 class StackElementType(Enum):
     GROUP = 1
     PRIMITIVE = 2
@@ -298,6 +300,8 @@ class StackElement:
     # Should only contain a value if element_type is CELL
     component_sourceloc: SourceLoc = field(default=None)
 
+    compiler_generated_msg = "compiler-generated"
+
     def __repr__(self):
         match self.element_type:
             case StackElementType.GROUP:
@@ -318,7 +322,7 @@ class StackElement:
         match self.element_type:
             case StackElementType.GROUP:
                 if self.sourceloc is None:
-                    return "compiler-generated"
+                    return f"'{self.name}' {{{self.compiler_generated_msg}}}"
                 else:
                     return self.sourceloc.adl_str()
             case StackElementType.PRIMITIVE:
@@ -335,13 +339,13 @@ class StackElement:
                     else:
                         return f"{og_sourceloc_str} [{component_sourceloc_str}]"
             case StackElementType.CONTROL_GROUP:
-                return "compiler-generated (ctrl)"
+                return f"{self.compiler_generated_msg} (ctrl)"
             
     def mixed_str(self):
         match self.element_type:
             case StackElementType.GROUP:
                 if self.sourceloc is None:
-                    return f"{self.name} {{compiler-generated}}"
+                    return f"{self.name} {{{self.compiler_generated_msg}}}"
                 else:
                     return f"{self.name} {self.sourceloc.loc_str()}"
             case StackElementType.PRIMITIVE:
@@ -358,7 +362,7 @@ class StackElement:
                     else:
                         return f"{og_str} [{component_str}]"
             case StackElementType.CONTROL_GROUP:
-                return f"{self.name} {{compiler-generated}} (ctrl)"
+                return f"{self.name} {{{self.compiler_generated_msg}}} (ctrl)"
 
 class FlameMapMode(Enum):
     CALYX = 1
@@ -502,17 +506,21 @@ class TraceData:
 
     cycletype_to_cycles: dict[CycleType, set[int]] = None
 
-    def print_trace(self, threshold=-1):
+    def print_trace(self, threshold=-1, ctrl_trace=False):
         """
         Threshold is an optional argument that determines how many cycles you are going to print out.
         """
         if threshold == 0:
             return
-        for i in self.trace:
-            # if threshold > 0 and threshold < i:
-            #     return
+        if ctrl_trace:
+            trace = self.trace_with_control_groups
+        else:
+            trace = self.trace
+        for i in trace:
+            if threshold > 0 and threshold < i:
+                return
             print(i)
-            print(self.trace[i])
+            print(trace[i])
 
     def incr_num_times_active(self, name: str, d: dict[str, Summary]):
         if name not in d:
@@ -598,6 +606,9 @@ class TraceData:
                                             break
                                         new_events_stack.pop(-2)
                                     continue
+                                continue
+                            case StackElementType.PRIMITIVE:
+                                continue
                         if current_cell in control_metadata.cell_to_ordered_pars:
                             active_from_cell = control_groups_trace[i].intersection(
                                 control_metadata.cell_to_ordered_pars[current_cell]
@@ -605,7 +616,7 @@ class TraceData:
                             for par_group_active in sorted(
                                 active_from_cell,
                                 key=(
-                                    lambda p: control_metadata.cells_to_ordered_pars[
+                                    lambda p: control_metadata.cell_to_ordered_pars[
                                         current_cell
                                     ].index(p)
                                 ),
@@ -625,7 +636,10 @@ class TraceData:
         Wrapper function to add SourceLoc info to elements in self.trace
         FIXME: is it better to have a separate ADL trace?
         """
-        assert(len(self.trace) > 0) # can't add sourceloc info on an empty trace
+        trace: dict[int, CycleTrace] = self.trace_with_control_groups
+        assert(len(trace) > 0) # can't add sourceloc info on an empty trace
         
         for i in self.trace:
-            self.trace[i].add_sourceloc_info(adl_map)
+            trace[i].add_sourceloc_info(adl_map)
+
+        return trace

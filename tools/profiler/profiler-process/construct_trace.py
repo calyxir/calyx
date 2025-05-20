@@ -282,7 +282,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 clean_signal_name = (
                     remove_size_from_name(signal_name)
                     .split("_go_out")[0]
-                    .replace(self.signal_prefix + ".", "")
                 )
                 event = {"group": clean_signal_name, "value": int_value}
                 if time not in self.timestamps_to_control_group_events:

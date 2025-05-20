@@ -42,7 +42,7 @@ def main(args):
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
 
-    tracedata.print_trace()
+    tracedata.print_trace(ctrl_trace=True)
 
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
