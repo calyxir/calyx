@@ -1,7 +1,6 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit plan: profiler"
-snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
