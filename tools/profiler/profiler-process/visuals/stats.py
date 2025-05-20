@@ -57,8 +57,6 @@ def write_cell_stats(
     totals["cell-name"] = "TOTAL"
     total_cycles = len(tracedata.trace)
     totals["total-cycles"] = total_cycles
-    totals["useful-cycles"] = len(tracedata.cycletype_to_cycles[CycleType.GROUP_OR_PRIMITIVE]) + len(tracedata.cycletype_to_cycles[CycleType.OTHER])
-    # totals["useful-cycles"] = len(filter((lambda t: t.is_useful_cycle), tracedata.trace.values))
     for cycletype in tracedata.cycletype_to_cycles:
         match cycletype:
             case CycleType.GROUP_OR_PRIMITIVE | CycleType.OTHER:

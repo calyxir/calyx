@@ -176,7 +176,7 @@ class ControlMetadata:
         if component in self.component_to_fsms:
             self.component_to_fsms[component].add(fsm_name)
         else:
-            self.component_to_fsms[component] = set(fsm_name)
+            self.component_to_fsms[component] = {fsm_name}
 
         for cell in cell_metadata.component_to_cells[component]:
             fully_qualified_fsm = ".".join((cell, fsm_name))
