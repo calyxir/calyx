@@ -3,7 +3,7 @@ import json
 from classes import CellMetadata, ControlMetadata, ParChildInfo, ParChildType
 
 
-def read_shared_cells_map(shared_cells_json):
+def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
     """
     Reads shared_cells_json and returns map of cells that are being shared via the cell-sharing pass.
     """
