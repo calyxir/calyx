@@ -144,11 +144,6 @@ class ControlMetadata:
         default_factory=dict
     )  # cell --> ordered par group names
 
-    # FIXME: see if we want to bring this back
-    # # fully qualified par name --> [fully-qualified par parent name]
-    # par_to_par_parent: dict[str, list[str]] = field(default_factory=dict)
-    # this is necessary because if a nested par occurs simultaneously with a group, we don't want the nested par to be a parent of the group
-
     def add_par_done_reg(self, par_done_reg):
         self.par_done_regs.add(par_done_reg)
 
@@ -163,7 +158,6 @@ class ControlMetadata:
         }
         new_par_to_children = {}
         for fully_qualified_par in self.par_to_par_children:
-            print(fully_qualified_par)
             new_par_to_children[f"{signal_prefix}.{fully_qualified_par}"] = list(
                 map(
                     lambda c: f"{signal_prefix}.{c}",
@@ -326,7 +320,7 @@ class StackElement:
                 else:
                     return self.sourceloc.adl_str()
             case StackElementType.PRIMITIVE:
-                return self.sourceloc.adl_str() + "(primitive)"
+                return f"{self.sourceloc.adl_str()} (primitive)"
             case StackElementType.CELL:
                 if self.is_main:
                     return self.sourceloc.adl_str()
@@ -349,7 +343,7 @@ class StackElement:
                 else:
                     return f"{self.name} {self.sourceloc.loc_str()}"
             case StackElementType.PRIMITIVE:
-                return f"{self.name} {self.sourceloc.loc_str()} (primitive)"
+                return f"{self.name} (primitive) {self.sourceloc.loc_str()}"
             case StackElementType.CELL:
                 if self.is_main:
                     return f"{self.name} {self.sourceloc.loc_str()}"
@@ -362,7 +356,7 @@ class StackElement:
                     else:
                         return f"{og_str} [{component_str}]"
             case StackElementType.CONTROL_GROUP:
-                return f"{self.name} {{{self.compiler_generated_msg}}} (ctrl)"
+                return f"{self.name} (ctrl) {{{self.compiler_generated_msg}}}"
 
 class FlameMapMode(Enum):
     CALYX = 1
@@ -518,6 +512,7 @@ class TraceData:
             trace = self.trace
         for i in trace:
             if threshold > 0 and threshold < i:
+                print(f"\n... (total {len(self.trace)} cycles)")
                 return
             print(i)
             print(trace[i])

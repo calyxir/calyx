@@ -42,7 +42,7 @@ def main(args):
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
 
-    tracedata.print_trace(ctrl_trace=True)
+    tracedata.print_trace(threshold=args.print_trace_threshold, ctrl_trace=True)
 
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--print-trace-threshold",
         dest="print_trace_threshold",
-        action="store_true",
+        type=int,
         default=0,
         help="Print the trace to stdout if less than or equal to specified number of cycles",
     )
