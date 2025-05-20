@@ -120,7 +120,7 @@ class Bitnum(NumericType):
             self.uint_repr = int(self.bit_string_repr, 2)
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
-        if is_signed and self.uint_repr > (2 ** (width - 1)):
+        if is_signed and self.uint_repr > (2 ** (width - 1)) - 1:
             negated_value = -1 * ((2**width) - self.uint_repr)
             self.string_repr = str(negated_value)
 

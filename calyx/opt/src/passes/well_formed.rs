@@ -20,7 +20,9 @@ fn port_is_static_prim(port: &ir::Port) -> bool {
     // if port parent is hole then obviously not static
     let parent_cell = match &port.parent {
         ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
-        ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => {
+        ir::PortParent::Group(_)
+        | ir::PortParent::StaticGroup(_)
+        | ir::PortParent::FSM(_) => {
             return false;
         }
     };

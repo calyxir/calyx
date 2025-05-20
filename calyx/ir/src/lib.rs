@@ -28,9 +28,9 @@ pub use common::{RRC, WRC, rrc};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context};
 pub use control::{
-    Cloner, Control, Empty, Enable, GenericControl, If, Invoke, Par, Repeat,
-    Seq, StaticControl, StaticEnable, StaticIf, StaticInvoke, StaticPar,
-    StaticRepeat, StaticSeq, While,
+    Cloner, Control, Empty, Enable, FSMEnable, GenericControl, If, Invoke, Par,
+    Repeat, Seq, StaticControl, StaticEnable, StaticIf, StaticInvoke,
+    StaticPar, StaticRepeat, StaticSeq, While,
 };
 pub use flat_guard::{FlatGuard, GuardPool, GuardRef};
 pub use guard::{Guard, Nothing, PortComp, StaticTiming};
@@ -38,15 +38,15 @@ pub use printer::Printer;
 pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;
 pub use structure::{
-    Assignment, Binding, Canonical, Cell, CellType, CombGroup, Group, Port,
-    PortIterator, PortParent, StaticGroup,
+    Assignment, Binding, Canonical, Cell, CellType, CombGroup, FSM, Group,
+    Port, PortIterator, PortParent, StaticGroup, Transition,
 };
 
 // Re-export types from the frontend.
 pub use calyx_frontend::{
     Attribute, Attributes, BoolAttr, DEPRECATED_ATTRIBUTES, Direction,
     GetAttributes, InternalAttr, LibrarySignatures, NumAttr, PortDef,
-    Primitive, PrimitiveInfo, Width,
+    Primitive, PrimitiveInfo, Width, source_info,
 };
 
 /// Module to transform AST programs into IR.

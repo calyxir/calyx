@@ -79,6 +79,12 @@ pub enum BoolAttr {
     #[strum(serialize = "protected")]
     /// Indicate that the cell should not be removed or shared during optimization.
     Protected,
+    #[strum(serialize = "fsm_control")]
+    /// Protects a cell controlling an FSM from being removed
+    FSMControl,
+    #[strum(serialize = "one_state")]
+    /// Indicates that a StaticEnable should be allocated only one state in an FSM
+    OneState,
 }
 
 impl From<BoolAttr> for Attribute {
@@ -127,6 +133,8 @@ pub enum NumAttr {
     /// dynamic.
     /// Therefore, we only place if we can *guarantee* the interval of the component.
     Interval,
+    #[strum(serialize = "state")]
+    State,
 }
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {
@@ -152,6 +160,7 @@ pub enum InternalAttr {
     LOOP,
     START,
     END,
+    SCHEDULE_ID,
 }
 impl From<InternalAttr> for Attribute {
     fn from(attr: InternalAttr) -> Self {
