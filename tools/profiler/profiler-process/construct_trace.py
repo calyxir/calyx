@@ -26,7 +26,7 @@ def create_cycle_trace(
     shared_cell_map,
     include_primitives,
 ):
-    assert(cell_info is not None)
+    assert cell_info is not None
     stacks_this_cycle: list[list[StackElement]] = []
     parents = set()  # keeping track of entities that are parents of other entities
     i_mapping: dict[
@@ -278,10 +278,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         if identifier_code in self.control_signal_id_to_names:
             signal_names = self.control_signal_id_to_names[identifier_code]
             for signal_name in signal_names:
-                clean_signal_name = (
-                    remove_size_from_name(signal_name)
-                    .split("_go_out")[0]
-                )
+                clean_signal_name = remove_size_from_name(signal_name).split("_go_out")[
+                    0
+                ]
                 event = {"group": clean_signal_name, "value": int_value}
                 if time not in self.timestamps_to_control_group_events:
                     self.timestamps_to_control_group_events[time] = [event]

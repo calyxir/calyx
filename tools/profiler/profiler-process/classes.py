@@ -537,6 +537,7 @@ class ControlRegUpdates:
     clock_cycle: int
     updates: str
 
+
 @dataclass
 class TraceData:
     trace: dict[int, CycleTrace] = field(default_factory=dict)
