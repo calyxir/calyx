@@ -29,7 +29,7 @@ rule component-cells
   command = $component_cells -l $calyx-base $in > $out
 parse-vcd-script = $calyx-base/tools/profiler/profiler-process/main.py
 rule parse-vcd
-  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out
+  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100
 
 verilator = verilator
 cycle-limit = 500000000
