@@ -1,6 +1,7 @@
 ---
 source: fud2/tests/tests.rs
 description: "emit plan: profiler"
+snapshot_kind: text
 ---
 build-tool = fud2
 rule get-rsrc
@@ -41,7 +42,7 @@ fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata
   command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
 rule parse-vcd-from-adl
-  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out $metadata-mapping-json
+  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
 
 verilator = verilator
 cycle-limit = 500000000
