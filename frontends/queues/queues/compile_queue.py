@@ -20,54 +20,54 @@ def create(data, lower, upper, prog, fifo_queue):
     """
     global rr_id
     global strict_id
-    if isinstance(data, dict):
-        for key, val in data.items():
-            if key == "FIFO":
-                return fifo_queue
-            elif key == "RR" or key == "Strict":
-                num_children = len(val)
-                if num_children == 1:
-                    return create(val[0], lower, upper, prog, fifo_queue)
-                else:
-                    interval = (upper - lower) // num_children
-                    boundaries = []
-                    for i in range(1, num_children):
-                        boundaries.append(lower + (interval * i))
-                    boundaries.append(upper)
+    assert isinstance(data, dict)
+    for key, val in data.items():
+        if key == "FIFO":
+            return fifo_queue
+        elif key == "RR" or key == "Strict":
+            num_children = len(val)
+            if num_children == 1:
+                return create(val[0], lower, upper, prog, fifo_queue)
+            else:
+                interval = (upper - lower) // num_children
+                boundaries = []
+                for i in range(1, num_children):
+                    boundaries.append(lower + (interval * i))
+                boundaries.append(upper)
 
-                    children = []
-                    lo = lower
-                    u = upper
-                    for i in range(num_children):
-                        u = lo + interval
-                        if i == num_children - 1:
-                            u = upper
-                        children.append(create(val[i], lo, u, prog, fifo_queue))
-                        lo = u
+                children = []
+                lo = lower
+                u = upper
+                for i in range(num_children):
+                    u = lo + interval
+                    if i == num_children - 1:
+                        u = upper
+                    children.append(create(val[i], lo, u, prog, fifo_queue))
+                    lo = u
 
-                    if key == "RR":
-                        rr_id += 1
-                        return strict_or_rr.insert_queue(
-                            prog,
-                            f"pifo_rr{rr_id}",
-                            True,
-                            children,
-                            fi.insert_boundary_flow_inference(
-                                prog, f"fi_rr{rr_id}", boundaries
-                            ),
-                        )
-                    elif key == "Strict":
-                        strict_id += 1
-                        return strict_or_rr.insert_queue(
-                            prog,
-                            f"pifo_strict{strict_id}",
-                            False,
-                            children,
-                            fi.insert_boundary_flow_inference(
-                                prog, f"fi_strict{strict_id}", boundaries
-                            ),
-                            order=[n for n in range(num_children)],
-                        )
+                if key == "RR":
+                    rr_id += 1
+                    return strict_or_rr.insert_queue(
+                        prog,
+                        f"pifo_rr{rr_id}",
+                        True,
+                        children,
+                        fi.insert_boundary_flow_inference(
+                            prog, f"fi_rr{rr_id}", boundaries
+                        ),
+                    )
+                elif key == "Strict":
+                    strict_id += 1
+                    return strict_or_rr.insert_queue(
+                        prog,
+                        f"pifo_strict{strict_id}",
+                        False,
+                        children,
+                        fi.insert_boundary_flow_inference(
+                            prog, f"fi_strict{strict_id}", boundaries
+                        ),
+                        order=[n for n in range(num_children)],
+                    )
 
 
 def build(json_file):
