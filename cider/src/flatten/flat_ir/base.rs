@@ -437,12 +437,13 @@ pub struct AssignedValue {
 }
 
 impl AssignedValue {
+    #[inline]
     pub fn eq_no_transitive_clocks(&self, other: &Self) -> bool {
-        self.val == other.val
+        self.propagate_clocks == other.propagate_clocks
             && self.winner == other.winner
             && self.thread == other.thread
             && self.clocks == other.clocks
-            && self.propagate_clocks == other.propagate_clocks
+            && self.val == other.val
     }
 }
 

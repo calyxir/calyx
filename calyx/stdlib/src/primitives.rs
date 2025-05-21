@@ -31,6 +31,10 @@ load_prims! { DYN_MEMORIES, "memories/dyn.futil", "memories/dyn.sv" }
 load_prims! { PIPELINED, "pipelined.futil", "pipelined.sv" }
 load_prims! { STALLABLE, "stallable.futil", "stallable.sv" }
 load_prims! { SYNC, "sync.futil", "sync.sv" }
+load_prims! { ADD_FN, "float/addFN.futil", "float/addFN.sv"}
+load_prims! { CMP_FN, "float/compareFN.futil", "float/compareFN.sv"}
+load_prims! { DIVSQRT_FN, "float/divSqrtFN.futil", "float/divSqrtFN.sv"}
+load_prims! { MUL_FN, "float/mulFN.futil", "float/mulFN.sv"}
 
 /// The core primitive in the compiler
 pub const COMPILE_LIB: (&str, &str) = (
@@ -38,7 +42,7 @@ pub const COMPILE_LIB: (&str, &str) = (
     include_str!("../../../primitives/compile.futil"),
 );
 
-pub const KNOWN_LIBS: [(&str, [(&str, &str); 2]); 9] = [
+pub const KNOWN_LIBS: [(&str, [(&str, &str); 2]); 13] = [
     ("core", CORE),
     ("binary_operators", BINARY_OPERATORS),
     ("math", MATH),
@@ -48,4 +52,8 @@ pub const KNOWN_LIBS: [(&str, [(&str, &str); 2]); 9] = [
     ("pipelined", PIPELINED),
     ("stallable", STALLABLE),
     ("sync", SYNC),
+    ("addFN", ADD_FN),
+    ("compareFN", CMP_FN),
+    ("divSqrtFN", DIVSQRT_FN),
+    ("mulFN", MUL_FN),
 ];

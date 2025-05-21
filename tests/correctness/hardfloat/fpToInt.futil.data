@@ -1,0 +1,18 @@
+{
+    "mem_read": {
+      "data": [4.2],
+      "format": {
+        "numeric_type": "ieee754_float",
+        "is_signed": true,
+        "width": 32
+      }
+    },
+    "mem_write": {
+      "data": [0],
+      "format": {
+        "numeric_type": "bitnum",
+        "is_signed": true,
+        "width": 32
+      }
+    }
+}
