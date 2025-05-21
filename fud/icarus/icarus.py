@@ -159,7 +159,7 @@ class IcarusBaseStage(Stage):
             r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
             cycle_count = int(r.group(1)) if r is not None else 0
             if cycle_count < 0:
-                log.warn("Cycle count is less than 0")
+                log.warning("Cycle count is less than 0")
             data = {
                 "cycles": cycle_count,
                 "memories": convert2json(tmpdir.name, "out"),
