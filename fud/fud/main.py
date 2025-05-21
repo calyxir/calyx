@@ -304,7 +304,7 @@ def main():
             override = toml.load(args.config_file)
             for key, value in override.items():
                 if key != "stages":
-                    log.warn(
+                    log.warning(
                         f"Ignoring key `{key}' in config file."
                         + " Only 'stages' is allowed as a top-level key."
                     )
