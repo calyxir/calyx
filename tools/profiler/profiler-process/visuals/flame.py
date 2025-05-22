@@ -1,24 +1,19 @@
 import os
 
+from classes import CycleTrace, CycleType, TraceData, ControlRegUpdateType, FlameMapMode
+
 SCALED_FLAME_MULTIPLIER = (
     1000  # [flame graph] multiplier so scaled flame graph will not round up.
 )
 
 
-"""
-Utility function for outputting a flame graph to file.
-"""
-
-
-def write_flame_map(flame_map, flame_out_file):
+def write_flame_map(flame_map: dict[str, int], flame_out_file: str):
+    """
+    Utility function for outputting a flame graph to file.
+    """
     with open(flame_out_file, "w") as flame_out:
         for stack in flame_map:
             flame_out.write(f"{stack} {flame_map[stack]}\n")
-
-
-"""
-Utility function for writing flat and scaled flame maps to file.
-"""
 
 
 def write_flame_maps(
@@ -28,6 +23,9 @@ def write_flame_maps(
     flame_out_file,
     scaled_flame_out_file=None,
 ):
+    """
+    Utility function for writing flat and scaled flame maps to file.
+    """
     if not os.path.exists(flames_out_dir):
         os.mkdir(flames_out_dir)
 
@@ -40,17 +38,17 @@ def write_flame_maps(
     write_flame_map(scaled_flame_map, scaled_flame_out_file)
 
 
-"""
-Creates flat and scaled flame maps from a trace.
-"""
+def create_flame_maps(
+    trace: dict[int, CycleTrace], mode: FlameMapMode = FlameMapMode.CALYX
+) -> tuple[dict[str, int], dict[str, int]]:
+    """
+    Creates flat and scaled flame maps from a trace.
+    """
 
-
-def create_flame_maps(trace):
     # flat flame graph; each par arm is counted for 1 cycle
     flat_flame_map = {}  # stack to number of cycles
     for i in trace:
-        for stack_list in trace[i]:
-            stack_id = ";".join(stack_list)
+        for stack_id in trace[i].get_stack_str_list(mode):
             if stack_id not in flat_flame_map:
                 flat_flame_map[stack_id] = 1
             else:
@@ -59,12 +57,11 @@ def create_flame_maps(trace):
     # scaled flame graph; each cycle is divided by the number of par arms that are concurrently active.
     scaled_flame_map = {}
     for i in trace:
-        num_stacks = len(trace[i])
+        num_stacks = trace[i].get_num_stacks()
         cycle_slice = round(1 / num_stacks, 3)
         last_cycle_slice = 1 - (cycle_slice * (num_stacks - 1))
         acc = 0
-        for stack_list in trace[i]:
-            stack_id = ";".join(stack_list)
+        for stack_id in trace[i].get_stack_str_list(mode):
             slice_to_add = cycle_slice if acc < num_stacks - 1 else last_cycle_slice
             if stack_id not in scaled_flame_map:
                 scaled_flame_map[stack_id] = slice_to_add * SCALED_FLAME_MULTIPLIER
@@ -75,36 +72,36 @@ def create_flame_maps(trace):
     return flat_flame_map, scaled_flame_map
 
 
-"""
-Create and output a very simple overview flame graph that attributes cycles to categories
-describing how "useful" a cycle is.
-"""
-
-
-def create_simple_flame_graph(classified_trace, control_reg_updates, out_dir):
-    flame_base_map = {
-        "group/primitive": [],  # at least one group/primitive is executing this cycle
-        "fsm": [],  # only fsm updates are happening this cycle
-        "par-done": [],  # only pd register updates are happening this cycle
-        "mult-ctrl": [],  # fsm and par-done
-        "other": [],
-    }
-    for i in range(len(classified_trace)):
-        if classified_trace[i] > 0:
-            flame_base_map["group/primitive"].append(i)
-        elif (
-            i not in control_reg_updates
-        ):  # I suspect this is 1 cycle to execute a combinational group.
-            flame_base_map["other"].append(i)
-            classified_trace[i] = 1  # FIXME: hack to flag this as a "useful" cycle
-        elif control_reg_updates[i] == "both":
-            flame_base_map["mult-ctrl"].append(i)
+def create_simple_flame_graph(
+    tracedata: TraceData, control_reg_updates: dict[int, ControlRegUpdateType], out_dir
+):
+    """
+    Create and output a very simple overview flame graph that attributes cycles to categories
+    describing how "useful" a cycle is.
+    """
+    flame_base_map: dict[CycleType, set[int]] = {t: set() for t in CycleType}
+    for i in range(len(tracedata.trace)):
+        if tracedata.trace[i].is_useful_cycle:
+            flame_base_map[CycleType.GROUP_OR_PRIMITIVE].add(i)
+        elif i not in control_reg_updates:
+            # most likely cycles devoted to compiler-generated groups (repeats, etc)
+            flame_base_map[CycleType.OTHER].add(i)
+            tracedata.trace[
+                i
+            ].is_useful_cycle = True  # FIXME: hack to flag this as a "useful" cycle
         else:
-            flame_base_map[control_reg_updates[i]].append(i)
+            match control_reg_updates[i]:
+                case ControlRegUpdateType.FSM:
+                    flame_base_map[CycleType.FSM_UPDATE].add(i)
+                case ControlRegUpdateType.PAR_DONE:
+                    flame_base_map[CycleType.PD_UPDATE].add(i)
+                case ControlRegUpdateType.BOTH:
+                    flame_base_map[CycleType.MULT_CONTROL].add(i)
+
     # modify names to contain their cycles (for easier viewing)
-    flame_map = {key: len(flame_base_map[key]) for key in flame_base_map}
-    for label in list(flame_map.keys()):
-        flame_map[f"{label} ({flame_map[label]})"] = flame_map[label]
-        del flame_map[label]
+    flame_map = {}
+    for key in flame_base_map:
+        cycles = len(flame_base_map[key])
+        flame_map[f"{key.name} ({cycles})"] = cycles
     write_flame_map(flame_map, os.path.join(out_dir, "overview.folded"))
-    return flame_base_map
+    tracedata.cycletype_to_cycles = flame_base_map
