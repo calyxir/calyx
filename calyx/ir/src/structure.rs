@@ -845,6 +845,11 @@ impl FSM {
         self.name
     }
 
+    /// Get the size of the FSM
+    pub fn size(&self) -> usize {
+        self.assignments.len()
+    }
+
     /// Constructs a new FSM construct using a list of cases and a name
     pub fn new(name: Id) -> Self {
         Self {
