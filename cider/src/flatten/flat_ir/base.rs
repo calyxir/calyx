@@ -727,7 +727,7 @@ impl PortValue {
 
     /// Sets the value to undefined and returns the former value if present.
     /// This is equivalent to [Option::take]
-    pub fn set_undef(&mut self) -> Option<AssignedValue> {
+    pub fn take(&mut self) -> Option<AssignedValue> {
         self.0.take()
     }
 
