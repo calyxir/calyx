@@ -2828,10 +2828,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     }
 
     fn undef_all_ports(&mut self) {
-        self.env
-            .ports
-            .values_mut()
-            .for_each(|p| *p = PortValue::new_undef());
+        for p in self.env.ports.values_mut() {
+            *p = PortValue::new_undef()
+        }
     }
 
     fn simulate_combinational(
