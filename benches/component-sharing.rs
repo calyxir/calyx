@@ -19,11 +19,11 @@ fn cell_share_bench(c: &mut Criterion) {
                         let name =
                             format!("benches/component-sharing/{}.futil", name);
                         let bench = Path::new(&name);
-                        let lib = Path::new(".");
+                        let lib = [Path::new(".").to_path_buf()];
 
                         let ws = frontend::Workspace::construct(
                             &Some(bench.into()),
-                            lib,
+                            &lib,
                         )
                         .unwrap();
 
