@@ -33,7 +33,7 @@ def create_cycle_trace(
     i_mapping: dict[
         str, list[StackElement]
     ] = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
-    main_shortname = cell_info.get_main_shortname()
+    main_shortname = cell_info.main_shortname
     i_mapping[cell_info.main_component] = [
         StackElement(main_shortname, StackElementType.CELL, is_main=True)
     ]
@@ -192,7 +192,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             sid: [] for sid in vcd.references_to_ids.values()
         }  # same as signal_id_dict, but just groups that manage control (only par for now, can also consider tdcc)
 
-        main_shortname = self.cell_metadata.get_main_shortname()
+        main_shortname = self.cell_metadata.main_shortname
 
         clock_filter = [n for n in names if n.endswith(f"{main_shortname}.clk")]
         if len(clock_filter) > 1:

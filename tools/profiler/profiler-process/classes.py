@@ -82,8 +82,6 @@ class CellMetadata:
 
     # optional fields to fill in later
 
-    # Name of the main component without the signal prefix
-    main_shortname: str | None = field(default=None)
     # OS-specific Verilator prefix
     signal_prefix: str | None = field(default=None)
 
@@ -107,10 +105,11 @@ class CellMetadata:
 
         self.added_signal_prefix = True
 
-    def get_main_shortname(self):
-        if self.main_shortname is None:
-            self.main_shortname = self.main_component.split(".")[-1]
-        return self.main_shortname
+    @property
+    def main_shortname(self):
+        # Name of the main component without the signal prefix
+        suffix = self.main_component.rsplit(".", 1)[-1]
+        return suffix
 
 
 class ParChildType(Enum):
@@ -238,6 +237,8 @@ class ControlMetadata:
         we should add them to the trace.
         (1) order based on cells
         (2) for pars in the same cell, order based on dependencies information
+
+        Updates: - field cell_to_ordered_pars
         """
         for cell in sorted(
             cell_metadata.cell_to_component.keys(), key=(lambda c: c.count("."))
