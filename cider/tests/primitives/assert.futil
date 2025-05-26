@@ -1,0 +1,42 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/assert.futil";
+
+component main() -> () {
+  cells {
+    a = std_const(32, 42);
+    b = std_const(32, 41);
+    eq = std_eq(32);
+    tmp_reg = std_reg(1);
+    my_assert = assert_prim();
+  }
+
+  wires {
+    eq.left = a.out;
+    eq.right = b.out;
+
+
+    my_assert.in = eq.out;
+    group check_assert {
+      tmp_reg.in = 1'b1;
+      tmp_reg.write_en = 1'b1;
+      my_assert.en = 1'b1;
+      check_assert[done] = my_assert.out;
+
+    }
+    
+    group check_assert2 {
+      tmp_reg.in = eq.out;
+      tmp_reg.write_en = 1'b1;
+      check_assert2[done] = tmp_reg.done;
+
+      }
+  }
+
+  control {
+      check_assert;
+      check_assert2;
+
+
+  }
+}
