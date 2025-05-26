@@ -180,6 +180,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         """
         Decide which signals we need to extract value change information from.
+        signals and cur_sig_vals are unused variables; this function is inherited from VCDConverter.
         """
         # convert references to list and sort by name
         refs = [(k, v) for k, v in vcd.references_to_ids.items()]
@@ -260,6 +261,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         """
         Reading through value changes and preserving timestamps to value changes for
         all signals we "care about".
+        vcd and cur_sig_vals are unused variables; this function is inherited from VCDConverter.
         """
         int_value = int(value, 2)
         if identifier_code in self.signal_id_to_names:

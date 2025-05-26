@@ -133,7 +133,7 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
     pid_acc = 2
     currently_active = set()
     for i in tracedata.trace:
-        active_this_cycle: tuple[str, str] = set()
+        active_this_cycle: set[tuple[str, str]] = set()
         for stack in tracedata.trace[i].stacks:
             stack_acc = cell_metadata.main_component
             current_cell = (
@@ -148,7 +148,7 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                             stack_acc = stack_acc
                             name = cell_metadata.main_component
                         else:
-                            display_name = stack_acc + "." + stack_elem.name
+                            display_name = f"{stack_acc}.{stack_elem.name}"
                             if stack_elem.replacement_cell_name is not None:
                                 # shared cell. use the info of the replacement cell
                                 display_name += f" ({stack_elem.replacement_cell_name})"

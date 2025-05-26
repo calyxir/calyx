@@ -82,9 +82,9 @@ class CellMetadata:
     # optional fields to fill in later
 
     # Name of the main component without the signal prefix
-    main_shortname: str = field(default=None)
+    main_shortname: str | None = field(default=None)
     # OS-specific Verilator prefix
-    signal_prefix: str = field(default=None)
+    signal_prefix: str | None = field(default=None)
 
     def add_signal_prefix(self, signal_prefix: str):
         """
@@ -95,10 +95,8 @@ class CellMetadata:
         str_to_add = signal_prefix + "."
         self.main_component = str_to_add + self.main_component
 
-        for cell in list(self.cell_to_component.keys()):
-            fully_qualified_cell = str_to_add + cell
-            self.cell_to_component[fully_qualified_cell] = self.cell_to_component[cell]
-            del self.cell_to_component[cell]
+        fq_cells = {f'{signal_prefix}.{cell}': comp for cell, comp in self.cell_to_component.items()}
+        self.cell_to_component = fq_cells
 
         for component in self.component_to_cells:
             fully_qualified_cells = []
@@ -119,16 +117,12 @@ class ParChildType(Enum):
     PAR = 2
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParChildInfo:
-    """ """
 
     child_name: str
     child_type: ParChildType
     parents: set[str] = field(default_factory=set)
-
-    def __hash__(self):
-        return hash((self.child_name, self.parents, self.child_type))
 
     def register_new_parent(self, new_parent: str):
         self.parents.add(new_parent)
@@ -309,18 +303,18 @@ class StackElement:
     is_main: bool = field(default=False)
 
     # should only contain a value if element_type is CELL
-    component_name: str = field(default=None)
+    component_name: str | None = field(default=None)
     # should only contain a value if element_type is CELL
-    replacement_cell_name: str = field(default=None)
+    replacement_cell_name: str | None = field(default=None)
 
     # ADL source location of the stack element
-    sourceloc: SourceLoc = field(default=None)
+    sourceloc: SourceLoc | None = field(default=None)
     # ADL source location of the replacement cell
     # Should only contain a value if element_type is CELL
-    replacement_cell_sourceloc: SourceLoc = field(default=None)
+    replacement_cell_sourceloc: SourceLoc | None = field(default=None)
     # ADL source location of the original component definition
     # Should only contain a value if element_type is CELL
-    component_sourceloc: SourceLoc = field(default=None)
+    component_sourceloc: SourceLoc | None = field(default=None)
 
     compiler_generated_msg = "compiler-generated"
 
@@ -420,14 +414,14 @@ class CycleTrace:
     stacks: list[list[StackElement]]
     is_useful_cycle: bool
 
-    sourceloc_info_added: bool = field(default_factory=False)
+    sourceloc_info_added: bool = field(default=False)
 
     def __repr__(self):
         out = ""
         out = "\n".join(map(lambda x: f"\t{x}", self.stacks))
         return out
 
-    def __init__(self, stacks_this_cycle: list[list[StackElement]] = None):
+    def __init__(self, stacks_this_cycle: list[list[StackElement]] | None = None):
         self.stacks = []
 
         # If a group or primitive is at the top of at least one stack, then the cycle is "useful"
@@ -471,7 +465,7 @@ class CycleTrace:
         Adds ADL mapping information to elements on stacks. Elements that don't get ADL information added will be considered compiler-generated.
         """
         for stack in self.stacks:
-            curr_component: str = None
+            curr_component: str | None = None
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.CELL:
@@ -552,7 +546,7 @@ class TraceData:
         default_factory=dict
     )
 
-    cycletype_to_cycles: dict[CycleType, set[int]] = None
+    cycletype_to_cycles: dict[CycleType, set[int]] | None = None
 
     def print_trace(self, threshold=-1, ctrl_trace=False):
         """
@@ -565,7 +559,7 @@ class TraceData:
         else:
             trace = self.trace
         for i in trace:
-            if threshold > 0 and threshold < i:
+            if 0 < threshold < i:
                 print(f"\n... (total {len(self.trace)} cycles)")
                 return
             print(i)
