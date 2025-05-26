@@ -1,6 +1,7 @@
 import os
 import copy
 import json
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -140,12 +141,12 @@ class ControlMetadata:
     par_groups: set[str] = field(default_factory=set)
     # component --> { fsm in the component. NOT fully qualified }
     # components that are not in this dictionary do not contain any fsms
-    component_to_fsms: dict[str, set[str]] = field(default_factory=dict)
+    component_to_fsms: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
     # component --> { par groups in the component }
     # components that are not in this dictionary do not contain any par groups
-    component_to_par_groups: dict[str, set[str]] = field(default_factory=dict)
+    component_to_par_groups: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
     # fully qualified par name --> [fully-qualified par children name]. Each of the children here have to be pars.
-    par_to_par_children: dict[str, list[str]] = field(default_factory=dict)
+    par_to_par_children: defaultdict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
     # component --> { child name --> ParChildInfo (contains parent name(s) and child type) }
     component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(
         default_factory=dict
@@ -154,9 +155,7 @@ class ControlMetadata:
     par_done_regs: set[str] = field(default_factory=set)
     # partial_fsm_events:
 
-    cell_to_ordered_pars: dict[str, list[str]] = field(
-        default_factory=dict
-    )  # cell --> ordered par group names
+    cell_to_ordered_pars: defaultdict[str, list[str]] = field(default_factory=lambda: defaultdict(list))  # cell --> ordered par group names
 
     added_signal_prefix: bool = field(default=False)
 
@@ -173,7 +172,7 @@ class ControlMetadata:
         self.par_groups = {
             f"{signal_prefix}.{par_group}" for par_group in self.par_groups
         }
-        new_par_to_children = {}
+        new_par_to_children = defaultdict(list)
         for fully_qualified_par in self.par_to_par_children:
             new_par_to_children[f"{signal_prefix}.{fully_qualified_par}"] = list(
                 map(
@@ -191,20 +190,14 @@ class ControlMetadata:
         if component not in cell_metadata.component_to_cells:
             # skip FSMs from components listed in primitive files (not in user-defined code)
             return
-        if component in self.component_to_fsms:
-            self.component_to_fsms[component].add(fsm_name)
-        else:
-            self.component_to_fsms[component] = {fsm_name}
+        self.component_to_fsms[component].add(fsm_name)
 
         for cell in cell_metadata.component_to_cells[component]:
             fully_qualified_fsm = ".".join((cell, fsm_name))
             self.fsms.add(fully_qualified_fsm)
 
     def register_par(self, par_group, component):
-        if component not in self.component_to_par_groups:
-            self.component_to_par_groups[component] = {par_group}
-        else:
-            self.component_to_par_groups[component].add(par_group)
+        self.component_to_par_groups[component].add(par_group)
 
     def register_par_child(
         self,
@@ -254,26 +247,26 @@ class ControlMetadata:
         for cell in sorted(
             cell_metadata.cell_to_component.keys(), key=(lambda c: c.count("."))
         ):
-            self.cell_to_ordered_pars[cell] = []
             component = cell_metadata.cell_to_component[cell]
             if component not in self.component_to_par_groups:
                 # ignore components that don't feature pars.
                 continue
             pars = self.component_to_par_groups[component]
             # the worklist starts with pars with no parent
+            print(self.component_to_child_to_par_parent)
             pars_with_parent = [k for k, v in self.component_to_child_to_par_parent[component].items() if v.child_type == ParChildType.PAR]
 
             # need to make all of the pars fully qualified before adding them to the worklist.
-            worklist = [f"{cell}.{par}" for par in pars.difference(pars_with_parent)]
+            worklist: deque = deque([f"{cell}.{par}" for par in pars.difference(pars_with_parent)])
 
             while worklist:
-                par = worklist.pop(0)
+                par = worklist.pop()
                 if par not in self.cell_to_ordered_pars[cell]:
                     self.cell_to_ordered_pars[cell].append(par)
                 if par in self.par_to_par_children:
                     # get all the children (who are pars) of this par.
                     # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
-                    worklist += self.par_to_par_children[par]
+                    worklist.extendleft(self.par_to_par_children[par])
 
 
 class StackElementType(Enum):

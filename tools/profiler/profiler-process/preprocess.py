@@ -1,4 +1,5 @@
 import json
+import os
 
 from classes import CellMetadata, ControlMetadata, ParChildType
 
@@ -8,6 +9,9 @@ def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
     Reads shared_cells_json and returns map of cells that are being shared via the cell-sharing pass.
     """
     shared_cells_map = {}
+    if not os.path.isfile(shared_cells_json):
+        print(f"[read_shared_cells_map] {shared_cells_json} not found! Either cell sharing was not run, or there's a bug.")
+        return {}
     json_map = json.load(open(shared_cells_json))
     for component in json_map:
         shared_cells_map[component] = {}
@@ -75,16 +79,6 @@ def read_component_cell_names_json(json_file):
             cell_names_to_components[cell] = component
 
     return CellMetadata(main_component, cell_names_to_components, components_to_cells)
-
-
-def preprocess_cell_infos(cell_names_json, shared_cells_json):
-    """
-    Wrapper function to populate CellMetadata object with information pertaining to cells.
-    """
-    metadata = read_component_cell_names_json(cell_names_json)
-    metadata.shared_cells = read_shared_cells_map(shared_cells_json)
-    return metadata
-
 
 def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     """
