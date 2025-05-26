@@ -42,7 +42,7 @@ class AdlMap:
     # component --> {group --> (filename, linenum)}
     group_map: dict[str, dict[str, SourceLoc]]
 
-    def __init__(self, adl_mapping_file=str):
+    def __init__(self, adl_mapping_file: str):
         self.component_map = {}
         self.cell_map = {}
         self.group_map = {}
@@ -261,21 +261,12 @@ class ControlMetadata:
                 continue
             pars = self.component_to_par_groups[component]
             # the worklist starts with pars with no parent
-            pars_with_parent = filter(
-                (
-                    lambda x: self.component_to_child_to_par_parent[component][
-                        x
-                    ].child_type
-                    == ParChildType.PAR
-                ),
-                self.component_to_child_to_par_parent[component],
-            )
-            worklist = []
-            for par in pars.difference(pars_with_parent):
-                # need to make all of the pars fully qualified before adding them to the worklist.
-                worklist.append(f"{cell}.{par}")
+            pars_with_parent = [k for k, v in self.component_to_child_to_par_parent[component].items() if v.child_type == ParChildType.PAR]
 
-            while len(worklist) > 0:
+            # need to make all of the pars fully qualified before adding them to the worklist.
+            worklist = [f"{cell}.{par}" for par in pars.difference(pars_with_parent)]
+
+            while worklist:
                 par = worklist.pop(0)
                 if par not in self.cell_to_ordered_pars[cell]:
                     self.cell_to_ordered_pars[cell].append(par)
@@ -554,10 +545,7 @@ class TraceData:
         """
         if threshold == 0:
             return
-        if ctrl_trace:
-            trace = self.trace_with_control_groups
-        else:
-            trace = self.trace
+        trace = self.trace_with_control_groups if ctrl_trace else self.trace
         for i in trace:
             if 0 < threshold < i:
                 print(f"\n... (total {len(self.trace)} cycles)")

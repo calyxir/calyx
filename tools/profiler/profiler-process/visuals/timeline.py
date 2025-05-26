@@ -145,7 +145,6 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                     case StackElementType.CELL:
                         if stack_elem.is_main:
                             # don't accumulate to the stack if your name is main.
-                            stack_acc = stack_acc
                             name = cell_metadata.main_component
                         else:
                             display_name = f"{stack_acc}.{stack_elem.name}"

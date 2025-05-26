@@ -37,7 +37,7 @@ def create_cycle_trace(
         StackElement(main_shortname, StackElementType.CELL, is_main=True)
     ]
     cell_worklist = [cell_info.main_component]  # worklist of cell names
-    while len(cell_worklist) > 0:
+    while cell_worklist:
         current_cell = cell_worklist.pop()
         covered_units_in_component = set()  # collect all of the units we've covered.
         # catch all active units that are groups in this component.
@@ -150,15 +150,10 @@ def create_cycle_trace(
     return CycleTrace(stacks_this_cycle)
 
 
-@dataclass
+@dataclass(frozen=True)
 class WaveformEvent:
     signal: str
     value: int
-
-    def __eq__(self, value):
-        if not (isinstance(value, WaveformEvent)):
-            return False
-        return self.signal == value.signal and self.value == value.value
 
     def __repr__(self):
         return f"({self.signal}, {self.value})"
@@ -171,9 +166,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.control_metadata: ControlMetadata = control_metadata
         self.tracedata: TraceData = tracedata
         self.timestamps_to_events: dict[int, list[WaveformEvent]] = {}  # timestamps to
-        self.timestamps_to_clock_cycles = {}
+        self.timestamps_to_clock_cycles: dict[int, int] = {}
         self.timestamps_to_control_reg_changes = {}
-        self.timestamps_to_control_group_events = {}
+        self.timestamps_to_control_group_events: dict[int, list[WaveformEvent]] = {}
 
         self.clock_name: str = None
 
@@ -198,9 +193,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         main_shortname = self.cell_metadata.get_main_shortname()
 
-        clock_filter = list(
-            filter(lambda x: x.endswith(f"{main_shortname}.clk"), names)
-        )
+        clock_filter = [n for n in names if n.endswith(f"{main_shortname}.clk")]
         if len(clock_filter) > 1:
             raise ProfilerException(f"Found multiple clocks: {clock_filter} Exiting...")
         elif len(clock_filter) == 0:
@@ -283,7 +276,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 clean_signal_name = remove_size_from_name(signal_name).split("_go_out")[
                     0
                 ]
-                event = {"group": clean_signal_name, "value": int_value}
+                event = WaveformEvent(clean_signal_name, value)
                 if time not in self.timestamps_to_control_group_events:
                     self.timestamps_to_control_group_events[time] = [event]
                 else:
@@ -476,16 +469,17 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             int, ControlRegUpdateType
         ] = {}  # clock cycle --> control_reg_update_type for leaf cell (longest cell name)
 
+        # track when control groups were active
         control_group_start_cycles = {}
         for ts in self.timestamps_to_control_group_events:
             if ts in self.timestamps_to_clock_cycles:
                 clock_cycle = self.timestamps_to_clock_cycles[ts]
                 events = self.timestamps_to_control_group_events[ts]
                 for event in events:
-                    group_name = event["group"]
-                    if event["value"] == 1:  # control group started
+                    group_name = event.signal
+                    if event.value == 1:  # control group started
                         control_group_start_cycles[group_name] = clock_cycle
-                    elif event["value"] == 0:  # control group ended
+                    elif event.value == 0:  # control group ended
                         active_range = range(
                             control_group_start_cycles[group_name], clock_cycle
                         )
@@ -496,6 +490,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                             else:
                                 control_group_events[i] = {group_name}
 
+        # track updates to control registers
         for ts in self.timestamps_to_control_reg_changes:
             if ts in self.timestamps_to_clock_cycles:
                 clock_cycle = self.timestamps_to_clock_cycles[ts]
