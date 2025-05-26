@@ -253,7 +253,6 @@ class ControlMetadata:
                 continue
             pars = self.component_to_par_groups[component]
             # the worklist starts with pars with no parent
-            print(self.component_to_child_to_par_parent)
             pars_with_parent = [k for k, v in self.component_to_child_to_par_parent[component].items() if v.child_type == ParChildType.PAR]
 
             # need to make all of the pars fully qualified before adding them to the worklist.
@@ -601,19 +600,18 @@ class TraceData:
                                         current_component
                                     ]
                                 ):
-                                    child_parent_infos = control_metadata.component_to_child_to_par_parent[
+                                    child_parent_info: ParChildInfo = control_metadata.component_to_child_to_par_parent[
                                         current_component
                                     ][stack_element.name]
                                     parent_names = set()
-                                    for child_parent_info in child_parent_infos:
-                                        if (
+                                    if (
                                             child_parent_info.child_type
                                             == ParChildType.PAR
                                         ):
                                             raise ProfilerException(
                                                 "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
                                             )
-                                        parent_names.add(child_parent_info.parent)
+                                    parent_names.update(child_parent_info.parents)
                                     parent_found = False
                                     while (
                                         len(new_events_stack) > 2

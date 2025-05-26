@@ -10,6 +10,7 @@ from classes import (
     ControlRegUpdateType,
 )
 from dataclasses import dataclass
+from collections import defaultdict
 from errors import ProfilerException
 
 DELIMITER = "___"
@@ -276,7 +277,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                 clean_signal_name = remove_size_from_name(signal_name).split("_go_out")[
                     0
                 ]
-                event = WaveformEvent(clean_signal_name, value)
+                event = WaveformEvent(clean_signal_name, int_value)
                 if time not in self.timestamps_to_control_group_events:
                     self.timestamps_to_control_group_events[time] = [event]
                 else:
@@ -460,9 +461,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         Must run after self.postprocess() because this function relies on self.timestamps_to_clock_cycles
         (which gets filled in during self.postprocess()).
         """
-        control_group_events: dict[
+        control_group_events: defaultdict[
             int, set[str]
-        ] = {}  # cycle count --> [control groups that are active that cycle]
+        ] = defaultdict(set)  # cycle count --> [control groups that are active that cycle]
 
         # FIXME: we might be able to get away with not computing this
         control_reg_per_cycle: dict[
@@ -485,10 +486,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         )
                         self.tracedata.control_group_interval(group_name, active_range)
                         for i in active_range:
-                            if i in control_group_events:
-                                control_group_events[i].add(group_name)
-                            else:
-                                control_group_events[i] = {group_name}
+                            control_group_events[i].add(group_name)
+                            
 
         # track updates to control registers
         for ts in self.timestamps_to_control_reg_changes:
