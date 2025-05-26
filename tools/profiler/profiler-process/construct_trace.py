@@ -325,6 +325,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         main_done = False  # Prevent creating a trace entry for the cycle where main.done is set high.
         for ts in self.timestamps_to_events:
             events = self.timestamps_to_events[ts]
+            # NOTE: events is a list, so the `in` check is a linear scan. Might be worth creating a dictionary to manage events instead?
             started = (
                 started
                 or WaveformEvent(f"{self.cell_metadata.main_component}.go", 1) in events

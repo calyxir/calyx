@@ -126,6 +126,7 @@ class ParChildInfo:
     parents: set[str] = field(default_factory=set)
 
     def register_new_parent(self, new_parent: str):
+        # FIXME: deprecate this method and instead obtain the entire parent set upfront.
         self.parents.add(new_parent)
 
 
@@ -228,14 +229,8 @@ class ControlMetadata:
             for cell in cell_metadata.component_to_cells[component]:
                 fully_qualified_par = f"{cell}.{parent}"
                 fully_qualified_child = f"{cell}.{child_name}"
-                if fully_qualified_par not in self.par_to_par_children:
-                    self.par_to_par_children[fully_qualified_par] = {
-                        fully_qualified_child
-                    }
-                else:
-                    self.par_to_par_children[fully_qualified_par].add(
-                        fully_qualified_child
-                    )
+
+                self.par_to_par_children[fully_qualified_par].append(fully_qualified_child)
 
     def order_pars(self, cell_metadata: CellMetadata):
         """
