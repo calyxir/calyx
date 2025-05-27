@@ -212,7 +212,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
         print(self.cell_metadata.cells)
-        for cell in list(self.cell_metadata.cells):
+        for cell in self.cell_metadata.cells:
             cell_go = cell + ".go"
             cell_done = cell + ".done"
             if cell_go not in vcd.references_to_ids:
@@ -463,9 +463,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         Must run after self.postprocess() because this function relies on self.timestamps_to_clock_cycles
         (which gets filled in during self.postprocess()).
         """
-        control_group_events: defaultdict[
-            int, set[str]
-        ] = defaultdict(set)  # cycle count --> [control groups that are active that cycle]
+        control_group_events: defaultdict[int, set[str]] = defaultdict(
+            set
+        )  # cycle count --> [control groups that are active that cycle]
 
         # FIXME: we might be able to get away with not computing this
         control_reg_per_cycle: dict[
@@ -489,7 +489,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         self.tracedata.control_group_interval(group_name, active_range)
                         for i in active_range:
                             control_group_events[i].add(group_name)
-                            
 
         # track updates to control registers
         for ts in self.timestamps_to_control_reg_changes:

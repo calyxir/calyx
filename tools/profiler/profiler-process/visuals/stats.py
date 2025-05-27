@@ -73,6 +73,7 @@ def write_cell_stats(
         totals[f"{cycletype.name} (%)"] = round(
             (len(tracedata.cycletype_to_cycles[cycletype]) / total_cycles) * 100, 1
         )
+    totals["times-active"] = "-"
     totals["avg"] = "-"
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     stats.append(totals)  # total should come at the end

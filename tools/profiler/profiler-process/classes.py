@@ -93,7 +93,9 @@ class CellMetadata:
         self.main_component = str_to_add + self.main_component
 
         for component in self.component_to_cells:
-            fq_cells = [f"{signal_prefix}.{cell}" for cell in self.component_to_cells[component]]
+            fq_cells = [
+                f"{signal_prefix}.{cell}" for cell in self.component_to_cells[component]
+            ]
             self.component_to_cells[component] = fq_cells
 
         self.added_signal_prefix = True
@@ -105,7 +107,9 @@ class CellMetadata:
         for component in self.component_to_cells:
             if cell in self.component_to_cells[component]:
                 return component
-        raise ProfilerException(f"Lookup of cell that doesn't have a corresponding component! Cell name: {cell}")        
+        raise ProfilerException(
+            f"Lookup of cell that doesn't have a corresponding component! Cell name: {cell}"
+        )
 
     @property
     def cells(self) -> list[str]:
@@ -129,7 +133,6 @@ class ParChildType(Enum):
 
 @dataclass(frozen=True)
 class ParChildInfo:
-
     child_name: str
     child_type: ParChildType
     parents: set[str] = field(default_factory=set)
@@ -151,12 +154,18 @@ class ControlMetadata:
     par_groups: set[str] = field(default_factory=set)
     # component --> { fsm in the component. NOT fully qualified }
     # components that are not in this dictionary do not contain any fsms
-    component_to_fsms: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
+    component_to_fsms: defaultdict[str, set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
     # component --> { par groups in the component }
     # components that are not in this dictionary do not contain any par groups
-    component_to_par_groups: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
+    component_to_par_groups: defaultdict[str, set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
     # fully qualified par name --> [fully-qualified par children name]. Each of the children here have to be pars.
-    par_to_par_children: defaultdict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
+    par_to_par_children: defaultdict[str, list[str]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
     # component --> { child name --> ParChildInfo (contains parent name(s) and child type) }
     component_to_child_to_par_parent: dict[str, dict[str, ParChildInfo]] = field(
         default_factory=dict
@@ -165,7 +174,9 @@ class ControlMetadata:
     par_done_regs: set[str] = field(default_factory=set)
     # partial_fsm_events:
 
-    cell_to_ordered_pars: defaultdict[str, list[str]] = field(default_factory=lambda: defaultdict(list))  # cell --> ordered par group names
+    cell_to_ordered_pars: defaultdict[str, list[str]] = field(
+        default_factory=lambda: defaultdict(list)
+    )  # cell --> ordered par group names
 
     added_signal_prefix: bool = field(default=False)
 
@@ -239,7 +250,9 @@ class ControlMetadata:
                 fully_qualified_par = f"{cell}.{parent}"
                 fully_qualified_child = f"{cell}.{child_name}"
 
-                self.par_to_par_children[fully_qualified_par].append(fully_qualified_child)
+                self.par_to_par_children[fully_qualified_par].append(
+                    fully_qualified_child
+                )
 
     def order_pars(self, cell_metadata: CellMetadata):
         """
@@ -254,16 +267,23 @@ class ControlMetadata:
         cells_to_pars_without_parent: dict[str, set[str]] = {}
         for component in self.component_to_par_groups:
             pars = self.component_to_par_groups[component]
-            pars_with_parent = [k for k, v in self.component_to_child_to_par_parent[component].items() if v.child_type == ParChildType.PAR]
+            pars_with_parent = [
+                k
+                for k, v in self.component_to_child_to_par_parent[component].items()
+                if v.child_type == ParChildType.PAR
+            ]
             pars_without_parent = pars.difference(pars_with_parent)
             for cell in cell_metadata.component_to_cells[component]:
                 cells_to_pars_without_parent[cell] = pars_without_parent
 
-        for cell in sorted(cells_to_pars_without_parent.keys(), key=(lambda c: c.count("."))):
-
+        for cell in sorted(
+            cells_to_pars_without_parent.keys(), key=(lambda c: c.count("."))
+        ):
             # worklist contains pars to check whether they have children
             # the worklist starts with pars with no parent
-            worklist: deque[str] = deque([f"{cell}.{par}" for par in cells_to_pars_without_parent[cell]])
+            worklist: deque[str] = deque(
+                [f"{cell}.{par}" for par in cells_to_pars_without_parent[cell]]
+            )
 
             while worklist:
                 par = worklist.pop()
@@ -273,6 +293,7 @@ class ControlMetadata:
                     # get all the children (who are pars) of this par.
                     # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
                     worklist.extendleft(self.par_to_par_children[par])
+
 
 class StackElementType(Enum):
     GROUP = 1
@@ -551,7 +572,8 @@ class TraceData:
             print(i)
             print(trace[i])
 
-    def incr_num_times_active(self, name: str, d: dict[str, Summary]):
+    @staticmethod
+    def incr_num_times_active(name: str, d: dict[str, Summary]):
         if name not in d:
             d[name] = Summary()
         d[name].num_times_active += 1
@@ -595,7 +617,9 @@ class TraceData:
                                     current_cell += f".{stack_element.name}"
                             case StackElementType.GROUP:
                                 # standard groups to handle edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent
-                                current_component = cell_metadata.get_component_of_cell(current_cell)
+                                current_component = cell_metadata.get_component_of_cell(
+                                    current_cell
+                                )
                                 if (
                                     current_component
                                     in control_metadata.component_to_child_to_par_parent
@@ -608,13 +632,10 @@ class TraceData:
                                         current_component
                                     ][stack_element.name]
                                     parent_names = set()
-                                    if (
-                                            child_parent_info.child_type
-                                            == ParChildType.PAR
-                                        ):
-                                            raise ProfilerException(
-                                                "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
-                                            )
+                                    if child_parent_info.child_type == ParChildType.PAR:
+                                        raise ProfilerException(
+                                            "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
+                                        )
                                     parent_names.update(child_parent_info.parents)
                                     parent_found = False
                                     while (
