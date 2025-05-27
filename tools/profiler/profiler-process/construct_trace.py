@@ -103,7 +103,7 @@ def create_cycle_trace(
                 # TODO: if rewritten... then look for the rewritten cell from cell-active
                 # probably worth putting some info in the flame graph that the cell is rewritten from the originally coded one?
                 current_component = (
-                    cell_info.cell_to_component[current_cell]
+                    cell_info.get_component_of_cell(current_cell)
                     if current_cell != cell_info.main_component
                     else "main"
                 )
@@ -120,7 +120,7 @@ def create_cycle_trace(
                             f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!\n{info_this_cycle['cell-active']}"
                         )
                     cell_worklist.append(replacement_cell)
-                    cell_component = cell_info.cell_to_component[replacement_cell]
+                    cell_component = cell_info.get_component_of_cell(replacement_cell)
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[replacement_cell] = i_mapping[parent] + [
                         StackElement(
@@ -133,7 +133,7 @@ def create_cycle_trace(
                     parents.add(parent)
                 elif invoked_cell in info_this_cycle["cell-active"]:
                     cell_worklist.append(invoked_cell)
-                    cell_component = cell_info.cell_to_component[invoked_cell]
+                    cell_component = cell_info.get_component_of_cell(invoked_cell)
                     parent = f"{current_cell}.{cell_invoker_group}"
                     i_mapping[invoked_cell] = i_mapping[parent] + [
                         StackElement(
@@ -211,7 +211,8 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.control_metadata.add_signal_prefix(self.signal_prefix)
 
         # get go and done for cells (the signals are exactly {cell}.go and {cell}.done)
-        for cell in list(self.cell_metadata.cell_to_component.keys()):
+        print(self.cell_metadata.cells)
+        for cell in list(self.cell_metadata.cells):
             cell_go = cell + ".go"
             cell_done = cell + ".done"
             if cell_go not in vcd.references_to_ids:

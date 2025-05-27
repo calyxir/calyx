@@ -72,8 +72,6 @@ class CellMetadata:
     """
 
     main_component: str
-    # cell name --> component name
-    cell_to_component: dict[str, str]
     # component name --> [cell names]
     component_to_cells: dict[str, list[str]]
     # component name --> { old cell --> new cell}
@@ -94,16 +92,28 @@ class CellMetadata:
         str_to_add = signal_prefix + "."
         self.main_component = str_to_add + self.main_component
 
-        fq_cells = {f'{signal_prefix}.{cell}': comp for cell, comp in self.cell_to_component.items()}
-        self.cell_to_component = fq_cells
-
         for component in self.component_to_cells:
-            fully_qualified_cells = []
-            for cell in self.component_to_cells[component]:
-                fully_qualified_cells.append(str_to_add + cell)
-            self.component_to_cells[component] = fully_qualified_cells
+            fq_cells = [f"{signal_prefix}.{cell}" for cell in self.component_to_cells[component]]
+            self.component_to_cells[component] = fq_cells
 
         self.added_signal_prefix = True
+
+    def get_component_of_cell(self, cell: str):
+        """
+        Obtain the name of the component from which a cell comes from.
+        """
+        for component in self.component_to_cells:
+            if cell in self.component_to_cells[component]:
+                return component
+        raise ProfilerException(f"Lookup of cell that doesn't have a corresponding component! Cell name: {cell}")        
+
+    @property
+    def cells(self) -> list[str]:
+        cells = []
+        print(self.component_to_cells)
+        for component in self.component_to_cells:
+            cells += self.component_to_cells[component]
+        return cells
 
     @property
     def main_shortname(self):
@@ -240,19 +250,20 @@ class ControlMetadata:
 
         Updates: - field cell_to_ordered_pars
         """
-        for cell in sorted(
-            cell_metadata.cell_to_component.keys(), key=(lambda c: c.count("."))
-        ):
-            component = cell_metadata.cell_to_component[cell]
-            if component not in self.component_to_par_groups:
-                # ignore components that don't feature pars.
-                continue
-            pars = self.component_to_par_groups[component]
-            # the worklist starts with pars with no parent
-            pars_with_parent = [k for k, v in self.component_to_child_to_par_parent[component].items() if v.child_type == ParChildType.PAR]
 
-            # need to make all of the pars fully qualified before adding them to the worklist.
-            worklist: deque = deque([f"{cell}.{par}" for par in pars.difference(pars_with_parent)])
+        cells_to_pars_without_parent: dict[str, set[str]] = {}
+        for component in self.component_to_par_groups:
+            pars = self.component_to_par_groups[component]
+            pars_with_parent = [k for k, v in self.component_to_child_to_par_parent[component].items() if v.child_type == ParChildType.PAR]
+            pars_without_parent = pars.difference(pars_with_parent)
+            for cell in cell_metadata.component_to_cells[component]:
+                cells_to_pars_without_parent[cell] = pars_without_parent
+
+        for cell in sorted(cells_to_pars_without_parent.keys(), key=(lambda c: c.count("."))):
+
+            # worklist contains pars to check whether they have children
+            # the worklist starts with pars with no parent
+            worklist: deque[str] = deque([f"{cell}.{par}" for par in cells_to_pars_without_parent[cell]])
 
             while worklist:
                 par = worklist.pop()
@@ -262,7 +273,6 @@ class ControlMetadata:
                     # get all the children (who are pars) of this par.
                     # If this par is not in self.par_to_par_children, it means that it has no children who are pars.
                     worklist.extendleft(self.par_to_par_children[par])
-
 
 class StackElementType(Enum):
     GROUP = 1
@@ -585,9 +595,7 @@ class TraceData:
                                     current_cell += f".{stack_element.name}"
                             case StackElementType.GROUP:
                                 # standard groups to handle edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent
-                                current_component = cell_metadata.cell_to_component[
-                                    current_cell
-                                ]
+                                current_component = cell_metadata.get_component_of_cell(current_cell)
                                 if (
                                     current_component
                                     in control_metadata.component_to_child_to_par_parent

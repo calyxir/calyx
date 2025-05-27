@@ -78,7 +78,7 @@ def read_component_cell_names_json(json_file):
         for cell in components_to_cells[component]:
             cell_names_to_components[cell] = component
 
-    return CellMetadata(main_component, cell_names_to_components, components_to_cells)
+    return CellMetadata(main_component, components_to_cells)
 
 def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     """

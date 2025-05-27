@@ -33,7 +33,7 @@ def write_cell_stats(
     stats = []
     totals = {fieldname: 0 for fieldname in fieldnames}
     for cell in tracedata.cell_to_active_cycles:
-        component = cell_metadata.cell_to_component[cell]
+        component = cell_metadata.get_component_of_cell(cell)
         if component in control_metadata.component_to_fsms:
             num_fsms = len(control_metadata.component_to_fsms[component])
         else:
