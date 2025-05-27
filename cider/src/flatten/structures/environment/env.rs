@@ -504,21 +504,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     pub fn is_control_running(&self, control_idx: ControlIdx) -> bool {
-        self.get_currently_running_controls()
-            .any(|x| x == control_idx)
-    }
-
-    pub fn get_currently_running_controls(
-        &self,
-    ) -> impl Iterator<Item = ControlIdx> {
-        self.pc.iter().filter_map(|(_, point)| {
-            let comp_go = self.get_comp_go(point.comp).unwrap();
-            if self.ports[comp_go].as_bool().unwrap_or_default() {
-                Some(point.control_node_idx)
-            } else {
-                None
-            }
-        })
+        self.get_currently_running_nodes().any(|x| x == control_idx)
     }
 
     pub fn get_currently_running_nodes(
