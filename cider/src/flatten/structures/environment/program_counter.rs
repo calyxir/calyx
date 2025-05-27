@@ -113,7 +113,7 @@ impl SearchIndex {
 
 /// A path from a control node (usually root) to some descendent node/leaf in the control tree
 pub struct SearchPath {
-    pub path: Vec<SearchNode>,
+    path: Vec<SearchNode>,
 }
 
 impl SearchPath {
@@ -131,6 +131,10 @@ impl SearchPath {
 
     pub fn is_empty(&self) -> bool {
         self.path.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &SearchNode> {
+        self.path.iter()
     }
 
     /// Assuming the current node (i.e. the end of this path) has finished

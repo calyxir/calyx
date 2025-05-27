@@ -501,14 +501,13 @@ impl Context {
     ) -> String {
         let path = SearchPath::find_path_from_root(control_idx, self);
         let control_map = &self.primary.control;
-        let path_vec = path.path;
 
         let mut string_path = name.to_owned();
 
         string_path.push('.');
 
         // Remove first index
-        let mut iter = path_vec.iter();
+        let mut iter = path.iter();
         let node = iter.next().unwrap();
         let control_idx = node.node;
         let mut prev_control_node =
