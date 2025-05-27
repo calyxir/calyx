@@ -1,9 +1,6 @@
- 
+
 ---STDERR---
-==== [1mCider[0m: The [4mC[0malyx [4mI[0mnterpreter and [4mDe[0mbugge[4mr[0m ====   
-    Current breakpoints:
-    (0) main::fill_memory: enabled
-    (1) main::init: enabled
+==== [1mCider[0m: The [4mC[0malyx [4mI[0mnterpreter and [4mDe[0mbugge[4mr[0m ====
 Hit breakpoint: main::init
 Hit breakpoint: main::fill_memory
 Main component has finished executing. Debugger is now in inspection mode.
