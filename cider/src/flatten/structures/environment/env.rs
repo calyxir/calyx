@@ -513,101 +513,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     // ===================== Environment print implementations =====================
 
-    pub fn _print_env(&self) {
-        let root_idx = GlobalCellIdx::new(0);
-        let mut hierarchy = Vec::new();
-        self._print_component(root_idx, &mut hierarchy)
-    }
-
-    fn _print_component(
-        &self,
-        target: GlobalCellIdx,
-        hierarchy: &mut Vec<GlobalCellIdx>,
-    ) {
-        let info = self.cells[target].as_comp().unwrap();
-        let comp = &self.ctx.as_ref().secondary[info.comp_id];
-        hierarchy.push(target);
-
-        // This funky iterator chain first pulls the first element (the
-        // entrypoint) and extracts its name. Subsequent element are pairs of
-        // global offsets produced by a staggered iteration, yielding `(root,
-        // child)` then `(child, grandchild)` and so on. All the strings are
-        // finally collected and concatenated with a `.` separator to produce
-        // the fully qualified name prefix for the given component instance.
-        let name_prefix = hierarchy
-            .first()
-            .iter()
-            .map(|x| {
-                let info = self.cells[**x].as_comp().unwrap();
-                let prior_comp = &self.ctx.as_ref().secondary[info.comp_id];
-                &self.ctx.as_ref().secondary[prior_comp.name]
-            })
-            .chain(hierarchy.iter().zip(hierarchy.iter().skip(1)).map(
-                |(l, r)| {
-                    let info = self.cells[*l].as_comp().unwrap();
-                    let prior_comp = &self.ctx.as_ref().secondary[info.comp_id];
-                    let local_target = r - (&info.index_bases);
-
-                    let def_idx = &prior_comp.cell_offset_map[local_target];
-
-                    let id = &self.ctx.as_ref().secondary[*def_idx];
-                    &self.ctx.as_ref().secondary[id.name]
-                },
-            ))
-            .join(".");
-
-        for (cell_off, def_idx) in comp.cell_offset_map.iter() {
-            let definition = &self.ctx.as_ref().secondary[*def_idx];
-
-            println!(
-                "{}.{}",
-                name_prefix,
-                self.ctx.as_ref().secondary[definition.name]
-            );
-            for port in definition.ports.iter() {
-                let definition =
-                    &self.ctx.as_ref().secondary[comp.port_offset_map[port]];
-                println!(
-                    "    {}: {} ({:?})",
-                    self.ctx.as_ref().secondary[definition.name],
-                    self.ports[&info.index_bases + port],
-                    &info.index_bases + port
-                );
-            }
-
-            let cell_idx = &info.index_bases + cell_off;
-
-            if definition.prototype.is_component() {
-                self._print_component(cell_idx, hierarchy);
-            } else if self.cells[cell_idx]
-                .as_primitive()
-                .unwrap()
-                .has_serializable_state()
-            {
-                println!(
-                    "    INTERNAL_DATA: {}",
-                    serde_json::to_string_pretty(
-                        &self.cells[cell_idx]
-                            .as_primitive()
-                            .unwrap()
-                            .serialize(None)
-                    )
-                    .unwrap()
-                )
-            }
-        }
-
-        hierarchy.pop();
-    }
-
-    pub fn _print_env_stats(&self) {
-        println!("Environment Stats:");
-        println!("  Ports: {}", self.ports.len());
-        println!("  Cells: {}", self.cells.len());
-        println!("  Ref Cells: {}", self.ref_cells.len());
-        println!("  Ref Ports: {}", self.ref_ports.len());
-    }
-
     pub fn print_pc(&self) {
         let current_nodes = self.pc.iter().filter(|(_thread, point)| {
             let node =
@@ -1265,78 +1170,45 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self.env
     }
 
-    pub fn _print_env(&self) {
-        self.env._print_env()
-    }
+    delegate! {
+            to self.env {
+                pub fn ctx(&self) -> &Context;
+                pub fn is_group_running(&self, group_idx: GroupIdx) -> bool;
 
-    #[inline]
-    pub fn ctx(&self) -> &Context {
-        self.env.ctx.as_ref()
-    }
+                pub fn get_currently_running_groups(
+                    &self,
+                ) -> impl Iterator<Item = GroupIdx>;
 
-    pub fn _unpack_env(self) -> Environment<C> {
-        self.env
-    }
+                pub fn traverse_name_vec(
+                    &self,
+                    name: &[String],
+                ) -> Result<Path, TraversalError>;
 
-    pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
-        self.env.is_group_running(group_idx)
-    }
+                pub fn get_name_from_cell_and_parent(
+                    &self,
+                    parent: GlobalCellIdx,
+                    cell: GlobalCellIdx,
+                ) -> Identifier;
 
-    pub fn get_currently_running_groups(
-        &self,
-    ) -> impl Iterator<Item = GroupIdx> {
-        self.env.get_currently_running_groups()
-    }
-
-    pub fn traverse_name_vec(
-        &self,
-        name: &[String],
-    ) -> Result<Path, TraversalError> {
-        self.env.traverse_name_vec(name)
-    }
-
-    pub fn get_name_from_cell_and_parent(
-        &self,
-        parent: GlobalCellIdx,
-        cell: GlobalCellIdx,
-    ) -> Identifier {
-        self.env.get_name_from_cell_and_parent(parent, cell)
-    }
-
-    #[inline]
-    pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String {
-        self.env.get_full_name(nameable)
-    }
-
-    pub fn print_pc(&self) {
-        self.env.print_pc()
-    }
-
-    pub fn print_pc_string(&self) {
-        self.env.print_pc_string()
-    }
-
-    /// Pins the port with the given name to the given value. This may only be
-    /// used for input ports on the entrypoint component (excluding the go port)
-    /// and will panic if used otherwise. Intended for external use.
-    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
-        self.env.pin_value(port, val)
-    }
-
-    /// Unpins the port with the given name. This may only be
-    /// used for input ports on the entrypoint component (excluding the go port)
-    /// and will panic if used otherwise. Intended for external use.
-    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
-        self.env.unpin_value(port)
-    }
-
-    /// Lookup the value of a port on the entrypoint component by name. Will
-    /// error if the port is not found.
-    pub fn lookup_port_from_string(
-        &self,
-        port: &String,
-    ) -> Option<BitVecValue> {
-        self.env.lookup_port_from_string(port)
+                #[inline]
+                pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String;
+                pub fn print_pc(&self);
+                pub fn print_pc_string(&self);
+                /// Pins the port with the given name to the given value. This may only be
+                /// used for input ports on the entrypoint component (excluding the go port)
+                /// and will panic if used otherwise. Intended for external use.
+                pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue);
+                /// Unpins the port with the given name. This may only be
+                /// used for input ports on the entrypoint component (excluding the go port)
+                /// and will panic if used otherwise. Intended for external use.
+                pub fn unpin_value<S: AsRef<str>>(&mut self, port: S);
+                /// Lookup the value of a port on the entrypoint component by name. Will
+                /// error if the port is not found.
+                pub fn lookup_port_from_string(
+                    &self,
+                    port: &String,
+                ) -> Option<BitVecValue>;
+        }
     }
 
     /// Return an iterator over all cells that are in scope for the current set
