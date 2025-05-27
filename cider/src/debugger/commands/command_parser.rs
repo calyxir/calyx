@@ -148,18 +148,20 @@ impl CommandParser {
     fn brk_id(input: Node) -> ParseResult<ParsedBreakPointID> {
         Ok(match_nodes!(input.into_children();
                 [num(n)] => n.into(),
-                [group(g)] => g.into()
+                [break_target(target)] => target.into()
+        ))
+    }
+
+    fn break_target(input: Node) -> ParseResult<BreakTarget> {
+        Ok(match_nodes!(input.into_children();
+            [breakpoint_path(p)] => BreakTarget::Path(p),
+            [group(g)] => BreakTarget::Name(g)
         ))
     }
 
     fn brk(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [group(g)..] => {
-                Command::Break(g.map(BreakTarget::Name).collect())
-            },
-            [breakpoint_path(p)..] => {
-                Command::Break(p.map(BreakTarget::Path).collect())
-            }
+            [break_target(targets)..] => Command::Break(targets.collect())
         ))
     }
 

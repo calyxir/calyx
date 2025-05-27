@@ -123,6 +123,12 @@ pub enum ParsedBreakPointID {
     Number(u32),
 }
 
+impl From<BreakTarget> for ParsedBreakPointID {
+    fn from(v: BreakTarget) -> Self {
+        Self::Target(v)
+    }
+}
+
 impl ParsedBreakPointID {
     /// Attempts to parse the breakpoint from user input into a concrete [BreakpointID].
     pub fn parse_to_break_ids(

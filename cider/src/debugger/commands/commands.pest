@@ -72,9 +72,9 @@ display    = { ^"display" | ^"d" }
 info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
 info_watch = { (^"info" ~ ^"watch") | ^"i" ~ ^"w" }
 
-// For now we assume we have all groups or all breakpoints
-brk    = { (^"break " | ^"br ") ~ (breakpoint_path+ | group+) }
-brk_id = { (group | num) }
+break_target = { breakpoint_path | group }
+brk          = { (^"break " | ^"br ") ~ break_target+ }
+brk_id       = { (break_target | num) }
 
 delete = { (^"delete " | ^"del ") ~ brk_id+ }
 
