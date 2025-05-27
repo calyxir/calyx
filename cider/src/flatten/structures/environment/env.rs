@@ -3228,14 +3228,12 @@ impl<C: AsRef<Context> + Clone> Simulator<C> {
         wave_file: &Option<std::path::PathBuf>,
         runtime_config: RuntimeConfig,
     ) -> Result<Self, BoxedCiderError> {
-        let data_dump = data_file
-            .as_ref()
-            .map(|path| {
-                let mut file = std::fs::File::open(path)?;
-                DataDump::deserialize(&mut file)
-            })
-            // flip to a result of an option
-            .map_or(Ok(None), |res| res.map(Some))?;
+        let data_dump = if let Some(path) = data_file {
+            let mut file = std::fs::File::open(path)?;
+            Some(DataDump::deserialize(&mut file)?)
+        } else {
+            None
+        };
         let env = Environment::new(
             ctx,
             data_dump,
