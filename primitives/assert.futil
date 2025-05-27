@@ -1,8 +1,8 @@
 
 extern "assert.sv" {
-   primitive assert_prim(@data in: 1, en: 1, @clk clk:1, @reset reset: 1) -> (out: 1);
-  // WARNING: `done` must be referenced, or this will be optimized out
-  // TODO (elam) how do we `dont_touch` this?
-
+  primitive assert_prim(@data in: 1, en: 1, @clk clk:1, @reset reset: 1) -> (out: 1);
+  // WARNING: this may be optimized out if not all of its signals (e.g. `done`/`out`) are referenced.
+  // use @protected at declaration time to prevent this
+  // TODO: there should be a way to globally protect a component/primitive
 
 }

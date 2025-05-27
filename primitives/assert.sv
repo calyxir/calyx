@@ -1,9 +1,9 @@
-module assert_prim #() (
+module assert_prim (
    input wire logic clk,
-   input wire logic reset,                        
+   input wire logic reset,
    input logic in,
    input logic en,
-                        output logic out
+   output logic out
 );
     always_ff @(posedge clk) begin
        out <= in;
