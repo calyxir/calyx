@@ -601,82 +601,104 @@ class TraceData:
         cell_metadata: CellMetadata,
         control_metadata: ControlMetadata,
     ):
+        """
+        Populates the field trace_with_control_groups by combining control group information (from control_groups_trace) with self.trace.
+        Does not modify self.trace.
+        """
         control_metadata.order_pars(cell_metadata)
         for i in self.trace:
             if i in control_groups_trace:
                 self.trace_with_control_groups[i] = CycleTrace()
                 for events_stack in self.trace[i].stacks:
-                    new_events_stack: list[StackElement] = []
-                    for stack_element in events_stack:
-                        new_events_stack.append(stack_element)
-                        match stack_element.element_type:
-                            case StackElementType.CELL:
-                                if stack_element.is_main:
-                                    current_cell = f"{cell_metadata.signal_prefix}.{stack_element.name}"
-                                else:
-                                    current_cell += f".{stack_element.name}"
-                            case StackElementType.GROUP:
-                                # standard groups to handle edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent
-                                current_component = cell_metadata.get_component_of_cell(
-                                    current_cell
-                                )
-                                if (
-                                    current_component
-                                    in control_metadata.component_to_child_to_par_parent
-                                    and stack_element.name
-                                    in control_metadata.component_to_child_to_par_parent[
-                                        current_component
-                                    ]
-                                ):
-                                    child_parent_info: ParChildInfo = control_metadata.component_to_child_to_par_parent[
-                                        current_component
-                                    ][stack_element.name]
-                                    parent_names = set()
-                                    if child_parent_info.child_type == ParChildType.PAR:
-                                        raise ProfilerException(
-                                            "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
-                                        )
-                                    parent_names.update(child_parent_info.parents)
-                                    parent_found = False
-                                    while (
-                                        len(new_events_stack) > 2
-                                        and new_events_stack[-2].element_type
-                                        == StackElementType.CONTROL_GROUP
-                                    ):
-                                        # FIXME: We currently assume that all StackElementType.CONTROL_GROUP are pars, so we can pull this trick
-                                        # NOTE: we may need to fix this in the future when there are multiple StackElementType.CONTROL_GROUP
-                                        for parent in parent_names:
-                                            if parent == new_events_stack[-2].name:
-                                                parent_found = True
-                                                break
-                                        if parent_found:
-                                            break
-                                        new_events_stack.pop(-2)
-                                    continue
-                                continue
-                            case StackElementType.PRIMITIVE:
-                                continue
-                        if current_cell in control_metadata.cell_to_ordered_pars:
-                            active_from_cell = control_groups_trace[i].intersection(
-                                control_metadata.cell_to_ordered_pars[current_cell]
-                            )
-                            for par_group_active in sorted(
-                                active_from_cell,
-                                key=(
-                                    lambda p: control_metadata.cell_to_ordered_pars[
-                                        current_cell
-                                    ].index(p)
-                                ),
-                            ):
-                                par_group_name = par_group_active.split(".")[-1]
-                                new_events_stack.append(
-                                    StackElement(
-                                        par_group_name, StackElementType.CONTROL_GROUP
-                                    )
-                                )
+                    new_events_stack = self._create_events_stack_with_control_groups(
+                        events_stack,
+                        cell_metadata,
+                        control_metadata,
+                        control_groups_trace[i],
+                    )
                     self.trace_with_control_groups[i].add_stack(new_events_stack)
             else:
                 self.trace_with_control_groups[i] = copy.copy(self.trace[i])
+
+    def _create_events_stack_with_control_groups(
+        self,
+        events_stack: list[StackElement],
+        cell_metadata: CellMetadata,
+        control_metadata: ControlMetadata,
+        active_control_groups: set[str],
+    ):
+        """
+        Helper method for create_trace_with_control_groups(). Returns new StackElement list that contain active control groups.
+        """
+        events_stack_with_ctrl: list[StackElement] = []
+        for stack_element in events_stack:
+            events_stack_with_ctrl.append(stack_element)
+            match stack_element.element_type:
+                case StackElementType.CELL:
+                    if stack_element.is_main:
+                        current_cell = (
+                            f"{cell_metadata.signal_prefix}.{stack_element.name}"
+                        )
+                    else:
+                        current_cell += f".{stack_element.name}"
+                case StackElementType.GROUP:
+                    # standard groups to handle edge case of nested pars concurrent with groups; pop any pars that aren't this group's parent
+                    current_component = cell_metadata.get_component_of_cell(
+                        current_cell
+                    )
+                    if (
+                        current_component
+                        in control_metadata.component_to_child_to_par_parent
+                        and stack_element.name
+                        in control_metadata.component_to_child_to_par_parent[
+                            current_component
+                        ]
+                    ):
+                        child_parent_info: ParChildInfo = (
+                            control_metadata.component_to_child_to_par_parent[
+                                current_component
+                            ][stack_element.name]
+                        )
+                        parent_names = set()
+                        if child_parent_info.child_type == ParChildType.PAR:
+                            raise ProfilerException(
+                                "A normal group should not be stored as a par group under control_metadata.component_to_child_to_par_parent"
+                            )
+                        parent_names.update(child_parent_info.parents)
+                        parent_found = False
+                        while (
+                            len(events_stack_with_ctrl) > 2
+                            and events_stack_with_ctrl[-2].element_type
+                            == StackElementType.CONTROL_GROUP
+                        ):
+                            # FIXME: We currently assume that all StackElementType.CONTROL_GROUP are pars, so we can pull this trick
+                            # NOTE: we may need to fix this in the future when there are multiple StackElementType.CONTROL_GROUP
+                            for parent in parent_names:
+                                if parent == events_stack_with_ctrl[-2].name:
+                                    parent_found = True
+                                    break
+                            if parent_found:
+                                break
+                            events_stack_with_ctrl.pop(-2)
+                        continue
+                    continue
+            if current_cell in control_metadata.cell_to_ordered_pars:
+                active_from_cell = active_control_groups.intersection(
+                    control_metadata.cell_to_ordered_pars[current_cell]
+                )
+                for par_group_active in sorted(
+                    active_from_cell,
+                    key=(
+                        lambda p: control_metadata.cell_to_ordered_pars[
+                            current_cell
+                        ].index(p)
+                    ),
+                ):
+                    par_group_name = par_group_active.split(".")[-1]
+                    events_stack_with_ctrl.append(
+                        StackElement(par_group_name, StackElementType.CONTROL_GROUP)
+                    )
+        return events_stack_with_ctrl
 
     def add_sourceloc_info(self, adl_map: AdlMap):
         """
