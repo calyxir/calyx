@@ -8,7 +8,7 @@ component main() -> () {
     b = std_const(32, 41);
     eq = std_eq(32);
     tmp_reg = std_reg(1);
-    my_assert = assert_prim();
+    my_assert = std_assert();
   }
 
   wires {
