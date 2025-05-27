@@ -20,39 +20,152 @@ def remove_size_from_name(name: str) -> str:
     """changes e.g. "state[2:0]" to "state" """
     return name.split("[")[0]
 
+def add_control_enables(cell_name: str, active_groups: set[str], structural_enables: set[str], elem_name_to_stack: dict[str, list[StackElement]], parents: set[str]):
+    """
+    Processes groups enabled by control in `cell_name` in this cycle. To be called by create_cycle_trace().
+
+    Updates:
+        - elem_name_to_stack: Adds a mapping from enabled groups' names to their stacks
+        - parents: Registers `cell_name` as a parent of enabled groups
+
+    Returns: 
+        - control_enables: groups from this component that are enabled via control
+    """
+    for active_unit in active_groups.difference(structural_enables):
+        shortname = active_unit.split(".")[-1]
+        elem_name_to_stack[active_unit] = elem_name_to_stack[cell_name] + [
+            StackElement(shortname, StackElementType.GROUP)
+        ]
+        parents.add(cell_name)
+
+def add_structural_enables(cell_name: str, structural_enables: set[str], elem_name_to_stack: dict[str, list[StackElement]], parents: set[str]):
+    """
+    Processes 
+    """
+
+    covered_se: set[str] = set()
+    while len(covered_se) < len(structural_enables):
+        # loop through all other elements to figure out parent child info (structural enables)
+        for group in structural_enables:
+            if group in elem_name_to_stack:
+                # the group has been processed already
+                continue
+            shortname = group.split(".")[-1]
+            for parent_group in structural_enables[group]:
+                parent = f"{cell_name}.{parent_group}"
+                # if parent is not present, it means that the parent is also structurally enabled, and hasn't been processed yet
+                if parent in elem_name_to_stack:
+                    elem_name_to_stack[group] = elem_name_to_stack[parent] + [
+                        StackElement(shortname, StackElementType.GROUP)
+                    ]
+                    covered_se.add(group)
+                    parents.add(parent)
+
+def add_primitives(current_cell: str, primitive_enables: set[str], elem_name_to_stack: dict[str, list[StackElement]], parents: set[str]):
+    """
+    Processes primitives active this cycle in `current_cell` to the stack. To be called by create_cycle_trace().
+
+    Updates:
+        - elem_name_to_stack: Adds a mapping from the primitive's name to the primitive's stack
+        - parents: Registers the primitive's caller group as a parent
+    """
+    for primitive_parent_group in primitive_enables:
+        for primitive_name in primitive_enables[primitive_parent_group]:
+            primitive_parent = f"{current_cell}.{primitive_parent_group}"
+            primitive_shortname = primitive_name.split(".")[-1]
+            elem_name_to_stack[primitive_name] = elem_name_to_stack[primitive_parent] + [
+                StackElement(primitive_shortname, StackElementType.PRIMITIVE)
+            ]
+            parents.add(primitive_parent)
+
+def add_invoked_cells(cell_name: str, cell_info: CellMetadata, shared_cell_map: dict[str, dict[str, str]], cell_invokes: dict[str, dict[str, str]], active_cells: set[str], elem_name_to_stack: dict[str, list[StackElement]], parents: set[str]):
+    """
+    
+    """
+    invoked_cells = []
+    for cell_invoker_group in cell_invokes:
+        for invoked_cell in cell_invokes[cell_invoker_group]:
+            # TODO: if rewritten... then look for the rewritten cell from cell-active
+            # probably worth putting some info in the flame graph that the cell is rewritten from the originally coded one?
+            current_component = (
+                cell_info.get_component_of_cell(cell_name)
+                if cell_name != cell_info.main_component
+                else cell_info.main_shortname
+            )
+            cell_split = invoked_cell.split(".")
+            cell_shortname = cell_split[-1]
+            cell_prefix = ".".join(cell_split[:-1])
+            if current_component in shared_cell_map and cell_shortname in shared_cell_map[current_component]:
+                replacement_cell_shortname = shared_cell_map[current_component][
+                    cell_shortname
+                ]
+                replacement_cell = f"{cell_prefix}.{replacement_cell_shortname}"
+                if replacement_cell not in active_cells:
+                    raise ProfilerException(
+                        f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!\n{active_cells}"
+                    )
+                invoked_cells.append(replacement_cell)
+                cell_component = cell_info.get_component_of_cell(replacement_cell)
+                parent = f"{cell_name}.{cell_invoker_group}"
+                elem_name_to_stack[replacement_cell] = elem_name_to_stack[parent] + [
+                    StackElement(
+                        cell_shortname,
+                        StackElementType.CELL,
+                        component_name=cell_component,
+                        replacement_cell_name=replacement_cell_shortname,
+                    )
+                ]
+                parents.add(parent)
+            elif invoked_cell in active_cells:
+                invoked_cells.append(invoked_cell)
+                cell_component = cell_info.get_component_of_cell(invoked_cell)
+                parent = f"{cell_name}.{cell_invoker_group}"
+                elem_name_to_stack[invoked_cell] = elem_name_to_stack[parent] + [
+                    StackElement(
+                        cell_shortname,
+                        StackElementType.CELL,
+                        component_name=cell_component,
+                    )
+                ]
+                parents.add(parent)
+
+    return invoked_cells
+
 
 def create_cycle_trace(
     cell_info: CellMetadata,
-    info_this_cycle,
-    shared_cell_map,
-    include_primitives,
+    info_this_cycle: dict[str, str | dict[str, str]],
+    shared_cell_map: dict[str, dict[str, str]],
+    include_primitives: bool,
 ):
+    """
+    Creates a CycleTrace object for stack elements in this cycle, computing the dependencies between them.
+    """
     assert cell_info is not None
     stacks_this_cycle: list[list[StackElement]] = []
-    parents = set()  # keeping track of entities that are parents of other entities
-    i_mapping: dict[
+    parents: set[str] = set()  # keeping track of entities that are parents of other entities
+    elem_name_to_stack: dict[
         str, list[StackElement]
     ] = {}  # each unique group inv mapping to its stack. the "group" should be the last item on each stack
     main_shortname = cell_info.main_shortname
-    i_mapping[cell_info.main_component] = [
+    elem_name_to_stack[cell_info.main_component] = [
         StackElement(main_shortname, StackElementType.CELL, is_main=True)
     ]
     cell_worklist = [cell_info.main_component]  # worklist of cell names
     while cell_worklist:
         current_cell = cell_worklist.pop()
-        covered_units_in_component = set()  # collect all of the units we've covered.
         # catch all active units that are groups in this component.
-        units_to_cover = (
+        active_groups: set[str] = (
             info_this_cycle["group-active"][current_cell]
             if current_cell in info_this_cycle["group-active"]
             else set()
         )
-        structural_enables = (
+        structural_enables: set[str] = (
             info_this_cycle["structural-enable"][current_cell]
             if current_cell in info_this_cycle["structural-enable"]
             else set()
         )
-        primitive_enables = (
+        primitive_enables: set[str] = (
             info_this_cycle["primitive-enable"][current_cell]
             if current_cell in info_this_cycle["primitive-enable"]
             else set()
@@ -60,93 +173,28 @@ def create_cycle_trace(
         cell_invokes = (
             info_this_cycle["cell-invoke"][current_cell]
             if current_cell in info_this_cycle["cell-invoke"]
-            else set()
+            else dict()
         )
-        # find all enables from control. these are all units that either (1) don't have any maps in call_stack_probes_info, or (2) have no active parent calls in call_stack_probes_info
-        for active_unit in units_to_cover:
-            shortname = active_unit.split(".")[-1]
-            if active_unit not in structural_enables:
-                i_mapping[active_unit] = i_mapping[current_cell] + [
-                    StackElement(shortname, StackElementType.GROUP)
-                ]
-                parents.add(current_cell)
-                covered_units_in_component.add(active_unit)
+
+        # obtain and process control enables
+        add_control_enables(current_cell, active_groups, structural_enables, elem_name_to_stack, parents)
+
         # get all of the other active units
-        while len(covered_units_in_component) < len(units_to_cover):
-            # loop through all other elements to figure out parent child info (structural enables)
-            for active_unit in units_to_cover:
-                shortname = active_unit.split(".")[-1]
-                if active_unit in i_mapping:
-                    continue
-                for parent_group in structural_enables[active_unit]:
-                    parent = f"{current_cell}.{parent_group}"
-                    if parent in i_mapping:
-                        i_mapping[active_unit] = i_mapping[parent] + [
-                            StackElement(shortname, StackElementType.GROUP)
-                        ]
-                        covered_units_in_component.add(active_unit)
-                        parents.add(parent)
+        add_structural_enables(current_cell, structural_enables, elem_name_to_stack, parents)
+            
         # get primitives if requested.
         if include_primitives:
-            for primitive_parent_group in primitive_enables:
-                for primitive_name in primitive_enables[primitive_parent_group]:
-                    primitive_parent = f"{current_cell}.{primitive_parent_group}"
-                    primitive_shortname = primitive_name.split(".")[-1]
-                    i_mapping[primitive_name] = i_mapping[primitive_parent] + [
-                        StackElement(primitive_shortname, StackElementType.PRIMITIVE)
-                    ]
-                    parents.add(primitive_parent)
+            add_primitives(current_cell, primitive_enables, elem_name_to_stack, parents)
+
         # by this point, we should have covered all groups in the same component...
         # now we need to construct stacks for any cells that are called from a group in the current component.
-        for cell_invoker_group in cell_invokes:
-            for invoked_cell in cell_invokes[cell_invoker_group]:
-                # TODO: if rewritten... then look for the rewritten cell from cell-active
-                # probably worth putting some info in the flame graph that the cell is rewritten from the originally coded one?
-                current_component = (
-                    cell_info.get_component_of_cell(current_cell)
-                    if current_cell != cell_info.main_component
-                    else "main"
-                )
-                cell_split = invoked_cell.split(".")
-                cell_shortname = cell_split[-1]
-                cell_prefix = ".".join(cell_split[:-1])
-                if cell_shortname in shared_cell_map[current_component]:
-                    replacement_cell_shortname = shared_cell_map[current_component][
-                        cell_shortname
-                    ]
-                    replacement_cell = f"{cell_prefix}.{replacement_cell_shortname}"
-                    if replacement_cell not in info_this_cycle["cell-active"]:
-                        raise ProfilerException(
-                            f"Replacement cell {replacement_cell_shortname} for cell {invoked_cell} not found in active cells list!\n{info_this_cycle['cell-active']}"
-                        )
-                    cell_worklist.append(replacement_cell)
-                    cell_component = cell_info.get_component_of_cell(replacement_cell)
-                    parent = f"{current_cell}.{cell_invoker_group}"
-                    i_mapping[replacement_cell] = i_mapping[parent] + [
-                        StackElement(
-                            cell_shortname,
-                            StackElementType.CELL,
-                            component_name=cell_component,
-                            replacement_cell_name=replacement_cell_shortname,
-                        )
-                    ]
-                    parents.add(parent)
-                elif invoked_cell in info_this_cycle["cell-active"]:
-                    cell_worklist.append(invoked_cell)
-                    cell_component = cell_info.get_component_of_cell(invoked_cell)
-                    parent = f"{current_cell}.{cell_invoker_group}"
-                    i_mapping[invoked_cell] = i_mapping[parent] + [
-                        StackElement(
-                            cell_shortname,
-                            StackElementType.CELL,
-                            component_name=cell_component,
-                        )
-                    ]
-                    parents.add(parent)
+        invoked_cells: list[str] = add_invoked_cells(current_cell, cell_info, shared_cell_map, cell_invokes, info_this_cycle["cell-active"], elem_name_to_stack, parents)
+        cell_worklist += invoked_cells
+
     # Only retain paths that lead to leaf nodes.
-    for elem in i_mapping:
+    for elem in elem_name_to_stack:
         if elem not in parents:
-            stacks_this_cycle.append(i_mapping[elem])
+            stacks_this_cycle.append(elem_name_to_stack[elem])
 
     return CycleTrace(stacks_this_cycle)
 
@@ -296,7 +344,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         int_value
                     )
 
-    def postprocess(self, shared_cells_map):
+    def postprocess(self, shared_cells_map: dict[str, dict[str, str]]):
         """
         Postprocess data mapping timestamps to events (signal changes)
         We have to postprocess instead of processing signals in a stream because
@@ -307,9 +355,9 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
 
         clock_cycles = -1  # will be 0 on the 0th cycle
         started = False
-        cell_active = set()
-        group_active = set()
-        structural_enable_active = set()
+        cell_active: set[str] = set()
+        group_active: set[str] = set()
+        structural_enable_active: set[str] = set()
         cell_enable_active = set()
         primitive_enable = set()
 
