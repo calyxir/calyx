@@ -520,7 +520,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                         else:
                             cell_to_val_changes[cell_name] = upd
 
-                        update_cell_to_change_type(
+                        cell_to_change_type[cell_name] = get_new_cell_to_change_type(
                             reg_name, cell_name, cell_to_change_type
                         )
 
@@ -536,26 +536,33 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         return (control_group_events, control_reg_per_cycle)
 
 
-def update_cell_to_change_type(
+def get_new_cell_to_change_type(
     reg_name: str, cell_name: str, cell_to_change_type: dict[str, ControlRegUpdateType]
 ):
+    """
+    Returns a new value of `cell_name`'s ControlRegUpdateType, based on the updated control register and the current ControlRegUpdateType.
+
+    reg_name: the control register that just got updated
+    cell_name: the cell from which the control register comes from
+    cell_to_change_type: dict containing current values of ControlRegUpdateTypes.
+    """
     par_done_indicator = ".pd"
     fsm_indicator = ".fsm"
     if cell_name not in cell_to_change_type:
         if par_done_indicator in reg_name:
-            cell_to_change_type[cell_name] = ControlRegUpdateType.PAR_DONE
+            return ControlRegUpdateType.PAR_DONE
         elif fsm_indicator in reg_name:
-            cell_to_change_type[cell_name] = ControlRegUpdateType.FSM
+            return ControlRegUpdateType.FSM
     elif (
         par_done_indicator in reg_name
         and cell_to_change_type[cell_name] == ControlRegUpdateType.FSM
     ):
-        cell_to_change_type[cell_name] = ControlRegUpdateType.BOTH
+        return ControlRegUpdateType.BOTH
     elif (
         fsm_indicator in reg_name
         and cell_to_change_type[cell_name] == ControlRegUpdateType.PAR_DONE
     ):
-        cell_to_change_type[cell_name] = ControlRegUpdateType.BOTH
+        return ControlRegUpdateType.BOTH
 
 
 def add_par_to_trace(
