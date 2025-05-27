@@ -1,4 +1,4 @@
-module assert_prim (
+module std_assert (
    input wire logic clk,
    input wire logic reset,
    input logic in,
