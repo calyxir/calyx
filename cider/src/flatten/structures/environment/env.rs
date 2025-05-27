@@ -58,24 +58,27 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     pub(super) ref_cells: RefCellMap,
     /// A map from global ref port IDs to the port they reference, if any.
     pub(super) ref_ports: RefPortMap,
-
     /// The program counter for the whole program execution.
-    pub(super) pc: ProgramCounter,
-
+    pc: ProgramCounter,
+    /// A largely unused map which will force a given port to have a given
+    /// value. Mostly meant for use with external tools.
     pinned_ports: PinnedPorts,
-
+    /// Contains all the vector clocks used by the program
     clocks: ClockMap,
+    /// Contains information about the threads running within the program.
     thread_map: ThreadMap,
+    /// A map containing all the control ports in the program and the width of
+    /// the port. Should probably be replaced with a bitset and some extra logic
+    /// to lookup widths
     control_ports: FxHashMap<GlobalPortIdx, u32>,
-
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
-    pub(super) ctx: C,
-
+    ctx: C,
     memory_header: Option<Vec<MemoryDeclaration>>,
     logger: Logger,
-
+    /// Reverse map from ports to the cells they are attached to. Used to
+    /// determine which primitives to re=evaluate
     ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
 }
 
