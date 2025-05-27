@@ -43,6 +43,7 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
 use cider_idx::{IndexRef, maps::SecondaryMap};
+use delegate::delegate;
 use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
@@ -1241,168 +1242,15 @@ impl ControlNodeEval {
     }
 }
 
-/// The core functionality of a simulator. Clonable.
-#[derive(Clone)]
-pub struct BaseSimulator<C: AsRef<Context> + Clone> {
-    env: Environment<C>,
-    conf: RuntimeConfig,
-}
-
 /// A wrapper struct for the environment that provides the functions used to
 /// simulate the actual program.
 ///
 /// This is just to keep the simulation logic under a different namespace than
 /// the environment to avoid confusion
-pub struct Simulator<C: AsRef<Context> + Clone> {
-    base: BaseSimulator<C>,
-    wave: Option<WaveWriter>,
-}
-
-impl<C: AsRef<Context> + Clone> Simulator<C> {
-    pub fn build_simulator(
-        ctx: C,
-        data_file: &Option<std::path::PathBuf>,
-        wave_file: &Option<std::path::PathBuf>,
-        runtime_config: RuntimeConfig,
-    ) -> Result<Self, BoxedCiderError> {
-        let data_dump = data_file
-            .as_ref()
-            .map(|path| {
-                let mut file = std::fs::File::open(path)?;
-                DataDump::deserialize(&mut file)
-            })
-            // flip to a result of an option
-            .map_or(Ok(None), |res| res.map(Some))?;
-        let env = Environment::new(
-            ctx,
-            data_dump,
-            runtime_config.check_data_race,
-            runtime_config.get_logging_config(),
-        );
-        let wave =
-            wave_file.as_ref().map(|p| match WaveWriter::open(p, &env) {
-                Ok(w) => w,
-                Err(err) => {
-                    todo!("deal more gracefully with error: {err:?}")
-                }
-            });
-        Ok(Self {
-            base: BaseSimulator::new(env, runtime_config),
-            wave,
-        })
-    }
-
-    pub fn is_done(&self) -> bool {
-        self.base.is_done()
-    }
-
-    pub fn step(&mut self) -> CiderResult<()> {
-        self.base.step()
-    }
-
-    pub fn converge(&mut self) -> CiderResult<()> {
-        self.base.converge()
-    }
-
-    pub fn get_currently_running_groups(
-        &self,
-    ) -> impl Iterator<Item = GroupIdx> {
-        self.base.get_currently_running_groups()
-    }
-
-    pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
-        self.base.is_group_running(group_idx)
-    }
-
-    pub fn print_pc(&self) {
-        self.base.print_pc();
-    }
-
-    pub fn format_cell_state(
-        &self,
-        cell_idx: GlobalCellIdx,
-        print_code: PrintCode,
-        name: Option<&str>,
-    ) -> Option<String> {
-        self.base.format_cell_state(cell_idx, print_code, name)
-    }
-
-    pub fn format_cell_ports(
-        &self,
-        cell_idx: GlobalCellIdx,
-        print_code: PrintCode,
-        name: Option<&str>,
-    ) -> String {
-        self.base.format_cell_ports(cell_idx, print_code, name)
-    }
-
-    pub fn format_port_value(
-        &self,
-        port_idx: GlobalPortIdx,
-        print_code: PrintCode,
-    ) -> String {
-        self.base.format_port_value(port_idx, print_code)
-    }
-
-    pub fn traverse_name_vec(
-        &self,
-        name: &[String],
-    ) -> Result<Path, TraversalError> {
-        self.base.traverse_name_vec(name)
-    }
-
-    pub fn get_full_name<N>(&self, nameable: N) -> String
-    where
-        N: GetFullName<C>,
-    {
-        self.base.get_full_name(nameable)
-    }
-
-    pub(crate) fn env(&self) -> &Environment<C> {
-        self.base.env()
-    }
-
-    /// Evaluate the entire program
-    pub fn run_program(&mut self) -> CiderResult<()> {
-        if self.base.conf.debug_logging {
-            info!(self.base.env().logger, "Starting program execution");
-        }
-
-        match self.base.run_program_inner(self.wave.as_mut()) {
-            Ok(_) => {
-                if self.base.conf.debug_logging {
-                    info!(self.base.env().logger, "Finished program execution");
-                }
-                Ok(())
-            }
-            Err(e) => {
-                if self.base.conf.debug_logging {
-                    slog::error!(
-                        self.base.env().logger,
-                        "Program execution failed with error: {}",
-                        e.stylize_error()
-                    );
-                }
-                Err(e)
-            }
-        }
-    }
-
-    pub fn dump_memories(
-        &self,
-        dump_registers: bool,
-        all_mems: bool,
-    ) -> DataDump {
-        self.base.dump_memories(dump_registers, all_mems)
-    }
-
-    pub fn print_pc_string(&self) {
-        self.base.print_pc_string()
-    }
-
-    pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx> {
-        self.base.iter_active_cells()
-    }
+#[derive(Clone)]
+pub struct BaseSimulator<C: AsRef<Context> + Clone> {
+    env: Environment<C>,
+    conf: RuntimeConfig,
 }
 
 impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
@@ -3363,6 +3211,122 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             Some(output)
         } else {
             None
+        }
+    }
+}
+
+/// The standard simulator used by Cider with the option to write out a waveform.
+pub struct Simulator<C: AsRef<Context> + Clone> {
+    base: BaseSimulator<C>,
+    wave: Option<WaveWriter>,
+}
+
+impl<C: AsRef<Context> + Clone> Simulator<C> {
+    pub fn build_simulator(
+        ctx: C,
+        data_file: &Option<std::path::PathBuf>,
+        wave_file: &Option<std::path::PathBuf>,
+        runtime_config: RuntimeConfig,
+    ) -> Result<Self, BoxedCiderError> {
+        let data_dump = data_file
+            .as_ref()
+            .map(|path| {
+                let mut file = std::fs::File::open(path)?;
+                DataDump::deserialize(&mut file)
+            })
+            // flip to a result of an option
+            .map_or(Ok(None), |res| res.map(Some))?;
+        let env = Environment::new(
+            ctx,
+            data_dump,
+            runtime_config.check_data_race,
+            runtime_config.get_logging_config(),
+        );
+        let wave =
+            wave_file.as_ref().map(|p| match WaveWriter::open(p, &env) {
+                Ok(w) => w,
+                Err(err) => {
+                    todo!("deal more gracefully with error: {err:?}")
+                }
+            });
+        Ok(Self {
+            base: BaseSimulator::new(env, runtime_config),
+            wave,
+        })
+    }
+
+    /// Evaluate the entire program
+    pub fn run_program(&mut self) -> CiderResult<()> {
+        if self.base.conf.debug_logging {
+            info!(self.base.env().logger, "Starting program execution");
+        }
+
+        match self.base.run_program_inner(self.wave.as_mut()) {
+            Ok(_) => {
+                if self.base.conf.debug_logging {
+                    info!(self.base.env().logger, "Finished program execution");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                if self.base.conf.debug_logging {
+                    slog::error!(
+                        self.base.env().logger,
+                        "Program execution failed with error: {}",
+                        e.stylize_error()
+                    );
+                }
+                Err(e)
+            }
+        }
+    }
+
+    delegate! {
+        to self.base {
+            pub fn is_done(&self) -> bool;
+            pub fn step(&mut self) -> CiderResult<()>;
+            pub fn converge(&mut self) -> CiderResult<()>;
+            pub fn is_group_running(&self, group_idx: GroupIdx) -> bool;
+            pub fn print_pc(&self);
+            pub fn print_pc_string(&self);
+            pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx>;
+            pub(crate) fn env(&self) -> &Environment<C>;
+            pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String;
+
+            pub fn get_currently_running_groups(
+                &self,
+            ) -> impl Iterator<Item = GroupIdx>;
+
+            pub fn format_cell_state(
+                &self,
+                cell_idx: GlobalCellIdx,
+                print_code: PrintCode,
+                name: Option<&str>,
+            ) -> Option<String>;
+
+            pub fn format_cell_ports(
+                &self,
+                cell_idx: GlobalCellIdx,
+                print_code: PrintCode,
+                name: Option<&str>,
+            ) -> String;
+
+            pub fn format_port_value(
+                &self,
+                port_idx: GlobalPortIdx,
+                print_code: PrintCode,
+            ) -> String;
+
+            pub fn traverse_name_vec(
+                &self,
+                name: &[String],
+            ) -> Result<Path, TraversalError>;
+
+            pub fn dump_memories(
+                &self,
+                dump_registers: bool,
+                all_mems: bool,
+            ) -> DataDump;
         }
     }
 }
