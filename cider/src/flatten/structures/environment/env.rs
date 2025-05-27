@@ -510,7 +510,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn get_currently_running_controls(
         &self,
-    ) -> impl Iterator<Item = ControlIdx> + '_ {
+    ) -> impl Iterator<Item = ControlIdx> {
         self.pc.iter().filter_map(|(_, point)| {
             let comp_go = self.get_comp_go(point.comp).unwrap();
             if self.ports[comp_go].as_bool().unwrap_or_default() {
@@ -523,7 +523,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn get_currently_running_nodes(
         &self,
-    ) -> impl Iterator<Item = ControlIdx> + '_ {
+    ) -> impl Iterator<Item = ControlIdx> {
         self.pc.iter().filter_map(|(_, point)| {
             let comp_go = self.get_comp_go(point.comp).unwrap();
             if self.ports[comp_go].as_bool().unwrap_or_default() {
