@@ -468,9 +468,7 @@ impl ParEntry {
         self.finished_threads.push(thread);
     }
 
-    pub fn iter_finished_threads(
-        &self,
-    ) -> impl Iterator<Item = ThreadIdx> + '_ {
+    pub fn iter_finished_threads(&self) -> impl Iterator<Item = ThreadIdx> {
         self.finished_threads.iter().copied()
     }
 }

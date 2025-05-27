@@ -165,21 +165,21 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     pub fn get_all_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> {
         self.interpreter.env().iter_cells()
     }
     /// Get cell names and port values for the component specified by cmp_idx
     pub fn get_comp_cells(
         &self,
         cmp_idx: GlobalCellIdx,
-    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> {
         // component idx -> global cell idx
         self.interpreter.env().iter_cmpt_cells(cmp_idx)
     }
     /// Get all components in the environment
     pub fn get_components(
         &self,
-    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> {
         //this gets the names AND idx, now how to get the lines T.T
         self.interpreter.env().iter_compts()
     }
