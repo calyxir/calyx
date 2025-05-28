@@ -1,6 +1,13 @@
 import json
 import os
 
+from classes import (
+    TraceData,
+    ControlRegUpdates,
+    StackElementType,
+    CellMetadata,
+)
+
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
 JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the fly
 num_timeline_events = 0  # [timeline view] recording how many events have happened
@@ -48,12 +55,10 @@ class TimelineCell:
         return (self.pid, group_tid)
 
 
-"""
-Output a event to the timeline JSON.
-"""
-
-
 def write_timeline_event(event, out_file):
+    """
+    Output a event to the timeline JSON.
+    """
     global num_timeline_events
     if num_timeline_events == 0:  # shouldn't prepend a comma on the first entry
         out_file.write(f"\n{JSON_INDENT}{json.dumps(event)}")
@@ -62,34 +67,37 @@ def write_timeline_event(event, out_file):
     num_timeline_events += 1
 
 
-"""
-Add fsm and control events to the timeline (values are already determined, this
-function just sets the pid and tid, and writes to file).
-"""
-
-
-def port_fsm_and_control_events(
-    partial_fsm_events, control_updates, cell_to_info, cell_name, out_file
+def port_control_events(
+    control_updates: dict[str, list[ControlRegUpdates]],
+    cell_to_info: dict[str, TimelineCell],
+    cell_name: str,
+    out_file,
 ):
-    for fsm_name in list(partial_fsm_events.keys()):
-        del partial_fsm_events[fsm_name]
-    for cycle, update in control_updates[cell_name]:
+    """
+    Add control events to the timeline (values are already determined, this
+    function just sets the pid and tid, and writes to file).
+    """
+    if cell_name not in control_updates:
+        # cells that are not in control_updates do not have any control register updates
+        # they are probably single-group components.
+        return
+    for update_info in control_updates[cell_name]:
         (control_pid, control_tid) = cell_to_info[cell_name].get_metatrack_pid_tid(
             "CTRL"
         )
         begin_event = {
-            "name": update,
+            "name": update_info.updates,
             "cat": "CTRL",
             "ph": "B",
-            "ts": cycle * ts_multiplier,
+            "ts": update_info.clock_cycle * ts_multiplier,
             "pid": control_pid,
             "tid": control_tid,
         }
         end_event = {
-            "name": update,
+            "name": update_info.updates,
             "cat": "CTRL",
             "ph": "E",
-            "ts": (cycle + 1) * ts_multiplier,
+            "ts": (update_info.clock_cycle + 1) * ts_multiplier,
             "pid": control_pid,
             "tid": control_tid,
         }
@@ -98,16 +106,12 @@ def port_fsm_and_control_events(
     del control_updates[cell_name]
 
 
-"""
-Compute and output a JSON that conforms to the Google Trace File format.
-Each cell gets its own process id, where tid 1 is the duration of the cell itself,
-tid 2 contains control register updates, and tid 3+ contains durations of groups.
-"""
-
-
-def compute_timeline(
-    trace, partial_fsm_events, control_updates, main_component, out_dir
-):
+def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir):
+    """
+    Compute and output a JSON that conforms to the Google Trace File format.
+    Each cell gets its own process id, where tid 1 is the duration of the cell itself,
+    tid 2 contains control register updates, and tid 3+ contains durations of groups.
+    """
     # generate the JSON on the fly instead of storing everything in a list to save memory
     out_path = os.path.join(out_dir, "timeline-dump.json")
     out_file = open(out_path, "w", encoding="utf-8")
@@ -115,62 +119,59 @@ def compute_timeline(
     out_file.write(f'{{\n{JSON_INDENT}"traceEvents": [')
     # each cell gets its own pid. The cell's lifetime is tid 1, followed by the FSM(s), then groups
     # main component gets pid 1
-    cell_to_info = {main_component: TimelineCell(main_component, 1)}
+    cell_to_info: dict[str, TimelineCell] = {
+        cell_metadata.main_component: TimelineCell(cell_metadata.main_component, 1)
+    }
     # generate JSON for all FSM events in main
-    port_fsm_and_control_events(
-        partial_fsm_events, control_updates, cell_to_info, main_component, out_file
+    port_control_events(
+        tracedata.control_reg_updates,
+        cell_to_info,
+        cell_metadata.main_component,
+        out_file,
     )
     group_to_parent_cell = {}
     pid_acc = 2
     currently_active = set()
-    main_name = main_component.split(".")[-1]
-    for i in trace:
-        active_this_cycle = set()
-        for stack in trace[i]:
-            stack_acc = main_component
-            current_cell = main_component  # need to keep track of cells in case we have a structural group enable.
+    for i in tracedata.trace:
+        active_this_cycle: set[tuple[str, str]] = set()
+        for stack in tracedata.trace[i].stacks:
+            stack_acc = cell_metadata.main_component
+            current_cell = (
+                cell_metadata.main_component
+            )  # need to keep track of cells in case we have a structural group enable.
             display_name = None
             for stack_elem in stack:
-                name = None
-                if " [" in stack_elem:  # cell
-                    if (
-                        "(" in stack_elem
-                    ):  # shared cell. use the info of the replacement cell
-                        replacement_cell_shortname = stack_elem.split("(")[1].split(
-                            ")"
-                        )[0]
-                        display_name = (
-                            stack_acc
-                            + "."
-                            + stack_elem.split(" (")[0]
-                            + f" ({replacement_cell_shortname})"
-                        )
-                        stack_acc += "." + replacement_cell_shortname
-                    else:
-                        stack_acc += "." + stack_elem.split(" [")[0]
-                    name = stack_acc
-                    current_cell = name
-                    if name not in cell_to_info:  # cell is not registered yet
-                        cell_to_info[name] = TimelineCell(name, pid_acc)
-                        # generate JSON for all FSM events in this cell
-                        port_fsm_and_control_events(
-                            partial_fsm_events,
-                            control_updates,
-                            cell_to_info,
-                            name,
-                            out_file,
-                        )
-                        pid_acc += 1
-                elif "(primitive)" in stack_elem:  # ignore primitives for now.
-                    continue
-                elif (
-                    stack_elem == main_name
-                ):  # don't accumulate to the stack if your name is main.
-                    stack_acc = stack_acc
-                    name = main_component
-                else:  # group
-                    name = stack_acc + "." + stack_elem
-                    group_to_parent_cell[name] = current_cell
+                match stack_elem.element_type:
+                    case StackElementType.CELL:
+                        if stack_elem.is_main:
+                            # don't accumulate to the stack if your name is main.
+                            name = cell_metadata.main_component
+                        else:
+                            display_name = f"{stack_acc}.{stack_elem.name}"
+                            if stack_elem.replacement_cell_name is not None:
+                                # shared cell. use the info of the replacement cell
+                                display_name += f" ({stack_elem.replacement_cell_name})"
+                                stack_acc += "." + stack_elem.replacement_cell_name
+                            else:
+                                stack_acc += "." + stack_elem.name
+                            name = stack_acc
+                            current_cell = name
+                            if name not in cell_to_info:  # cell is not registered yet
+                                cell_to_info[name] = TimelineCell(name, pid_acc)
+                                # generate JSON for all FSM events in this cell
+                                port_control_events(
+                                    tracedata.control_reg_updates,
+                                    cell_to_info,
+                                    name,
+                                    out_file,
+                                )
+                                pid_acc += 1
+                    case StackElementType.PRIMITIVE:
+                        # ignore primitives for now
+                        continue
+                    case StackElementType.GROUP:
+                        name = stack_acc + "." + stack_elem.name
+                        group_to_parent_cell[name] = current_cell
                 active_this_cycle.add((name, display_name))
         for nonactive_element, nonactive_element_display in currently_active.difference(
             active_this_cycle
@@ -199,6 +200,7 @@ def compute_timeline(
             write_timeline_event(begin_event, out_file)
         currently_active = active_this_cycle
 
+    # Read through all cycles; postprocessing
     for (
         still_active_element,
         still_active_display,
@@ -207,7 +209,7 @@ def compute_timeline(
     ):  # need to close any elements that are still active at the end of the simulation
         end_event = create_timeline_event(
             still_active_element,
-            len(trace),
+            len(tracedata.trace),
             "E",
             cell_to_info,
             group_to_parent_cell,
@@ -220,15 +222,6 @@ def compute_timeline(
     out_file.close()
 
 
-"""
-Creates a JSON entry for traceEvents.
-element_name: fully qualified name of cell/group
-cycle: timestamp of the event, in cycles
-event_type: "B" for begin event, "E" for end event
-display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
-"""
-
-
 def create_timeline_event(
     element_name,
     cycle,
@@ -237,6 +230,13 @@ def create_timeline_event(
     group_to_parent_cell,
     cell_display_name=None,
 ):
+    """
+    Creates a JSON entry for traceEvents.
+    element_name: fully qualified name of cell/group
+    cycle: timestamp of the event, in cycles
+    event_type: "B" for begin event, "E" for end event
+    display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
+    """
     if element_name in cell_to_info:  # cell
         event = {
             "name": element_name if cell_display_name is None else cell_display_name,
