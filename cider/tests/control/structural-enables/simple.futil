@@ -1,0 +1,31 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+    cells {
+        @external r1 = std_reg(32);
+        @external r2 = std_reg(32);
+        @external r3 = std_reg(32);
+    }
+
+    wires {
+        group simple {
+            r1.write_en = 1'd1;
+            r1.in = 32'd50;
+            r2.write_en = 1'd1;
+            r2.in = 32'd100;
+            simple[done] = r1.done;
+        }
+
+        group orchestrator {
+            simple[go] = 1'd1;
+            r3.write_en = 1'd1;
+            r3.in = 32'd150;
+            orchestrator[done] = simple[done];
+        }
+    }
+
+    control {
+        orchestrator;
+    }
+}

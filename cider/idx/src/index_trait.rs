@@ -335,7 +335,7 @@ where
             .push(IndexRange::new(value, I::new(value.index() + 1)));
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = I> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = I> {
         self.0.iter().flat_map(|x| x.iter())
     }
 

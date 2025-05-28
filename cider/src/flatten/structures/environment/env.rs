@@ -1,11 +1,10 @@
 use super::{
-    super::context::Context,
-    assignments::{AssignType, GroupInterfacePorts, ScheduledAssignments},
+    assignments::*,
     clock::{ClockMap, ReadSource},
-    program_counter::{
-        ControlTuple, ParEntry, PcMaps, ProgramCounter, WithEntry,
-    },
-    traverser::{Path, TraversalError},
+    maps::*,
+    program_counter::*,
+    traverser::{Path, TraversalError, Traverser},
+    wave::WaveWriter,
 };
 use crate::{
     configuration::{LoggingConfig, RuntimeConfig},
@@ -13,9 +12,7 @@ use crate::{
         self,
         commands::{ParseNodes, ParsePath},
     },
-    errors::{
-        BoxedCiderError, BoxedRuntimeError, CiderResult, ConflictingAssignments,
-    },
+    errors::*,
     flatten::{
         flat_ir::{
             base::{
@@ -26,342 +23,30 @@ use crate::{
             prelude::*,
             wires::guards::{Guard, PortComp},
         },
-        primitives::{
-            self, Primitive,
-            prim_trait::{RaceDetectionPrimitive, UpdateStatus},
-        },
+        primitives::{self, prim_trait::UpdateStatus},
         structures::{
-            context::{LookupName, PortDefinitionInfo},
-            environment::{
-                program_counter::ControlPoint, traverser::Traverser,
-            },
+            context::{Context, LookupName, PortDefinitionInfo},
             thread::{ThreadIdx, ThreadMap},
         },
         text_utils::Color,
     },
-    logging,
+    logging::*,
     serialization::{DataDump, MemoryDeclaration, PrintCode},
 };
-use crate::{
-    errors::{RuntimeError, RuntimeResult},
-    flatten::structures::environment::wave::WaveWriter,
+use std::{
+    collections::VecDeque,
+    convert::Into,
+    fmt::{Debug, Write},
 };
-use ahash::HashSet;
-use ahash::HashSetExt;
-use ahash::{HashMap, HashMapExt};
+
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use baa::{BitVecOps, BitVecValue};
 use calyx_frontend::source_info::PositionId;
-use cider_idx::{IndexRef, iter::IndexRange, maps::IndexedMap};
+use cider_idx::{IndexRef, maps::SecondaryMap};
+use delegate::delegate;
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-
-use slog::{Logger, info, warn};
-use std::fmt::Write;
-use std::{convert::Into, fmt::Debug};
-
-#[derive(Debug, Clone)]
-pub struct PortMap(IndexedMap<GlobalPortIdx, PortValue>);
-
-impl PortMap {
-    pub fn with_capacity(size: usize) -> Self {
-        Self(IndexedMap::with_capacity(size))
-    }
-}
-
-impl std::ops::DerefMut for PortMap {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl std::ops::Deref for PortMap {
-    type Target = IndexedMap<GlobalPortIdx, PortValue>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl PortMap {
-    /// Essentially asserts that the port given is undefined, it errors out if
-    /// the port is defined and otherwise does nothing
-    pub fn write_undef(&mut self, target: GlobalPortIdx) -> RuntimeResult<()> {
-        if self[target].is_def() {
-            Err(RuntimeError::UndefiningDefinedPort(target).into())
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Sets the given index to the given value without checking whether or not
-    /// the assignment would conflict with an existing assignment. Should only
-    /// be used by cells to set values that may be undefined
-    pub fn write_exact_unchecked(
-        &mut self,
-        target: GlobalPortIdx,
-        val: PortValue,
-    ) -> UpdateStatus {
-        if self[target].is_undef() && val.is_undef()
-            || self[target]
-                .as_option()
-                .zip(val.as_option())
-                .map(|(a, b)| a.eq_no_transitive_clocks(b))
-                .unwrap_or_default()
-        {
-            UpdateStatus::Unchanged
-        } else {
-            self[target] = val;
-            UpdateStatus::Changed
-        }
-    }
-
-    /// Sets the given index to undefined without checking whether or not it was
-    /// already defined
-    #[inline]
-    pub fn write_undef_unchecked(&mut self, target: GlobalPortIdx) {
-        self[target] = PortValue::new_undef();
-    }
-
-    pub fn insert_val(
-        &mut self,
-        target: GlobalPortIdx,
-        val: AssignedValue,
-    ) -> Result<UpdateStatus, Box<ConflictingAssignments>> {
-        match self[target].as_option() {
-            // unchanged
-            Some(t) if t.eq_no_transitive_clocks(&val) => {
-                Ok(UpdateStatus::Unchanged)
-            }
-            // conflict
-            // TODO: Fix to make the error more helpful
-            Some(t)
-                if t.has_conflict_with(&val)
-                // Assignment & cell values are allowed to override implicit but not the
-                // other way around
-                    && !(*t.winner() == AssignmentWinner::Implicit) =>
-            {
-                Err(ConflictingAssignments {
-                    target,
-                    a1: t.clone(),
-                    a2: val,
-                }
-                .into())
-            }
-            // changed
-            Some(_) | None => {
-                self[target] = PortValue::new(val);
-                Ok(UpdateStatus::Changed)
-            }
-        }
-    }
-
-    /// Identical to `insert_val` but returns a `RuntimeError` instead of a
-    /// `ConflictingAssignments` error. This should be used inside of primitives
-    /// while the latter is used in the general simulation flow.
-    pub fn insert_val_general(
-        &mut self,
-        target: GlobalPortIdx,
-        val: AssignedValue,
-    ) -> RuntimeResult<UpdateStatus> {
-        self.insert_val(target, val)
-            .map_err(|e| RuntimeError::ConflictingAssignments(e).into())
-    }
-
-    pub fn set_done(
-        &mut self,
-        target: GlobalPortIdx,
-        done_bool: bool,
-    ) -> RuntimeResult<UpdateStatus> {
-        self.insert_val(
-            target,
-            AssignedValue::cell_value(if done_bool {
-                BitVecValue::new_true()
-            } else {
-                BitVecValue::new_false()
-            }),
-        )
-        .map_err(|e| RuntimeError::ConflictingAssignments(e).into())
-    }
-}
-
-pub(crate) type CellMap = IndexedMap<GlobalCellIdx, CellLedger>;
-pub(crate) type RefCellMap =
-    IndexedMap<GlobalRefCellIdx, Option<GlobalCellIdx>>;
-pub(crate) type RefPortMap =
-    IndexedMap<GlobalRefPortIdx, Option<GlobalPortIdx>>;
-pub(crate) type AssignmentRange = IndexRange<AssignmentIdx>;
-
-#[derive(Clone)]
-pub(crate) struct ComponentLedger {
-    pub(crate) index_bases: BaseIndices,
-    pub(crate) comp_id: ComponentIdx,
-}
-
-impl ComponentLedger {
-    /// Convert a relative offset to a global one. Perhaps should take an owned
-    /// value rather than a pointer
-    pub fn convert_to_global_port(&self, port: &PortRef) -> GlobalPortRef {
-        match port {
-            PortRef::Local(l) => (&self.index_bases + l).into(),
-            PortRef::Ref(r) => (&self.index_bases + r).into(),
-        }
-    }
-
-    pub fn convert_to_global_cell(&self, cell: &CellRef) -> GlobalCellRef {
-        match cell {
-            CellRef::Local(l) => (&self.index_bases + l).into(),
-            CellRef::Ref(r) => (&self.index_bases + r).into(),
-        }
-    }
-
-    pub fn signature_ports(&self, ctx: &Context) -> IndexRange<GlobalPortIdx> {
-        let sig = ctx.secondary[self.comp_id].signature();
-        let beginning = &self.index_bases + sig.start();
-        let end = &self.index_bases + sig.end();
-        IndexRange::new(beginning, end)
-    }
-}
-
-/// An enum encapsulating cell functionality. It is either a pointer to a
-/// primitive or information about a calyx component instance
-pub(crate) enum CellLedger {
-    Primitive {
-        // wish there was a better option with this one
-        cell_dyn: Box<dyn Primitive>,
-    },
-    RaceDetectionPrimitive {
-        cell_dyn: Box<dyn RaceDetectionPrimitive>,
-    },
-    Component(ComponentLedger),
-}
-
-impl Clone for CellLedger {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Primitive { cell_dyn } => Self::Primitive {
-                cell_dyn: cell_dyn.clone_boxed(),
-            },
-            Self::RaceDetectionPrimitive { cell_dyn } => {
-                Self::RaceDetectionPrimitive {
-                    cell_dyn: cell_dyn.clone_boxed_rd(),
-                }
-            }
-            Self::Component(component_ledger) => {
-                Self::Component(component_ledger.clone())
-            }
-        }
-    }
-}
-
-impl From<ComponentLedger> for CellLedger {
-    fn from(v: ComponentLedger) -> Self {
-        Self::Component(v)
-    }
-}
-
-impl From<Box<dyn RaceDetectionPrimitive>> for CellLedger {
-    fn from(cell_dyn: Box<dyn RaceDetectionPrimitive>) -> Self {
-        Self::RaceDetectionPrimitive { cell_dyn }
-    }
-}
-
-impl From<Box<dyn Primitive>> for CellLedger {
-    fn from(cell_dyn: Box<dyn Primitive>) -> Self {
-        Self::Primitive { cell_dyn }
-    }
-}
-
-impl CellLedger {
-    fn new_comp<C: AsRef<Context> + Clone>(
-        idx: ComponentIdx,
-        env: &Environment<C>,
-    ) -> Self {
-        Self::Component(ComponentLedger {
-            index_bases: BaseIndices::new(
-                env.ports.peek_next_idx(),
-                (env.cells.peek_next_idx().index() + 1).into(),
-                env.ref_cells.peek_next_idx(),
-                env.ref_ports.peek_next_idx(),
-            ),
-            comp_id: idx,
-        })
-    }
-
-    pub fn as_comp(&self) -> Option<&ComponentLedger> {
-        match self {
-            Self::Component(comp) => Some(comp),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn unwrap_comp(&self) -> &ComponentLedger {
-        self.as_comp()
-            .expect("Unwrapped cell ledger as component but received primitive")
-    }
-
-    #[must_use]
-    pub fn as_primitive(&self) -> Option<&dyn Primitive> {
-        match self {
-            Self::Primitive { cell_dyn } => Some(&**cell_dyn),
-            Self::RaceDetectionPrimitive { cell_dyn } => {
-                Some(cell_dyn.as_primitive())
-            }
-            _ => None,
-        }
-    }
-
-    pub fn unwrap_primitive(&self) -> &dyn Primitive {
-        self.as_primitive()
-            .expect("Unwrapped cell ledger as primitive but received component")
-    }
-}
-
-impl Debug for CellLedger {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Primitive { .. } => f.debug_struct("Primitive").finish(),
-            Self::RaceDetectionPrimitive { .. } => {
-                f.debug_struct("RaceDetectionPrimitive").finish()
-            }
-            Self::Component(ComponentLedger {
-                index_bases,
-                comp_id,
-            }) => f
-                .debug_struct("Component")
-                .field("index_bases", index_bases)
-                .field("comp_id", comp_id)
-                .finish(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct PinnedPorts {
-    map: HashMap<GlobalPortIdx, BitVecValue>,
-}
-
-impl PinnedPorts {
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&GlobalPortIdx, &BitVecValue)> + '_ {
-        self.map.iter()
-    }
-
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
-
-    pub fn insert(&mut self, port: GlobalPortIdx, val: BitVecValue) {
-        self.map.insert(port, val);
-    }
-
-    pub fn remove(&mut self, port: GlobalPortIdx) {
-        self.map.remove(&port);
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Environment<C: AsRef<Context> + Clone> {
@@ -373,26 +58,292 @@ pub struct Environment<C: AsRef<Context> + Clone> {
     pub(super) ref_cells: RefCellMap,
     /// A map from global ref port IDs to the port they reference, if any.
     pub(super) ref_ports: RefPortMap,
-
     /// The program counter for the whole program execution.
-    pub(super) pc: ProgramCounter,
-
+    pc: ProgramCounter,
+    /// A largely unused map which will force a given port to have a given
+    /// value. Mostly meant for use with external tools.
     pinned_ports: PinnedPorts,
-
+    /// Contains all the vector clocks used by the program
     clocks: ClockMap,
+    /// Contains information about the threads running within the program.
     thread_map: ThreadMap,
-    control_ports: HashMap<GlobalPortIdx, u32>,
-
+    /// A map containing all the control ports in the program and the width of
+    /// the port. Should probably be replaced with a bitset and some extra logic
+    /// to lookup widths
+    control_ports: FxHashMap<GlobalPortIdx, u32>,
     /// The immutable context. This is retained for ease of use.
     /// This value should have a cheap clone implementation, such as &Context
     /// or RC<Context>.
-    pub(super) ctx: C,
-
+    ctx: C,
     memory_header: Option<Vec<MemoryDeclaration>>,
     logger: Logger,
+    /// Reverse map from ports to the cells they are attached to. Used to
+    /// determine which primitives to re=evaluate
+    ports_to_cells_map: SecondaryMap<GlobalPortIdx, GlobalCellIdx>,
 }
 
 impl<C: AsRef<Context> + Clone> Environment<C> {
+    pub fn new(
+        ctx: C,
+        data_map: Option<DataDump>,
+        check_race: bool,
+        logging_conf: LoggingConfig,
+    ) -> Self {
+        /// Internal function used to layout a given component from a cell id
+        ///
+        /// Layout is handled in the following order:
+        /// 1. component signature (input/output)
+        /// 2. group hole ports
+        /// 3. cells + ports, primitive
+        /// 4. sub-components
+        /// 5. ref-cells & ports
+        fn layout_component<C: AsRef<Context> + Clone>(
+            env: &mut Environment<C>,
+            ctx: &Context,
+            comp: GlobalCellIdx,
+            data_map: &Option<DataDump>,
+            memories_initialized: &mut HashSet<String>,
+            check_race: bool,
+        ) {
+            let ComponentLedger {
+                index_bases,
+                comp_id,
+            } = env.cells[comp]
+                .as_comp()
+                .expect("Called layout component with a non-component cell.");
+            let comp_aux = &ctx.secondary[*comp_id];
+
+            // Insert the component's continuous assignments into the program counter, if non-empty
+            let cont_assigns = ctx.primary[*comp_id].continuous_assignments();
+            if !cont_assigns.is_empty() {
+                env.pc.push_continuous_assigns(comp, cont_assigns);
+            }
+
+            // first layout the signature
+            for sig_port in comp_aux.signature().iter() {
+                let def_idx = comp_aux.port_offset_map[sig_port];
+                let info = &ctx.secondary[def_idx];
+                let idx = env.ports.push(PortValue::new_undef());
+
+                // the direction attached to the port is reversed for the signature.
+                // We only want to add the input ports to the control ports list.
+                if !info.is_data && info.direction != calyx_ir::Direction::Input
+                {
+                    env.control_ports
+                        .insert(idx, info.width.try_into().unwrap());
+                }
+                debug_assert_eq!(index_bases + sig_port, idx);
+            }
+            // second group ports
+            for group_idx in comp_aux.definitions.groups() {
+                //go
+                let go = env.ports.push(PortValue::new_undef());
+                //done
+                let done = env.ports.push(PortValue::new_undef());
+                // quick sanity check asserts
+                let go_actual = index_bases + ctx.primary[group_idx].go;
+                let done_actual = index_bases + ctx.primary[group_idx].done;
+                // Case 1 - Go defined before done
+                if ctx.primary[group_idx].go < ctx.primary[group_idx].done {
+                    debug_assert_eq!(done, done_actual);
+                    debug_assert_eq!(go, go_actual);
+                }
+                // Case 2 - Done defined before go
+                else {
+                    // in this case go is defined after done, so our variable names
+                    // are backward, but this is not a problem since they are
+                    // initialized to the same value
+                    debug_assert_eq!(go, done_actual);
+                    debug_assert_eq!(done, go_actual);
+                }
+                env.control_ports.insert(go, 1);
+                env.control_ports.insert(done, 1);
+            }
+
+            // ref cells and ports are initialized to None
+            for (ref_cell, def_idx) in comp_aux.ref_cell_offset_map.iter() {
+                let info = &ctx.secondary[*def_idx];
+
+                for port_idx in info.ports.iter() {
+                    let port_actual = env.ref_ports.push(None);
+                    debug_assert_eq!(
+                        &env.cells[comp].as_comp().unwrap().index_bases
+                            + port_idx,
+                        port_actual
+                    );
+                }
+                let cell_actual = env.ref_cells.push(None);
+                debug_assert_eq!(
+                    &env.cells[comp].as_comp().unwrap().index_bases + ref_cell,
+                    cell_actual
+                )
+            }
+
+            for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
+                let info = &ctx.secondary[*def_idx];
+                if !info.prototype.is_component() {
+                    let port_base = env.ports.peek_next_idx();
+                    for port in info.ports.iter() {
+                        let idx = env.ports.push(PortValue::new_undef());
+                        debug_assert_eq!(
+                            &env.cells[comp].as_comp().unwrap().index_bases
+                                + port,
+                            idx
+                        );
+                        let def_idx = comp_aux.port_offset_map[port];
+                        let port_info = &ctx.secondary[def_idx];
+                        if !(port_info.direction == calyx_ir::Direction::Output
+                            || port_info.is_data && info.is_data)
+                        {
+                            env.control_ports.insert(
+                                idx,
+                                port_info.width.try_into().unwrap(),
+                            );
+                        }
+                    }
+                    let cell_dyn = primitives::build_primitive(
+                        info,
+                        port_base,
+                        env.cells.peek_next_idx(),
+                        ctx,
+                        data_map,
+                        memories_initialized,
+                        check_race.then_some(&mut env.clocks),
+                    );
+                    let cell = env.cells.push(cell_dyn);
+
+                    debug_assert_eq!(
+                        &env.cells[comp].as_comp().unwrap().index_bases
+                            + cell_off,
+                        cell
+                    );
+                } else {
+                    let child_comp = info.prototype.as_component().unwrap();
+                    let child_comp = CellLedger::new_comp(*child_comp, env);
+
+                    let cell = env.cells.push(child_comp);
+                    debug_assert_eq!(
+                        &env.cells[comp].as_comp().unwrap().index_bases
+                            + cell_off,
+                        cell
+                    );
+
+                    // layout sub-component but don't include the data map
+                    layout_component(
+                        env,
+                        ctx,
+                        cell,
+                        &None,
+                        memories_initialized,
+                        check_race,
+                    );
+                }
+            }
+
+            if let Some(data) = data_map {
+                for dec in data.header.memories.iter() {
+                    if !memories_initialized.contains(&dec.name) {
+                        // TODO griffin: maybe make this an error?
+                        warn!(
+                            env.logger,
+                            "Initialization was provided for memory {} but no such memory exists in the entrypoint component.",
+                            dec.name
+                        );
+                    }
+                }
+            }
+        }
+
+        let root = ctx.as_ref().entry_point;
+        let aux = &ctx.as_ref().secondary[root];
+
+        let mut clocks = ClockMap::new();
+        let root_clock = clocks.new_clock();
+        let continuous_clock = clocks.new_clock();
+
+        let mut env = Self {
+            ports: PortMap::with_capacity(aux.port_offset_map.count()),
+            cells: CellMap::with_capacity(aux.cell_offset_map.count()),
+            ref_cells: RefCellMap::with_capacity(
+                aux.ref_cell_offset_map.count(),
+            ),
+            ref_ports: RefPortMap::with_capacity(
+                aux.ref_port_offset_map.count(),
+            ),
+            pc: ProgramCounter::new_empty(),
+            ctx: ctx.clone(),
+            clocks,
+            thread_map: ThreadMap::new(root_clock, continuous_clock),
+            memory_header: None,
+            control_ports: FxHashMap::new(),
+            logger: initialize_logger(logging_conf),
+            ports_to_cells_map: SecondaryMap::new_with_default(0.into()),
+            pinned_ports: PinnedPorts::new(),
+        };
+
+        let ctx = ctx.as_ref();
+
+        let root_node = CellLedger::new_comp(root, &env);
+        let root_cell = env.cells.push(root_node);
+        layout_component(
+            &mut env,
+            ctx,
+            root_cell,
+            &data_map,
+            &mut HashSet::new(),
+            check_race,
+        );
+
+        let root_thread = ThreadMap::root_thread();
+        env.clocks[root_clock].increment(&root_thread);
+        env.clocks[continuous_clock].increment(&ThreadMap::continuous_thread());
+
+        // Initialize program counter
+        // TODO griffin: Maybe refactor into a separate function
+        for (idx, ledger) in env.cells.iter() {
+            if let CellLedger::Component(comp) = ledger {
+                let comp_info = &ctx.primary[comp.comp_id];
+                if !comp_info.is_comb() {
+                    if let Some(ctrl) = comp_info.as_standard().unwrap().control
+                    {
+                        env.pc.vec_mut().push((
+                            if comp.comp_id == root {
+                                Some(root_thread)
+                            } else {
+                                None
+                            },
+                            ControlPoint {
+                                comp: idx,
+                                control_node_idx: ctrl,
+                            },
+                        ))
+                    }
+                }
+            }
+        }
+
+        if let Some(header) = data_map {
+            env.memory_header = Some(header.header.memories);
+        }
+
+        env.ports_to_cells_map =
+            SecondaryMap::capacity_with_default(0.into(), env.ports.len());
+
+        for (cell, ledger) in env.cells.iter() {
+            if let Some(comp_ledger) = ledger.as_comp() {
+                for port in comp_ledger.signature_ports(ctx) {
+                    env.ports_to_cells_map.insert(port, cell);
+                }
+            } else {
+                let cell_dyn = ledger.as_primitive().unwrap();
+                for port in cell_dyn.get_ports().iter_all() {
+                    env.ports_to_cells_map.insert(port, cell);
+                }
+            }
+        }
+        env
+    }
+
     /// A utility function to get the context from the environment. This is not
     /// suitable for cases in which mutation is required. In such cases, the
     /// context should be accessed directly.
@@ -408,7 +359,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// Used for Cider-DAP extension
     pub fn iter_compts(
         &self,
-    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> + '_ {
+    ) -> impl Iterator<Item = (GlobalCellIdx, &String)> {
         self.cells.iter().filter_map(|(idx, ledge)| match ledge {
             CellLedger::Primitive { .. } => None,
             CellLedger::Component(component_ledger) => {
@@ -422,7 +373,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn iter_cmpt_cells(
         &self,
         cpt: GlobalCellIdx,
-    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> {
         // take globalcellid, look up in env to get compt ledger and get base indices
         // w cmpt id, go to context look at ctx.secondary[cmptidx] to get aux info, want cell offset map just keys
         // add local and globel offset, lookup full name and port info
@@ -439,7 +390,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     /// Returns the full name and port list of each cell in the context
     pub fn iter_cells(
         &self,
-    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> + '_ {
+    ) -> impl Iterator<Item = (String, Vec<(String, PortValue)>)> {
         let env = self;
         let cell_names = self.cells.iter().map(|(idx, _ledger)| {
             (idx.get_full_name(env), self.ports_helper(idx))
@@ -477,248 +428,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                     })
                     .collect_vec();
                 info
-            }
-        }
-    }
-
-    pub fn new(
-        ctx: C,
-        data_map: Option<DataDump>,
-        check_race: bool,
-        logging_conf: LoggingConfig,
-    ) -> Self {
-        let root = ctx.as_ref().entry_point;
-        let aux = &ctx.as_ref().secondary[root];
-
-        let mut clocks = ClockMap::new();
-        let root_clock = clocks.new_clock();
-        let continuous_clock = clocks.new_clock();
-
-        let mut env = Self {
-            ports: PortMap::with_capacity(aux.port_offset_map.count()),
-            cells: CellMap::with_capacity(aux.cell_offset_map.count()),
-            ref_cells: RefCellMap::with_capacity(
-                aux.ref_cell_offset_map.count(),
-            ),
-            ref_ports: RefPortMap::with_capacity(
-                aux.ref_port_offset_map.count(),
-            ),
-            pc: ProgramCounter::new_empty(),
-            clocks,
-            thread_map: ThreadMap::new(root_clock, continuous_clock),
-            ctx,
-            memory_header: None,
-            pinned_ports: PinnedPorts::new(),
-            control_ports: HashMap::new(),
-            logger: logging::initialize_logger(logging_conf),
-        };
-
-        let root_node = CellLedger::new_comp(root, &env);
-        let root_cell = env.cells.push(root_node);
-        env.layout_component(
-            root_cell,
-            &data_map,
-            &mut HashSet::new(),
-            check_race,
-        );
-
-        let root_thread = ThreadMap::root_thread();
-        env.clocks[root_clock].increment(&root_thread);
-        env.clocks[continuous_clock].increment(&ThreadMap::continuous_thread());
-
-        // Initialize program counter
-        // TODO griffin: Maybe refactor into a separate function
-        for (idx, ledger) in env.cells.iter() {
-            if let CellLedger::Component(comp) = ledger {
-                let comp_info = &env.ctx.as_ref().primary[comp.comp_id];
-                if !comp_info.is_comb() {
-                    if let Some(ctrl) = comp_info.as_standard().unwrap().control
-                    {
-                        env.pc.vec_mut().push((
-                            if comp.comp_id == root {
-                                Some(root_thread)
-                            } else {
-                                None
-                            },
-                            ControlPoint {
-                                comp: idx,
-                                control_node_idx: ctrl,
-                            },
-                        ))
-                    }
-                }
-            }
-        }
-
-        if let Some(header) = data_map {
-            env.memory_header = Some(header.header.memories);
-        }
-
-        env
-    }
-
-    /// Internal function used to layout a given component from a cell id
-    ///
-    /// Layout is handled in the following order:
-    /// 1. component signature (input/output)
-    /// 2. group hole ports
-    /// 3. cells + ports, primitive
-    /// 4. sub-components
-    /// 5. ref-cells & ports
-    fn layout_component(
-        &mut self,
-        comp: GlobalCellIdx,
-        data_map: &Option<DataDump>,
-        memories_initialized: &mut HashSet<String>,
-        check_race: bool,
-    ) {
-        // for mutability reasons, see note in `[Environment::new]`
-        let ctx = self.ctx.clone();
-        let ctx_ref = ctx.as_ref();
-
-        let ComponentLedger {
-            index_bases,
-            comp_id,
-        } = self.cells[comp]
-            .as_comp()
-            .expect("Called layout component with a non-component cell.");
-        let comp_aux = &ctx_ref.secondary[*comp_id];
-
-        // Insert the component's continuous assignments into the program counter, if non-empty
-        let cont_assigns =
-            self.ctx.as_ref().primary[*comp_id].continuous_assignments();
-        if !cont_assigns.is_empty() {
-            self.pc.push_continuous_assigns(comp, cont_assigns);
-        }
-
-        // first layout the signature
-        for sig_port in comp_aux.signature().iter() {
-            let def_idx = comp_aux.port_offset_map[sig_port];
-            let info = &self.ctx.as_ref().secondary[def_idx];
-            let idx = self.ports.push(PortValue::new_undef());
-
-            // the direction attached to the port is reversed for the signature.
-            // We only want to add the input ports to the control ports list.
-            if !info.is_data && info.direction != calyx_ir::Direction::Input {
-                self.control_ports
-                    .insert(idx, info.width.try_into().unwrap());
-            }
-            debug_assert_eq!(index_bases + sig_port, idx);
-        }
-        // second group ports
-        for group_idx in comp_aux.definitions.groups() {
-            //go
-            let go = self.ports.push(PortValue::new_undef());
-
-            //done
-            let done = self.ports.push(PortValue::new_undef());
-
-            // quick sanity check asserts
-            let go_actual =
-                index_bases + self.ctx.as_ref().primary[group_idx].go;
-            let done_actual =
-                index_bases + self.ctx.as_ref().primary[group_idx].done;
-            // Case 1 - Go defined before done
-            if self.ctx.as_ref().primary[group_idx].go
-                < self.ctx.as_ref().primary[group_idx].done
-            {
-                debug_assert_eq!(done, done_actual);
-                debug_assert_eq!(go, go_actual);
-            }
-            // Case 2 - Done defined before go
-            else {
-                // in this case go is defined after done, so our variable names
-                // are backward, but this is not a problem since they are
-                // initialized to the same value
-                debug_assert_eq!(go, done_actual);
-                debug_assert_eq!(done, go_actual);
-            }
-            self.control_ports.insert(go, 1);
-            self.control_ports.insert(done, 1);
-        }
-
-        // ref cells and ports are initialized to None
-        for (ref_cell, def_idx) in comp_aux.ref_cell_offset_map.iter() {
-            let info = &self.ctx.as_ref().secondary[*def_idx];
-
-            for port_idx in info.ports.iter() {
-                let port_actual = self.ref_ports.push(None);
-                debug_assert_eq!(
-                    &self.cells[comp].as_comp().unwrap().index_bases + port_idx,
-                    port_actual
-                );
-            }
-            let cell_actual = self.ref_cells.push(None);
-            debug_assert_eq!(
-                &self.cells[comp].as_comp().unwrap().index_bases + ref_cell,
-                cell_actual
-            )
-        }
-
-        for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
-            let info = &self.ctx.as_ref().secondary[*def_idx];
-            if !info.prototype.is_component() {
-                let port_base = self.ports.peek_next_idx();
-                for port in info.ports.iter() {
-                    let idx = self.ports.push(PortValue::new_undef());
-                    debug_assert_eq!(
-                        &self.cells[comp].as_comp().unwrap().index_bases + port,
-                        idx
-                    );
-                    let def_idx = comp_aux.port_offset_map[port];
-                    let port_info = &self.ctx.as_ref().secondary[def_idx];
-                    if !(port_info.direction == calyx_ir::Direction::Output
-                        || port_info.is_data && info.is_data)
-                    {
-                        self.control_ports
-                            .insert(idx, port_info.width.try_into().unwrap());
-                    }
-                }
-                let cell_dyn = primitives::build_primitive(
-                    info,
-                    port_base,
-                    self.cells.peek_next_idx(),
-                    self.ctx.as_ref(),
-                    data_map,
-                    memories_initialized,
-                    check_race.then_some(&mut self.clocks),
-                );
-                let cell = self.cells.push(cell_dyn);
-
-                debug_assert_eq!(
-                    &self.cells[comp].as_comp().unwrap().index_bases + cell_off,
-                    cell
-                );
-            } else {
-                let child_comp = info.prototype.as_component().unwrap();
-                let child_comp = CellLedger::new_comp(*child_comp, self);
-
-                let cell = self.cells.push(child_comp);
-                debug_assert_eq!(
-                    &self.cells[comp].as_comp().unwrap().index_bases + cell_off,
-                    cell
-                );
-
-                // layout sub-component but don't include the data map
-                self.layout_component(
-                    cell,
-                    &None,
-                    memories_initialized,
-                    check_race,
-                );
-            }
-        }
-
-        if let Some(data) = data_map {
-            for dec in data.header.memories.iter() {
-                if !memories_initialized.contains(&dec.name) {
-                    // TODO griffin: maybe make this an error?
-                    warn!(
-                        self.logger,
-                        "Initialization was provided for memory {} but no such memory exists in the entrypoint component.",
-                        dec.name
-                    );
-                }
             }
         }
     }
@@ -775,7 +484,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
     pub fn get_currently_running_groups(
         &self,
-    ) -> impl Iterator<Item = GroupIdx> + '_ {
+    ) -> impl Iterator<Item = GroupIdx> {
         self.pc.iter().filter_map(|(_, point)| {
             let node =
                 &self.ctx.as_ref().primary[point.control_node_idx].control;
@@ -803,101 +512,6 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     // ===================== Environment print implementations =====================
-
-    pub fn _print_env(&self) {
-        let root_idx = GlobalCellIdx::new(0);
-        let mut hierarchy = Vec::new();
-        self._print_component(root_idx, &mut hierarchy)
-    }
-
-    fn _print_component(
-        &self,
-        target: GlobalCellIdx,
-        hierarchy: &mut Vec<GlobalCellIdx>,
-    ) {
-        let info = self.cells[target].as_comp().unwrap();
-        let comp = &self.ctx.as_ref().secondary[info.comp_id];
-        hierarchy.push(target);
-
-        // This funky iterator chain first pulls the first element (the
-        // entrypoint) and extracts its name. Subsequent element are pairs of
-        // global offsets produced by a staggered iteration, yielding `(root,
-        // child)` then `(child, grandchild)` and so on. All the strings are
-        // finally collected and concatenated with a `.` separator to produce
-        // the fully qualified name prefix for the given component instance.
-        let name_prefix = hierarchy
-            .first()
-            .iter()
-            .map(|x| {
-                let info = self.cells[**x].as_comp().unwrap();
-                let prior_comp = &self.ctx.as_ref().secondary[info.comp_id];
-                &self.ctx.as_ref().secondary[prior_comp.name]
-            })
-            .chain(hierarchy.iter().zip(hierarchy.iter().skip(1)).map(
-                |(l, r)| {
-                    let info = self.cells[*l].as_comp().unwrap();
-                    let prior_comp = &self.ctx.as_ref().secondary[info.comp_id];
-                    let local_target = r - (&info.index_bases);
-
-                    let def_idx = &prior_comp.cell_offset_map[local_target];
-
-                    let id = &self.ctx.as_ref().secondary[*def_idx];
-                    &self.ctx.as_ref().secondary[id.name]
-                },
-            ))
-            .join(".");
-
-        for (cell_off, def_idx) in comp.cell_offset_map.iter() {
-            let definition = &self.ctx.as_ref().secondary[*def_idx];
-
-            println!(
-                "{}.{}",
-                name_prefix,
-                self.ctx.as_ref().secondary[definition.name]
-            );
-            for port in definition.ports.iter() {
-                let definition =
-                    &self.ctx.as_ref().secondary[comp.port_offset_map[port]];
-                println!(
-                    "    {}: {} ({:?})",
-                    self.ctx.as_ref().secondary[definition.name],
-                    self.ports[&info.index_bases + port],
-                    &info.index_bases + port
-                );
-            }
-
-            let cell_idx = &info.index_bases + cell_off;
-
-            if definition.prototype.is_component() {
-                self._print_component(cell_idx, hierarchy);
-            } else if self.cells[cell_idx]
-                .as_primitive()
-                .unwrap()
-                .has_serializable_state()
-            {
-                println!(
-                    "    INTERNAL_DATA: {}",
-                    serde_json::to_string_pretty(
-                        &self.cells[cell_idx]
-                            .as_primitive()
-                            .unwrap()
-                            .serialize(None)
-                    )
-                    .unwrap()
-                )
-            }
-        }
-
-        hierarchy.pop();
-    }
-
-    pub fn _print_env_stats(&self) {
-        println!("Environment Stats:");
-        println!("  Ports: {}", self.ports.len());
-        println!("  Cells: {}", self.cells.len());
-        println!("  Ref Cells: {}", self.ref_cells.len());
-        println!("  Ref Ports: {}", self.ref_ports.len());
-    }
 
     pub fn print_pc(&self) {
         let current_nodes = self.pc.iter().filter(|(_thread, point)| {
@@ -1489,7 +1103,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         self.ctx.as_ref().secondary[idx]
     }
 
-    pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> + '_ {
+    pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> {
         self.pc
             .iter()
             .filter_map(|(_, ctrl_point)| {
@@ -1536,168 +1150,15 @@ impl ControlNodeEval {
     }
 }
 
-/// The core functionality of a simulator. Clonable.
-#[derive(Clone)]
-pub struct BaseSimulator<C: AsRef<Context> + Clone> {
-    env: Environment<C>,
-    conf: RuntimeConfig,
-}
-
 /// A wrapper struct for the environment that provides the functions used to
 /// simulate the actual program.
 ///
 /// This is just to keep the simulation logic under a different namespace than
 /// the environment to avoid confusion
-pub struct Simulator<C: AsRef<Context> + Clone> {
-    base: BaseSimulator<C>,
-    wave: Option<WaveWriter>,
-}
-
-impl<C: AsRef<Context> + Clone> Simulator<C> {
-    pub fn build_simulator(
-        ctx: C,
-        data_file: &Option<std::path::PathBuf>,
-        wave_file: &Option<std::path::PathBuf>,
-        runtime_config: RuntimeConfig,
-    ) -> Result<Self, BoxedCiderError> {
-        let data_dump = data_file
-            .as_ref()
-            .map(|path| {
-                let mut file = std::fs::File::open(path)?;
-                DataDump::deserialize(&mut file)
-            })
-            // flip to a result of an option
-            .map_or(Ok(None), |res| res.map(Some))?;
-        let env = Environment::new(
-            ctx,
-            data_dump,
-            runtime_config.check_data_race,
-            runtime_config.get_logging_config(),
-        );
-        let wave =
-            wave_file.as_ref().map(|p| match WaveWriter::open(p, &env) {
-                Ok(w) => w,
-                Err(err) => {
-                    todo!("deal more gracefully with error: {err:?}")
-                }
-            });
-        Ok(Self {
-            base: BaseSimulator::new(env, runtime_config),
-            wave,
-        })
-    }
-
-    pub fn is_done(&self) -> bool {
-        self.base.is_done()
-    }
-
-    pub fn step(&mut self) -> CiderResult<()> {
-        self.base.step()
-    }
-
-    pub fn converge(&mut self) -> CiderResult<()> {
-        self.base.converge()
-    }
-
-    pub fn get_currently_running_groups(
-        &self,
-    ) -> impl Iterator<Item = GroupIdx> + '_ {
-        self.base.get_currently_running_groups()
-    }
-
-    pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
-        self.base.is_group_running(group_idx)
-    }
-
-    pub fn print_pc(&self) {
-        self.base.print_pc();
-    }
-
-    pub fn format_cell_state(
-        &self,
-        cell_idx: GlobalCellIdx,
-        print_code: PrintCode,
-        name: Option<&str>,
-    ) -> Option<String> {
-        self.base.format_cell_state(cell_idx, print_code, name)
-    }
-
-    pub fn format_cell_ports(
-        &self,
-        cell_idx: GlobalCellIdx,
-        print_code: PrintCode,
-        name: Option<&str>,
-    ) -> String {
-        self.base.format_cell_ports(cell_idx, print_code, name)
-    }
-
-    pub fn format_port_value(
-        &self,
-        port_idx: GlobalPortIdx,
-        print_code: PrintCode,
-    ) -> String {
-        self.base.format_port_value(port_idx, print_code)
-    }
-
-    pub fn traverse_name_vec(
-        &self,
-        name: &[String],
-    ) -> Result<Path, TraversalError> {
-        self.base.traverse_name_vec(name)
-    }
-
-    pub fn get_full_name<N>(&self, nameable: N) -> String
-    where
-        N: GetFullName<C>,
-    {
-        self.base.get_full_name(nameable)
-    }
-
-    pub(crate) fn env(&self) -> &Environment<C> {
-        self.base.env()
-    }
-
-    /// Evaluate the entire program
-    pub fn run_program(&mut self) -> CiderResult<()> {
-        if self.base.conf.debug_logging {
-            info!(self.base.env().logger, "Starting program execution");
-        }
-
-        match self.base.run_program_inner(self.wave.as_mut()) {
-            Ok(_) => {
-                if self.base.conf.debug_logging {
-                    info!(self.base.env().logger, "Finished program execution");
-                }
-                Ok(())
-            }
-            Err(e) => {
-                if self.base.conf.debug_logging {
-                    slog::error!(
-                        self.base.env().logger,
-                        "Program execution failed with error: {}",
-                        e.stylize_error()
-                    );
-                }
-                Err(e)
-            }
-        }
-    }
-
-    pub fn dump_memories(
-        &self,
-        dump_registers: bool,
-        all_mems: bool,
-    ) -> DataDump {
-        self.base.dump_memories(dump_registers, all_mems)
-    }
-
-    pub fn print_pc_string(&self) {
-        self.base.print_pc_string()
-    }
-
-    pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx> {
-        self.base.iter_active_cells()
-    }
+#[derive(Clone)]
+pub struct BaseSimulator<C: AsRef<Context> + Clone> {
+    env: Environment<C>,
+    conf: RuntimeConfig,
 }
 
 impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
@@ -1709,78 +1170,45 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self.env
     }
 
-    pub fn _print_env(&self) {
-        self.env._print_env()
-    }
+    delegate! {
+            to self.env {
+                pub fn ctx(&self) -> &Context;
+                pub fn is_group_running(&self, group_idx: GroupIdx) -> bool;
 
-    #[inline]
-    pub fn ctx(&self) -> &Context {
-        self.env.ctx.as_ref()
-    }
+                pub fn get_currently_running_groups(
+                    &self,
+                ) -> impl Iterator<Item = GroupIdx>;
 
-    pub fn _unpack_env(self) -> Environment<C> {
-        self.env
-    }
+                pub fn traverse_name_vec(
+                    &self,
+                    name: &[String],
+                ) -> Result<Path, TraversalError>;
 
-    pub fn is_group_running(&self, group_idx: GroupIdx) -> bool {
-        self.env.is_group_running(group_idx)
-    }
+                pub fn get_name_from_cell_and_parent(
+                    &self,
+                    parent: GlobalCellIdx,
+                    cell: GlobalCellIdx,
+                ) -> Identifier;
 
-    pub fn get_currently_running_groups(
-        &self,
-    ) -> impl Iterator<Item = GroupIdx> + '_ {
-        self.env.get_currently_running_groups()
-    }
-
-    pub fn traverse_name_vec(
-        &self,
-        name: &[String],
-    ) -> Result<Path, TraversalError> {
-        self.env.traverse_name_vec(name)
-    }
-
-    pub fn get_name_from_cell_and_parent(
-        &self,
-        parent: GlobalCellIdx,
-        cell: GlobalCellIdx,
-    ) -> Identifier {
-        self.env.get_name_from_cell_and_parent(parent, cell)
-    }
-
-    #[inline]
-    pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String {
-        self.env.get_full_name(nameable)
-    }
-
-    pub fn print_pc(&self) {
-        self.env.print_pc()
-    }
-
-    pub fn print_pc_string(&self) {
-        self.env.print_pc_string()
-    }
-
-    /// Pins the port with the given name to the given value. This may only be
-    /// used for input ports on the entrypoint component (excluding the go port)
-    /// and will panic if used otherwise. Intended for external use.
-    pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue) {
-        self.env.pin_value(port, val)
-    }
-
-    /// Unpins the port with the given name. This may only be
-    /// used for input ports on the entrypoint component (excluding the go port)
-    /// and will panic if used otherwise. Intended for external use.
-    pub fn unpin_value<S: AsRef<str>>(&mut self, port: S) {
-        self.env.unpin_value(port)
-    }
-
-    /// Lookup the value of a port on the entrypoint component by name. Will
-    /// error if the port is not found.
-    pub fn lookup_port_from_string(
-        &self,
-        port: &String,
-    ) -> Option<BitVecValue> {
-        self.env.lookup_port_from_string(port)
+                #[inline]
+                pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String;
+                pub fn print_pc(&self);
+                pub fn print_pc_string(&self);
+                /// Pins the port with the given name to the given value. This may only be
+                /// used for input ports on the entrypoint component (excluding the go port)
+                /// and will panic if used otherwise. Intended for external use.
+                pub fn pin_value<S: AsRef<str>>(&mut self, port: S, val: BitVecValue);
+                /// Unpins the port with the given name. This may only be
+                /// used for input ports on the entrypoint component (excluding the go port)
+                /// and will panic if used otherwise. Intended for external use.
+                pub fn unpin_value<S: AsRef<str>>(&mut self, port: S);
+                /// Lookup the value of a port on the entrypoint component by name. Will
+                /// error if the port is not found.
+                pub fn lookup_port_from_string(
+                    &self,
+                    port: &String,
+                ) -> Option<BitVecValue>;
+        }
     }
 
     /// Return an iterator over all cells that are in scope for the current set
@@ -1905,12 +1333,24 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         &self,
         control_points: &[ControlTuple],
     ) -> Vec<ScheduledAssignments> {
-        control_points
+        let mut skiplist = HashSet::new();
+        let mut additional_groups = VecDeque::new();
+
+        let mut out: Vec<ScheduledAssignments> = control_points
             .iter()
             .filter_map(|(thread, node)| {
                 match &self.ctx().primary[node.control_node_idx].control {
                     Control::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
+
+                        skiplist.insert((node.comp, e.group()));
+                        additional_groups.extend(
+                            group
+                                .structural_enables
+                                .iter()
+                                .copied()
+                                .map(|grp| (node.comp, grp)),
+                        );
 
                         Some(ScheduledAssignments::new_control(
                             node.comp,
@@ -1952,7 +1392,33 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     )
                 },
             ))
-            .collect()
+            .collect();
+
+        while let Some((cell, grp)) = additional_groups.pop_front() {
+            if skiplist.insert((cell, grp)) {
+                let group = &self.ctx().primary[grp];
+
+                additional_groups.extend(
+                    group
+                        .structural_enables
+                        .iter()
+                        .copied()
+                        .map(|grp| (cell, grp)),
+                );
+
+                out.push(ScheduledAssignments::new_control(
+                    cell,
+                    group.assignments,
+                    Some(GroupInterfacePorts {
+                        go: group.go,
+                        done: group.done,
+                    }),
+                    None,
+                ))
+            }
+        }
+
+        out
     }
 
     /// A helper function which inserts indices for the ref cells and ports
@@ -2233,27 +1699,32 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             self.env.clocks = clock_map;
         }
 
-        let out: Result<(), BoxedRuntimeError> = self
-            .env
-            .cells
-            .values_mut()
-            .filter_map(|cell| match cell {
+        let mut prim_step_res = Ok(());
+        for cell in self.env.cells.values_mut() {
+            match cell {
                 CellLedger::Primitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle(&mut self.env.ports))
+                    let res = cell_dyn.exec_cycle(&mut self.env.ports);
+                    if res.is_err() {
+                        prim_step_res = res;
+                        break;
+                    }
                 }
 
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                    Some(cell_dyn.exec_cycle_checked(
+                    let res = cell_dyn.exec_cycle_checked(
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
-                    ))
+                    );
+                    if res.is_err() {
+                        prim_step_res = res;
+                        break;
+                    }
                 }
-                CellLedger::Component(_) => None,
-            })
-            .collect();
-
-        out.map_err(|e| e.prettify_message(&self.env))?;
+                CellLedger::Component(_) => {}
+            }
+        }
+        prim_step_res.map_err(|e| e.prettify_message(&self.env))?;
 
         self.env.pc.clear_finished_comps();
 
@@ -2747,8 +2218,8 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     }
 
     fn undef_all_ports(&mut self) {
-        for (_idx, port_val) in self.env.ports.iter_mut() {
-            port_val.set_undef();
+        for p in self.env.ports.values_mut() {
+            *p = PortValue::new_undef()
         }
     }
 
@@ -2762,6 +2233,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         if self.conf.debug_logging {
             info!(self.env.logger, "Started combinational convergence");
         }
+
+        let mut rerun_all_primitives = true;
+
+        let mut changed_cells: FxHashSet<GlobalCellIdx> = FxHashSet::new();
 
         while has_changed {
             has_changed = false;
@@ -2802,15 +2277,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 .get_global_port_idx(&assign.src, *active_cell);
                             let val = &self.env.ports[port];
 
-                            if self.conf.debug_logging {
-                                self.log_assignment(
-                                    active_cell,
-                                    ledger,
-                                    assign_idx,
-                                    val,
-                                );
-                            }
-
                             let dest = self
                                 .get_global_port_idx(&assign.dst, *active_cell);
 
@@ -2826,6 +2292,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 }
                             }
 
+                            if self.conf.debug_logging {
+                                self.log_assignment(
+                                    active_cell,
+                                    ledger,
+                                    assign_idx,
+                                    val,
+                                );
+                            }
+
                             if let Some(v) = val.as_option() {
                                 let mut assigned_value = AssignedValue::new(
                                     v.val().clone(),
@@ -2837,8 +2312,9 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                 // are present. Since clocks aren't present
                                 // when not running with `check_data_race`, this
                                 // won't happen when the flag is not set
-                                if (val.clocks().is_some()
-                                    || val.transitive_clocks().is_some())
+                                if self.conf.check_data_race
+                                    && (val.clocks().is_some()
+                                        || val.transitive_clocks().is_some())
                                     && (assign_type.is_combinational()
                                         || assign_type.is_continuous())
                                 {
@@ -2885,6 +2361,12 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                                     }
                                 };
 
+                                if changed.as_bool() && !rerun_all_primitives {
+                                    changed_cells.insert(
+                                        self.env.ports_to_cells_map[dest],
+                                    );
+                                }
+
                                 has_changed |= changed.as_bool();
                             }
                             // attempts to undefine a control port that is zero
@@ -2917,9 +2399,41 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 self.propagate_comb_reads(assigns_bundle)?;
             }
 
-            let changed = self.run_primitive_comb_path()?;
+            let changed = if rerun_all_primitives {
+                rerun_all_primitives = false;
+                self.run_primitive_comb_path(
+                    self.env.cells.range().into_iter(),
+                )?
+            } else {
+                self.run_primitive_comb_path(changed_cells.drain())?
+            };
 
             has_changed |= changed;
+
+            if !has_changed {
+                for ScheduledAssignments {
+                    active_cell,
+                    interface_ports,
+                    ..
+                } in assigns_bundle.iter()
+                {
+                    if let Some(i) = interface_ports {
+                        let ledger =
+                            self.env.cells[*active_cell].as_comp().unwrap();
+                        let go = &ledger.index_bases + i.go;
+                        let done = &ledger.index_bases + i.done;
+
+                        if self.env.ports[go].as_bool().unwrap_or_default()
+                            && self.env.ports[done].is_undef()
+                        {
+                            self.env.ports[done] = PortValue::new_implicit(
+                                BitVecValue::new_false(),
+                            );
+                            has_changed = true;
+                        }
+                    }
+                }
+            }
 
             // check for undefined done ports. If any remain after we've
             // converged then they should be set to zero and we should continue
@@ -2932,6 +2446,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                         self.env.ports[*port] =
                             PortValue::new_implicit(BitVecValue::zero(*width));
                         has_changed = true;
+                        rerun_all_primitives = true;
 
                         if self.conf.debug_logging {
                             info!(
@@ -3237,18 +2752,28 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
     }
 
-    fn run_primitive_comb_path(&mut self) -> Result<bool, BoxedRuntimeError> {
-        let changed: bool = self
-            .env
-            .cells
-            .values_mut()
-            .filter_map(|x| match x {
-                CellLedger::Primitive { cell_dyn } => {
-                    let result = cell_dyn.exec_comb(&mut self.env.ports);
+    fn run_primitive_comb_path<I>(
+        &mut self,
+        cells_to_run: I,
+    ) -> Result<bool, BoxedRuntimeError>
+    where
+        I: Iterator<Item = GlobalCellIdx>,
+    {
+        if self.conf.debug_logging {
+            info!(self.env().logger, "Starting primitive combinational update");
+        }
 
-                    if result.is_ok()
-                        && self.conf.check_data_race
-                        && cell_dyn.is_combinational()
+        let mut changed = UpdateStatus::Unchanged;
+
+        for cell in cells_to_run {
+            let cell = &mut self.env.cells[cell];
+            match cell {
+                CellLedger::Primitive { cell_dyn } => {
+                    let result = cell_dyn.exec_comb(&mut self.env.ports)?;
+
+                    changed |= result;
+
+                    if self.conf.check_data_race && cell_dyn.is_combinational()
                     {
                         let mut working_set = vec![];
                         let signature = cell_dyn.get_ports();
@@ -3279,23 +2804,25 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                             todo!("comb primitive with multiple outputs")
                         }
                     }
-                    Some(result)
                 }
                 CellLedger::RaceDetectionPrimitive { cell_dyn } => {
-                    Some(cell_dyn.exec_comb_checked(
+                    let result = cell_dyn.exec_comb_checked(
                         &mut self.env.ports,
                         &mut self.env.clocks,
                         &self.env.thread_map,
-                    ))
+                    )?;
+                    changed |= result;
                 }
 
-                CellLedger::Component(_) => None,
-            })
-            .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
-                has_changed | update
-            })?
-            .as_bool();
-        Ok(changed)
+                CellLedger::Component(_) => {}
+            }
+        }
+
+        if self.conf.debug_logging {
+            info!(self.env().logger, "Finished primitive combinational update");
+        }
+
+        Ok(changed.as_bool())
     }
 
     /// A wrapper function for [check_read] which takes in a [PortRef] and the
@@ -3559,6 +3086,120 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             Some(output)
         } else {
             None
+        }
+    }
+}
+
+/// The standard simulator used by Cider with the option to write out a waveform.
+pub struct Simulator<C: AsRef<Context> + Clone> {
+    base: BaseSimulator<C>,
+    wave: Option<WaveWriter>,
+}
+
+impl<C: AsRef<Context> + Clone> Simulator<C> {
+    pub fn build_simulator(
+        ctx: C,
+        data_file: &Option<std::path::PathBuf>,
+        wave_file: &Option<std::path::PathBuf>,
+        runtime_config: RuntimeConfig,
+    ) -> Result<Self, BoxedCiderError> {
+        let data_dump = if let Some(path) = data_file {
+            let mut file = std::fs::File::open(path)?;
+            Some(DataDump::deserialize(&mut file)?)
+        } else {
+            None
+        };
+        let env = Environment::new(
+            ctx,
+            data_dump,
+            runtime_config.check_data_race,
+            runtime_config.get_logging_config(),
+        );
+        let wave =
+            wave_file.as_ref().map(|p| match WaveWriter::open(p, &env) {
+                Ok(w) => w,
+                Err(err) => {
+                    todo!("deal more gracefully with error: {err:?}")
+                }
+            });
+        Ok(Self {
+            base: BaseSimulator::new(env, runtime_config),
+            wave,
+        })
+    }
+
+    /// Evaluate the entire program
+    pub fn run_program(&mut self) -> CiderResult<()> {
+        if self.base.conf.debug_logging {
+            info!(self.base.env().logger, "Starting program execution");
+        }
+
+        match self.base.run_program_inner(self.wave.as_mut()) {
+            Ok(_) => {
+                if self.base.conf.debug_logging {
+                    info!(self.base.env().logger, "Finished program execution");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                if self.base.conf.debug_logging {
+                    slog::error!(
+                        self.base.env().logger,
+                        "Program execution failed with error: {}",
+                        e.stylize_error()
+                    );
+                }
+                Err(e)
+            }
+        }
+    }
+
+    delegate! {
+        to self.base {
+            pub fn is_done(&self) -> bool;
+            pub fn step(&mut self) -> CiderResult<()>;
+            pub fn converge(&mut self) -> CiderResult<()>;
+            pub fn is_group_running(&self, group_idx: GroupIdx) -> bool;
+            pub fn print_pc(&self);
+            pub fn print_pc_string(&self);
+            pub fn iter_active_cells(&self) -> impl Iterator<Item = GlobalCellIdx>;
+            pub(crate) fn env(&self) -> &Environment<C>;
+            pub fn get_full_name<N: GetFullName<C>>(&self, nameable: N) -> String;
+
+            pub fn get_currently_running_groups(
+                &self,
+            ) -> impl Iterator<Item = GroupIdx>;
+
+            pub fn format_cell_state(
+                &self,
+                cell_idx: GlobalCellIdx,
+                print_code: PrintCode,
+                name: Option<&str>,
+            ) -> Option<String>;
+
+            pub fn format_cell_ports(
+                &self,
+                cell_idx: GlobalCellIdx,
+                print_code: PrintCode,
+                name: Option<&str>,
+            ) -> String;
+
+            pub fn format_port_value(
+                &self,
+                port_idx: GlobalPortIdx,
+                print_code: PrintCode,
+            ) -> String;
+
+            pub fn traverse_name_vec(
+                &self,
+                name: &[String],
+            ) -> Result<Path, TraversalError>;
+
+            pub fn dump_memories(
+                &self,
+                dump_registers: bool,
+                all_mems: bool,
+            ) -> DataDump;
         }
     }
 }

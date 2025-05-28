@@ -396,6 +396,7 @@ impl MlirBackend {
                 Self::write_control(body, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))
             }
+            ir::Control::FSMEnable(_) => todo!(),
             ir::Control::Empty(_) => writeln!(f),
         }?;
         let attr = control.get_attributes();
@@ -419,6 +420,7 @@ impl MlirBackend {
                     _ => format!("%{}.{}", cell.name().id, port.name.id),
                 }
             }
+            ir::PortParent::FSM(_) => unimplemented!(),
             ir::PortParent::Group(_) => unimplemented!(),
             ir::PortParent::StaticGroup(_) => unimplemented!(),
         }

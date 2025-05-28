@@ -3,7 +3,7 @@ use crate::flatten::{
     structures::thread::{ThreadIdx, ThreadMap},
 };
 
-use super::env::AssignmentRange;
+use super::maps::AssignmentRange;
 
 #[derive(Debug)]
 pub struct GroupInterfacePorts {

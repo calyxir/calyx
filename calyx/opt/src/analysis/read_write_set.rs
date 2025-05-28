@@ -301,6 +301,7 @@ impl ReadWriteSet {
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
         match con {
             ir::Control::Empty(_) => (vec![], vec![]),
+
             ir::Control::Enable(ir::Enable { group, .. }) => {
                 let group = group.borrow();
                 let (reads, writes) =
@@ -429,6 +430,9 @@ impl ReadWriteSet {
             }
             ir::Control::Static(sc) => {
                 Self::control_port_read_write_set_static(sc)
+            }
+            ir::Control::FSMEnable(_) => {
+                todo!("should not encounter fsm nodes")
             }
         }
     }

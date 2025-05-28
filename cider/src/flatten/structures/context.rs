@@ -469,12 +469,15 @@ impl Context {
         target: AssignmentIdx,
     ) -> (ComponentIdx, AssignmentDefinitionLocation) {
         for (idx, comp) in self.primary.components.iter() {
-            let found = comp.contains_assignment(self, target);
+            let found = comp.contains_assignment(self, target, idx);
             if let Some(found) = found {
                 return (idx, found);
             }
         }
-        unreachable!("Assignment does not belong to any component");
+        unreachable!(
+            "Assignment '{:?}' does not belong to any component",
+            target
+        );
     }
 
     /// Returns the assignment definition information, if it exists. This
@@ -486,7 +489,7 @@ impl Context {
         target: AssignmentIdx,
         comp: ComponentIdx,
     ) -> Option<AssignmentDefinitionLocation> {
-        self.primary.components[comp].contains_assignment(self, target)
+        self.primary.components[comp].contains_assignment(self, target, comp)
     }
 }
 

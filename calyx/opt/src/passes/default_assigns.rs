@@ -67,6 +67,7 @@ impl Visitor for DefaultAssigns {
         }
 
         // We only need to consider write set of the continuous assignments
+        // and the register that controls an FSM
         let writes = comp
             .continuous_assignments
             .iter()
@@ -90,10 +91,21 @@ impl Visitor for DefaultAssigns {
             };
 
             // For all the assignments not in the write set, add a default assignment
-            let cell_writes = writes
+            // if the assignment does not write to an FSM-controlling register
+            let mut cell_writes: Vec<ir::RRC<ir::Port>> = writes
                 .get(&cell.name())
                 .unwrap_or(&mt)
                 .iter()
+                .map(ir::RRC::clone)
+                .collect();
+
+            if cell.attributes.has(ir::BoolAttr::FSMControl) {
+                cell_writes
+                    .extend(cell.ports().into_iter().map(ir::RRC::clone));
+            }
+
+            let cell_writes = cell_writes
+                .into_iter()
                 .map(|p| {
                     let p = p.borrow();
                     p.name
@@ -101,7 +113,7 @@ impl Visitor for DefaultAssigns {
                 .collect_vec();
 
             assigns.extend(
-                required.iter().filter(|p| !cell_writes.contains(p)).map(
+                required.iter().filter(|p| (!cell_writes.contains(p))).map(
                     |name| {
                         let port = cell.get(name);
                         let zero = builder.add_constant(0, port.borrow().width);
