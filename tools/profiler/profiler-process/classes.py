@@ -530,7 +530,7 @@ class ControlRegUpdateType(Enum):
     BOTH = 3
 
 
-@dataclass
+@dataclass(frozen=True)
 class ControlRegUpdates:
     """
     Updates to control registers in a cell.

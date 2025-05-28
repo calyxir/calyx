@@ -15,7 +15,9 @@ def setup_metadata(args):
     """
     Wrapper function to preprocess information to use in VCD reading.
     """
-    cell_metadata: CellMetadata = preprocess.read_component_cell_names_json(args.cells_json)
+    cell_metadata: CellMetadata = preprocess.read_component_cell_names_json(
+        args.cells_json
+    )
     shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
         args.shared_cells_json
     )

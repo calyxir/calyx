@@ -10,7 +10,9 @@ def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
     """
     shared_cells_map = {}
     if not os.path.isfile(shared_cells_json):
-        print(f"[read_shared_cells_map] {shared_cells_json} not found! Either cell sharing was not run, or there's a bug.")
+        print(
+            f"[read_shared_cells_map] {shared_cells_json} not found! Either cell sharing was not run, or there's a bug."
+        )
         return {}
     json_map = json.load(open(shared_cells_json))
     for component in json_map:
@@ -79,6 +81,7 @@ def read_component_cell_names_json(json_file):
             cell_names_to_components[cell] = component
 
     return CellMetadata(main_component, components_to_cells)
+
 
 def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     """
