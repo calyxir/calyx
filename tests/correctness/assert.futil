@@ -8,7 +8,8 @@ component main() -> () {
     b = std_const(32, 41);
     eq = std_eq(32);
     tmp_reg = std_reg(1);
-    my_assert = std_assert();
+    // the assert will be optimized out unless it is `@protected`, or `out` is referenced
+    @protected my_assert = std_assert();
   }
 
   wires {
@@ -20,8 +21,9 @@ component main() -> () {
     group check_assert {
       tmp_reg.in = 1'b1;
       tmp_reg.write_en = 1'b1;
+      // assert that `a` and `b` are equal (they aren't!)
       my_assert.en = 1'b1;
-      check_assert[done] = my_assert.out;
+      check_assert[done] = tmp_reg.done;
 
     }
     
