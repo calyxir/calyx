@@ -8,7 +8,7 @@ module std_assert (
     always_ff @(posedge clk) begin
        out <= in;
        if (in == '0 & en) begin
-            $fatal(1, "Assertion failed in assert primitive: input was 0");
+          $fatal(1, "std_assert tripped!");
         end
     end
 endmodule
