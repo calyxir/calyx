@@ -494,6 +494,43 @@ impl Context {
         self.primary.components[comp].contains_assignment(self, target, comp)
     }
 
+    /// For a given group returns a list of all the control nodes which are
+    /// enables of that group
+    pub fn find_control_ids_for_group(
+        &self,
+        group: GroupIdx,
+    ) -> Vec<ControlIdx> {
+        let comp = self.get_component_from_group(group);
+        let comp_ledger = &self.primary.components[comp];
+        let mut search_stack = vec![];
+        if let Some(id) = comp_ledger.control() {
+            search_stack.push(id);
+        };
+
+        let mut output = vec![];
+
+        while let Some(current) = search_stack.pop() {
+            match &self.primary[current].control {
+                Control::Enable(enable) => {
+                    if enable.group() == group {
+                        output.push(current);
+                    }
+                }
+                Control::Seq(seq) => search_stack.extend(seq.stms()),
+                Control::Par(par) => search_stack.extend(par.stms()),
+                Control::If(i) => {
+                    search_stack.push(i.fbranch());
+                    search_stack.push(i.tbranch());
+                }
+                Control::While(w) => search_stack.push(w.body()),
+                Control::Repeat(repeat) => search_stack.push(repeat.body),
+                Control::Invoke(_) | Control::Empty(_) => {}
+            }
+        }
+
+        output
+    }
+
     pub fn string_path(
         &self,
         control_idx: ControlIdx,
@@ -502,22 +539,18 @@ impl Context {
         let path = SearchPath::find_path_from_root(control_idx, self);
         let control_map = &self.primary.control;
 
-        let mut string_path = name.to_owned();
-
-        string_path.push('.');
+        let mut string_path = format!("{name}.");
 
         // Remove first index
         let mut iter = path.iter();
         let node = iter.next().unwrap();
-        let control_idx = node.node;
-        let mut prev_control_node =
-            &control_map.get(control_idx).unwrap().control;
+        let mut prev_control_node = &control_map[node.node].control;
 
         for search_node in iter {
             // The control_idx should exist in the map, so we shouldn't worry about it
             // exploding. First SearchNode is root, hence "."
             let control_idx = search_node.node;
-            let control_node = &control_map.get(control_idx).unwrap().control;
+            let control_node = &control_map[control_idx].control;
 
             // we are onto the next iteration and in the body... if Seq or Par is present save their children
             // essentially skip iteration
@@ -535,8 +568,8 @@ impl Context {
                     string_path += append;
                 }
                 Control::Par(struc) => {
-                    let children = struc.stms();
-                    let count = children
+                    let count = struc
+                        .stms()
                         .iter()
                         .position(|&idx| idx == control_idx)
                         .unwrap();
@@ -545,8 +578,8 @@ impl Context {
                     string_path = string_path + &control_type;
                 }
                 Control::Seq(struc) => {
-                    let children = struc.stms();
-                    let count = children
+                    let count = struc
+                        .stms()
                         .iter()
                         .position(|&idx| idx == control_idx)
                         .unwrap();
@@ -554,7 +587,8 @@ impl Context {
                     let control_type = String::from("-") + &count.to_string();
                     string_path += &control_type;
                 }
-                _ => { // must be a terminal node
+                _ => {
+                    unreachable!("A terminal node has a child")
                 }
             }
             prev_control_node = control_node;

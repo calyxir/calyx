@@ -437,8 +437,19 @@ impl RuntimeError {
 
 #[derive(Error, Debug)]
 #[error("Invalid Breakpoint")]
-pub struct BreakTargetError;
+pub enum BreakTargetError {
+    InvalidPath(#[from] ErrorMalformed),
+    NameResolution(#[from] NameResolutionError),
+}
 
 #[derive(Error, Debug)]
 #[error("Invalid path")]
 pub struct ErrorMalformed;
+
+#[derive(Error, Debug)]
+pub enum NameResolutionError {
+    #[error("no component named {0}")]
+    UnknownComponent(String),
+    #[error("component {comp} does not contain a group named {group}")]
+    UnknownGroup { comp: String, group: String },
+}

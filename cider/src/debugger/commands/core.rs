@@ -8,11 +8,11 @@ use std::{
 };
 
 use crate::{
-    errors::{BreakTargetError, ErrorMalformed},
+    errors::{BreakTargetError, ErrorMalformed, NameResolutionError},
     flatten::{
         flat_ir::prelude::{Control, ControlIdx, GroupIdx},
         structures::{
-            context::Context,
+            context::{Context, LookupName},
             environment::{Environment, Path},
         },
         text_utils::Color,
@@ -76,19 +76,25 @@ impl ParsedGroupName {
 
     /// Attempts to look up the group of the given name in the context. If the
     /// group lacks a component, it is assumed to be the entry point.
-    pub fn lookup_group(&self, context: &Context) -> Result<GroupIdx, String> {
+    pub fn lookup_group(
+        &self,
+        context: &Context,
+    ) -> Result<GroupIdx, NameResolutionError> {
         // if given name map back to group idx
         let comp = if let Some(c) = &self.component {
             context
                 .lookup_comp_by_name(c.as_ref())
-                .ok_or(format!("No component named {c}"))?
+                .ok_or(NameResolutionError::UnknownComponent(c.clone()))?
         } else {
             context.entry_point
         };
 
         context
             .lookup_group_by_name(self.group.as_ref(), comp)
-            .ok_or(format!("No group named {} in component", self.group))
+            .ok_or(NameResolutionError::UnknownGroup {
+                comp: comp.lookup_name(context).clone(),
+                group: self.group.clone(),
+            })
     }
 
     pub fn lookup_group_watch(
@@ -134,29 +140,25 @@ impl ParsedBreakPointID {
     pub fn parse_to_break_ids(
         &self,
         context: &Context,
-        // TODO: NEW ERROR TYPE
-    ) -> Result<BreakpointID, BreakTargetError> {
+    ) -> Result<Vec<BreakpointID>, BreakTargetError> {
         match self {
             ParsedBreakPointID::Target(break_target) => match break_target {
                 BreakTarget::Name(g) => {
-                    let component_map = &context.primary.components;
-                    let component_string = g.component.as_ref().unwrap();
-                    let component_idx =
-                        context.lookup_comp_by_name(component_string).unwrap();
-                    let component_node = component_map.get(component_idx);
-                    if let Some(node) = component_node {
-                        Ok(BreakpointID::Name(node.control().unwrap()))
-                    } else {
-                        Err(BreakTargetError)
-                    }
+                    let group_idx = g.lookup_group(context)?;
+                    let control_nodes =
+                        context.find_control_ids_for_group(group_idx);
+                    let breaks = control_nodes
+                        .into_iter()
+                        .map(BreakpointID::Name)
+                        .collect();
+                    Ok(breaks)
                 }
                 BreakTarget::Path(parse_path) => {
-                    let control_idx = parse_path.path_idx(context).unwrap();
-                    Ok(BreakpointID::Name(control_idx))
+                    Ok(vec![BreakpointID::Name(parse_path.path_idx(context)?)])
                 }
             },
             ParsedBreakPointID::Number(v) => {
-                Ok(BreakpointID::Number(BreakpointIdx::from(*v)))
+                Ok(vec![BreakpointID::Number(BreakpointIdx::from(*v))])
             }
         }
     }

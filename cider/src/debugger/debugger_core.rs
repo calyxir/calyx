@@ -850,21 +850,23 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             | Command::Enable(targets)
             | Command::Delete(targets) => {
                 for t in targets {
-                    let target =
+                    let parsed_targets =
                         t.parse_to_break_ids(self.program_context.as_ref());
-                    unwrap_error_message!(target);
+                    unwrap_error_message!(parsed_targets);
 
-                    match &command {
-                        Command::Disable(_) => {
-                            self.debugging_context.disable_breakpoint(target)
+                    for target in parsed_targets {
+                        match &command {
+                            Command::Disable(_) => self
+                                .debugging_context
+                                .disable_breakpoint(target),
+                            Command::Enable(_) => {
+                                self.debugging_context.enable_breakpoint(target)
+                            }
+                            Command::Delete(_) => {
+                                self.debugging_context.remove_breakpoint(target)
+                            }
+                            _ => unreachable!(),
                         }
-                        Command::Enable(_) => {
-                            self.debugging_context.enable_breakpoint(target)
-                        }
-                        Command::Delete(_) => {
-                            self.debugging_context.remove_breakpoint(target)
-                        }
-                        _ => unreachable!(),
                     }
                 }
             }
