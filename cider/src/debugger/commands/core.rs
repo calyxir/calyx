@@ -70,8 +70,8 @@ impl ParsedGroupName {
         }
     }
 
-    pub fn get_comp(self) -> Option<String> {
-        self.component.clone()
+    pub fn get_comp(&self) -> Option<&str> {
+        self.component.as_deref()
     }
 
     /// Attempts to look up the group of the given name in the context. If the

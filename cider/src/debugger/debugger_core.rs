@@ -732,8 +732,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     unwrap_error_message!(group_idx);
 
                     let component_idx = ctx
-                        .lookup_comp_by_name(&target.get_comp().unwrap())
-                        .unwrap();
+                        .lookup_comp_by_name(target.get_comp().unwrap())
+                        .unwrap_or(self.program_context.as_ref().entry_point);
 
                     // write a function that takes in a groupidx and component
                     // with component go through entire tree of nodes, everytime we hit an enable we check groupidx and then check if same
