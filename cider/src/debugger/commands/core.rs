@@ -173,7 +173,8 @@ impl ParsedBreakPointID {
                     Ok(WatchID::Name(group))
                 }
                 BreakTarget::Path(_p) => {
-                    todo!("FOR LATER")
+                    Err("watchpoints currently do not support the path syntax"
+                        .to_string())
                 }
             },
             ParsedBreakPointID::Number(v) => {
