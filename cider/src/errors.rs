@@ -436,15 +436,24 @@ impl RuntimeError {
 }
 
 #[derive(Error, Debug)]
-#[error("Invalid Breakpoint")]
 pub enum BreakTargetError {
-    InvalidPath(#[from] ErrorMalformed),
+    #[error(transparent)]
+    InvalidPath(#[from] PathError),
+    #[error(transparent)]
     NameResolution(#[from] NameResolutionError),
 }
 
 #[derive(Error, Debug)]
-#[error("Invalid path")]
-pub struct ErrorMalformed;
+pub enum PathError {
+    #[error(transparent)]
+    NameResolution(#[from] NameResolutionError),
+    #[error(
+        "given path string does not conform to the component's control tree"
+    )]
+    Malformed,
+    #[error("given component does not have a control program")]
+    MissingControl,
+}
 
 #[derive(Error, Debug)]
 pub enum NameResolutionError {

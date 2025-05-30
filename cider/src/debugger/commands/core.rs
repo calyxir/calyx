@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    errors::{BreakTargetError, ErrorMalformed, NameResolutionError},
+    errors::{BreakTargetError, NameResolutionError, PathError},
     flatten::{
         flat_ir::prelude::{Control, ControlIdx, GroupIdx},
         structures::{
@@ -398,22 +398,23 @@ impl ParsePath {
         ParsePath::new(iter.into_iter().collect(), component_name)
     }
 
-    /// Returns the controlidx of the last node in the given path and component idx
-    pub fn path_idx(
-        &self,
-        ctx: &Context,
-    ) -> Result<ControlIdx, ErrorMalformed> {
+    /// Returns the control_idx of the control statement pointed to by the path,
+    /// if valid.
+    pub fn path_idx(&self, ctx: &Context) -> Result<ControlIdx, PathError> {
         let path_nodes = self.get_path();
 
-        let component_map = &ctx.primary.components;
-        let control_map = &ctx.primary.control;
+        let Some(component_idx) = ctx.lookup_comp_by_name(self.get_name())
+        else {
+            return Err(NameResolutionError::UnknownComponent(
+                self.get_name().to_string(),
+            )
+            .into());
+        };
+        let Some(mut control_id) = ctx.primary[component_idx].control() else {
+            return Err(PathError::MissingControl);
+        };
 
-        let component_idx = ctx.lookup_comp_by_name(self.get_name()).unwrap();
-        let component_node = component_map.get(component_idx).unwrap();
-
-        let mut control_id = component_node.control().unwrap();
-
-        let mut control_node = &control_map.get(control_id).unwrap().control;
+        let mut control_node = &ctx.primary[control_id].control;
         for parse_node in path_nodes {
             match parse_node {
                 ParseNodes::Body => match control_node {
@@ -423,7 +424,7 @@ impl ParsePath {
                     Control::Repeat(repeat_struct) => {
                         control_id = repeat_struct.body;
                     }
-                    _ => return Err(ErrorMalformed),
+                    _ => return Err(PathError::Malformed),
                 },
                 ParseNodes::If(branch) => match control_node {
                     Control::If(if_struct) => {
@@ -433,7 +434,7 @@ impl ParsePath {
                             if_struct.fbranch()
                         };
                     }
-                    _ => return Err(ErrorMalformed),
+                    _ => return Err(PathError::Malformed),
                 },
                 ParseNodes::Offset(child) => match control_node {
                     Control::Par(par_struct) => {
@@ -444,10 +445,10 @@ impl ParsePath {
                         let children = seq_struct.stms();
                         control_id = children[child as usize]
                     }
-                    _ => return Err(ErrorMalformed),
+                    _ => return Err(PathError::Malformed),
                 },
             }
-            control_node = control_map.get(control_id).unwrap();
+            control_node = &ctx.primary[control_id];
         }
         Ok(control_id)
     }
