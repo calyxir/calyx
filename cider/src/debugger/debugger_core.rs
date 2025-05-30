@@ -15,7 +15,7 @@ use crate::{
     errors::{BoxedCiderError, CiderError, CiderResult},
     flatten::{
         flat_ir::{
-            base::{ComponentIdx, GlobalCellIdx, PortValue},
+            base::{GlobalCellIdx, PortValue},
             prelude::{Control, ControlIdx, GroupIdx},
         },
         setup_simulation_with_metadata,
@@ -28,12 +28,7 @@ use crate::{
     serialization::PrintCode,
 };
 
-use std::{
-    collections::{HashSet, VecDeque},
-    num::NonZeroU32,
-    path::PathBuf,
-    rc::Rc,
-};
+use std::{collections::HashSet, num::NonZeroU32, path::PathBuf, rc::Rc};
 
 use itertools::Itertools;
 use std::path::Path as FilePath;
@@ -630,7 +625,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Ok(())
             }
             BreakTarget::Path(path) => {
-                let control_idx = path.path_idx(context).unwrap();
+                let control_idx = match path.path_idx(context) {
+                    Ok(id) => id,
+                    Err(e) => {
+                        println!("Error: {}", e.stylize_error());
+                        return Ok(());
+                    }
+                };
 
                 let mut bound: Option<u32> = bound.map(|x| x.into());
 
