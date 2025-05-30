@@ -210,25 +210,25 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
 
     pub fn cont(&mut self) -> Result<StoppedReason, BoxedCiderError> {
         self.do_continue()?; //need to error handle
-        let bps = self
-            .debugging_context
-            .hit_breakpoints()
-            .filter_map(|x| {
-                if let Control::Enable(e) =
-                    &self.program_context.as_ref().primary[x].control
-                {
-                    Some(self.grp_idx_to_name(e.group()))
-                } else {
-                    None
-                }
-            })
-            .collect_vec();
+
         if self.interpreter.is_done() {
             Ok(StoppedReason::Done)
-        } else if !bps.is_empty() {
-            Ok(StoppedReason::Breakpoint(bps))
         } else {
-            unreachable!()
+            // TODO griffin: Communicate path to adapter
+            let bps = self
+                .debugging_context
+                .hit_breakpoints()
+                .filter_map(|x| {
+                    if let Control::Enable(e) =
+                        &self.program_context.as_ref().primary[x].control
+                    {
+                        Some(self.grp_idx_to_name(e.group()))
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec();
+            Ok(StoppedReason::Breakpoint(bps))
         }
     }
 
