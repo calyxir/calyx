@@ -663,63 +663,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
         }
     }
 
-    // Get all control idxs in an enable component that matches group_idx input
-    fn find_control_idx(
-        &self,
-        group_idx: GroupIdx,
-        component: ComponentIdx,
-    ) -> Vec<ControlIdx> {
-        let ctx = self.program_context.as_ref();
-        let component_map = &ctx.primary.components;
-        let control_map = &ctx.primary.control;
-        let component_node = component_map.get(component).unwrap();
-
-        let control_idx = component_node.control().unwrap();
-
-        let mut control_queue: VecDeque<ControlIdx> = VecDeque::new();
-
-        control_queue.push_back(control_idx);
-
-        let mut control_vec: Vec<ControlIdx> = Vec::new();
-
-        while !control_queue.is_empty() {
-            let temp_control_idx = control_queue.pop_front().unwrap();
-            let temp_control_node =
-                &control_map.get(temp_control_idx).unwrap().control;
-            match temp_control_node {
-                Control::While(while_struct) => {
-                    control_queue.push_back(while_struct.body());
-                }
-                Control::Repeat(repeat_struct) => {
-                    control_queue.push_back(repeat_struct.body);
-                }
-                Control::If(if_struct) => {
-                    control_queue.push_back(if_struct.tbranch());
-                    control_queue.push_back(if_struct.fbranch());
-                }
-                Control::Seq(seq_struct) => {
-                    for child in seq_struct.stms() {
-                        control_queue.push_back(*child);
-                    }
-                }
-                Control::Par(par_struct) => {
-                    for child in par_struct.stms() {
-                        control_queue.push_back(*child);
-                    }
-                }
-                Control::Enable(enable_struct) => {
-                    if enable_struct.group() == group_idx {
-                        control_vec.push(temp_control_idx);
-                    }
-                }
-                _ => {
-                    continue;
-                }
-            }
-        }
-        control_vec
-    }
-
     fn create_breakpoints(
         &mut self,
         targets: Vec<super::commands::BreakTarget>,
@@ -730,13 +673,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 BreakTarget::Name(target) => {
                     let group_idx = target.lookup_group(ctx);
                     unwrap_error_message!(group_idx);
-
-                    let component_idx = ctx
-                        .lookup_comp_by_name(target.get_comp().unwrap())
-                        .unwrap_or(self.program_context.as_ref().entry_point);
-
-                    // write a function that takes in a groupidx and component
-                    // with component go through entire tree of nodes, everytime we hit an enable we check groupidx and then check if same
 
                     if self.interpreter.is_group_running(group_idx) {
                         println!(
@@ -749,8 +685,10 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     }
 
                     // Add all enables that corresponds to said group
-                    let control_idx_vec =
-                        self.find_control_idx(group_idx, component_idx);
+                    let control_idx_vec = self
+                        .program_context
+                        .as_ref()
+                        .find_control_ids_for_group(group_idx);
 
                     for child in control_idx_vec {
                         self.debugging_context.add_breakpoint(child);
