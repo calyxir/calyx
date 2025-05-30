@@ -42,9 +42,9 @@ watch = {
 
 // Path parser merge
 
-root = { "." }
+root = _{ "." }
 
-separator = { "-" }
+separator = _{ "-" }
 
 body = { "b" }
 
@@ -52,7 +52,6 @@ branch = { "t" | "f" }
 
 clause = { separator ~ (body | num | branch) }
 
-// Should always atleast be 1
 name_path = { (ASCII_ALPHA | ASCII_DIGIT | "_")+ }
 
 breakpoint_path = { name_path ~ root ~ clause* }

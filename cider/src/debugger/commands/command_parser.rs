@@ -308,15 +308,7 @@ impl CommandParser {
     }
 
     // Path parser:
-    fn root(_input: Node) -> ParseResult<()> {
-        Ok(())
-    }
-
     fn body(_input: Node) -> ParseResult<()> {
-        Ok(())
-    }
-
-    fn separator(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
@@ -326,9 +318,9 @@ impl CommandParser {
 
     fn clause(input: Node) -> ParseResult<ParseNodes> {
         Ok(match_nodes!(input.into_children();
-            [separator(_), num(n)] => ParseNodes::Offset(n),
-            [separator(_), body(_)] => ParseNodes::Body,
-            [separator(_), branch(b)] => ParseNodes::If(b)
+            [num(n)] => ParseNodes::Offset(n),
+            [body(_)] => ParseNodes::Body,
+            [branch(b)] => ParseNodes::If(b)
         ))
     }
 
@@ -340,7 +332,7 @@ impl CommandParser {
 
     fn breakpoint_path(input: Node) -> ParseResult<ParsePath> {
         Ok(match_nodes!(input.into_children();
-            [name_path(n), root(_), clause(c)..] => ParsePath::from_iter(c,n),
+            [name_path(n), clause(c)..] => ParsePath::from_iter(c,n),
         ))
     }
 
