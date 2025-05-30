@@ -341,9 +341,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
             match comm {
                 Command::Step(n) => self.do_step(n)?,
                 Command::StepOver(target, bound) => {
-                    if let Err(e) = self.do_step_over(target, bound) {
-                        println!("Error: {}", e.stylize_error());
-                    }
+                    self.do_step_over(target, bound)?;
                 }
                 Command::Continue => self.do_continue()?,
                 Command::Empty => {}
