@@ -673,18 +673,13 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     if self.interpreter.is_group_running(group_idx) {
                         println!(
                             "Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.",
-                            self.program_context
-                                .as_ref()
-                                .lookup_name(group_idx)
-                                .stylize_warning()
+                            ctx.lookup_name(group_idx).stylize_warning()
                         )
                     }
 
                     // Add all enables that corresponds to said group
-                    let control_idx_vec = self
-                        .program_context
-                        .as_ref()
-                        .find_control_ids_for_group(group_idx);
+                    let control_idx_vec =
+                        ctx.find_control_ids_for_group(group_idx);
 
                     for child in control_idx_vec {
                         self.debugging_context.add_breakpoint(child);
