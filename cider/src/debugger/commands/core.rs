@@ -192,11 +192,9 @@ impl From<u32> for ParsedBreakPointID {
     }
 }
 
-// How to do this?
 impl From<ParsedGroupName> for ParsedBreakPointID {
     fn from(v: ParsedGroupName) -> Self {
-        let break_target = BreakTarget::Name(v);
-        Self::Target(break_target)
+        Self::Target(BreakTarget::Name(v))
     }
 }
 
