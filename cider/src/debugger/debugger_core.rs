@@ -196,8 +196,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     }
 
     pub fn set_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
-        // TODO IS THIS RIGHT?
-        let _ = self.create_breakpoints(breakpoints);
+        self.create_breakpoints(breakpoints)
     }
 
     pub fn delete_breakpoints(&mut self, breakpoints: Vec<BreakTarget>) {
@@ -371,9 +370,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
-                Command::Break(targets) => {
-                    self.create_breakpoints(targets).unwrap()
-                }
+                Command::Break(targets) => self.create_breakpoints(targets),
 
                 // breakpoints
                 comm @ (Command::Delete(_)
@@ -666,7 +663,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     fn create_breakpoints(
         &mut self,
         targets: Vec<super::commands::BreakTarget>,
-    ) -> Result<(), crate::errors::BoxedCiderError> {
+    ) {
         let ctx = self.program_context.as_ref();
         for target in targets {
             match target {
@@ -695,7 +692,8 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                     }
                 }
                 BreakTarget::Path(path) => {
-                    let control_idx = path.path_idx(ctx).unwrap();
+                    let control_idx = path.path_idx(ctx);
+                    unwrap_error_message!(control_idx);
 
                     if self.interpreter.is_control_running(control_idx) {
                         println!(
@@ -708,7 +706,6 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
                 }
             }
         }
-        Ok(())
     }
 
     fn do_print(
