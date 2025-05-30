@@ -40,7 +40,25 @@ watch = {
     (^"watch " | ^"w ") ~ (watch_position)? ~ group ~ (^"with")? ~ (print_state | print)
 }
 
-step_over = { ^"step-over" ~ group ~ num? }
+// Path parser merge
+
+root = _{ "." }
+
+separator = _{ "-" }
+
+body = { "b" }
+
+branch = { "t" | "f" }
+
+clause = { separator ~ (body | num | branch) }
+
+name_path = { (ASCII_ALPHA | ASCII_DIGIT | "_")+ }
+
+breakpoint_path = { name_path ~ root ~ clause* }
+
+// End merge
+
+step_over = { ^"step-over" ~ (group | breakpoint_path) ~ num? }
 
 step       = { (^"step" | ^"s") ~ num? }
 cont       = {
@@ -53,8 +71,9 @@ display    = { ^"display" | ^"d" }
 info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
 info_watch = { (^"info" ~ ^"watch") | ^"i" ~ ^"w" }
 
-brk    = { (^"break " | ^"br ") ~ group+ }
-brk_id = { (group | num) }
+break_target = { breakpoint_path | group }
+brk          = { (^"break " | ^"br ") ~ break_target+ }
+brk_id       = { (break_target | num) }
 
 delete = { (^"delete " | ^"del ") ~ brk_id+ }
 
@@ -78,3 +97,5 @@ command = {
     SOI ~ (watch | comm_where | print_state | print | print_fail | delete_watch | delete | brk | enable_watch | disable_watch | enable | disable | step_over | step // commands without input
   | cont | help | info_break | info_watch | display | exit | explain | restart)? ~ EOI
 }
+
+path = { SOI ~ breakpoint_path ~ EOI }

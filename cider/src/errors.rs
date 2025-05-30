@@ -434,3 +434,31 @@ impl RuntimeError {
         }
     }
 }
+
+#[derive(Error, Debug)]
+pub enum BreakTargetError {
+    #[error(transparent)]
+    InvalidPath(#[from] PathError),
+    #[error(transparent)]
+    NameResolution(#[from] NameResolutionError),
+}
+
+#[derive(Error, Debug)]
+pub enum PathError {
+    #[error(transparent)]
+    NameResolution(#[from] NameResolutionError),
+    #[error(
+        "given path string does not conform to the component's control tree"
+    )]
+    Malformed,
+    #[error("given component does not have a control program")]
+    MissingControl,
+}
+
+#[derive(Error, Debug)]
+pub enum NameResolutionError {
+    #[error("no component named {0}")]
+    UnknownComponent(String),
+    #[error("component {comp} does not contain a group named {group}")]
+    UnknownGroup { comp: String, group: String },
+}
