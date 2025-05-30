@@ -182,8 +182,6 @@ impl BreakpointMap {
         let idx = self.breakpoint_counter.next_key();
         self.control_idx_map.insert(breakpoint.control, idx);
         self.breakpoints.insert(idx, breakpoint);
-
-        // ADD FOR GROUP RIGHT NOW FOR ENABLES
     }
 
     fn get_by_idx(&self, idx: BreakpointIdx) -> Option<&BreakPoint> {
@@ -191,7 +189,6 @@ impl BreakpointMap {
     }
 
     fn get_by_control(&self, group: ControlIdx) -> Option<&BreakPoint> {
-        // ASK HOW TO GET GROUP
         self.control_idx_map
             .get(&group)
             .and_then(|idx| self.get_by_idx(*idx))
@@ -228,7 +225,6 @@ impl BreakpointMap {
         if let Some(idx) = self.control_idx_map.remove(&control) {
             self.breakpoints.remove(&idx);
         }
-        // TODO ADD FUNCTIONALITY TO DELETE BY GROUPS RIGHT NOW DELETES BY COMPONENT
     }
 
     fn iter(&self) -> impl Iterator<Item = (&BreakpointIdx, &BreakPoint)> {
