@@ -298,7 +298,7 @@ impl<C: AsRef<Context> + Clone> Debugger<C> {
     ) -> CiderResult<DebuggerReturnStatus<C>> {
         let (input_stream, dbg_ctx) = info
             .map(|x| (Some(x.input_stream), Some(x.ctx)))
-            .unwrap_or_else(|| (None, None));
+            .unwrap_or((None, None));
 
         if let Some(dbg_ctx) = dbg_ctx {
             self.debugging_context = dbg_ctx;
