@@ -291,6 +291,16 @@ impl Context {
         }
     }
 
+    pub fn find_component<F>(&self, query: F) -> Option<ComponentIdx>
+    where
+        F: Fn(&PrimaryComponentInfo, &AuxiliaryComponentInfo) -> bool,
+    {
+        self.primary
+            .components
+            .keys()
+            .find(|&comp| query(&self.primary[comp], &self.secondary[comp]))
+    }
+
     /// Resolve the string associated with the given identifier
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
@@ -364,10 +374,9 @@ impl Context {
 
     /// Returns the component index with the given name, if such a component exists
     pub fn lookup_comp_by_name(&self, name: &str) -> Option<ComponentIdx> {
-        self.primary
-            .components
-            .keys()
-            .find(|c| self.resolve_id(self.secondary[*c].name) == name)
+        self.find_component(|_, info| {
+            info.name.resolve(&self.secondary.string_table) == name
+        })
     }
 
     /// Returns the group index with the given name within the given component, if such a group exists
@@ -385,29 +394,20 @@ impl Context {
 
     /// Return the index of the component which defines the given group
     pub fn get_component_from_group(&self, group: GroupIdx) -> ComponentIdx {
-        self.primary
-            .components
-            .keys()
-            .find(|comp_id| {
-                self.secondary[*comp_id]
-                    .definitions
-                    .groups()
-                    .contains(group)
-            })
-            .unwrap()
+        self.find_component(|_, secondary| {
+            secondary.definitions.groups().contains(group)
+        })
+        .expect("No component defines this group. This should not be possible")
     }
 
     pub fn lookup_control_definition(
         &self,
         target: ControlIdx,
     ) -> ComponentIdx {
-        self.secondary
-            .comp_aux_info
-            .iter()
-            .find_map(|(id, info)| info.contains_control(target).then_some(id))
-            .expect(
-                "No component defines this control node. This shouldn't happen",
-            )
+        self.find_component(|_, secondary| {
+            secondary.definitions.control().contains(target)
+        })
+        .expect("No component defines this control node. This should not be possible")
     }
 
     /// This is a wildly inefficient search, only used for debugging right now.
@@ -635,5 +635,13 @@ impl LookupName for CombGroupIdx {
     #[inline]
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
         ctx.resolve_id(ctx.primary[*self].name())
+    }
+}
+
+impl ControlIdx {
+    pub fn to_string_path(&self, ctx: &Context) -> String {
+        let comp = ctx.lookup_control_definition(*self);
+        let comp = comp.lookup_name(ctx);
+        ctx.string_path(*self, comp)
     }
 }

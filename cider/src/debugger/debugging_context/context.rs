@@ -66,16 +66,20 @@ impl BreakPoint {
         // Get parent
         let parent_comp = ctx.lookup_control_definition(self.control);
         let parent_name = ctx.lookup_name(parent_comp);
+        let string_path = self.control.to_string_path(ctx);
 
         match control {
             // Group
             Control::Enable(enable) => {
                 let group = enable.group();
                 let group_name = ctx.lookup_name(group);
-                format!("{parent_name}::{group_name}: {}", self.state)
+                format!(
+                    "{parent_name}::{group_name} ({string_path})  {}",
+                    self.state
+                )
             }
             _ => {
-                format!("{parent_name}: {}", self.state)
+                format!("{string_path}   {}", self.state)
             }
         }
     }
