@@ -71,73 +71,6 @@ impl ControlPoint {
             | Control::Invoke(_) => false,
         }
     }
-
-    /// Returns a string showing the path from the root node to input node. This
-    /// path is displayed in the minimal metadata path syntax.
-    pub fn string_path(&self, ctx: &Context, name: &String) -> String {
-        let path = SearchPath::find_path_from_root(self.control_node_idx, ctx);
-        let control_map = &ctx.primary.control;
-        let path_vec = path.path;
-
-        let mut string_path = name.to_owned();
-
-        string_path.push('.');
-
-        // Remove first index
-        let mut iter = path_vec.iter();
-        let node = iter.next().unwrap();
-        let control_idx = node.node;
-        let mut prev_control_node =
-            &control_map.get(control_idx).unwrap().control;
-
-        for search_node in iter {
-            // The control_idx should exist in the map, so we shouldn't worry about it
-            // exploding. First SearchNode is root, hence "."
-            let control_idx = search_node.node;
-            let control_node = &control_map.get(control_idx).unwrap().control;
-
-            // we are onto the next iteration and in the body... if Seq or Par is present save their children
-            // essentially skip iteration
-            match prev_control_node {
-                Control::While(_) => {
-                    string_path += "-b";
-                }
-                Control::If(struc) => {
-                    let append = if struc.tbranch() == control_idx {
-                        "-t"
-                    } else {
-                        "-f"
-                    };
-
-                    string_path += append;
-                }
-                Control::Par(struc) => {
-                    let children = struc.stms();
-                    let count = children
-                        .iter()
-                        .position(|&idx| idx == control_idx)
-                        .unwrap();
-
-                    let control_type = String::from("-") + &count.to_string();
-                    string_path = string_path + &control_type;
-                }
-                Control::Seq(struc) => {
-                    let children = struc.stms();
-                    let count = children
-                        .iter()
-                        .position(|&idx| idx == control_idx)
-                        .unwrap();
-
-                    let control_type = String::from("-") + &count.to_string();
-                    string_path += &control_type;
-                }
-                _ => { // must be a terminal node
-                }
-            }
-            prev_control_node = control_node;
-        }
-        string_path
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -196,8 +129,12 @@ impl SearchPath {
         self.path.len()
     }
 
-    pub fn _is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.path.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &SearchNode> {
+        self.path.iter()
     }
 
     /// Assuming the current node (i.e. the end of this path) has finished
