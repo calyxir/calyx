@@ -449,7 +449,7 @@ impl WatchpointMap {
     fn iter_groups(
         &self,
     ) -> impl Iterator<Item = (&GroupIdx, &WatchPointIndices)> {
-        self.group_idx_map.iter()
+        self.group_idx_map.iter().sorted_by_key(|(k, _)| **k)
     }
 }
 
@@ -648,6 +648,7 @@ impl<C: AsRef<Context> + Clone> DebuggingContext<C> {
                     .unwrap_or_default()
             })
             .copied()
+            .sorted()
     }
 
     pub fn set_current_time<I: Iterator<Item = ControlIdx>>(
@@ -696,16 +697,19 @@ impl<C: AsRef<Context> + Clone> DebuggingContext<C> {
             })
             .flatten();
 
-        before_iter.chain(after_iter).filter_map(|watchpoint_idx| {
-            let watchpoint =
-                self.watchpoints.get_by_idx(*watchpoint_idx).unwrap();
+        before_iter
+            .chain(after_iter)
+            .filter_map(|watchpoint_idx| {
+                let watchpoint =
+                    self.watchpoints.get_by_idx(*watchpoint_idx).unwrap();
 
-            if watchpoint.is_disabled() {
-                None
-            } else {
-                Some((*watchpoint_idx, watchpoint))
-            }
-        })
+                if watchpoint.is_disabled() {
+                    None
+                } else {
+                    Some((*watchpoint_idx, watchpoint))
+                }
+            })
+            .sorted_by_key(|(k, _)| *k)
     }
 
     pub fn print_breakpoints(&self, ctx: &Context) {

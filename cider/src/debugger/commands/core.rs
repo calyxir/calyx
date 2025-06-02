@@ -34,7 +34,7 @@ impl Display for BreakpointIdx {
 impl_index!(BreakpointIdx);
 
 /// Identifier for watchpoints
-#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct WatchpointIdx(u32);
 
 impl_index!(WatchpointIdx);

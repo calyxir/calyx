@@ -20,12 +20,12 @@ Warning: the control main: main. is already running. This breakpoint will not tr
     (7) pipelined_mac.-1-0   enabled
     (8) pipelined_mac.-1-1   enabled
     (9) main.-2   enabled
-Hit breakpoint: main::store_b
 Hit breakpoint: main::store_a
+Hit breakpoint: main::store_b
 Hit breakpoint: main: main.-2
 Hit breakpoint: pipelined_mac::write_data_valid
-Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
     Current breakpoints:
     (0) main.   enabled
     (1) main.-1   enabled
@@ -60,20 +60,6 @@ main.read_b: 0
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
-main.read_b: 0
-
-main.read_a: 0
-
-Hit breakpoint: main: main.-4-b-1
-Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
-Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
-main.read_b: 0
-
-main.read_a: 0
-
-Hit breakpoint: main: main.-4-b-1
-Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
-Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 main.read_a: 0
 
 main.read_b: 0
@@ -88,9 +74,9 @@ main.read_b: 0
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
-main.read_b: 0
-
 main.read_a: 0
+
+main.read_b: 0
 
 Hit breakpoint: main: main.-4-b-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
@@ -114,8 +100,22 @@ main.read_a: 0
 main.read_b: 0
 
 Hit breakpoint: main: main.-4-b-1
-Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
+main.read_a: 0
+
+main.read_b: 0
+
+Hit breakpoint: main: main.-4-b-1
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
+Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-0
 Hit breakpoint: pipelined_mac: pipelined_mac.-1-1
 Main component has finished executing. Debugger is now in inspection mode.
