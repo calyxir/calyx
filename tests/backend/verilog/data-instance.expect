@@ -145,7 +145,7 @@ assign data_add_multi_left =
   _guard1 ? 2'd2 :
   _guard3 ? 2'd3 :
   'x;
-always_comb begin
+always_ff @(posedge clk) begin
   if(~$onehot0({_guard3, _guard1})) begin
     $fatal(2, "Multiple assignment to port `data_add_multi.left'.");
 end

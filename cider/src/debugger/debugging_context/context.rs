@@ -615,7 +615,7 @@ impl DebuggingContext {
         self.act_watchpoint(target, PointAction::Disable)
     }
 
-    pub fn hit_breakpoints(&self) -> impl Iterator<Item = GroupIdx> + '_ {
+    pub fn hit_breakpoints(&self) -> impl Iterator<Item = GroupIdx> {
         self.group_info
             .groups_new_on()
             .filter(|&&x| {
@@ -643,7 +643,7 @@ impl DebuggingContext {
 
     pub fn hit_watchpoints(
         &self,
-    ) -> impl Iterator<Item = (WatchpointIdx, &WatchPoint)> + '_ {
+    ) -> impl Iterator<Item = (WatchpointIdx, &WatchPoint)> {
         let before_iter = self
             .group_info
             .groups_new_on()

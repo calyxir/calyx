@@ -647,7 +647,7 @@ fn emit_component<F: io::Write>(
                 if let Some(check) =
                     emit_guard_disjoint_check(dst, asgns, &pool, true)
                 {
-                    writeln!(f, "always_comb begin")?;
+                    writeln!(f, "always_ff @(posedge clk) begin")?;
                     writeln!(f, "  {check}")?;
                     writeln!(f, "end")?;
                 }
