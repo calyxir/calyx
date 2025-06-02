@@ -77,6 +77,7 @@ def create_visuals(
     flame.create_simple_flame_graph(
         tracedata, control_reg_updates_per_cycle, args.out_dir
     )
+    stats.write_group_stats(cell_metadata, tracedata, args.out_dir)
     stats.write_cell_stats(
         cell_metadata,
         control_metadata,
