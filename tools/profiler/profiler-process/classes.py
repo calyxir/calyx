@@ -115,7 +115,6 @@ class CellMetadata:
     @property
     def cells(self) -> list[str]:
         cells = []
-        print(self.component_to_cells)
         for component in self.component_to_cells:
             cells += self.component_to_cells[component]
         return cells
@@ -524,7 +523,7 @@ class GroupSummary:
     display_name: str
     num_times_active: int = 0
     active_cycles: set[int] = field(default_factory=set)
-    
+
     interval_lengths: list[int] = field(default_factory=list)
 
     def register_interval(self, interval: range):
@@ -533,8 +532,16 @@ class GroupSummary:
         self.interval_lengths.append(len(interval))
 
     def fieldnames():
-        return ["group-name", "num-times-active", "total-cycles", "min", "max", "avg", "can-static"]
-    
+        return [
+            "group-name",
+            "num-times-active",
+            "total-cycles",
+            "min",
+            "max",
+            "avg",
+            "can-static",
+        ]
+
     def stats(self):
         stats = {}
         stats["group-name"] = self.display_name
@@ -549,6 +556,7 @@ class GroupSummary:
         stats["can-static"] = "Y" if min_interval == max_interval else "N"
         return stats
 
+
 @dataclass
 class Summary:
     """
@@ -558,6 +566,7 @@ class Summary:
 
     num_times_active: int = 0
     active_cycles: set[int] = field(default_factory=set)
+
 
 class ControlRegUpdateType(Enum):
     FSM = 1

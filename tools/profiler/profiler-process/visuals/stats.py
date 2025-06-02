@@ -8,15 +8,15 @@ from classes import (
     CycleType,
     CycleTrace,
     StackElementType,
-    Summary,
-    GroupSummary
+    GroupSummary,
 )
 
 
 def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
     """
+    Processes the trace to identify group activation blocks and collect group statistics.
     """
-    group_summaries: dict[str, GroupSummary] = {} # names would be component.group
+    group_summaries: dict[str, GroupSummary] = {}  # names would be component.group
     currently_active_to_start: dict[str, int] = {}
     for i in tracedata.trace:
         active_this_cycle: set[str] = set()
@@ -26,35 +26,39 @@ def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
             for stack_elem in stack:
                 match stack_elem.element_type:
                     case StackElementType.CELL:
-                       if not stack_elem.is_main:
+                        if not stack_elem.is_main:
                             stack_acc = f"{stack_acc}.{stack_elem.name}"
-                            current_component = cell_metadata.get_component_of_cell(stack_acc)
+                            current_component = cell_metadata.get_component_of_cell(
+                                stack_acc
+                            )
                     case StackElementType.GROUP:
                         group_id = f"{current_component}.{stack_elem.name}"
                         if group_id not in group_summaries:
                             group_summaries[group_id] = GroupSummary(group_id)
                         active_this_cycle.add(group_id)
 
-        # print(f"CURRENTLY ACTIVE: {currently_active_to_start.keys()}")
-        # print(f"ACTIVE THIS CYCLE: {active_this_cycle}")
-            
         # groups that ended this cycle
-        for done_group in set(currently_active_to_start.keys()).difference(active_this_cycle):
-            # print(f"cycle {i} - end group: {done_group}")
+        for done_group in set(currently_active_to_start.keys()).difference(
+            active_this_cycle
+        ):
             start_cycle = currently_active_to_start[done_group]
             group_summaries[done_group].register_interval(range(start_cycle, i))
             del currently_active_to_start[done_group]
         # groups that started this cycle
-        for new_group in active_this_cycle.difference(set(currently_active_to_start.keys())):
-            # print(f"cycle {i} - new group: {new_group}")
+        for new_group in active_this_cycle.difference(
+            set(currently_active_to_start.keys())
+        ):
             currently_active_to_start[new_group] = i
 
     # groups that are active until the end
     for still_active_group in currently_active_to_start:
         start_cycle = currently_active_to_start[still_active_group]
-        group_summaries[group_id].register_interval(range(start_cycle, len(tracedata.trace)))
+        group_summaries[group_id].register_interval(
+            range(start_cycle, len(tracedata.trace))
+        )
 
     return group_summaries
+
 
 def write_group_stats(cell_metadata: CellMetadata, tracedata: TraceData, out_dir: str):
     group_summaries = create_group_summaries(cell_metadata, tracedata)
@@ -70,6 +74,7 @@ def write_group_stats(cell_metadata: CellMetadata, tracedata: TraceData, out_dir
         )
         writer.writeheader()
         writer.writerows(stats_list)
+
 
 def write_cell_stats(
     cell_metadata: CellMetadata,
