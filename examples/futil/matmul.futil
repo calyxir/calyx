@@ -1,0 +1,176 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+// pseudocode:
+/*
+create a component matmul with 2D arrays A (n by m) and B (m by p) and output C (n by p)
+(figure out if n,m,p are given from A and B or passed in as parameters)
+cells:
+create iterators i, j, k
+create less than comparators for i < n, j < p, k < m
+create a (reference?) memory for A, B
+create a memory for C that is initialized to 0
+groups:
+create a while loop for i < n
+  create a while loop for j < p
+    create a while loop for k < m
+      read A[i][k] and B[k][j]
+      multiply them and add to C[i][j]
+      increment k
+    end while
+    increment j
+  end while
+  increment i
+end while
+*/
+
+component main() -> () {
+  cells {
+    @external memA = comb_mem_d2(32, 2, 2, 2, 2); // A is n x m. n = 2, m = 2
+    @external memB = comb_mem_d2(32, 2, 2, 2, 2); // B is m x p. m = 2, p = 2
+    @external memC = comb_mem_d2(32, 2, 2, 2, 2); // C is n x p. n = 2, p = 2
+    A_read = std_reg(32); // register to hold A[i][k]
+    B_read = std_reg(32); // register to hold B[k][j]
+    C_write = std_reg(32); // register to hold C[i][j]
+    C_and = std_and(1);
+    C_finished = std_reg(1);
+    const0 = std_const(2, 0);
+    const1 = std_const(2, 1); // constant for incrementing by 1
+    const2 = std_const(2, 2); // constant for n = 2
+    i = std_reg(2);
+    j = std_reg(2);
+    k = std_reg(2);
+    lti = std_lt(2); // less than comparator for i, runs < 2
+    ltj = std_lt(2); // less than comparator for j, runs < 2
+    ltk = std_lt(2); // less than comparator for k, runs < 2
+    add_i = std_add(2); // adder for incrementing i
+    add_j = std_add(2); // adder for incrementing j
+    add_k = std_add(2); // adder for incrementing k
+    add_c = std_add(32); // adder for adding the result of multiplication to C[i][j]
+    dummy = std_reg(32); // dummy register to hold constantly the result of A[i][k] * B[k][j]
+    dot = std_reg(32); // register to read the result of multiplication
+    mult = std_mult_pipe(32); // multiplier for A[i][k] * B[k][j]
+  }
+  wires {
+    group init_i {
+      i.in = const0.out;
+      i.write_en = 1'b1;
+      init_i[done] = i.done;
+    }
+    group init_j {
+      j.in = const0.out;
+      j.write_en = 1'b1;
+      init_j[done] = j.done;
+    }
+    group init_k {
+      k.in = const0.out;
+      k.write_en = 1'b1;
+      init_k[done] = k.done;
+    }
+    group incr_i {
+      add_i.left = i.out;
+      add_i.right = const1.out; // increment i by 1
+      i.in = add_i.out;
+      i.write_en = 1'b1;
+      incr_i[done] = i.done;
+    }
+    group incr_j {
+      add_j.left = j.out;
+      add_j.right = const1.out; // increment j by 1
+      j.in = add_j.out;
+      j.write_en = 1'b1;
+      incr_j[done] = j.done;
+    }
+    group incr_k {
+      add_k.left = k.out;
+      add_k.right = const1.out; // increment k by 1
+      k.in = add_k.out;
+      k.write_en = 1'b1;
+      incr_k[done] = k.done;
+    }
+    comb group cond_i {
+      lti.left = i.out; // i < n
+      lti.right = const2.out; // n = 2
+    }
+    comb group cond_j {
+      ltj.left = j.out; // j < p
+      ltj.right = const2.out; // p = 2
+    }
+    comb group cond_k {
+      ltk.left = k.out; // k < m
+      ltk.right = const2.out; // m = 2
+    }
+    group mult_ab {
+      dummy.in = mult.out;
+      dummy.write_en = mult.done;
+      mult_ab[done] = dummy.done;
+      mult.left = A_read.out; // A[i][k]
+      mult.right = B_read.out; // B[k][j]
+      mult.go = !mult.done ? 1'b1; // start multiplication if not done
+    }
+    group read_dummy {
+      dot.in = dummy.out; // read the result of multiplication
+      dot.write_en = 1'b1; // enable write to dummy
+      read_dummy[done] = dot.done; // done when dot is written to
+    }
+    group writeC {
+      memC.write_en = 1'b1;
+      add_c.left = memC.read_data; // write the result of multiplication to C[i][j]
+      add_c.right = dot.out; // add to the current value in C[i][j]
+      C_write.in = add_c.out; // write the result to C_write
+      C_write.write_en = 1'b1; // enable write to C_write
+      memC.addr0 = i.out; // address for row i
+      memC.addr1 = j.out; // address for column j
+      memC.write_data = C_write.out; // write to memory C
+      C_and.left = C_write.done; // C_write is done
+      C_and.right = memC.done; // memory write is done
+      C_finished.in = C_and.out; // write the result of AND to C_finished
+      C_finished.write_en = 1'b1; // enable write to C_finished
+      writeC[done] = C_finished.done ? C_finished.out; // done when C_write is done and memory write is done
+    }
+    group accessA {
+      A_read.write_en = 1'b1; // enable write to A_read
+      memA.addr0 = i.out; // address for row i
+      memA.addr1 = k.out; // address for column k
+      A_read.in = 1'b1 ? memA.read_data; // always read A[i][k]
+      accessA[done] = A_read.done; // done when A_read is done
+    }
+    group accessB {
+      B_read.write_en = 1'b1; // enable write to B_read
+      memB.addr0 = k.out; // address for row k
+      memB.addr1 = j.out; // address for column j
+      B_read.in = 1'b1 ? memB.read_data; // always read B[k][j]
+      accessB[done] = B_read.done; // done when B_read is done
+    }
+  }
+  control {
+    seq {
+      init_i;
+      while lti.out with cond_i { // while i < n
+        seq {
+          init_j;
+          while ltj.out with cond_j { // while j < p
+            seq {
+              init_k;
+              while ltk.out with cond_k { // while k < m
+                seq {
+                  par {
+                  accessA; // read A[i][k]
+                  accessB; // read B[k][j]
+                  }
+                  mult_ab; // multiply A[i][k] and B[k][j] store in dummy
+                  read_dummy;
+                  writeC;
+                  incr_k; // increment k
+                }
+              }
+              incr_j; // increment j
+            }
+          }
+          incr_i; // increment i
+        }
+      }
+    }
+  }
+}
