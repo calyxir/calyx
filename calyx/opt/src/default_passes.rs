@@ -97,7 +97,7 @@ impl PassManager {
                 DataPathInfer,
                 CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
                 CompileSyncWithoutSyncReg,
-                // GroupToSeq, // FIXME: makes programs *slower* in certain cases
+                GroupToSeq, // FIXME: may make programs *slower*
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
                 InferShare,
@@ -123,7 +123,7 @@ impl PassManager {
                 DataPathInfer,
                 CollapseControl,
                 CompileSyncWithoutSyncReg,
-                // GroupToSeq, // FIXME: makes programs *slower* in certain cases
+                GroupToSeq, // FIXME: may make programs *slower*
                 DeadAssignmentRemoval,
                 GroupToInvoke,
                 ComponentInliner,
@@ -199,7 +199,25 @@ impl PassManager {
                 "validate",
                 CompileInvoke,
                 ProfilerInstrumentation,
-                "pre-opt",
+                // "pre-opt" without GroupToSeq
+                DataPathInfer,
+                CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
+                CompileSyncWithoutSyncReg,
+                DeadAssignmentRemoval,
+                GroupToInvoke, // Creates Dead Groups potentially
+                InferShare,
+                ComponentInliner,
+                CombProp,
+                ConstantPortProp,
+                DeadCellRemoval, // Clean up dead wires left by CombProp
+                CellShare,       // LiveRangeAnalaysis should handle comb groups
+                SimplifyWithControl, // Must run before compile-invoke
+                CompileInvoke,   // creates dead comb groups
+                StaticInference,
+                StaticPromotion,
+                CompileRepeat,
+                DeadGroupRemoval, // Since previous passes potentially create dead groups
+                CollapseControl,
                 "compile",
                 "post-opt",
                 "lower"
