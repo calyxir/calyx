@@ -517,7 +517,6 @@ class CycleTrace:
 class GroupSummary:
     """
     Summary for groups on the number of times they were active vs their active cycles
-    FIXME: Add min/max/avg and collect these for normal groups as well?
     """
 
     display_name: str

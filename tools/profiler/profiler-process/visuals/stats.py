@@ -61,6 +61,9 @@ def create_group_summaries(cell_metadata: CellMetadata, tracedata: TraceData):
 
 
 def write_group_stats(cell_metadata: CellMetadata, tracedata: TraceData, out_dir: str):
+    """
+    Collects and writes statistics information about groups to group-stats.csv.
+    """
     group_summaries = create_group_summaries(cell_metadata, tracedata)
     fieldnames = GroupSummary.fieldnames()
     stats_list = []
