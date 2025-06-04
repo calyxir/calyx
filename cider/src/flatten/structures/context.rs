@@ -17,17 +17,19 @@ use crate::flatten::flat_ir::{
     identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
-        CombGroupIdx, CombGroupMap, ComponentIdx, ControlIdx, ControlMap,
-        ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalCellOffset,
-        LocalPortOffset, LocalRefCellOffset, LocalRefPortOffset, ParentIdx,
-        PortDefinitionIdx, PortDefinitionRef, PortRef, RefCellDefinitionIdx,
-        RefCellInfo, RefPortDefinitionIdx,
+        CombGroupIdx, CombGroupMap, ComponentIdx, Control, ControlIdx,
+        ControlMap, ControlNode, Group, GroupIdx, GuardIdx, Identifier,
+        LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
+        LocalRefPortOffset, ParentIdx, PortDefinitionIdx, PortDefinitionRef,
+        PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
         guards::{Guard, GuardMap},
     },
 };
+
+use crate::flatten::structures::environment::SearchPath;
 
 use super::printer::Printer;
 
@@ -289,6 +291,16 @@ impl Context {
         }
     }
 
+    pub fn find_component<F>(&self, query: F) -> Option<ComponentIdx>
+    where
+        F: Fn(&PrimaryComponentInfo, &AuxiliaryComponentInfo) -> bool,
+    {
+        self.primary
+            .components
+            .keys()
+            .find(|&comp| query(&self.primary[comp], &self.secondary[comp]))
+    }
+
     /// Resolve the string associated with the given identifier
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
@@ -362,10 +374,9 @@ impl Context {
 
     /// Returns the component index with the given name, if such a component exists
     pub fn lookup_comp_by_name(&self, name: &str) -> Option<ComponentIdx> {
-        self.primary
-            .components
-            .keys()
-            .find(|c| self.resolve_id(self.secondary[*c].name) == name)
+        self.find_component(|_, info| {
+            info.name.resolve(&self.secondary.string_table) == name
+        })
     }
 
     /// Returns the group index with the given name within the given component, if such a group exists
@@ -383,29 +394,20 @@ impl Context {
 
     /// Return the index of the component which defines the given group
     pub fn get_component_from_group(&self, group: GroupIdx) -> ComponentIdx {
-        self.primary
-            .components
-            .keys()
-            .find(|comp_id| {
-                self.secondary[*comp_id]
-                    .definitions
-                    .groups()
-                    .contains(group)
-            })
-            .unwrap()
+        self.find_component(|_, secondary| {
+            secondary.definitions.groups().contains(group)
+        })
+        .expect("No component defines this group. This should not be possible")
     }
 
     pub fn lookup_control_definition(
         &self,
         target: ControlIdx,
     ) -> ComponentIdx {
-        self.secondary
-            .comp_aux_info
-            .iter()
-            .find_map(|(id, info)| info.contains_control(target).then_some(id))
-            .expect(
-                "No component defines this control node. This shouldn't happen",
-            )
+        self.find_component(|_, secondary| {
+            secondary.definitions.control().contains(target)
+        })
+        .expect("No component defines this control node. This should not be possible")
     }
 
     /// This is a wildly inefficient search, only used for debugging right now.
@@ -491,6 +493,108 @@ impl Context {
     ) -> Option<AssignmentDefinitionLocation> {
         self.primary.components[comp].contains_assignment(self, target, comp)
     }
+
+    /// For a given group returns a list of all the control nodes which are
+    /// enables of that group
+    pub fn find_control_ids_for_group(
+        &self,
+        group: GroupIdx,
+    ) -> Vec<ControlIdx> {
+        let comp = self.get_component_from_group(group);
+        let comp_ledger = &self.primary.components[comp];
+        let mut search_stack = vec![];
+        if let Some(id) = comp_ledger.control() {
+            search_stack.push(id);
+        };
+
+        let mut output = vec![];
+
+        while let Some(current) = search_stack.pop() {
+            match &self.primary[current].control {
+                Control::Enable(enable) => {
+                    if enable.group() == group {
+                        output.push(current);
+                    }
+                }
+                Control::Seq(seq) => search_stack.extend(seq.stms()),
+                Control::Par(par) => search_stack.extend(par.stms()),
+                Control::If(i) => {
+                    search_stack.push(i.fbranch());
+                    search_stack.push(i.tbranch());
+                }
+                Control::While(w) => search_stack.push(w.body()),
+                Control::Repeat(repeat) => search_stack.push(repeat.body),
+                Control::Invoke(_) | Control::Empty(_) => {}
+            }
+        }
+
+        output
+    }
+
+    pub fn string_path(
+        &self,
+        control_idx: ControlIdx,
+        name: &String,
+    ) -> String {
+        let path = SearchPath::find_path_from_root(control_idx, self);
+        let control_map = &self.primary.control;
+
+        let mut string_path = format!("{name}.");
+
+        // Remove first index
+        let mut iter = path.iter();
+        let node = iter.next().unwrap();
+        let mut prev_control_node = &control_map[node.node].control;
+
+        for search_node in iter {
+            // The control_idx should exist in the map, so we shouldn't worry about it
+            // exploding. First SearchNode is root, hence "."
+            let control_idx = search_node.node;
+            let control_node = &control_map[control_idx].control;
+
+            // we are onto the next iteration and in the body... if Seq or Par is present save their children
+            // essentially skip iteration
+            match prev_control_node {
+                Control::While(_) => {
+                    string_path += "-b";
+                }
+                Control::If(struc) => {
+                    let append = if struc.tbranch() == control_idx {
+                        "-t"
+                    } else {
+                        "-f"
+                    };
+
+                    string_path += append;
+                }
+                Control::Par(struc) => {
+                    let count = struc
+                        .stms()
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
+
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path = string_path + &control_type;
+                }
+                Control::Seq(struc) => {
+                    let count = struc
+                        .stms()
+                        .iter()
+                        .position(|&idx| idx == control_idx)
+                        .unwrap();
+
+                    let control_type = String::from("-") + &count.to_string();
+                    string_path += &control_type;
+                }
+                _ => {
+                    unreachable!("A terminal node has a child")
+                }
+            }
+            prev_control_node = control_node;
+        }
+        string_path
+    }
 }
 
 impl AsRef<Context> for &Context {
@@ -531,5 +635,13 @@ impl LookupName for CombGroupIdx {
     #[inline]
     fn lookup_name<'ctx>(&self, ctx: &'ctx Context) -> &'ctx String {
         ctx.resolve_id(ctx.primary[*self].name())
+    }
+}
+
+impl ControlIdx {
+    pub fn to_string_path(&self, ctx: &Context) -> String {
+        let comp = ctx.lookup_control_definition(*self);
+        let comp = comp.lookup_name(ctx);
+        ctx.string_path(*self, comp)
     }
 }

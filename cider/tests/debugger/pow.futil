@@ -1,0 +1,38 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/math.futil";
+
+component main() -> () {
+  cells {
+    @external(1) out = comb_mem_d1(32, 1, 1);
+    @external(1) base = comb_mem_d1(32, 1, 1);
+    @external(1) exp = comb_mem_d1(32, 1, 1);
+    base_reg = std_reg(32);
+    exp_reg = std_reg(32);
+    p = pow();
+  }
+  wires {
+    group init {
+      base.addr0 = 1'd0;
+      exp.addr0 = 1'd0;
+      base_reg.in = base.read_data;
+      exp_reg.in = exp.read_data;
+      base_reg.write_en = 1'd1;
+      exp_reg.write_en = 1'd1;
+      init[done] = base_reg.done & exp_reg.done ? 1'd1;
+    }
+    group fill_memory {
+      out.write_data = p.out;
+      out.addr0 = 1'd0;
+      out.write_en = 1'd1;
+      fill_memory[done] = out.done;
+    }
+  }
+  control {
+    seq {
+      init;
+      invoke p(base=base_reg.out, exp=exp_reg.out)();
+      fill_memory;
+    }
+  }
+}

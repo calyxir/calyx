@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use crate::flatten::flat_ir::prelude::*;
 
 /// An index representing a control statement
-#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct ControlIdx(u32);
 impl_index!(ControlIdx);
 
