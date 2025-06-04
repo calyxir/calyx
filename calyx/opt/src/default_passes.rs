@@ -97,7 +97,7 @@ impl PassManager {
                 DataPathInfer,
                 CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
                 CompileSyncWithoutSyncReg,
-                GroupToSeq,
+                // GroupToSeq, // FIXME: makes programs *slower* in certain cases
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
                 InferShare,
@@ -123,7 +123,7 @@ impl PassManager {
                 DataPathInfer,
                 CollapseControl,
                 CompileSyncWithoutSyncReg,
-                GroupToSeq,
+                // GroupToSeq, // FIXME: makes programs *slower* in certain cases
                 DeadAssignmentRemoval,
                 GroupToInvoke,
                 ComponentInliner,
@@ -191,27 +191,12 @@ impl PassManager {
             ["validate", "pre-opt", "compile", "post-opt", "lower",]
         );
 
-        register_alias!(
-            pm,
-            "experimental",
-            [
-                "validate",
-                GroupToSeq,
-                CompileInvoke,
-                "pre-opt",
-                "compile",
-                "post-opt",
-                "lower"
-            ]
-        );
-
         // profiler flow for pass explorer access
         register_alias!(
             pm,
             "profiler",
             [
                 "validate",
-                GroupToSeq,
                 CompileInvoke,
                 ProfilerInstrumentation,
                 "pre-opt",
