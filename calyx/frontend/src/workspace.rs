@@ -75,7 +75,7 @@ impl Workspace {
             return Ok(import.as_ref().to_path_buf());
         }
 
-        let relative_import = parent.join(import.clone());
+        let relative_import = parent.join(&import);
         if relative_import.exists() {
             return Ok(relative_import);
         }
@@ -83,31 +83,34 @@ impl Workspace {
         let library_imports: Vec<_> = lib_paths
             .iter()
             .filter_map(|lib_path| {
-                let library_import = lib_path.join(import.clone());
+                let library_import = lib_path.join(&import);
                 library_import.exists().then_some(library_import)
             })
             .collect();
-        if library_imports.len() == 1 {
-            return Ok(library_imports.into_iter().next().unwrap());
-        }
-        if library_imports.len() > 1 {
-            return Err(Error::misc(format!(
-                "Import path `{}` found in multiple library paths ({})",
-                import.as_ref().to_string_lossy(),
-                library_imports
-                    .iter()
-                    .map(|p| p.to_string_lossy())
-                    .format(", ")
-            ))
-            .with_pos(&import));
-        }
 
-        Err(Error::invalid_file(
-            format!("Import path `{}` found neither as an absolute path, nor in the parent ({}), nor in library path ({})",
-            import.as_ref().to_string_lossy(),
-            parent.to_string_lossy(),
-            lib_paths.iter().map(|p| p.to_string_lossy()).format(", ")
-        )).with_pos(&import))
+        match library_imports.len() {
+            0 => {
+                Err(Error::invalid_file(format!(
+                    "Import path `{}` found neither as an absolute path, nor in the parent ({}), nor in library path ({})",
+                    import.as_ref().to_string_lossy(),
+                    parent.to_string_lossy(),
+                    lib_paths.iter().map(|p| p.to_string_lossy()).format(", ")
+                ))
+                .with_pos(&import))
+            }
+            1 => Ok(library_imports.into_iter().next().unwrap()),
+            _ => {
+                Err(Error::misc(format!(
+                    "Import path `{}` found in multiple library paths ({})",
+                    import.as_ref().to_string_lossy(),
+                    library_imports
+                        .iter()
+                        .map(|p| p.to_string_lossy())
+                        .format(", ")
+                ))
+                .with_pos(&import))
+            }
+        }
     }
 
     // Get the absolute path to an extern. Extern can only exist on paths
