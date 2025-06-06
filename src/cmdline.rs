@@ -48,9 +48,9 @@ pub struct Opts {
     #[argh(
         option,
         short = 'l',
-        default = "Path::new(option_env!(\"CALYX_PRIMITIVES_DIR\").unwrap_or(\".\")).into()"
+        default = "vec![option_env!(\"CALYX_PRIMITIVES_DIR\").unwrap_or(\".\").into()]"
     )]
-    pub lib_path: PathBuf,
+    pub lib_path: Vec<PathBuf>,
 
     /// compilation mode
     #[argh(option, short = 'm', default = "CompileMode::default()")]
