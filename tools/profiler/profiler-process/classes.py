@@ -725,6 +725,9 @@ class TraceData:
                             events_stack_with_ctrl.pop(-2)
                         continue
                     continue
+                case StackElementType.PRIMITIVE:
+                    # All primitives are leaf nodes, so there is no more work left to be done.
+                    break
             if current_cell in control_metadata.cell_to_ordered_pars:
                 active_from_cell = active_control_groups.intersection(
                     control_metadata.cell_to_ordered_pars[current_cell]
