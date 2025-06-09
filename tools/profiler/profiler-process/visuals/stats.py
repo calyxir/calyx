@@ -91,10 +91,11 @@ def write_cell_stats(
     fieldnames = [
         "cell-name",
         "num-fsms",
-        "useful-cycles",
         "total-cycles",
         "times-active",
         "avg",
+        "useful-cycles",
+        "useful-cycles (%)",
     ] + [
         f"{cat.name} (%)" for cat in tracedata.cycletype_to_cycles
     ]  # fields in CSV file
@@ -114,12 +115,15 @@ def write_cell_stats(
                 cell
             ].active_cycles.intersection(tracedata.cycletype_to_cycles[cycletype])
         avg_cycles = round(cell_total_cycles / times_active, 2)
+        useful_cycles = len(cell_cat[CycleType.GROUP_OR_PRIMITIVE]) + len(
+            cell_cat[CycleType.OTHER]
+        )
         stats_dict = {
             "cell-name": f"{cell} [{component}]",
             "num-fsms": num_fsms,
-            "useful-cycles": len(cell_cat[CycleType.GROUP_OR_PRIMITIVE])
-            + len(cell_cat[CycleType.OTHER]),
+            "useful-cycles": useful_cycles,
             "total-cycles": cell_total_cycles,
+            "useful-cycles (%)": round((useful_cycles / cell_total_cycles) * 100, 1),
             "times-active": times_active,
             "avg": avg_cycles,
         }
@@ -143,6 +147,9 @@ def write_cell_stats(
         )
     totals["times-active"] = "-"
     totals["avg"] = "-"
+    totals["useful-cycles (%)"] = round(
+        (totals["useful-cycles"] / total_cycles) * 100, 1
+    )
     stats.sort(key=lambda e: e["total-cycles"], reverse=True)
     stats.append(totals)  # total should come at the end
     with open(
