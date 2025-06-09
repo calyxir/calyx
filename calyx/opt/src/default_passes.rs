@@ -9,8 +9,8 @@ use crate::passes::{
     ProfilerInstrumentation, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticFSMAllocation, StaticFSMOpts, StaticInference,
     StaticInliner, StaticPromotion, StaticRepeatFSMAllocation,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    SynthesisPapercut, TopDownCompileControl, UniqueControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::passes_experimental::{
     CompileSync, CompileSyncWithoutSyncReg, DiscoverExternal, ExternalToRef,
@@ -85,6 +85,7 @@ impl PassManager {
 
         // instrumentation pass to collect profiling information
         pm.register_pass::<ProfilerInstrumentation>()?;
+        pm.register_pass::<UniqueControl>()?;
 
         //add metadata
         pm.register_pass::<Metadata>()?;
