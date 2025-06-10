@@ -292,6 +292,31 @@ static_group = {
       ~ "}"
 }
 
+// fsm declaration *wip* figure out name later
+
+state_idx = @{ ASCII_DIGIT+ }
+
+transition = {
+      state_idx |
+      "{" 
+      ~ (term ~ "->" ~ state_idx)+ // at least one term must be defined
+      ~ "default" ~ "->" ~ state_idx
+      ~ "}"
+}
+
+state = {
+      state_idx ~ ":" ~ "{" 
+      ~ wire*
+      ~ "}" ~ "=>" ~ transition
+      ~ ","
+}
+
+fsm = {
+      "fsm" ~ name_with_attribute ~ "{" 
+      ~ state* // should be delimited with commas and not semicolons
+      ~ "}"
+}
+
 connections = {
       "wires"
       ~ "{"
