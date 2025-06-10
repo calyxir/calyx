@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::{self as ir, Id, Nothing, While};
+use calyx_ir::{self as ir, Nothing, While};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 
@@ -36,7 +36,7 @@ impl Named for UniqueControl {
 #[derive(Serialize)]
 struct PathDescriptorInfo {
     pub enables: HashMap<String, String>,
-    pub pars: HashMap<String, String>,
+    pub pars: HashSet<String>,
 }
 
 impl ConstructVisitor for UniqueControl {
@@ -57,7 +57,7 @@ impl ConstructVisitor for UniqueControl {
 fn label_control_enables(
     control: &ir::Control,
     current_id: String,
-    group_to_id: &mut HashMap<String, String>,
+    path_descriptor_info: &mut PathDescriptorInfo,
     parent_is_component: bool,
 ) {
     match control {
@@ -65,29 +65,51 @@ fn label_control_enables(
             let mut acc = 0;
             for stmt in &seq.stmts {
                 let stmt_id = format!("{}-{}", current_id, acc);
-                label_control_enables(stmt, stmt_id, group_to_id, false);
+                label_control_enables(
+                    stmt,
+                    stmt_id,
+                    path_descriptor_info,
+                    false,
+                );
                 acc += 1;
             }
         }
         ir::Control::Par(par) => {
             let mut acc = 0;
+            let par_id = format!("{}-", current_id);
             for stmt in &par.stmts {
-                let stmt_id = format!("{}-{}", current_id, acc);
-                label_control_enables(stmt, stmt_id, group_to_id, false);
+                let stmt_id = format!("{}{}", par_id, acc);
+                label_control_enables(
+                    stmt,
+                    stmt_id,
+                    path_descriptor_info,
+                    false,
+                );
                 acc += 1;
             }
+            path_descriptor_info.pars.insert(par_id);
         }
         ir::Control::If(iff) => {
             // process true branch
             let true_id = format!("{}t", current_id);
-            label_control_enables(&iff.tbranch, true_id, group_to_id, false);
+            label_control_enables(
+                &iff.tbranch,
+                true_id,
+                path_descriptor_info,
+                false,
+            );
             // process false branch
             let false_id = format!("{}f", current_id);
-            label_control_enables(&iff.fbranch, false_id, group_to_id, false);
+            label_control_enables(
+                &iff.fbranch,
+                false_id,
+                path_descriptor_info,
+                false,
+            );
         }
         ir::Control::While(While { body, .. }) => {
             let body_id = format!("{}-b", current_id);
-            label_control_enables(&body, body_id, group_to_id, false);
+            label_control_enables(&body, body_id, path_descriptor_info, false);
         }
         ir::Control::Enable(enable) => {
             let group_id = if parent_is_component {
@@ -98,7 +120,9 @@ fn label_control_enables(
             };
             let group_name = enable.group.borrow().name();
             println!("{}: {}", group_name, group_id);
-            group_to_id.insert(group_name.to_string(), group_id);
+            path_descriptor_info
+                .enables
+                .insert(group_name.to_string(), group_id);
         }
         _ => todo!(),
     }
@@ -113,9 +137,11 @@ impl Visitor for UniqueControl {
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
         let group_name = s.group.borrow().name();
+        // UG stands for "unique group". This is to separate these names from the original group names
+        let unique_group_name = format!("{}UG", group_name);
         // create a wrapper group
         let mut builder = ir::Builder::new(comp, sigs);
-        let unique_group = builder.add_group(group_name);
+        let unique_group = builder.add_group(unique_group_name);
         // let unique_group_assignments = s.group.borrow().assignments.clone();
         let mut unique_group_assignments: Vec<calyx_ir::Assignment<Nothing>> =
             Vec::new();
@@ -178,29 +204,20 @@ impl Visitor for UniqueControl {
             let control = comp.control.borrow();
             // let mut control_enabled_group_to_identifier = HashMap::new();
             // let mut par_to_identifier = HashMap::new();
-            let info = PathDescriptorInfo {
+            let mut info = PathDescriptorInfo {
                 enables: HashMap::new(),
-                pars: HashMap::new(),
+                pars: HashSet::new(),
             };
 
             label_control_enables(
                 &control,
                 format!("{}.", comp.name.to_string()),
-                info,
+                &mut info,
                 true,
             );
 
-            // label_control_enables(
-            //     &control,
-            //     format!("{}.", comp.name.to_string()),
-            //     &mut control_enabled_group_to_identifier,
-            //     true,
-            // );
-
-            // let _ = serde_json::to_writer_pretty(
-            //     json_out_file.get_write(),
-            //     &control_enabled_group_to_identifier,
-            // );
+            let _ =
+                serde_json::to_writer_pretty(json_out_file.get_write(), &info);
         }
         Ok(Action::Continue)
     }
