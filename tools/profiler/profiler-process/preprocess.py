@@ -136,3 +136,16 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
                 control_metadata.register_fully_qualified_par(fully_qualified_par)
 
     return control_metadata
+
+
+def read_path_descriptor_json(path_descriptors_json: str, cell_metadata: CellMetadata):
+    json_data = json.load(open(path_descriptors_json))
+    for component in json_data:
+        component_info = json_data[component]
+        par_descriptors = component_info["pars"]
+        for (enable_name, enable_descriptor) in component_info["enables"].items():
+            # there has to be a smarter way to do this?
+            parent_par = None
+            for par_descriptor in sorted(par_descriptors, key=len, reverse=True):
+                if par_descriptor in enable_descriptor:
+                    

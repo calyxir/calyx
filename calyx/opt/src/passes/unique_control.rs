@@ -11,6 +11,7 @@ use serde::Serialize;
 /// Used by the profiler.
 pub struct UniqueControl {
     path_descriptor_json: Option<OutputFile>,
+    path_descriptor_infos: HashMap<String, PathDescriptorInfo>,
 }
 
 impl Named for UniqueControl {
@@ -48,6 +49,7 @@ impl ConstructVisitor for UniqueControl {
         Ok(UniqueControl {
             path_descriptor_json: opts[&"path-descriptor-json"]
                 .not_null_outstream(),
+            path_descriptor_infos: HashMap::new(),
         })
     }
 
@@ -59,7 +61,7 @@ fn label_control_enables(
     current_id: String,
     path_descriptor_info: &mut PathDescriptorInfo,
     parent_is_component: bool,
-) {
+) -> () {
     match control {
         ir::Control::Seq(seq) => {
             let mut acc = 0;
@@ -124,7 +126,7 @@ fn label_control_enables(
                 .enables
                 .insert(group_name.to_string(), group_id);
         }
-        _ => todo!(),
+        _ => {}
     }
 }
 
@@ -167,57 +169,35 @@ impl Visitor for UniqueControl {
         Ok(Action::Change(Box::new(ir::Control::enable(unique_group))))
     }
 
-    // in case we want to unique-ify the whiles as well
-    // fn start_while(
-    //     &mut self,
-    //     s: &mut calyx_ir::While,
-    //     comp: &mut calyx_ir::Component,
-    //     sigs: &calyx_ir::LibrarySignatures,
-    //     _comps: &[calyx_ir::Component],
-    // ) -> VisResult {
-    //     if let Some(comb_group) = &s.cond {
-    //         let comb_group_name = comb_group.borrow().name();
-    //         // create a new version of the comb group
-    //         let mut builder = ir::Builder::new(comp, sigs);
-    //         let new_comb_group = builder.add_comb_group(comb_group_name);
-    //         new_comb_group.borrow_mut().assignments =
-    //             comb_group.borrow().assignments.clone();
-    //         let new_body = ir
-    //         Ok(Action::Change(Box::new(ir::Control::while_(
-    //             s.port.clone(),
-    //             Some(new_comb_group),
-    //             ,
-    //         ))))
-    //     } else {
-    //         Ok(Action::Continue)
-    //     }
-    // }
-
     fn finish(
         &mut self,
         comp: &mut calyx_ir::Component,
         _sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> VisResult {
+        let control = comp.control.borrow();
+        let mut path_descriptor_info = PathDescriptorInfo {
+            enables: HashMap::new(),
+            pars: HashSet::new(),
+        };
+        label_control_enables(
+            &control,
+            format!("{}.", comp.name.to_string()),
+            &mut path_descriptor_info,
+            true,
+        );
+        self.path_descriptor_infos
+            .insert(comp.name.to_string(), path_descriptor_info);
+        Ok(Action::Continue)
+    }
+
+    fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
         // iterate through and record info about who is what's parent
         if let Some(json_out_file) = &mut self.path_descriptor_json {
-            let control = comp.control.borrow();
-            // let mut control_enabled_group_to_identifier = HashMap::new();
-            // let mut par_to_identifier = HashMap::new();
-            let mut info = PathDescriptorInfo {
-                enables: HashMap::new(),
-                pars: HashSet::new(),
-            };
-
-            label_control_enables(
-                &control,
-                format!("{}.", comp.name.to_string()),
-                &mut info,
-                true,
+            let _ = serde_json::to_writer_pretty(
+                json_out_file.get_write(),
+                &self.path_descriptor_infos,
             );
-
-            let _ =
-                serde_json::to_writer_pretty(json_out_file.get_write(), &info);
         }
         Ok(Action::Continue)
     }

@@ -8,6 +8,17 @@ import statistics
 
 from errors import ProfilerException
 
+@dataclass
+class ComponentPaths:
+    """
+    Path relationships within a specific component
+    """
+    placeholder: str
+
+@dataclass
+class PathMetadata:
+    component_to_paths: dict[str, ComponentPaths]
+    
 
 @dataclass
 class SourceLoc:
@@ -300,7 +311,6 @@ class StackElementType(Enum):
     PRIMITIVE = 2
     CELL = 3
     CONTROL_GROUP = 4  # TDCC-generated groups that manage control
-
 
 @dataclass
 class StackElement:

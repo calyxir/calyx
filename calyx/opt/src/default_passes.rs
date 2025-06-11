@@ -199,6 +199,7 @@ impl PassManager {
             [
                 "validate",
                 CompileInvoke,
+                UniqueControl,
                 ProfilerInstrumentation,
                 // "pre-opt" without GroupToSeq
                 DataPathInfer,

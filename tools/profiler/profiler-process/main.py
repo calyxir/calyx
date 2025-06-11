@@ -8,7 +8,7 @@ import construct_trace
 import preprocess
 from visuals import flame, timeline, stats
 
-from classes import CellMetadata, ControlMetadata, TraceData, ControlRegUpdateType
+from classes import CellMetadata, ControlMetadata, TraceData, ControlRegUpdateType, PathMetadata
 
 
 def setup_metadata(args):
@@ -21,6 +21,7 @@ def setup_metadata(args):
     shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
         args.shared_cells_json
     )
+    path_metadata: PathMetadata = preprocess.read_path_descriptor_json(args.path_discriptors_json)
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
         args.fsms_json, cell_metadata
     )
@@ -142,8 +143,12 @@ if __name__ == "__main__":
         "shared_cells_json",
         help="Records cells that are shared during cell-share pass.",
     )
+    parser.add_argument(
+        "path_discriptors_json",
+        help="Records path descriptors for control enables and pars",
+    )
     parser.add_argument("out_dir", help="Output directory")
-    parser.add_argument("flame_out", help="Flame")
+    parser.add_argument("flame_out", help="Output file for flattened flame graph")
     parser.add_argument(
         "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
     )
