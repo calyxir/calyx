@@ -296,10 +296,14 @@ static_group = {
 
 state_idx = @{ ASCII_DIGIT+ }
 
+guard_state_pair = {
+      term ~ "->" ~ state_idx
+}
+
 transition = {
       state_idx |
       "{" 
-      ~ (term ~ "->" ~ state_idx)+ // at least one term must be defined
+      ~ guard_state_pair+ // at least one term must be defined
       ~ "default" ~ "->" ~ state_idx
       ~ "}"
 }
@@ -313,7 +317,7 @@ state = {
 
 fsm = {
       "fsm" ~ name_with_attribute ~ "{" 
-      ~ state* // should be delimited with commas and not semicolons
+      ~ state+ // should be delimited with commas and not semicolons
       ~ "}"
 }
 
