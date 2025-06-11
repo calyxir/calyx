@@ -973,7 +973,7 @@ impl CalyxParser {
                 // assignments and transitions are matching, and asserts that
                 // n rules/states n assignments and n transitions are
 
-                for (state_idx, assignments, transition) in states.map(|(idx, assigns, trans)| (idx, assigns, trans)) {
+                for (state_idx, assignments, transition) in states {
                     max_state_idx = max_state_idx.max(state_idx);
                     state_data.push((state_idx, assignments, transition));
                 }
