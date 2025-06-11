@@ -57,6 +57,8 @@ pub struct ComponentDef {
     pub groups: Vec<Group>,
     /// List of StaticGroups
     pub static_groups: Vec<StaticGroup>,
+    /// List of fsms
+    pub fsms: Vec<Fsm>,
     /// List of continuous assignments
     pub continuous_assignments: Vec<Wire>,
     /// Single control statement for this component.
@@ -85,6 +87,7 @@ impl ComponentDef {
             cells: Vec::new(),
             groups: Vec::new(),
             static_groups: Vec::new(),
+            fsms: Vec::new(),
             continuous_assignments: Vec::new(),
             control: Control::empty(),
             attributes: Attributes::default(),
@@ -256,6 +259,38 @@ pub struct StaticGroup {
     pub latency: NonZeroU64,
 }
 
+#[derive(Debug)]
+pub struct Assignment {
+    /// Source of the assignment.
+    pub src: Guard,
+
+    /// Guarded destinations of the assignment.
+    pub dest: Port,
+
+    /// Attributes for this assignment
+    pub attributes: Attributes,
+}
+
+#[derive(Debug)]
+pub enum Transition {
+    /// Simple jump to state
+    Unconditional(u64),
+    /// Guarded transitions. A vector of tuples - the guard and the corresponding state to be transitioned to.
+    Conditional(Vec<(Guard, u64)>),
+}
+
+#[derive(Debug)]
+/// Each fsm has a state_idx, attributes, and transitions
+pub struct Fsm {
+    /// Name of the fsm construct
+    pub name: Id,
+    /// Attributes attached to this fsm
+    pub attributes: Attributes,
+    /// Assignments are vectors of wires which are indexed by the state
+    pub assignments: Vec<Vec<Assignment>>,
+    /// Transitions are enumerated by state as well
+    pub transitions: Vec<Transition>,
+}
 /// Data for the `->` structure statement.
 #[derive(Debug)]
 pub struct Wire {
