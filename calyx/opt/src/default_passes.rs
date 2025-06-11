@@ -201,6 +201,7 @@ impl PassManager {
                 CompileInvoke,
                 UniqueControl,
                 ProfilerInstrumentation,
+                DeadGroupRemoval,
                 // "pre-opt" without GroupToSeq
                 DataPathInfer,
                 CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.

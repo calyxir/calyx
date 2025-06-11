@@ -143,9 +143,13 @@ def read_path_descriptor_json(path_descriptors_json: str, cell_metadata: CellMet
     for component in json_data:
         component_info = json_data[component]
         par_descriptors = component_info["pars"]
+        enable_to_branch_id: dict[str, str] = {}
         for (enable_name, enable_descriptor) in component_info["enables"].items():
             # there has to be a smarter way to do this?
-            parent_par = None
             for par_descriptor in sorted(par_descriptors, key=len, reverse=True):
+                # because we sorted in reverse, the first hit is the closest par parent
                 if par_descriptor in enable_descriptor:
+                    # the branch in which the enable lives in is the number immediately following the par_descriptor
+                    branch_id: str = enable_descriptor.split(par_descriptor)[1][0]
+                    enable_to_branch_id[enable_name] = branch_id
                     

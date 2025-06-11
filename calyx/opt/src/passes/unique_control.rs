@@ -121,7 +121,6 @@ fn label_control_enables(
                 current_id
             };
             let group_name = enable.group.borrow().name();
-            println!("{}: {}", group_name, group_id);
             path_descriptor_info
                 .enables
                 .insert(group_name.to_string(), group_id);

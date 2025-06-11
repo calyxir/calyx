@@ -21,7 +21,7 @@ def setup_metadata(args):
     shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
         args.shared_cells_json
     )
-    path_metadata: PathMetadata = preprocess.read_path_descriptor_json(args.path_discriptors_json)
+    path_metadata: PathMetadata = preprocess.read_path_descriptor_json(args.path_discriptors_json, cell_metadata)
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
         args.fsms_json, cell_metadata
     )
