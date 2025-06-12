@@ -89,6 +89,10 @@ where
     }
 }
 
+/// This whole trait was a deranged attempt to make some of the logic for
+/// flattening a tree structure generic. I frankly recommend avoiding looking at
+/// this code because it is kinda a nightmare and in hindsight should've
+/// probably been designed a bit differently.
 pub trait FlattenTree: Sized {
     type Output;
     type IdxType: IndexRef;
