@@ -317,6 +317,7 @@ impl Control {
 pub struct ControlNode {
     pub control: Control,
     pub pos: Option<Box<[PositionId]>>,
+    pub parent: Option<ControlIdx>,
 }
 
 impl AsRef<Control> for ControlNode {

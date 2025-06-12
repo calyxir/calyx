@@ -60,6 +60,10 @@ where
     ) -> SingleHandle<'_, 'outer, In, Idx, Out> {
         SingleHandle { handle: self }
     }
+
+    fn next_idx(&self) -> Idx {
+        Idx::new(self.base.map_or(0, |x| x.index()) + self.vec.len())
+    }
 }
 
 /// A limited handle which can only process a single element
@@ -78,6 +82,10 @@ where
 {
     pub fn enqueue(&mut self, item: &'outer In) -> Idx {
         self.handle.enqueue(item)
+    }
+
+    pub fn next_idx(&self) -> Idx {
+        self.handle.next_idx()
     }
 }
 
