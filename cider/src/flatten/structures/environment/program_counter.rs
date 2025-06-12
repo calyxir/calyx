@@ -42,9 +42,53 @@ impl ControlPoint {
     }
 
     pub fn get_next(node: &Self, ctx: &Context) -> Option<Self> {
-        let path = SearchPath::find_path_from_root(node.control_node_idx, ctx);
-        let next = path.next_node(&ctx.primary.control);
-        next.map(|x| node.new_retain_comp(x))
+        let mut current = ctx.primary[node.control_node_idx].parent?;
+        let mut prior = node.control_node_idx;
+        let mut out = None;
+
+        while out.is_none() {
+            match &ctx.primary[current].control {
+                Control::Seq(seq) => {
+                    let (idx, _) = seq
+                        .stms()
+                        .iter()
+                        .find_position(|&&child| child == prior)
+                        .unwrap();
+
+                    if idx + 1 < seq.stms().len() {
+                        out = Some(seq.stms()[idx + 1])
+                    }
+                }
+                Control::If(i) => {
+                    if i.cond_group().is_some() {
+                        // since this has a with, we need to re-visit
+                        // the node to clean-up the with group
+                        out = Some(current);
+                    }
+                    // no cleanup needed, just keep searching up the tree
+                }
+                // Need to recheck loop condition
+                Control::While(_) | Control::Repeat(_) => {
+                    out = Some(current);
+                }
+                // Need to check if the par is done
+                Control::Par(_) => {
+                    out = Some(current);
+                }
+                // leaf
+                Control::Invoke(_) | Control::Empty(_) | Control::Enable(_) => {
+                    unreachable!("leaf nodes cannot be parents")
+                }
+            };
+
+            // climb one level of the tree
+            if out.is_none() {
+                prior = current;
+                current = ctx.primary[current].parent?;
+            }
+        }
+
+        out.map(|x| node.new_retain_comp(x))
     }
 
     /// Attempts to get the next node for the given control point, if found

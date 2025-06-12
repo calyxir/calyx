@@ -183,11 +183,11 @@ pub struct InvokeSignature {
     /// The ports attached to the input of the invoked cell, an association list
     /// of the port ref in the **PARENT** context, and the port connected
     /// to it in the parent context i.e. (dst, src)
-    pub inputs: SmallVec<[(PortRef, PortRef); 1]>,
+    pub inputs: Box<[(PortRef, PortRef)]>,
     /// The ports attached to the outputs of the invoked cell, an association list
     /// of the port ref in the **PARENT** context, and the port connected
     /// to it in the parent context. i.e. (src, dst)
-    pub outputs: SmallVec<[(PortRef, PortRef); 1]>,
+    pub outputs: Box<[(PortRef, PortRef)]>,
 }
 
 impl InvokeSignature {
@@ -216,7 +216,7 @@ pub struct Invoke {
     /// The external cells passed as arguments to the invoked cell, an
     /// association list of the refcell offset in the invoked context, and the
     /// cell realizing it in the parent context
-    pub ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
+    pub ref_cells: Box<[(LocalRefCellOffset, CellRef)]>,
     /// The signature (behind a box for space reasons). This is used during the
     /// flattening process and printing, but is not used during simulation as
     /// the assignments are pre-constructed from it.
@@ -317,6 +317,7 @@ impl Control {
 pub struct ControlNode {
     pub control: Control,
     pub pos: Option<Box<[PositionId]>>,
+    pub parent: Option<ControlIdx>,
 }
 
 impl AsRef<Control> for ControlNode {
