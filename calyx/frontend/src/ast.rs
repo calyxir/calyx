@@ -280,16 +280,22 @@ pub enum Transition {
 }
 
 #[derive(Debug)]
+pub struct FSMRule {
+    /// Assignments are vectors of wires corresponding to the state index.
+    pub assignments: Vec<Wire>,
+    /// Transitions encode the next state logic
+    pub transition: Transition,
+}
+
+#[derive(Debug)]
 /// Each fsm has a state_idx, attributes, and transitions
 pub struct Fsm {
     /// Name of the fsm construct
     pub name: Id,
     /// Attributes attached to this fsm
     pub attributes: Attributes,
-    /// Assignments are vectors of wires which are indexed by the state
-    pub assignments: Vec<Vec<Assignment>>,
-    /// Transitions are enumerated by state as well
-    pub transitions: Vec<Transition>,
+    /// A rule is a list of assignments (represented by a list of wires) and transitions corresponding to one state index.
+    pub rules: Vec<FSMRule>,
 }
 /// Data for the `->` structure statement.
 #[derive(Debug)]
