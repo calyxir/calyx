@@ -168,6 +168,7 @@ cells = {
 
 hole = {
       identifier ~ "[" ~ identifier ~ "]"
+      | "fsm" ~ "[" ~ identifier ~ "]"
 }
 
 port = {
@@ -297,7 +298,7 @@ static_group = {
 state_idx = @{ ASCII_DIGIT+ }
 
 guard_state_pair = {
-      term ~ "->" ~ state_idx
+      (term | "fsm" ~ "[" ~ identifier ~ "]") ~ "->" ~ state_idx
 }
 
 transition = {
@@ -324,7 +325,7 @@ fsm = {
 connections = {
       "wires"
       ~ "{"
-      ~ (wire | group | static_group )*
+      ~ (wire | group | static_group | fsm)*
       ~ "}"
 }
 

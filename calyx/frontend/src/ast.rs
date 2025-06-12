@@ -260,18 +260,6 @@ pub struct StaticGroup {
 }
 
 #[derive(Debug)]
-pub struct Assignment {
-    /// Source of the assignment.
-    pub src: Guard,
-
-    /// Guarded destinations of the assignment.
-    pub dest: Port,
-
-    /// Attributes for this assignment
-    pub attributes: Attributes,
-}
-
-#[derive(Debug)]
 pub enum Transition {
     /// Simple jump to state
     Unconditional(u64),
