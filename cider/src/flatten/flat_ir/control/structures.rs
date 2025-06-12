@@ -216,7 +216,7 @@ pub struct Invoke {
     /// The external cells passed as arguments to the invoked cell, an
     /// association list of the refcell offset in the invoked context, and the
     /// cell realizing it in the parent context
-    pub ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
+    pub ref_cells: Box<[(LocalRefCellOffset, CellRef)]>,
     /// The signature (behind a box for space reasons). This is used during the
     /// flattening process and printing, but is not used during simulation as
     /// the assignments are pre-constructed from it.
