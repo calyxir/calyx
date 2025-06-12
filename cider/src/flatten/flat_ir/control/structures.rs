@@ -183,11 +183,11 @@ pub struct InvokeSignature {
     /// The ports attached to the input of the invoked cell, an association list
     /// of the port ref in the **PARENT** context, and the port connected
     /// to it in the parent context i.e. (dst, src)
-    pub inputs: SmallVec<[(PortRef, PortRef); 1]>,
+    pub inputs: Box<[(PortRef, PortRef)]>,
     /// The ports attached to the outputs of the invoked cell, an association list
     /// of the port ref in the **PARENT** context, and the port connected
     /// to it in the parent context. i.e. (src, dst)
-    pub outputs: SmallVec<[(PortRef, PortRef); 1]>,
+    pub outputs: Box<[(PortRef, PortRef)]>,
 }
 
 impl InvokeSignature {
