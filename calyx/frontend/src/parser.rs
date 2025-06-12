@@ -3,7 +3,7 @@
 //! Parser for Calyx programs.
 use super::Attributes;
 use super::ast::{
-    self, Assignment, BitNum, Control, GuardComp as GC, GuardExpr, NumType,
+    self, BitNum, Control, GuardComp as GC, GuardExpr, NumType,
     StaticGuardExpr, Transition,
 };
 use crate::{
@@ -877,13 +877,6 @@ impl CalyxParser {
             .map_err(|_| input.error("Expected valid state index"))
     }
 
-    // fn default_state(input: Node) -> ParseResult<u64> {
-    //     input
-    //         .as_str()
-    //         .parse::<u64>()
-    //         .map_err(|_| input.error("Expected valid default state index"))
-    // }
-
     fn guard_state_pair(input: Node) -> ParseResult<(ast::Guard, u64)> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
@@ -938,7 +931,7 @@ impl CalyxParser {
         ))
     }
 
-    fn state(input: Node) -> ParseResult<(u64, Vec<Assignment>, Transition)> {
+    fn state(input: Node) -> ParseResult<(u64, Vec<ast::Wire>, Transition)> {
         Ok(match_nodes!(
             input.into_children();
             [
@@ -947,15 +940,7 @@ impl CalyxParser {
                 transition(trans)
             ] => {
                 let state_wires : Vec<ast::Wire> = wires.collect();
-                let state_assignments : Vec<ast::Assignment> = state_wires
-                    .into_iter()
-                    .map(|wire| Assignment {
-                        src: wire.src,
-                        dest: wire.dest,
-                        attributes: wire.attributes,
-                    })
-                    .collect();
-                (idx, state_assignments, trans)
+                (idx, state_wires, trans) // change ast to be wires b/c IR has assignments
             }
         ))
     }
@@ -965,35 +950,23 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [name_with_attribute((name, attrs)), state(states)..] => {
-                let mut max_state_idx = 0;
                 let mut state_data = Vec::new();
 
-                // not too sure in terms of efficiency, but the following is to
-                // ensure that the index of the fsm and the corresponding
-                // assignments and transitions are matching, and asserts that
-                // n rules/states n assignments and n transitions are
-
                 for (state_idx, assignments, transition) in states {
-                    max_state_idx = max_state_idx.max(state_idx);
-                    state_data.push((state_idx, assignments, transition));
+                    let rule = ast::FSMRule {
+                        assignments,
+                        transition,
+                    };
+                    state_data.push((state_idx, rule));
                 }
 
-                let mut assignments = Vec::with_capacity((max_state_idx + 1) as usize);
-                let mut transitions = Vec::with_capacity((max_state_idx + 1) as usize); // is this a valid way to initialize a fixed size vector?
-                // each state
-                for (idx, state_assignments, state_transitions) in state_data{
-                    assignments[idx as usize] = state_assignments;
-                    transitions[idx as usize] = state_transitions;
-                } // does this ensure each index has the correct state assignment and state transitions?
-
-                // assignments can be empty, but transitions cant,
-                // how do I check that the transitions aren't empty?
+                state_data.sort_by(|(idx1, _), (idx2, _)| idx1.cmp(idx2));
+                let rules : Vec<ast::FSMRule> = state_data.into_iter().map(|(_, r)| r).collect();
 
                 ast::Fsm {
                 name,
                 attributes: attrs.add_span(span),
-                assignments,
-                transitions,
+                rules,
                 }
             }
         ))
