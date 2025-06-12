@@ -570,6 +570,8 @@ class GroupSummary:
         stats["group-name"] = self.display_name
         stats["num-times-active"] = self.num_times_active
         stats["total-cycles"] = len(self.active_cycles)
+        if len(self.interval_lengths) == 0:
+            print(self.display_name)
         min_interval = min(self.interval_lengths)
         max_interval = max(self.interval_lengths)
         avg_interval = round(statistics.mean(self.interval_lengths), 1)
