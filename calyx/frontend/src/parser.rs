@@ -870,6 +870,7 @@ impl CalyxParser {
         ))
     }
 
+    /// parse in the state indices as unsigned integers
     fn state_idx(input: Node) -> ParseResult<u64> {
         input
             .as_str()
@@ -877,13 +878,26 @@ impl CalyxParser {
             .map_err(|_| input.error("Expected valid state index"))
     }
 
+    /// decoding the conditional transitions, which could be either the guard branch or the default branch
     fn guard_state_pair(input: Node) -> ParseResult<(ast::Guard, u64)> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [term(guard_expr), state_idx(state)] => {
+            [guard_expr(guard_expr), state_idx(state)] => {
                 let guard = ast::Guard {
-                    guard: Some(guard_expr),
+                    guard: Some(*guard_expr),
+                    expr: ast::Atom::Num(BitNum {
+                        width: 1,
+                        num_type: NumType::Decimal,
+                        val: 1,
+                        span,
+                    }),
+                };
+                (guard, state)
+            },
+            [_, state_idx(state)] => { // default branch
+                let guard = ast::Guard {
+                    guard: None,
                     expr: ast::Atom::Num(BitNum {
                         width: 1,
                         num_type: NumType::Decimal,
@@ -896,8 +910,8 @@ impl CalyxParser {
         ))
     }
 
+    /// transitions are either unconditional (just a future state) or conditional (with boolean expressions and a default)
     fn transition(input: Node) -> ParseResult<Transition> {
-        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [
@@ -907,30 +921,13 @@ impl CalyxParser {
             },
             [
                 guard_state_pair(pairs)..,
-                state_idx(default_state_idx)
             ] => {
-                let mut conditions = Vec::new();
-                for (guard, state) in pairs {
-                    conditions.push((guard, state));
-                }
-
-                let default_guard = ast::Guard {
-                    guard: None,
-                    expr: ast::Atom::Num(BitNum {
-                        width: 1,
-                        num_type: NumType::Decimal,
-                        val: 1,
-                        span,
-                    }),
-                };
-
-                conditions.push((default_guard, default_state_idx));
-
-                ast::Transition::Conditional(conditions)
+                ast::Transition::Conditional(pairs.collect())
             }
         ))
     }
 
+    /// states have assignments (vector of wires) and transitions
     fn state(input: Node) -> ParseResult<(u64, Vec<ast::Wire>, Transition)> {
         Ok(match_nodes!(
             input.into_children();
@@ -940,7 +937,7 @@ impl CalyxParser {
                 transition(trans)
             ] => {
                 let state_wires : Vec<ast::Wire> = wires.collect();
-                (idx, state_wires, trans) // change ast to be wires b/c IR has assignments
+                (idx, state_wires, trans)
             }
         ))
     }
@@ -959,7 +956,7 @@ impl CalyxParser {
                     };
                     state_data.push((state_idx, rule));
                 }
-
+                // make sure to sort the rules by index to access the vector by state index.
                 state_data.sort_by(|(idx1, _), (idx2, _)| idx1.cmp(idx2));
                 let rules : Vec<ast::FSMRule> = state_data.into_iter().map(|(_, r)| r).collect();
 

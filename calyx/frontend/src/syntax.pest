@@ -168,7 +168,6 @@ cells = {
 
 hole = {
       identifier ~ "[" ~ identifier ~ "]"
-      | "fsm" ~ "[" ~ identifier ~ "]"
 }
 
 port = {
@@ -293,19 +292,21 @@ static_group = {
       ~ "}"
 }
 
-// fsm declaration *wip* figure out name later
+// fsm grammar declaration
 
+// state indices within each fsm
 state_idx = @{ ASCII_DIGIT+ }
 
+// conditional transition
 guard_state_pair = {
-      term ~ "->" ~ state_idx
+      (guard_expr | "default") ~ "->" ~ state_idx
 }
 
+// transitions that can be either conditional or unconditional
 transition = {
       state_idx 
       | "{" 
       ~ (guard_state_pair ~ ",")+
-      ~ "default" ~ "->" ~ state_idx ~ ","
       ~ "}"
 }
 
