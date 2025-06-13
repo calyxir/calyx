@@ -93,7 +93,7 @@ fn label_control_enables(
         }
         ir::Control::If(iff) => {
             // process true branch
-            let true_id = format!("{}t", current_id);
+            let true_id = format!("{}-t", current_id);
             label_control_enables(
                 &iff.tbranch,
                 true_id,
@@ -101,7 +101,7 @@ fn label_control_enables(
                 false,
             );
             // process false branch
-            let false_id = format!("{}f", current_id);
+            let false_id = format!("{}-f", current_id);
             label_control_enables(
                 &iff.fbranch,
                 false_id,
