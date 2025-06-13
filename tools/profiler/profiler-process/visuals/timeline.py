@@ -279,24 +279,3 @@ def create_group_timeline_event(
         "ts": cycle * ts_multiplier,
     }
     
-
-def create_timeline_event(
-    element_name,
-    cycle,
-    event_type,
-    cell_to_info,
-    group_to_parent_cell,
-    display_name=None,
-):
-    """
-    Creates a JSON entry for traceEvents.
-    element_name: fully qualified name of cell/group
-    cycle: timestamp of the event, in cycles
-    event_type: "B" for begin event, "E" for end event
-    display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
-    """
-    if element_name in cell_to_info:  # cell
-        
-    else:  # group; need to extract the cell name to obtain tid and pid.
-        
-    return event
