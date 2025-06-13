@@ -569,21 +569,15 @@ impl Context {
                     string_path += append;
                 }
                 Control::Par(struc) => {
-                    let count = struc
-                        .stms()
-                        .iter()
-                        .position(|&idx| idx == control_idx)
-                        .unwrap();
+                    let count =
+                        struc.find_child(|&idx| idx == control_idx).unwrap();
 
                     let control_type = String::from("-") + &count.to_string();
                     string_path = string_path + &control_type;
                 }
                 Control::Seq(struc) => {
-                    let count = struc
-                        .stms()
-                        .iter()
-                        .position(|&idx| idx == control_idx)
-                        .unwrap();
+                    let count =
+                        struc.find_child(|&idx| idx == control_idx).unwrap();
 
                     let control_type = String::from("-") + &count.to_string();
                     string_path += &control_type;

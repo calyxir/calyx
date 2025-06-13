@@ -12,8 +12,6 @@ use crate::flatten::{
     structures::thread::ThreadIdx,
 };
 
-use itertools::Itertools;
-
 /// Simple struct containing both the component instance and the active leaf
 /// node in the component. This is used to represent an active execution of some
 /// portion of the control tree
@@ -48,11 +46,7 @@ impl ControlPoint {
         while out.is_none() {
             match &ctx.primary[current].control {
                 Control::Seq(seq) => {
-                    let (idx, _) = seq
-                        .stms()
-                        .iter()
-                        .find_position(|&&child| child == prior)
-                        .unwrap();
+                    let idx = seq.find_child(|&child| child == prior).unwrap();
 
                     if idx + 1 < seq.stms().len() {
                         out = Some(seq.stms()[idx + 1])

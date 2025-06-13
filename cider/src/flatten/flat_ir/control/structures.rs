@@ -62,6 +62,18 @@ impl Seq {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Returns the index of the first child which matches the predicate
+    pub fn find_child<F>(&self, pred: F) -> Option<usize>
+    where
+        F: Fn(&ControlIdx) -> bool,
+    {
+        self.0
+            .iter()
+            .enumerate()
+            .find(|(_idx, c)| pred(c))
+            .map(|x| x.0)
+    }
 }
 
 /// Parallel compositions of control nodes. Analogue of [calyx_ir::Par]
@@ -90,6 +102,18 @@ impl Par {
     /// Returns true if this par contains no arms/threads
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Returns the index of the first child which matches the predicate
+    pub fn find_child<F>(&self, pred: F) -> Option<usize>
+    where
+        F: Fn(&ControlIdx) -> bool,
+    {
+        self.0
+            .iter()
+            .enumerate()
+            .find(|(_idx, c)| pred(c))
+            .map(|x| x.0)
     }
 }
 
