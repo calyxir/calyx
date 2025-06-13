@@ -21,13 +21,13 @@ def setup_metadata(args):
     shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
         args.shared_cells_json
     )
-    path_metadata: PathMetadata = preprocess.read_path_descriptor_json(args.path_discriptors_json, cell_metadata)
+    path_metadata: PathMetadata = preprocess.read_path_descriptor_json(args.path_discriptors_json)
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
         args.fsms_json, cell_metadata
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
-    return cell_metadata, shared_cells_map, control_metadata, tracedata
+    return cell_metadata, control_metadata, tracedata, shared_cells_map, path_metadata
 
 
 def process_vcd(
@@ -64,6 +64,7 @@ def create_visuals(
     cell_metadata: CellMetadata,
     control_metadata: ControlMetadata,
     tracedata: TraceData,
+    path_metadata: PathMetadata,
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType],
     out_dir: str,
 ):
@@ -96,14 +97,14 @@ def create_visuals(
     )
     print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_timeline(tracedata, cell_metadata, args.out_dir)
+    timeline.compute_timeline(tracedata, cell_metadata, path_metadata, args.out_dir)
     print(f"End writing timeline view: {datetime.now()}")
 
 
 def main(args):
     print(f"Start time: {datetime.now()}")
 
-    cell_metadata, shared_cells_map, control_metadata, tracedata = setup_metadata(args)
+    cell_metadata, control_metadata, tracedata, shared_cells_map, path_metadata = setup_metadata(args)
 
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType] = process_vcd(
         cell_metadata, shared_cells_map, control_metadata, tracedata
@@ -115,6 +116,7 @@ def main(args):
         cell_metadata,
         control_metadata,
         tracedata,
+        path_metadata,
         control_reg_updates_per_cycle,
         args.out_dir,
     )

@@ -6,6 +6,7 @@ from classes import (
     ControlRegUpdates,
     StackElementType,
     CellMetadata,
+    PathMetadata
 )
 
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
@@ -13,25 +14,36 @@ JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the f
 num_timeline_events = 0  # [timeline view] recording how many events have happened
 
 
+def setup_enable_to_tid(path_metadata: dict[str, int] | None , starter_idx):
+    return {enable: path_metadata[enable] + starter_idx for enable in path_metadata} if path_metadata else {}
+
 class TimelineCell:
-    # bookkeeping for forming cells and their groups
-    def __init__(self, name, pid):
-        self.name = name
-        self.pid = pid
-        self.tid = 1  # the cell itself gets tid 1, FSMs gets 2+, followed by parallel executions of groups
-        self.tid_acc = 2
-        self.fsm_to_tid = {}  # contents: group/fsm --> tid
+    """
+    Bookkeeping for forming cells and their groups
+
+    Current system:
+    FIXME: we are assuming that there are no nested pars.
+    tid 1 is reserved for the cell itself
+    tid 2 is reserved for control register updates
+    tid 3+ will be computed using the path descriptor
+    """
+    def __init__(self, name: str, pid: int, path_metadata: dict[str, int] | None =None):
+        self.name: str = name
+        self.pid: int = pid
+        self.tid: int = 1
+        self.control_tid: int = 2
+        # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
+        self.enable_to_tid = setup_enable_to_tid(path_metadata, 3)
         self.currently_active_group_to_tid = {}
         self.queued_tids = []
 
-    def get_metatrack_pid_tid(self, fsm_name):
+    @property
+    def control_pid_tid(self):
         # metatrack is the second tid, containing information about control register updates
-        if fsm_name not in self.fsm_to_tid:
-            self.fsm_to_tid[fsm_name] = self.tid_acc
-            self.tid_acc += 1
-        return (self.pid, self.fsm_to_tid[fsm_name])
+        return (self.pid, self.control_tid)
 
     def get_group_pid_tid(self, group_name):
+        
         return (self.pid, self.currently_active_group_to_tid[group_name])
 
     def add_group(self, group_name):
@@ -106,7 +118,7 @@ def port_control_events(
     del control_updates[cell_name]
 
 
-def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir):
+def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_metadata: PathMetadata, out_dir):
     """
     Compute and output a JSON that conforms to the Google Trace File format.
     Each cell gets its own process id, where tid 1 is the duration of the cell itself,
@@ -119,8 +131,9 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
     out_file.write(f'{{\n{JSON_INDENT}"traceEvents": [')
     # each cell gets its own pid. The cell's lifetime is tid 1, followed by the FSM(s), then groups
     # main component gets pid 1
+    main_path_metadata: dict[str, int] = path_metadata.component_to_paths[cell_metadata.main_shortname]
     cell_to_info: dict[str, TimelineCell] = {
-        cell_metadata.main_component: TimelineCell(cell_metadata.main_component, 1)
+        cell_metadata.main_component: TimelineCell(cell_metadata.main_component, 1, path_metadata=main_path_metadata)
     }
     # generate JSON for all FSM events in main
     port_control_events(
@@ -147,17 +160,22 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                             # don't accumulate to the stack if your name is main.
                             name = cell_metadata.main_component
                         else:
-                            display_name = f"{stack_acc}.{stack_elem.name}"
+                            display_name = f"{stack_acc}.{stack_elem.internal_name}"
                             if stack_elem.replacement_cell_name is not None:
                                 # shared cell. use the info of the replacement cell
                                 display_name += f" ({stack_elem.replacement_cell_name})"
                                 stack_acc += "." + stack_elem.replacement_cell_name
                             else:
-                                stack_acc += "." + stack_elem.name
+                                stack_acc += "." + stack_elem.internal_name
                             name = stack_acc
                             current_cell = name
                             if name not in cell_to_info:  # cell is not registered yet
-                                cell_to_info[name] = TimelineCell(name, pid_acc)
+                                cell_component = cell_metadata.get_component_of_cell(name)
+                                if cell_component in path_metadata.component_to_paths:
+                                    component_pathdata = path_metadata.component_to_paths[cell_component]
+                                    cell_to_info[name] = TimelineCell(name, pid_acc, component_pathdata=component_pathdata)
+                                else:
+                                    cell_to_info[name] = TimelineCell(name, pid_acc)
                                 # generate JSON for all FSM events in this cell
                                 port_control_events(
                                     tracedata.control_reg_updates,
@@ -170,7 +188,7 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, out_dir)
                         # ignore primitives for now
                         continue
                     case StackElementType.GROUP:
-                        name = stack_acc + "." + stack_elem.name
+                        name = stack_acc + "." + stack_elem.internal_name
                         group_to_parent_cell[name] = current_cell
                 active_this_cycle.add((name, display_name))
         for nonactive_element, nonactive_element_display in currently_active.difference(

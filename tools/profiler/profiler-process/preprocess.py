@@ -1,7 +1,7 @@
 import json
 import os
 
-from classes import CellMetadata, ControlMetadata, ParChildType
+from classes import CellMetadata, ControlMetadata, ParChildType, PathMetadata
 
 
 def read_shared_cells_map(shared_cells_json) -> dict[str, dict[str, str]]:
@@ -138,8 +138,9 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
     return control_metadata
 
 
-def read_path_descriptor_json(path_descriptors_json: str, cell_metadata: CellMetadata):
+def read_path_descriptor_json(path_descriptors_json: str):
     json_data = json.load(open(path_descriptors_json))
+    component_pathdata: dict[str, dict[str, str]] = {}
     for component in json_data:
         component_info = json_data[component]
         par_descriptors = component_info["pars"]
@@ -150,6 +151,8 @@ def read_path_descriptor_json(path_descriptors_json: str, cell_metadata: CellMet
                 # because we sorted in reverse, the first hit is the closest par parent
                 if par_descriptor in enable_descriptor:
                     # the branch in which the enable lives in is the number immediately following the par_descriptor
-                    branch_id: str = enable_descriptor.split(par_descriptor)[1][0]
+                    branch_id: int = int(enable_descriptor.split(par_descriptor)[1][0])
                     enable_to_branch_id[enable_name] = branch_id
-                    
+        component_pathdata[component] = enable_to_branch_id
+        
+    return PathMetadata(component_pathdata)
