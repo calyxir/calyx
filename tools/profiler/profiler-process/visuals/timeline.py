@@ -1,6 +1,7 @@
 import json
 import os
 
+from dataclasses import dataclass
 from classes import (
     TraceData,
     ControlRegUpdates,
@@ -58,13 +59,13 @@ class TimelineCell:
             group_tid = self.tid_acc
             self.tid_acc += 1
         self.currently_active_group_to_tid[group_name] = group_tid
-        return (self.pid, group_tid)
+        return (self.pid, group_tid, group_name)
 
     def remove_group(self, group_name):
         group_tid = self.currently_active_group_to_tid[group_name]
         self.queued_tids.append(group_tid)
         del self.currently_active_group_to_tid[group_name]
-        return (self.pid, group_tid)
+        return (self.pid, group_tid, group_tid)
 
 
 def write_timeline_event(event, out_file):
@@ -117,6 +118,19 @@ def port_control_events(
         write_timeline_event(end_event, out_file)
     del control_updates[cell_name]
 
+@dataclass
+class ActiveCell:
+    cell_name: str
+    display_name: str | None
+
+    @property
+    def name(self) -> str:
+        return self.cell_name if self.display_name is None else self.display_name
+
+@dataclass
+class ActiveEnable:
+    enable_name: str
+    cell_name: str # cell from which enable is active from
 
 def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_metadata: PathMetadata, out_dir):
     """
@@ -142,11 +156,12 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_met
         cell_metadata.main_component,
         out_file,
     )
-    group_to_parent_cell = {}
     pid_acc = 2
-    currently_active = set()
+    currently_active_cells: set[ActiveCell] = set()
+    currently_active_groups: set[ActiveEnable] = set()
     for i in tracedata.trace:
-        active_this_cycle: set[tuple[str, str]] = set()
+        cells_active_this_cycle: set[ActiveCell] = set()
+        groups_active_this_cycle: set[ActiveEnable] = set()
         for stack in tracedata.trace[i].stacks:
             stack_acc = cell_metadata.main_component
             current_cell = (
@@ -184,61 +199,86 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_met
                                     out_file,
                                 )
                                 pid_acc += 1
+                        cells_active_this_cycle.add(ActiveCell(name, display_name))
                     case StackElementType.PRIMITIVE:
                         # ignore primitives for now
                         continue
                     case StackElementType.GROUP:
-                        name = stack_acc + "." + stack_elem.internal_name
-                        group_to_parent_cell[name] = current_cell
-                active_this_cycle.add((name, display_name))
-        for nonactive_element, nonactive_element_display in currently_active.difference(
-            active_this_cycle
-        ):  # element that was previously active but no longer is.
-            # make end event
-            end_event = create_timeline_event(
-                nonactive_element,
-                i,
-                "E",
-                cell_to_info,
-                group_to_parent_cell,
-                display_name=nonactive_element_display,
-            )
-            write_timeline_event(end_event, out_file)
-        for newly_active_element, newly_active_display in active_this_cycle.difference(
-            currently_active
-        ):  # element that started to be active this cycle.
-            begin_event = create_timeline_event(
-                newly_active_element,
-                i,
-                "B",
-                cell_to_info,
-                group_to_parent_cell,
-                display_name=newly_active_display,
-            )
-            write_timeline_event(begin_event, out_file)
-        currently_active = active_this_cycle
+                        # TODO: maybe we need to retain stack names? Reevaluate this commenting out
+                        # name = stack_acc + "." + stack_elem.internal_name
+                        groups_active_this_cycle.add(ActiveEnable(stack_elem.internal_name, current_cell))
 
-    # Read through all cycles; postprocessing
-    for (
-        still_active_element,
-        still_active_display,
-    ) in (
-        currently_active
-    ):  # need to close any elements that are still active at the end of the simulation
-        end_event = create_timeline_event(
-            still_active_element,
-            len(tracedata.trace),
-            "E",
-            cell_to_info,
-            group_to_parent_cell,
-            display_name=still_active_display,
-        )
-        write_timeline_event(end_event, out_file)
+        for nonactive_cell in currently_active_cells.difference(cells_active_this_cycle):
+            # cell that was previously active but no longer is
+            # make end event
+            cell_end_event = create_cell_timeline_event(nonactive_cell, i, "E", cell_to_info)
+            write_timeline_event(cell_end_event, out_file)
+        for nonactive_group in currently_active_groups.difference(groups_active_this_cycle):
+            # group/enable that was previously active but no longer is
+            # make end event
+            group_end_event = create_group_timeline_event(nonactive_group, i, "E", cell_to_info)
+            write_timeline_event(group_end_event, out_file)
+        
+        for newly_active_cell in cells_active_this_cycle.difference(currently_active_cells):
+            # cell that started to be active this cycle
+            cell_begin_event = create_cell_timeline_event(newly_active_cell, i, "B", cell_to_info)
+            write_timeline_event(cell_begin_event, out_file)
+        for newly_active_group in groups_active_this_cycle.difference(currently_active_groups):
+            # group that started to be active this cycle
+            group_start_event = create_group_timeline_event(newly_active_group, i, "B", cell_to_info)
+            write_timeline_event(group_start_event, out_file)
+
+        currently_active_cells = cells_active_this_cycle
+        currently_active_groups = groups_active_this_cycle
+
+    # Gotten through all cycles; postprocessing any cells and groups that were active until the very end
+    # need to close any elements that are still active at the end of the simulation
+    for still_active_cell in currently_active_cells:
+        cell_end_event = create_cell_timeline_event(still_active_cell, i, "E", cell_to_info)
+        write_timeline_event(cell_end_event, out_file)
+    for still_active_group in currently_active_groups:
+        group_end_event = create_group_timeline_event(still_active_group, i, "E", cell_to_info)
+        write_timeline_event(group_end_event, out_file)
 
     # close off the json
     out_file.write("\t\t]\n}")
     out_file.close()
 
+def create_cell_timeline_event(
+    active_cell_info: ActiveCell,
+    cycle: int,
+    event_type : str,
+    cell_to_info: dict[str, TimelineCell],
+):
+    return {
+        "name": active_cell_info.name,
+        "cat": "cell",
+        "ph": event_type,
+        "pid": cell_to_info[active_cell_info.cell_name].pid,
+        "tid": 1,
+        "ts": cycle * ts_multiplier,
+    }
+
+def create_group_timeline_event(
+        active_group_info: ActiveEnable,
+    cycle: int,
+    event_type: str,
+    cell_to_info: dict[str, TimelineCell]
+):
+    cell_info = cell_to_info[active_group_info.cell_name]
+    if event_type == "B":
+        (pid, tid, name) = cell_info.add_group(active_group_info.enable_name)
+    else:
+        (pid, tid, name) = cell_info.remove_group(active_group_info.enable_name)
+    return {
+        "name": name,  # take only the group name for easier visibility
+        "cat": "group",
+        "ph": event_type,
+        "pid": pid,
+        "tid": tid,
+        "ts": cycle * ts_multiplier,
+    }
+    
 
 def create_timeline_event(
     element_name,
@@ -256,29 +296,7 @@ def create_timeline_event(
     display_name: Optional arg for when we want the name of a cell entry to be something else (ex. shared cells). Ignored for groups
     """
     if element_name in cell_to_info:  # cell
-        event = {
-            "name": element_name if display_name is None else display_name,
-            "cat": "cell",
-            "ph": event_type,
-            "pid": cell_to_info[element_name].pid,
-            "tid": 1,
-            "ts": cycle * ts_multiplier,
-        }
+        
     else:  # group; need to extract the cell name to obtain tid and pid.
-        cell_name = group_to_parent_cell[element_name]
-        cell_info = cell_to_info[cell_name]
-        if event_type == "B":
-            (pid, tid) = cell_info.add_group(element_name)
-        else:
-            (pid, tid) = cell_info.remove_group(element_name)
-        event = {
-            "name": element_name.split(".")[
-                -1
-            ],  # take only the group name for easier visibility
-            "cat": "group",
-            "ph": event_type,
-            "pid": pid,
-            "tid": tid,
-            "ts": cycle * ts_multiplier,
-        }
+        
     return event
