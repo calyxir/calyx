@@ -60,6 +60,10 @@ where
     ) -> SingleHandle<'_, 'outer, In, Idx, Out> {
         SingleHandle { handle: self }
     }
+
+    fn next_idx(&self) -> Idx {
+        Idx::new(self.base.map_or(0, |x| x.index()) + self.vec.len())
+    }
 }
 
 /// A limited handle which can only process a single element
@@ -79,8 +83,16 @@ where
     pub fn enqueue(&mut self, item: &'outer In) -> Idx {
         self.handle.enqueue(item)
     }
+
+    pub fn next_idx(&self) -> Idx {
+        self.handle.next_idx()
+    }
 }
 
+/// This whole trait was a deranged attempt to make some of the logic for
+/// flattening a tree structure generic. I frankly recommend avoiding looking at
+/// this code because it is kinda a nightmare and in hindsight should've
+/// probably been designed a bit differently.
 pub trait FlattenTree: Sized {
     type Output;
     type IdxType: IndexRef;

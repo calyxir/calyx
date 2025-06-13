@@ -56,7 +56,7 @@ class RemoteExecution:
         """
 
         if self.ssh_host == "" or self.ssh_user == "":
-            log.warn(
+            log.warning(
                 "Attempting to use remote execution but SSH host or user look invalid."
                 f" Host: `{self.ssh_host}`, user: `{self.ssh_user}`"
             )
@@ -133,7 +133,7 @@ class RemoteExecution:
                 log.debug(chunk.strip())
 
             for chunk in iter(lambda: stderr.readline(2048), ""):
-                log.warn(chunk.strip())
+                log.warning(chunk.strip())
 
             exit_code = stdout.channel.recv_exit_status()
             if exit_code != 0:

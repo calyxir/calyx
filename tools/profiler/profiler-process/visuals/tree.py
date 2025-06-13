@@ -23,12 +23,10 @@ def create_edge_dict(path_dict):
     return path_to_edges, list(sorted(all_edges))
 
 
-"""
-Creates a tree that encapsulates all stacks that occur within the program.
-"""
-
-
 def create_tree(timeline_map):
+    """
+    Creates a tree that encapsulates all stacks that occur within the program.
+    """
     node_id_acc = 0
     tree_dict = {}  # node id --> node name
     path_dict = {}  # stack list string --> list of node ids

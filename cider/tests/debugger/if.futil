@@ -1,0 +1,38 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    lt = std_lt(32);
+  }
+
+  wires {
+    comb group cond {
+      lt.left = 32'd5;
+      lt.right = 32'd9;
+    }
+
+    group true<"static"=1> {
+      mem.addr0 = 1'd0;
+      mem.write_data = 32'd4;
+      mem.write_en = 1'd1;
+      true[done] = mem.done;
+    }
+
+    group false<"static"=1> {
+      mem.addr0 = 1'd0;
+      mem.write_data = 32'd10;
+      mem.write_en = 1'd1;
+      false[done] = mem.done;
+    }
+  }
+
+  control {
+    if lt.out with cond {
+      true;
+    } else {
+      false;
+    }
+  }
+}

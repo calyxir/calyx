@@ -495,9 +495,7 @@ impl AssignedValue {
             .extend(clocks);
     }
 
-    pub fn iter_transitive_clocks(
-        &self,
-    ) -> impl Iterator<Item = ClockPair> + '_ {
+    pub fn iter_transitive_clocks(&self) -> impl Iterator<Item = ClockPair> {
         self.transitive_clocks
             .as_ref()
             .map(|set| set.iter().copied())
@@ -729,7 +727,7 @@ impl PortValue {
 
     /// Sets the value to undefined and returns the former value if present.
     /// This is equivalent to [Option::take]
-    pub fn set_undef(&mut self) -> Option<AssignedValue> {
+    pub fn take(&mut self) -> Option<AssignedValue> {
         self.0.take()
     }
 

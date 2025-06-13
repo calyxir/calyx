@@ -1,185 +1,158 @@
+import argparse
 from datetime import datetime
 import os
-import sys
 import vcdvcd
 
 import adl_mapping
 import construct_trace
 import preprocess
-from visuals import flame, tree, timeline, stats
+from visuals import flame, timeline, stats
+
+from classes import CellMetadata, ControlMetadata, TraceData, ControlRegUpdateType
 
 
-def main(
-    vcd_filename,
-    cells_json_file,
-    tdcc_json_file,
-    shared_cells_json,
-    adl_mapping_file,
-    out_dir,
-    flame_out,
+def setup_metadata(args):
+    """
+    Wrapper function to preprocess information to use in VCD reading.
+    """
+    cell_metadata: CellMetadata = preprocess.read_component_cell_names_json(
+        args.cells_json
+    )
+    shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
+        args.shared_cells_json
+    )
+    control_metadata: ControlMetadata = preprocess.read_tdcc_file(
+        args.fsms_json, cell_metadata
+    )
+    # create tracedata object here so we can use it outside of converter
+    tracedata: TraceData = TraceData()
+    return cell_metadata, shared_cells_map, control_metadata, tracedata
+
+
+def process_vcd(
+    cell_metadata: CellMetadata,
+    shared_cells_map: dict[str, dict[str, str]],
+    control_metadata: ControlMetadata,
+    tracedata: TraceData,
 ):
-    print(f"Start time: {datetime.now()}")
-    # Preprocess information to use in VCD reading
-    main_shortname, cells_to_components, components_to_cells = (
-        preprocess.read_component_cell_names_json(cells_json_file)
-    )
-    shared_cells_map = preprocess.read_shared_cells_map(shared_cells_json)
-    (
-        fully_qualified_fsms,
-        component_to_num_fsms,
-        par_to_children,
-        reverse_par_dep_info,
-        cell_to_pars,
-        par_done_regs,
-        cell_to_groups_to_par_parent,
-    ) = preprocess.read_tdcc_file(tdcc_json_file, components_to_cells)
-    # create dict of fsms outside the converter so they are preserved.
-    fsm_events = {
-        fsm: [{"name": str(0), "cat": "fsm", "ph": "B", "ts": 0}]
-        for fsm in fully_qualified_fsms
-    }  # won't be fully filled in until create_timeline()
+    """
+    Wrapper function to process the VCD file to produce a trace.
+    control_reg_updates_per_cycle will be used by flame.create_simple_flame_graph(), hence we are returning it.
+    """
     print(f"Start reading VCD: {datetime.now()}")
-    converter = construct_trace.VCDConverter(
-        main_shortname,
-        cells_to_components,
-        fully_qualified_fsms,
-        fsm_events,
-        set(par_to_children.keys()),
-        par_done_regs,
-    )
-    vcdvcd.VCDVCD(vcd_filename, callbacks=converter)
-    signal_prefix = (
-        converter.signal_prefix
-    )  # OS-specific prefix for each signal in the VCD file
-    main_fullname = converter.main_component
+    converter = construct_trace.VCDConverter(cell_metadata, control_metadata, tracedata)
+    vcdvcd.VCDVCD(args.vcd_filename, callbacks=converter)
     print(f"Start Postprocessing VCD: {datetime.now()}")
 
-    trace, trace_classified, cell_to_active_cycles = converter.postprocess(
-        shared_cells_map
-    )  # trace contents: cycle # --> list of stacks, trace_classified is a list: cycle # (indices) --> # useful stacks
+    converter.postprocess(shared_cells_map)
     (
         control_groups_trace,
-        control_groups_summary,
-        control_reg_updates,
         control_reg_updates_per_cycle,
     ) = converter.postprocess_control()
-    cell_to_ordered_pars = construct_trace.order_pars(
-        cell_to_pars, par_to_children, reverse_par_dep_info, signal_prefix
-    )
-    trace_with_pars = construct_trace.add_par_to_trace(
-        trace,
-        control_groups_trace,
-        cell_to_ordered_pars,
-        cell_to_groups_to_par_parent,
-        main_shortname,
+    del converter
+    tracedata.create_trace_with_control_groups(
+        control_groups_trace, cell_metadata, control_metadata
     )
     print(f"End Postprocessing VCD: {datetime.now()}")
     print(f"End reading VCD: {datetime.now()}")
-    del converter
 
-    # debug printing for programs that are less than 100 cycles long
-    if len(trace) < 100:
-        for i in trace_with_pars:
-            print(i)
-            for stack in trace_with_pars[i]:
-                print(f"\t{stack}")
+    return control_reg_updates_per_cycle
 
+
+def create_visuals(
+    cell_metadata: CellMetadata,
+    control_metadata: ControlMetadata,
+    tracedata: TraceData,
+    control_reg_updates_per_cycle: dict[int, ControlRegUpdateType],
+    out_dir: str,
+):
+    """
+    Wrapper function to compute statistics, write flame graphs, and write timeline view.
+    """
+
+    # create output directory for profiler results
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
-    cats_to_cycles = flame.create_simple_flame_graph(
-        trace_classified, control_reg_updates_per_cycle, out_dir
+
+    flame.create_simple_flame_graph(
+        tracedata, control_reg_updates_per_cycle, args.out_dir
     )
-    print(f"End creating simple flame graph: {datetime.now()}")
+    stats.write_group_stats(cell_metadata, tracedata, args.out_dir)
     stats.write_cell_stats(
-        cell_to_active_cycles,
-        cats_to_cycles,
-        cells_to_components,
-        component_to_num_fsms,
-        len(trace),
-        out_dir,
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        args.out_dir,
     )
-    stats.write_par_stats(
-        control_groups_summary, cats_to_cycles, trace_with_pars, main_shortname, out_dir
+    stats.write_par_stats(tracedata, args.out_dir)
+    print(f"End writing stats: {datetime.now()}")
+
+    flat_flame_map, scaled_flame_map = flame.create_flame_maps(
+        tracedata.trace_with_control_groups
     )
-    print(f"End writing cell stats: {datetime.now()}")
-    tree_dict, path_dict = tree.create_tree(trace)
-    path_to_edges, all_edges = tree.create_edge_dict(path_dict)
-
-    tree.create_aggregate_tree(trace, out_dir, tree_dict, path_dict)
-    tree.create_tree_rankings(
-        trace, tree_dict, path_dict, path_to_edges, all_edges, out_dir
+    flame.write_flame_maps(
+        flat_flame_map, scaled_flame_map, args.out_dir, args.flame_out
     )
-    flat_flame_map, scaled_flame_map = flame.create_flame_maps(trace_with_pars)
-    flame.write_flame_maps(flat_flame_map, scaled_flame_map, out_dir, flame_out)
+    print(f"End writing flame graphs: {datetime.now()}")
 
-    timeline.compute_timeline(
-        trace, fsm_events, control_reg_updates, main_fullname, out_dir
+    timeline.compute_timeline(tracedata, cell_metadata, args.out_dir)
+    print(f"End writing timeline view: {datetime.now()}")
+
+
+def main(args):
+    print(f"Start time: {datetime.now()}")
+
+    cell_metadata, shared_cells_map, control_metadata, tracedata = setup_metadata(args)
+
+    control_reg_updates_per_cycle: dict[int, ControlRegUpdateType] = process_vcd(
+        cell_metadata, shared_cells_map, control_metadata, tracedata
     )
 
-    if adl_mapping_file is not None:  # emit ADL flame graphs.
-        print("Computing ADL flames...")
-        adl_flat_flame, mixed_flat_flame = adl_mapping.convert_flame_map(
-            flat_flame_map, adl_mapping_file
-        )
-        adl_scaled_flame, mixed_scaled_flame = adl_mapping.convert_flame_map(
-            scaled_flame_map, adl_mapping_file
-        )
-        adl_flat_flame_file = os.path.join(out_dir, "adl-flat-flame.folded")
-        adl_scaled_flame_file = os.path.join(out_dir, "adl-scaled-flame.folded")
-        flame.write_flame_maps(
-            adl_flat_flame,
-            adl_scaled_flame,
-            out_dir,
-            adl_flat_flame_file,
-            adl_scaled_flame_file,
-        )
+    tracedata.print_trace(threshold=args.print_trace_threshold, ctrl_trace=True)
 
-        mixed_flat_flame_file = os.path.join(out_dir, "mixed-flat-flame.folded")
-        mixed_scaled_flame_file = os.path.join(out_dir, "mixed-scaled-flame.folded")
-        flame.write_flame_maps(
-            mixed_flat_flame,
-            mixed_scaled_flame,
-            out_dir,
-            mixed_flat_flame_file,
-            mixed_scaled_flame_file,
+    create_visuals(
+        cell_metadata,
+        control_metadata,
+        tracedata,
+        control_reg_updates_per_cycle,
+        args.out_dir,
+    )
+
+    if args.adl_mapping_file is not None:  # emit ADL flame graphs.
+        adl_mapping.create_and_write_adl_map(
+            tracedata, args.adl_mapping_file, args.out_dir
         )
 
     print(f"End time: {datetime.now()}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 6:
-        vcd_filename = sys.argv[1]
-        cells_json = sys.argv[2]
-        fsms_json = sys.argv[3]
-        shared_cells_json = sys.argv[4]
-        out_dir = sys.argv[5]
-        flame_out = sys.argv[6]
-        if len(sys.argv) > 7:
-            adl_mapping_file = sys.argv[6]
-        else:
-            adl_mapping_file = None
-        print(f"ADL mapping file: {adl_mapping_file}")
-        main(
-            vcd_filename,
-            cells_json,
-            fsms_json,
-            shared_cells_json,
-            adl_mapping_file,
-            out_dir,
-            flame_out,
-        )
-    else:
-        args_desc = [
-            "VCD_FILE",
-            "CELLS_JSON",  # FIXME: might want to rename this
-            "FSMS_JSON",
-            "SHARED_CELLS_JSON",
-            "OUT_DIR",
-            "FLATTENED_FLAME_OUT",
-            "[ADL_MAP_JSON]",
-        ]
-        print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")
-        print("CELLS_JSON: Run the `component_cells` tool")
-        print("CELLS_FOR_TIMELINE is an optional ")
-        sys.exit(-1)
+    parser = argparse.ArgumentParser(
+        description="Analyze instrumented VCD file and generate initial files for visualizations"
+    )
+    parser.add_argument("vcd_filename", help="Instrumented VCD file")
+    parser.add_argument(
+        "cells_json", help="File mapping components to the cells that they contain."
+    )
+    parser.add_argument(
+        "fsms_json",
+        help='Run the Calyx compiler with -x tdcc:dump-fsm-json="<FILENAME>" to obtain the file.',
+    )
+    parser.add_argument(
+        "shared_cells_json",
+        help="Records cells that are shared during cell-share pass.",
+    )
+    parser.add_argument("out_dir", help="Output directory")
+    parser.add_argument("flame_out", help="Flame")
+    parser.add_argument(
+        "--adl-mapping-file", dest="adl_mapping_file", help="adl mapping file"
+    )
+    parser.add_argument(
+        "--print-trace-threshold",
+        dest="print_trace_threshold",
+        type=int,
+        default=0,
+        help="Print the trace to stdout if less than or equal to specified number of cycles",
+    )
+    args = parser.parse_args()
+    main(args)
