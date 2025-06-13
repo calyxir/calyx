@@ -36,18 +36,16 @@ class TimelineCell:
         # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
         self.enable_to_tid : dict[str, int] = setup_enable_to_tid(path_metadata, 3)
         self.misc_enable_acc = 100
-        self.currently_active_group_to_tid = {}
-        self.queued_tids = []
+        # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
+        self.unique_group_str = "UG"
 
     @property
     def control_pid_tid(self):
         # metatrack is the second tid, containing information about control register updates
         return (self.pid, self.control_tid)
 
-    def add_group(self, enable_name:str ):
-        # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
-        unique_group_str = "UG"
-        group_name = enable_name.split(unique_group_str)[0]
+    def add_group(self, enable_name:str):
+        group_name = enable_name.split(self.unique_group_str)[0]
         if enable_name in self.enable_to_tid:
             group_tid = self.enable_to_tid[enable_name]
         else:
@@ -69,11 +67,11 @@ class TimelineCell:
         # self.currently_active_group_to_tid[group_name] = group_tid
         # return (self.pid, group_tid, group_name)
 
-    def remove_group(self, group_name):
-        group_tid = self.currently_active_group_to_tid[group_name]
-        self.queued_tids.append(group_tid)
-        del self.currently_active_group_to_tid[group_name]
-        return (self.pid, group_tid, group_tid)
+    def remove_group(self, enable_name):
+        group_name = enable_name.split(self.unique_group_str)[0]
+        group_tid = self.enable_to_tid[enable_name]
+        # del self.currently_active_group_to_tid[group_name]
+        return (self.pid, group_tid, group_name)
 
 
 def write_timeline_event(event, out_file):
@@ -126,7 +124,7 @@ def port_control_events(
         write_timeline_event(end_event, out_file)
     del control_updates[cell_name]
 
-@dataclass
+@dataclass(frozen=True)
 class ActiveCell:
     cell_name: str
     display_name: str | None
@@ -135,7 +133,7 @@ class ActiveCell:
     def name(self) -> str:
         return self.cell_name if self.display_name is None else self.display_name
 
-@dataclass
+@dataclass(frozen=True)
 class ActiveEnable:
     enable_name: str
     cell_name: str # cell from which enable is active from
@@ -242,10 +240,10 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_met
     # Gotten through all cycles; postprocessing any cells and groups that were active until the very end
     # need to close any elements that are still active at the end of the simulation
     for still_active_cell in currently_active_cells:
-        cell_end_event = create_cell_timeline_event(still_active_cell, i, "E", cell_to_info)
+        cell_end_event = create_cell_timeline_event(still_active_cell, len(tracedata.trace), "E", cell_to_info)
         write_timeline_event(cell_end_event, out_file)
     for still_active_group in currently_active_groups:
-        group_end_event = create_group_timeline_event(still_active_group, i, "E", cell_to_info)
+        group_end_event = create_group_timeline_event(still_active_group, len(tracedata.trace), "E", cell_to_info)
         write_timeline_event(group_end_event, out_file)
 
     # close off the json
