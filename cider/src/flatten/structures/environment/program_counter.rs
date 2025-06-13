@@ -274,7 +274,7 @@ impl ProgramCounter {
         &self.with_map
     }
 
-    pub fn set_finshed_comp(
+    pub fn set_finished_comp(
         &mut self,
         comp: GlobalCellIdx,
         thread: Option<ThreadIdx>,

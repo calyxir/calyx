@@ -1877,7 +1877,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 );
             }
 
-            self.env.pc.set_finshed_comp(node.comp, thread);
+            self.env.pc.set_finished_comp(node.comp, thread);
             let comp_ledger = self.env.cells[node.comp].unwrap_comp();
             *node = node.new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
