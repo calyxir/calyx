@@ -19,9 +19,10 @@ cider-calyx-passes = -p none
 rule calyx-cider
   command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
 
-cells = cells.json
+cell-json = cells.json
 fsm-json = fsm.json
 cell-share-json = shared-cells.json
+path-descriptor-json = path-descriptors.json
 passes = -p pre-opt -p compile -p post-opt -p lower
 edsl-args = 
 component_cells = $calyx-base/target/debug/component_cells
@@ -29,7 +30,7 @@ rule component-cells
   command = $component_cells -l $calyx-base $in > $out
 parse-vcd-script = $calyx-base/tools/profiler/profiler-process/main.py
 rule parse-vcd
-  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --print-trace-threshold 100
+  command = python3 $parse-vcd-script $in $cell-json $fsm-json $cell-share-json $path-descriptor-json profiler-out $out --print-trace-threshold 100
 flamegraph-script = /test/calyx/non-existent.script
 create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
 rule create-visuals
@@ -42,7 +43,7 @@ fileinfo_emitter = $calyx-base/target/debug/fileinfo_emitter
 rule parse-metadata
   command = $fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json
 rule parse-vcd-from-adl
-  command = python3 $parse-vcd-script $in $cells $fsm-json $cell-share-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
+  command = python3 $parse-vcd-script $in $cell-json $fsm-json $cell-share-json $path-descriptor-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100
 
 verilator = verilator
 cycle-limit = 500000000
@@ -68,17 +69,17 @@ cycle-limit = 500000000
 
 build calyx.futil: edsl-to-calyx /input.ext
 build $metadata-mapping-json: parse-metadata calyx.futil
-build $cells: component-cells calyx.futil
+build $cell-json: component-cells calyx.futil
 build instrumented.sv: calyx calyx.futil
   backend = verilog
-  args = -d group2seq -p validate -p compile-invoke -p profiler-instrumentation $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json
+  args = -d group2seq -p validate -p compile-invoke -p unique-control -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x unique-control:path-descriptor-json=path-descriptors.json
 build verilator-out/Vtoplevel: verilator-compile-standalone-tb instrumented.sv | tb.sv
   out-dir = verilator-out
 build instrumented.exe: cp verilator-out/Vtoplevel
 build sim.log instrumented.vcd: sim-run instrumented.exe $datadir
   bin = instrumented.exe
   args = +NOTRACE=0 +OUT=instrumented.vcd
-build flamegraph.folded: parse-vcd-from-adl instrumented.vcd | $cells $metadata-mapping-json
+build flamegraph.folded: parse-vcd-from-adl instrumented.vcd | $cell-json $metadata-mapping-json
 build /output.ext: create-visuals flamegraph.folded
 
 default /output.ext
