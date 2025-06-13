@@ -15,7 +15,7 @@ JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the f
 num_timeline_events = 0  # [timeline view] recording how many events have happened
 
 
-def setup_enable_to_tid(path_metadata: dict[str, int] | None , starter_idx):
+def setup_enable_to_tid(path_metadata: dict[str, int] | None , starter_idx) -> dict[str, int]:
     return {enable: path_metadata[enable] + starter_idx for enable in path_metadata} if path_metadata else {}
 
 class TimelineCell:
@@ -34,7 +34,8 @@ class TimelineCell:
         self.tid: int = 1
         self.control_tid: int = 2
         # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
-        self.enable_to_tid = setup_enable_to_tid(path_metadata, 3)
+        self.enable_to_tid : dict[str, int] = setup_enable_to_tid(path_metadata, 3)
+        self.misc_enable_acc = 100
         self.currently_active_group_to_tid = {}
         self.queued_tids = []
 
@@ -43,23 +44,30 @@ class TimelineCell:
         # metatrack is the second tid, containing information about control register updates
         return (self.pid, self.control_tid)
 
-    def get_group_pid_tid(self, group_name):
-        
-        return (self.pid, self.currently_active_group_to_tid[group_name])
-
-    def add_group(self, group_name):
-        if (
-            group_name in self.currently_active_group_to_tid
-        ):  # no-op since the group is already registered.
-            return self.currently_active_group_to_tid[group_name]
-        if len(self.queued_tids) > 0:
-            group_tid = min(self.queued_tids)
-            self.queued_tids.remove(group_tid)
+    def add_group(self, enable_name:str ):
+        # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
+        unique_group_str = "UG"
+        group_name = enable_name.split(unique_group_str)[0]
+        if enable_name in self.enable_to_tid:
+            group_tid = self.enable_to_tid[enable_name]
         else:
-            group_tid = self.tid_acc
-            self.tid_acc += 1
-        self.currently_active_group_to_tid[group_name] = group_tid
+            # this has to be a structural enable. not sure what the best behavior here is
+            group_tid = self.misc_enable_acc
+            self.enable_to_tid[group_name] = group_tid
+            self.misc_enable_acc += 1
         return (self.pid, group_tid, group_name)
+        # if (
+        #     group_name in self.currently_active_group_to_tid
+        # ):  # no-op since the group is already registered.
+        #     return self.currently_active_group_to_tid[group_name]
+        # if len(self.queued_tids) > 0:
+        #     group_tid = min(self.queued_tids)
+        #     self.queued_tids.remove(group_tid)
+        # else:
+        #     group_tid = self.tid_acc
+        #     self.tid_acc += 1
+        # self.currently_active_group_to_tid[group_name] = group_tid
+        # return (self.pid, group_tid, group_name)
 
     def remove_group(self, group_name):
         group_tid = self.currently_active_group_to_tid[group_name]
