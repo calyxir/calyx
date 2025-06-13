@@ -292,10 +292,40 @@ static_group = {
       ~ "}"
 }
 
+// fsm grammar declaration
+
+// state indices within each fsm are unsigned digits
+state_idx = @{ ASCII_DIGIT+ }
+
+// conditional transition
+guard_state_pair = {
+      (guard_expr | "default") ~ "->" ~ state_idx
+}
+
+// transitions that can be either conditional or unconditional
+transition = {
+      state_idx 
+      | "{" 
+      ~ (guard_state_pair ~ ",")+
+      ~ "}"
+}
+
+state = {
+      state_idx ~ ":" ~ "{" 
+      ~ wire*
+      ~ "}" ~ "=>" ~ transition ~ ","
+}
+
+fsm = {
+      "fsm" ~ name_with_attribute ~ "{" 
+      ~ state+ 
+      ~ "}"
+}
+
 connections = {
       "wires"
       ~ "{"
-      ~ (wire | group | static_group )*
+      ~ (wire | group | static_group | fsm)*
       ~ "}"
 }
 

@@ -57,6 +57,8 @@ pub struct ComponentDef {
     pub groups: Vec<Group>,
     /// List of StaticGroups
     pub static_groups: Vec<StaticGroup>,
+    /// List of fsms
+    pub fsms: Vec<Fsm>,
     /// List of continuous assignments
     pub continuous_assignments: Vec<Wire>,
     /// Single control statement for this component.
@@ -85,6 +87,7 @@ impl ComponentDef {
             cells: Vec::new(),
             groups: Vec::new(),
             static_groups: Vec::new(),
+            fsms: Vec::new(),
             continuous_assignments: Vec::new(),
             control: Control::empty(),
             attributes: Attributes::default(),
@@ -254,6 +257,37 @@ pub struct StaticGroup {
     pub wires: Vec<StaticWire>,
     pub attributes: Attributes,
     pub latency: NonZeroU64,
+}
+
+#[derive(Debug)]
+/// Transitions are either `Unconditional` (will always transition to a future state
+/// no matter the assignments) or `Conditional` (with boolean expressions denoted a
+/// `guard_state_pair` and a default).
+/// Conditions encode a vector of tuples - the guard and the corresponding state to be transitioned to.
+pub enum Transition {
+    Unconditional(u64),
+    Conditional(Vec<(Guard, u64)>),
+}
+
+#[derive(Debug)]
+/// A `FSMRule` is the set of assignments and transitions that corresponds to a state in `fsm`.
+/// Assignments are vectors of wires corresponding to the state index.
+/// Transitions encode the next state logic.
+pub struct FSMRule {
+    pub assignments: Vec<Wire>,
+    pub transition: Transition,
+}
+
+#[derive(Debug)]
+/// A fsm block has a name, attributes, and `FSMRules`
+/// that correspond to all the states within the fsm.
+pub struct Fsm {
+    // Name of the fsm construct
+    pub name: Id,
+    // Attributes attached to this fsm
+    pub attributes: Attributes,
+    // A list of rules, indexed by state.
+    pub rules: Vec<FSMRule>,
 }
 
 /// Data for the `->` structure statement.

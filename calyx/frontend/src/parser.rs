@@ -3,7 +3,8 @@
 //! Parser for Calyx programs.
 use super::Attributes;
 use super::ast::{
-    self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
+    self, BitNum, Control, GuardComp as GC, GuardExpr, NumType,
+    StaticGuardExpr, Transition,
 };
 use crate::{
     Attribute, Direction, PortDef, Primitive, Width,
@@ -25,6 +26,14 @@ use std::{fs, path::PathBuf};
 
 type ParseResult<T> = Result<T, Error<Rule>>;
 type ComponentDef = ast::ComponentDef;
+
+/// The connections type which holds `Wire`, `Group`, `StaticGroup`, and `FSM`.
+type ConnectionTuple = (
+    Vec<ast::Wire>,
+    Vec<ast::Group>,
+    Vec<ast::StaticGroup>,
+    Vec<ast::Fsm>,
+);
 
 /// Data associated with parsing the file.
 #[derive(Clone)]
@@ -869,13 +878,121 @@ impl CalyxParser {
         ))
     }
 
-    fn connections(
-        input: Node,
-    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>, Vec<ast::StaticGroup>)>
-    {
+    /// Parses in the state indices, which are unsigned integers in range `0..n`
+    fn state_idx(input: Node) -> ParseResult<u64> {
+        input
+            .as_str()
+            .parse::<u64>()
+            .map_err(|_| input.error("Expected valid state index"))
+    }
+
+    /// Parses the conditional transitions, which are of form `GuardExpr ->` state index,
+    /// or the default case, `default ->` state index. The conditional transitions
+    /// are evaluated sequentially, so the default case is treated like an `else` or
+    /// like the default case of a verilog case statement.
+    fn guard_state_pair(input: Node) -> ParseResult<(ast::Guard, u64)> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [guard_expr(guard_expr), state_idx(state)] => { // guard branch
+                let guard = ast::Guard {
+                    guard: Some(*guard_expr),
+                    expr: ast::Atom::Num(BitNum {
+                        width: 1,
+                        num_type: NumType::Decimal,
+                        val: 1,
+                        span,
+                    }),
+                };
+                (guard, state)
+            },
+            [_, state_idx(state)] => { // default branch
+                let guard = ast::Guard {
+                    guard: None, // default case has no guard, just true value 1'b1
+                    expr: ast::Atom::Num(BitNum {
+                        width: 1,
+                        num_type: NumType::Decimal,
+                        val: 1,
+                        span,
+                    }),
+                };
+                (guard, state)
+            }
+        ))
+    }
+
+    /// Parses the transition block, which comes after the `=>` in the state.
+    /// Transitions are either `Unconditional` (will always transition to a future state
+    /// no matter the assignments) or `Conditional` (with boolean expressions denoted a
+    /// `guard_state_pair` and a default)
+    fn transition(input: Node) -> ParseResult<Transition> {
+        Ok(match_nodes!(
+            input.into_children();
+            [
+                state_idx(idx)
+            ] => {
+                ast::Transition::Unconditional(idx)
+            },
+            [
+                guard_state_pair(pairs)..,
+            ] => {
+                // collects the pairs in the order the parser reads them
+                ast::Transition::Conditional(pairs.collect())
+            }
+        ))
+    }
+
+    /// Parses a single state within the `fsm` block. A state is denoted with it's
+    /// respective unsigned integer state index, which is is enumerated from `0..n`
+    /// States have assignments, which is a vector of `Wire`s, and transitions.
+    fn state(input: Node) -> ParseResult<(u64, Vec<ast::Wire>, Transition)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [
+                state_idx(idx),
+                wire(wires)..,
+                transition(trans)
+            ] => {
+                let state_wires : Vec<ast::Wire> = wires.collect();
+                (idx, state_wires, trans) // we collect the state_idxs to use for sorting later
+            }
+        ))
+    }
+
+    /// Parses the `fsm` block to pull out the fsm block name, attributes, and list of rules.
+    /// A rule is the set of assignments and transitions each state within the `fsm` is assigned to.
+    fn fsm(input: Node) -> ParseResult<ast::Fsm> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [name_with_attribute((name, attrs)), state(states)..] => {
+                let mut state_data = Vec::new();
+
+                for (state_idx, assignments, transition) in states {
+                    let rule = ast::FSMRule {
+                        assignments,
+                        transition,
+                    };
+                    state_data.push((state_idx, rule));
+                }
+                // make sure to sort the rules by index to access the vector by state index.
+                state_data.sort_by(|(idx1, _), (idx2, _)| idx1.cmp(idx2));
+                let rules : Vec<ast::FSMRule> = state_data.into_iter().map(|(_, r)| r).collect();
+
+                ast::Fsm {
+                name,
+                attributes: attrs.add_span(span),
+                rules,
+                }
+            }
+        ))
+    }
+
+    fn connections(input: Node) -> ParseResult<ConnectionTuple> {
         let mut wires = Vec::new();
         let mut groups = Vec::new();
         let mut static_groups = Vec::new();
+        let mut fsms = Vec::new();
         for node in input.into_children() {
             match node.as_rule() {
                 Rule::wire => wires.push(Self::wire(node)?),
@@ -883,10 +1000,11 @@ impl CalyxParser {
                 Rule::static_group => {
                     static_groups.push(Self::static_group(node)?)
                 }
+                Rule::fsm => fsms.push(Self::fsm(node)?),
                 _ => unreachable!(),
             }
         }
-        Ok((wires, groups, static_groups))
+        Ok((wires, groups, static_groups, fsms))
     }
 
     // ================ Control program =====================
@@ -1197,7 +1315,7 @@ impl CalyxParser {
                 if cs_res.is_some() {
                     Err(input.error("Static Component must have defined control"))?;
                 }
-                let (continuous_assignments, groups, static_groups) = connections;
+                let (continuous_assignments, groups, static_groups, fsms) = connections;
                 let sig = sig.into_iter().map(|pd| {
                     if let Width::Const { value } = pd.width {
                         Ok(PortDef::new(
@@ -1216,6 +1334,7 @@ impl CalyxParser {
                     cells,
                     groups,
                     static_groups,
+                    fsms,
                     continuous_assignments,
                     control: Control::empty(),
                     attributes: attributes.add_span(span),
@@ -1230,7 +1349,7 @@ impl CalyxParser {
                 connections(connections),
                 control(control)
             ] => {
-                let (continuous_assignments, groups, static_groups) = connections;
+                let (continuous_assignments, groups, static_groups, fsms) = connections;
                 let sig = sig.into_iter().map(|pd| {
                     if let Width::Const { value } = pd.width {
                         Ok(PortDef::new(
@@ -1249,6 +1368,7 @@ impl CalyxParser {
                     cells,
                     groups,
                     static_groups,
+                    fsms,
                     continuous_assignments,
                     control,
                     attributes: attributes.add_span(span),
@@ -1264,7 +1384,7 @@ impl CalyxParser {
                 connections(connections),
                 control(control),
             ] => {
-                let (continuous_assignments, groups, static_groups) = connections;
+                let (continuous_assignments, groups, static_groups, fsms) = connections;
                 let sig = sig.into_iter().map(|pd| {
                     if let Width::Const { value } = pd.width {
                         Ok(PortDef::new(
@@ -1283,6 +1403,7 @@ impl CalyxParser {
                     cells,
                     groups,
                     static_groups,
+                    fsms,
                     continuous_assignments,
                     control,
                     attributes: attributes.add_span(span),
