@@ -26,13 +26,38 @@ component main() -> () {
       mem.write_en = 1'd1;
       false[done] = mem.done;
     }
+        group a<"static"=1> {
+      mem.addr0 = 1'd0;
+      mem.write_data = 32'd10;
+      mem.write_en = 1'd1;
+      a[done] = mem.done;
+    }
+
+        group b<"static"=1> {
+      mem.addr0 = 1'd0;
+      mem.write_data = 32'd10;
+      mem.write_en = 1'd1;
+      b[done] = mem.done;
+    }
+
+        group c<"static"=1> {
+      mem.addr0 = 1'd0;
+      mem.write_data = 32'd10;
+      mem.write_en = 1'd1;
+      c[done] = mem.done;
+    }
+
+
   }
 
   control {
+    par {
     if lt.out with cond {
       true;
     } else {
-      false;
+      par { b; c; }
+    }
+    a;
     }
   }
 }

@@ -54,12 +54,12 @@ component main(@go go: 1) -> (@done done: 1) {
   }
   control {
     par {
-      seq {
+      par {
         read1;
       	upd1;
       	write1;
       }
-      seq {
+      par {
         read2;
       	upd2;
       	write2;

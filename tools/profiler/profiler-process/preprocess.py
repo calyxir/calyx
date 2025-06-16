@@ -137,22 +137,48 @@ def read_tdcc_file(tdcc_json_file, cell_metadata: CellMetadata):
 
     return control_metadata
 
+def closest_par_ancestor(descriptor, par_descriptors, default):
+    for par_descriptor in sorted(par_descriptors, key=len, reverse=True):
+        # because we sorted in reverse, the first hit is the closest par parent
+        if par_descriptor in descriptor:
+            return par_descriptor                
+    return None # FIXME: what do I do if I find nothing?
 
 def read_path_descriptor_json(path_descriptors_json: str):
     json_data = json.load(open(path_descriptors_json))
-    component_pathdata: dict[str, dict[str, str]] = {}
+    component_pathdata: dict[str, dict[str, int]] = {}
     for component in json_data:
         component_info = json_data[component]
-        par_descriptors = component_info["pars"]
-        enable_to_branch_id: dict[str, str] = {}
-        for (enable_name, enable_descriptor) in component_info["enables"].items():
-            # there has to be a smarter way to do this?
-            for par_descriptor in sorted(par_descriptors, key=len, reverse=True):
-                # because we sorted in reverse, the first hit is the closest par parent
-                if par_descriptor in enable_descriptor:
-                    # the branch in which the enable lives in is the number immediately following the par_descriptor
-                    branch_id: int = int(enable_descriptor.split(par_descriptor)[1][0])
-                    enable_to_branch_id[enable_name] = branch_id
-        component_pathdata[component] = enable_to_branch_id
         
-    return PathMetadata(component_pathdata)
+        enable_reverse_map: dict[str, str] = {}
+        for (enable_name, enable_discriptor) in component_info["enables"].items():
+            enable_reverse_map[enable_discriptor] = enable_name
+        # walk across the enable discriptors...
+        acc = 0
+        par_descriptor_to_id: dict[str, int] = {}
+        for enable_descriptor in sorted(enable_reverse_map.keys()):
+
+            
+
+# def read_path_descriptor_json(path_descriptors_json: str):
+#     json_data = json.load(open(path_descriptors_json))
+#     component_pathdata: dict[str, dict[str, str]] = {}
+#     for component in json_data:
+#         component_info = json_data[component]
+#         par_descriptors: dict[str, int] = component_info["pars"]
+#         # sort between the par_descriptors, maybe there is a parent?
+#         prev = f"{component}."
+#         for par_descriptor in sorted(par_descriptors.keys(), key=len):
+
+#         enable_to_branch_id: dict[str, str] = {}
+#         for (enable_name, enable_descriptor) in component_info["enables"].items():
+#             # there has to be a smarter way to do this?
+#             for par_descriptor in sorted(par_descriptors.keys(), key=len, reverse=True):
+#                 # because we sorted in reverse, the first hit is the closest par parent
+#                 if par_descriptor in enable_descriptor:
+#                     # the branch in which the enable lives in is the number immediately following the par_descriptor
+#                     branch_id: int = int(enable_descriptor.split(par_descriptor)[1][0])
+#                     enable_to_branch_id[enable_name] = branch_id
+#         component_pathdata[component] = enable_to_branch_id
+        
+#     return PathMetadata(component_pathdata)

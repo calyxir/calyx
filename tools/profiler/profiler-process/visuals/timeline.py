@@ -7,7 +7,7 @@ from classes import (
     ControlRegUpdates,
     StackElementType,
     CellMetadata,
-    PathMetadata
+    PathMetadata,
 )
 
 ts_multiplier = 1  # [timeline view] ms on perfetto UI that resembles a single cycle
@@ -15,8 +15,15 @@ JSON_INDENT = "    "  # [timeline view] indentation for generating JSON on the f
 num_timeline_events = 0  # [timeline view] recording how many events have happened
 
 
-def setup_enable_to_tid(path_metadata: dict[str, int] | None , starter_idx) -> dict[str, int]:
-    return {enable: path_metadata[enable] + starter_idx for enable in path_metadata} if path_metadata else {}
+def setup_enable_to_tid(
+    path_metadata: dict[str, int] | None, starter_idx
+) -> dict[str, int]:
+    return (
+        {enable: path_metadata[enable] + starter_idx for enable in path_metadata}
+        if path_metadata
+        else {}
+    )
+
 
 class TimelineCell:
     """
@@ -28,13 +35,16 @@ class TimelineCell:
     tid 2 is reserved for control register updates
     tid 3+ will be computed using the path descriptor
     """
-    def __init__(self, name: str, pid: int, path_metadata: dict[str, int] | None =None):
+
+    def __init__(
+        self, name: str, pid: int, path_metadata: dict[str, int] | None = None
+    ):
         self.name: str = name
         self.pid: int = pid
         self.tid: int = 1
         self.control_tid: int = 2
         # basically path_metadata info but all ids are bumped by 3 (since path identifiers start from 0)
-        self.enable_to_tid : dict[str, int] = setup_enable_to_tid(path_metadata, 3)
+        self.enable_to_tid: dict[str, int] = setup_enable_to_tid(path_metadata, 3)
         self.misc_enable_acc = 100
         # FIXME: this value ought to be accessed through a variable and really not as a hardcoded value. but probably ok for a first pass
         self.unique_group_str = "UG"
@@ -44,7 +54,7 @@ class TimelineCell:
         # metatrack is the second tid, containing information about control register updates
         return (self.pid, self.control_tid)
 
-    def add_group(self, enable_name:str):
+    def add_group(self, enable_name: str):
         group_name = enable_name.split(self.unique_group_str)[0]
         if enable_name in self.enable_to_tid:
             group_tid = self.enable_to_tid[enable_name]
@@ -54,20 +64,9 @@ class TimelineCell:
             self.enable_to_tid[group_name] = group_tid
             self.misc_enable_acc += 1
         return (self.pid, group_tid, group_name)
-        # if (
-        #     group_name in self.currently_active_group_to_tid
-        # ):  # no-op since the group is already registered.
-        #     return self.currently_active_group_to_tid[group_name]
-        # if len(self.queued_tids) > 0:
-        #     group_tid = min(self.queued_tids)
-        #     self.queued_tids.remove(group_tid)
-        # else:
-        #     group_tid = self.tid_acc
-        #     self.tid_acc += 1
-        # self.currently_active_group_to_tid[group_name] = group_tid
-        # return (self.pid, group_tid, group_name)
 
     def remove_group(self, enable_name):
+        print(self.enable_to_tid)
         group_name = enable_name.split(self.unique_group_str)[0]
         group_tid = self.enable_to_tid[enable_name]
         # del self.currently_active_group_to_tid[group_name]
@@ -124,6 +123,7 @@ def port_control_events(
         write_timeline_event(end_event, out_file)
     del control_updates[cell_name]
 
+
 @dataclass(frozen=True)
 class ActiveCell:
     cell_name: str
@@ -133,12 +133,19 @@ class ActiveCell:
     def name(self) -> str:
         return self.cell_name if self.display_name is None else self.display_name
 
+
 @dataclass(frozen=True)
 class ActiveEnable:
     enable_name: str
-    cell_name: str # cell from which enable is active from
+    cell_name: str  # cell from which enable is active from
 
-def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_metadata: PathMetadata, out_dir):
+
+def compute_timeline(
+    tracedata: TraceData,
+    cell_metadata: CellMetadata,
+    path_metadata: PathMetadata,
+    out_dir,
+):
     """
     Compute and output a JSON that conforms to the Google Trace File format.
     Each cell gets its own process id, where tid 1 is the duration of the cell itself,
@@ -151,9 +158,13 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_met
     out_file.write(f'{{\n{JSON_INDENT}"traceEvents": [')
     # each cell gets its own pid. The cell's lifetime is tid 1, followed by the FSM(s), then groups
     # main component gets pid 1
-    main_path_metadata: dict[str, int] = path_metadata.component_to_paths[cell_metadata.main_shortname]
+    main_path_metadata: dict[str, int] = path_metadata.component_to_paths[
+        cell_metadata.main_shortname
+    ]
     cell_to_info: dict[str, TimelineCell] = {
-        cell_metadata.main_component: TimelineCell(cell_metadata.main_component, 1, path_metadata=main_path_metadata)
+        cell_metadata.main_component: TimelineCell(
+            cell_metadata.main_component, 1, path_metadata=main_path_metadata
+        )
     }
     # generate JSON for all FSM events in main
     port_control_events(
@@ -191,10 +202,18 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_met
                             name = stack_acc
                             current_cell = name
                             if name not in cell_to_info:  # cell is not registered yet
-                                cell_component = cell_metadata.get_component_of_cell(name)
+                                cell_component = cell_metadata.get_component_of_cell(
+                                    name
+                                )
                                 if cell_component in path_metadata.component_to_paths:
-                                    component_pathdata = path_metadata.component_to_paths[cell_component]
-                                    cell_to_info[name] = TimelineCell(name, pid_acc, component_pathdata=component_pathdata)
+                                    component_pathdata = (
+                                        path_metadata.component_to_paths[cell_component]
+                                    )
+                                    cell_to_info[name] = TimelineCell(
+                                        name,
+                                        pid_acc,
+                                        component_pathdata=component_pathdata,
+                                    )
                                 else:
                                     cell_to_info[name] = TimelineCell(name, pid_acc)
                                 # generate JSON for all FSM events in this cell
@@ -212,27 +231,29 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_met
                     case StackElementType.GROUP:
                         # TODO: maybe we need to retain stack names? Reevaluate this commenting out
                         # name = stack_acc + "." + stack_elem.internal_name
-                        groups_active_this_cycle.add(ActiveEnable(stack_elem.internal_name, current_cell))
+                        groups_active_this_cycle.add(
+                            ActiveEnable(stack_elem.internal_name, current_cell)
+                        )
 
-        for nonactive_cell in currently_active_cells.difference(cells_active_this_cycle):
-            # cell that was previously active but no longer is
-            # make end event
-            cell_end_event = create_cell_timeline_event(nonactive_cell, i, "E", cell_to_info)
-            write_timeline_event(cell_end_event, out_file)
-        for nonactive_group in currently_active_groups.difference(groups_active_this_cycle):
-            # group/enable that was previously active but no longer is
-            # make end event
-            group_end_event = create_group_timeline_event(nonactive_group, i, "E", cell_to_info)
-            write_timeline_event(group_end_event, out_file)
-        
-        for newly_active_cell in cells_active_this_cycle.difference(currently_active_cells):
-            # cell that started to be active this cycle
-            cell_begin_event = create_cell_timeline_event(newly_active_cell, i, "B", cell_to_info)
-            write_timeline_event(cell_begin_event, out_file)
-        for newly_active_group in groups_active_this_cycle.difference(currently_active_groups):
-            # group that started to be active this cycle
-            group_start_event = create_group_timeline_event(newly_active_group, i, "B", cell_to_info)
-            write_timeline_event(group_start_event, out_file)
+        register_done_elements_for_cycle(
+            out_file,
+            cell_to_info,
+            currently_active_cells,
+            currently_active_groups,
+            i,
+            cells_active_this_cycle,
+            groups_active_this_cycle,
+        )
+
+        register_new_elements(
+            out_file,
+            cell_to_info,
+            currently_active_cells,
+            currently_active_groups,
+            i,
+            cells_active_this_cycle,
+            groups_active_this_cycle,
+        )
 
         currently_active_cells = cells_active_this_cycle
         currently_active_groups = groups_active_this_cycle
@@ -240,20 +261,81 @@ def compute_timeline(tracedata: TraceData, cell_metadata: CellMetadata, path_met
     # Gotten through all cycles; postprocessing any cells and groups that were active until the very end
     # need to close any elements that are still active at the end of the simulation
     for still_active_cell in currently_active_cells:
-        cell_end_event = create_cell_timeline_event(still_active_cell, len(tracedata.trace), "E", cell_to_info)
+        cell_end_event = create_cell_timeline_event(
+            still_active_cell, len(tracedata.trace), "E", cell_to_info
+        )
         write_timeline_event(cell_end_event, out_file)
     for still_active_group in currently_active_groups:
-        group_end_event = create_group_timeline_event(still_active_group, len(tracedata.trace), "E", cell_to_info)
+        group_end_event = create_group_timeline_event(
+            still_active_group, len(tracedata.trace), "E", cell_to_info
+        )
         write_timeline_event(group_end_event, out_file)
 
     # close off the json
     out_file.write("\t\t]\n}")
     out_file.close()
 
+
+def register_new_elements(
+    out_file,
+    cell_to_info,
+    currently_active_cells,
+    currently_active_groups,
+    i,
+    cells_active_this_cycle,
+    groups_active_this_cycle,
+):
+    """
+    Identifies and creates events for cells/group enables that started execution this cycle.
+    """
+    for newly_active_cell in cells_active_this_cycle.difference(currently_active_cells):
+        # cell that started to be active this cycle
+        cell_begin_event = create_cell_timeline_event(
+            newly_active_cell, i, "B", cell_to_info
+        )
+        write_timeline_event(cell_begin_event, out_file)
+    for newly_active_group in groups_active_this_cycle.difference(
+        currently_active_groups
+    ):
+        # group that started to be active this cycle
+        group_start_event = create_group_timeline_event(
+            newly_active_group, i, "B", cell_to_info
+        )
+        write_timeline_event(group_start_event, out_file)
+
+
+def register_done_elements_for_cycle(
+    out_file,
+    cell_to_info,
+    currently_active_cells,
+    currently_active_groups,
+    i,
+    cells_active_this_cycle,
+    groups_active_this_cycle,
+):
+    """
+    Identifies and creates events for cells/group enables that finished execution this cycle.
+    """
+    for nonactive_cell in currently_active_cells.difference(cells_active_this_cycle):
+        # cell that was previously active but no longer is
+        # make end event
+        cell_end_event = create_cell_timeline_event(
+            nonactive_cell, i, "E", cell_to_info
+        )
+        write_timeline_event(cell_end_event, out_file)
+    for nonactive_group in currently_active_groups.difference(groups_active_this_cycle):
+        # group/enable that was previously active but no longer is
+        # make end event
+        group_end_event = create_group_timeline_event(
+            nonactive_group, i, "E", cell_to_info
+        )
+        write_timeline_event(group_end_event, out_file)
+
+
 def create_cell_timeline_event(
     active_cell_info: ActiveCell,
     cycle: int,
-    event_type : str,
+    event_type: str,
     cell_to_info: dict[str, TimelineCell],
 ):
     return {
@@ -265,11 +347,12 @@ def create_cell_timeline_event(
         "ts": cycle * ts_multiplier,
     }
 
+
 def create_group_timeline_event(
-        active_group_info: ActiveEnable,
+    active_group_info: ActiveEnable,
     cycle: int,
     event_type: str,
-    cell_to_info: dict[str, TimelineCell]
+    cell_to_info: dict[str, TimelineCell],
 ):
     cell_info = cell_to_info[active_group_info.cell_name]
     if event_type == "B":
@@ -284,4 +367,3 @@ def create_group_timeline_event(
         "tid": tid,
         "ts": cycle * ts_multiplier,
     }
-    

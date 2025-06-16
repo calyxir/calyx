@@ -37,7 +37,7 @@ impl Named for UniqueControl {
 #[derive(Serialize)]
 struct PathDescriptorInfo {
     pub enables: HashMap<String, String>,
-    pub pars: HashSet<String>,
+    pub pars: HashMap<String, usize>,
 }
 
 impl ConstructVisitor for UniqueControl {
@@ -89,7 +89,7 @@ fn label_control_enables(
                 );
                 acc += 1;
             }
-            path_descriptor_info.pars.insert(par_id);
+            path_descriptor_info.pars.insert(par_id, par.stmts.len());
         }
         ir::Control::If(iff) => {
             // process true branch
@@ -177,7 +177,7 @@ impl Visitor for UniqueControl {
         let control = comp.control.borrow();
         let mut path_descriptor_info = PathDescriptorInfo {
             enables: HashMap::new(),
-            pars: HashSet::new(),
+            pars: HashMap::new(),
         };
         label_control_enables(
             &control,
