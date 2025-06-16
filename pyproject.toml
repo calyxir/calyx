@@ -1,0 +1,39 @@
+tool.uv.package = false
+
+[project]
+name = "calyx-tools"
+authors = []
+requires-python = ">=3.13"
+dependencies = ["calyx-ast"]
+version = "0.1.0"
+
+[tool.uv.sources]
+calyx-ast = { workspace = true }
+ntt-pipeline = { workspace = true }
+systolic-lang = { workspace = true }
+mrxl = { workspace = true }
+queues = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "frontends/ntt-pipeline",
+    "frontends/systolic-lang",
+    "calyx-py",
+    "frontends/mrxl",
+    "frontends/queues",
+]
+
+[project.optional-dependencies]
+ntt = ["ntt-pipeline"]
+systolic = ["systolic-lang"]
+mrxl = ["mrxl"]
+queues = ["queues"]
+profiler = [
+    # should probably add the profiler to the workplace but I don't want to deal
+    # with that right now
+    "vcdvcd"
+]
+fud2_scripts = [
+    # definitely incomplete list
+    "simplejson"
+]
