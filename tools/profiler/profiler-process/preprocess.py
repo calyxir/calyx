@@ -146,19 +146,60 @@ def closest_par_ancestor(descriptor, par_descriptors, default):
 
 def read_path_descriptor_json(path_descriptors_json: str):
     json_data = json.load(open(path_descriptors_json))
+    # component --> path descriptor info
     component_pathdata: dict[str, dict[str, int]] = {}
     for component in json_data:
-        component_info = json_data[component]
-        
-        enable_reverse_map: dict[str, str] = {}
-        for (enable_name, enable_discriptor) in component_info["enables"].items():
-            enable_reverse_map[enable_discriptor] = enable_name
-        # walk across the enable discriptors...
-        acc = 0
-        par_descriptor_to_id: dict[str, int] = {}
-        for enable_descriptor in sorted(enable_reverse_map.keys()):
+        component_json_info = json_data[component]
+        descriptors = [par for par in component_json_info["pars"].keys()]
 
-            
+        enable_reverse_map: dict[str, str] = {}
+        for (enable_name, enable_descriptor) in component_json_info["enables"].items():
+            enable_reverse_map[enable_descriptor] = enable_name
+            descriptors.append(enable_descriptor)
+        # walk across the enable discriptors...
+        curr_idx = 0
+        par_stack: list[tuple[str, int]] = [] # (f"{component}.", 0)
+        enable_name_to_track: dict[str, int] = {}
+        curr_par_stack_idx = 0
+        # FIXME: currently on first pass where we assume there are no whiles or if/elses
+        # descriptors.append(f"{component}.")
+        print(sorted(descriptors))
+        for descriptor in sorted(descriptors):
+            # print(f"{descriptor}, {par_stack[-1][0]}")
+            # if descriptor in enable_reverse_map:
+            #     print(enable_reverse_map[descriptor])
+            if descriptor in component_json_info["pars"]:
+                par_stack.append((descriptor, curr_idx))
+                curr_par_stack_idx = 0
+                curr_idx += 1
+            elif len(par_stack) == 0:
+                # case where we don't have an existing par
+                enable_name_to_track[enable_reverse_map[descriptor]] = curr_idx
+            else:
+                # we leave all pars that the current descriptor isn't a substring of
+                while par_stack[-1][0] not in descriptor:
+                    par_stack.pop()
+                    curr_par_stack_idx = 0
+
+                parent_par = par_stack[-1][0]
+                
+                # check the index of the par that we're currently on
+                index = int(descriptor.split(parent_par)[1][0])
+                print(parent_par, "        ", descriptor, index, curr_par_stack_idx)
+                
+                if index != curr_par_stack_idx:
+                    # if we got to a new par idx, then we want to increment
+                    curr_idx += 1
+                    curr_par_stack_idx += 1
+                    print(f"Parent par: {parent_par}, curr_stack: {descriptor}, index: {index}, curr_par_stack_idx: {curr_par_stack_idx}, curr_idx: {curr_idx}")
+
+                print(curr_idx)
+                enable_name_to_track[enable_reverse_map[descriptor]] = curr_idx
+
+        component_pathdata[component] = enable_name_to_track
+    print(component_pathdata[component])
+
+    return PathMetadata(component_pathdata)
 
 # def read_path_descriptor_json(path_descriptors_json: str):
 #     json_data = json.load(open(path_descriptors_json))
