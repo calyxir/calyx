@@ -313,12 +313,8 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 if !comp_info.is_comb() {
                     if let Some(ctrl) = comp_info.as_standard().unwrap().control
                     {
-                        env.pc.vec_mut().push((
-                            if comp.comp_id == root {
-                                Some(root_thread)
-                            } else {
-                                None
-                            },
+                        env.pc.vec_mut().push(ProgramPointer::new_active(
+                            (comp.comp_id == root).then_some(root_thread),
                             ControlPoint {
                                 comp: idx,
                                 control_node_idx: ctrl,
@@ -359,7 +355,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     }
 
     pub fn pc_iter(&self) -> impl Iterator<Item = &ControlPoint> {
-        self.pc.iter().map(|(_, x)| x)
+        self.pc.iter().map(ProgramPointer::control_point)
     }
 
     /// Method that returns an iterator over all component instances in the debugger
@@ -492,12 +488,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn get_currently_running_groups(
         &self,
     ) -> impl Iterator<Item = GroupIdx> {
-        self.pc.iter().filter_map(|(_, point)| {
-            let node =
-                &self.ctx.as_ref().primary[point.control_node_idx].control;
+        self.pc.iter().filter_map(|point| {
+            let node = &self.ctx.as_ref().primary[point.control_idx()].control;
             match node {
                 Control::Enable(x) => {
-                    let comp_go = self.get_comp_go(point.comp).unwrap();
+                    let comp_go = self.get_comp_go(point.component()).unwrap();
                     if self.ports[comp_go].as_bool().unwrap_or_default() {
                         Some(x.group())
                     } else {
@@ -516,10 +511,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn get_currently_running_nodes(
         &self,
     ) -> impl Iterator<Item = ControlIdx> {
-        self.pc.iter().filter_map(|(_, point)| {
-            let comp_go = self.get_comp_go(point.comp).unwrap();
+        self.pc.iter().filter_map(|point| {
+            let comp_go = self.get_comp_go(point.component()).unwrap();
             if self.ports[comp_go].as_bool().unwrap_or_default() {
-                Some(point.control_node_idx)
+                Some(point.control_idx())
             } else {
                 None
             }
@@ -538,12 +533,11 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     // ===================== Environment print implementations =====================
 
     pub fn print_pc(&self) {
-        let current_nodes = self.pc.iter().filter(|(_thread, point)| {
-            let node =
-                &self.ctx.as_ref().primary[point.control_node_idx].control;
+        let current_nodes = self.pc.iter().filter(|point| {
+            let node = &self.ctx.as_ref().primary[point.control_idx()].control;
             match node {
                 Control::Enable(_) | Control::Invoke(_) => {
-                    let comp_go = self.unwrap_comp_go(point.comp);
+                    let comp_go = self.unwrap_comp_go(point.component());
                     self.ports[comp_go].as_bool().unwrap_or_default()
                 }
 
@@ -553,15 +547,17 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
         let ctx = &self.ctx.as_ref();
 
-        for (_thread, point) in current_nodes {
-            let node = &ctx.primary[point.control_node_idx].control;
+        for point in current_nodes {
+            let node = &ctx.primary[point.control_idx()].control;
             match node {
                 Control::Enable(x) => {
-                    let go = &self.cells[point.comp].unwrap_comp().index_bases
+                    let go = &self.cells[point.component()]
+                        .unwrap_comp()
+                        .index_bases
                         + self.ctx().primary[x.group()].go;
                     println!(
                         "{}::{}{}",
-                        self.get_full_name(point.comp),
+                        self.get_full_name(point.component()),
                         ctx.lookup_name(x.group()).stylize_name(),
                         if self.ports[go].as_bool().unwrap_or_default() {
                             ""
@@ -573,13 +569,16 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
                 Control::Invoke(x) => {
                     let invoked_name = match x.cell {
                         CellRef::Local(l) => self.get_full_name(
-                            &self.cells[point.comp].unwrap_comp().index_bases
+                            &self.cells[point.component()]
+                                .unwrap_comp()
+                                .index_bases
                                 + l,
                         ),
                         CellRef::Ref(r) => {
-                            let ref_global_offset = &self.cells[point.comp]
-                                .unwrap_comp()
-                                .index_bases
+                            let ref_global_offset = &self.cells
+                                [point.component()]
+                            .unwrap_comp()
+                            .index_bases
                                 + r;
                             let ref_actual =
                                 self.ref_cells[ref_global_offset].unwrap();
@@ -590,7 +589,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
 
                     println!(
                         "{}: invoke {}",
-                        self.get_full_name(point.comp),
+                        self.get_full_name(point.component()),
                         invoked_name.stylize_name()
                     );
                 }
@@ -1131,10 +1130,10 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
     pub fn iter_positions(&self) -> impl Iterator<Item = PositionId> {
         self.pc
             .iter()
-            .filter_map(|(_, ctrl_point)| {
-                let node = &self.ctx().primary[ctrl_point.control_node_idx];
+            .filter_map(|ctrl_point| {
+                let node = &self.ctx().primary[ctrl_point.control_idx()];
 
-                if self.comp_go_as_bool(ctrl_point.comp) {
+                if self.comp_go_as_bool(ctrl_point.component()) {
                     Some(node.positions())
                 } else {
                     None
@@ -1360,44 +1359,48 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
     // allocation is too expensive in this context
     fn get_assignments(
         &self,
-        control_points: &[ControlTuple],
+        control_points: &[ProgramPointer],
     ) -> Vec<ScheduledAssignments> {
         let mut skiplist = HashSet::new();
         let mut additional_groups = VecDeque::new();
 
         let mut out: Vec<ScheduledAssignments> = control_points
             .iter()
-            .filter_map(|(thread, node)| {
-                match &self.ctx().primary[node.control_node_idx].control {
+            .filter_map(|point| {
+                if !point.is_enabled() {
+                    return None;
+                }
+
+                match &self.ctx().primary[point.control_idx()].control {
                     Control::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
 
-                        skiplist.insert((node.comp, e.group()));
+                        skiplist.insert((point.component(), e.group()));
                         additional_groups.extend(
                             group
                                 .structural_enables
                                 .iter()
                                 .copied()
-                                .map(|grp| (node.comp, grp)),
+                                .map(|grp| (point.component(), grp)),
                         );
 
                         Some(ScheduledAssignments::new_control(
-                            node.comp,
+                            point.component(),
                             group.assignments,
                             Some(GroupInterfacePorts {
                                 go: group.go,
                                 done: group.done,
                             }),
-                            *thread,
+                            point.thread(),
                         ))
                     }
 
                     Control::Invoke(i) => {
                         Some(ScheduledAssignments::new_control(
-                            node.comp,
+                            point.component(),
                             i.assignments,
                             None,
-                            *thread,
+                            point.thread(),
                         ))
                     }
 
@@ -1587,10 +1590,10 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         let ctx = self.env.ctx.clone();
         let ctx_ref = ctx.as_ref();
 
-        for (thread, node) in vecs.iter() {
-            let comp_done = self.env.unwrap_comp_done(node.comp);
-            let comp_go = self.env.unwrap_comp_go(node.comp);
-            let thread = thread.or_else(|| {
+        for point in vecs.iter() {
+            let comp_done = self.env.unwrap_comp_done(point.component());
+            let comp_go = self.env.unwrap_comp_go(point.component());
+            let thread = point.thread().or_else(|| {
                 self.env.ports[comp_go].as_option().and_then(|t| t.thread())
             });
 
@@ -1600,11 +1603,11 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     PortValue::new_implicit(BitVecValue::new_false());
             }
 
-            match &ctx_ref.primary[node.control_node_idx].control {
+            match &ctx_ref.primary[point.control_idx()].control {
                 // actual nodes
                 Control::Enable(enable) => {
                     let go_local = ctx_ref.primary[enable.group()].go;
-                    let index_bases = &self.env.cells[node.comp]
+                    let index_bases = &self.env.cells[point.component()]
                         .as_comp()
                         .unwrap()
                         .index_bases;
@@ -1616,20 +1619,21 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 }
                 Control::Invoke(invoke) => {
                     if invoke.comb_group.is_some()
-                        && !with_map.contains_key(node)
+                        && !with_map.contains_key(point.control_point())
                     {
                         with_map.insert(
-                            node.clone(),
+                            point.control_point().clone(),
                             WithEntry::new(invoke.comb_group.unwrap()),
                         );
                     }
 
-                    let go = self.get_global_port_idx(&invoke.go, node.comp);
+                    let go =
+                        self.get_global_port_idx(&invoke.go, point.component());
                     self.env.ports[go] =
                         PortValue::new_implicit(BitVecValue::new_true())
                             .with_thread_optional(
                                 if self.conf.check_data_race {
-                                    assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. In {}", node.comp.get_full_name(&self.env));
+                                    assert!(thread.is_some(), "Invoke is running but has no thread. This shouldn't happen. In {}", point.component().get_full_name(&self.env));
                                     thread
                                 } else {
                                     None
@@ -1638,23 +1642,25 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
                     // TODO griffin: should make this skip initialization if
                     // it's already initialized
-                    self.initialize_ref_cells(node.comp, invoke);
+                    self.initialize_ref_cells(point.component(), invoke);
                 }
                 // with nodes
                 Control::If(i) => {
-                    if i.cond_group().is_some() && !with_map.contains_key(node)
+                    if i.cond_group().is_some()
+                        && !with_map.contains_key(point.control_point())
                     {
                         with_map.insert(
-                            node.clone(),
+                            point.control_point().clone(),
                             WithEntry::new(i.cond_group().unwrap()),
                         );
                     }
                 }
                 Control::While(w) => {
-                    if w.cond_group().is_some() && !with_map.contains_key(node)
+                    if w.cond_group().is_some()
+                        && !with_map.contains_key(point.control_point())
                     {
                         with_map.insert(
-                            node.clone(),
+                            point.control_point().clone(),
                             WithEntry::new(w.cond_group().unwrap()),
                         );
                     }
@@ -1815,7 +1821,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         //
         // If we altered the node list, we need to restore the order invariant
         if !removed_empty || !new_nodes_empty {
-            self.env.pc.vec_mut().sort_by_key(|x| x.1.comp);
+            self.env.pc.vec_mut().sort_by_key(|x| x.component());
         }
 
         Ok(())
@@ -1823,16 +1829,15 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
 
     fn evaluate_control_node(
         &mut self,
-        node: &mut ControlTuple,
-        new_nodes: &mut Vec<ControlTuple>,
+        node: &mut ProgramPointer,
+        new_nodes: &mut Vec<ProgramPointer>,
         maps: PcMaps,
     ) -> RuntimeResult<ControlNodeEval> {
-        let (node_thread, node) = node;
         let (par_map, with_map, repeat_map) = maps;
-        let comp_go = self.env.unwrap_comp_go(node.comp);
-        let comp_done = self.env.unwrap_comp_done(node.comp);
+        let comp_go = self.env.unwrap_comp_go(node.component());
+        let comp_done = self.env.unwrap_comp_done(node.component());
 
-        let thread = node_thread.or_else(|| {
+        let thread = node.thread().or_else(|| {
             self.env.ports[comp_go].as_option().and_then(|x| x.thread())
         });
 
@@ -1849,36 +1854,52 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         }
 
         // just considering a single node case for the moment
-        let retain_bool = match &ctx.primary[node.control_node_idx].control {
-            Control::Seq(seq) => self.handle_seq(seq, node),
-            Control::Par(par) => self.handle_par(
-                par_map,
-                node,
-                thread,
-                node_thread,
-                par,
-                new_nodes,
-            ),
-            Control::If(i) => self.handle_if(with_map, node, thread, i)?,
-            Control::While(w) => {
-                self.handle_while(w, with_map, node, thread)?
+        let retain_bool = match &ctx.primary[node.control_idx()].control {
+            Control::Seq(seq) => self.handle_seq(seq, node.control_point_mut()),
+            Control::Par(par) => {
+                let (ctrl_point, node_thread) = node.get_mut();
+                self.handle_par(
+                    par_map,
+                    ctrl_point,
+                    thread,
+                    node_thread,
+                    par,
+                    new_nodes,
+                )
             }
-            Control::Repeat(rep) => self.handle_repeat(repeat_map, node, rep),
+            Control::If(i) => {
+                self.handle_if(with_map, node.control_point_mut(), thread, i)?
+            }
+            Control::While(w) => self.handle_while(
+                w,
+                with_map,
+                node.control_point_mut(),
+                thread,
+            )?,
+            Control::Repeat(rep) => {
+                self.handle_repeat(repeat_map, node.control_point_mut(), rep)
+            }
 
             // ===== leaf nodes =====
-            Control::Empty(_) => node.mutate_into_next(self.env.ctx.as_ref()),
+            Control::Empty(_) => node
+                .control_point_mut()
+                .mutate_into_next(self.env.ctx.as_ref()),
 
-            Control::Enable(e) => self.handle_enable(e, node),
-            Control::Invoke(i) => self.handle_invoke(i, node, with_map)?,
+            Control::Enable(e) => {
+                self.handle_enable(e, node.control_point_mut())
+            }
+            Control::Invoke(i) => {
+                self.handle_invoke(i, node.control_point_mut(), with_map)?
+            }
         };
 
-        if retain_bool && node.should_reprocess(ctx) {
+        if retain_bool && node.control_point().should_reprocess(ctx) {
             return Ok(ControlNodeEval::Reprocess);
         }
 
-        if !retain_bool && ControlPoint::get_next(node, self.env.ctx.as_ref()).is_none() &&
+        if !retain_bool && ControlPoint::get_next(node.control_point(), self.env.ctx.as_ref()).is_none() &&
          // either we are not a par node, or we are the last par node
-         (!matches!(&self.env.ctx.as_ref().primary[node.control_node_idx].control, Control::Par(_)) || !par_map.contains_key(node))
+         (!matches!(&self.env.ctx.as_ref().primary[node.control_point().control_node_idx].control, Control::Par(_)) || !par_map.contains_key(node.control_point()))
         {
             if self.conf.check_data_race {
                 assert!(
@@ -1887,14 +1908,18 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                 );
             }
 
-            self.env.pc.set_finished_comp(node.comp, thread);
-            let comp_ledger = self.env.cells[node.comp].unwrap_comp();
-            *node = node.new_retain_comp(
+            self.env
+                .pc
+                .set_finished_comp(node.control_point().comp, thread);
+            let comp_ledger =
+                self.env.cells[node.control_point().comp].unwrap_comp();
+            let new_point = node.control_point().new_retain_comp(
                 self.env.ctx.as_ref().primary[comp_ledger.comp_id]
                     .unwrap_standard()
                     .control
                     .unwrap(),
             );
+            node.set_control_point(new_point);
             Ok(ControlNodeEval::stop(true))
         } else {
             Ok(ControlNodeEval::stop(retain_bool))
@@ -1982,7 +2007,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
         thread: Option<ThreadIdx>,
         node_thread: &mut Option<ThreadIdx>,
         par: &Par,
-        new_nodes: &mut Vec<(Option<ThreadIdx>, ControlPoint)>,
+        new_nodes: &mut Vec<ProgramPointer>,
     ) -> bool {
         if par_map.contains_key(node) {
             let par_entry = par_map.get_mut(node).unwrap();
@@ -1997,7 +2022,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if par_entry.child_count() == 0 {
                 let par_entry = par_map.remove(node).unwrap();
                 if self.conf.check_data_race {
-                    assert!(
+                    debug_assert!(
                         par_entry
                             .iter_finished_threads()
                             .map(|thread| {
@@ -2066,7 +2091,7 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
                     None
                 };
 
-                (thread, node.new_retain_comp(*x))
+                ProgramPointer::new_active(thread, node.new_retain_comp(*x))
             }));
 
             if self.conf.check_data_race {
@@ -2192,7 +2217,6 @@ impl<C: AsRef<Context> + Clone> BaseSimulator<C> {
             if let Some(wave) = wave.as_mut() {
                 wave.write_values(time, &self.env.ports)?;
             }
-            // self.print_pc();
             self.step()?;
             time += 1;
         }
