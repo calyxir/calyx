@@ -1,0 +1,45 @@
+Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.
+--------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2020.2 (lin64) Build 3064766 Wed Nov 18 09:12:47 MST 2020
+| Date         : Thu May  1 13:48:11 2025
+| Host         : havarti.cs.cornell.edu running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_utilization -hierarchical -file ./out/hierarchical_utilization_placed.rpt
+| Design       : main
+| Device       : xczu3egsbva484-1
+| Design State : Routed
+--------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------------+---------------------------+------------+------------+---------+------+-----+--------+--------+------+------------+
+|      Instance      |           Module          | Total LUTs | Logic LUTs | LUTRAMs | SRLs | FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++--------------------+---------------------------+------------+------------+---------+------+-----+--------+--------+------+------------+
+| main               |                     (top) |        119 |        119 |       0 |    0 | 164 |      0 |      0 |    0 |          3 |
+|   (main)           |                     (top) |          0 |          0 |       0 |    0 |   0 |      0 |      0 |    0 |          0 |
+|   comb_reg         |   std_reg__parameterized1 |          0 |          0 |       0 |    0 |   1 |      0 |      0 |    0 |          0 |
+|   fsm              |   std_reg__parameterized0 |         57 |         57 |       0 |    0 |   4 |      0 |      0 |    0 |          0 |
+|   fsm0             |   std_reg__parameterized2 |          7 |          7 |       0 |    0 |   3 |      0 |      0 |    0 |          0 |
+|   idx0             | std_reg__parameterized0_0 |          3 |          3 |       0 |    0 |   4 |      0 |      0 |    0 |          0 |
+|   mac              |             pipelined_mac |         52 |         52 |       0 |    0 |  87 |      0 |      0 |    0 |          3 |
+|     cond           | std_reg__parameterized1_3 |          0 |          0 |       0 |    0 |   1 |      0 |      0 |    0 |          0 |
+|     data_valid_reg | std_reg__parameterized1_4 |          0 |          0 |       0 |    0 |   1 |      0 |      0 |    0 |          0 |
+|     fsm            | std_reg__parameterized2_5 |          5 |          5 |       0 |    0 |   3 |      0 |      0 |    0 |          0 |
+|     mult_pipe      |             std_mult_pipe |         15 |         15 |       0 |    0 |  17 |      0 |      0 |    0 |          3 |
+|       comp         |          std_fp_mult_pipe |         15 |         15 |       0 |    0 |  17 |      0 |      0 |    0 |          3 |
+|     pipe1          |                 std_reg_6 |         32 |         32 |       0 |    0 |  32 |      0 |      0 |    0 |          0 |
+|     pipe2          |                 std_reg_7 |          0 |          0 |       0 |    0 |  32 |      0 |      0 |    0 |          0 |
+|     stage2_valid   | std_reg__parameterized1_8 |          0 |          0 |       0 |    0 |   1 |      0 |      0 |    0 |          0 |
+|   read_a           |                   std_reg |          0 |          0 |       0 |    0 |  32 |      0 |      0 |    0 |          0 |
+|   read_b           |                 std_reg_1 |          0 |          0 |       0 |    0 |  32 |      0 |      0 |    0 |          0 |
+|   signal_reg       | std_reg__parameterized1_2 |          0 |          0 |       0 |    0 |   1 |      0 |      0 |    0 |          0 |
++--------------------+---------------------------+------------+------------+---------+------+-----+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

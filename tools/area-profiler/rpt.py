@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 
 class RPTParser:
@@ -263,3 +264,32 @@ class RPTParser:
                 parent["children"][name] = row
                 stack.append(row)
         return root
+
+
+def main():
+    rpt_file = Path("report.rpt")
+    parser = RPTParser(rpt_file)
+    table = parser.get_table(re.compile(r"^\d+\. Utilization by Hierarchy$"), 2)
+    tree = parser.build_hierarchy_tree(table)
+    print(gen_fold(tree, "FFs"))
+
+
+def gen_fold(tree, val):
+    out = ""
+    for comp, subtree in tree.items():
+        out += gen_fold_helper(comp, subtree, val)
+    return out
+
+
+def gen_fold_helper(comp: str, tree, val, parent_str=""):
+    new_parent_str = f"{parent_str}{';' if parent_str else ''}{comp}"
+    out = f"{new_parent_str} {tree[val]}\n"
+    if not tree["children"]:
+        return out
+    for comp, subtree in tree["children"].items():
+        out += gen_fold_helper(comp, subtree, val, new_parent_str)
+    return out
+
+
+if __name__ == "__main__":
+    main()
