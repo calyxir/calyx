@@ -12,12 +12,13 @@ fn synth_setup(e) {
     e.config_var("calyx-base", "calyx.base");
     e.rule("mkdir", "mkdir -p $out");
     e.rule("move", "mv $in $out");
+    e.rule("copy", "cp $in $out");
     e.rule("copy-utilization", "cp out/FutilBuild.runs/impl_1/main_utilization_placed.rpt $out");
     e.rule("copy-timing", "cp out/FutilBuild.runs/impl_1/main_timing_summary_routed.rpt $out");
     e.rule("copy-area", "cp out/hierarchical_utilization_placed.rpt $out");
     e.rule("vivado", "vivado -mode batch -source synth.tcl > /dev/null");
-    e.rsrc("synth.tcl");
-    e.rsrc("device.xdc");
+    e.config_var_or("device_xdc", "synth-verilog.constraints", "$calyx-base/tools/report-parsing/device.xdc");
+    e.var_("synth_tcl", "$calyx-base/tools/report-parsing/synth.tcl");
     e.var_("parse-rpt-script", "$calyx-base/tools/report-parsing/rpt.py");
     e.rule("parse-rpt", "python3 $parse-rpt-script $in > $out");
     e.var_("extract-rpt-script", "$calyx-base/tools/report-parsing/extract.py");
@@ -36,6 +37,8 @@ op(
         e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
         e.arg("args", "--synthesis -p external --disable-verify");
+        e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
+        e.build_cmd(["synth.tcl"], "copy", ["$synth_tcl"], []);
         e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
         e.build_cmd([output], "copy-utilization", ["IGNOREME"], []);
     }
@@ -50,6 +53,8 @@ op(
         e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
         e.arg("args", "--synthesis -p external --disable-verify");
+        e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
+        e.build_cmd(["synth.tcl"], "copy", ["$synth_tcl"], []);
         e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
         e.build_cmd([output], "copy-timing", ["IGNOREME"], []);
     }
@@ -64,6 +69,8 @@ op(
         e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
         e.arg("args", "--synthesis -p external --disable-verify");
+        e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
+        e.build_cmd(["synth.tcl"], "copy", ["$synth_tcl"], []);
         e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
         e.build_cmd([output], "copy-area", ["IGNOREME"], []);
     }
@@ -78,6 +85,8 @@ op(
         e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
         e.arg("args", "--synthesis -p external --disable-verify");
+        e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
+        e.build_cmd(["synth.tcl"], "copy", ["$synth_tcl"], []);
         e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
        e.build_cmd([output], "extract-rpt", ["IGNOREME"], []);
     }
