@@ -11,6 +11,8 @@ rule mkdir
   command = mkdir -p $out
 rule move
   command = mv $in $out
+rule copy
+  command = cp $in $out
 rule copy-utilization
   command = cp out/FutilBuild.runs/impl_1/main_utilization_placed.rpt $out
 rule copy-timing
@@ -19,8 +21,8 @@ rule copy-area
   command = cp out/hierarchical_utilization_placed.rpt $out
 rule vivado
   command = vivado -mode batch -source synth.tcl > /dev/null
-build synth.tcl: get-rsrc
-build device.xdc: get-rsrc
+device_xdc = $calyx-base/tools/report-parsing/device.xdc
+synth_tcl = $calyx-base/tools/report-parsing/synth.tcl
 parse-rpt-script = $calyx-base/tools/report-parsing/rpt.py
 rule parse-rpt
   command = python3 $parse-rpt-script $in > $out
@@ -47,6 +49,8 @@ rule calyx-cider
 build main.sv: calyx /input.ext
   backend = verilog
   args = --synthesis -p external --disable-verify
+build device.xdc: copy $device_xdc
+build synth.tcl: copy $synth_tcl
 build IGNOREME: vivado | main.sv synth.tcl device.xdc
 build /output.ext: extract-rpt IGNOREME
 
