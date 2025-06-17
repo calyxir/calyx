@@ -9,7 +9,7 @@ mod ts_utils;
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
 use convert::Point;
@@ -17,6 +17,7 @@ use diagnostic::Diagnostic;
 use document::Document;
 use goto_definition::DefinitionProvider;
 use query_result::QueryResult;
+use resolve_path::PathResolveExt;
 use serde::Deserialize;
 use tower_lsp::lsp_types::{self as lspt, Url};
 use tower_lsp::{Client, LanguageServer, LspService, Server, jsonrpc};
@@ -127,16 +128,21 @@ impl Backend {
 
     /// Publish diagnostics for document `url`.
     async fn publish_diagnostics(&self, url: &lspt::Url) {
-        let lib_path: PathBuf =
-            self.config.read().unwrap().calyx_lsp.library_paths[0]
-                .to_string()
-                .into();
+        let lib_paths: Vec<PathBuf> = self
+            .config
+            .read()
+            .unwrap()
+            .calyx_lsp
+            .library_paths
+            .iter()
+            .map(|p| Path::new(p).resolve().into_owned())
+            .collect();
         let diags = self
             .read_document(url, |doc| {
                 Some(
                     Diagnostic::did_save(
                         &url.to_file_path().unwrap(),
-                        &lib_path,
+                        &lib_paths,
                     )
                     .into_iter()
                     .flat_map(|diag| diag.into_lspt_diagnostics(doc))

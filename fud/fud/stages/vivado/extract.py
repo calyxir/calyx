@@ -52,7 +52,7 @@ def rpt_extract(file: PurePath):
     logic_type = "CLB"
 
     if not all([slice_logic, bram_table, dsp_table]):
-        log.warn("Failed to find CLB logic tables, defaulting to older RPT format")
+        log.warning("Failed to find CLB logic tables, defaulting to older RPT format")
         slice_logic = parser.get_table(re.compile(r"^\d+\. Slice Logic\*?$"), 2)
         bram_table = parser.get_table(re.compile(r"^\d+\. Memory$"), 2)
         dsp_table = parser.get_table(re.compile(r"^\d+\. DSP$"), 2)

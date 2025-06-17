@@ -470,6 +470,7 @@ dependencies = [
 name = "calyx-opt"
 version = "0.7.1"
 dependencies = [
+ "calyx-frontend",
  "calyx-ir",
  "calyx-utils",
  "itertools 0.11.0",
@@ -618,8 +619,10 @@ dependencies = [
  "calyx-utils",
  "ciborium",
  "cider-idx",
+ "delegate",
  "fraction",
  "fst-writer",
+ "fxhash",
  "itertools 0.11.0",
  "num-bigint",
  "num-traits",
@@ -1045,6 +1048,17 @@ dependencies = [
  "rand 0.9.0",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "delegate"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9b6483c2bbed26f97861cf57651d4f2b731964a28cd2257f934a4b452480d21"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
 ]
 
 [[package]]

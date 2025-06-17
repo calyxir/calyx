@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     fifo_queue = fifo.insert_fifo(prog, "fifo")
     subqueues = [fifo_queue] * NUMFLOWS
-    order = [3, 0, 2, 1]
+    order = [0, 1, 2, 3]
     if sim_pcap:
         flow_infer = fi.insert_tuple_flow_inference(prog, "flow_inference", NUMFLOWS)
         pifo = st_or_rr.insert_queue(

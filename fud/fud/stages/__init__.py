@@ -224,7 +224,7 @@ class Stage:
             opts = config["stages", self.name]
             for opt in opts.keys():
                 if opt not in known:
-                    log.warn(
+                    log.warning(
                         f"Unknown option `{self.name}.{opt}' for stage `{self.name}'"
                     )
 
@@ -323,7 +323,7 @@ class ComputationGraph:
 
     def and_then_path(self, path: List[Stage], config: Configuration):
         """
-        Convienience method to stage all the computations in a path.
+        Convenience method to stage all the computations in a path.
         """
         for stage in path:
             stage.setup(config, self)
@@ -414,7 +414,7 @@ class ComputationGraph:
                 if len(args) != len(input_types):
                     raise Exception(
                         f"Expected {len(input_types)} input arguments,"
-                        f" but recieved {len(args)}"
+                        f" but received {len(args)}"
                     )
 
                 # make sure that the args are convertible to expected input
@@ -435,7 +435,7 @@ class ComputationGraph:
                 future_output = Source(None, output_types)
 
                 # convert the args to the right types and unwrap them
-                # NOTE(rachit): This is a *LAZY* computaion and only occurs when
+                # NOTE(rachit): This is a *LAZY* computation and only occurs when
                 # the step's data has been filled.
                 unwrapped_args = map(
                     lambda a: a[0].convert_to(a[1]).data, zip(args, input_types)

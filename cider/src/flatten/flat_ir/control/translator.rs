@@ -9,7 +9,7 @@ use crate::{
     as_raw::AsRaw,
     flatten::{
         flat_ir::{
-            base::SignatureRange,
+            base::{LocalPortOffset, SignatureRange},
             cell_prototype::{CellPrototype, ConstantType},
             component::{
                 AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
@@ -279,15 +279,36 @@ fn translate_component(
 
     let group_base = ctx.primary.groups.peek_next_idx();
 
+    let mut go_port_group_map: HashMap<LocalPortOffset, GroupIdx> =
+        HashMap::new();
+
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
-        let group_idx =
+        let translated_group =
             translate_group(&group_brw, ctx, &layout.port_map, hash_cons_map);
-        let k = ctx.primary.groups.push(group_idx);
+        let group_go = translated_group.go;
+        let k = ctx.primary.groups.push(translated_group);
+        go_port_group_map.insert(group_go, k);
         group_map.insert(group.as_raw(), k);
     }
     auxiliary_component_info
         .set_group_range(group_base, ctx.primary.groups.peek_next_idx());
+
+    for group in auxiliary_component_info.definitions.groups() {
+        for assignment in ctx.primary[group].assignments {
+            let dst = ctx.primary[assignment].dst;
+            if let Some(local) = dst.as_local() {
+                if let Some(other_group) = go_port_group_map.get(local) {
+                    ctx.primary
+                        .groups
+                        .get_mut(group)
+                        .unwrap()
+                        .structural_enables
+                        .push(*other_group);
+                }
+            }
+        }
+    }
 
     let comb_group_base = ctx.primary.comb_groups.peek_next_idx();
     // Translate comb groups
@@ -337,7 +358,7 @@ fn translate_component(
                 None,
                 &mut taken_control,
                 &argument_tuple,
-                &mut (),
+                &mut HashMap::new(),
             );
             Some(ctrl_node)
         };
@@ -702,34 +723,50 @@ impl FlattenTree for cir::Control {
     type Output = ControlNode;
     type IdxType = ControlIdx;
     type AuxiliaryData = (GroupMapper, Layout, Context, AuxiliaryComponentInfo);
-    type MutAuxiliaryData = ();
+    type MutAuxiliaryData = HashMap<*const cir::Control, ControlIdx>;
 
     fn process_element<'data>(
         &'data self,
         mut handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
         aux: &Self::AuxiliaryData,
-        _: &mut Self::MutAuxiliaryData,
+        parent_map: &mut Self::MutAuxiliaryData,
     ) -> Self::Output {
         let (group_map, layout, ctx, comp_info) = aux;
+        let current_idx = handle.next_idx();
         let ctrl = match self {
             cir::Control::FSMEnable(_) => todo!(),
-            cir::Control::Seq(s) => Control::Seq(Seq::new(
-                s.stmts.iter().map(|s| handle.enqueue(s)),
-            )),
-            cir::Control::Par(p) => Control::Par(Par::new(
-                p.stmts.iter().map(|s| handle.enqueue(s)),
-            )),
-            cir::Control::If(i) => Control::If(If::new(
-                layout.port_map[&i.port.as_raw()],
-                i.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
-                handle.enqueue(&i.tbranch),
-                handle.enqueue(&i.fbranch),
-            )),
-            cir::Control::While(w) => Control::While(While::new(
-                layout.port_map[&w.port.as_raw()],
-                w.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
-                handle.enqueue(&w.body),
-            )),
+            cir::Control::Seq(s) => {
+                Control::Seq(Seq::new(s.stmts.iter().map(|s| {
+                    parent_map.insert(s.as_raw(), current_idx);
+                    handle.enqueue(s)
+                })))
+            }
+            cir::Control::Par(p) => {
+                Control::Par(Par::new(p.stmts.iter().map(|s| {
+                    parent_map.insert(s.as_raw(), current_idx);
+                    handle.enqueue(s)
+                })))
+            }
+            cir::Control::If(i) => {
+                parent_map.insert((&*i.tbranch).as_raw(), current_idx);
+                parent_map.insert((&*i.fbranch).as_raw(), current_idx);
+
+                Control::If(If::new(
+                    layout.port_map[&i.port.as_raw()],
+                    i.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
+                    handle.enqueue(&i.tbranch),
+                    handle.enqueue(&i.fbranch),
+                ))
+            }
+            cir::Control::While(w) => {
+                parent_map.insert((&*w.body).as_raw(), current_idx);
+
+                Control::While(While::new(
+                    layout.port_map[&w.port.as_raw()],
+                    w.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
+                    handle.enqueue(&w.body),
+                ))
+            }
             cir::Control::Invoke(inv) => {
                 let invoked_cell = layout.cell_map[&inv.comp.as_raw()];
 
@@ -851,6 +888,7 @@ impl FlattenTree for cir::Control {
                 todo!("The interpreter does not support static control yet")
             }
             cir::Control::Repeat(repeat) => {
+                parent_map.insert((&*repeat.body).as_raw(), current_idx);
                 let body = handle.enqueue(&repeat.body);
                 Control::Repeat(Repeat::new(body, repeat.num_repeats))
             }
@@ -862,6 +900,7 @@ impl FlattenTree for cir::Control {
                 .get_attributes()
                 .get_set(SetAttr::Pos)
                 .map(|x| x.iter().map(|p| PositionId::new(*p)).collect()),
+            parent: parent_map.get(&self.as_raw()).copied(),
         }
     }
 }

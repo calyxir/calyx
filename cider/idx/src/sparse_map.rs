@@ -109,7 +109,7 @@ where
     /// Iterates over all the keys in the map in insertion order.
     /// This returns `K` rather than `&K` because it internally uses
     /// [IndexRange]s
-    pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
+    pub fn keys(&self) -> impl Iterator<Item = K> {
         self.iteration_order.iter().flat_map(|x| x.iter())
     }
 

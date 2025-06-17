@@ -166,7 +166,7 @@ where
         self.data.iter()
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
+    pub fn keys(&self) -> impl Iterator<Item = K> {
         // TODO (griffin): Make this an actual struct instead
         self.data.iter().enumerate().map(|(i, _)| K::new(i))
     }
@@ -222,7 +222,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecondaryMap<K, D>
 where

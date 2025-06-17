@@ -15,13 +15,7 @@ fn ws_from_ns(ns: frontend::NamespaceDef) -> CalyxResult<frontend::Workspace> {
         ));
     }
     let mut ws = frontend::Workspace::default();
-    ws.merge_namespace(
-        ns,
-        true,
-        &PathBuf::default(),
-        true,
-        &PathBuf::default(),
-    )?;
+    ws.merge_namespace(ns, true, &PathBuf::default(), true, &[])?;
     Ok(ws)
 }
 

@@ -259,7 +259,7 @@ impl Rewriter {
             }
             ir::Control::Invoke(inv) => self.rewrite_invoke(inv),
             ir::Control::Static(s) => self.rewrite_static_control(s),
-            ir::Control::FSMEnable(_) => todo!(),
+            ir::Control::FSMEnable(_) => (),
         }
     }
 
