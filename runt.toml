@@ -569,7 +569,8 @@ cmd = """
 fud2 {} --from relay --to jq \
         --through verilator \
         -s sim.data={}.data \
-        -s jq.expr=".memories"
+        -s jq.expr=".memories" \
+        -q
 """
 
 ## Tests errors that occur at runtime
