@@ -1,6 +1,5 @@
 ---
 source: fud2/tests/tests.rs
-snapshot_kind: text
 ---
 [
     (
@@ -127,6 +126,11 @@ snapshot_kind: text
         "trace",
         "sim",
         "vcd",
+    ),
+    (
+        "vcd_json",
+        "vcd",
+        "dat",
     ),
     (
         "verilator",

@@ -472,6 +472,9 @@ fn cli_ext<T: CliExt>(
     // Override some global config options.
     if let Some(keep) = args.keep {
         run.global_config.keep_build_dir = keep;
+    } else if args.dir.is_some() {
+        // using the `--dir` argument implies `--keep`
+        run.global_config.keep_build_dir = true;
     }
     if let Some(verbose) = args.verbose {
         run.global_config.verbose = verbose;
