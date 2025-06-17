@@ -129,7 +129,7 @@ build_cmd([<target>], <rule>, [<dep1>, <dep2>, ..], [<implicit_dep1>, <implicit_
 ```
 Emits a Ninja build command that generates the build target `<target>` with the rule `<rule>` by using `<dep1>, ..` and `<implicit_dep1>, ..`.
 
-`<target>` replaces `$out` in `<rule>`, and `<dep1>, <dep2>, ..` replace `$in` in `<rule>`. `<implicit_dep1>, ..` should be strings containing variable names defined previously defined via setups referred as `$<var name>`.
+`<target>` replaces `$out` in `<rule>`, and `<dep1>` replaces `$in` in `<rule>` (if there are multiple dependencies, then a string containg all dependencies with spaces in between is passed in). `<implicit_dep1>, ..` should be strings containing variable names defined previously defined via setups referred as `$<var name>`.
 
 <br>
 
