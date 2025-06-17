@@ -14,19 +14,11 @@ class RPTParser:
             self.lines = data.read().split("\n")
 
     @staticmethod
-    def _clean_and_strip(elems, preserve_index=None):
-        """
-        Remove all empty elements from the list and strips each string element
-        while preserving the left indentation of the element at index `preserve_index`.
-        """
-        indexed = filter(lambda ie: ie[1] != "\n" and ie[1] != "", enumerate(elems))
-        cleaned = map(
-            lambda ie: ie[1].rstrip("\n ")
-            if ie[0] == preserve_index
-            else ie[1].strip(),
-            indexed,
-        )
-        return list(cleaned)
+    def _clean_and_strip(elems):
+        "Remove all empty elements from the list and strips each string element."
+        nonempty = filter(lambda e: e != "\n" and e != "", elems)
+        m = map(lambda e: e.strip(), nonempty)
+        return list(map(lambda e: "index" if e == "" else e, m))
 
     @staticmethod
     def _parse_simple_header(line):
@@ -130,7 +122,7 @@ class RPTParser:
         rows = []
         for line in table_lines[table_start:]:
             if not RPTParser.SKIP_LINE.match(line):
-                rows.append(RPTParser._clean_and_strip(line.split("|"), 1))
+                rows.append(RPTParser._clean_and_strip(line.split("|")))
 
         ret = [
             {header[i]: row[i] for i in range(len(header))}
@@ -138,9 +130,6 @@ class RPTParser:
             if len(row) == len(header)
         ]
         return ret
-
-    def _get_indent_level(self, instance):
-        return (len(instance) - len(instance.lstrip(" "))) // 2
 
     def get_table(self, reg, off, multi_header=False):
         """
@@ -243,23 +232,3 @@ class RPTParser:
 
         # Return a dict with the headers as keys and the data as values
         return {headers[i]: data[i] for i in range(len(headers))}
-
-    def build_hierarchy_tree(self, table):
-        stack = []
-        root = {}
-        for row in table:
-            raw_instance = row["Instance"]
-            name = raw_instance.strip()
-            level = self._get_indent_level(raw_instance)
-            row["Instance"] = row["Instance"].strip()
-            row["children"] = {}
-            while len(stack) > level:
-                stack.pop()
-            if not stack:
-                root[name] = row
-                stack.append(row)
-            else:
-                parent = stack[-1]
-                parent["children"][name] = row
-                stack.append(row)
-        return root

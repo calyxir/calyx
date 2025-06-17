@@ -45,8 +45,3 @@ wait_on_run synth_1
 # faster if you just need the resource report!
 launch_runs impl_1 -to_step route_design
 wait_on_run impl_1
-
-# Obtain hierarchical report on resource utilization                                                                                                                                   
-open_run impl_1
-report_utilization -hierarchical -file $outdir/hierarchical_utilization_placed.rpt
-close_design
