@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
-use calyx_ir::{self as ir, Nothing, While};
+use calyx_ir::{self as ir, Nothing};
 use calyx_utils::{CalyxResult, OutputFile};
 use serde::Serialize;
 
@@ -54,6 +54,27 @@ impl ConstructVisitor for UniqueControl {
     }
 
     fn clear_data(&mut self) {}
+}
+
+fn par_track(
+    control: &ir::Control,
+    start_idx: u32,
+    enable_to_track: &mut HashMap<String, u32>,
+) -> u32 {
+    match control {
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            let mut idx = start_idx;
+            for stmt in stmts {
+                par_track(control, start_idx, enable_to_track);
+            }
+            idx
+        }
+        ir::Control::Enable(enable) => {
+            let group_name = enable.group.borrow().name().to_string();
+            enable_to_track.insert(group_name, start_idx);
+            start_idx
+        }
+    }
 }
 
 fn label_control_enables(
@@ -109,7 +130,7 @@ fn label_control_enables(
                 false,
             );
         }
-        ir::Control::While(While { body, .. }) => {
+        ir::Control::While(ir::While { body, .. }) => {
             let body_id = format!("{}-b", current_id);
             label_control_enables(&body, body_id, path_descriptor_info, false);
         }
