@@ -1,0 +1,19 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: relay"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+python = python3
+calyx.base = /test/calyx
+relay-exe = ${calyx.base}/frontends/relay/relay_visitor.py
+rule relay_rule_1
+  command = ${python} ${relay-exe} $i0 > $o0
+build _relay_rule_1.fake $o0: relay_rule_1 $i0
+  i0 = /input.ext
+  o0 = /output.ext
+
+
+default /output.ext
