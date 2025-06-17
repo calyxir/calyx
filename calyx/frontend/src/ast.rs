@@ -111,7 +111,7 @@ pub enum Port {
 
     /// `group[name]` parses into `Hole { group, name }`
     /// and is a hole named `name` on group `group`
-    Hole { group: Id, name: Id },
+    Hole { struct_elem: Id, name: Id },
 }
 
 // ===================================
