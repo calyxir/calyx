@@ -1,7 +1,6 @@
 import "calyx" as c;
 import "profiler" as p;
 
-export const flamegraph_folded_state = state("flamegraph-folded", ["folded"]);
 export const utilization_report_state = state("utilization-report", ["urpt"]);
 export const timing_report_state = state("timing-report", ["trpt"]);
 export const area_report_state = state("area-report", ["arpt"]);
@@ -15,7 +14,7 @@ fn synth_setup(e) {
     e.rule("copy-utilization", "cp out/FutilBuild.runs/impl_1/main_utilization_placed.rpt $out");
     e.rule("copy-timing", "cp out/FutilBuild.runs/impl_1/main_timing_summary_routed.rpt $out");
     e.rule("copy-area", "cp out/hierarchical_utilization_placed.rpt $out");
-    e.rule("vivado", "vivado -mode batch -source synth.tcl");
+    e.rule("vivado", "vivado -mode batch -source synth.tcl > /dev/null");
     e.rsrc("synth.tcl");
     e.rsrc("device.xdc");
     e.var_("parse-rpt-script", "$calyx-base/tools/area-profiler/rpt.py");
@@ -68,21 +67,13 @@ op(
 );
 
 op(
-    "area-report-to-flamegraph-folded",
+    "area-report-to-flamegraph",
     [synth_setup],
     area_report_state,
-    flamegraph_folded_state,
-    |e, input, output| {
-       e.build_cmd([output], "parse-rpt", [input], []);
-    }
-);
-
-op(
-    "flamegraph-folded-to-flamegraph",
-    [synth_setup, c::calyx_setup],
-    flamegraph_folded_state,
     p::flamegraph,
     |e, input, output| {
-       e.build_cmd([output], "create-visuals", [input], []);
+        let folded = "flamegraph.folded";
+       e.build_cmd([folded], "parse-rpt", [input], []);
+       e.build_cmd([output], "create-visuals", [folded], []);
     }
 );

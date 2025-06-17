@@ -272,7 +272,7 @@ def main():
     parser = RPTParser(rpt_file)
     table = parser.get_table(re.compile(r"^\d+\. Utilization by Hierarchy$"), 2)
     tree = parser.build_hierarchy_tree(table)
-    print(gen_fold(tree, "FFs"))
+    print(gen_fold(tree, "FFs").rstrip())
 
 
 def gen_fold(tree, val):
