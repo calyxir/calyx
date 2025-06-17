@@ -209,8 +209,8 @@ This gives us the `main` component:
 
 To see this example simulated, run the command:
 ```
-fud e examples/futil/memory-by-reference/memory-by-reference.futil --to dat \
--s verilog.data examples/futil/memory-by-reference/memory-by-reference.futil.data
+fud2 examples/futil/memory-by-reference/memory-by-reference.futil --to dat \
+-s sim.data=examples/futil/memory-by-reference/memory-by-reference.futil.data
 ```
 
 ### Multi-dimensional Memories

@@ -92,20 +92,20 @@ So make a file called something like `data.json` containing something along thes
 The `mem` key means we're providing the initial value for our memory called `mem`.
 We have one (unsigned integer) data element, and we indicate the bit width (32 bits).
 
-If you want to see how this Calyx program compiles to Verilog, here's the [fud][] incantation you need:
+If you want to see how this Calyx program compiles to Verilog, here's the [fud2][] incantation you need:
 
-    fud exec language-tutorial-mem.futil --to verilog
+    fud2 language-tutorial-mem.futil --to verilog
 
 Not terribly interesting!
 However, one nice thing you can do with programs is execute them.
 
 To run our program using [Icarus Verilog][], do this:
 
-    fud exec language-tutorial-mem.futil --to dat --through icarus-verilog \
-        -s verilog.data data.json
+    fud2 language-tutorial-mem.futil --to dat --through icarus \
+        -s sim.data=data.json
 
-Using `--to dat` asks fud to run the program, and the extra `-s verilog.data <filename>` argument tells it where to find the input data.
-The `--through icarus-verilog` option tells fud which Verilog simulator to use (see [the chapter about fud][fud] for alternatives such as [Verilator][]).
+Using `--to dat` asks fud2 to run the program, and the extra `-s sim.data=<filename>` argument tells it where to find the input data.
+The `--through icarus-verilog` option tells fud2 which Verilog simulator to use (see [the chapter about fud2][fud2] for alternatives such as [Verilator][]).
 Executing this program should print:
 
 ```
@@ -142,7 +142,7 @@ But now we're controlling things with an execution schedule.
 
 If you're curious to see how the Calyx compiler lowers this program to a Verilog-like structural form of Calyx, you can do this:
 
-    fud exec language-tutorial-mem.futil --to calyx-lowered
+    ./target/debug/calyx language-tutorial-mem.futil
 
 Notably, you'll see `control {}` in the output, meaning that the compiler has eliminated all the control statements and replaced them with continuous assignments in `wires`.
 
@@ -267,6 +267,6 @@ Take a look at the [full language reference][lang-ref] for details on the comple
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/calyxir/calyx/tree/master/examples/tutorial
 [icarus verilog]: http://iverilog.icarus.com
-[fud]: ../running-calyx/fud/index.md
+[fud2]: ../running-calyx/fud2/index.md
 [data-format]: ../lang/data-format.md
 [lang-ref]: ../lang/ref.md

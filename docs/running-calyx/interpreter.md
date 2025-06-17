@@ -41,7 +41,7 @@ which should produce
 
 You can see the available command-line options by typing `cargo run -- --help`.
 
-## Interpreting via fud
+## Interpreting via fud2
 
 The interpreter is available as a stage in [fud2][], which lets you provide
 standard JSON data files as input and easily execute passes on the input Calyx
