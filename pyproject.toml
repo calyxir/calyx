@@ -13,6 +13,7 @@ ntt-pipeline = { workspace = true }
 systolic-lang = { workspace = true }
 mrxl = { workspace = true }
 queues = { workspace = true }
+fud = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -21,6 +22,7 @@ members = [
     "calyx-py",
     "frontends/mrxl",
     "frontends/queues",
+    "fud",
 ]
 
 [project.optional-dependencies]
@@ -31,9 +33,9 @@ queues = ["queues"]
 profiler = [
     # should probably add the profiler to the workplace but I don't want to deal
     # with that right now
-    "vcdvcd"
+    "vcdvcd",
 ]
 fud2_scripts = [
     # definitely incomplete list
-    "simplejson"
+    "simplejson",
 ]
