@@ -412,15 +412,15 @@ fud2 --from calyx --to jq \
 name = "[frontend] systolic array PE correctness"
 paths = ["tests/correctness/systolic/pe/*.systolic"]
 cmd = """
-#fud e --from systolic --to jq \
-#      --through verilog \
-#      --through vcd_json \
-#      -s verilog.data {}.data \
-#      -s calyx.exec './target/debug/calyx' \
-#      -s calyx.flags "-d well-formed" \
-#      -s jq.file {}.jq \
-#      {} -q
-
+fud2 --to jq \
+      --through verilator \
+      --through vcd_json \
+      --through dat-to-jqfile \
+      -s sim.data={}.data \ 
+      -s calyx.args="-d well-formed" \
+      -s jq.file={}.jq \
+      {} \
+      -q
 """
 
 [[tests]]
