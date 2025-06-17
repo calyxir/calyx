@@ -204,6 +204,65 @@ A call to `shell_deps` corresponds directly to a Ninja rule in the Ninja file ge
 
 Currently, the Rhai API is almost identical to the Rust API. However `Emitter::add_file` is not currently supported. And `Emitter::var` is renamed to `_var` because `var` is a reserved keyword in Rhai.
 
+#### Defining states
+
+```
+state(<name>, [<ext1>, <ext2>, .. ])
+```
+Defines a state with the name `<name>` where files can have extensions `<ext1>`, `<ext2>`, etc.
+
+#### Setup
+
+Setup functions register variables and rules that will be used by the emitter to build commands.
+
+```
+
+```
+
+
+#### Defining operations
+
+```
+op(<op name>, [<setup1>, <setup2>, ..], <input state>, <output state>, <emit function>)
+```
+
+The emit function would have the following declaration:
+```
+|e, input, output| { ... }
+```
+where `e` is an emitter, and `input` and `output` are 
+
+#### Emitter API
+
+A recommended way to use the emitter is to first create a command, and then fill the arguments 
+
+```
+var_(<variable name>, <filename>)
+```
+Defines a Ninja variable `<variable name>` which refers to the file `<filename>`.
+
+```
+config_var(<variable name>, <configuration path>)
+```
+Pulls a variable from the configuration file.
+
+```
+config_var_or(<variable name>, <configuration path>, <default>)
+```
+
+```
+rule(<rule name>, <shell command>)
+```
+Defines a Ninja rule 
+
+```
+build_cmd([<target>], <rule>, [<dep1>, <dep2>, ..], [<implicit_dep1>, <implicit_dep2>, ..])
+```
+
+```
+
+```
+
 ### Adding to the API
 
 If there is something that is hard to do in Rhai, it is straightforward to [register a Rust function][rhai-rust-fn] so that it is available from Rhai.
