@@ -108,6 +108,11 @@ source: fud2/tests/tests.rs
         "calyx",
     ),
     (
+        "ntt",
+        "ntt",
+        "calyx",
+    ),
+    (
         "primitive-uses",
         "calyx",
         "primitive-uses-json",

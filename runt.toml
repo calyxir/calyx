@@ -94,7 +94,7 @@ cmd = """
 name = "[frontend] NTT pipeline generation"
 paths = ["tests/frontend/ntt-pipeline/*.txt"]
 cmd = """
-fud e --from ntt {} --to calyx -q
+fud2 --from ntt {} --to calyx -q
 """
 
 [[tests]]
@@ -537,7 +537,7 @@ fud e --from systolic --to dat \
 name = "[frontend] NTT pipeline correctness"
 paths = ["tests/correctness/ntt-pipeline/*.txt"]
 cmd = """
-fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
+fud2 --from ntt {} --through verilator --to jq -s sim.data={}.data -q
 """
 
 [[tests]]
