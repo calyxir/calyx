@@ -1,8 +1,8 @@
 ---
 source: fud2/tests/tests.rs
-snapshot_kind: text
 ---
 [
+    "area-report",
     "calyx",
     "calyx_py",
     "cider",
@@ -14,9 +14,12 @@ snapshot_kind: text
     "firrtl-with-primitives",
     "flamegraph",
     "jq",
+    "json-report",
     "mrxl",
     "primitive-uses-json",
     "sim",
+    "timing-report",
+    "utilization-report",
     "vcd",
     "verilog",
     "verilog-noverify",
