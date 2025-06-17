@@ -537,7 +537,7 @@ fud e --from systolic --to dat \
 name = "[frontend] NTT pipeline correctness"
 paths = ["tests/correctness/ntt-pipeline/*.txt"]
 cmd = """
-fud2 --from ntt {} --through verilator --to jq -s sim.data={}.data -q
+fud2 --from ntt {} --through verilator --to dat -s sim.data={}.data -q
 """
 
 [[tests]]
