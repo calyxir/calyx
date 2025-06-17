@@ -99,7 +99,7 @@ class RPTParser:
         return hdrs
 
     @staticmethod
-    def _parse_table(table_lines, multi_header):
+    def _parse_table(table_lines, multi_header, preserve_indent):
         """
         Parses a simple table of the form:
         +--------+-------+----------+------------+
@@ -132,7 +132,11 @@ class RPTParser:
         rows = []
         for line in table_lines[table_start:]:
             if not RPTParser.SKIP_LINE.match(line):
-                rows.append(RPTParser._clean_and_strip(line.split("|"), 1))
+                rows.append(
+                    RPTParser._clean_and_strip(
+                        line.split("|"), 1 if preserve_indent else None
+                    )
+                )
 
         ret = [
             {header[i]: row[i] for i in range(len(header))}
@@ -144,7 +148,7 @@ class RPTParser:
     def _get_indent_level(self, instance):
         return (len(instance) - len(instance.lstrip(" "))) // 2
 
-    def get_table(self, reg, off, multi_header=False):
+    def get_table(self, reg, off, multi_header=False, preserve_indent=False):
         """
         Parse table `off` lines after `reg` matches the files in the current
         file.
@@ -179,7 +183,7 @@ class RPTParser:
         if end <= start:
             return None
 
-        return self._parse_table(self.lines[start:end], multi_header)
+        return self._parse_table(self.lines[start:end], multi_header, preserve_indent)
 
     def get_bare_table(self, header_regex):
         """
@@ -270,7 +274,9 @@ class RPTParser:
 def main():
     rpt_file = Path(sys.argv[1])
     parser = RPTParser(rpt_file)
-    table = parser.get_table(re.compile(r"^\d+\. Utilization by Hierarchy$"), 2)
+    table = parser.get_table(
+        re.compile(r"^\d+\. Utilization by Hierarchy$"), 2, preserve_indent=True
+    )
     tree = parser.build_hierarchy_tree(table)
     print(gen_fold(tree, "FFs").rstrip())
 

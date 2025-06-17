@@ -4,6 +4,7 @@ import "profiler" as p;
 export const utilization_report_state = state("utilization-report", ["urpt"]);
 export const timing_report_state = state("timing-report", ["trpt"]);
 export const area_report_state = state("area-report", ["arpt"]);
+export const json_report_state = state("json-report", ["rjson"]);
 
 export const synth_setup = synth_setup;
 
@@ -17,8 +18,10 @@ fn synth_setup(e) {
     e.rule("vivado", "vivado -mode batch -source synth.tcl > /dev/null");
     e.rsrc("synth.tcl");
     e.rsrc("device.xdc");
-    e.var_("parse-rpt-script", "$calyx-base/tools/area-profiler/rpt.py");
+    e.var_("parse-rpt-script", "$calyx-base/tools/report-parsing/rpt.py");
     e.rule("parse-rpt", "python3 $parse-rpt-script $in > $out");
+    e.var_("extract-rpt-script", "$calyx-base/tools/report-parsing/extract.py");
+    e.rule("extract-rpt", "python3 $extract-rpt-script > $out");
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
     e.rule("create-visuals", "bash $create-visuals-script $flamegraph-script . $in $out");
@@ -33,8 +36,8 @@ op(
         e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
         e.arg("args", "--synthesis -p external --disable-verify");
-        e.build_cmd(["IGNOREME.txt"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
-        e.build_cmd([output], "copy-utilization", ["IGNOREME.txt"], []);
+        e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
+        e.build_cmd([output], "copy-utilization", ["IGNOREME"], []);
     }
 );
 
@@ -47,8 +50,8 @@ op(
         e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
         e.arg("args", "--synthesis -p external --disable-verify");
-        e.build_cmd(["IGNOREME.txt"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
-        e.build_cmd([output], "copy-timing", ["IGNOREME.txt"], []);
+        e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
+        e.build_cmd([output], "copy-timing", ["IGNOREME"], []);
     }
 );
 
@@ -61,8 +64,22 @@ op(
         e.build_cmd(["main.sv"], "calyx", [input], []);
         e.arg("backend", "verilog");
         e.arg("args", "--synthesis -p external --disable-verify");
-        e.build_cmd(["IGNOREME.txt"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
-        e.build_cmd([output], "copy-area", ["IGNOREME.txt"], []);
+        e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
+        e.build_cmd([output], "copy-area", ["IGNOREME"], []);
+    }
+);
+
+op(
+    "calyx-to-synthesis-json",
+    [synth_setup, c::calyx_setup],
+    c::calyx_state,
+    json_report_state,
+    |e, input, output| {
+        e.build_cmd(["main.sv"], "calyx", [input], []);
+        e.arg("backend", "verilog");
+        e.arg("args", "--synthesis -p external --disable-verify");
+        e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
+       e.build_cmd([output], "extract-rpt", ["IGNOREME"], []);
     }
 );
 
