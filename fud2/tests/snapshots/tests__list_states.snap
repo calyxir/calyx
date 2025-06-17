@@ -16,6 +16,7 @@ source: fud2/tests/tests.rs
     "mrxl",
     "ntt",
     "primitive-uses-json",
+    "relay",
     "sim",
     "vcd",
     "verilog",

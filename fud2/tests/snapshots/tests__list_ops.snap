@@ -123,6 +123,11 @@ source: fud2/tests/tests.rs
         "flamegraph",
     ),
     (
+        "relay",
+        "relay",
+        "calyx",
+    ),
+    (
         "simulate",
         "sim",
         "dat",
