@@ -1,4 +1,5 @@
 import re
+import sys
 from pathlib import Path
 
 
@@ -267,7 +268,7 @@ class RPTParser:
 
 
 def main():
-    rpt_file = Path("report.rpt")
+    rpt_file = Path(sys.argv[1])
     parser = RPTParser(rpt_file)
     table = parser.get_table(re.compile(r"^\d+\. Utilization by Hierarchy$"), 2)
     tree = parser.build_hierarchy_tree(table)
