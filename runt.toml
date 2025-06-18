@@ -468,7 +468,7 @@ fud2 --from calyx --to jq \
 name = "[correctness] `@fast` attribute should reject unoptimizable sequences"
 paths = ["tests/correctness/fast-attr/invalid/*.futil"]
 cmd = """
-fud2 --from calyx --to jq \
+RUST_LIB_BACKTRACE=0 fud2 --from calyx --to jq \
          --through icarus \
          -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
          -s sim.data={}.data \
