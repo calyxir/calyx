@@ -21,11 +21,13 @@ set outdir ./out
 set partname "xczu3eg-sbva484-1-e"
 
 # Create the project (forcibly overwriting) and add sources SystemVerilog
-# (*.sv) and Xilinx constraint files (*.xdc), which contain directives for
+# (*.sv) and Xilinx constraint file (device.xdc), which contain directives for
 # connecting design signals to physical FPGA pins.
+#
+# We only use the constraint file "device.xdc" and omit any other ".xdc" files.
 create_project -force -part $partname FutilBuild $outdir
 add_files [glob ./*.sv]
-add_files -fileset constrs_1 [glob ./*.xdc]
+add_files -fileset constrs_1 [glob ./device.xdc]
 set_property top main [current_fileset]
 
 # Switch the project to "out-of-context" mode, which frees us from the need to

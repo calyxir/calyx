@@ -26,10 +26,11 @@ fn synth_setup(e) {
     e.rule("vivado", "vivado -mode batch -source synth.tcl > /dev/null");
 
     // Read config variable for the device.xdc file, use default one otherwise
-    e.config_var_or("device_xdc", "synth-verilog.constraints", "$calyx-base/tools/report-parsing/device.xdc");
+    e.config_var_or("device_xdc", "synth-verilog.constraints", "default.xdc");
+    e.rsrc("default.xdc");
 
     // Use default synth.tcl file
-    e.var_("synth_tcl", "$calyx-base/tools/report-parsing/synth.tcl");
+    e.rsrc("synth.tcl");
 
     // Python scripts for parsing reports for visualization and extracting JSON summary
     e.var_("parse-rpt-script", "$calyx-base/tools/report-parsing/rpt.py");
@@ -49,9 +50,8 @@ fn calyx_through_vivado(e, input, output) {
     e.build_cmd(["main.sv"], "calyx", [input], []);
     e.arg("backend", "verilog");
     e.arg("args", "--synthesis -p external --disable-verify");
-    // Copy over XDC and TCL files and run synthesis
+    // Copy over XDC file and run synthesis
     e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
-    e.build_cmd(["synth.tcl"], "copy", ["$synth_tcl"], []);
     e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
 }
 
