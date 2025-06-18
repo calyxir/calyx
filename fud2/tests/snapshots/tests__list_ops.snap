@@ -133,6 +133,11 @@ source: fud2/tests/tests.rs
         "calyx",
     ),
     (
+        "ntt",
+        "ntt",
+        "calyx",
+    ),
+    (
         "primitive-uses",
         "calyx",
         "primitive-uses-json",
@@ -141,6 +146,11 @@ source: fud2/tests/tests.rs
         "profiler",
         "calyx",
         "flamegraph",
+    ),
+    (
+        "relay",
+        "relay",
+        "calyx",
     ),
     (
         "simulate",
