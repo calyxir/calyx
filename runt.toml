@@ -563,10 +563,10 @@ fud2 {} --from relay --to jq \
 name = "runtime errors"
 paths = ["tests/errors/runtime/*.futil"]
 cmd = """
-fud2 -s calyx.exe='./target/debug/calyx' \
-         -s sim.cycle_limit=500 \
+fud2 -s sim.cycle_limit=500 \
          --through verilator \
-         {} --from calyx --to dat -q 2>&1 | \
+         -s sim.data={}.data \
+         {} --from calyx --to dat 2>&1 | \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
