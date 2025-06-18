@@ -21,16 +21,16 @@ The Dahlia compiler can be run using the `./fuse` binary:
 ./fuse --help
 ```
 
-Finally, configure `fud` to use the Dahlia compiler:
+Finally, configure `fud2` to use the Dahlia compiler by running `fud2 config` and adding the below to the file:
 ```
-fud c stages.dahlia.exec <path to Dahlia repository>/fuse
+dahlia = "<path to Dahlia repository>/fuse"
 ```
-Use `fud` to check if the compiler was installed correctly:
+<!-- Use `fud` to check if the compiler was installed correctly:
 ```
 fud check
 ```
 `fud` should report that the Dahlia compiler is available and has the right
-version.
+version. -->
 
 If something went wrong, try following the [instructions][] to build the Dahlia
 compiler from its repository.
@@ -39,7 +39,7 @@ compiler from its repository.
 
 Dahlia programs can be compiled to Calyx using:
 ```
-fud e --from dahlia <input file> --to calyx
+fud2 --from dahlia <input file> --to calyx
 ```
 
 The Dahlia backed for Calyx is neither *complete* nor *stable*. If you find

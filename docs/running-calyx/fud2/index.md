@@ -1,19 +1,25 @@
-# fud2: An Experimental Successor to fud
+# fud2: The Calyx Driver
 
-[fud][] is the compiler driver tool for orchestrating the Calyx ecosystem.
-fud2 is an experiment in building a new driver that works like fud that adds some fundamental new capabilities and resolves some underlying problems.
+> fud2 is now the recommended compiler driver tool for orchestrating the Calyx ecosystem. [fud][] is deprecated.
 
-"Original" fud is still the right tool for almost all jobs; fud2 is in an experimental phase and does not support everything fud can do.
-Someday, fud2 may supplant fud, but it needs more work before it is ready to do that.
-Until then, fud remains your first choice for all your build-related needs.
+Working with Calyx involves a lot of command-line tools. For example, an
+incomplete yet daunting list of CLI tools used by Calyx is:
+
+- All the Calyx [frontends][].
+- Calyx compiler and its various command line tools
+- Verilator, the Verilog simulation framework used to test Calyx-generated designs.
+- Waveform viewers to see the results of simulation
+
+`fud2` aims to provide a simple interface for using these toolchains and executing them in a pipeline.
+The source for fud2 is [here](https://github.com/calyxir/calyx/tree/main/fud2).
 
 [fud]: ./fud/index.md
 
 ## Set Up
 
-If you would like to use `fud2` as is, and already have Calyx installed, you can `cargo install --path fud2` from this repository's root to automatically add the binary to your path.
+If you would like to use `fud2` as is, and already have Calyx installed, you can `cargo install --path fud2` from this repository's root to automatically add the binary to your path. *NOTE: If you take this route, you would need to `cargo install --path fud2` every time you want to update your `fud2`.*
 
-Alternatively, if you would like to work on development of `fud2` and/or keep up with the latest changes when you `git pull`, you can build it along with everything else in this monorepo with `cargo build`.
+Alternatively, if you would *like to work on development of `fud2`* and/or keep up with the latest changes when you `git pull`, you can build it along with everything else in this monorepo with `cargo build`.
 You might then want to do something like ``ln -s `pwd`/target/debug/fud2 ~/.local/bin`` for easy access to the `fud2` binary.
 
 fud2 depends on [Ninja][].

@@ -105,41 +105,46 @@ tests.
 
 ## Installing the Command-Line Driver
 
-[The Calyx driver](./running-calyx/fud) wraps the various compiler frontends and
+[The Calyx driver](./running-calyx/fud2) wraps the various compiler frontends and
 backends to simplify running Calyx programs.
 Start at the root of the repository.
 
-Install [Flit][]:
+Set up `fud2`:
 
+If you'd like to simply use `fud2` as is (not recommended for development)
 ```
-pip3 install flit
-```
-
-Install [`calyx-py`](builder/calyx-py.md):
-
-```
-cd calyx-py && flit install -s && cd -
+cargo install --path fud2
 ```
 
-Install `fud`:
-
+*[Recommended for Calyx developers]* If you'd like to keep up to date with `fud2` changes,
 ```
-flit -f fud/pyproject.toml install -s --deps production
-```
-
-Configure `fud`:
-
-```
-fud config --create global.root <full path to Calyx repository>
+cargo build --all
+ln -s `pwd`/target/debug/fud2 ~/.local/bin # Create a simlink to your bin
 ```
 
-Check the `fud` configuration:
+Configure `fud2` to contain a path to the Calyx directory:
 
 ```
-fud check
+fud2 edit-config
 ```
 
-`fud` will report certain tools are not available. This is expected.
+Add these lines to the editor:
+
+```toml
+[calyx]
+base = "<path to calyx checkout>"
+```
+
+You can also manually update the configuration file instead (usually `~/.config/fud2.toml`).
+
+Set up the virtual environment for `fud2`:
+
+Install [uv][] by following its [installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
+
+Then, run
+```
+fud2 env init
+```
 
 ## Simulation
 
@@ -150,17 +155,11 @@ You'll want to set up at least one of these options so you can try out your code
 Icarus Verilog is an easy way to get started on most platforms.
 On a Mac, you can install it via [Homebrew][] by typing `brew install icarus-verilog`.
 On Ubuntu, [install from source][icarus-install-source].
-Then install the relevant [fud support][fud-icarus] by running:
-
-    fud register icarus-verilog -p fud/icarus/icarus.py
-
-Type `fud check` to make sure the new stage is working.
-Some missing tools are again expected; just pay attention to the report for `stages.icarus-verilog.exec`.
 
 It is worth saying a little about the alternatives.
 You could consider:
 
-1. [Setting up Verilator][fud-verilator] for faster performance, which is good for long-running simulations.
+1. [Setting up Verilator][fud2-verilator] for faster performance, which is good for long-running simulations.
 2. Using the [interpreter][] to avoid RTL simulation altogether.
 
 ## Running a Hardware Design
@@ -168,12 +167,12 @@ You could consider:
 You're all set to run a Calyx hardware design now. Run the following command:
 
 ```
-fud e examples/tutorial/language-tutorial-iterate.futil \
-  -s verilog.data examples/tutorial/data.json \
-  --to dat --through icarus-verilog -v
+fud2 examples/tutorial/language-tutorial-iterate.futil \
+  -s sim.data=examples/tutorial/data.json \
+  --to dat --through icarus -v
 ```
 
-(Change the last bit to `--through verilog` to use Verilator instead.)
+(Change the last bit to `--through verilator` to use Verilator instead.)
 
 This command will compile `examples/tutorial/language-tutorial-iterate.futil` to Verilog
 using the Calyx compiler, simulate the design using the data in `examples/tutorial/data.json`, and generate a JSON representation of the
@@ -186,7 +185,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 * [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
 * [How does the language work?](./tutorial/language-tut.md)
 * [How do I install Calyx frontends?](./running-calyx/fud/index.html#dahlia-fronted)
-* [Where can I see further examples with `fud`?](./running-calyx/fud/examples.md)
+* [Where can I see further examples with `fud2`?](./running-calyx/fud2/examples.md)
 * [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
 
 [rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html
@@ -198,10 +197,11 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [flit]: https://flit.readthedocs.io/en/latest/
 [interpreter]: ./running-calyx/interpreter.md
 [homebrew]: https://brew.sh
-[fud-icarus]: ./running-calyx/fud/index.md#icarus-verilog
-[fud-verilator]: ./running-calyx/fud/index.md#verilator
+[fud2-icarus]: ./running-calyx/fud2/index.md#icarus-verilog
+[fud2-verilator]: ./running-calyx/fud2/index.md#verilator
 [icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source
 [calyx-crate]: https://crates.io/crates/calyx
 [core-lib]: https://github.com/calyxir/calyx/blob/master/primitives/core.futil
 [calyx-docker]: https://github.com/calyxir/calyx/pkgs/container/calyx
 [hw-design]: ./intro.md#running-a-hardware-design
+[uv]: https://docs.astral.sh/uv/

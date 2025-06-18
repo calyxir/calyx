@@ -43,11 +43,7 @@ Next, install the `mrxl` binary:
 ```
 cd frontends/mrxl && flit install -s && cd -
 ```
-Register the `mrxl` binary with `fud`:
-```
-fud register mrxl -p frontends/mrxl/fud/mrxl.py
-```
-Now, running `fud check` should report that the `mrxl` binary is correctly installed.
+Now you should be able to run `mrxl`. You do not need to do anything else to set up `mrxl` for fud2.
 
 ### Running MrXL
 
@@ -88,10 +84,11 @@ Finally, let us go the whole hog: we compile our MrXL program to Calyx, compile 
 
 Run:
 ```
-fud e --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilog -s mrxl.data frontends/mrxl/test/sos.mrxl.data
+mrxl frontends/mrxl/test/sos.mrxl --data frontends/mrxl/test/sos.mrxl.data --convert > sos.sim.data # generate Calyx-native data file
+fud2 --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilog -s sim.data=sos.sim.data
 ```
 
-The above command takes a MrXL program, `sos.mrxl`, and generates results with Verilator using the MrXL data file `sos.mrxl.data`.
+The first command takes a MrXL program `sos.mrxl` and the MrXL data file `sos.mrxl.data` to produce a Calyx data file `sos.sim.data`. The second command uses fud2 to generate results with Verilator by compiling `sos.mrxl` through Calyx to Verilog, and simulating it using the Calyx data file `sos.sim.data`.
 
 # Compiling MrXL into Calyx
 
@@ -213,7 +210,7 @@ At a high level, we want to generate the following pieces of hardware:
 3. An adder to increment the value of the index.
 4. Whatever hardware is needed to implement the loop body computation.
 
-We have implemented exactly this, and you have been using it thus far with the `fud` invocations that we have provided you.
+We have implemented exactly this, and you have been using it thus far with the `fud2` invocations that we have provided you.
 
 However, it is time to get your hands dirty.
 We provide a [stub implementation][mymap-stub] of `map` in `gen_calyx.py`:
@@ -311,7 +308,7 @@ Translating this into a hardware implementation has a couple of associated chall
 
 To produce the full Calyx program for the above example, run the following from the root of the Calyx repository:
 ```
-fud e --from mrxl --to calyx frontends/mrxl/test/squares.mrxl
+fud2 --from mrxl --to calyx frontends/mrxl/test/squares.mrxl
 ```
 
 
@@ -360,11 +357,12 @@ par {
 The [`par` operator][lf-par] executes all the loops in parallel which use distinct computational resources.
 As specified by the language specification, [conflicting resource usage is undefined behavior][par-undef].
 
-You can use `fud` to compile the MrXL program and run it with some data:
-```
-fud e --from mrxl --to dat \
-      --through verilog \
-      -s mrxl.data frontends/mrxl/test/squares.mrxl.data \
+You can use `fud2` to compile the MrXL program and run it with some data:
+``
+mrxl frontends/mrxl/test/squares.mrxl --data frontends/mrxl/test/squares.mrxl.data --convert > squares.sim.data # generate Calyx-native data file
+fud2 --from mrxl --to dat \
+      --through verilator \
+      -s sim.data=squares.sim.data \
       frontends/mrxl/test/squares.mrxl
 ```
 
@@ -443,10 +441,10 @@ And we can generate this automatically. Try it yourself:
 mrxl frontends/mrxl/test/squares.mrxl --data frontends/mrxl/test/squares.mrxl.data --convert
 ```
 
-This transformation is achieved using a [`fud`][fud] pass that converts MrXL-native data files into Calyx-native data files.
+This transformation is achieved using a `mrxl` invocation that converts MrXL-native data files into Calyx-native data files.
 
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
-[fud]: ../running-calyx/fud/index.md
+[fud2]: ../running-calyx/fud2/index.md
 [fud-data]: ../lang/data-format.md
 [json]: https://www.json.org/json-en.html
 [calyx-tut]: ./language-tut.md

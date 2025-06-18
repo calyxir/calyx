@@ -14,7 +14,10 @@
 
 # Running Calyx Programs
 
-- [fud: The Calyx Driver](./running-calyx/fud/index.md)
+- [fud2: The Calyx Driver](./running-calyx/fud2/index.md)
+  - [Examples](./running-calyx/fud2/examples.md)
+  - [Scripting](./running-calyx/fud2/scripts.md)
+- [[Deprecated] fud: The Calyx Driver](./running-calyx/fud/index.md)
   - [Examples](./running-calyx/fud/examples.md)
   - [Xilinx Tools](./running-calyx/fud/xilinx.md)
     - [AXI Generation](./running-calyx/fud/axi-gen.md)
@@ -22,9 +25,6 @@
   - [Multiple Paths](./running-calyx/fud/multiple-paths.md)
   - [CIRCT](./running-calyx/fud/circt.md)
   - [Resource Estimation](./running-calyx/fud/resource-estimation.md)
-- [fud2: Experimental Driver](./running-calyx/fud2/index.md)
-  - [Examples](./running-calyx/fud2/examples.md)
-  - [Scripting](./running-calyx/fud2/scripts.md)
 - [Interfacing with Calyx RTL](./running-calyx/interfacing.md)
 - [The Calyx Interpreter](./running-calyx/interpreter.md)
 - [The Calyx Profiler](./running-calyx/profiler.md)
