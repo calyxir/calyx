@@ -588,13 +588,12 @@ cmd = """
 if [ ! -d "primitives/float/HardFloat-1" ]; then
   bash primitives/float/get_hardfloat.sh > /dev/null 2>&1
 fi &&
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s verilog.data {}.data \
-         -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         {} -q
+fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data={}.data \
+      -s calyx.exe='./target/debug/calyx' \
+      -s sim.cycle_limit=500 \
+      {} -q
 """
 expect_dir = "tests/correctness/hardfloat/"
 timeout = 30
