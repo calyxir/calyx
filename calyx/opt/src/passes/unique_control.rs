@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::{cmp, collections::HashMap};
 
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
@@ -59,21 +59,41 @@ impl ConstructVisitor for UniqueControl {
 fn par_track(
     control: &ir::Control,
     start_idx: u32,
+    next_idx: u32,
     enable_to_track: &mut HashMap<String, u32>,
 ) -> u32 {
     match control {
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            let mut idx = start_idx;
+            let mut new_next_idx = next_idx;
             for stmt in stmts {
-                par_track(control, start_idx, enable_to_track);
+                let potential_new_idx =
+                    par_track(stmt, start_idx, new_next_idx, enable_to_track);
+                new_next_idx = cmp::max(new_next_idx, potential_new_idx)
             }
-            idx
+            new_next_idx
         }
         ir::Control::Enable(enable) => {
             let group_name = enable.group.borrow().name().to_string();
+            println!("{}: {}", group_name, start_idx);
             enable_to_track.insert(group_name, start_idx);
             start_idx
         }
+        ir::Control::Par(ir::Par { stmts, .. }) => {
+            let mut idx = next_idx;
+            for stmt in stmts {
+                let potential_new_idx =
+                    par_track(stmt, idx, idx + 1, enable_to_track);
+                idx = cmp::max(idx, potential_new_idx);
+                idx += 1;
+            }
+            idx -= 1; // Undo the last index update
+            idx
+        }
+        ir::Control::If(ir::If{tbranch, fbranch, ..}) {
+            let mut idx = start_idx;
+
+        }
+        _ => panic!(),
     }
 }
 
@@ -208,6 +228,9 @@ impl Visitor for UniqueControl {
         );
         self.path_descriptor_infos
             .insert(comp.name.to_string(), path_descriptor_info);
+        let mut enable_to_track: HashMap<String, u32> = HashMap::new();
+        println!("AAAAAAAAAAAAAAAAAAAAAAA");
+        par_track(&control, 0, 0, &mut enable_to_track);
         Ok(Action::Continue)
     }
 

@@ -13,58 +13,80 @@ component main(@go go: 1) -> (@done done: 1) {
     sub = std_sub(32);
   }
   wires {
-    group write1 {
+    group c {
       mem1.addr0 = 1'b0;
       mem1.write_en = 1'b1;
       mem1.write_data = val1.out;
-      write1[done] = mem1.done;
+      c[done] = mem1.done;
     }
-    group read1 {
+    group a {
       mem1.addr0 = 1'b0;
       val1.in = mem1.read_data;
       val1.write_en = 1'b1;
-      read1[done] = val1.done;
+      a[done] = val1.done;
     }
-    group upd1 {
+    group b {
       add.left = val1.out;
       add.right = 32'd4;
       val1.in = add.out;
       val1.write_en = 1'b1;
-      upd1[done] = val1.done;
+      b[done] = val1.done;
     }
-    group write2 {
+    group f {
       mem2.addr0 = 1'b0;
       mem2.write_en = 1'b1;
       mem2.write_data = val2.out;
-      write2[done] = mem2.done;
+      f[done] = mem2.done;
     }
-    group read2 {
+    group d {
       mem2.addr0 = 1'b0;
       val2.in = mem2.read_data;
       val2.write_en = 1'b1;
-      read2[done] = val2.done;
+      d[done] = val2.done;
     }
-    group upd2 {
+    group e {
       sub.left = val1.out;
       sub.right = 32'd1;
       val2.in = sub.out;
       val2.write_en = 1'b1;
-      upd2[done] = val2.done;
+      e[done] = val2.done;
     }
+        group g {
+      sub.left = val1.out;
+      sub.right = 32'd1;
+      val2.in = sub.out;
+      val2.write_en = 1'b1;
+      g[done] = val2.done;
+    }
+
   }
   control {
     par {
-      par {
-        read1;
-      	upd1;
-      	write1;
+      seq {
+      g;
+      	par {
+        a;
+      	b;
+	}
+      	c;
       }
       par {
-        read2;
-      	upd2;
-      	write2;
-      }
-      
+        d;
+      	e;
+      	f;
+      }      
     }
+    // par {
+    //   par {
+    //     read1;
+    //   	upd1;
+    //   	write1;
+    //   }
+    //   par {
+    //     read2;
+    //   	upd2;
+    //   	write2;
+    //   }      
+    // }
   }
 }
