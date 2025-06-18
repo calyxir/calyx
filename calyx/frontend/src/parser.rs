@@ -906,7 +906,7 @@ impl CalyxParser {
                 };
                 (guard, state)
             },
-            [_, state_idx(state)] => { // default branch
+            [state_idx(state)] => { // default branch
                 let guard = ast::Guard {
                     guard: None, // default case has no guard, just true value 1'b1
                     expr: ast::Atom::Num(BitNum {
