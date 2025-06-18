@@ -260,7 +260,6 @@ paths = [
 ]
 cmd = """
 fud2 --from calyx --to jq \
-         --through dat \
          --through icarus \
          -s calyx.args="-p fsm-opt -x tdcc:infer-fsms -p lower" \
          -s sim.cycle_limit=550 \
