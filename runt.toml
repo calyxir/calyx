@@ -78,8 +78,9 @@ fud2 {} --from calyx --to yxi
 name = "[frontend] dahlia"
 paths = ["tests/frontend/dahlia/*.fuse"]
 cmd = """
-fud e {} --to calyx -q \
-          -s calyx.exec './target/debug/calyx' \
+fud2 {} --to calyx \
+         -s calyx.exe='./target/debug/calyx' \
+         -q \
         | tail -n+2
 """
 
@@ -122,12 +123,11 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -137,13 +137,12 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d static-promotion' \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s calyx.args=' -d static-promotion' \
+      -s jq.expr=".memories" \
+      -q
 """
 
 # A stanza for "non-static with promotion" is unnecessary.
@@ -157,13 +156,12 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --static --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d well-formed -d static-promotion' \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s calyx.args=' -d well-formed -d static-promotion' \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -173,13 +171,12 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --static --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d well-formed' \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s calyx.args=' -d well-formed' \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -196,12 +193,11 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -263,13 +259,13 @@ paths = [
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
+fud2 --from calyx --to jq \
          --through dat \
-         --through icarus-verilog \
-         -s calyx.flags "-p fsm-opt -x tdcc:infer-fsms -p lower" \
-         -s verilog.cycle_limit 550 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
+         --through icarus \
+         -s calyx.args="-p fsm-opt -x tdcc:infer-fsms -p lower" \
+         -s sim.cycle_limit=550 \
+         -s sim.data={}.data \
+         -s jq.expr=".memories" \
          {} -q
 """
 timeout = 120
@@ -469,12 +465,12 @@ expect_dir = "tests/correctness/systolic/mmult-expect"
 name = "[correctness] `@fast` attribute should not change program behavior"
 paths = ["tests/correctness/fast-attr/valid/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
+fud2 --from calyx --to jq \
          --through dat \
-         --through icarus-verilog \
-         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
-         -s verilog.data {}.data \
-         -s jq.expr "." \
+         --through icarus \
+         -s sim.data={}.data \
+         -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
+         -s jq.expr="." \
          {} -q
 """
 
@@ -482,12 +478,12 @@ fud exec --from calyx --to jq \
 name = "[correctness] `@fast` attribute should reject unoptimizable sequences"
 paths = ["tests/correctness/fast-attr/invalid/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
+fud2 --from calyx --to jq \
          --through dat \
-         --through icarus-verilog \
-         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
-         -s verilog.data {}.data \
-         -s jq.expr "." \
+         --through icarus \
+         -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
+         -s sim.data={}.data \
+         -s jq.expr="." \
          {} -q
 """
 
@@ -545,7 +541,7 @@ name = "exp correctness"
 paths = ["tests/correctness/exp/*.txt"]
 cmd = """
 python3 calyx-py/calyx/gen_exp.py {} |\
-fud e --from calyx --to dat --through verilog -s verilog.data {}.data -q
+fud2 --from calyx --to dat --through verilator -s sim.data={}.data -q
 """
 
 [[tests]]
@@ -578,9 +574,9 @@ fud2 {} --from relay --to jq \
 name = "runtime errors"
 paths = ["tests/errors/runtime/*.futil"]
 cmd = """
-fud exec -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         --through verilog \
+fud2 -s calyx.exe='./target/debug/calyx' \
+         -s sim.cycle_limit=500 \
+         --through verilator \
          {} --from calyx --to dat -q 2>&1 | \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
@@ -610,9 +606,9 @@ timeout = 30
 name = "[examples] language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data examples/tutorial/data.json \
+fud2 {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data=examples/tutorial/data.json \
          --from calyx --to dat -q
 """
 
@@ -620,9 +616,9 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[examples] sync primitives"
 paths = ["examples/sync/*.futil"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data {}.data \
+fud2 {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data={}.data \
          --from calyx --to dat -q
 """
 
@@ -630,9 +626,9 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data {}.data \
+fud2 {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data={}.data \
          --from calyx --to dat -q
 """
 
@@ -640,9 +636,9 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[examples] dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data {}.data \
+fud2  {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data={}.data \
          --to dat -q
 """
 
