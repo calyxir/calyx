@@ -223,7 +223,6 @@ cmd = """
 fud2 --from calyx --to jq \
      --through verilator \
      -s sim.data={}.data \
-     -s calyx.exec='./target/debug/calyx' \
      -s verilog.cycle_limit=500 \
      -s jq.expr=".memories" \
      {} -q
@@ -241,7 +240,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-x tdcc:one-hot-cutoff=500 -d static-promotion' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -280,7 +278,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-x tdcc:duplicate-cutoff=0 -d static-promotion' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -300,7 +297,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
      -s jq.expr=".memories" \
@@ -314,7 +310,6 @@ paths = ["tests/correctness/static-interface/*.futil"]
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-x static-fsm-opts:one-hot-cutoff=500' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -331,7 +326,6 @@ cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
      -s sim.data={}.data \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags=' --nested' \
      -s verilog.cycle_limit=500 \
      -s jq.expr=".memories" \
@@ -351,7 +345,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-p all -d group2invoke' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -370,7 +363,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
