@@ -290,6 +290,8 @@ def gen_fold(tree, val):
 
 def gen_fold_helper(comp: str, tree, val, parent_str=""):
     new_parent_str = f"{parent_str}{';' if parent_str else ''}{comp}"
+    if tree["children"]:
+        tree[val] = 0
     out = f"{new_parent_str} {tree[val]}\n"
     if not tree["children"]:
         return out
