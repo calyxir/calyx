@@ -473,7 +473,7 @@ fud2 --from calyx --to jq \
          -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
          -s sim.data={}.data \
          -s jq.expr="." \
-         {} -q
+         {}
 """
 
 [[tests]]

@@ -1,9 +1,8 @@
 ---CODE---
-255
+1
 ---STDERR---
-[fud] ERROR: `/home/calyx/target/debug/calyx -l /home/calyx -b verilog --disable-verify -p validate -p compile -p lower -d static-promotion' failed:
-=====STDERR=====
+FAILED: verilog-noverify.sv
+/home/calyx/target/debug/calyx -l /home/calyx -b verilog --disable-verify -p validate -p compile -p lower -d static-promotion ../tests/correctness/fast-attr/invalid/invalid.futil > verilog-noverify.sv
 Error: Malformed Control: `seq` marked `@fast` does not contain alternating static-dynamic control children (see #1828)
-
-=====STDOUT=====
-
+ninja: build stopped: subcommand failed.
+Error: ninja exited with exit status: 1
