@@ -41,7 +41,7 @@ rule icarus-compile-custom-tb
 
 build verilog-noverify.sv: calyx _from_stdin_calyx.futil
   backend = verilog
-  args = --disable-verify
+  args = --disable-verify $args
 build sim.exe: icarus-compile-standalone-tb verilog-noverify.sv | tb.sv
 build sim.log _to_stdout_vcd.vcd: sim-run sim.exe $datadir
   bin = sim.exe
