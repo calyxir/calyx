@@ -465,7 +465,6 @@ name = "[correctness] `@fast` attribute should not change program behavior"
 paths = ["tests/correctness/fast-attr/valid/*.futil"]
 cmd = """
 fud2 --from calyx --to jq \
-         --through dat \
          --through icarus \
          -s sim.data={}.data \
          -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
@@ -478,7 +477,6 @@ name = "[correctness] `@fast` attribute should reject unoptimizable sequences"
 paths = ["tests/correctness/fast-attr/invalid/*.futil"]
 cmd = """
 fud2 --from calyx --to jq \
-         --through dat \
          --through icarus \
          -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
          -s sim.data={}.data \
