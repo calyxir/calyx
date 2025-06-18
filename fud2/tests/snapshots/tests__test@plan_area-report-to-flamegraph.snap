@@ -21,8 +21,9 @@ rule copy-area
   command = cp out/hierarchical_utilization_placed.rpt $out
 rule vivado
   command = vivado -mode batch -source synth.tcl > /dev/null
-device_xdc = $calyx-base/tools/report-parsing/device.xdc
-synth_tcl = $calyx-base/tools/report-parsing/synth.tcl
+device_xdc = default.xdc
+build default.xdc: get-rsrc
+build synth.tcl: get-rsrc
 parse-rpt-script = $calyx-base/tools/report-parsing/rpt.py
 rule parse-rpt
   command = python3 $parse-rpt-script $in > $out
