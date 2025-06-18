@@ -299,7 +299,7 @@ state_idx = @{ ASCII_DIGIT+ }
 
 // conditional transition
 guard_state_pair = {
-      (guard_expr | "default") ~ "->" ~ state_idx
+      ("default" | guard_expr) ~ "->" ~ state_idx
 }
 
 // transitions that can be either conditional or unconditional
