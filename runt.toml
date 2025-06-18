@@ -589,7 +589,6 @@ fi &&
 fud2 --from calyx --to jq \
       --through verilator \
       -s sim.data={}.data \
-      -s calyx.exe='./target/debug/calyx' \
       -s sim.cycle_limit=500 \
       {} -q
 """
