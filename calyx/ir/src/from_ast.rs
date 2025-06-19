@@ -456,7 +456,7 @@ fn add_fsm(fsm: ast::Fsm, builder: &mut Builder) -> CalyxResult<()> {
         Vec<Vec<Assignment<Nothing>>>,
         Vec<Transition>,
     ) = fsm
-        .rules
+        .fsm_states
         .into_iter()
         .map(|rule| -> CalyxResult<_> {
             Ok((
@@ -666,7 +666,7 @@ fn build_transition(
             let conds = conditions
                 .into_iter()
                 .map(|(condition, state_idx)| {
-                    let guard = match condition.guard {
+                    let guard = match condition {
                         Some(g) => build_guard(g, builder)?,
                         None => Guard::True,
                     };
