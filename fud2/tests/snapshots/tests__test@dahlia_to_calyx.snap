@@ -8,7 +8,7 @@ rule get-rsrc
 
 dahlia-exe = /test/bin/dahlia
 rule dahlia-to-calyx
-  command = $dahlia-exe -b calyx --lower -l error $in -o $out
+  command = $dahlia-exe -b calyx --lower -l error $in > $out
 
 build _to_stdout_calyx.futil: dahlia-to-calyx _from_stdin_dahlia.fuse
 
