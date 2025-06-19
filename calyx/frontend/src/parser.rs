@@ -27,8 +27,8 @@ use std::{fs, path::PathBuf};
 type ParseResult<T> = Result<T, Error<Rule>>;
 type ComponentDef = ast::ComponentDef;
 
-/// The connections type which holds `Wire`, `Group`, `StaticGroup`, and `FSM`.
-type ConnectionTuple = (
+/// Holds the results from parsing the `wires` section of a Calyx program.
+type ParsedConnections = (
     Vec<ast::Wire>,
     Vec<ast::Group>,
     Vec<ast::StaticGroup>,
@@ -890,32 +890,17 @@ impl CalyxParser {
     /// or the default case, `default ->` state index. The conditional transitions
     /// are evaluated sequentially, so the default case is treated like an `else` or
     /// like the default case of a verilog case statement.
-    fn guard_state_pair(input: Node) -> ParseResult<(ast::Guard, u64)> {
-        let span = Self::get_span(&input);
+    fn transition_rule(
+        input: Node,
+    ) -> ParseResult<(Option<ast::GuardExpr>, u64)> {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard_expr), state_idx(state)] => { // guard branch
-                let guard = ast::Guard {
-                    guard: Some(*guard_expr),
-                    expr: ast::Atom::Num(BitNum {
-                        width: 1,
-                        num_type: NumType::Decimal,
-                        val: 1,
-                        span,
-                    }),
-                };
+                let guard = Some(*guard_expr);
                 (guard, state)
             },
             [state_idx(state)] => { // default branch
-                let guard = ast::Guard {
-                    guard: None, // default case has no guard, just true value 1'b1
-                    expr: ast::Atom::Num(BitNum {
-                        width: 1,
-                        num_type: NumType::Decimal,
-                        val: 1,
-                        span,
-                    }),
-                };
+                let guard = None; // default case has no guard, just true value 1'b1
                 (guard, state)
             }
         ))
@@ -934,7 +919,7 @@ impl CalyxParser {
                 ast::Transition::Unconditional(idx)
             },
             [
-                guard_state_pair(pairs)..,
+                transition_rule(pairs)..,
             ] => {
                 // collects the pairs in the order the parser reads them
                 ast::Transition::Conditional(pairs.collect())
@@ -969,26 +954,27 @@ impl CalyxParser {
                 let mut state_data = Vec::new();
 
                 for (state_idx, assignments, transition) in states {
-                    let rule = ast::FSMRule {
+                    let fsm_state = ast::FSMState {
                         assignments,
                         transition,
                     };
-                    state_data.push((state_idx, rule));
+                    state_data.push((state_idx, fsm_state));
                 }
                 // make sure to sort the rules by index to access the vector by state index.
                 state_data.sort_by(|(idx1, _), (idx2, _)| idx1.cmp(idx2));
-                let rules: Vec<ast::FSMRule> = state_data.into_iter().map(|(_, r)| r).collect();
+                let fsm_states : Vec<ast::FSMState> = state_data.into_iter().map(|(_, r)| r).collect();
 
                 ast::Fsm {
-                    name,
-                     attributes: attrs.add_span(span),
-                     rules,
+                name,
+                attributes: attrs.add_span(span),
+                fsm_states,
                 }
             }
         ))
     }
 
-    fn connections(input: Node) -> ParseResult<ConnectionTuple> {
+    /// Parses all the connections within the `wires` block of a Calyx program.
+    fn connections(input: Node) -> ParseResult<ParsedConnections> {
         let mut wires = Vec::new();
         let mut groups = Vec::new();
         let mut static_groups = Vec::new();

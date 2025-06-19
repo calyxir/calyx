@@ -268,7 +268,7 @@ pub struct StaticGroup {
 /// default transition.
 pub enum Transition {
     Unconditional(u64),
-    Conditional(Vec<(Guard, u64)>),
+    Conditional(Vec<(Option<GuardExpr>, u64)>),
 }
 
 #[derive(Debug)]
@@ -277,7 +277,7 @@ pub enum Transition {
 /// A `FSMRule` consists of the set of assignments that are active in a given state and the
 /// transitions from this state to other states. The assignments are a list of wires, like a
 /// `group` definition.
-pub struct FSMRule {
+pub struct FSMState {
     pub assignments: Vec<Wire>,
     pub transition: Transition,
 }
@@ -291,7 +291,7 @@ pub struct Fsm {
     // Attributes attached to this fsm
     pub attributes: Attributes,
     // A list of rules, indexed by state.
-    pub rules: Vec<FSMRule>,
+    pub fsm_states: Vec<FSMState>,
 }
 
 /// Data for the `->` structure statement.
