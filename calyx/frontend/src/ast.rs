@@ -260,26 +260,30 @@ pub struct StaticGroup {
 }
 
 #[derive(Debug)]
-/// Transitions are either `Unconditional` (will always transition to a future state
-/// no matter the assignments) or `Conditional` (with boolean expressions denoted a
-/// `guard_state_pair` and a default).
-/// Conditions encode a vector of tuples - the guard and the corresponding state to be transitioned to.
+/// The next state transition for an FSM.
+///
+/// Transitions are either `Unconditional` (always transition to one specific state) or
+/// `Conditional` (with a set of guards mapping to next states). For the `Conditional` case, we
+/// have a list of guards and their corresponding states; the last entry in this list is the
+/// default transition.
 pub enum Transition {
     Unconditional(u64),
     Conditional(Vec<(Guard, u64)>),
 }
 
 #[derive(Debug)]
-/// A `FSMRule` is the set of assignments and transitions that corresponds to a state in `fsm`.
-/// Assignments are vectors of wires corresponding to the state index.
-/// Transitions encode the next state logic.
+/// A single state in an FSM.
+///
+/// A `FSMRule` consists of the set of assignments that are active in a given state and the
+/// transitions from this state to other states. The assignments are a list of wires, like a
+/// `group` definition.
 pub struct FSMRule {
     pub assignments: Vec<Wire>,
     pub transition: Transition,
 }
 
 #[derive(Debug)]
-/// A fsm block has a name, attributes, and `FSMRules`
+/// A fsm block has a name, attributes, and `FSMRule`s
 /// that correspond to all the states within the fsm.
 pub struct Fsm {
     // Name of the fsm construct

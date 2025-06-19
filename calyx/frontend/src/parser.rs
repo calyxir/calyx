@@ -942,7 +942,7 @@ impl CalyxParser {
         ))
     }
 
-    /// Parses a single state within the `fsm` block. A state is denoted with it's
+    /// Parses a single state within the `fsm` block. A state is denoted with its
     /// respective unsigned integer state index, which is is enumerated from `0..n`
     /// States have assignments, which is a vector of `Wire`s, and transitions.
     fn state(input: Node) -> ParseResult<(u64, Vec<ast::Wire>, Transition)> {
@@ -977,12 +977,12 @@ impl CalyxParser {
                 }
                 // make sure to sort the rules by index to access the vector by state index.
                 state_data.sort_by(|(idx1, _), (idx2, _)| idx1.cmp(idx2));
-                let rules : Vec<ast::FSMRule> = state_data.into_iter().map(|(_, r)| r).collect();
+                let rules: Vec<ast::FSMRule> = state_data.into_iter().map(|(_, r)| r).collect();
 
                 ast::Fsm {
-                name,
-                attributes: attrs.add_span(span),
-                rules,
+                    name,
+                     attributes: attrs.add_span(span),
+                     rules,
                 }
             }
         ))
