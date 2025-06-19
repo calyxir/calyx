@@ -1,5 +1,24 @@
 # fud2 Internals: Rhai API
 
+[fud2][] is the compiler driver tool for orchestrating the Calyx ecosystem. Its functionality is written using [Rhai][rhai], a scripting language that is tightly connected with Rust. The Rhai code is used to emit [Ninja][ninja] files which specify the build process.
+
+fud2 Rhai code can be written in two "level"s: High Level Rhai and Low Level Rhai. High Level Rhai is convenient for writing code in a more declarative way. Low Level Rhai code looks closer to the emitted Ninja code, allowing users to have more control.
+
+This page describes the fud2 Rhai API for both people who are looking to use fud2 and extend the functionality of fud2.
+
+## Extending fud2 functionality with a new Rhai script
+
+There are two ways to add new functionality to fud2:
+
+- Add a new Rhai script to `<CALYX_BASE_DIR>/fud2/scripts`
+- Load a script to `fud2` by editing the configuration file (`fud2 edit-config`):
+```toml
+plugins = ["/my/fancy/plugin.rhai"]
+
+[calyx]
+base = "..."
+```
+
 ## High Level Rhai
 
 ### defop
@@ -80,7 +99,7 @@ Defines a Ninja variable `<variable name>` which refers to the file `<filename>`
 ```
 config_var(<variable name>, <configuration path>)
 ```
-Defines a Ninja variable `<variable name>` using the value obtained from `<configuration path>` from the configuration file. Both `<variable name>` and `<configuration path>` are strings.
+Defines a Ninja variable `<variable name>` using the value obtained from `<configuration path>` from the configuration file. If the config value is undefined, raises an error. Both `<variable name>` and `<configuration path>` are strings.
 
 <br>
 
@@ -138,13 +157,15 @@ arg(<arg name>, <value>)
 ```
 Adds the argument `<arg name>` to the preceding rule or build command with the value `<value>`.
 
-### Adding to the API
+## Adding to the API
 
 If there is something that is hard to do in Rhai, it is straightforward to [register a Rust function][rhai-rust-fn] so that it is available from Rhai.
 
 Rust functions are registered in [`ScriptRunner::new`][fud-core-scriptrunner]. Refer to [`ScriptRunner::reg_get_state`][fud-core-reg_get_state] to see a simple example of how to register a function.
 
+[fud2]: ./index.md
 [rhai]: https://rhai.rs/book/index.html
+[ninja]: https://ninja-build.org
 [rhai-strings]: https://rhai.rs/book/ref/string-fn.html?highlight=String#standard-string-functions
 [rhai-rust-fn]: https://rhai.rs/book/rust/functions.html
 [fud2-scripts]: https://github.com/calyxir/calyx/tree/main/fud2/scripts
