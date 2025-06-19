@@ -654,7 +654,6 @@ fn build_static_assignments(
 
 /// Build an ir::Transition from ast::Transition.
 /// The Transition contains pointers to the relevant ports.??
-
 fn build_transition(
     transition: ast::Transition,
     builder: &mut Builder,
