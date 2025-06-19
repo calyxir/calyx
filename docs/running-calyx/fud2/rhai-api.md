@@ -1,4 +1,4 @@
-# Rhai API
+# fud2 Internals: Rhai API
 
 ## High Level Rhai
 
