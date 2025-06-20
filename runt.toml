@@ -416,7 +416,7 @@ fud2 --to jq \
       --through verilator \
       --through vcd_json \
       --through dat-to-jqfile \
-      -s sim.data={}.data \ 
+      -s sim.data={}.data \
       -s calyx.args="-d well-formed" \
       -s jq.file={}.jq \
       {} \
@@ -429,7 +429,7 @@ paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
 fud2 --to jq \
       --through verilator \
-      -s sim.data={} \ 
+      -s sim.data={} \
       -s calyx.args="-d well-formed" \
       -s jq.expr=".memories" \
       {}_static.systolic \
@@ -442,8 +442,8 @@ name = "[frontend] systolic array mmult dynamic correctness"
 paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
 fud2 --to jq \
-      --through verilator \ 
-      -s sim.data={} \ 
+      --through verilator \
+      -s sim.data={} \
       -s calyx.args="-d well-formed" \
       -s jq.expr=".memories" \
       {}_dynamic.systolic \
@@ -480,8 +480,8 @@ name = "[frontend] systolic array relu static correctness"
 paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
 fud2 --to jq \
-      --through verilator \ 
-      -s sim.data={} \ 
+      --through verilator \
+      -s sim.data={} \
       -s calyx.args="-d well-formed" \
       -s jq.expr=".memories" \
       {}_static.systolic \
@@ -494,8 +494,8 @@ name = "[frontend] systolic array relu dynamic correctness"
 paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
 fud2 --to jq \
-      --through verilator \ 
-      -s sim.data={} \ 
+      --through verilator \
+      -s sim.data={} \
       -s calyx.args="-d well-formed" \
       -s jq.expr=".memories" \
       {}_dynamic.systolic \
@@ -508,8 +508,8 @@ name = "[frontend] systolic array leaky relu correctness"
 paths = ["tests/correctness/systolic/leaky-relu/*.systolic"]
 cmd = """
 fud2 --to dat \
-      --through verilator \ 
-      -s sim.data={}.data \ 
+      --through verilator \
+      -s sim.data={}.data \
       -s calyx.args="-d well-formed" \
       {} \
       -q

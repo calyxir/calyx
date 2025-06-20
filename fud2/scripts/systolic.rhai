@@ -1,10 +1,6 @@
 import "calyx" as c;
 
-export const systolic_state = state("systolic", ["systolic"]); //come back to later
-
-// special python
-// generation of systolic script
-// flags
+export const systolic_state = state("systolic", ["systolic"]);
 
 fn systolic_setup(e) {
    e.config_var_or("systolic-script", "systolic.script", 
