@@ -1,6 +1,4 @@
 import re
-import sys
-from pathlib import Path
 
 
 class RPTParser:
@@ -145,8 +143,49 @@ class RPTParser:
         ]
         return ret
 
-    def _get_indent_level(self, instance):
+    @staticmethod
+    def _get_indent_level(instance):
+        """
+        Compute the hierarchy depth of an instance based on its leading spaces.
+        Assumes 2 spaces per indentation level.
+        """
         return (len(instance) - len(instance.lstrip(" "))) // 2
+
+    @staticmethod
+    def _folded_helper(comp: str, tree, val, parent_str=""):
+        """
+        Recursive helper to build a 'folded' string for a flamegraph or treemap, where
+        each line is a semicolon-separated path followed by a numeric value.
+
+        If the node has children, resets its value to 0 to avoid double-counting.
+        """
+        new_parent_str = f"{parent_str}{';' if parent_str else ''}{comp}"
+        if tree["children"]:
+            tree[val] = 0
+        out = f"{new_parent_str} {tree[val]}\n"
+        if not tree["children"]:
+            return out
+        for comp, subtree in tree["children"].items():
+            out += RPTParser._folded_helper(comp, subtree, val, new_parent_str)
+        return out
+
+    @staticmethod
+    def _flattened_helper(name, node, val, parent_id=None, prefix=""):
+        """
+        Recursive helper for flatten_named_tree. Builds rows for each node with
+        hierarchical ID paths and zeroes out non-leaf node values.
+        """
+        node_id = f"{prefix}{';' if prefix else ''}{name}"
+        value = node[val] if not node["children"] else 0
+        row = {"id": node_id, "label": name, "parent": parent_id, "value": value}
+        rows = [row]
+        for child_name, child_node in node["children"].items():
+            rows.extend(
+                RPTParser._flattened_helper(
+                    child_name, child_node, val, node_id, node_id
+                )
+            )
+        return rows
 
     def get_table(self, reg, off, multi_header=False, preserve_indent=False):
         """
@@ -250,7 +289,15 @@ class RPTParser:
         # Return a dict with the headers as keys and the data as values
         return {headers[i]: data[i] for i in range(len(headers))}
 
+    @classmethod
     def build_hierarchy_tree(self, table):
+        """
+        Construct a hierarchical tree from a list of dictionary rows representing
+        indented instances in a flat table. Each row must contain an 'Instance' key,
+        where indentation indicates the depth in the hierarchy.
+
+        Returns a nested dictionary tree with 'children' fields populated accordingly.
+        """
         stack = []
         root = {}
         for row in table:
@@ -270,35 +317,27 @@ class RPTParser:
                 stack.append(row)
         return root
 
-
-def main():
-    rpt_file = Path(sys.argv[1])
-    parser = RPTParser(rpt_file)
-    table = parser.get_table(
-        re.compile(r"^\d+\. Utilization by Hierarchy$"), 2, preserve_indent=True
-    )
-    tree = parser.build_hierarchy_tree(table)
-    print(gen_fold(tree, "FFs").rstrip())
-
-
-def gen_fold(tree, val):
-    out = ""
-    for comp, subtree in tree.items():
-        out += gen_fold_helper(comp, subtree, val)
-    return out
-
-
-def gen_fold_helper(comp: str, tree, val, parent_str=""):
-    new_parent_str = f"{parent_str}{';' if parent_str else ''}{comp}"
-    if tree["children"]:
-        tree[val] = 0
-    out = f"{new_parent_str} {tree[val]}\n"
-    if not tree["children"]:
+    @staticmethod
+    def generate_folded(tree, val):
+        """
+        Generate a folded stack string representation of a hierarchical tree using the
+        specified `val` as the value column.
+        """
+        out = ""
+        for comp, subtree in tree.items():
+            out += RPTParser._folded_helper(comp, subtree, val)
         return out
-    for comp, subtree in tree["children"].items():
-        out += gen_fold_helper(comp, subtree, val, new_parent_str)
-    return out
 
+    @staticmethod
+    def generate_flattened(tree, val):
+        """
+        Flatten a nested hierarchy tree into a list of rows for treemap-style
+        visualizations. Each row includes an 'id', 'label', 'parent', and 'value'.
+        Non-leaf nodes have value set to 0.
 
-if __name__ == "__main__":
-    main()
+        Returns a flat list of dicts representing nodes with parent-child relationships.
+        """
+        rows = []
+        for name, node in tree.items():
+            rows.extend(RPTParser._flattened_helper(name, node, val))
+        return rows
