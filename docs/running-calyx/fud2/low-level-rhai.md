@@ -35,6 +35,7 @@ Next we'll define a "setup" procedure to define some rules that will be useful.
 export const calyx_setup = calyx_setup;
 
 // a "setup" function is just a normal Rhai function that takes in an emitter
+// defines Ninja vars and rules
 fn calyx_setup(e) {
    // define a Ninja var from the fud2.toml config
    e.config_var("calyx-base", "calyx.base");
@@ -90,6 +91,8 @@ The "builder" function would have the following declaration:
 where `e` is an emitter, and `input` and `output` are strings containing the filenames of the input and output of the operation. It usually calls functions that [build commands](#building-commands).
 
 ### Emitter API
+
+Functions listed in this section are methods of the Emitter, which can be called to create variables, rules, and commands in the produced Ninja file. 
 
 #### Creating variables
 
