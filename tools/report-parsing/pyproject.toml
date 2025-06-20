@@ -5,7 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "synthrep"
 authors = [{ name = "The Calyx Authors" }]
-license = { file = "LICENSE" }
+license = { file = "MIT" }
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
 dependencies = ["pandas", "plotly"]

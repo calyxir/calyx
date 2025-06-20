@@ -7,7 +7,7 @@
 ## Install
 
 ```bash
-pip install .
+uv tool install .
 ```
 
 ## Usage
