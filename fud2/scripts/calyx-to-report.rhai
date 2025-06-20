@@ -52,12 +52,15 @@ fn calyx_through_vivado(e, input, output) {
     e.arg("args", "--synthesis -p external --disable-verify");
     // Copy over XDC file and run synthesis
     e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
+    // IGNOREME is needed by Ninja to consider this command as a build target
     e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
 }
 
 // Helper to chain Calyx-SV compilation, synthesis, and report extraction
 fn calyx_to_report(e, input, output, rtype) {
     calyx_through_vivado(e, input, output);
+    // Similarly IGNOREME is needed here as a dependency so that Ninja threads this command
+    // with the Vivado synthesis command
     e.build_cmd([output], `copy-${rtype}`, ["IGNOREME"], []);
 }
 
@@ -102,6 +105,8 @@ op(
     json_report_state,
     |e, input, output| {
         calyx_through_vivado(e, input, output);
+        // Similarly IGNOREME is needed here as a dependency so that Ninja threads this command
+        // with the Vivado synthesis command
         e.build_cmd([output], "extract-rpt", ["IGNOREME"], []);
     }
 );
