@@ -83,7 +83,12 @@ source: fud2/tests/tests.rs
         "calyx",
     ),
     (
-        "dat_to_jq",
+        "dat-to-jq",
+        "dat",
+        "jq",
+    ),
+    (
+        "dat-to-jqfile",
         "dat",
         "jq",
     ),
@@ -156,6 +161,11 @@ source: fud2/tests/tests.rs
         "simulate",
         "sim",
         "dat",
+    ),
+    (
+        "systolic-to-calyx",
+        "systolic",
+        "calyx",
     ),
     (
         "trace",

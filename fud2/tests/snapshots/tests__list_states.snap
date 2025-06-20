@@ -22,6 +22,7 @@ source: fud2/tests/tests.rs
     "sim",
     "timing-report",
     "utilization-report",
+    "systolic",
     "vcd",
     "verilog",
     "verilog-noverify",
