@@ -468,9 +468,12 @@ fn add_fsm(fsm: ast::Fsm, builder: &mut Builder) -> CalyxResult<()> {
         .into_iter()
         .unzip();
 
-    ir_fsm.borrow_mut().attributes = fsm.attributes;
-    ir_fsm.borrow_mut().assignments = state_assignments;
-    ir_fsm.borrow_mut().transitions = state_transition;
+    {
+        let mut ir_fsm = ir_fsm.borrow_mut();
+        ir_fsm.attributes = fsm.attributes;
+        ir_fsm.assignments = state_assignments;
+        ir_fsm.transitions = state_transition;
+    }
 
     Ok(())
 }
@@ -499,28 +502,32 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
         ast::Port::Hole {
             struct_elem,
             name: port,
-        } => match (comp.find_fsm(struct_elem), comp.find_group(struct_elem)) {
-            (Some(f), _) => f.borrow().find(port).ok_or_else(|| {
-                Error::undefined(
-                    Id::new(format!("{}.{}", f.borrow().name(), port)),
-                    "hole".to_string(),
-                )
-            }),
-            (None, Some(g)) => g.borrow().find(port).ok_or_else(|| {
-                Error::undefined(
-                    Id::new(format!("{}.{}", g.borrow().name(), port)),
-                    "hole".to_string(),
-                )
-            }),
-            (None, None) => comp
-                .find_static_group(struct_elem)
-                .ok_or_else(|| {
-                    Error::undefined(struct_elem, "group".to_string())
-                })?
-                .borrow()
-                .find(port)
-                .ok_or_else(|| Error::undefined(port, "hole".to_string())),
-        },
+        } => {
+            if let Some(f) = comp.find_fsm(struct_elem) {
+                return f.borrow().find(port).ok_or_else(|| {
+                    Error::undefined(
+                        Id::new(format!("{}.{}", f.borrow().name(), port)),
+                        "hole".to_string(),
+                    )
+                });
+            } else if let Some(g) = comp.find_group(struct_elem) {
+                return g.borrow().find(port).ok_or_else(|| {
+                    Error::undefined(
+                        Id::new(format!("{}.{}", g.borrow().name(), port)),
+                        "hole".to_string(),
+                    )
+                });
+            } else {
+                return comp
+                    .find_static_group(struct_elem)
+                    .ok_or_else(|| {
+                        Error::undefined(struct_elem, "group".to_string())
+                    })?
+                    .borrow()
+                    .find(port)
+                    .ok_or_else(|| Error::undefined(port, "hole".to_string()));
+            }
+        }
     }
 }
 
@@ -1051,21 +1058,16 @@ fn build_control(
         ast::Control::Enable {
             comp: component,
             attributes,
-        } => match (
-            builder.component.find_fsm(component),
-            builder.component.find_group(component),
-        ) {
-            (Some(f), _) => {
+        } => {
+            if let Some(f) = builder.component.find_fsm(component) {
                 let mut en = Control::fsm_enable(Rc::clone(&f));
                 *en.get_mut_attributes() = attributes;
                 en
-            }
-            (None, Some(g)) => {
+            } else if let Some(g) = builder.component.find_group(component) {
                 let mut en = Control::enable(Rc::clone(&g));
                 *en.get_mut_attributes() = attributes;
                 en
-            }
-            (None, None) => {
+            } else {
                 let mut en = Control::Static(StaticControl::from(Rc::clone(
                     &builder
                         .component
@@ -1081,7 +1083,7 @@ fn build_control(
                 *en.get_mut_attributes() = attributes;
                 en
             }
-        },
+        }
         ast::Control::StaticInvoke {
             comp,
             inputs,
