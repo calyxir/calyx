@@ -24,10 +24,12 @@ rule vivado
 device_xdc = default.xdc
 build default.xdc: get-rsrc
 build synth.tcl: get-rsrc
+parse-rpt-script = $calyx-base/tools/report-parsing/rpt.py
 rule parse-rpt
-  command = synthrep viz -t flamegraph -f $in > $out
+  command = python3 $parse-rpt-script $in > $out
+extract-rpt-script = $calyx-base/tools/report-parsing/extract.py
 rule extract-rpt
-  command = synthrep summary > $out
+  command = python3 $extract-rpt-script > $out
 flamegraph-script = /test/calyx/non-existent.script
 create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
 rule create-visuals
