@@ -14,7 +14,7 @@ use crate::{
             AssignedValue, AssignmentIdx, AssignmentWinner, BaseIndices,
             CellRef, ComponentIdx, GlobalCellIdx, GlobalCellRef, GlobalPortIdx,
             GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, MemoryLocation,
-            PortRef, PortValue,
+            MemoryRegion, PortRef, PortValue,
         },
         primitives::{
             Primitive,
@@ -341,8 +341,7 @@ impl PinnedPorts {
     }
 }
 
-pub(crate) type MemoryRegion = IndexRange<MemoryLocation>;
-
+#[derive(Debug, Clone)]
 pub struct MemoryMap {
     data: IndexedMap<MemoryLocation, BitVecValue>,
     clocks: SemiContiguousSecondaryMap<MemoryLocation, ClockPair>,
@@ -404,5 +403,46 @@ impl MemoryMap {
         } else {
             self.push_clockless(val)
         }
+    }
+
+    pub fn peek_next_memory_location(&self) -> MemoryLocation {
+        self.data.peek_next_idx()
+    }
+
+    /// Allocates a region of memory values.
+    ///
+    /// The iterator is assumed to cover the full range of memory values
+    /// allocated for the given cell.
+    pub fn allocate_region<I>(
+        &mut self,
+        iterator: I,
+        cell: GlobalCellIdx,
+        clock_map: &mut Option<&mut ClockMap>,
+    ) -> MemoryRegion
+    where
+        I: Iterator<Item = BitVecValue>,
+    {
+        let mem_region_start = self.peek_next_memory_location();
+        for (index, item) in iterator.enumerate() {
+            self.allocate_memory_location(
+                item,
+                cell,
+                Some(index.try_into().unwrap()),
+                clock_map,
+            );
+        }
+        let mem_region_end = self.peek_next_memory_location();
+        MemoryRegion::new(mem_region_start, mem_region_end)
+    }
+
+    pub fn map_region<F, D>(
+        &self,
+        region: MemoryRegion,
+        func: F,
+    ) -> impl Iterator<Item = D>
+    where
+        F: Fn(&BitVecValue) -> D,
+    {
+        region.into_iter().map(move |i| func(&self.data[i]))
     }
 }

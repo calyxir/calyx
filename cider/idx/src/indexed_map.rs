@@ -339,6 +339,7 @@ where
 /// are rare, then using
 /// [SecondarySparseMap](super::sparse_map::SecondarySparseMap) will have better
 /// performance
+#[derive(Debug, Clone)]
 pub struct SemiContiguousSecondaryMap<K: IndexRef + Ord, D> {
     /// stored ranges and their starting indices
     ranges: Vec<(IndexRange<K>, usize)>,
@@ -365,10 +366,11 @@ impl<K: IndexRef + Ord, D> SemiContiguousSecondaryMap<K, D> {
     /// abide by this will result in incorrect behavior
     pub fn monotonic_insert(&mut self, key: K, data: D) {
         self.data.push(data);
-        if let Some((range, base)) = self.ranges.last_mut() {
-            assert!(range.end() < key, "incorrect use of monotonic_insert");
-            if range.end().index() + 1 == key.index() {
-                range.set_end(key);
+        if let Some((range, _base)) = self.ranges.last_mut() {
+            assert!(range.end() <= key, "incorrect use of monotonic_insert");
+            if range.end() == key {
+                // we are contiguous with the last range, so extend it
+                range.set_end(K::new(key.index() + 1));
                 return;
             }
         }
@@ -376,13 +378,21 @@ impl<K: IndexRef + Ord, D> SemiContiguousSecondaryMap<K, D> {
         // either we are not contiguous with the last range or there are no
         // ranges
         self.ranges
-            .push((IndexRange::single_interval(key), self.data.len() - 1))
+            .push((IndexRange::single_interval(key), self.data.len() - 1));
     }
 
     pub fn get(&self, key: K) -> Option<&D> {
-        let (_, base) = self.ranges.iter().find(|(r, _)| r.contains(key))?;
-        let target = key.index() - base;
+        // this could probably be replaced with a binary search
+        let (range, base) =
+            self.ranges.iter().find(|(r, _)| r.contains(key))?;
+        let target = base + (key.index() - range.start().index());
         Some(&self.data[target])
+    }
+}
+
+impl<K: IndexRef + Ord, D> Default for SemiContiguousSecondaryMap<K, D> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

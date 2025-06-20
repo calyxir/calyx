@@ -82,6 +82,11 @@ where
     pub fn end(&self) -> I {
         self.end
     }
+
+    pub fn nth_entry(&self, n: usize) -> I {
+        assert!(n < self.size());
+        I::new(self.start.index() + n)
+    }
 }
 
 /// A continuous range of indices that is split into two parts.

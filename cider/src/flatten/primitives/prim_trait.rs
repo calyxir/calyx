@@ -184,5 +184,5 @@ pub trait SerializeState {
     ) -> Serializable;
 
     /// Dumps stored data as a raw byte stream
-    fn dump_memory_state(&self, _state_map: &MemoryMap) -> Vec<u8>;
+    fn dump_data(&self, _state_map: &MemoryMap) -> Vec<u8>;
 }

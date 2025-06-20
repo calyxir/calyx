@@ -117,6 +117,8 @@ impl_index!(LocalRefCellOffset);
 pub struct MemoryLocation(u32);
 impl_index!(MemoryLocation);
 
+pub type MemoryRegion = IndexRange<MemoryLocation>;
+
 /// Enum used in assignments to encapsulate the different types of port
 /// references these are always relative to a component's base-point and must be
 /// converted to global references when used.

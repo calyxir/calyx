@@ -401,6 +401,12 @@ impl ClockMap {
     }
 }
 
+impl Default for ClockMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Index<ClockIdx> for ClockMap {
     type Output = VectorClock<ThreadIdx>;
     fn index(&self, index: ClockIdx) -> &Self::Output {
