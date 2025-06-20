@@ -2,13 +2,20 @@
 
 `fud2` generates Ninja build files. Low level Rhai gives more control over what generated build files look like.
 
+> We recommend reading the [The Design of fud2][fud2-design] section in the [fud2][] main page before referencing this API.
+
+[fud2]: ./index.md
+[fud2-design]: ./index.md#the-design-of-fud2
+
 ## Example Script in Low Level Rhai
 
 A common routine for using low level Rhai is:
 1. Define states
-2. Define setup functions that register variables and rules
-3. Define an emitter function that produces commands using variables and rules created from (2)
-4. Define an op that uses setup functions and emitter to produce the target state from the start state
+2. Define "setup" functions that register variables and rules
+3. Define a "builder" function that produces commands using variables and rules created from (2)
+4. Define an op that uses "setup" functions and the "builder" function to produce the target state from the start state
+
+"Setup" and "builder" functions are normal Rhai functions that use the Emitter API.
 
 We'll walk through how to write a script that adds support for using the `calyx` compiler.
 
@@ -21,14 +28,13 @@ export const verilog_state = state("verilog", ["sv", "v"]);
 
 These two lines define a `calyx` state and a `verilog` state. The `export` prefix means that these variables will be accessible to other scripts that `import "calyx"`.
 
-Next we'll define a setup procedure to define some rules that will be useful.
+Next we'll define a "setup" procedure to define some rules that will be useful.
 
 ```rust,ignore
 // allows calyx_setup to be used in other scripts
 export const calyx_setup = calyx_setup;
 
-// a setup function is just a normal Rhai function that takes in an emitter
-// we can use the emitter in the same way that we use it from rust
+// a "setup" function is just a normal Rhai function that takes in an emitter
 fn calyx_setup(e) {
    // define a Ninja var from the fud2.toml config
    e.config_var("calyx-base", "calyx.base");
@@ -46,10 +52,10 @@ And now we can define the actual operation that will transform `calyx` files int
 ```rust,ignore
 op(
   "calyx-to-verilog",      // operation name
-  [calyx_setup],           // required setup functions
+  [calyx_setup],           // required "setup" functions
   calyx_state,             // input state
   verilog_state,           // output state
-  |e, input, output| {     // function to construct Ninja build command
+  |e, input, output| {     // "build" function - constructs Ninja build command
     e.build_cmd([output], "calyx", [input], []) ;
     e.arg("backend", "verilog");
   }
@@ -75,13 +81,13 @@ Defines an op with name `<op name>` that generates `<output state>` from `<input
 
 The op uses the setup functions `<setup1>, <setup2>, ..` to create vars and rules, and the `<emit function>` to produce commands.
 
-A setup function is simply a function that takes in an emitter.
+A "setup" function is simply a function that takes in an emitter. It usually calls functions that [create variables](#creating-variables) and [define rules](#defining-rules).
 
-The emit function would have the following declaration:
+The "builder" function would have the following declaration:
 ```
 |e, input, output| { ... }
 ```
-where `e` is an emitter, and `input` and `output` are strings containing the filenames of the input and output of the operation.
+where `e` is an emitter, and `input` and `output` are strings containing the filenames of the input and output of the operation. It usually calls functions that [build commands](#building-commands).
 
 ### Emitter API
 

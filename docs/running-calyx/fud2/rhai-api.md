@@ -6,6 +6,10 @@ fud2 Rhai code can be written in two "level"s: High Level Rhai and Low Level Rha
 
 All existing fud2 Rhai scripts can be found [here][fud2-scripts]. These provide a good example of how to add states and operations with Rhai. This page describes the fud2 Rhai API for both people who are looking to use fud2 and extend the functionality of fud2.
 
+> We recommend reading the [The Design of fud2][fud2-design] section in the [fud2][] main page before referencing this API.
+
+[fud2-design]: ./index.md#the-design-of-fud2
+
 ## Extending fud2 functionality with a new Rhai script
 
 There are two ways to add new functionality to fud2:
@@ -39,7 +43,7 @@ Rhai includes standard string operations. They are described in the [documentati
 
 In Rhai, all top-level variable declarations are private by default. If you want them to be available from other files, you need to `export` them explicitly.
 
-All functions are exported by default. However, they are only exported in a callable format. If you want to use the function as a variable (when passing them as a setup function or build function), you need to export them explicitly as well.
+All functions are exported by default. However, they are only exported in a callable format. If you want to use the function as a variable (when passing them as a "setup" function or "build" function as described in the [Low Level Rhai API][low-level-rhai]), you need to export them explicitly as well.
 
 This is how that looks:
 ```rust,ignore

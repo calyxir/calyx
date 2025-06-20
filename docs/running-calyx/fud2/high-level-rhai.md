@@ -4,6 +4,11 @@ High level Rhai offers a convenient interface to extending fud2 by abstracting t
 
 High level Rhai is relatively new and experimental, and there are certain things you cannot do in high level Rhai, but it is helpful when you want to read and write less code. Note that the Ninja code generated from high level Rhai may be difficult to read.
 
+> We recommend reading the [The Design of fud2][fud2-design] section in the [fud2][] main page before referencing this API.
+
+[fud2]: ./index.md
+[fud2-design]: ./index.md#the-design-of-fud2
+
 ## Example Script in High Level Rhai
 
 We'll walk through how to write a script that adds support for using the `calyx` compiler.
@@ -71,7 +76,7 @@ Defines a state with the name `<name>` where files can have extensions `<ext1>`,
 ### Defining operations
 
 ```
-defop <op name>(<input1>: <input1 state>, <input2>: <input2 state> ...) >> <target1>: <target1 state>, <target2>, <target2 state> ... {
+defop <op name>(<input1>: <input1 state>, <input2>: <input2 state> ...) >> <target1>: <target1 state>, <target2>: <target2 state> ... {
     <statements>
 }
 ```
