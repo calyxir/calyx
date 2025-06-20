@@ -222,10 +222,11 @@ You are invited to try implementing map yourself according to the outline given 
 
 To run `mrxl` with `my_map_impl` instead of our implementation, pass the `--my-map` flag:
 ```sh
-fud e --from mrxl test/sos.mrxl \
-        --to dat --through verilog \
-        -s mrxl.flags "--my-map "  \
-        -s mrxl.data test/sos.mrxl.data
+mrxl frontends/mrxl/test/sos.mrxl --data frontends/mrxl/test/sos.mrxl.data --convert > sos.sim.data # generate Calyx-native data file
+fud2 --from mrxl test/sos.mrxl \
+        --to dat --through verilator \
+        -s mrxl.flags="--my-map "  \
+        -s sim.data=sos.sim.data
 ```
 
 If you are feeling good about your implementation, skip to [the next section](#adding-parallelization)!
