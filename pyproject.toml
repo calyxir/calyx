@@ -1,0 +1,43 @@
+tool.uv.package = false
+
+[project]
+name = "calyx-tools"
+authors = []
+requires-python = ">=3.13"
+dependencies = ["calyx-ast"]
+version = "0.1.0"
+
+[tool.uv.sources]
+calyx-ast = { workspace = true }
+ntt-pipeline = { workspace = true }
+systolic-lang = { workspace = true }
+mrxl = { workspace = true }
+queues = { workspace = true }
+fud = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "frontends/ntt-pipeline",
+    "frontends/systolic-lang",
+    "calyx-py",
+    "frontends/mrxl",
+    "frontends/queues",
+    "fud",
+]
+
+[project.optional-dependencies]
+ntt = ["ntt-pipeline"]
+systolic = ["systolic-lang"]
+mrxl = ["mrxl"]
+queues = ["queues"]
+profiler = [
+    # should probably add the profiler to the workplace but I don't want to deal
+    # with that right now
+    "vcdvcd",
+]
+fud2_scripts = [
+    # Some fud2 components import pieces of OG fud's Python implementation. It
+    # is a medium-term goal to split out this functionality to make it
+    # independent of the `fud` package, so we can eventually remove the latter.
+    "fud",
+]

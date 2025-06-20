@@ -1,6 +1,5 @@
 ---
 source: fud2/tests/tests.rs
-snapshot_kind: text
 ---
 [
     (
@@ -109,6 +108,11 @@ snapshot_kind: text
         "calyx",
     ),
     (
+        "ntt",
+        "ntt",
+        "calyx",
+    ),
+    (
         "primitive-uses",
         "calyx",
         "primitive-uses-json",
@@ -119,6 +123,11 @@ snapshot_kind: text
         "flamegraph",
     ),
     (
+        "relay",
+        "relay",
+        "calyx",
+    ),
+    (
         "simulate",
         "sim",
         "dat",
@@ -127,6 +136,11 @@ snapshot_kind: text
         "trace",
         "sim",
         "vcd",
+    ),
+    (
+        "vcd_json",
+        "vcd",
+        "dat",
     ),
     (
         "verilator",

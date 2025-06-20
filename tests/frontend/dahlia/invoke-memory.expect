@@ -75,4 +75,3 @@ metadata #{
   2:     dest[i] := src[i];
   3: let len: ubit<3> = (5 as ubit<3>);
 }#
-

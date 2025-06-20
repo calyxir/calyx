@@ -78,8 +78,9 @@ fud2 {} --from calyx --to yxi
 name = "[frontend] dahlia"
 paths = ["tests/frontend/dahlia/*.fuse"]
 cmd = """
-fud e {} --to calyx -q \
-          -s calyx.exec './target/debug/calyx' \
+fud2 {} --to calyx \
+         -s calyx.exe='./target/debug/calyx' \
+         -q \
         | tail -n+2
 """
 
@@ -94,13 +95,13 @@ cmd = """
 name = "[frontend] NTT pipeline generation"
 paths = ["tests/frontend/ntt-pipeline/*.txt"]
 cmd = """
-fud e --from ntt {} --to calyx -q
+fud2 --from ntt {} --to calyx -q
 """
 
 [[tests]]
 name = "[frontend] relay"
 paths = ["tests/frontend/relay/*.relay"]
-cmd = "python3 frontends/relay/relay_visitor.py {}"
+cmd = "fud2 --from relay --to calyx {}"
 
 [[tests]]
 name = "[frontend] exp"
@@ -122,12 +123,11 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -137,13 +137,12 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d static-promotion' \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s calyx.args=' -d static-promotion' \
+      -s jq.expr=".memories" \
+      -q
 """
 
 # A stanza for "non-static with promotion" is unnecessary.
@@ -157,13 +156,12 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --static --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d well-formed -d static-promotion' \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s calyx.args=' -d well-formed -d static-promotion' \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -173,13 +171,12 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} 20000 --static --keepgoing |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags ' -d well-formed' \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s calyx.args=' -d well-formed' \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -196,12 +193,11 @@ cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s jq.expr ".memories" \
-       -q
+ fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data="$dir/$name.data" \
+      -s jq.expr=".memories" \
+      -q
 """
 
 [[tests]]
@@ -227,7 +223,6 @@ cmd = """
 fud2 --from calyx --to jq \
      --through verilator \
      -s sim.data={}.data \
-     -s calyx.exec='./target/debug/calyx' \
      -s verilog.cycle_limit=500 \
      -s jq.expr=".memories" \
      {} -q
@@ -245,7 +240,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-x tdcc:one-hot-cutoff=500 -d static-promotion' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -263,13 +257,12 @@ paths = [
   "tests/correctness/static-interface/*.futil",
 ]
 cmd = """
-fud exec --from calyx --to jq \
-         --through dat \
-         --through icarus-verilog \
-         -s calyx.flags "-p fsm-opt -x tdcc:infer-fsms -p lower" \
-         -s verilog.cycle_limit 550 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
+fud2 --from calyx --to jq \
+         --through icarus \
+         -s calyx.args="-p fsm-opt -x tdcc:infer-fsms -p lower" \
+         -s sim.cycle_limit=550 \
+         -s sim.data={}.data \
+         -s jq.expr=".memories" \
          {} -q
 """
 timeout = 120
@@ -285,7 +278,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-x tdcc:duplicate-cutoff=0 -d static-promotion' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -305,7 +297,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
      -s jq.expr=".memories" \
@@ -319,7 +310,6 @@ paths = ["tests/correctness/static-interface/*.futil"]
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-x static-fsm-opts:one-hot-cutoff=500' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -336,7 +326,6 @@ cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
      -s sim.data={}.data \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags=' --nested' \
      -s verilog.cycle_limit=500 \
      -s jq.expr=".memories" \
@@ -356,7 +345,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-p all -d group2invoke' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -375,7 +363,6 @@ paths = [
 cmd = """
 fud2 --from calyx --to jq \
      --through icarus \
-     -s calyx.exec='./target/debug/calyx' \
      -s calyx.flags='-p all -d group2invoke -x compile-static:one-hot-cutoff=500' \
      -s verilog.cycle_limit=500 \
      -s sim.data={}.data \
@@ -469,12 +456,11 @@ expect_dir = "tests/correctness/systolic/mmult-expect"
 name = "[correctness] `@fast` attribute should not change program behavior"
 paths = ["tests/correctness/fast-attr/valid/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through dat \
-         --through icarus-verilog \
-         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
-         -s verilog.data {}.data \
-         -s jq.expr "." \
+fud2 --from calyx --to jq \
+         --through icarus \
+         -s sim.data={}.data \
+         -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
+         -s jq.expr="." \
          {} -q
 """
 
@@ -482,13 +468,12 @@ fud exec --from calyx --to jq \
 name = "[correctness] `@fast` attribute should reject unoptimizable sequences"
 paths = ["tests/correctness/fast-attr/invalid/*.futil"]
 cmd = """
-fud exec --from calyx --to jq \
-         --through dat \
-         --through icarus-verilog \
-         -s calyx.flags "-p validate -p compile -p lower -d static-promotion" \
-         -s verilog.data {}.data \
-         -s jq.expr "." \
-         {} -q
+RUST_LIB_BACKTRACE=0 fud2 --from calyx --to jq \
+         --through icarus \
+         -s calyx.args="-p validate -p compile -p lower -d static-promotion" \
+         -s sim.data={}.data \
+         -s jq.expr="." \
+         {}
 """
 
 [[tests]]
@@ -537,7 +522,7 @@ fud e --from systolic --to dat \
 name = "[frontend] NTT pipeline correctness"
 paths = ["tests/correctness/ntt-pipeline/*.txt"]
 cmd = """
-fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
+fud2 --from ntt {} --through verilator --to dat -s sim.data={}.data -q
 """
 
 [[tests]]
@@ -545,7 +530,7 @@ name = "exp correctness"
 paths = ["tests/correctness/exp/*.txt"]
 cmd = """
 python3 calyx-py/calyx/gen_exp.py {} |\
-fud e --from calyx --to dat --through verilog -s verilog.data {}.data -q
+fud2 --from calyx --to dat --through verilator -s sim.data={}.data -q
 """
 
 [[tests]]
@@ -566,11 +551,11 @@ fud e --from mrxl {} \
 name = "[frontend] relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
 cmd = """
-fud e -q {} --from relay --to jq \
-            --through verilog \
-            --through dat \
-            -s verilog.data {}.data \
-            -s jq.expr ".memories"
+fud2 {} --from relay --to jq \
+        --through verilator \
+        -s sim.data={}.data \
+        -s jq.expr=".memories" \
+        -q
 """
 
 ## Tests errors that occur at runtime
@@ -578,10 +563,10 @@ fud e -q {} --from relay --to jq \
 name = "runtime errors"
 paths = ["tests/errors/runtime/*.futil"]
 cmd = """
-fud exec -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         --through verilog \
-         {} --from calyx --to dat -q 2>&1 | \
+fud2 -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data={}.data \
+         {} --from calyx --to dat 2>&1 | \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
@@ -593,13 +578,11 @@ cmd = """
 if [ ! -d "primitives/float/HardFloat-1" ]; then
   bash primitives/float/get_hardfloat.sh > /dev/null 2>&1
 fi &&
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s verilog.data {}.data \
-         -s calyx.exec './target/debug/calyx' \
-         -s verilog.cycle_limit 500 \
-         {} -q
+fud2 --from calyx --to jq \
+      --through verilator \
+      -s sim.data={}.data \
+      -s sim.cycle_limit=500 \
+      {} -q
 """
 expect_dir = "tests/correctness/hardfloat/"
 timeout = 30
@@ -610,9 +593,9 @@ timeout = 30
 name = "[examples] language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data examples/tutorial/data.json \
+fud2 {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data=examples/tutorial/data.json \
          --from calyx --to dat -q
 """
 
@@ -620,9 +603,9 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[examples] sync primitives"
 paths = ["examples/sync/*.futil"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data {}.data \
+fud2 {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data={}.data \
          --from calyx --to dat -q
 """
 
@@ -630,9 +613,9 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data {}.data \
+fud2 {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data={}.data \
          --from calyx --to dat -q
 """
 
@@ -640,9 +623,9 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[examples] dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
-fud e {} -s verilog.cycle_limit 500 \
-         --through verilog \
-         -s verilog.data {}.data \
+fud2  {} -s sim.cycle_limit=500 \
+         --through verilator \
+         -s sim.data={}.data \
          --to dat -q
 """
 
