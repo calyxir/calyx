@@ -2,7 +2,7 @@ use super::{
     Assignment, Attributes, BackendConf, Builder, Cell, CellType, Component,
     Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
     LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC, StaticControl,
-    StaticInvoke,
+    StaticInvoke, Transition,
 };
 use crate::{Nothing, PortComp, StaticTiming};
 use calyx_frontend::{BoolAttr, NumAttr, Workspace, ast};
@@ -345,6 +345,10 @@ fn build_component(
         .into_iter()
         .try_for_each(|g| add_static_group(g, &mut builder))?;
 
+    comp.fsms
+        .into_iter()
+        .try_for_each(|f| add_fsm(f, &mut builder))?;
+
     let continuous_assignments =
         build_assignments(comp.continuous_assignments, &mut builder)?;
     builder.component.continuous_assignments = continuous_assignments;
@@ -442,6 +446,38 @@ fn add_static_group(
     Ok(())
 }
 
+///////////////// Fsm Construction /////////////////////////
+
+/// Build an [super::Fsm] from an [ast::Fsm] and attach it to the [Component]
+/// associated with the [Builder]
+fn add_fsm(fsm: ast::Fsm, builder: &mut Builder) -> CalyxResult<()> {
+    let ir_fsm = builder.add_fsm(fsm.name);
+    let (state_assignments, state_transition): (
+        Vec<Vec<Assignment<Nothing>>>,
+        Vec<Transition>,
+    ) = fsm
+        .fsm_states
+        .into_iter()
+        .map(|rule| -> CalyxResult<_> {
+            Ok((
+                build_assignments(rule.assignments, builder)?,
+                build_transition(rule.transition, builder)?,
+            ))
+        })
+        .collect::<CalyxResult<Vec<_>>>()?
+        .into_iter()
+        .unzip();
+
+    {
+        let mut ir_fsm = ir_fsm.borrow_mut();
+        ir_fsm.attributes = fsm.attributes;
+        ir_fsm.assignments = state_assignments;
+        ir_fsm.transitions = state_transition;
+    }
+
+    Ok(())
+}
+
 ///////////////// Assignment Construction /////////////////////////
 
 /// Get the pointer to the Port represented by `port`.
@@ -463,20 +499,35 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
                 Error::undefined(port, "component port".to_string())
             })
         }
-        ast::Port::Hole { group, name: port } => match comp.find_group(group) {
-            Some(g) => g.borrow().find(port).ok_or_else(|| {
-                Error::undefined(
-                    Id::new(format!("{}.{}", g.borrow().name(), port)),
-                    "hole".to_string(),
-                )
-            }),
-            None => comp
-                .find_static_group(group)
-                .ok_or_else(|| Error::undefined(group, "group".to_string()))?
-                .borrow()
-                .find(port)
-                .ok_or_else(|| Error::undefined(port, "hole".to_string())),
-        },
+        ast::Port::Hole {
+            struct_elem,
+            name: port,
+        } => {
+            if let Some(f) = comp.find_fsm(struct_elem) {
+                return f.borrow().find(port).ok_or_else(|| {
+                    Error::undefined(
+                        Id::new(format!("{}.{}", f.borrow().name(), port)),
+                        "hole".to_string(),
+                    )
+                });
+            } else if let Some(g) = comp.find_group(struct_elem) {
+                return g.borrow().find(port).ok_or_else(|| {
+                    Error::undefined(
+                        Id::new(format!("{}.{}", g.borrow().name(), port)),
+                        "hole".to_string(),
+                    )
+                });
+            } else {
+                return comp
+                    .find_static_group(struct_elem)
+                    .ok_or_else(|| {
+                        Error::undefined(struct_elem, "group".to_string())
+                    })?
+                    .borrow()
+                    .find(port)
+                    .ok_or_else(|| Error::undefined(port, "hole".to_string()));
+            }
+        }
     }
 }
 
@@ -606,6 +657,33 @@ fn build_static_assignments(
                 .map_err(|err| err.with_pos(&attrs))
         })
         .collect::<CalyxResult<Vec<_>>>()
+}
+
+/// Build an ir::Transition from ast::Transition.
+/// The Transition contains pointers to the relevant ports.??
+fn build_transition(
+    transition: ast::Transition,
+    builder: &mut Builder,
+) -> CalyxResult<Transition> {
+    match transition {
+        ast::Transition::Unconditional(state_idx) => {
+            Ok(Transition::Unconditional(state_idx))
+        }
+        ast::Transition::Conditional(conditions) => {
+            let conds = conditions
+                .into_iter()
+                .map(|(condition, state_idx)| {
+                    let guard = match condition {
+                        Some(g) => build_guard(g, builder)?,
+                        None => Guard::True,
+                    };
+                    Ok((guard, state_idx))
+                })
+                .collect::<CalyxResult<Vec<(Guard<Nothing>, u64)>>>()?;
+
+            Ok(Transition::Conditional(conds))
+        }
+    }
 }
 
 /// Transform an ast::GuardExpr to an ir::Guard.
@@ -980,26 +1058,32 @@ fn build_control(
         ast::Control::Enable {
             comp: component,
             attributes,
-        } => match builder.component.find_group(component) {
-            Some(g) => {
+        } => {
+            if let Some(f) = builder.component.find_fsm(component) {
+                let mut en = Control::fsm_enable(Rc::clone(&f));
+                *en.get_mut_attributes() = attributes;
+                en
+            } else if let Some(g) = builder.component.find_group(component) {
                 let mut en = Control::enable(Rc::clone(&g));
                 *en.get_mut_attributes() = attributes;
                 en
-            }
-            None => {
+            } else {
                 let mut en = Control::Static(StaticControl::from(Rc::clone(
                     &builder
                         .component
                         .find_static_group(component)
                         .ok_or_else(|| {
-                            Error::undefined(component, "group".to_string())
-                                .with_pos(&attributes)
+                            Error::undefined(
+                                component,
+                                "group or fsm".to_string(),
+                            )
+                            .with_pos(&attributes)
                         })?,
                 )));
                 *en.get_mut_attributes() = attributes;
                 en
             }
-        },
+        }
         ast::Control::StaticInvoke {
             comp,
             inputs,

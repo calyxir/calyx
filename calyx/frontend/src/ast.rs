@@ -109,9 +109,10 @@ pub enum Port {
     /// currently being defined.
     This { port: Id },
 
-    /// `group[name]` parses into `Hole { group, name }`
-    /// and is a hole named `name` on group `group`
-    Hole { group: Id, name: Id },
+    /// `struct_elem[name]` parses into `Hole { struct_elem, name }`
+    /// and is a hole named `name` on `struct_elem`, which is the
+    /// name of either a group or an FSM
+    Hole { struct_elem: Id, name: Id },
 }
 
 // ===================================
