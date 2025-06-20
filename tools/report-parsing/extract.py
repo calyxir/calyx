@@ -5,7 +5,7 @@ import re
 import traceback
 import logging as log
 
-import synthrep.rpt as rpt
+import rpt
 
 
 def find_row(table, colname, key, certain=True):
@@ -195,3 +195,15 @@ def hls_extract(directory: Path, top: str):
         )
     except FileNotFoundError as e:
         log.error(f"File not found: {e.filename}")
+
+
+if __name__ == "__main__":
+    print(
+        place_and_route_extract(
+            Path("out"),
+            "FutilBuild.runs",
+            PurePath("impl_1", "main_utilization_placed.rpt"),
+            PurePath("impl_1", "main_timing_summary_routed.rpt"),
+            PurePath("synth_1", "main_utilization_synth.rpt"),
+        )
+    )

@@ -34,8 +34,10 @@ fn synth_setup(e) {
     e.rsrc("synth.tcl");
 
     // Python scripts for parsing reports for visualization and extracting JSON summary
-    e.rule("parse-rpt", "synthrep viz -t flamegraph -f $in > $out");
-    e.rule("extract-rpt", "synthrep summary > $out");
+    e.var_("parse-rpt-script", "$calyx-base/tools/report-parsing/rpt.py");
+    e.rule("parse-rpt", "python3 $parse-rpt-script $in > $out");
+    e.var_("extract-rpt-script", "$calyx-base/tools/report-parsing/extract.py");
+    e.rule("extract-rpt", "python3 $extract-rpt-script > $out");
 
     // Bash script to create a FlameGraph
     e.config_var("flamegraph-script", "flamegraph.script");
