@@ -1,5 +1,5 @@
-from parser.extract import place_and_route_extract
-from parser.rpt import RPTParser
+from synthrep.extract import place_and_route_extract
+from synthrep.rpt import RPTParser
 from pathlib import Path, PurePath
 import pandas as pd
 import plotly.express as px

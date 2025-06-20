@@ -12,4 +12,4 @@ dependencies = ["pandas", "plotly"]
 readme = "README.md"
 
 [project.scripts]
-synthrep = "parser.cli:main"
+synthrep = "synthrep.cli:main"
