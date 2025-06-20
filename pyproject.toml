@@ -36,6 +36,8 @@ profiler = [
     "vcdvcd",
 ]
 fud2_scripts = [
-    # definitely incomplete list
-    "simplejson",
+    # Some fud2 components import pieces of OG fud's Python implementation. It
+    # is a medium-term goal to split out this functionality to make it
+    # independent of the `fud` package, so we can eventually remove the latter.
+    "fud",
 ]

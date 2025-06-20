@@ -111,4 +111,3 @@ component main() -> () {
 metadata #{
   0:   let acc = A[i];
 }#
-

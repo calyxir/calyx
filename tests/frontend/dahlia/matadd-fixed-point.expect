@@ -111,4 +111,3 @@ metadata #{
   3:     result0_0[i][j] := a0_0[i][j] + b0_0[i][j];
   4:     result0_0[i][j] := a0_0[i][j] + b0_0[i][j];
 }#
-

@@ -1,0 +1,17 @@
+---
+source: fud2/tests/tests.rs
+description: "emit plan: ntt"
+---
+build-tool = fud2
+rule get-rsrc
+  command = $build-tool get-rsrc $out
+
+calyx-base = /test/calyx
+python = python3
+ntt-exe = $calyx-base/frontends/ntt-pipeline/gen-ntt-pipeline.py
+rule run-ntt
+  command = $python $ntt-exe $in > $out
+
+build /output.ext: run-ntt /input.ext
+
+default /output.ext

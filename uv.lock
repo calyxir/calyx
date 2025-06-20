@@ -104,7 +104,7 @@ dependencies = [
 
 [package.optional-dependencies]
 fud2-scripts = [
-    { name = "simplejson" },
+    { name = "fud" },
 ]
 mrxl = [
     { name = "mrxl" },
@@ -125,10 +125,10 @@ systolic = [
 [package.metadata]
 requires-dist = [
     { name = "calyx-ast", editable = "calyx-py" },
+    { name = "fud", marker = "extra == 'fud2-scripts'", editable = "fud" },
     { name = "mrxl", marker = "extra == 'mrxl'", editable = "frontends/mrxl" },
     { name = "ntt-pipeline", marker = "extra == 'ntt'", virtual = "frontends/ntt-pipeline" },
     { name = "queues", marker = "extra == 'queues'", editable = "frontends/queues" },
-    { name = "simplejson", marker = "extra == 'fud2-scripts'" },
     { name = "systolic-lang", marker = "extra == 'systolic'", virtual = "frontends/systolic-lang" },
     { name = "vcdvcd", marker = "extra == 'profiler'" },
 ]
