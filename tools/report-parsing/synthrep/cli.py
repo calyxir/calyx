@@ -7,10 +7,10 @@ import argparse
 import re
 
 
-def summary():
+def summary(dir):
     print(
         place_and_route_extract(
-            Path("out"),
+            Path(dir),
             "FutilBuild.runs",
             PurePath("impl_1", "main_utilization_placed.rpt"),
             PurePath("impl_1", "main_timing_summary_routed.rpt"),
@@ -87,11 +87,17 @@ def main():
         action="store_true",
     )
     map = {"ff": "FFs", "lut": "Total LUTs", "llut": "Logic LUTs", "lutram": "LUTRAMs"}
-    subparsers.add_parser("summary", help="output JSON summary")
+    summary_parser = subparsers.add_parser("summary", help="output JSON summary")
+    summary_parser.add_argument(
+        "-d",
+        "--directory",
+        help="specify Vivado output directory (default: %(default)s)",
+        default="out",
+    )
     args = parser.parse_args()
     match args.command:
         case "summary":
-            summary()
+            summary(args.directory)
         case "viz":
             match args.type:
                 case "flamegraph":

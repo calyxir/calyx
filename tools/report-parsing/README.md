@@ -30,10 +30,13 @@ synthrep viz -h
 Extracts a JSON summary of synthesis and implementation resource usage, as well as timing info.
 
 ```bash
-synthrep summary
+synthrep summary [-d DIRECTORY]
 ```
 
-This looks for reports in the default `out/FutilBuild.runs` structure and prints:
+**Options:**
+- `-d`, `--directory` – specify Vivado output directory (default: `out`)
+
+This looks for reports in the specified (or default) `FutilBuild.runs` subdirectory and prints:
 - LUTs, FFs, DSPs, BRAMs
 - Carry chains, muxes
 - Timing met/not met
