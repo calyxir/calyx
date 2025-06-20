@@ -20,6 +20,7 @@ source: fud2/tests/tests.rs
     "primitive-uses-json",
     "relay",
     "sim",
+    "systolic",
     "timing-report",
     "utilization-report",
     "vcd",
