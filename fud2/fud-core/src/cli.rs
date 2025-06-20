@@ -241,7 +241,7 @@ fn from_states<T: CliExt>(
         &args.input,
         "unknown --from state",
         "could not infer input state",
-        "specify and input file or use --from",
+        "specify an input file or use --from",
     )
 }
 
@@ -433,6 +433,7 @@ fn cli_ext<T: CliExt>(
     config: &figment::Figment,
 ) -> anyhow::Result<()> {
     let args: FudArgs<T> = argh::from_env();
+
     // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
