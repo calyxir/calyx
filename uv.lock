@@ -10,6 +10,7 @@ members = [
     "mrxl",
     "ntt-pipeline",
     "queues",
+    "synthrep",
     "systolic-lang",
 ]
 
@@ -113,8 +114,7 @@ ntt = [
     { name = "ntt-pipeline" },
 ]
 profiler = [
-    { name = "pandas" },
-    { name = "plotly" },
+    { name = "synthrep" },
     { name = "vcdvcd" },
 ]
 queues = [
@@ -130,9 +130,8 @@ requires-dist = [
     { name = "fud", marker = "extra == 'fud2-scripts'", editable = "fud" },
     { name = "mrxl", marker = "extra == 'mrxl'", editable = "frontends/mrxl" },
     { name = "ntt-pipeline", marker = "extra == 'ntt'", virtual = "frontends/ntt-pipeline" },
-    { name = "pandas", marker = "extra == 'profiler'" },
-    { name = "plotly", marker = "extra == 'profiler'" },
     { name = "queues", marker = "extra == 'queues'", editable = "frontends/queues" },
+    { name = "synthrep", marker = "extra == 'profiler'", editable = "tools/report-parsing" },
     { name = "systolic-lang", marker = "extra == 'systolic'", virtual = "frontends/systolic-lang" },
     { name = "vcdvcd", marker = "extra == 'profiler'" },
 ]
@@ -729,6 +728,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d3/91/bb331f0a43e04d950a710f402a0986a54147a35818df0e1658551c8d12e1/spinners-0.0.24.tar.gz", hash = "sha256:1eb6aeb4781d72ab42ed8a01dcf20f3002bf50740d7154d12fb8c9769bf9e27f", size = 5308, upload-time = "2020-02-19T21:42:32.326Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/8e/3310207a68118000ca27ac878b8386123628b335ecb3d4bec4743357f0d1/spinners-0.0.24-py3-none-any.whl", hash = "sha256:2fa30d0b72c9650ad12bbe031c9943b8d441e41b4f5602b0ec977a19f3290e98", size = 5499, upload-time = "2020-02-19T21:42:30.876Z" },
+]
+
+[[package]]
+name = "synthrep"
+source = { editable = "tools/report-parsing" }
+dependencies = [
+    { name = "pandas" },
+    { name = "plotly" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pandas" },
+    { name = "plotly" },
 ]
 
 [[package]]

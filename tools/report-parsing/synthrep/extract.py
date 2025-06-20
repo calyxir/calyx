@@ -5,7 +5,7 @@ import re
 import traceback
 import logging as log
 
-import parser.rpt as rpt
+import synthrep.rpt as rpt
 
 
 def find_row(table, colname, key, certain=True):

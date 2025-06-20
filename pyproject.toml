@@ -14,6 +14,7 @@ systolic-lang = { workspace = true }
 mrxl = { workspace = true }
 queues = { workspace = true }
 fud = { workspace = true }
+synthrep = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -23,6 +24,7 @@ members = [
     "frontends/mrxl",
     "frontends/queues",
     "fud",
+    "tools/report-parsing",
 ]
 
 [project.optional-dependencies]
@@ -33,7 +35,8 @@ queues = ["queues"]
 profiler = [
     # should probably add the profiler to the workplace but I don't want to deal
     # with that right now
-    "vcdvcd", "pandas", "plotly"
+    "vcdvcd",
+    "synthrep",
 ]
 fud2_scripts = [
     # Some fud2 components import pieces of OG fud's Python implementation. It
