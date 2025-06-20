@@ -12,6 +12,8 @@ use serde::Serialize;
 pub struct UniqueControl {
     path_descriptor_json: Option<OutputFile>,
     path_descriptor_infos: HashMap<String, PathDescriptorInfo>,
+    par_thread_json: Option<OutputFile>,
+    par_thread_info: HashMap<String, HashMap<String, u32>>,
 }
 
 impl Named for UniqueControl {
@@ -24,12 +26,20 @@ impl Named for UniqueControl {
     }
 
     fn opts() -> Vec<crate::traversal::PassOpt> {
-        vec![PassOpt::new(
-            "path-descriptor-json",
-            "Write the path descriptor of each group to a JSON file",
-            ParseVal::OutStream(OutputFile::Null),
-            PassOpt::parse_outstream,
-        )]
+        vec![
+            PassOpt::new(
+                "path-descriptor-json",
+                "Write the path descriptor of each group to a JSON file",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream,
+            ),
+            PassOpt::new(
+                "par-thread-json",
+                "Write the path descriptor of each group to a JSON file",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream,
+            ),
+        ]
     }
 }
 
@@ -50,6 +60,8 @@ impl ConstructVisitor for UniqueControl {
             path_descriptor_json: opts[&"path-descriptor-json"]
                 .not_null_outstream(),
             path_descriptor_infos: HashMap::new(),
+            par_thread_json: opts[&"par-thread-json"].not_null_outstream(),
+            par_thread_info: HashMap::new(),
         })
     }
 
@@ -74,7 +86,6 @@ fn par_track(
         }
         ir::Control::Enable(enable) => {
             let group_name = enable.group.borrow().name().to_string();
-            println!("{}: {}", group_name, start_idx);
             enable_to_track.insert(group_name, start_idx);
             start_idx
         }
@@ -86,14 +97,23 @@ fn par_track(
                 idx = cmp::max(idx, potential_new_idx);
                 idx += 1;
             }
-            idx -= 1; // Undo the last index update
             idx
         }
-        ir::Control::If(ir::If{tbranch, fbranch, ..}) {
-            let mut idx = start_idx;
-
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            let false_next_idx =
+                par_track(&tbranch, start_idx, next_idx, enable_to_track);
+            par_track(&fbranch, start_idx, false_next_idx, enable_to_track)
         }
-        _ => panic!(),
+        ir::Control::While(ir::While { body, .. }) => {
+            par_track(&body, start_idx, next_idx, enable_to_track)
+        }
+        ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            par_track(&body, start_idx, next_idx, enable_to_track)
+        }
+        ir::Control::Static(_static_control) => todo!(),
+        _ => next_idx,
     }
 }
 
@@ -229,17 +249,23 @@ impl Visitor for UniqueControl {
         self.path_descriptor_infos
             .insert(comp.name.to_string(), path_descriptor_info);
         let mut enable_to_track: HashMap<String, u32> = HashMap::new();
-        println!("AAAAAAAAAAAAAAAAAAAAAAA");
-        par_track(&control, 0, 0, &mut enable_to_track);
+        par_track(&control, 0, 1, &mut enable_to_track);
+        self.par_thread_info
+            .insert(comp.name.to_string(), enable_to_track);
         Ok(Action::Continue)
     }
 
     fn finish_context(&mut self, _ctx: &mut calyx_ir::Context) -> VisResult {
-        // iterate through and record info about who is what's parent
         if let Some(json_out_file) = &mut self.path_descriptor_json {
             let _ = serde_json::to_writer_pretty(
                 json_out_file.get_write(),
                 &self.path_descriptor_infos,
+            );
+        }
+        if let Some(json_out_file) = &mut self.par_thread_json {
+            let _ = serde_json::to_writer_pretty(
+                json_out_file.get_write(),
+                &self.par_thread_info,
             );
         }
         Ok(Action::Continue)

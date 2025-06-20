@@ -6,10 +6,13 @@ import "rtl_sim" as sim;
 export const flamegraph = state("flamegraph", ["svg"]);
 
 fn profiling_setup(e) {
+    // files produced via compiler + tools that will be used in postprocessing
     e.var_("cell-json", "cells.json");
     e.var_("fsm-json", "fsm.json");
     e.var_("cell-share-json", "shared-cells.json");
     e.var_("path-descriptor-json", "path-descriptors.json");
+    e.var_("enable-par-track-json", "enable-par-track.json");
+
     // series of passes after validation and instrumentation
     e.config_var_or("passes", "profiler.compilation-passes", "-p pre-opt -p compile -p post-opt -p lower"); // set passes="-p compile-sync -p simplify-with-control -p compile-invoke -p compile -p lower" to run without optimizations
 
@@ -25,7 +28,7 @@ fn profiling_setup(e) {
 
     // script to process vcd and produce folded representation of flame graph
     e.var_("parse-vcd-script", "$calyx-base/tools/profiler/profiler-process/main.py");
-    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cell-json $fsm-json $cell-share-json $path-descriptor-json profiler-out $out --print-trace-threshold 100");
+    e.rule("parse-vcd", "python3 $parse-vcd-script $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --print-trace-threshold 100");
 
     e.config_var("flamegraph-script", "flamegraph.script");
     e.var_("create-visuals-script", "$calyx-base/tools/profiler/create-visuals.sh");
@@ -41,7 +44,7 @@ fn profiling_setup(e) {
     e.config_var_or("fileinfo_emitter", "fileinfo_emitter", "$calyx-base/target/debug/fileinfo_emitter");
     e.rule("parse-metadata", "$fileinfo_emitter -l $calyx-base $in > $metadata-mapping-json");
 
-    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cell-json $fsm-json $cell-share-json $path-descriptor-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
+    e.rule("parse-vcd-from-adl", "python3 $parse-vcd-script $in $cell-json $fsm-json $cell-share-json $enable-par-track-json profiler-out $out --adl-mapping-file $metadata-mapping-json --print-trace-threshold 100");
 }
 
 // TODO: merge with calyx_to_flamegraph
@@ -59,7 +62,7 @@ fn edsl_to_flamegraph(e, input, output) {
     e.build_cmd([instrumented_verilog], "calyx", [calyx], []);
     e.arg("backend", "verilog");
     // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
-    e.arg("args", "-d group2seq -p validate -p compile-invoke -p unique-control -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x unique-control:path-descriptor-json=path-descriptors.json");
+    e.arg("args", "-d group2seq -p validate -p compile-invoke -p unique-control -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x unique-control:par-thread-json=enable-par-track.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()
@@ -99,7 +102,7 @@ fn calyx_to_flamegraph(e, input, output) {
     e.build_cmd([instrumented_verilog], "calyx", [input], []);
     e.arg("backend", "verilog");
     // NOTE: disabling group2seq because it may cause cycle count differences btwn profiled vs non-profiled versions.
-    e.arg("args", "-d group2seq -p validate -p compile-invoke -p unique-control -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x unique-control:path-descriptor-json=path-descriptors.json");
+    e.arg("args", "-d group2seq -p validate -p compile-invoke -p unique-control -p profiler-instrumentation -p dead-group-removal $passes -x tdcc:dump-fsm-json=fsm.json -x cell-share:emit-share-map=shared-cells.json -x unique-control:par-thread-json=enable-par-track.json");
 
     let instrumented_sim = "instrumented.exe";
     // verilog --> sim; adapted from verilator::verilator_build()

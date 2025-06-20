@@ -21,13 +21,13 @@ def setup_metadata(args):
     shared_cells_map: dict[str, dict[str, str]] = preprocess.read_shared_cells_map(
         args.shared_cells_json
     )
-    path_metadata: PathMetadata = preprocess.read_path_descriptor_json(args.path_discriptors_json)
+    enable_thread_data = preprocess.read_enable_thread_json(args.enable_par_tracks_json)
     control_metadata: ControlMetadata = preprocess.read_tdcc_file(
         args.fsms_json, cell_metadata
     )
     # create tracedata object here so we can use it outside of converter
     tracedata: TraceData = TraceData()
-    return cell_metadata, control_metadata, tracedata, shared_cells_map, path_metadata
+    return cell_metadata, control_metadata, tracedata, shared_cells_map, enable_thread_data
 
 
 def process_vcd(
@@ -104,7 +104,7 @@ def create_visuals(
 def main(args):
     print(f"Start time: {datetime.now()}")
 
-    cell_metadata, control_metadata, tracedata, shared_cells_map, path_metadata = setup_metadata(args)
+    cell_metadata, control_metadata, tracedata, shared_cells_map, enable_tracks_data = setup_metadata(args)
 
     control_reg_updates_per_cycle: dict[int, ControlRegUpdateType] = process_vcd(
         cell_metadata, shared_cells_map, control_metadata, tracedata
@@ -116,7 +116,7 @@ def main(args):
         cell_metadata,
         control_metadata,
         tracedata,
-        path_metadata,
+        enable_tracks_data,
         control_reg_updates_per_cycle,
         args.out_dir,
     )
@@ -146,8 +146,8 @@ if __name__ == "__main__":
         help="Records cells that are shared during cell-share pass.",
     )
     parser.add_argument(
-        "path_discriptors_json",
-        help="Records path descriptors for control enables and pars",
+        "enable_par_tracks_json",
+        help="Records statically assigned thread ids for control enables",
     )
     parser.add_argument("out_dir", help="Output directory")
     parser.add_argument("flame_out", help="Output file for flattened flame graph")
