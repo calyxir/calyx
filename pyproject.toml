@@ -33,7 +33,7 @@ queues = ["queues"]
 profiler = [
     # should probably add the profiler to the workplace but I don't want to deal
     # with that right now
-    "vcdvcd",
+    "vcdvcd", "pandas", "plotly"
 ]
 fud2_scripts = [
     # Some fud2 components import pieces of OG fud's Python implementation. It
