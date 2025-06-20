@@ -1,6 +1,8 @@
 # fud2 Internals: High Level Rhai API
 
-> AYAKA TODO: Write description of High Level Rhai API
+High level Rhai offers a convenient interface to extending fud2 by abstracting the underlying Ninja code. 
+
+High level Rhai is relatively new and experimental, and there are certain things you cannot do in high level Rhai, but it is helpful when you want to read and write less code. Note that the Ninja code generated from high level Rhai may be difficult to read.
 
 ## Example Script in High Level Rhai
 
