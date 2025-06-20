@@ -1,5 +1,5 @@
 /// Core structures used by the rest of the IR
-pub mod base;
+pub mod indexes;
 /// Cell prototypes (i.e cell types)
 pub mod cell_prototype;
 /// Component definitions
@@ -18,10 +18,10 @@ pub mod wires;
 /// Utility module with public imports for internal use
 pub(crate) mod prelude {
 
-    pub use super::base::*;
+    pub use super::indexes::*;
     pub use super::control::structures::*;
     pub use super::identifier::Identifier;
-    pub use super::wires::core::*;
+    pub use super::wires::structures::*;
 }
 
 pub use control::translator::translate;

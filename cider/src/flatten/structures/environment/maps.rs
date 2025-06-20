@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use crate::{
     errors::{ConflictingAssignments, RuntimeError, RuntimeResult},
     flatten::{
-        flat_ir::base::{
+        flat_ir::indexes::{
             AssignedValue, AssignmentIdx, AssignmentWinner, BaseIndices,
             CellRef, ComponentIdx, GlobalCellIdx, GlobalCellRef, GlobalPortIdx,
             GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, PortRef,

@@ -8,7 +8,7 @@ use std::{
 
 use crate::flatten::{
     flat_ir::{
-        base::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
+        indexes::{AssignmentIdx, AssignmentWinner, GlobalCellIdx},
         component::AssignmentDefinitionLocation,
         prelude::ControlIdx,
     },

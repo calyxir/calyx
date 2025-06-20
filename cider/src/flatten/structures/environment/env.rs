@@ -16,7 +16,7 @@ use crate::{
     errors::*,
     flatten::{
         flat_ir::{
-            base::{
+            indexes::{
                 LocalCellOffset, LocalPortOffset, LocalRefCellOffset,
                 LocalRefPortOffset,
             },
@@ -1084,7 +1084,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
         comp_idx: ComponentIdx,
         cell: LocalCellOffset,
-    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalPortOffset>
+    ) -> &crate::flatten::flat_ir::indexes::CellDefinitionInfo<LocalPortOffset>
     {
         let comp = &self.ctx.as_ref().secondary[comp_idx];
         let idx = comp.cell_offset_map[cell];
@@ -1095,7 +1095,7 @@ impl<C: AsRef<Context> + Clone> Environment<C> {
         &self,
         comp_idx: ComponentIdx,
         cell: LocalRefCellOffset,
-    ) -> &crate::flatten::flat_ir::base::CellDefinitionInfo<LocalRefPortOffset>
+    ) -> &crate::flatten::flat_ir::indexes::CellDefinitionInfo<LocalRefPortOffset>
     {
         let comp = &self.ctx.as_ref().secondary[comp_idx];
         let idx = comp.ref_cell_offset_map[cell];

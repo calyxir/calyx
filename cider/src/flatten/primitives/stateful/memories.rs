@@ -5,7 +5,7 @@ use crate::{
     errors::{RuntimeError, RuntimeResult},
     flatten::{
         flat_ir::{
-            base::GlobalCellIdx,
+            indexes::GlobalCellIdx,
             prelude::{AssignedValue, GlobalPortIdx, PortValue},
         },
         primitives::{

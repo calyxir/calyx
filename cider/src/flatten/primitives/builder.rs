@@ -7,11 +7,11 @@ use super::{
 use crate::{
     flatten::{
         flat_ir::{
-            base::GlobalCellIdx,
             cell_prototype::{
                 CellPrototype, DoubleWidthType, FXType, MemType,
                 SingleWidthType, TripleWidthType,
             },
+            indexes::GlobalCellIdx,
             prelude::{CellInfo, GlobalPortIdx},
         },
         structures::{

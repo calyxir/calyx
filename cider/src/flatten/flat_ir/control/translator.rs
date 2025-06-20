@@ -9,7 +9,7 @@ use crate::{
     as_raw::AsRaw,
     flatten::{
         flat_ir::{
-            base::{LocalPortOffset, SignatureRange},
+            indexes::{LocalPortOffset, SignatureRange},
             cell_prototype::{CellPrototype, ConstantType},
             component::{
                 AuxiliaryComponentInfo, CombComponentCore, ComponentCore,
@@ -21,7 +21,7 @@ use crate::{
                 ComponentIdx, GroupIdx, GuardIdx, PortRef,
             },
             wires::{
-                core::Group,
+                structures::Group,
                 guards::{Guard, PortComp},
             },
         },

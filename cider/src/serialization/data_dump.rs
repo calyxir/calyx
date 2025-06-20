@@ -503,7 +503,7 @@ mod tests {
     }
 
     use crate::flatten::{
-        flat_ir::{base::GlobalCellIdx, prelude::GlobalPortIdx},
+        flat_ir::{indexes::GlobalCellIdx, prelude::GlobalPortIdx},
         primitives::stateful::{CombMemD1, SeqMemD1},
     };
     use cider_idx::IndexRef;

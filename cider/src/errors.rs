@@ -1,7 +1,7 @@
 use crate::{
     flatten::{
         flat_ir::{
-            base::{
+            indexes::{
                 AssignmentIdx, AssignmentWinner, ComponentIdx, GlobalCellIdx,
                 GlobalPortIdx,
             },

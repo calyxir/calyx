@@ -1,7 +1,7 @@
 use crate::{
     errors::RuntimeResult,
     flatten::{
-        flat_ir::base::GlobalPortIdx,
+        flat_ir::indexes::GlobalPortIdx,
         structures::{
             environment::{PortMap, clock::ClockMap},
             thread::ThreadMap,
