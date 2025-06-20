@@ -2,6 +2,7 @@
 source: fud2/tests/tests.rs
 ---
 [
+    "area-report",
     "calyx",
     "calyx_py",
     "cider",
@@ -13,11 +14,14 @@ source: fud2/tests/tests.rs
     "firrtl-with-primitives",
     "flamegraph",
     "jq",
+    "json-report",
     "mrxl",
     "ntt",
     "primitive-uses-json",
     "relay",
     "sim",
+    "timing-report",
+    "utilization-report",
     "vcd",
     "verilog",
     "verilog-noverify",
