@@ -20,6 +20,6 @@ rule calyx-cider
 
 build /output.ext: calyx /input.ext
   backend = verilog
-  args = --disable-verify
+  args = --disable-verify $args
 
 default /output.ext
