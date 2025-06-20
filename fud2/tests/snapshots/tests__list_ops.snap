@@ -3,6 +3,11 @@ source: fud2/tests/tests.rs
 ---
 [
     (
+        "area-report-to-flamegraph",
+        "area-report",
+        "flamegraph",
+    ),
+    (
         "axi-wrapped",
         "calyx",
         "calyx",
@@ -18,6 +23,11 @@ source: fud2/tests/tests.rs
         "flamegraph",
     ),
     (
+        "calyx-to-area-report",
+        "calyx",
+        "area-report",
+    ),
+    (
         "calyx-to-cider",
         "calyx",
         "cider",
@@ -31,6 +41,21 @@ source: fud2/tests/tests.rs
         "calyx-to-firrtl",
         "calyx",
         "firrtl",
+    ),
+    (
+        "calyx-to-synthesis-json",
+        "calyx",
+        "json-report",
+    ),
+    (
+        "calyx-to-timing-report",
+        "calyx",
+        "timing-report",
+    ),
+    (
+        "calyx-to-utilization-report",
+        "calyx",
+        "utilization-report",
     ),
     (
         "calyx-to-verilog",
