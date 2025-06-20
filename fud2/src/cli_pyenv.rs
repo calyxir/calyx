@@ -89,6 +89,8 @@ impl PyenvCommand {
 
         fs::write(&config_path, toml_doc.to_string())?;
 
+        println!("run 'eval $(fud2 env activate)' to activate the virtualenv");
+
         Ok(())
     }
 
@@ -102,7 +104,10 @@ impl PyenvCommand {
             )
         }
 
-        println!("{}", pyenv.join("bin").join("activate").to_str().unwrap());
+        println!(
+            "source {}",
+            pyenv.join("bin").join("activate").to_str().unwrap()
+        );
 
         Ok(())
     }
