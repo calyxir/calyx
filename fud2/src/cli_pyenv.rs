@@ -89,7 +89,10 @@ impl PyenvCommand {
 
         fs::write(&config_path, toml_doc.to_string())?;
 
-        println!("run 'eval $(fud2 env activate)' to activate the virtualenv");
+        println!(
+            "Fud2 has been configured to automatically use the virtual environment's python interpreter.
+  To use the virtual environment outside of fud2 run 'eval $(fud2 env activate)' to activate it"
+        );
 
         Ok(())
     }
