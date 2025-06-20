@@ -23,11 +23,6 @@ source: fud2/tests/tests.rs
         "flamegraph",
     ),
     (
-        "calyx-to-area-report",
-        "calyx",
-        "area-report",
-    ),
-    (
         "calyx-to-cider",
         "calyx",
         "cider",
@@ -43,19 +38,9 @@ source: fud2/tests/tests.rs
         "firrtl",
     ),
     (
-        "calyx-to-synthesis-json",
+        "calyx-to-synth-verilog",
         "calyx",
-        "json-report",
-    ),
-    (
-        "calyx-to-timing-report",
-        "calyx",
-        "timing-report",
-    ),
-    (
-        "calyx-to-utilization-report",
-        "calyx",
-        "utilization-report",
+        "synth-verilog",
     ),
     (
         "calyx-to-verilog",
@@ -83,7 +68,12 @@ source: fud2/tests/tests.rs
         "calyx",
     ),
     (
-        "dat_to_jq",
+        "dat-to-jq",
+        "dat",
+        "jq",
+    ),
+    (
+        "dat-to-jqfile",
         "dat",
         "jq",
     ),
@@ -156,6 +146,31 @@ source: fud2/tests/tests.rs
         "simulate",
         "sim",
         "dat",
+    ),
+    (
+        "synth-verilog-to-area-report",
+        "synth-verilog",
+        "area-report",
+    ),
+    (
+        "synth-verilog-to-synthesis-json",
+        "synth-verilog",
+        "json-report",
+    ),
+    (
+        "synth-verilog-to-timing-report",
+        "synth-verilog",
+        "timing-report",
+    ),
+    (
+        "synth-verilog-to-utilization-report",
+        "synth-verilog",
+        "utilization-report",
+    ),
+    (
+        "systolic-to-calyx",
+        "systolic",
+        "calyx",
     ),
     (
         "trace",

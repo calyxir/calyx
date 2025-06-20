@@ -412,28 +412,28 @@ fud2 --from calyx --to jq \
 name = "[frontend] systolic array PE correctness"
 paths = ["tests/correctness/systolic/pe/*.systolic"]
 cmd = """
-fud e --from systolic --to jq \
-      --through verilog \
+fud2 --to jq \
+      --through verilator \
       --through vcd_json \
-      -s verilog.data {}.data \
-      -s calyx.exec './target/debug/calyx' \
-      -s calyx.flags "-d well-formed" \
-      -s jq.file {}.jq \
-      {} -q
+      --through dat-to-jqfile \
+      -s sim.data={}.data \
+      -s calyx.args="-d well-formed" \
+      -s jq.file={}.jq \
+      {} \
+      -q
 """
 
 [[tests]]
 name = "[frontend] systolic array mmult static correctness"
 paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
-fud e --from systolic --to jq \
-      --through verilog \
-      --through dat \
-      -s verilog.data {} \
-      -s calyx.exec './target/debug/calyx' \
-      -s calyx.flags "-d well-formed" \
-      -s jq.expr ".memories" \
-      {}_static.systolic -q
+fud2 --to jq \
+      --through verilator \
+      -s sim.data={} \
+      -s calyx.args="-d well-formed" \
+      -s jq.expr=".memories" \
+      {}_static.systolic \
+      -q
 """
 expect_dir = "tests/correctness/systolic/mmult-expect"
 
@@ -441,14 +441,13 @@ expect_dir = "tests/correctness/systolic/mmult-expect"
 name = "[frontend] systolic array mmult dynamic correctness"
 paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
-fud e --from systolic --to jq \
-      --through verilog \
-      --through dat \
-      -s verilog.data {} \
-      -s calyx.exec './target/debug/calyx' \
-      -s calyx.flags "-d well-formed" \
-      -s jq.expr ".memories" \
-      {}_dynamic.systolic -q
+fud2 --to jq \
+      --through verilator \
+      -s sim.data={} \
+      -s calyx.args="-d well-formed" \
+      -s jq.expr=".memories" \
+      {}_dynamic.systolic \
+      -q
 """
 expect_dir = "tests/correctness/systolic/mmult-expect"
 
@@ -480,14 +479,13 @@ RUST_LIB_BACKTRACE=0 fud2 --from calyx --to jq \
 name = "[frontend] systolic array relu static correctness"
 paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
-fud e --from systolic --to jq \
-      --through verilog \
-      --through dat \
-      -s verilog.data {} \
-      -s calyx.exec './target/debug/calyx' \
-      -s calyx.flags "-d well-formed" \
-      -s jq.expr ".memories" \
-      {}_static.systolic -q
+fud2 --to jq \
+      --through verilator \
+      -s sim.data={} \
+      -s calyx.args="-d well-formed" \
+      -s jq.expr=".memories" \
+      {}_static.systolic \
+      -q
 """
 expect_dir = "tests/correctness/systolic/relu-expect"
 
@@ -495,14 +493,13 @@ expect_dir = "tests/correctness/systolic/relu-expect"
 name = "[frontend] systolic array relu dynamic correctness"
 paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
-fud e --from systolic --to jq \
-      --through verilog \
-      --through dat \
-      -s verilog.data {} \
-      -s calyx.exec './target/debug/calyx' \
-      -s calyx.flags "-d well-formed" \
-      -s jq.expr ".memories" \
-      {}_dynamic.systolic -q
+fud2 --to jq \
+      --through verilator \
+      -s sim.data={} \
+      -s calyx.args="-d well-formed" \
+      -s jq.expr=".memories" \
+      {}_dynamic.systolic \
+      -q
 """
 expect_dir = "tests/correctness/systolic/relu-expect"
 
@@ -510,12 +507,12 @@ expect_dir = "tests/correctness/systolic/relu-expect"
 name = "[frontend] systolic array leaky relu correctness"
 paths = ["tests/correctness/systolic/leaky-relu/*.systolic"]
 cmd = """
-fud e --from systolic --to dat \
-      --through verilog \
-      -s verilog.data {}.data \
-      -s calyx.exec './target/debug/calyx' \
-      -s calyx.flags "-d well-formed" \
-      {} -q
+fud2 --to dat \
+      --through verilator \
+      -s sim.data={}.data \
+      -s calyx.args="-d well-formed" \
+      {} \
+      -q
 """
 
 [[tests]]

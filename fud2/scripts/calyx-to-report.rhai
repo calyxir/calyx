@@ -1,15 +1,16 @@
 import "calyx" as c;
 import "profiler" as p;
+import "calyx-to-synth-verilog" as csv;
 
-export const utilization_report_state = state("utilization-report", ["urpt"]);
-export const timing_report_state = state("timing-report", ["trpt"]);
-export const area_report_state = state("area-report", ["arpt"]);
-export const json_report_state = state("json-report", ["rjson"]);
+export const utilization_report_state = state("utilization-report", ["rpt"]);
+export const timing_report_state = state("timing-report", ["rpt"]);
+export const area_report_state = state("area-report", ["rpt"]);
+export const json_report_state = state("json-report", ["json"]);
 
 export const synth_setup = synth_setup;
 
 fn synth_setup(e) {
-    // We need Calyx for compilation to SV
+    // We need the Calyx directory root to access scripts
     e.config_var("calyx-base", "calyx.base");
 
     // Some base rules for file manipulation
@@ -33,10 +34,8 @@ fn synth_setup(e) {
     e.rsrc("synth.tcl");
 
     // Python scripts for parsing reports for visualization and extracting JSON summary
-    e.var_("parse-rpt-script", "$calyx-base/tools/report-parsing/rpt.py");
-    e.rule("parse-rpt", "python3 $parse-rpt-script $in > $out");
-    e.var_("extract-rpt-script", "$calyx-base/tools/report-parsing/extract.py");
-    e.rule("extract-rpt", "python3 $extract-rpt-script > $out");
+    e.rule("parse-rpt", "synthrep viz -t flamegraph -f $in > $out");
+    e.rule("extract-rpt", "synthrep summary > $out");
 
     // Bash script to create a FlameGraph
     e.config_var("flamegraph-script", "flamegraph.script");
@@ -45,66 +44,62 @@ fn synth_setup(e) {
 }
 
 // Helper to compile Calyx to SV and run Vivado on it
-fn calyx_through_vivado(e, input, output) {
-    // Compile Calyx to SV
-    e.build_cmd(["main.sv"], "calyx", [input], []);
-    e.arg("backend", "verilog");
-    e.arg("args", "--synthesis -p external --disable-verify");
-    // Copy over XDC file and run synthesis
+fn synth_verilog_through_vivado(e, input, output) {
+    // Copy over XDC file
     e.build_cmd(["device.xdc"], "copy", ["$device_xdc"], []);
     // IGNOREME is needed by Ninja to consider this command as a build target
     e.build_cmd(["IGNOREME"], "vivado", [], ["main.sv", "synth.tcl", "device.xdc"]);
 }
 
 // Helper to chain Calyx-SV compilation, synthesis, and report extraction
-fn calyx_to_report(e, input, output, rtype) {
-    calyx_through_vivado(e, input, output);
+fn synth_verilog_to_report(e, input, output, rtype) {
+    synth_verilog_through_vivado(e, input, output);
     // Similarly IGNOREME is needed here as a dependency so that Ninja threads this command
     // with the Vivado synthesis command
     e.build_cmd([output], `copy-${rtype}`, ["IGNOREME"], []);
 }
 
-// Op to get utilization report from Calyx
+// Op to get utilization report from synth-ready SV
 op(
-    "calyx-to-utilization-report",
-    [synth_setup, c::calyx_setup],
-    c::calyx_state,
+    "synth-verilog-to-utilization-report",
+    [synth_setup],
+    csv::synth_verilog_state,
     utilization_report_state,
     |e, input, output| {
-        calyx_to_report(e, input, output, "utilization");
+        synth_verilog_to_report(e, input, output, "utilization");
     }
 );
 
-// Op to get timing report from Calyx
+// Op to get timing report from synth-ready SV
 op(
-    "calyx-to-timing-report",
-    [synth_setup, c::calyx_setup],
-    c::calyx_state,
+    "synth-verilog-to-timing-report",
+    [synth_setup],
+    csv::synth_verilog_state,
     timing_report_state,
     |e, input, output| {
-        calyx_to_report(e, input, output, "timing");
+        synth_verilog_to_report(e, input, output, "timing");
     }
 );
 
-// Op to get area report from Calyx
+// Op to get area report from synth-ready SV
 op(
-    "calyx-to-area-report",
-    [synth_setup, c::calyx_setup],
-    c::calyx_state,
+    "synth-verilog-to-area-report",
+    [synth_setup],
+    csv::synth_verilog_state,
     area_report_state,
     |e, input, output| {
-        calyx_to_report(e, input, output, "area");
+        synth_verilog_to_report(e, input, output, "area");
     }
 );
 
-// Op to get synthesis JSON summary from Calyx
+// Op to get synthesis JSON summary from synth-ready SV
 op(
-    "calyx-to-synthesis-json",
-    [synth_setup, c::calyx_setup],
-    c::calyx_state,
+    "synth-verilog-to-synthesis-json",
+    [synth_setup],
+    csv::synth_verilog_state,
     json_report_state,
     |e, input, output| {
-        calyx_through_vivado(e, input, output);
+        synth_verilog_through_vivado(e, input, output);
         // Similarly IGNOREME is needed here as a dependency so that Ninja threads this command
         // with the Vivado synthesis command
         e.build_cmd([output], "extract-rpt", ["IGNOREME"], []);

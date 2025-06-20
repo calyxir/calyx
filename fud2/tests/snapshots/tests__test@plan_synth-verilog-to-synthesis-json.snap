@@ -1,6 +1,6 @@
 ---
 source: fud2/tests/tests.rs
-description: "emit plan: calyx-to-timing-report"
+description: "emit plan: synth-verilog-to-synthesis-json"
 ---
 build-tool = fud2
 rule get-rsrc
@@ -33,23 +33,8 @@ create-visuals-script = $calyx-base/tools/profiler/create-visuals.sh
 rule create-visuals
   command = bash $create-visuals-script $flamegraph-script . $in $out
 
-calyx-base = /test/calyx
-calyx-exe = $calyx-base/target/debug/calyx
-calyx-lib-path = $calyx-base
-args = 
-rule calyx
-  command = $calyx-exe -l $calyx-lib-path -b $backend $args $in > $out
-rule calyx-pass
-  command = $calyx-exe -l $calyx-lib-path -p $pass $args $in > $out
-cider-calyx-passes = -p none
-rule calyx-cider
-  command = $calyx-exe -l $calyx-lib-path $cider-calyx-passes $args $in > $out
-
-build main.sv: calyx /input.ext
-  backend = verilog
-  args = --synthesis -p external --disable-verify
 build device.xdc: copy $device_xdc
 build IGNOREME: vivado | main.sv synth.tcl device.xdc
-build /output.ext: copy-timing IGNOREME
+build /output.ext: extract-rpt IGNOREME
 
 default /output.ext
