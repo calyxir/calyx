@@ -28,7 +28,7 @@ sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
 rule sim-run
-  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
+  command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out || (cat $out >&2 && false)
 cycle-limit = 500000000
 
 build tb.sv: get-rsrc
@@ -41,7 +41,7 @@ rule icarus-compile-custom-tb
 
 build verilog-noverify.sv: calyx _from_stdin_calyx.futil
   backend = verilog
-  args = --disable-verify
+  args = --disable-verify $args
 build sim.exe: icarus-compile-standalone-tb verilog-noverify.sv | tb.sv
 build sim.log _to_stdout_vcd.vcd: sim-run sim.exe $datadir
   bin = sim.exe
